@@ -5,7 +5,7 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`3b6323a010138600296b82ff6f0e92c7413c82df`
+`b9ab5045107a230817d3814c0a70f680778b4c00`
 **Audit date:** 2026-08-09
 **Audit basis:** current-source review through the audited SHA, commit-delta
 review, exact-commit Ubuntu UTM build/test/lint/release evidence, retained
@@ -22,13 +22,44 @@ target-disconnect DnD cancellation runtime, Ubuntu UTM Clippy/release
 validation, bounded XWayland crash-recovery runtime and the exact-current-head
 Ubuntu UTM regression gates recorded below, plus the exact-commit rootless
 XWayland scene and malformed-Spaces-persistence recovery gates at
-`3b6323a010138600296b82ff6f0e92c7413c82df`.
+`3b6323a010138600296b82ff6f0e92c7413c82df`, and the exact-commit
+three-finger gesture policy/build/test gates at
+`b9ab5045107a230817d3814c0a70f680778b4c00`.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**
 
 Documentation commits after the audited implementation do not change the
 product score unless they are accompanied by implementation and evidence.
+
+### Current implementation wave — compositor-owned three-finger Space swipes
+
+Implementation commit `b9ab5045107a230817d3814c0a70f680778b4c00` adds a
+backend-neutral swipe reducer and wires real Smithay/libinput swipe events in
+the DRM session. Three-or-more-finger gestures accumulate finite deltas and
+commit exactly one next/previous Space action only when horizontal movement
+passes the explicit distance and dominance thresholds; short, vertical,
+cancelled, non-finite, and two-finger gestures are rejected. The DRM path
+still forwards begin/update/end gesture events to the focused Wayland client,
+and locked sessions cannot change Spaces through the compositor gesture path.
+
+The exact Ubuntu UTM checkout is
+`/home/ubuntu/rust-slopos-qa-xwayland-current-2` on
+`ubuntu@192.168.64.17`, detached at
+`b9ab5045107a230817d3814c0a70f680778b4c00`. The exact-commit locked gates
+all exited `0` under `artifacts/qa/2026-08-09-exact-b9ab504-utm/` (format,
+workspace check, workspace tests, Clippy with `-D warnings`, and release
+workspace build). The workspace log records 178 compositor tests and 339
+shell tests with zero failures; the focused pre-commit UTM run also passed 175
+compositor library tests and 33 compositor contract tests under
+`artifacts/qa/2026-08-09-gesture-focused-utm-precommit/`.
+
+This is implementation and automated Linux-guest evidence only. The current
+UTM run has no physical touchpad or DRM seat available, so no physical gesture
+delivery, libinput device hotplug/resume, or pixel-inspected Space transition
+was observed. The overall SLOPOS-I verdict remains **63/100** and strict
+compositor completion remains **77/100**; no score increase or 100/100 claim
+is justified from these gates.
 
 ### Current implementation wave — rootless XWayland scene and Spaces recovery
 
