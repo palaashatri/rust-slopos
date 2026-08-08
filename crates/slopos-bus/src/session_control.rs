@@ -42,6 +42,22 @@ pub enum HeadlessInputEvent {
         pressed: bool,
         time_msec: u32,
     },
+    /// Synthetic gesture events accepted only by the explicitly enabled
+    /// headless protocol harness. They exercise compositor policy but never
+    /// stand in for physical touchpad evidence.
+    GestureSwipeBegin {
+        fingers: u32,
+        time_msec: u32,
+    },
+    GestureSwipeUpdate {
+        delta_x: i32,
+        delta_y: i32,
+        time_msec: u32,
+    },
+    GestureSwipeEnd {
+        cancelled: bool,
+        time_msec: u32,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

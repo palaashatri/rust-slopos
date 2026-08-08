@@ -59,8 +59,8 @@ mod linux {
         DisplayPolicy, InteractiveGrab, InteractiveGrabKind, LaidOutOutput, OutputScale,
         PlaceholderPresentStats, PointerConstraintMotion, ResizeEdges, SpaceId, SpaceTarget,
         SpacesError, SpacesModel, TextInputCapability, WindowGeometry, WindowPaintSource,
-        WindowPresentationState, WindowRestoreState, WorkspaceId, WorkspaceState, DEFAULT_WINDOW_H,
-        DEFAULT_WINDOW_W,
+        WindowPresentationState, WindowRestoreState, WorkspaceId, WorkspaceState,
+        WorkspaceSwipeAction, WorkspaceSwipeRecognizer, DEFAULT_WINDOW_H, DEFAULT_WINDOW_W,
     };
     use smithay::desktop::{
         find_popup_root_surface, get_popup_toplevel_coords, utils::under_from_surface_tree,
@@ -937,6 +937,8 @@ mod linux {
         interactive_grab: Option<InteractiveGrab>,
         /// Current compositor-owned rootless XWayland move/resize operation.
         x11_interactive_grab: Option<X11InteractiveGrab>,
+        /// Reducer for explicitly injected headless three-finger gestures.
+        workspace_swipe: WorkspaceSwipeRecognizer,
         /// Tracks BTN_LEFT so stale xdg move/resize requests cannot start a grab.
         left_button_down: bool,
         /// The most recent left-button press delivered to an application surface.
@@ -3012,7 +3014,73 @@ mod linux {
                     },
                     time_msec,
                 ),
+                HeadlessInputEvent::GestureSwipeBegin { fingers, time_msec } => {
+                    self.inject_headless_swipe_begin(fingers, time_msec)
+                }
+                HeadlessInputEvent::GestureSwipeUpdate {
+                    delta_x,
+                    delta_y,
+                    time_msec,
+                } => self.inject_headless_swipe_update(delta_x, delta_y, time_msec),
+                HeadlessInputEvent::GestureSwipeEnd {
+                    cancelled,
+                    time_msec,
+                } => self.inject_headless_swipe_end(cancelled, time_msec),
             }
+        }
+
+        fn inject_headless_swipe_begin(&mut self, fingers: u32, time: u32) {
+            let serial = self.next_serial();
+            self.workspace_swipe.begin(fingers);
+            if let Some(pointer) = self.seat.get_pointer() {
+                pointer.gesture_swipe_begin(
+                    self,
+                    &GestureSwipeBeginEvent {
+                        serial,
+                        time,
+                        fingers,
+                    },
+                );
+            }
+            tracing::debug!(fingers, "headless swipe gesture began");
+        }
+
+        fn inject_headless_swipe_update(&mut self, delta_x: i32, delta_y: i32, time: u32) {
+            let delta = Point::from((f64::from(delta_x), f64::from(delta_y)));
+            self.workspace_swipe.update(delta.x, delta.y);
+            if let Some(pointer) = self.seat.get_pointer() {
+                pointer.gesture_swipe_update(self, &GestureSwipeUpdateEvent { time, delta });
+            }
+            self.request_full_redraw();
+        }
+
+        fn inject_headless_swipe_end(&mut self, cancelled: bool, time: u32) {
+            let serial = self.next_serial();
+            let action = self.workspace_swipe.end(cancelled);
+            if let Some(pointer) = self.seat.get_pointer() {
+                pointer.gesture_swipe_end(
+                    self,
+                    &GestureSwipeEndEvent {
+                        serial,
+                        time,
+                        cancelled,
+                    },
+                );
+            }
+            if !cancelled {
+                match action {
+                    Some(WorkspaceSwipeAction::Next) => {
+                        tracing::info!("headless three-finger swipe committed: next Space");
+                        self.cycle_workspace_next();
+                    }
+                    Some(WorkspaceSwipeAction::Previous) => {
+                        tracing::info!("headless three-finger swipe committed: previous Space");
+                        self.cycle_workspace_prev();
+                    }
+                    None => {}
+                }
+            }
+            self.request_full_redraw();
         }
 
         fn flush_headless_test_clients(&self) {
@@ -6025,6 +6093,7 @@ mod linux {
                 && std::env::var("SLOPOS_TEST_INPUT").ok().as_deref() == Some("1"),
             interactive_grab: None,
             x11_interactive_grab: None,
+            workspace_swipe: WorkspaceSwipeRecognizer::default(),
             left_button_down: false,
             last_pointer_press: None,
             frame_dirty: true,

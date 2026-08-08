@@ -907,3 +907,39 @@ fn drm_libinput_swipes_forward_and_commit_authoritative_space_cycles() {
         );
     }
 }
+
+#[test]
+fn headless_gesture_runtime_gate_exercises_policy_without_claiming_hardware() {
+    let bus = include_str!("../../slopos-bus/src/session_control.rs");
+    let compositor = include_str!("../src/main.rs");
+    let script = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../scripts/verify-compositor-gesture-runtime.sh"),
+    )
+    .expect("read synthetic gesture runtime gate");
+    for marker in ["GestureSwipeBegin", "GestureSwipeUpdate", "GestureSwipeEnd"] {
+        assert!(
+            bus.contains(marker),
+            "control bus must expose gesture marker {marker}"
+        );
+        assert!(
+            compositor.contains(marker),
+            "headless compositor must handle gesture marker {marker}"
+        );
+        assert!(
+            script.contains(marker),
+            "runtime gate must send gesture marker {marker}"
+        );
+    }
+    for marker in [
+        "synthetic_next_verified",
+        "synthetic_previous_verified",
+        "\"physical_input_verified\": false",
+        "\"hardware_verified\": false",
+    ] {
+        assert!(
+            script.contains(marker),
+            "runtime gate must retain honest marker {marker}"
+        );
+    }
+}
