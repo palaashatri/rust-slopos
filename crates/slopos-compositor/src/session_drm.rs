@@ -168,13 +168,25 @@ fn load_initial_spaces_model() -> SpacesModel {
                 model.clear_window_memberships();
                 return model;
             }
-            Err(error) if path.exists() => {
-                tracing::warn!(
+            Err(error) if path.exists() => match SpacesModel::quarantine_invalid_state(&path) {
+                Ok(Some(quarantined)) => tracing::warn!(
                     %error,
                     path = %path.display(),
-                    "ignoring invalid persisted Spaces model"
-                );
-            }
+                    quarantine = %quarantined.display(),
+                    "quarantined invalid persisted Spaces model"
+                ),
+                Ok(None) => tracing::warn!(
+                    %error,
+                    path = %path.display(),
+                    "invalid persisted Spaces model disappeared before quarantine"
+                ),
+                Err(quarantine_error) => tracing::error!(
+                    %error,
+                    %quarantine_error,
+                    path = %path.display(),
+                    "could not quarantine invalid persisted Spaces model"
+                ),
+            },
             Err(_) => {}
         }
     }

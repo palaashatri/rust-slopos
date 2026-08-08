@@ -1273,6 +1273,81 @@ impl SpacesModel {
         atomic_write(path, &encoded)
     }
 
+    /// Move an unreadable persisted model out of the active path without
+    /// overwriting an earlier quarantine artifact.  The exclusive hard link
+    /// makes the destination allocation no-replace; removing the original
+    /// only after the link succeeds preserves the bytes if cleanup is
+    /// interrupted.  Startup can then recover from the default model while
+    /// retaining the original bytes for repair.
+    pub fn quarantine_invalid_state(
+        path: impl AsRef<Path>,
+    ) -> Result<Option<PathBuf>, SpacesError> {
+        let path = path.as_ref();
+        match fs::symlink_metadata(path) {
+            Ok(_) => {}
+            Err(source) if source.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(source) => {
+                return Err(SpacesError::Io {
+                    path: path.to_path_buf(),
+                    source,
+                });
+            }
+        }
+
+        let parent = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        let file_name = path
+            .file_name()
+            .ok_or_else(|| SpacesError::InvalidPath(path.to_path_buf()))?
+            .to_string_lossy();
+
+        for _ in 0..100 {
+            let counter = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let candidate = parent.join(format!(".{file_name}.invalid-{counter}"));
+            match fs::symlink_metadata(&candidate) {
+                Ok(_) => continue,
+                Err(source) if source.kind() == io::ErrorKind::NotFound => {}
+                Err(source) => {
+                    return Err(SpacesError::Io {
+                        path: candidate,
+                        source,
+                    });
+                }
+            }
+
+            match fs::hard_link(path, &candidate) {
+                Ok(()) => {
+                    if let Err(source) = fs::remove_file(path) {
+                        let _ = fs::remove_file(&candidate);
+                        return Err(SpacesError::Io {
+                            path: path.to_path_buf(),
+                            source,
+                        });
+                    }
+                    return Ok(Some(candidate));
+                }
+                Err(source) if source.kind() == io::ErrorKind::AlreadyExists => continue,
+                Err(source) if source.kind() == io::ErrorKind::NotFound => return Ok(None),
+                Err(source) => {
+                    return Err(SpacesError::Io {
+                        path: candidate,
+                        source,
+                    });
+                }
+            }
+        }
+
+        Err(SpacesError::Io {
+            path: path.to_path_buf(),
+            source: io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                "could not allocate a unique Spaces quarantine path",
+            ),
+        })
+    }
+
     pub fn load(path: impl AsRef<Path>) -> Result<Self, SpacesError> {
         let path = path.as_ref();
         let bytes = fs::read(path).map_err(|source| SpacesError::Io {
@@ -2218,6 +2293,44 @@ mod tests {
         assert_eq!(reloaded.space(work).expect("work").name(), "Work");
 
         fs::remove_file(path).expect("remove restart fixture");
+    }
+
+    #[test]
+    fn invalid_persisted_state_is_quarantined_without_overwriting_it() {
+        let path = temp_path("quarantine");
+        let invalid = br#"{"spaces":[]}"#;
+        fs::write(&path, invalid).expect("write invalid Spaces state");
+
+        let quarantined = SpacesModel::quarantine_invalid_state(&path)
+            .expect("quarantine should be recoverable")
+            .expect("existing state should be moved");
+
+        assert!(!path.exists(), "the corrupt active path must be vacated");
+        assert_ne!(quarantined, path);
+        assert_eq!(fs::read(&quarantined).expect("read quarantine"), invalid);
+        let expected_prefix = format!(
+            ".{}.invalid-",
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .expect("fixture has a UTF-8 file name")
+        );
+        assert!(quarantined
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with(&expected_prefix)));
+
+        fs::remove_file(quarantined).expect("remove quarantine fixture");
+    }
+
+    #[test]
+    fn quarantine_missing_persisted_state_is_a_noop() {
+        let path = temp_path("quarantine-missing");
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(
+            SpacesModel::quarantine_invalid_state(&path).expect("missing state is recoverable"),
+            None
+        );
     }
 
     #[test]

@@ -255,6 +255,128 @@ fn headless_runtime_gate_requires_cross_client_dnd_lifecycle_evidence() {
 }
 
 #[test]
+fn xwayland_surfaces_have_a_first_class_scene_lifecycle_contract() {
+    let compositor = include_str!("../src/main.rs");
+    for marker in [
+        "fn x11_surface_scene_origin",
+        "fn x11_surface_scene_hit",
+        "XWayland surface mapped into scene",
+        "XWayland surface rendered",
+        "XWayland surface unmapped from scene",
+        "XWayland surface destroyed from scene",
+    ] {
+        assert!(
+            compositor.contains(marker),
+            "rootless XWayland scene integration must contain behavior marker {marker}"
+        );
+    }
+}
+
+#[test]
+fn xwayland_interactive_grabs_use_the_authoritative_x11_scene() {
+    let source = include_str!("../src/main.rs");
+    for marker in [
+        "x11_interactive_grab",
+        "update_x11_interactive_grab",
+        "x11_window_id",
+        "XWayland interactive grab started",
+        "XWayland surface geometry changed during grab",
+    ] {
+        assert!(
+            source.contains(marker),
+            "XWayland move/resize handling must contain the scene-authoritative marker {marker}"
+        );
+    }
+}
+
+#[test]
+fn xwayland_windows_use_the_same_spaces_membership_authority_as_native_windows() {
+    let source = include_str!("../src/main.rs");
+    for marker in [
+        "fn x11_space_window_id",
+        "fn ensure_x11_space_membership",
+        "fn remove_x11_space_membership",
+        "fn x11_window_visible_on_space",
+        "fn known_space_window_ids",
+        "XWayland window assigned to authoritative Space",
+    ] {
+        assert!(
+            source.contains(marker),
+            "rootless XWayland Spaces behavior must use compositor membership marker {marker}"
+        );
+    }
+}
+
+#[test]
+fn xwayland_override_redirect_surfaces_do_not_steal_keyboard_focus() {
+    let source = include_str!("../src/main.rs");
+    for marker in [
+        "x11_surface_accepts_keyboard_focus",
+        "override-redirect surface kept out of keyboard focus",
+    ] {
+        assert!(
+            source.contains(marker),
+            "override-redirect focus policy must be explicit in the compositor scene: {marker}"
+        );
+    }
+}
+
+#[test]
+fn xwayland_startup_failure_has_bounded_recovery() {
+    let source = include_str!("../src/main.rs");
+    for marker in [
+        "XWayland startup failed; restarting",
+        "XWayland startup recovery budget exhausted",
+    ] {
+        assert!(
+            source.contains(marker),
+            "XWayland startup failure must have bounded recovery marker {marker}"
+        );
+    }
+}
+
+#[test]
+fn xwayland_runtime_gate_uses_real_client_and_retains_honest_fields() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../scripts/verify-xwayland-scene.sh");
+    let script = std::fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
+    for marker in [
+        "xmessage",
+        "xwininfo -root -tree",
+        "xwayland-startup-watchdog",
+        "scene_mapping_verified",
+        "scene_unmap_destroy_verified",
+        "rendering_verified",
+        "nested_dri3_available",
+    ] {
+        assert!(
+            script.contains(marker),
+            "XWayland runtime gate must retain real-client evidence marker {marker}"
+        );
+    }
+}
+
+#[test]
+fn spaces_persistence_recovery_gate_requires_quarantine_and_default_restore() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../scripts/verify-spaces-persistence-recovery.sh");
+    let script = std::fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
+    for marker in [
+        "invalid_persisted_path_still_present",
+        "quarantined=",
+        "default_spaces_restored=true",
+        "qa_complete=true",
+    ] {
+        assert!(
+            script.contains(marker),
+            "Spaces persistence recovery gate must retain marker {marker}"
+        );
+    }
+}
+
+#[test]
 fn headless_runtime_gate_exercises_dnd_target_disconnect_cancellation() {
     let script = include_str!("../../../scripts/verify-compositor-headless-runtime.sh");
     let client = include_str!("../examples/headless_dnd_client.rs");

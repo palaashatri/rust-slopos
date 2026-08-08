@@ -104,7 +104,7 @@ mod linux {
         delegate_xdg_shell,
         desktop::utils::send_frames_surface_tree,
         input::{
-            keyboard::{FilterResult, XkbConfig},
+            keyboard::{FilterResult, KeyboardTarget, XkbConfig},
             pointer::{
                 AxisFrame, ButtonEvent, CursorImageStatus, CursorImageSurfaceData, Focus,
                 GestureHoldBeginEvent, GestureHoldEndEvent, GesturePinchBeginEvent,
@@ -117,8 +117,9 @@ mod linux {
         output::{Mode, Output, PhysicalProperties, Scale, Subpixel},
         reexports::{
             calloop::{
-                generic::Generic, EventLoop, Interest, LoopHandle, LoopSignal, Mode as CalloopMode,
-                PostAction,
+                generic::Generic,
+                timer::{TimeoutAction, Timer},
+                EventLoop, Interest, LoopHandle, LoopSignal, Mode as CalloopMode, PostAction,
             },
             wayland_server::{
                 backend::{ClientData, ClientId, DisconnectReason, GlobalId},
@@ -198,6 +199,249 @@ mod linux {
         }
     }
 
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    struct X11SceneEntryState {
+        geometry: Rectangle<i32, Logical>,
+        mapped: bool,
+        associated: bool,
+    }
+
+    /// Stable compositor-owned Spaces membership key for a rootless X11
+    /// window.  X11 windows do not expose a Wayland foreign-toplevel ID, so
+    /// the X11 protocol ID is namespaced to avoid colliding with native IDs.
+    fn x11_space_window_id(window_id: X11Window) -> String {
+        format!("x11:{window_id}")
+    }
+
+    fn x11_window_visible_on_space(
+        spaces: &SpacesModel,
+        window_id: X11Window,
+        space: SpaceId,
+    ) -> bool {
+        spaces
+            .window_spaces(&x11_space_window_id(window_id))
+            .contains(&space)
+    }
+
+    impl X11SceneEntryState {
+        fn new(geometry: Rectangle<i32, Logical>) -> Self {
+            Self {
+                geometry,
+                mapped: false,
+                associated: false,
+            }
+        }
+
+        fn visible(self) -> bool {
+            self.mapped && self.associated
+        }
+
+        fn set_associated(&mut self, associated: bool) {
+            self.associated = associated;
+        }
+
+        fn set_mapped(&mut self, mapped: bool) {
+            self.mapped = mapped;
+        }
+
+        fn set_geometry(&mut self, geometry: Rectangle<i32, Logical>) {
+            self.geometry = geometry;
+        }
+    }
+
+    #[derive(Clone)]
+    struct X11SceneEntry {
+        surface: X11WmSurface,
+        wl_surface: Option<WlSurface>,
+        state: X11SceneEntryState,
+        mapped_marker_emitted: bool,
+        rendered_marker_emitted: bool,
+    }
+
+    #[derive(Default)]
+    struct X11SceneRegistry {
+        /// Entries are kept bottom-to-top, matching XWM discovery order.
+        entries: Vec<X11SceneEntry>,
+    }
+
+    impl X11SceneRegistry {
+        fn index_for(&self, window_id: X11Window) -> Option<usize> {
+            self.entries
+                .iter()
+                .position(|entry| entry.surface.window_id() == window_id)
+        }
+
+        fn register(&mut self, surface: X11WmSurface) {
+            let window_id = surface.window_id();
+            let geometry = surface.geometry();
+            if let Some(index) = self.index_for(window_id) {
+                let entry = &mut self.entries[index];
+                entry.surface = surface;
+                entry.state.set_geometry(geometry);
+                return;
+            }
+
+            self.entries.push(X11SceneEntry {
+                surface,
+                wl_surface: None,
+                state: X11SceneEntryState::new(geometry),
+                mapped_marker_emitted: false,
+                rendered_marker_emitted: false,
+            });
+        }
+
+        fn associate(&mut self, surface: X11WmSurface, wl_surface: WlSurface) {
+            let window_id = surface.window_id();
+            self.register(surface);
+            if let Some(index) = self.index_for(window_id) {
+                let entry = &mut self.entries[index];
+                entry.wl_surface = Some(wl_surface);
+                entry.state.set_associated(true);
+                entry.rendered_marker_emitted = false;
+            }
+        }
+
+        fn set_mapped(&mut self, surface: X11WmSurface, mapped: bool) {
+            let window_id = surface.window_id();
+            self.register(surface);
+            if let Some(index) = self.index_for(window_id) {
+                let entry = &mut self.entries[index];
+                entry.state.set_mapped(mapped);
+                if !mapped {
+                    entry.mapped_marker_emitted = false;
+                    entry.rendered_marker_emitted = false;
+                }
+            }
+        }
+
+        fn configure(&mut self, surface: X11WmSurface, geometry: Rectangle<i32, Logical>) {
+            let window_id = surface.window_id();
+            self.register(surface);
+            if let Some(index) = self.index_for(window_id) {
+                self.entries[index].state.set_geometry(geometry);
+            }
+        }
+
+        fn unmap(&mut self, window_id: X11Window) {
+            if let Some(index) = self.index_for(window_id) {
+                self.entries[index].state.set_mapped(false);
+                self.entries[index].mapped_marker_emitted = false;
+                self.entries[index].rendered_marker_emitted = false;
+            }
+        }
+
+        fn destroy(&mut self, window_id: X11Window) -> Option<X11SceneEntry> {
+            let index = self.index_for(window_id)?;
+            Some(self.entries.remove(index))
+        }
+
+        fn clear(&mut self) -> Vec<X11SceneEntry> {
+            std::mem::take(&mut self.entries)
+        }
+
+        fn associated_surface(&self, window_id: X11Window) -> Option<WlSurface> {
+            self.entries
+                .iter()
+                .find(|entry| entry.surface.window_id() == window_id)
+                .and_then(|entry| entry.wl_surface.clone())
+        }
+
+        fn window_for_surface(&self, surface: &WlSurface) -> Option<X11WmSurface> {
+            self.entries
+                .iter()
+                .find(|entry| entry.wl_surface.as_ref() == Some(surface))
+                .map(|entry| entry.surface.clone())
+        }
+
+        fn x11_surface_accepts_keyboard_focus(&self, window_id: X11Window) -> bool {
+            self.entries
+                .iter()
+                .find(|entry| entry.surface.window_id() == window_id)
+                .is_some_and(|entry| !entry.surface.is_override_redirect())
+        }
+
+        fn set_active(&self, active_window: Option<X11Window>) {
+            for entry in &self.entries {
+                let active = Some(entry.surface.window_id()) == active_window;
+                let _ = entry.surface.set_activated(active);
+            }
+        }
+
+        fn geometry(&self, window_id: X11Window) -> Option<Rectangle<i32, Logical>> {
+            self.entries
+                .iter()
+                .find(|entry| entry.surface.window_id() == window_id)
+                .map(|entry| entry.state.geometry)
+        }
+
+        fn associated_targets(
+            &self,
+            spaces: &SpacesModel,
+        ) -> Vec<(X11Window, WlSurface, Rectangle<i32, Logical>)> {
+            self.entries
+                .iter()
+                .filter(|entry| {
+                    entry.state.visible()
+                        && entry.surface.alive()
+                        && x11_window_visible_on_space(
+                            spaces,
+                            entry.surface.window_id(),
+                            spaces.active_space(),
+                        )
+                })
+                .filter_map(|entry| {
+                    entry
+                        .wl_surface
+                        .clone()
+                        .map(|surface| (entry.surface.window_id(), surface, entry.state.geometry))
+                })
+                .collect()
+        }
+
+        fn window_ids(&self) -> impl Iterator<Item = String> + '_ {
+            self.entries
+                .iter()
+                .map(|entry| x11_space_window_id(entry.surface.window_id()))
+        }
+
+        fn associated_surfaces(&self) -> Vec<(X11Window, WlSurface, Rectangle<i32, Logical>)> {
+            self.entries
+                .iter()
+                .filter(|entry| entry.surface.alive())
+                .filter_map(|entry| {
+                    entry
+                        .wl_surface
+                        .clone()
+                        .map(|surface| (entry.surface.window_id(), surface, entry.state.geometry))
+                })
+                .collect()
+        }
+
+        fn take_mapped_marker(&mut self, window_id: X11Window) -> bool {
+            let Some(index) = self.index_for(window_id) else {
+                return false;
+            };
+            let entry = &mut self.entries[index];
+            if !entry.state.visible() || entry.mapped_marker_emitted {
+                return false;
+            }
+            entry.mapped_marker_emitted = true;
+            true
+        }
+
+        fn take_rendered_marker(&mut self, window_id: X11Window) -> bool {
+            let Some(index) = self.index_for(window_id) else {
+                return false;
+            };
+            let entry = &mut self.entries[index];
+            if !entry.state.visible() || entry.rendered_marker_emitted {
+                return false;
+            }
+            entry.rendered_marker_emitted = true;
+            true
+        }
+    }
+
     fn spaces_persistence_path() -> Option<PathBuf> {
         let data_home = std::env::var_os("XDG_DATA_HOME")
             .map(PathBuf::from)
@@ -216,9 +460,25 @@ mod linux {
                     model.clear_window_memberships();
                     return model;
                 }
-                Err(error) if path.exists() => {
-                    tracing::warn!(%error, path = %path.display(), "ignoring invalid persisted Spaces model")
-                }
+                Err(error) if path.exists() => match SpacesModel::quarantine_invalid_state(&path) {
+                    Ok(Some(quarantined)) => tracing::warn!(
+                        %error,
+                        path = %path.display(),
+                        quarantine = %quarantined.display(),
+                        "quarantined invalid persisted Spaces model"
+                    ),
+                    Ok(None) => tracing::warn!(
+                        %error,
+                        path = %path.display(),
+                        "invalid persisted Spaces model disappeared before quarantine"
+                    ),
+                    Err(quarantine_error) => tracing::error!(
+                        %error,
+                        %quarantine_error,
+                        path = %path.display(),
+                        "could not quarantine invalid persisted Spaces model"
+                    ),
+                },
                 Err(_) => {}
             }
         }
@@ -300,6 +560,16 @@ mod linux {
         serial: Serial,
         /// Mapped toplevel that owns the hit toplevel/popup surface tree.
         window_id: String,
+        /// XWayland window that owns the hit scene surface, when the press was
+        /// delivered to a rootless X11 client rather than a native XDG client.
+        x11_window_id: Option<X11Window>,
+    }
+
+    #[derive(Clone)]
+    struct X11InteractiveGrab {
+        window_id: X11Window,
+        surface: X11WmSurface,
+        policy: InteractiveGrab,
     }
 
     struct InteractivePointerGrab {
@@ -665,6 +935,8 @@ mod linux {
         headless_test_input_enabled: bool,
         /// Current compositor-owned xdg_toplevel move/resize operation.
         interactive_grab: Option<InteractiveGrab>,
+        /// Current compositor-owned rootless XWayland move/resize operation.
+        x11_interactive_grab: Option<X11InteractiveGrab>,
         /// Tracks BTN_LEFT so stale xdg move/resize requests cannot start a grab.
         left_button_down: bool,
         /// The most recent left-button press delivered to an application surface.
@@ -720,12 +992,17 @@ mod linux {
         // ---- XWayland (P1.3) ----
         xwm: Option<X11Wm>,
         xdisplay: Option<u32>,
+        /// Wayland client identity for the current XWayland process. It lets
+        /// the compositor detect displayfd EOF before Smithay emits Ready.
+        xwayland_client_id: Option<ClientId>,
+        /// The startup watchdog is session-scoped and registered once.
+        xwayland_startup_watchdog_started: bool,
         /// Session-scoped cap on XWayland WM recovery attempts.
         xwayland_recovery_budget: XWaylandRecoveryBudget,
-        /// X11 surfaces we know about (not fully managed yet under nested X11).
-        x11_surfaces: Vec<X11WmSurface>,
-        /// XWayland windows associated with live Wayland surfaces.
-        x11_surface_associations: HashMap<X11Window, WlSurface>,
+        /// X11 surfaces associated with Wayland trees and their scene state.
+        x11_scene: X11SceneRegistry,
+        /// X11 keyboard target whose X11 input focus was explicitly selected.
+        xwayland_keyboard_focus: Option<X11WmSurface>,
         /// Wayland socket name advertised to spawned clients (Super+O/L shortcuts).
         wayland_socket_name: String,
     }
@@ -1058,11 +1335,8 @@ mod linux {
                     .ok_or(SpacesError::InvalidSpaceId(id))
                     .and_then(|id| self.spaces.remove_space(id)),
                 SpacesControlCommand::MoveWindow { window_id, target } => {
-                    if !self
-                        .windows
-                        .iter()
-                        .any(|window| window.window_id == window_id)
-                    {
+                    let known_window_ids = self.known_space_window_ids();
+                    if !known_window_ids.iter().any(|known| known == &window_id) {
                         return tracing::warn!(%window_id, "rejecting Spaces move for unknown window");
                     }
                     let target = match target {
@@ -1080,14 +1354,17 @@ mod linux {
                         .move_window(window_id, target)
                         .map(|()| self.spaces.active_space())
                 }
-                SpacesControlCommand::MoveActiveWindow { target } => self
-                    .spaces
-                    .move_active_window(
-                        self.activated_window_id.as_deref(),
-                        self.windows.iter().map(|window| window.window_id.as_str()),
-                        target,
-                    )
-                    .map(|()| self.spaces.active_space()),
+                SpacesControlCommand::MoveActiveWindow { target } => {
+                    let active_window_id = self.activated_window_id.clone().or_else(|| {
+                        self.xwayland_keyboard_focus
+                            .as_ref()
+                            .map(|window| x11_space_window_id(window.window_id()))
+                    });
+                    let known_window_ids = self.known_space_window_ids();
+                    self.spaces
+                        .move_active_window(active_window_id.as_deref(), known_window_ids, target)
+                        .map(|()| self.spaces.active_space())
+                }
                 SpacesControlCommand::SetWallpaper { id, wallpaper } => SpaceId::new(id)
                     .ok_or(SpacesError::InvalidSpaceId(id))
                     .and_then(|id| self.spaces.set_wallpaper(id, wallpaper).map(|()| id)),
@@ -1184,6 +1461,24 @@ mod linux {
             Some((surface, layer_surface_hit_origin(layer.geo.loc, origin)))
         }
 
+        pub(super) fn x11_surface_scene_origin(
+            geometry: Rectangle<i32, Logical>,
+        ) -> Point<i32, Logical> {
+            geometry.loc
+        }
+
+        pub(super) fn x11_surface_scene_hit(
+            geometry: Rectangle<i32, Logical>,
+            point: Point<f64, Logical>,
+        ) -> Option<Point<f64, Logical>> {
+            let origin = Self::x11_surface_scene_origin(geometry);
+            let width = f64::from(geometry.size.w.max(0));
+            let height = f64::from(geometry.size.h.max(0));
+            let local = Point::from((point.x - f64::from(origin.x), point.y - f64::from(origin.y)));
+            (local.x >= 0.0 && local.y >= 0.0 && local.x < width && local.y < height)
+                .then_some(local)
+        }
+
         fn surface_under(
             &self,
             pt: Point<f64, Logical>,
@@ -1193,6 +1488,25 @@ mod linux {
                     if let Some(hit) = Self::layer_surface_under(layer, pt) {
                         return Some(hit);
                     }
+                }
+            }
+
+            for (_window_id, surface, geometry) in self
+                .x11_scene
+                .associated_targets(&self.spaces)
+                .into_iter()
+                .rev()
+            {
+                if Self::x11_surface_scene_hit(geometry, pt).is_none() {
+                    continue;
+                }
+                if let Some((surface, surface_origin)) = under_from_surface_tree(
+                    &surface,
+                    pt,
+                    Self::x11_surface_scene_origin(geometry),
+                    WindowSurfaceType::ALL,
+                ) {
+                    return Some((surface, surface_origin.to_f64()));
                 }
             }
 
@@ -1432,9 +1746,40 @@ mod linux {
                     })
                 })
             });
-            if self.interactive_grab.is_some() && !keeps_interactive_grab {
+            let keeps_x11_interactive_grab =
+                self.x11_interactive_grab.as_ref().is_some_and(|grab| {
+                    surface.as_ref().is_some_and(|surface| {
+                        self.x11_scene
+                            .associated_surface(grab.window_id)
+                            .is_some_and(|associated| associated == *surface)
+                    })
+                });
+            if (self.interactive_grab.is_some() || self.x11_interactive_grab.is_some())
+                && !keeps_interactive_grab
+                && !keeps_x11_interactive_grab
+            {
                 self.cancel_interactive_grab();
             }
+            let x11_window = surface
+                .as_ref()
+                .and_then(|surface| self.x11_scene.window_for_surface(surface));
+            let focused_x11_window = x11_window
+                .as_ref()
+                .filter(|window| {
+                    self.x11_scene
+                        .x11_surface_accepts_keyboard_focus(window.window_id())
+                })
+                .cloned();
+            if let Some(window) = focused_x11_window.as_ref() {
+                tracing::info!(
+                    window = window.window_id(),
+                    "XWayland keyboard focus selected"
+                );
+            } else if x11_window.is_some() {
+                tracing::debug!("override-redirect surface kept out of keyboard focus");
+            }
+            self.x11_scene
+                .set_active(focused_x11_window.as_ref().map(|window| window.window_id()));
             self.sync_activated_for_surface(surface.as_ref());
             if surface.is_none() {
                 if let Err(err) = slopos_compositor::publish_active_toplevel(None) {
@@ -1442,6 +1787,25 @@ mod linux {
                 }
             }
             let serial = self.next_serial();
+            let previous_x11_focus = self.xwayland_keyboard_focus.take();
+            let should_leave_x11 = previous_x11_focus.as_ref().is_some_and(|previous| {
+                focused_x11_window
+                    .as_ref()
+                    .is_none_or(|next| next.window_id() != previous.window_id())
+            });
+            if should_leave_x11 {
+                if let Some(previous) = previous_x11_focus.as_ref() {
+                    let seat = self.seat.clone();
+                    KeyboardTarget::leave(previous, &seat, self, serial);
+                }
+            }
+            if let Some(next) = focused_x11_window.as_ref() {
+                let seat = self.seat.clone();
+                KeyboardTarget::enter(next, &seat, self, Vec::new(), serial);
+                self.xwayland_keyboard_focus = Some(next.clone());
+            } else if !should_leave_x11 {
+                self.xwayland_keyboard_focus = previous_x11_focus;
+            }
             if let Some(kb) = self.seat.get_keyboard() {
                 kb.set_focus(self, surface.clone(), serial);
             }
@@ -1547,6 +1911,15 @@ mod linux {
                     self.focus_window(idx);
                     return;
                 }
+            }
+            if let Some((_, surface, _)) = self
+                .x11_scene
+                .associated_targets(&self.spaces)
+                .into_iter()
+                .next_back()
+            {
+                self.focus_surface(Some(surface));
+                return;
             }
             // No visible window on this workspace — drop keyboard/selection focus so a
             // hidden window does not keep receiving keys.
@@ -1756,6 +2129,9 @@ mod linux {
         }
 
         fn update_interactive_grab(&mut self) -> bool {
+            if self.interactive_grab.is_none() {
+                return self.update_x11_interactive_grab();
+            }
             let Some(grab) = self.interactive_grab.clone() else {
                 return false;
             };
@@ -1799,34 +2175,110 @@ mod linux {
             true
         }
 
+        fn update_x11_interactive_grab(&mut self) -> bool {
+            let Some(grab) = self.x11_interactive_grab.clone() else {
+                return false;
+            };
+            if !grab.surface.alive() || grab.surface.is_override_redirect() {
+                self.finish_interactive_grab();
+                return false;
+            }
+            let min_size = grab
+                .surface
+                .min_size()
+                .unwrap_or_else(|| Size::from((160, 96)));
+            let new = geometry_for_interactive_grab(
+                &grab.policy,
+                self.pointer_pos.x.round() as i32,
+                self.pointer_pos.y.round() as i32,
+                min_size.w.max(160),
+                min_size.h.max(96),
+                self.output_size.w,
+                self.output_size.h,
+            );
+            let old = self
+                .x11_scene
+                .geometry(grab.window_id)
+                .map(|geometry| {
+                    WindowGeometry::new(
+                        geometry.loc.x,
+                        geometry.loc.y,
+                        geometry.size.w,
+                        geometry.size.h,
+                    )
+                })
+                .unwrap_or(grab.policy.start_geometry);
+            if old == new {
+                return true;
+            }
+            let geometry = Rectangle::new(
+                Point::from((new.x, new.y)),
+                Size::from((new.width, new.height)),
+            );
+            if let Err(error) = grab.surface.configure(Some(geometry)) {
+                tracing::debug!(
+                    window = grab.window_id,
+                    %error,
+                    "XWayland interactive configure failed"
+                );
+                self.finish_interactive_grab();
+                return false;
+            }
+            self.x11_scene.configure(grab.surface.clone(), geometry);
+            self.sync_x11_scene_output_membership(grab.window_id);
+            tracing::info!(
+                window = grab.window_id,
+                x = new.x,
+                y = new.y,
+                width = new.width,
+                height = new.height,
+                "XWayland surface geometry changed during grab"
+            );
+            self.request_full_redraw();
+            true
+        }
+
         fn finish_interactive_grab(&mut self) {
-            let Some(grab) = clear_interactive_grab_state(
+            let x11_grab = self.x11_interactive_grab.take();
+            let native_grab = clear_interactive_grab_state(
                 &mut self.interactive_grab,
                 &mut self.last_pointer_press,
                 &mut self.left_button_down,
-            ) else {
+            );
+            if native_grab.is_none() && x11_grab.is_none() {
                 return;
-            };
-            if matches!(grab.kind, InteractiveGrabKind::Resize(_)) {
-                if let Some(window) = self
-                    .windows
-                    .iter()
-                    .find(|w| w.window_id == grab.window_id && w.toplevel.alive())
-                {
-                    let surface = window.toplevel.clone();
-                    surface.with_pending_state(|state| {
-                        state.states.unset(xdg_toplevel::State::Resizing);
-                        state.size = Some(window.size);
-                    });
-                    surface.send_configure();
+            }
+            if let Some(grab) = native_grab {
+                if matches!(grab.kind, InteractiveGrabKind::Resize(_)) {
+                    if let Some(window) = self
+                        .windows
+                        .iter()
+                        .find(|w| w.window_id == grab.window_id && w.toplevel.alive())
+                    {
+                        let surface = window.toplevel.clone();
+                        surface.with_pending_state(|state| {
+                            state.states.unset(xdg_toplevel::State::Resizing);
+                            state.size = Some(window.size);
+                        });
+                        surface.send_configure();
+                    }
+                }
+                tracing::debug!(window_id = %grab.window_id, "interactive grab finished");
+            } else {
+                self.last_pointer_press = None;
+                self.left_button_down = false;
+                if let Some(grab) = x11_grab {
+                    tracing::debug!(
+                        window = grab.window_id,
+                        "XWayland interactive grab finished"
+                    );
                 }
             }
-            tracing::debug!(window_id = %grab.window_id, "interactive grab finished");
             self.request_redraw();
         }
 
         fn cancel_interactive_grab(&mut self) {
-            if self.interactive_grab.is_some() {
+            if self.interactive_grab.is_some() || self.x11_interactive_grab.is_some() {
                 if let Some(pointer) = self.seat.get_pointer() {
                     let serial = self.next_serial();
                     pointer.unset_grab(self, serial, 0);
@@ -1840,16 +2292,134 @@ mod linux {
         }
 
         fn associated_x11_surface(&self, window: &X11WmSurface) -> Option<WlSurface> {
-            self.x11_surface_associations
-                .get(&window.window_id())
-                .cloned()
+            self.x11_scene.associated_surface(window.window_id())
         }
 
-        fn x11_toplevel_for_surface(&self, surface: &WlSurface) -> Option<ToplevelSurface> {
+        /// Register a rootless X11 window in the same authoritative Spaces
+        /// model used by native Wayland toplevels.  Membership is assigned
+        /// exactly once so a later Space move is never overwritten by an
+        /// association/map callback.
+        fn ensure_x11_space_membership(&mut self, window_id: X11Window) {
+            let membership_id = x11_space_window_id(window_id);
+            if !self.spaces.window_spaces(&membership_id).is_empty() {
+                return;
+            }
+            if let Err(error) = self.spaces.assign_window_to_current(membership_id.clone()) {
+                tracing::warn!(%error, %membership_id, "could not assign XWayland window to active Space");
+                return;
+            }
+            tracing::info!(window = window_id, %membership_id, "XWayland window assigned to authoritative Space");
+            self.sync_legacy_workspace_state();
+            self.publish_spaces_state(true);
+        }
+
+        fn remove_x11_space_membership(&mut self, window_id: X11Window) {
+            let membership_id = x11_space_window_id(window_id);
+            if self.spaces.remove_window(&membership_id) {
+                self.sync_legacy_workspace_state();
+                self.publish_spaces_state(true);
+            }
+        }
+
+        fn known_space_window_ids(&self) -> Vec<String> {
             self.windows
                 .iter()
-                .find(|window| window.toplevel.wl_surface() == surface)
-                .map(|window| window.toplevel.clone())
+                .map(|window| window.window_id.clone())
+                .chain(self.x11_scene.window_ids())
+                .collect()
+        }
+
+        fn sync_x11_scene_output_membership(&self, window_id: X11Window) {
+            let Some(surface) = self.x11_scene.associated_surface(window_id) else {
+                return;
+            };
+            let Some(geometry) = self.x11_scene.geometry(window_id) else {
+                return;
+            };
+            self.sync_surface_output_membership(
+                &surface,
+                WindowGeometry::new(
+                    geometry.loc.x,
+                    geometry.loc.y,
+                    geometry.size.w,
+                    geometry.size.h,
+                ),
+            );
+        }
+
+        fn leave_x11_scene_output_membership(&self, window_id: X11Window) {
+            let Some(surface) = self.x11_scene.associated_surface(window_id) else {
+                return;
+            };
+            for output in &self.outputs {
+                output.leave(&surface);
+            }
+        }
+
+        fn note_x11_surface_mapped(&mut self, window_id: X11Window) {
+            if self.x11_scene.take_mapped_marker(window_id) {
+                tracing::info!(window = window_id, "XWayland surface mapped into scene");
+            }
+        }
+
+        fn x11_surface_has_keyboard_focus(&self, window_id: X11Window) -> bool {
+            let Some(surface) = self.x11_scene.associated_surface(window_id) else {
+                return false;
+            };
+            self.seat
+                .get_keyboard()
+                .and_then(|keyboard| keyboard.current_focus())
+                .is_some_and(|focused| focused == surface)
+        }
+
+        fn xwayland_client_is_alive(&self, client_id: &ClientId) -> bool {
+            let mut alive = false;
+            self.display_handle
+                .backend_handle()
+                .with_all_clients(|candidate| {
+                    if candidate == *client_id {
+                        alive = true;
+                    }
+                });
+            alive
+        }
+
+        fn recover_xwayland_startup(&mut self) {
+            self.xwayland_client_id = None;
+            if self.xwayland_recovery_budget.take_restart() {
+                tracing::warn!(
+                    remaining = self.xwayland_recovery_budget.remaining(),
+                    "XWayland startup failed; restarting"
+                );
+                try_start_xwayland(self);
+            } else {
+                tracing::error!("XWayland startup recovery budget exhausted");
+            }
+        }
+
+        fn ensure_xwayland_startup_watchdog(&mut self) {
+            if self.xwayland_startup_watchdog_started {
+                return;
+            }
+            self.xwayland_startup_watchdog_started = true;
+            let result = self.loop_handle.insert_source(
+                Timer::from_duration(Duration::from_millis(250)),
+                |_, _, data| {
+                    let startup_failed =
+                        data.xwayland_client_id.as_ref().is_some_and(|client_id| {
+                            data.xwm.is_none() && !data.xwayland_client_is_alive(client_id)
+                        });
+                    if startup_failed {
+                        tracing::warn!("XWayland startup client exited before Ready; recovering");
+                        data.recover_xwayland_startup();
+                    }
+                    TimeoutAction::ToDuration(Duration::from_millis(250))
+                },
+            );
+            if let Err(error) = result {
+                self.xwayland_startup_watchdog_started = false;
+                tracing::warn!(%error, "failed to install XWayland startup watchdog");
+            }
         }
 
         fn x11_client_seat(&self, surface: &WlSurface) -> Option<wl_seat::WlSeat> {
@@ -1881,14 +2451,6 @@ mod linux {
                 );
                 return;
             };
-            let Some(toplevel) = self.x11_toplevel_for_surface(&surface) else {
-                tracing::debug!(
-                    window = window.window_id(),
-                    ?kind,
-                    "rejecting X11 interactive grab without mapped toplevel"
-                );
-                return;
-            };
             let Some(seat) = self.x11_client_seat(&surface) else {
                 tracing::debug!(
                     window = window.window_id(),
@@ -1897,16 +2459,93 @@ mod linux {
                 );
                 return;
             };
-            let Some(serial) = self.last_pointer_press.as_ref().map(|press| press.serial) else {
+            let Some(pressed) = self.last_pointer_press.as_ref() else {
                 tracing::debug!(
                     window = window.window_id(),
                     ?kind,
-                    "rejecting X11 interactive grab without prior pointer press serial"
+                    "rejecting X11 interactive grab without prior pointer press"
                 );
                 return;
             };
+            let pressed_serial = pressed.serial;
+            let authorized = self.left_button_down
+                && self.seat.owns(&seat)
+                && pressed.x11_window_id == Some(window.window_id());
+            if !authorized {
+                tracing::debug!(
+                    window = window.window_id(),
+                    ?kind,
+                    request_serial = u32::from(pressed_serial),
+                    "rejecting unauthorized XWayland interactive grab"
+                );
+                return;
+            }
 
-            self.begin_interactive_grab(&toplevel, kind, &seat, serial);
+            let geometry = window.geometry();
+            let start_geometry = WindowGeometry::new(
+                geometry.loc.x,
+                geometry.loc.y,
+                geometry.size.w,
+                geometry.size.h,
+            );
+            let Some(pointer) = self.seat.get_pointer() else {
+                tracing::debug!(
+                    window = window.window_id(),
+                    ?kind,
+                    "rejecting X11 interactive request without a pointer"
+                );
+                return;
+            };
+            let pointer_location = pointer.current_location();
+            let pointer_x = pointer_location.x.round() as i32;
+            let pointer_y = pointer_location.y.round() as i32;
+            let policy = match kind {
+                InteractiveGrabKind::Move => InteractiveGrab::moving(
+                    format!("x11:{}", window.window_id()),
+                    pointer_x,
+                    pointer_y,
+                    start_geometry,
+                ),
+                InteractiveGrabKind::Resize(edges) => {
+                    let Some(grab) = InteractiveGrab::resizing(
+                        format!("x11:{}", window.window_id()),
+                        edges,
+                        pointer_x,
+                        pointer_y,
+                        start_geometry,
+                    ) else {
+                        return;
+                    };
+                    grab
+                }
+            };
+            self.x11_interactive_grab = Some(X11InteractiveGrab {
+                window_id: window.window_id(),
+                surface: window.clone(),
+                policy,
+            });
+            pointer.set_grab(
+                self,
+                InteractivePointerGrab {
+                    start_data: GrabStartData {
+                        focus: Some((
+                            surface.clone(),
+                            Point::from((geometry.loc.x as f64, geometry.loc.y as f64)),
+                        )),
+                        button: 0x110,
+                        location: pointer_location,
+                    },
+                },
+                pressed_serial,
+                Focus::Keep,
+            );
+            tracing::info!(
+                window = window.window_id(),
+                ?kind,
+                pointer_x,
+                pointer_y,
+                "XWayland interactive grab started"
+            );
         }
 
         fn canvas_area(&self) -> WindowGeometry {
@@ -1960,6 +2599,19 @@ mod linux {
                     window.toplevel.wl_surface(),
                     window.geometry(),
                 );
+            }
+            for (window_id, _, geometry) in self.x11_scene.associated_surfaces() {
+                if let Some(surface) = self.x11_scene.associated_surface(window_id) {
+                    self.sync_surface_output_membership(
+                        &surface,
+                        WindowGeometry::new(
+                            geometry.loc.x,
+                            geometry.loc.y,
+                            geometry.size.w,
+                            geometry.size.h,
+                        ),
+                    );
+                }
             }
         }
 
@@ -2079,12 +2731,16 @@ mod linux {
 
             // Clear old membership before any global is disabled. Retained
             // outputs are re-entered after the atomic topology replacement.
+            let x11_surfaces = self.x11_scene.associated_surfaces();
             for output in &self.outputs {
                 for window in &self.windows {
                     output.leave(window.toplevel.wl_surface());
                 }
                 for layer in &self.layer_surfaces {
                     output.leave(layer.surface.wl_surface());
+                }
+                for (_, surface, _) in &x11_surfaces {
+                    output.leave(surface);
                 }
             }
 
@@ -2124,6 +2780,9 @@ mod linux {
                 }
                 for layer in &self.layer_surfaces {
                     output.leave(layer.surface.wl_surface());
+                }
+                for (_, surface, _) in &x11_surfaces {
+                    output.leave(surface);
                 }
                 self.display_handle
                     .disable_global::<SloposCompositor>(global.clone());
@@ -2425,15 +3084,42 @@ mod linux {
                 let mapped_window_index = hit
                     .as_ref()
                     .and_then(|(surface, _)| self.mapped_window_index_for_surface(surface));
+                let x11_window = hit
+                    .as_ref()
+                    .and_then(|(surface, _)| self.x11_scene.window_for_surface(surface));
                 if primary_button {
-                    self.last_pointer_press = mapped_window_index.map(|index| PointerPress {
-                        serial,
-                        window_id: self.windows[index].window_id.clone(),
-                    });
+                    self.last_pointer_press = if let Some(index) = mapped_window_index {
+                        Some(PointerPress {
+                            serial,
+                            window_id: self.windows[index].window_id.clone(),
+                            x11_window_id: None,
+                        })
+                    } else {
+                        x11_window
+                            .as_ref()
+                            .filter(|window| !window.is_override_redirect())
+                            .map(|window| PointerPress {
+                                serial,
+                                window_id: String::new(),
+                                x11_window_id: Some(window.window_id()),
+                            })
+                    };
                 }
                 match hit {
                     Some((surface, _)) => match mapped_window_index {
                         Some(idx) => self.focus_window(idx),
+                        None if x11_window
+                            .as_ref()
+                            .is_some_and(|window| window.is_override_redirect()) =>
+                        {
+                            tracing::debug!(
+                                window = x11_window
+                                    .as_ref()
+                                    .map(X11WmSurface::window_id)
+                                    .unwrap_or_default(),
+                                "override-redirect surface kept out of keyboard focus"
+                            );
+                        }
                         None => self.focus_surface(Some(surface)),
                     },
                     None => self.focus_surface(None),
@@ -2730,6 +3416,7 @@ mod linux {
                 .filter(|window| visible_window_ids.contains(&window.window_id))
                 .map(|window| window.toplevel.wl_surface().clone())
                 .collect();
+            let visible_x11_surfaces = self.x11_scene.associated_targets(&self.spaces);
             let (renderer, x11_surface) = match (self.renderer.as_mut(), self.x11_surface.as_mut())
             {
                 (Some(r), Some(s)) => (r, s),
@@ -2737,6 +3424,15 @@ mod linux {
                     let now = self.clock.now();
                     if let Some(output) = self.outputs.first().cloned() {
                         for surface in &visible_window_surfaces {
+                            send_frames_surface_tree(
+                                surface,
+                                &output,
+                                now,
+                                Some(Duration::ZERO),
+                                |_, _| None,
+                            );
+                        }
+                        for (_, surface, _) in &visible_x11_surfaces {
                             send_frames_surface_tree(
                                 surface,
                                 &output,
@@ -2860,6 +3556,34 @@ mod linux {
                         );
                         placeholders.push((rect, Color32F::from([r, g, b, 1.0_f32])));
                     }
+                }
+            }
+
+            // X11 rootless windows are composed after normal Wayland windows and
+            // before top/overlay chrome. The registry keeps their discovery order
+            // stable while association/map callbacks prevent duplicate entries.
+            let mut rendered_x11_windows = Vec::new();
+            for (window_id, surface, geometry) in &visible_x11_surfaces {
+                let loc = Point::<i32, Physical>::from((
+                    Self::x11_surface_scene_origin(*geometry).x,
+                    Self::x11_surface_scene_origin(*geometry).y,
+                ));
+                let elements = render_elements_from_surface_tree(
+                    renderer,
+                    surface,
+                    loc,
+                    1.0_f64,
+                    1.0_f32,
+                    Kind::Unspecified,
+                );
+                if !elements.is_empty() {
+                    surface_elements.extend(elements);
+                    rendered_x11_windows.push(*window_id);
+                }
+            }
+            for window_id in rendered_x11_windows {
+                if self.x11_scene.take_rendered_marker(window_id) {
+                    tracing::info!(window = window_id, "XWayland surface rendered");
                 }
             }
             for &i in &over {
@@ -3071,6 +3795,27 @@ mod linux {
                 if let Some(output) = self.outputs.get(output_index) {
                     send_frames_surface_tree(
                         window.toplevel.wl_surface(),
+                        output,
+                        now,
+                        Some(Duration::ZERO),
+                        |_, _| None,
+                    );
+                }
+            }
+            for (_, surface, geometry) in self.x11_scene.associated_targets(&self.spaces) {
+                let output_index = output_index_for_geometry(
+                    &self.laid_out_outputs,
+                    WindowGeometry::new(
+                        geometry.loc.x,
+                        geometry.loc.y,
+                        geometry.size.w,
+                        geometry.size.h,
+                    ),
+                )
+                .unwrap_or(0);
+                if let Some(output) = self.outputs.get(output_index) {
+                    send_frames_surface_tree(
+                        &surface,
                         output,
                         now,
                         Some(Duration::ZERO),
@@ -3993,9 +4738,8 @@ mod linux {
     //
     // Nested under Xvfb/X11 the compositor already owns DISPLAY. XWayland is
     // still spawned (own display number) so the code path exists and X clients
-    // can attach when the binary + runtime allow it. Full rootless WM mapping
-    // of X11 windows into the GL scene is incomplete under nested X11; handlers
-    // accept maps and track surfaces so the path is live for native Linux.
+    // can attach when the binary + runtime allow it. Rootless X11 windows are
+    // tracked in the same compositor scene lifecycle as native surface trees.
     // -----------------------------------------------------------------------
 
     impl XWaylandShellHandler for SloposCompositor {
@@ -4013,15 +4757,16 @@ mod linux {
                 title = %surface.title(),
                 "XWayland surface associated with wl_surface"
             );
-            self.x11_surface_associations
-                .insert(surface.window_id(), wl_surface);
-            if !self
-                .x11_surfaces
-                .iter()
-                .any(|s| s.window_id() == surface.window_id())
-            {
-                self.x11_surfaces.push(surface);
+            let window_id = surface.window_id();
+            let should_focus = !surface.is_override_redirect();
+            self.x11_scene.associate(surface, wl_surface.clone());
+            self.ensure_x11_space_membership(window_id);
+            self.sync_x11_scene_output_membership(window_id);
+            self.note_x11_surface_mapped(window_id);
+            if should_focus {
+                self.focus_surface(Some(wl_surface));
             }
+            self.request_full_redraw();
         }
     }
 
@@ -4034,12 +4779,12 @@ mod linux {
 
         fn new_window(&mut self, _xwm: XwmId, window: X11WmSurface) {
             tracing::debug!(title = %window.title(), "X11 new_window");
-            self.x11_surfaces.push(window);
+            self.x11_scene.register(window);
         }
 
         fn new_override_redirect_window(&mut self, _xwm: XwmId, window: X11WmSurface) {
             tracing::debug!(title = %window.title(), "X11 override-redirect window");
-            self.x11_surfaces.push(window);
+            self.x11_scene.register(window);
         }
 
         fn map_window_request(&mut self, _xwm: XwmId, window: X11WmSurface) {
@@ -4051,23 +4796,62 @@ mod linux {
             if let Err(err) = window.configure(Some(geo)) {
                 tracing::debug!(?err, "X11 configure failed");
             }
+            let window_id = window.window_id();
+            self.ensure_x11_space_membership(window_id);
+            self.x11_scene.set_mapped(window.clone(), true);
+            self.sync_x11_scene_output_membership(window_id);
+            self.note_x11_surface_mapped(window_id);
+            self.request_full_redraw();
             tracing::info!(title = %window.title(), "X11 map_window_request granted");
         }
 
+        fn map_window_notify(&mut self, _xwm: XwmId, window: X11WmSurface) {
+            let window_id = window.window_id();
+            self.ensure_x11_space_membership(window_id);
+            self.x11_scene.set_mapped(window.clone(), true);
+            self.x11_scene.configure(window.clone(), window.geometry());
+            self.sync_x11_scene_output_membership(window_id);
+            self.note_x11_surface_mapped(window_id);
+            self.request_full_redraw();
+        }
+
         fn mapped_override_redirect_window(&mut self, _xwm: XwmId, window: X11WmSurface) {
+            let window_id = window.window_id();
+            self.ensure_x11_space_membership(window_id);
+            self.x11_scene.set_mapped(window.clone(), true);
+            self.sync_x11_scene_output_membership(window_id);
+            self.note_x11_surface_mapped(window_id);
+            self.request_full_redraw();
             tracing::debug!(title = %window.title(), "X11 override-redirect mapped");
         }
 
         fn unmapped_window(&mut self, _xwm: XwmId, window: X11WmSurface) {
-            self.x11_surfaces
-                .retain(|s| s.window_id() != window.window_id());
-            self.x11_surface_associations.remove(&window.window_id());
+            let window_id = window.window_id();
+            let was_focused = self.x11_surface_has_keyboard_focus(window_id);
+            self.x11_scene.unmap(window_id);
+            if was_focused {
+                self.x11_scene.set_active(None);
+            }
+            self.leave_x11_scene_output_membership(window_id);
+            if was_focused {
+                self.apply_focus_after_workspace_switch();
+            }
+            tracing::info!(window = window_id, "XWayland surface unmapped from scene");
+            self.request_full_redraw();
         }
 
         fn destroyed_window(&mut self, _xwm: XwmId, window: X11WmSurface) {
-            self.x11_surfaces
-                .retain(|s| s.window_id() != window.window_id());
-            self.x11_surface_associations.remove(&window.window_id());
+            let window_id = window.window_id();
+            let was_focused = self.x11_surface_has_keyboard_focus(window_id);
+            self.leave_x11_scene_output_membership(window_id);
+            self.x11_scene.destroy(window_id);
+            self.remove_x11_space_membership(window_id);
+            if was_focused {
+                self.x11_scene.set_active(None);
+                self.apply_focus_after_workspace_switch();
+            }
+            tracing::info!(window = window_id, "XWayland surface destroyed from scene");
+            self.request_full_redraw();
         }
 
         fn configure_request(
@@ -4093,16 +4877,28 @@ mod linux {
             if let Some(h) = h {
                 geo.size.h = h as i32;
             }
-            let _ = window.configure(Some(geo));
+            if let Err(err) = window.configure(Some(geo)) {
+                tracing::debug!(?err, "X11 configure request failed");
+            }
+            let window_id = window.window_id();
+            self.x11_scene.configure(window, geo);
+            self.sync_x11_scene_output_membership(window_id);
+            tracing::info!(window = window_id, "XWayland surface configured in scene");
+            self.request_full_redraw();
         }
 
         fn configure_notify(
             &mut self,
             _xwm: XwmId,
-            _window: X11WmSurface,
-            _geometry: Rectangle<i32, Logical>,
+            window: X11WmSurface,
+            geometry: Rectangle<i32, Logical>,
             _above: Option<X11Window>,
         ) {
+            let window_id = window.window_id();
+            self.x11_scene.configure(window, geometry);
+            self.sync_x11_scene_output_membership(window_id);
+            tracing::info!(window = window_id, "XWayland surface configured in scene");
+            self.request_full_redraw();
         }
 
         fn resize_request(
@@ -4159,10 +4955,23 @@ mod linux {
 
         fn disconnected(&mut self, _xwm: XwmId) {
             tracing::warn!("XWayland WM disconnected");
+            if self.x11_interactive_grab.is_some() {
+                self.cancel_interactive_grab();
+            }
+            self.xwayland_keyboard_focus = None;
             self.xwm = None;
             self.xdisplay = None;
-            self.x11_surfaces.clear();
-            self.x11_surface_associations.clear();
+            self.xwayland_client_id = None;
+            let entries = self.x11_scene.clear();
+            for entry in entries {
+                self.remove_x11_space_membership(entry.surface.window_id());
+                if let Some(surface) = entry.wl_surface {
+                    for output in &self.outputs {
+                        output.leave(&surface);
+                    }
+                }
+            }
+            self.request_full_redraw();
             std::env::remove_var("SLOPOS_XWAYLAND_DISPLAY");
 
             if self.xwayland_recovery_budget.take_restart() {
@@ -4194,6 +5003,20 @@ mod linux {
         let time = ev.time_msec();
         let keycode = ev.key_code();
         let key_state = ev.state();
+
+        if key_state == KeyState::Pressed {
+            let focused_x11 = state
+                .seat
+                .get_keyboard()
+                .and_then(|keyboard| keyboard.current_focus())
+                .and_then(|surface| state.x11_scene.window_for_surface(&surface));
+            if let Some(window) = focused_x11 {
+                tracing::info!(
+                    window = window.window_id(),
+                    "XWayland keyboard focus delivered"
+                );
+            }
+        }
 
         if let Some(kb) = state.seat.get_keyboard() {
             kb.input::<(), _>(
@@ -4485,19 +5308,56 @@ mod linux {
         if btn_state == ButtonState::Pressed {
             let pos = state.pointer_pos;
             let hit = state.surface_under(pos);
+            if let Some((surface, _)) = hit.as_ref() {
+                if let Some(window) = state.x11_scene.window_for_surface(surface) {
+                    tracing::info!(
+                        window = window.window_id(),
+                        x = pos.x,
+                        y = pos.y,
+                        "XWayland surface hit-tested for input"
+                    );
+                }
+            }
             let mapped_window_index = hit
                 .as_ref()
                 .and_then(|(surface, _)| state.mapped_window_index_for_surface(surface));
+            let x11_window = hit
+                .as_ref()
+                .and_then(|(surface, _)| state.x11_scene.window_for_surface(surface));
             if primary_button {
-                state.last_pointer_press = mapped_window_index.map(|index| PointerPress {
-                    serial,
-                    window_id: state.windows[index].window_id.clone(),
-                });
+                state.last_pointer_press = if let Some(index) = mapped_window_index {
+                    Some(PointerPress {
+                        serial,
+                        window_id: state.windows[index].window_id.clone(),
+                        x11_window_id: None,
+                    })
+                } else {
+                    x11_window
+                        .as_ref()
+                        .filter(|window| !window.is_override_redirect())
+                        .map(|window| PointerPress {
+                            serial,
+                            window_id: String::new(),
+                            x11_window_id: Some(window.window_id()),
+                        })
+                };
             }
             match hit {
                 Some((surface, _)) => match mapped_window_index {
                     Some(idx) => {
                         state.focus_window(idx);
+                    }
+                    None if x11_window
+                        .as_ref()
+                        .is_some_and(|window| window.is_override_redirect()) =>
+                    {
+                        tracing::debug!(
+                            window = x11_window
+                                .as_ref()
+                                .map(X11WmSurface::window_id)
+                                .unwrap_or_default(),
+                            "override-redirect surface kept out of keyboard focus"
+                        );
                     }
                     None => {
                         state.focus_surface(Some(surface));
@@ -4625,6 +5485,7 @@ mod linux {
     /// clients can set DISPLAY=:N. Full scene integration of X11 surfaces remains limited
     /// because the compositor itself is an X11 client of the host server.
     fn try_start_xwayland(state: &mut SloposCompositor) {
+        state.ensure_xwayland_startup_watchdog();
         // Allow opt-out: SLOPOS_XWAYLAND=0
         if std::env::var("SLOPOS_XWAYLAND")
             .map(|v| matches!(v.as_str(), "0" | "false" | "off" | "no"))
@@ -4646,6 +5507,7 @@ mod linux {
             |_| (),
         ) {
             Ok((xwayland, client)) => {
+                state.xwayland_client_id = Some(client.id());
                 let display_number_hint = xwayland.display_number();
                 tracing::info!(
                     "XWayland spawning (will claim DISPLAY=:{} when ready)",
@@ -4675,6 +5537,7 @@ mod linux {
                                 }
                                 Err(err) => {
                                     tracing::warn!(?err, "Failed to start X11Wm for XWayland");
+                                    data.recover_xwayland_startup();
                                 }
                             }
                         }
@@ -4682,6 +5545,7 @@ mod linux {
                             tracing::warn!(
                                 "XWayland failed to start (binary missing, nested X11 conflict, or crash)"
                             );
+                            data.recover_xwayland_startup();
                         }
                     }
                 });
@@ -4690,7 +5554,10 @@ mod linux {
                 }
             }
             Err(err) => {
-                // Nested X11 or missing Xwayland package — document, don't abort.
+                // Nested X11 or missing XWayland package: route the failure
+                // through the same session-scoped watchdog budget as an
+                // Error/WM-disconnect event. This prevents a silent
+                // pre-Ready failure while keeping retries bounded.
                 tracing::warn!(
                     error = %err,
                     "XWayland spawn failed (install `xwayland` package for X11 client support; nested X11 may still be limited)"
@@ -4698,6 +5565,7 @@ mod linux {
                 eprintln!(
                     "[slopos-compositor] XWayland unavailable: {err} (continuing without it)"
                 );
+                state.recover_xwayland_startup();
             }
         }
     }
@@ -5156,6 +6024,7 @@ mod linux {
             headless_test_input_enabled: headless
                 && std::env::var("SLOPOS_TEST_INPUT").ok().as_deref() == Some("1"),
             interactive_grab: None,
+            x11_interactive_grab: None,
             left_button_down: false,
             last_pointer_press: None,
             frame_dirty: true,
@@ -5180,9 +6049,11 @@ mod linux {
             placeholder_stats: PlaceholderPresentStats::new(),
             xwm: None,
             xdisplay: None,
+            xwayland_client_id: None,
+            xwayland_startup_watchdog_started: false,
             xwayland_recovery_budget: XWaylandRecoveryBudget::new(XWAYLAND_RESTART_BUDGET),
-            x11_surfaces: Vec::new(),
-            x11_surface_associations: HashMap::new(),
+            x11_scene: X11SceneRegistry::default(),
+            xwayland_keyboard_focus: None,
             wayland_socket_name: socket_name.clone(),
         };
 
@@ -5254,6 +6125,62 @@ mod linux {
             );
             assert_eq!(frame.axis, (1.5, -2.25));
             assert_eq!(frame.v120, Some((60, -120)));
+        }
+    }
+
+    #[cfg(test)]
+    mod x11_scene_tests {
+        use super::*;
+
+        #[test]
+        fn scene_entry_becomes_visible_only_after_map_and_association() {
+            let geometry = Rectangle::new(Point::from((24, 36)), Size::from((320, 200)));
+            let mut state = X11SceneEntryState::new(geometry);
+            assert!(!state.visible());
+            state.set_associated(true);
+            assert!(!state.visible());
+            state.set_mapped(true);
+            assert!(state.visible());
+            state.set_mapped(false);
+            assert!(!state.visible());
+        }
+
+        #[test]
+        fn scene_origin_and_hit_test_use_compositor_coordinates() {
+            let geometry = Rectangle::new(Point::from((120, 80)), Size::from((200, 100)));
+            assert_eq!(
+                SloposCompositor::x11_surface_scene_origin(geometry),
+                Point::from((120, 80))
+            );
+            assert_eq!(
+                SloposCompositor::x11_surface_scene_hit(geometry, Point::from((140.5, 95.25))),
+                Some(Point::from((20.5, 15.25)))
+            );
+            assert_eq!(
+                SloposCompositor::x11_surface_scene_hit(geometry, Point::from((320.0, 95.0))),
+                None
+            );
+        }
+
+        #[test]
+        fn x11_space_visibility_uses_authoritative_membership_and_survives_move() {
+            let mut spaces = SpacesModel::with_default_count(2).expect("default spaces");
+            let first = spaces.active_space();
+            let second = spaces.space_ids()[1];
+            let window = X11Window::from(0x400020_u32);
+            let key = x11_space_window_id(window);
+
+            spaces
+                .assign_window_to_current(key.clone())
+                .expect("assign X11 window");
+            assert!(x11_window_visible_on_space(&spaces, window, first));
+            assert!(!x11_window_visible_on_space(&spaces, window, second));
+
+            spaces
+                .move_window(key, SpaceTarget::Id(second))
+                .expect("move X11 window");
+            assert!(!x11_window_visible_on_space(&spaces, window, first));
+            assert!(x11_window_visible_on_space(&spaces, window, second));
         }
     }
 }
