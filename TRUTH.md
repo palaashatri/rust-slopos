@@ -5,7 +5,7 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`ef1666faaa9066e419e71f9005f720a08e8471b3`
+`92dcd78ae8e6c8200af2a6bd32f8095b79cc834b`
 **Audit date:** 2026-08-09
 **Audit basis:** current-source review through the audited SHA, commit-delta
 review, exact-commit Ubuntu UTM build/test/lint/release evidence, retained
@@ -19,13 +19,54 @@ runtime QA, active-window Spaces move runtime QA with a real Preview client,
 and exact-commit compositor contract/headless protocol reruns recorded below.
 The current audit also includes the exact-commit App Store authenticity tests,
 target-disconnect DnD cancellation runtime, Ubuntu UTM Clippy/release
-validation and host regression gates recorded below.
+validation, bounded XWayland crash-recovery runtime and the exact-current-head
+Ubuntu UTM regression gates recorded below.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**
 
 Documentation commits after the audited implementation do not change the
 product score unless they are accompanied by implementation and evidence.
+
+### Current implementation wave — bounded XWayland crash recovery
+
+Implementation commit `fa1f839b746f748c74d3f147dc28f4bbf3c26d30` adds a
+session-scoped recovery budget to the Smithay XWayland bridge. When the X11 WM
+connection closes, the compositor now clears stale X11 surfaces and
+associations, removes the stale `SLOPOS_XWAYLAND_DISPLAY`, and starts a fresh
+XWayland instance while three recovery attempts remain. Once the budget is
+exhausted it records an explicit terminal state instead of entering an
+unbounded crash loop. The behavior-level budget test is included in the
+compositor unit suite. QA harness accounting was corrected by commit
+`92dcd78ae8e6c8200af2a6bd32f8095b79cc834b` to count standalone disconnect
+events rather than matching the restart log line twice.
+
+The exact Ubuntu UTM checkout is `/home/ubuntu/rust-slopos-qa-d1ea823` on
+`ubuntu@192.168.64.17`, detached at
+`92dcd78ae8e6c8200af2a6bd32f8095b79cc834b`. The bounded recovery harness
+repeatedly killed the ready XWayland child four times. Its machine-readable
+result records four ready events, four standalone WM disconnects, three
+replacement starts, compositor survival after each disconnect, and terminal
+budget exhaustion with no fifth start. Evidence is under
+`artifacts/qa/2026-08-09-xwayland-recovery-92dcd78-utm/`; the retained log
+shows displays `:3` through `:6` and the terminal recovery error.
+
+The exact-current-head Ubuntu UTM gates all exited `0`: `cargo fmt`, locked
+workspace check, locked workspace tests, Clippy with `-D warnings`, and the
+locked release workspace build. The full workspace log includes the new
+`tests::xwayland_recovery_budget_is_session_scoped_and_bounded` test with 9/9
+compositor binary tests passing. The canonical compositor contract rerun and
+schema-12 headless Wayland protocol gate also exited `0`. Evidence is under
+`artifacts/qa/2026-08-09-xwayland-gates-92dcd78-utm/`.
+
+This proves bounded XWayland process/WM recovery on the Ubuntu headless
+software path only. It does not prove rootless X11 scene integration, X11
+application rendering or input, clipboard/DnD compatibility with third-party
+clients, physical DRM/KMS, hardware, accessibility, packaging, performance
+budgets or long-running reliability. The overall SLOPOS-I verdict remains
+**63/100**; strict compositor completion advances conservatively from 76 to
+**77/100** because the explicit restart/recovery contract is now runtime
+observed, while the broader XWayland and compositor matrix remains open.
 
 ### Current implementation wave — DnD target-disconnect cancellation recovery
 
@@ -1090,7 +1131,7 @@ than aspirational.
 | UI and UX | **59** | Distinctive and coherent; the GPU image path is real, but typography, colour/scale polish, animation and integration remain alpha-grade |
 | Product functionality | **61** | Real shell, compositor, applications and Vision paths; Preview image interaction is broader, but many daily-driver workflows are incomplete |
 | Linux daily-driver readiness | **51** | Suitable for controlled development and QA, not yet for a non-technical user’s only desktop |
-| Compositor strict completion | **76** | Native clipboard, primary-selection, text/URI DnD and first-party text-input/IME are runtime-observed; hardware, input, displays, XWayland and compatibility gates remain |
+| Compositor strict completion | **77** | Native clipboard, primary-selection, text/URI DnD, first-party text-input/IME and bounded XWayland restart recovery are runtime-observed; hardware, input, displays, broad XWayland and compatibility gates remain |
 | Security and release readiness | **52** | Good session/filesystem hardening, incomplete sandbox, signing, packaging, upgrades and recovery |
 | Accessibility readiness | **38** | Meaningful AT-SPI work, incomplete live tree and Orca operation |
 | POSIX/FreeBSD portability | **22** | Direction is defined; implementation and native evidence remain early |
@@ -1175,10 +1216,10 @@ Passing CI proves engineering health. It does not erase these product gaps.
 | Rendering and frame scheduling | 9 | 12 | Direct scanout, occlusion, GPU recovery and physical pacing evidence |
 | Displays and scaling | 9 | 12 | Hotplug, mixed scale/refresh, rotation, migration and topology recovery |
 | External Wayland compatibility | 6 | 12 | GTK, Qt, Electron, browsers, office, media, games and popup-heavy apps |
-| XWayland | 4 | 8 | Rootless scene, override-redirect, clipboard/DnD, DPI, restart and application matrix |
+| XWayland | 5 | 8 | Rootless scene, override-redirect, clipboard/DnD, DPI and representative application matrix; bounded restart recovery is now runtime-observed |
 | HDR, VRR and colour | 3 | 6 | Physical capable hardware, metadata/presentation proof and full colour path |
 | Security, stability and release QA | 7 | 8 | Soaks, resource plateaus, fuzzing and hostile-client breadth |
-| **Total** | **76** | **100** | Native first-party text-input/IME is runtime-observed; external compatibility, hardware and reliability remain |
+| **Total** | **77** | **100** | Native first-party text-input/IME and bounded XWayland restart recovery are runtime-observed; external compatibility, hardware and reliability remain |
 
 ### Strong current compositor work
 
@@ -1191,6 +1232,8 @@ Passing CI proves engineering health. It does not erase these product gaps.
 - abrupt-client-disconnect recovery;
 - frame-pacing and work-area tests;
 - capability-driven HDR/VRR policy rather than fabricated support;
+- bounded XWayland restart recovery with explicit session budget and terminal
+  crash-loop state;
 - exact-commit CI contract.
 
 ### Remaining proof before 100
@@ -1199,7 +1242,8 @@ Passing CI proves engineering health. It does not erase these product gaps.
 - touch, touchpad gestures and multiple-device hotplug;
 - third-party DnD failure paths and application-level IME integration;
 - broad Wayland client matrix;
-- first-class XWayland;
+- first-class XWayland scene/application compatibility beyond the recovery
+  process;
 - HDR/VRR on capable displays;
 - direct scanout and GPU-reset recovery;
 - 24-hour idle and mixed-workload soaks;
