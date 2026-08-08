@@ -5,7 +5,7 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`b9ab5045107a230817d3814c0a70f680778b4c00`
+`7032c7dd1bad2583866d0e1172aa19fed1066a62`
 **Audit date:** 2026-08-09
 **Audit basis:** current-source review through the audited SHA, commit-delta
 review, exact-commit Ubuntu UTM build/test/lint/release evidence, retained
@@ -24,13 +24,48 @@ Ubuntu UTM regression gates recorded below, plus the exact-commit rootless
 XWayland scene and malformed-Spaces-persistence recovery gates at
 `3b6323a010138600296b82ff6f0e92c7413c82df`, and the exact-commit
 three-finger gesture policy/build/test gates at
-`b9ab5045107a230817d3814c0a70f680778b4c00`.
+`b9ab5045107a230817d3814c0a70f680778b4c00`, plus the exact-commit
+headless synthetic gesture runtime gate and full Ubuntu UTM regression gates
+at `7032c7dd1bad2583866d0e1172aa19fed1066a62`.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**
 
 Documentation commits after the audited implementation do not change the
 product score unless they are accompanied by implementation and evidence.
+
+### Current implementation wave — headless synthetic gesture runtime evidence
+
+Implementation commit `7032c7dd1bad2583866d0e1172aa19fed1066a62` adds an
+explicit, headless-only control path for `GestureSwipeBegin`,
+`GestureSwipeUpdate` and `GestureSwipeEnd`. The nested/headless compositor feeds
+those events through the same `WorkspaceSwipeRecognizer` and compositor-owned
+Space reducer used by the DRM/libinput path. The retained runtime gate proves
+Space 1 → Space 2 and Space 2 → Space 1 transitions, rejects a short swipe,
+rejects a cancelled swipe, and isolates persisted user Spaces with a temporary
+`XDG_DATA_HOME` fixture.
+
+The exact Ubuntu UTM checkout is
+`/home/ubuntu/rust-slopos-qa-xwayland-current-2` on
+`ubuntu@192.168.64.17`, detached at
+`7032c7dd1bad2583866d0e1172aa19fed1066a62`. The exact locked gates all exited
+`0` under `artifacts/qa/2026-08-09-exact-7032c7d-utm/`: format, workspace
+check, workspace tests, Clippy with `-D warnings`, and release workspace build.
+The workspace log records 175 compositor library tests, 12 compositor binary
+tests, 34 compositor contract tests, 17 compositor integration tests and 339
+shell tests with zero failures. The exact synthetic runtime result is under
+`artifacts/qa/2026-08-09-exact-7032c7d-utm/gesture-runtime/`; its machine-
+readable fields are `synthetic_next_verified=true`,
+`synthetic_previous_verified=true`, `short_gesture_rejected=true`,
+`cancelled_gesture_rejected=true`, `physical_input_verified=false` and
+`hardware_verified=false`.
+
+This is deterministic headless policy/runtime evidence only. It does not prove
+physical touchpad delivery, libinput device hotplug/resume, DRM/KMS, pixels or
+rendering, third-party compatibility, accessibility workflows, or hardware.
+The overall SLOPOS-I verdict remains **63/100** and strict compositor
+completion remains **77/100**; no score increase or 100/100 claim is justified
+from this synthetic gate.
 
 ### Current implementation wave — compositor-owned three-finger Space swipes
 
