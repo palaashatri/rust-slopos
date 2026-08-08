@@ -5,7 +5,7 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`92dcd78ae8e6c8200af2a6bd32f8095b79cc834b`
+`3b6323a010138600296b82ff6f0e92c7413c82df`
 **Audit date:** 2026-08-09
 **Audit basis:** current-source review through the audited SHA, commit-delta
 review, exact-commit Ubuntu UTM build/test/lint/release evidence, retained
@@ -20,13 +20,56 @@ and exact-commit compositor contract/headless protocol reruns recorded below.
 The current audit also includes the exact-commit App Store authenticity tests,
 target-disconnect DnD cancellation runtime, Ubuntu UTM Clippy/release
 validation, bounded XWayland crash-recovery runtime and the exact-current-head
-Ubuntu UTM regression gates recorded below.
+Ubuntu UTM regression gates recorded below, plus the exact-commit rootless
+XWayland scene and malformed-Spaces-persistence recovery gates at
+`3b6323a010138600296b82ff6f0e92c7413c82df`.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**
 
 Documentation commits after the audited implementation do not change the
 product score unless they are accompanied by implementation and evidence.
+
+### Current implementation wave — rootless XWayland scene and Spaces recovery
+
+Implementation commit `3b6323a010138600296b82ff6f0e92c7413c82df` connects
+rootless XWayland windows to a compositor-owned scene registry in both nested
+and DRM paths. The registry now carries X11 geometry, map/unmap/destroy
+lifecycle, Wayland-surface association, compositor-authoritative Spaces
+membership, output-aware visibility, keyboard-focus selection, override-redirect
+focus policy, and X11 move/resize grabs. XWayland disconnect cleanup removes
+stale scene entries and window memberships. The same wave adds bounded
+pre-Ready startup recovery and quarantines malformed persisted Spaces state
+before restoring a valid default model.
+
+The exact Ubuntu UTM checkout is
+`/home/ubuntu/rust-slopos-qa-xwayland-current-2` on
+`ubuntu@192.168.64.17`, detached at
+`3b6323a010138600296b82ff6f0e92c7413c82df`. The exact-commit XWayland gate
+exited `0` under
+`artifacts/qa/2026-08-09-exact-3b6323a-utm/`; its JSON records scene mapping,
+configure, keyboard-focus selection, unmap/destroy cleanup, compositor
+survival after client exit, and startup-watchdog recovery as true. The same
+JSON explicitly records `scene_rendered_verified`, `scene_hit_test_verified`,
+`rendering_verified`, `physical_input_verified`, `drm_verified`,
+`hardware_verified`, `nested_dri3_available`, and
+`broad_x11_compatibility_verified` as false.
+
+The exact-commit malformed-Spaces gate also exited `0` under that directory:
+the invalid `{"spaces":[]}` file was quarantined byte-for-byte and the
+compositor restored eight default Spaces with active Space 1. Before the
+commit, the source-equivalent UTM focused run passed format, the 31-test
+compositor completion contract, and the release compositor build under
+`artifacts/qa/2026-08-09-latest-edit-utm/`; those are not substituted for
+the exact-commit runtime provenance above.
+
+This proves rootless XWayland scene lifecycle and persisted-Spaces recovery on
+the Ubuntu headless/software path only. It does not prove X11 pixel rendering,
+scene hit-testing, clipboard/DnD compatibility with third-party clients,
+physical input, DRM/KMS, hardware, broad GTK/Qt/Electron/X11 compatibility,
+accessibility, packaging, performance budgets, or long-running reliability.
+The overall SLOPOS-I verdict remains **63/100**; strict compositor completion
+remains **77/100**, and no 100/100 claim is justified.
 
 ### Current implementation wave — bounded XWayland crash recovery
 
