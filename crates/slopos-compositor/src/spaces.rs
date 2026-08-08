@@ -53,6 +53,81 @@ pub enum MultiMonitorPolicy {
     IndependentPerDisplay,
 }
 
+/// Minimum accumulated horizontal movement for a three-finger Space swipe.
+///
+/// Libinput reports gesture deltas in logical compositor units. Keeping this
+/// threshold in the shared policy module makes both the DRM input path and its
+/// unit tests use the same contract.
+pub const WORKSPACE_SWIPE_MIN_DISTANCE: f64 = 80.0;
+
+/// Horizontal movement must dominate vertical movement by this ratio before
+/// a swipe is committed as a Space change. Diagonal/vertical gestures remain
+/// available to the focused client instead of unexpectedly switching Spaces.
+pub const WORKSPACE_SWIPE_HORIZONTAL_RATIO: f64 = 1.25;
+
+/// Authoritative Space action produced by a committed horizontal swipe.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WorkspaceSwipeAction {
+    /// A leftward swipe moves to the next ordered Space.
+    Next,
+    /// A rightward swipe moves to the previous ordered Space.
+    Previous,
+}
+
+/// Backend-neutral reducer for compositor-owned three-finger Space gestures.
+///
+/// The reducer does not own or mutate a [`SpacesModel`]. It only converts a
+/// physical gesture stream into a single action at gesture end; the backend
+/// then applies that action through its existing compositor-authoritative
+/// Space transition path. Gestures with fewer than three fingers, a dominant
+/// vertical component, non-finite deltas, or cancellation never commit.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct WorkspaceSwipeRecognizer {
+    fingers: u32,
+    delta_x: f64,
+    delta_y: f64,
+}
+
+impl WorkspaceSwipeRecognizer {
+    /// Start a new gesture, replacing any stale in-progress sample.
+    pub fn begin(&mut self, fingers: u32) {
+        self.fingers = fingers;
+        self.delta_x = 0.0;
+        self.delta_y = 0.0;
+    }
+
+    /// Accumulate one libinput swipe update. Invalid samples are ignored.
+    pub fn update(&mut self, delta_x: f64, delta_y: f64) {
+        if self.fingers < 3 || !delta_x.is_finite() || !delta_y.is_finite() {
+            return;
+        }
+        self.delta_x += delta_x;
+        self.delta_y += delta_y;
+    }
+
+    /// Finish the current gesture and return at most one compositor action.
+    /// The reducer is reset even when the gesture is cancelled or rejected.
+    pub fn end(&mut self, cancelled: bool) -> Option<WorkspaceSwipeAction> {
+        let horizontal = self.delta_x.abs();
+        let vertical = self.delta_y.abs();
+        let action = if !cancelled
+            && self.fingers >= 3
+            && horizontal >= WORKSPACE_SWIPE_MIN_DISTANCE
+            && horizontal >= vertical * WORKSPACE_SWIPE_HORIZONTAL_RATIO
+        {
+            if self.delta_x.is_sign_negative() {
+                Some(WorkspaceSwipeAction::Next)
+            } else {
+                Some(WorkspaceSwipeAction::Previous)
+            }
+        } else {
+            None
+        };
+        *self = Self::default();
+        action
+    }
+}
+
 /// Convert the compositor's model enum to its typed session-bus form.
 pub fn fullscreen_classification_to_wire(
     classification: FullscreenClassification,
@@ -2423,5 +2498,53 @@ mod tests {
         );
         model.validate().expect("retargeted policy remains valid");
         fs::remove_file(path).expect("remove policy fixture");
+    }
+
+    #[test]
+    fn workspace_swipe_reducer_commits_left_and_right_three_finger_actions() {
+        let mut recognizer = WorkspaceSwipeRecognizer::default();
+
+        recognizer.begin(3);
+        recognizer.update(-40.0, 2.0);
+        recognizer.update(-45.0, -1.0);
+        assert_eq!(recognizer.end(false), Some(WorkspaceSwipeAction::Next));
+
+        recognizer.begin(4);
+        recognizer.update(95.0, 1.0);
+        assert_eq!(recognizer.end(false), Some(WorkspaceSwipeAction::Previous));
+    }
+
+    #[test]
+    fn workspace_swipe_reducer_rejects_non_committing_gestures_and_resets() {
+        let mut recognizer = WorkspaceSwipeRecognizer::default();
+
+        recognizer.begin(2);
+        recognizer.update(-200.0, 0.0);
+        assert_eq!(recognizer.end(false), None);
+
+        recognizer.begin(3);
+        recognizer.update(-70.0, 0.0);
+        assert_eq!(recognizer.end(false), None);
+
+        recognizer.begin(3);
+        recognizer.update(-100.0, -90.0);
+        assert_eq!(recognizer.end(false), None);
+
+        recognizer.begin(3);
+        recognizer.update(-100.0, 0.0);
+        assert_eq!(recognizer.end(true), None);
+
+        // End always clears state, so a new update cannot inherit the prior
+        // gesture's distance or finger count.
+        recognizer.update(-100.0, 0.0);
+        assert_eq!(recognizer.end(false), None);
+    }
+
+    #[test]
+    fn workspace_swipe_reducer_ignores_non_finite_samples() {
+        let mut recognizer = WorkspaceSwipeRecognizer::default();
+        recognizer.begin(3);
+        recognizer.update(f64::NAN, f64::INFINITY);
+        assert_eq!(recognizer.end(false), None);
     }
 }

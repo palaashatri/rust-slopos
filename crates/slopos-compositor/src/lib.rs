@@ -65,6 +65,8 @@ pub use spaces::{
     fullscreen_classification_to_wire, multi_monitor_policy_from_wire,
     multi_monitor_policy_to_wire, new_session_epoch, FullscreenClassification, MultiMonitorPolicy,
     Space, SpaceId, SpaceOverview, SpaceTarget, SpacesCommand, SpacesError, SpacesModel,
+    WorkspaceSwipeAction, WorkspaceSwipeRecognizer, WORKSPACE_SWIPE_HORIZONTAL_RATIO,
+    WORKSPACE_SWIPE_MIN_DISTANCE,
 };
 pub use window_state::{
     calculate_presentation_geometry, transition_presentation_state, PresentationTransition,

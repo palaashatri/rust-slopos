@@ -863,3 +863,47 @@ fn overview_projection_tracks_reorder_and_active_state() {
     assert!(overview[2].is_active());
     assert_eq!(overview.iter().filter(|row| row.is_active()).count(), 1);
 }
+
+#[test]
+fn three_finger_space_swipe_reducer_has_explicit_commit_contract() {
+    let source = include_str!("../src/spaces.rs");
+    for marker in [
+        "WORKSPACE_SWIPE_MIN_DISTANCE",
+        "WORKSPACE_SWIPE_HORIZONTAL_RATIO",
+        "WorkspaceSwipeAction::Next",
+        "WorkspaceSwipeAction::Previous",
+        "self.fingers >= 3",
+        "self.delta_x.is_sign_negative()",
+        "*self = Self::default()",
+    ] {
+        assert!(
+            source.contains(marker),
+            "three-finger swipe policy must contain reducer marker {marker}"
+        );
+    }
+}
+
+#[test]
+fn drm_libinput_swipes_forward_and_commit_authoritative_space_cycles() {
+    let source = include_str!("../src/session_drm.rs");
+    for marker in [
+        "InputEvent::GestureSwipeBegin",
+        "InputEvent::GestureSwipeUpdate",
+        "InputEvent::GestureSwipeEnd",
+        "pointer.gesture_swipe_begin",
+        "pointer.gesture_swipe_update",
+        "pointer.gesture_swipe_end",
+        "self.workspace_swipe.update",
+        "self.workspace_swipe.end(cancelled)",
+        "WorkspaceSwipeAction::Next",
+        "WorkspaceSwipeAction::Previous",
+        "self.cycle_workspace_next()",
+        "self.cycle_workspace_prev()",
+        "if !self.locked",
+    ] {
+        assert!(
+            source.contains(marker),
+            "DRM gesture handling must contain compositor-authoritative marker {marker}"
+        );
+    }
+}

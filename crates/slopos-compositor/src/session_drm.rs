@@ -129,8 +129,9 @@ use crate::{
     surface_tree_root, transition_presentation_state, CompositorBackendKind, DisplayPolicy,
     DrmPresentationStage, InteractiveGrab, InteractiveGrabKind, OutputScale,
     PointerConstraintMotion, ResizeEdges, SpaceId, SpaceTarget, SpacesError, SpacesModel,
-    WindowGeometry, WindowPresentationState, WorkspaceId, WorkspaceState, DEFAULT_OUTPUT_H,
-    DEFAULT_OUTPUT_W, DEFAULT_WINDOW_H, DEFAULT_WINDOW_W,
+    WindowGeometry, WindowPresentationState, WorkspaceId, WorkspaceState, WorkspaceSwipeAction,
+    WorkspaceSwipeRecognizer, DEFAULT_OUTPUT_H, DEFAULT_OUTPUT_W, DEFAULT_WINDOW_H,
+    DEFAULT_WINDOW_W,
 };
 use slopos_bus::{
     write_display_policy_snapshot, write_outputs_snapshot, write_spaces_snapshot,
@@ -1377,6 +1378,7 @@ pub fn run_drm_session() -> Result<()> {
         active: Arc::new(AtomicBool::new(true)),
         udev_events: Vec::new(),
         pointer_location: Point::from((w as f64 / 2.0, h as f64 / 2.0)),
+        workspace_swipe: WorkspaceSwipeRecognizer::default(),
         output_size: (w, h),
         serial: 0,
         clipboard_source: None,
@@ -1761,6 +1763,9 @@ struct DrmSessionState {
     active: Arc<AtomicBool>,
     udev_events: Vec<String>,
     pointer_location: Point<f64, Logical>,
+    /// Reducer for compositor-owned three-finger horizontal Space gestures.
+    /// Client gesture delivery remains separate and is still forwarded below.
+    workspace_swipe: WorkspaceSwipeRecognizer,
     output_size: (i32, i32),
     /// Physical scanout size; `output_size` is the logical compositor space.
     physical_output_size: (i32, i32),
@@ -2824,8 +2829,9 @@ impl DrmSessionState {
         event: smithay::backend::input::InputEvent<LibinputInputBackend>,
     ) {
         use smithay::backend::input::{
-            AbsolutePositionEvent, ButtonState, Event as _, InputEvent, KeyState, KeyboardKeyEvent,
-            PointerButtonEvent, PointerMotionEvent,
+            AbsolutePositionEvent, ButtonState, Event as _, GestureBeginEvent as _,
+            GestureEndEvent as _, GestureSwipeUpdateEvent as _, InputEvent, KeyState,
+            KeyboardKeyEvent, PointerButtonEvent, PointerMotionEvent,
         };
         use smithay::input::keyboard::{FilterResult, Keysym};
         use smithay::input::pointer::ButtonEvent;
@@ -2896,6 +2902,70 @@ impl DrmSessionState {
                         FilterResult::Forward
                     },
                 );
+            }
+            InputEvent::GestureSwipeBegin { event } => {
+                let fingers = event.fingers();
+                let time = event.time_msec();
+                let serial = self.next_serial();
+                self.workspace_swipe.begin(fingers);
+                if let Some(pointer) = self.seat.get_pointer() {
+                    pointer.gesture_swipe_begin(
+                        self,
+                        &GestureSwipeBeginEvent {
+                            serial,
+                            time,
+                            fingers,
+                        },
+                    );
+                }
+                tracing::debug!(fingers, "libinput swipe gesture began");
+                self.request_redraw();
+            }
+            InputEvent::GestureSwipeUpdate { event } => {
+                let delta_x = event.delta_x();
+                let delta_y = event.delta_y();
+                let time = event.time_msec();
+                self.workspace_swipe.update(delta_x, delta_y);
+                if let Some(pointer) = self.seat.get_pointer() {
+                    pointer.gesture_swipe_update(
+                        self,
+                        &GestureSwipeUpdateEvent {
+                            time,
+                            delta: Point::from((delta_x, delta_y)),
+                        },
+                    );
+                }
+                self.request_redraw();
+            }
+            InputEvent::GestureSwipeEnd { event } => {
+                let cancelled = event.cancelled();
+                let time = event.time_msec();
+                let serial = self.next_serial();
+                let action = self.workspace_swipe.end(cancelled);
+                if let Some(pointer) = self.seat.get_pointer() {
+                    pointer.gesture_swipe_end(
+                        self,
+                        &GestureSwipeEndEvent {
+                            serial,
+                            time,
+                            cancelled,
+                        },
+                    );
+                }
+                if !self.locked {
+                    match action {
+                        Some(WorkspaceSwipeAction::Next) => {
+                            tracing::info!("three-finger swipe committed: next Space");
+                            self.cycle_workspace_next();
+                        }
+                        Some(WorkspaceSwipeAction::Previous) => {
+                            tracing::info!("three-finger swipe committed: previous Space");
+                            self.cycle_workspace_prev();
+                        }
+                        None => {}
+                    }
+                }
+                self.request_redraw();
             }
             InputEvent::PointerMotionAbsolute { event } => {
                 let x = event.x_transformed(self.output_size.0);
