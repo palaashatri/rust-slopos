@@ -227,6 +227,22 @@ fn scale_surface_dimension(value: u32, buffer_scale: u32) -> u32 {
     value.saturating_mul(buffer_scale.max(1)).max(1)
 }
 
+/// Return the initial layer-shell size request for each chrome surface.
+///
+/// A surface anchored to both horizontal edges must request a zero width so
+/// the compositor can fill the current output.  Passing the shell's startup
+/// fallback width here pins the layer to that stale width when a shell is
+/// launched directly (or while output metadata is being refreshed), leaving
+/// an unpainted strip on a wider DRM output.
+fn initial_layer_size(kind: ChromeSurfaceKind, _width: u32, _height: u32) -> (u32, u32) {
+    match kind {
+        ChromeSurfaceKind::Background => (0, 0),
+        ChromeSurfaceKind::Menu => (0, MENU_H),
+        ChromeSurfaceKind::Dock => (0, DOCK_H),
+        ChromeSurfaceKind::MenuPopup | ChromeSurfaceKind::SpacesOverview => (1, 1),
+    }
+}
+
 /// Main entry: exclusive Top/Bottom chrome + Background desktop.
 pub fn run_layer_desktop(content: Box<dyn Widget>, width: u32, height: u32) -> anyhow::Result<()> {
     let conn = Connection::connect_to_env().map_err(|e| anyhow!("wayland connect: {}", e))?;
@@ -286,7 +302,8 @@ pub fn run_layer_desktop(content: Box<dyn Widget>, width: u32, height: u32) -> a
     bg_layer.set_anchor(Anchor::Top | Anchor::Bottom | Anchor::Left | Anchor::Right);
     bg_layer.set_exclusive_zone(0);
     bg_layer.set_keyboard_interactivity(KeyboardInteractivity::OnDemand);
-    bg_layer.set_size(width, height);
+    let (bg_width, bg_height) = initial_layer_size(ChromeSurfaceKind::Background, width, height);
+    bg_layer.set_size(bg_width, bg_height);
     bg_wl.set_buffer_scale(buffer_scale as i32);
     bg_wl.commit();
 
@@ -303,7 +320,8 @@ pub fn run_layer_desktop(content: Box<dyn Widget>, width: u32, height: u32) -> a
     menu_layer.set_anchor(Anchor::Top | Anchor::Left | Anchor::Right);
     menu_layer.set_exclusive_zone(MENU_H as i32);
     menu_layer.set_keyboard_interactivity(KeyboardInteractivity::OnDemand);
-    menu_layer.set_size(width, MENU_H);
+    let (menu_width, menu_height) = initial_layer_size(ChromeSurfaceKind::Menu, width, MENU_H);
+    menu_layer.set_size(menu_width, menu_height);
     menu_wl.set_buffer_scale(buffer_scale as i32);
     menu_wl.commit();
 
@@ -320,7 +338,8 @@ pub fn run_layer_desktop(content: Box<dyn Widget>, width: u32, height: u32) -> a
     dock_layer.set_anchor(Anchor::Bottom | Anchor::Left | Anchor::Right);
     dock_layer.set_exclusive_zone(DOCK_H as i32);
     dock_layer.set_keyboard_interactivity(KeyboardInteractivity::OnDemand);
-    dock_layer.set_size(width, DOCK_H);
+    let (dock_width, dock_height) = initial_layer_size(ChromeSurfaceKind::Dock, width, DOCK_H);
+    dock_layer.set_size(dock_width, dock_height);
     dock_wl.set_buffer_scale(buffer_scale as i32);
     dock_wl.commit();
 
@@ -1202,6 +1221,34 @@ impl Dispatch<ZwlrLayerSurfaceV1, ChromeSurfaceKind> for LayerDesktopState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn full_width_chrome_requests_compositor_sized_layers() {
+        assert_eq!(
+            initial_layer_size(ChromeSurfaceKind::Background, 1024, 768),
+            (0, 0)
+        );
+        assert_eq!(
+            initial_layer_size(ChromeSurfaceKind::Menu, 1024, 768),
+            (0, MENU_H)
+        );
+        assert_eq!(
+            initial_layer_size(ChromeSurfaceKind::Dock, 1024, 768),
+            (0, DOCK_H)
+        );
+    }
+
+    #[test]
+    fn popup_layers_keep_explicit_initial_size() {
+        assert_eq!(
+            initial_layer_size(ChromeSurfaceKind::MenuPopup, 1280, 800),
+            (1, 1)
+        );
+        assert_eq!(
+            initial_layer_size(ChromeSurfaceKind::SpacesOverview, 1280, 800),
+            (1, 1)
+        );
+    }
 
     #[test]
     fn wayland_key_uses_xkb_offset_before_evdev_lookup() {
