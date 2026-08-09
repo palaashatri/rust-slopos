@@ -5,7 +5,7 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`9c88d17c8d1a5cf7018cd12e74d4f2e47be53184`
+`efaf2c9814690cb89271a811606fabbb590498b6`
 **Audit date:** 2026-08-09
 **Audit basis:** current-source review through the audited SHA, commit-delta
 review, exact-commit Ubuntu UTM build/test/lint/release evidence, retained
@@ -30,10 +30,51 @@ at `7032c7dd1bad2583866d0e1172aa19fed1066a62`, plus the exact-commit
 compositor output-migration gates at
 `a669059be4e6a1f43a8e636a239aa89de356396d` and the exact-commit Settings
 output-migration control gates at
-`9c88d17c8d1a5cf7018cd12e74d4f2e47be53184`.
+`9c88d17c8d1a5cf7018cd12e74d4f2e47be53184`, plus the exact-commit live
+widget-tree AT-SPI host/UTM gates and explicit Wayland plus `dbus-run-session`
+TextEdit and Settings export probes recorded below.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**
+
+### Current implementation wave — live widget accessibility bridge
+
+Implementation commit `efaf2c9814690cb89271a811606fabbb590498b6` projects each
+live SDK window recursively through the toolkit `Widget` tree into AT-SPI.
+Generated nodes retain their live `WidgetId`, refreshed bounds, enabled,
+visible and focused state, and stable object paths across sibling reorder,
+addition and removal. Authored semantic child lists remain authoritative, so
+custom controls are not duplicated. Nested stable descendants can receive
+focus state and Focus/StateChanged events. SDK applications register after
+initial layout, synchronize after dispatch, menu actions, layout, paint and
+update, and retry registration at most once per second when a session/a11y bus
+was not ready at startup. Finder, Settings and TextEdit now expose semantic
+Window roots.
+
+The host format/check/test/Clippy/release gates all exited `0` under
+`artifacts/qa/2026-08-09-a11y-live-bridge-host/`. The exact Ubuntu UTM checkout
+at this SHA also passed all five locked gates under
+`artifacts/qa/2026-08-09-a11y-live-bridge-utm-r2/`; the workspace test log
+contains zero failing tests, including 343 shell tests and the expanded live
+accessibility suites.
+
+The explicit runtime probe under
+`artifacts/qa/2026-08-09-live-atspi-efaf2c9-r3/` ran the release TextEdit client
+against an explicit headless Wayland socket inside `dbus-run-session`. The
+dedicated AT-SPI bus exposed 17 stable widget objects; a text-field object
+introspected with Accessible, Action, Text and Component interfaces, returned
+role `text`, and served `GetText`. The Settings probe under
+`artifacts/qa/2026-08-09-live-settings-atspi-efaf2c9/` exposed a root named
+`Settings` and 28 live widget objects on the same explicit Wayland/D-Bus path.
+
+This proves live AT-SPI object export and recursive widget projection on the
+Ubuntu software/headless path. It does not prove Orca workflows (Orca is not
+installed in the guest), keyboard-only completion of the entire desktop,
+caret/selection synchronization under real typing, high-contrast or reduced-
+motion acceptance, physical input, hardware, third-party accessibility, or
+long-running reliability. Accessibility readiness advances conservatively from
+38 to **46/100** and accessibility infrastructure from 55 to **64/100**; the
+overall SLOPOS-I verdict remains **63/100**.
 
 Documentation commits after the audited implementation do not change the
 product score unless they are accompanied by implementation and evidence.
@@ -1294,7 +1335,7 @@ than aspirational.
 | Linux daily-driver readiness | **51** | Suitable for controlled development and QA, not yet for a non-technical user’s only desktop |
 | Compositor strict completion | **77** | Native clipboard, primary-selection, text/URI DnD, first-party text-input/IME and bounded XWayland restart recovery are runtime-observed; hardware, input, displays, broad XWayland and compatibility gates remain |
 | Security and release readiness | **52** | Good session/filesystem hardening, incomplete sandbox, signing, packaging, upgrades and recovery |
-| Accessibility readiness | **38** | Meaningful AT-SPI work, incomplete live tree and Orca operation |
+| Accessibility readiness | **46** | Live recursive AT-SPI export is runtime-observed; Orca and full desktop workflows remain unproven |
 | POSIX/FreeBSD portability | **22** | Direction is defined; implementation and native evidence remain early |
 | **Overall SLOPOS-I** | **63** | Strong custom desktop alpha with substantial productionisation remaining |
 
@@ -1320,7 +1361,7 @@ The most important blockers are:
 6. Settings is authoritative for the new Spaces slice, but not for all system
    services;
 7. first-party applications remain incomplete for normal daily use;
-8. accessibility is not yet live and Orca-complete;
+8. accessibility is live for the tested first-party widget paths but not yet Orca-complete;
 9. sandbox, permissions, publisher trust and package signing are incomplete;
 10. installation, upgrade, rollback, recovery and long soaks are not proven.
 
@@ -1343,7 +1384,7 @@ Passing CI proves engineering health. It does not erase these product gaps.
 | Keyboard navigation | 72 | Shared focus management and keyboard activation are substantive |
 | Pointer dispatch and capture | 72 | Shared dispatcher and capture are real; compositor interaction evidence remains incomplete |
 | Editing interaction | 64 | UTF-8-safe selections and caret insertion exist; graphemes, bidi and app-level IME remain open |
-| Accessibility UX | 46 | AT-SPI structure exists; live-tree and assistive workflows remain incomplete |
+| Accessibility UX | 46 | Live recursive AT-SPI tree and first-party export are observed; assistive workflows remain incomplete |
 | Animation and motion | 27 | No production transition system for Spaces, windows, Dock and notifications |
 | Scaling polish | 53 | Logical scaling exists; mixed-scale visual matrix is incomplete |
 | Theme/font customisation | 57 | Themes exist; font profiles and live Settings integration are incomplete |
@@ -1444,13 +1485,14 @@ Passing CI proves engineering health. It does not erase these product gaps.
 | Text editing model | 61 | UTF-8-safe selection and insertion; grapheme, bidi, IME and visual lines remain |
 | Font infrastructure | 70 | Discovery, install, hashes, duplicates, enable state, roles and profiles are substantial |
 | Font product integration | 36 | No complete Font Manager or live role resolution across the desktop |
-| Accessibility infrastructure | 55 | AT-SPI roles, actions, events, component and text work exist |
-| Accessibility daily-driver usability | 38 | Snapshot tree, shallow nesting and incomplete Orca workflows remain |
+| Accessibility infrastructure | 64 | Recursive live AT-SPI roles, actions, events, component and text export are runtime-observed |
+| Accessibility daily-driver usability | 45 | First-party live export works on the tested Wayland/D-Bus path; Orca, keyboard-only completion and full desktop workflows remain |
 | **Platform layer overall** | **58** | Good foundations, major release-blocking integration work |
 
-The current accessibility source itself records best-effort D-Bus events,
-snapshot trees, shallow nesting and incomplete live text updates. Production
-claims are prohibited until assistive-technology workflows are demonstrated.
+The current accessibility source itself records best-effort D-Bus events and
+recursive live trees, while live caret/selection synchronization and
+assistive-technology workflows remain incomplete. Production claims are
+prohibited until those workflows are demonstrated.
 
 ---
 
