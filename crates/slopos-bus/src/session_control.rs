@@ -910,6 +910,20 @@ mod tests {
     }
 
     #[test]
+    fn active_window_output_move_request_round_trips_through_json() {
+        let request = SessionControlRequest::Spaces {
+            command: SpacesControlCommand::MoveActiveWindowToOutput {
+                output_id: "HDMI-A-1".into(),
+            },
+        };
+        let encoded = serde_json::to_vec(&request).unwrap();
+        assert_eq!(
+            serde_json::from_slice::<SessionControlRequest>(&encoded).unwrap(),
+            request
+        );
+    }
+
+    #[test]
     fn output_reconfiguration_request_round_trips_through_json() {
         let request = SessionControlRequest::ReconfigureOutputs {
             layout: "LEFT:800x600@0,0:s100;RIGHT:1024x768@800,0:s100".into(),

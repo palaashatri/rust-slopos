@@ -2168,6 +2168,28 @@ impl DrmSessionState {
         }
     }
 
+    /// Validate the focused-window output-migration request against the live
+    /// DRM connector inventory. This backend currently owns one connector;
+    /// accepting that connector is an idempotent no-op, while another target
+    /// is rejected until real multi-connector KMS migration exists.
+    fn move_active_window_to_output(&mut self, output_id: &str) -> Result<SpaceId, SpacesError> {
+        if self.output_name != output_id {
+            return Err(SpacesError::InvalidOutputId(output_id.to_owned()));
+        }
+        let active_window_id = self
+            .activated_window_id
+            .as_deref()
+            .ok_or_else(|| SpacesError::InvalidWindowId(String::new()))?;
+        if !self
+            .windows
+            .iter()
+            .any(|window| window.window_id == active_window_id)
+        {
+            return Err(SpacesError::InvalidWindowId(active_window_id.to_owned()));
+        }
+        Ok(self.spaces.active_space())
+    }
+
     fn apply_spaces_command(&mut self, command: SpacesControlCommand) {
         let policy_app_id = match &command {
             SpacesControlCommand::SetApplicationPolicy { app_id, .. } => Some(app_id.clone()),
@@ -2220,6 +2242,9 @@ impl DrmSessionState {
                     target,
                 )
                 .map(|()| self.spaces.active_space()),
+            SpacesControlCommand::MoveActiveWindowToOutput { output_id } => {
+                self.move_active_window_to_output(&output_id)
+            }
             SpacesControlCommand::SetWallpaper { id, wallpaper } => SpaceId::new(id)
                 .ok_or(SpacesError::InvalidSpaceId(id))
                 .and_then(|id| self.spaces.set_wallpaper(id, wallpaper).map(|()| id)),

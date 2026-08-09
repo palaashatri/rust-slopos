@@ -58,7 +58,8 @@ pub fn register_wayland_display_source<'event_loop, State: 'static>(
 pub use output_assignment::{
     geometries_intersect, intersecting_output_indices, normalize_laid_out_outputs, output_geometry,
     output_index_for_geometry, output_index_for_point, output_layout_bounds,
-    remap_geometry_between_outputs, validated_runtime_output_layout, MAX_RUNTIME_OUTPUTS,
+    plan_window_output_migration, remap_geometry_between_outputs, validated_runtime_output_layout,
+    WindowOutputMigration, MAX_RUNTIME_OUTPUTS,
 };
 pub use spaces::{
     application_target_from_wire, application_target_to_wire, fullscreen_classification_from_wire,

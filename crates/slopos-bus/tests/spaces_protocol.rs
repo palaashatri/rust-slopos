@@ -27,6 +27,9 @@ fn spaces_control_commands_round_trip_through_session_control_json() {
         SpacesControlCommand::MoveActiveWindow {
             target: SpaceTargetWire::Id { id: 22 },
         },
+        SpacesControlCommand::MoveActiveWindowToOutput {
+            output_id: "HDMI-A-1".to_string(),
+        },
         SpacesControlCommand::SetWallpaper {
             id: 11,
             wallpaper: Some("wallpapers/work.png".to_string()),
@@ -128,6 +131,40 @@ fn move_active_window_rejects_missing_or_invalid_target() {
         }
     });
     assert!(serde_json::from_value::<SessionControlRequest>(invalid_target).is_err());
+}
+
+#[test]
+fn move_active_window_to_output_wire_shape_is_explicitly_tagged() {
+    let request = SessionControlRequest::Spaces {
+        command: SpacesControlCommand::MoveActiveWindowToOutput {
+            output_id: "HDMI-A-1".to_string(),
+        },
+    };
+    let encoded = serde_json::to_value(&request).expect("encode output move request");
+    assert_eq!(
+        encoded,
+        serde_json::json!({
+            "Spaces": {
+                "command": {
+                    "command": "move_active_window_to_output",
+                    "output_id": "HDMI-A-1"
+                }
+            }
+        })
+    );
+    serde_json::from_value::<SessionControlRequest>(encoded).expect("decode output move request");
+}
+
+#[test]
+fn move_active_window_to_output_rejects_missing_identifier() {
+    let missing_output = serde_json::json!({
+        "Spaces": {
+            "command": {
+                "command": "move_active_window_to_output"
+            }
+        }
+    });
+    assert!(serde_json::from_value::<SessionControlRequest>(missing_output).is_err());
 }
 
 #[test]

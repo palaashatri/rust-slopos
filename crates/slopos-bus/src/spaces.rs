@@ -151,6 +151,13 @@ pub enum SpacesControlCommand {
     MoveActiveWindow {
         target: SpaceTargetWire,
     },
+    /// Move the compositor's currently focused native window to a named
+    /// output while preserving its presentation state and restore metadata.
+    /// XWayland and unavailable connectors are rejected by the compositor
+    /// rather than being represented as a shell-side geometry mutation.
+    MoveActiveWindowToOutput {
+        output_id: String,
+    },
     SetWallpaper {
         id: u64,
         wallpaper: Option<String>,

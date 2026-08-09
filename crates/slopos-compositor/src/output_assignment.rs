@@ -4,7 +4,10 @@
 //! popups and restore geometry on one real output rather than treating the
 //! entire multi-monitor canvas as a single monitor.
 
-use crate::{parse_outputs_layout_spec, LaidOutOutput, WindowGeometry};
+use crate::{
+    calculate_presentation_geometry, clamp_window_to_work_area, parse_outputs_layout_spec,
+    LaidOutOutput, WindowGeometry, WindowPresentationState, WindowRestoreState,
+};
 use std::collections::HashSet;
 
 /// Maximum number of logical outputs accepted from the live session-control path.
@@ -107,6 +110,55 @@ pub fn remap_geometry_between_outputs(
         width,
         height,
     )
+}
+
+/// Pure geometry transaction for moving one compositor-owned window between
+/// outputs.  Backends apply the returned geometry and update their protocol
+/// surface/configure state only after validating the active window and target
+/// connector, so an invalid request cannot partially mutate either record.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct WindowOutputMigration {
+    pub geometry: WindowGeometry,
+    pub restore_geometry: Option<WindowGeometry>,
+}
+
+pub fn plan_window_output_migration(
+    state: WindowPresentationState,
+    current_geometry: WindowGeometry,
+    restore_state: Option<&WindowRestoreState>,
+    old_output: WindowGeometry,
+    new_output: WindowGeometry,
+    new_work_area: WindowGeometry,
+) -> WindowOutputMigration {
+    let remapped_current = remap_geometry_between_outputs(current_geometry, old_output, new_output);
+    let restore_geometry = restore_state.map(|restore| {
+        clamp_window_to_work_area(
+            remap_geometry_between_outputs(restore.normal_geometry, old_output, new_output),
+            new_work_area,
+        )
+    });
+    let normal_geometry = restore_geometry.unwrap_or(remapped_current);
+    let preferred_size = restore_state
+        .map(|restore| {
+            (
+                restore.normal_geometry.width,
+                restore.normal_geometry.height,
+            )
+        })
+        .or(Some((current_geometry.width, current_geometry.height)));
+    let geometry = match state {
+        WindowPresentationState::Normal | WindowPresentationState::Minimized => {
+            clamp_window_to_work_area(remapped_current, new_work_area)
+        }
+        WindowPresentationState::Fullscreen => new_output,
+        state => {
+            calculate_presentation_geometry(new_work_area, state, preferred_size, normal_geometry)
+        }
+    };
+    WindowOutputMigration {
+        geometry,
+        restore_geometry,
+    }
 }
 
 /// Convert a logical output description into compositor geometry.
@@ -373,6 +425,46 @@ mod tests {
             ),
             WindowGeometry::new(0, 0, 640, 480)
         );
+    }
+
+    #[test]
+    fn output_migration_preserves_normal_size_and_clamps_restore_state() {
+        let old_output = WindowGeometry::new(0, 0, 1920, 1080);
+        let new_output = WindowGeometry::new(1920, 0, 1280, 800);
+        let work_area = WindowGeometry::new(1920, 24, 1280, 776);
+        let restore = WindowRestoreState::new(
+            WindowGeometry::new(1600, 900, 640, 480),
+            WindowPresentationState::Normal,
+            "DP-1",
+            1,
+        );
+        let planned = plan_window_output_migration(
+            WindowPresentationState::SmartZoomed,
+            WindowGeometry::new(900, 200, 1000, 700),
+            Some(&restore),
+            old_output,
+            new_output,
+            work_area,
+        );
+        assert_eq!(planned.geometry, WindowGeometry::new(2240, 172, 640, 480));
+        assert_eq!(
+            planned.restore_geometry,
+            Some(WindowGeometry::new(2560, 320, 640, 480))
+        );
+    }
+
+    #[test]
+    fn output_migration_fullscreen_uses_target_output_not_work_area() {
+        let planned = plan_window_output_migration(
+            WindowPresentationState::Fullscreen,
+            WindowGeometry::new(20, 20, 400, 300),
+            None,
+            WindowGeometry::new(0, 0, 800, 600),
+            WindowGeometry::new(800, 40, 1200, 900),
+            WindowGeometry::new(800, 64, 1200, 876),
+        );
+        assert_eq!(planned.geometry, WindowGeometry::new(800, 40, 1200, 900));
+        assert_eq!(planned.restore_geometry, None);
     }
 
     #[test]

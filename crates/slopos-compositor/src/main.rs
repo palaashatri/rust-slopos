@@ -51,7 +51,7 @@ mod linux {
         intersecting_output_indices, move_to_top, multi_monitor_policy_from_wire,
         multi_monitor_policy_to_wire, new_session_epoch, next_cascade_offset, output_geometry,
         output_index_for_geometry, output_index_for_point, output_scale_summary,
-        pointer_grab_request_is_valid_for_window, prefer_full_redraw,
+        plan_window_output_migration, pointer_grab_request_is_valid_for_window, prefer_full_redraw,
         register_wayland_display_source, remap_geometry_between_outputs,
         resolve_laid_out_outputs_from_env, selection_bytes_for_mime_with_text_fallback,
         session_mode_note, surface_tree_root, text_input_capability_from_env,
@@ -1380,6 +1380,9 @@ mod linux {
                         .move_active_window(active_window_id.as_deref(), known_window_ids, target)
                         .map(|()| self.spaces.active_space())
                 }
+                SpacesControlCommand::MoveActiveWindowToOutput { output_id } => {
+                    self.move_active_window_to_output(&output_id)
+                }
                 SpacesControlCommand::SetWallpaper { id, wallpaper } => SpaceId::new(id)
                     .ok_or(SpacesError::InvalidSpaceId(id))
                     .and_then(|id| self.spaces.set_wallpaper(id, wallpaper).map(|()| id)),
@@ -2210,6 +2213,92 @@ mod linux {
             let new = self.windows[idx].geometry();
             let id = self.windows[idx].window_id.clone();
             self.note_window_geometry_change(&id, old, new);
+        }
+
+        /// Move the focused native window to a compositor-owned output.
+        ///
+        /// The target connector and active native toplevel are validated
+        /// before any window or restore metadata is changed.  XWayland focus
+        /// has no native `MappedWindow` geometry record in this backend, so it
+        /// is rejected explicitly instead of silently moving only shell
+        /// bookkeeping.
+        fn move_active_window_to_output(
+            &mut self,
+            output_id: &str,
+        ) -> Result<SpaceId, SpacesError> {
+            let target_index = self
+                .output_names
+                .iter()
+                .position(|name| name == output_id)
+                .ok_or_else(|| SpacesError::InvalidOutputId(output_id.to_owned()))?;
+            let active_window_id = self.activated_window_id.clone().ok_or_else(|| {
+                if self.xwayland_keyboard_focus.is_some() {
+                    SpacesError::InvalidWindowId(
+                        "focused XWayland window output migration is not implemented".to_owned(),
+                    )
+                } else {
+                    SpacesError::InvalidWindowId(String::new())
+                }
+            })?;
+            let window_index = self
+                .windows
+                .iter()
+                .position(|window| window.window_id == active_window_id)
+                .ok_or_else(|| SpacesError::InvalidWindowId(active_window_id.clone()))?;
+            let target_output = self
+                .laid_out_outputs
+                .get(target_index)
+                .map(output_geometry)
+                .ok_or_else(|| SpacesError::InvalidOutputId(output_id.to_owned()))?;
+            let target_work_area = self.work_area_for_output_index(target_index);
+            let current_geometry = self.windows[window_index].geometry();
+            let current_state = self.windows[window_index].presentation_state;
+            let restore_state = self.windows[window_index].restore_state.clone();
+            let old_index = output_index_for_geometry(&self.laid_out_outputs, current_geometry)
+                .unwrap_or(target_index);
+            let old_output = self
+                .laid_out_outputs
+                .get(old_index)
+                .map(output_geometry)
+                .unwrap_or(target_output);
+            let migration = plan_window_output_migration(
+                current_state,
+                current_geometry,
+                restore_state.as_ref(),
+                old_output,
+                target_output,
+                target_work_area,
+            );
+
+            let old_geometry = current_geometry;
+            self.windows[window_index].position =
+                Point::from((migration.geometry.x, migration.geometry.y));
+            self.windows[window_index].size =
+                Size::from((migration.geometry.width, migration.geometry.height));
+            if let Some(restore) = self.windows[window_index].restore_state.as_mut() {
+                if let Some(normal_geometry) = migration.restore_geometry {
+                    restore.normal_geometry = normal_geometry;
+                }
+                restore.output_id = output_id.to_owned();
+            }
+            let toplevel = self.windows[window_index].toplevel.clone();
+            toplevel.with_pending_state(|state| {
+                state.size = Some(Size::from((
+                    migration.geometry.width,
+                    migration.geometry.height,
+                )));
+            });
+            toplevel.send_configure();
+            self.note_window_geometry_change(&active_window_id, old_geometry, migration.geometry);
+            self.sync_all_window_output_membership();
+            self.request_full_redraw();
+            tracing::info!(
+                %active_window_id,
+                %output_id,
+                ?current_state,
+                "moved focused native window to output"
+            );
+            Ok(self.spaces.active_space())
         }
 
         fn begin_interactive_grab(
