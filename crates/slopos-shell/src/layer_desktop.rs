@@ -1309,7 +1309,7 @@ impl Dispatch<ZwlrLayerSurfaceV1, ChromeSurfaceKind> for LayerDesktopState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use slopos_kit::{Label, Rect};
+    use slopos_kit::Label;
 
     #[test]
     fn full_width_chrome_requests_compositor_sized_layers() {
@@ -1354,7 +1354,10 @@ mod tests {
         let root_rect = runtime
             .with_root_content_mut(|root| root.rect())
             .expect("runtime root");
-        assert_eq!(root_rect, Rect::new(0.0, 0.0, 1280.0, 720.0));
+        assert_eq!(
+            (root_rect.x, root_rect.y, root_rect.width, root_rect.height),
+            (0.0, 0.0, 1280.0, 720.0)
+        );
         assert_eq!(
             configured_surface_size(ChromeSurfaceKind::Menu, None, 1280, 720),
             (1280, MENU_H)
