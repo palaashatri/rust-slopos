@@ -3,8 +3,22 @@
 //! Password auth uses `SLOPOS_LOCK_PASSWORD` or `lock_password` in
 //! `~/.config/slopos-i/settings.conf` only — no PAM in this cycle.
 
+#[allow(dead_code)]
+mod lock_geometry {
+    pub const BITMAP_GLYPH_ADVANCE: u32 = 8;
+
+    pub fn bitmap_text_width(text: &str) -> u32 {
+        (text.chars().count() as u32).saturating_mul(BITMAP_GLYPH_ADVANCE)
+    }
+
+    pub fn centered_bitmap_text_x(width: u32, text: &str) -> u32 {
+        width.saturating_sub(bitmap_text_width(text)) / 2
+    }
+}
+
 #[cfg(target_os = "linux")]
 mod linux {
+    use super::lock_geometry::{centered_bitmap_text_x, BITMAP_GLYPH_ADVANCE};
     use smithay_client_toolkit::compositor::{CompositorHandler, CompositorState};
     use smithay_client_toolkit::delegate_compositor;
     use smithay_client_toolkit::delegate_keyboard;
@@ -157,12 +171,11 @@ mod linux {
 
     fn draw_prompt(pixels: &mut [u8], width: u32, height: u32, password: &str) {
         let label = "Enter password:";
-        let x = (width / 2).saturating_sub(label.len() as u32 * 6);
         let y = height / 2;
         draw_text(
             pixels,
             width,
-            x,
+            centered_bitmap_text_x(width, label),
             y.saturating_sub(24),
             label,
             0xff,
@@ -173,7 +186,7 @@ mod linux {
         draw_text(
             pixels,
             width,
-            x,
+            centered_bitmap_text_x(width, &stars),
             y.saturating_add(8),
             &stars,
             0xff,
@@ -195,7 +208,7 @@ mod linux {
     ) {
         for ch in text.chars() {
             draw_char(pixels, width, x, y, ch, r, g, b);
-            x = x.saturating_add(8);
+            x = x.saturating_add(BITMAP_GLYPH_ADVANCE);
         }
     }
 
@@ -532,4 +545,31 @@ fn main() -> anyhow::Result<()> {
 #[cfg(not(target_os = "linux"))]
 fn main() {
     eprintln!("slopos-lock is only supported on Linux.");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::lock_geometry::{bitmap_text_width, centered_bitmap_text_x, BITMAP_GLYPH_ADVANCE};
+
+    #[test]
+    fn bitmap_text_measurement_uses_rendered_character_advances() {
+        assert_eq!(
+            bitmap_text_width("Enter password:"),
+            15 * BITMAP_GLYPH_ADVANCE
+        );
+        assert_eq!(bitmap_text_width("日本語"), 3 * BITMAP_GLYPH_ADVANCE);
+    }
+
+    #[test]
+    fn bitmap_text_centering_uses_character_width_not_utf8_bytes() {
+        let width = 800;
+        assert_eq!(
+            centered_bitmap_text_x(width, "Enter password:"),
+            (width - 15 * BITMAP_GLYPH_ADVANCE) / 2
+        );
+        assert_eq!(
+            centered_bitmap_text_x(width, "日本語"),
+            (width - 3 * BITMAP_GLYPH_ADVANCE) / 2
+        );
+    }
 }

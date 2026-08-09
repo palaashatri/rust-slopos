@@ -1,8 +1,8 @@
 use crate::theme::ThemeContext;
 use crate::{
     event::{KeyCode, MouseButton},
-    AccessibilityNode, AccessibilityRole, Event, EventResult, LayoutConstraint, Point, Rect, Size,
-    Widget, WidgetState,
+    measure_text_width, AccessibilityNode, AccessibilityRole, Event, EventResult, LayoutConstraint,
+    Point, Rect, Size, Widget, WidgetState,
 };
 use std::any::Any;
 
@@ -22,7 +22,7 @@ pub struct TabView {
     pub tabs: Vec<Tab>,
     pub selected_tab_index: usize,
     /// One rect per tab in `tabs`, in the same order, rebuilt by `layout()`.
-    /// Geometry mirrors `draw_tab_view` exactly (`title.len() * 7.0 + 24.0`
+    /// Geometry mirrors `draw_tab_view` exactly (shaped title width + 24.0
     /// wide, 25px tall, starting at `rect.x + 8.0` / `rect.y + 4.0`) so a
     /// click always lands on the header it visually appears under.
     header_rects: Vec<Rect>,
@@ -103,7 +103,7 @@ impl TabView {
         let rect = self.rect();
         let mut current_x = rect.x + 8.0;
         for tab in &self.tabs {
-            let tab_width = tab.title.len() as f32 * 7.0 + 24.0;
+            let tab_width = measure_text_width(&tab.title) + 24.0;
             self.header_rects
                 .push(Rect::new(current_x, rect.y + 4.0, tab_width, 25.0));
             current_x += tab_width + 4.0;
@@ -343,16 +343,33 @@ mod tests {
         let rects = tv.header_rects();
         assert_eq!(rects.len(), 2);
 
-        // "One" is 3 chars: 3*7.0 + 24.0 = 45.0 wide.
+        let first_width = measure_text_width("One") + 24.0;
         assert_eq!(rects[0].x, 8.0);
         assert_eq!(rects[0].y, 4.0);
-        assert_eq!(rects[0].width, 45.0);
+        assert!((rects[0].width - first_width).abs() < 0.01);
         assert_eq!(rects[0].height, 25.0);
 
         // Next tab starts after the first tab's width plus the 4.0 gap.
-        assert_eq!(rects[1].x, 8.0 + 45.0 + 4.0);
+        assert!((rects[1].x - (8.0 + first_width + 4.0)).abs() < 0.01);
         assert_eq!(rects[1].y, 4.0);
-        assert_eq!(rects[1].width, 45.0);
+        assert!((rects[1].width - (measure_text_width("Two") + 24.0)).abs() < 0.01);
+    }
+
+    #[test]
+    fn header_geometry_uses_shaped_unicode_title_width() {
+        let mut tv = TabView::new();
+        tv.add_tab("unicode", "日本語", Box::new(RecordingWidget::new()));
+        tv.layout(LayoutConstraint::tight(Size::new(300.0, 200.0)));
+
+        let actual = tv.header_rects()[0].width;
+        let expected = measure_text_width("日本語") + 24.0;
+        assert!((actual - expected).abs() < 0.01);
+
+        let byte_count_estimate = "日本語".len() as f32 * 7.0 + 24.0;
+        assert!(
+            (actual - byte_count_estimate).abs() > 0.5,
+            "tab header geometry must not use a UTF-8 byte-count estimate"
+        );
     }
 
     #[test]

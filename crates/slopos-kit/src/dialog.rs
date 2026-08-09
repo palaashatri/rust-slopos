@@ -1,6 +1,7 @@
 use crate::{
     dispatch::dispatch_positional,
     event::{KeyCode, Modifiers, MouseButton},
+    measure_text_width,
     theme::ThemeContext,
     AccessibilityNode, AccessibilityRole, Button, Event, EventResult, LayoutConstraint, Point,
     Rect, Size, Widget, WidgetState,
@@ -144,7 +145,7 @@ impl Widget for Dialog {
         let mut rects = vec![Rect::ZERO; self.buttons.len()];
         for (index, button) in self.buttons.iter().enumerate().rev() {
             let label = button.label();
-            let btn_w = (label.len() as f32 * 7.0 + 20.0).max(72.0);
+            let btn_w = (measure_text_width(label) + 20.0).max(72.0);
             btn_x -= btn_w;
             rects[index] = Rect::new(btn_x, btn_y, btn_w, btn_h);
             btn_x -= 8.0;
@@ -263,6 +264,24 @@ mod tests {
         // Each Button's own rect is kept in sync so its rect-gated handling works.
         assert_eq!(dialog.buttons[0].rect().x, rects[0].x);
         assert_eq!(dialog.buttons[1].rect().x, rects[1].x);
+    }
+
+    #[test]
+    fn layout_button_width_uses_shaped_unicode_label_width() {
+        let label = "日本語".repeat(6);
+        let mut dialog = Dialog::new("Confirm", "Are you sure?");
+        dialog.add_button(&label);
+        dialog.layout(LayoutConstraint::UNBOUNDED);
+
+        let measured_width = measure_text_width(&label);
+        let actual = dialog.button_rects()[0].width;
+        assert!((actual - (measured_width + 20.0).max(72.0)).abs() < 0.01);
+
+        let byte_count_estimate = label.len() as f32 * 7.0 + 20.0;
+        assert!(
+            (actual - byte_count_estimate).abs() > 0.5,
+            "dialog button geometry must not use a UTF-8 byte-count estimate"
+        );
     }
 
     #[test]
