@@ -134,9 +134,10 @@ use crate::{
     DEFAULT_WINDOW_W,
 };
 use slopos_bus::{
-    write_display_policy_snapshot, write_outputs_snapshot, write_spaces_snapshot,
-    DisplayPolicySnapshot, OutputSnapshot, OutputsSnapshot, SessionControlListener,
-    SessionControlRequest, SpaceTargetWire, SpacesControlCommand, SpacesSnapshot,
+    session_space_thumbnail_path, write_display_policy_snapshot, write_outputs_snapshot,
+    write_space_thumbnail_manifest, write_spaces_snapshot, DisplayPolicySnapshot, OutputSnapshot,
+    OutputsSnapshot, SessionControlListener, SessionControlRequest, SpaceTargetWire,
+    SpaceThumbnailEntry, SpaceThumbnailManifest, SpacesControlCommand, SpacesSnapshot,
     WindowPresentationAction,
 };
 // Workspace cycle helpers (`cycle_workspace_*` / `activate_workspace_index`) request a
@@ -512,17 +513,28 @@ fn collect_render_elements(
     renderer: &mut GlesRenderer,
     state: &DrmSessionState,
 ) -> Vec<WaylandSurfaceRenderElement<GlesRenderer>> {
+    collect_render_elements_on_space(renderer, state, state.spaces.active_space(), 1.0, true)
+}
+
+fn collect_render_elements_on_space(
+    renderer: &mut GlesRenderer,
+    state: &DrmSessionState,
+    space: SpaceId,
+    thumbnail_scale: f64,
+    include_overlay: bool,
+) -> Vec<WaylandSurfaceRenderElement<GlesRenderer>> {
     let mut elements: Vec<WaylandSurfaceRenderElement<GlesRenderer>> = Vec::new();
     let output_scale = state
         .outputs
         .first()
         .map(|output| output.current_scale().fractional_scale())
         .unwrap_or(1.0);
+    let render_scale = output_scale * thumbnail_scale;
 
     let physical_point = |x: f64, y: f64| {
         Point::<i32, smithay::utils::Physical>::from((
-            (x * output_scale).round() as i32,
-            (y * output_scale).round() as i32,
+            (x * render_scale).round() as i32,
+            (y * render_scale).round() as i32,
         ))
     };
 
@@ -553,7 +565,7 @@ fn collect_render_elements(
                 renderer,
                 surface,
                 loc,
-                output_scale,
+                render_scale,
                 1.0,
                 Kind::Cursor,
             ));
@@ -574,14 +586,14 @@ fn collect_render_elements(
                 .unwrap_or_else(|| Point::from((0, 0)))
         });
         let loc = (
-            state.pointer_location.x.round() as i32 - hotspot.x,
-            state.pointer_location.y.round() as i32 - hotspot.y,
+            (state.pointer_location.x * render_scale).round() as i32 - hotspot.x,
+            (state.pointer_location.y * render_scale).round() as i32 - hotspot.y,
         );
         elements.extend(render_elements_from_surface_tree(
             renderer,
             surface,
             loc,
-            1.0,
+            render_scale,
             1.0,
             Kind::Cursor,
         ));
@@ -589,7 +601,7 @@ fn collect_render_elements(
 
     // Layer order: Overlay/Top above windows; Bottom/Background below (macOS/GNOME/KDE).
     for layer in state.layer_surfaces.iter().rev() {
-        if matches!(layer.layer, Layer::Overlay | Layer::Top) {
+        if include_overlay && matches!(layer.layer, Layer::Overlay | Layer::Top) {
             for (popup, popup_offset) in
                 PopupManager::popups_for_surface(layer.surface.wl_surface())
             {
@@ -598,7 +610,7 @@ fn collect_render_elements(
                     renderer,
                     popup.wl_surface(),
                     physical_point(popup_loc.x as f64, popup_loc.y as f64),
-                    output_scale,
+                    render_scale,
                     1.0,
                     Kind::Unspecified,
                 ));
@@ -607,7 +619,7 @@ fn collect_render_elements(
                 renderer,
                 layer.surface.wl_surface(),
                 physical_point(layer.geo.loc.x as f64, layer.geo.loc.y as f64),
-                output_scale,
+                render_scale,
                 1.0,
                 Kind::Unspecified,
             ));
@@ -619,7 +631,7 @@ fn collect_render_elements(
         .windows
         .iter()
         .rev()
-        .filter(|w| !w.minimized && state.window_visible_on_active(&w.window_id))
+        .filter(|w| !w.minimized && state.window_visible_on_space(&w.window_id, space))
     {
         let popup_elements = PopupManager::popups_for_surface(w.toplevel.wl_surface()).flat_map(
             |(popup, popup_offset)| {
@@ -628,7 +640,7 @@ fn collect_render_elements(
                     renderer,
                     popup.wl_surface(),
                     physical_point(popup_loc.x as f64, popup_loc.y as f64),
-                    output_scale,
+                    render_scale,
                     1.0,
                     Kind::Unspecified,
                 )
@@ -639,7 +651,7 @@ fn collect_render_elements(
             renderer,
             w.toplevel.wl_surface(),
             physical_point(w.position.x as f64, w.position.y as f64),
-            output_scale,
+            render_scale,
             1.0,
             Kind::Unspecified,
         ));
@@ -655,7 +667,7 @@ fn collect_render_elements(
                     renderer,
                     popup.wl_surface(),
                     physical_point(popup_loc.x as f64, popup_loc.y as f64),
-                    output_scale,
+                    render_scale,
                     1.0,
                     Kind::Unspecified,
                 ));
@@ -664,7 +676,7 @@ fn collect_render_elements(
                 renderer,
                 layer.surface.wl_surface(),
                 physical_point(layer.geo.loc.x as f64, layer.geo.loc.y as f64),
-                output_scale,
+                render_scale,
                 1.0,
                 Kind::Unspecified,
             ));
@@ -672,6 +684,86 @@ fn collect_render_elements(
     }
 
     elements
+}
+
+/// Capture real DRM compositor surface trees for every current Space. The
+/// request is consumed only when the GL renderer is available; the dumb
+/// scanout fallback intentionally leaves thumbnail files absent.
+fn capture_space_thumbnails(renderer: &mut GlesRenderer, state: &mut DrmSessionState) {
+    if !state.thumbnail_refresh_requested {
+        return;
+    }
+    state.thumbnail_refresh_requested = false;
+
+    if state.locked {
+        let manifest = SpaceThumbnailManifest {
+            session_epoch: state.spaces_session_epoch,
+            generation: state.spaces_revision,
+            captures: Vec::new(),
+        };
+        if let Err(error) = write_space_thumbnail_manifest(&manifest) {
+            tracing::warn!(%error, "could not clear locked-session Space thumbnails");
+        }
+        return;
+    }
+
+    let ids = state.spaces.space_ids();
+    let physical_width = state.physical_output_size.0.max(1) as f64;
+    let physical_height = state.physical_output_size.1.max(1) as f64;
+    let scale = (640.0 / physical_width)
+        .min(480.0 / physical_height)
+        .clamp(0.05, 1.0);
+    let capture_size = (
+        (physical_width * scale).round() as i32,
+        (physical_height * scale).round() as i32,
+    );
+    let mut captures = Vec::new();
+
+    for id in ids {
+        // Do not capture compositor chrome. In particular, the live overview
+        // is an Overlay surface and must not recursively appear in its own
+        // Space thumbnails.
+        let elements = collect_render_elements_on_space(renderer, state, id, scale, false);
+        let Some(path) = session_space_thumbnail_path(id.get()) else {
+            continue;
+        };
+        match crate::screenshot::capture_to_path(
+            renderer,
+            &elements,
+            capture_size,
+            DRM_CLEAR_COLOR,
+            &path,
+        ) {
+            Ok(_) => {
+                captures.push(SpaceThumbnailEntry {
+                    space_id: id.get(),
+                    width: capture_size.0 as u32,
+                    height: capture_size.1 as u32,
+                });
+                tracing::info!(space = id.get(), path = %path.display(), "Space thumbnail captured");
+            }
+            Err(error) => {
+                tracing::warn!(space = id.get(), %error, "Space thumbnail capture failed")
+            }
+        }
+    }
+
+    let manifest = SpaceThumbnailManifest {
+        session_epoch: state.spaces_session_epoch,
+        generation: if captures.is_empty() {
+            state.spaces_revision
+        } else {
+            state.spaces_revision.saturating_add(1)
+        },
+        captures,
+    };
+    if let Err(error) = write_space_thumbnail_manifest(&manifest) {
+        tracing::warn!(%error, "could not publish Space thumbnail manifest");
+    }
+    if !manifest.captures.is_empty() {
+        state.publish_spaces_state(false);
+        state.request_full_redraw();
+    }
 }
 
 /// Allocate the session's single scanout dumb buffer and its framebuffer.
@@ -1379,6 +1471,7 @@ pub fn run_drm_session() -> Result<()> {
         udev_events: Vec::new(),
         pointer_location: Point::from((w as f64 / 2.0, h as f64 / 2.0)),
         workspace_swipe: WorkspaceSwipeRecognizer::default(),
+        thumbnail_refresh_requested: false,
         output_size: (w, h),
         serial: 0,
         clipboard_source: None,
@@ -1478,6 +1571,7 @@ pub fn run_drm_session() -> Result<()> {
                 // Elements are collected before taking the &mut on the compositor:
                 // both live on `state`, and the borrow checker cannot split fields
                 // across the helper call.
+                capture_space_thumbnails(&mut renderer, &mut state);
                 let elements = collect_render_elements(&mut renderer, &state);
                 let clear = if state.locked {
                     DRM_LOCK_CLEAR_COLOR
@@ -1766,6 +1860,9 @@ struct DrmSessionState {
     /// Reducer for compositor-owned three-finger horizontal Space gestures.
     /// Client gesture delivery remains separate and is still forwarded below.
     workspace_swipe: WorkspaceSwipeRecognizer,
+    /// Set by the typed Spaces thumbnail request and consumed on the next
+    /// renderer-backed frame. The solid scanout fallback leaves files absent.
+    thumbnail_refresh_requested: bool,
     output_size: (i32, i32),
     /// Physical scanout size; `output_size` is the logical compositor space.
     physical_output_size: (i32, i32),
@@ -1960,10 +2057,14 @@ impl DrmSessionState {
     }
 
     fn window_visible_on_active(&self, window_id: &str) -> bool {
+        self.window_visible_on_space(window_id, self.spaces.active_space())
+    }
+
+    fn window_visible_on_space(&self, window_id: &str, space: SpaceId) -> bool {
         self.spaces
             .window_spaces(window_id)
             .into_iter()
-            .any(|space| space == self.spaces.active_space())
+            .any(|candidate| candidate == space)
     }
 
     fn publish_spaces_state(&mut self, persist: bool) {
@@ -2153,6 +2254,10 @@ impl DrmSessionState {
                         .set_application_policy(app_id, target)
                         .map(|()| self.spaces.active_space())
                 })
+            }
+            SpacesControlCommand::RefreshThumbnails => {
+                self.thumbnail_refresh_requested = true;
+                Ok(self.spaces.active_space())
             }
         };
 

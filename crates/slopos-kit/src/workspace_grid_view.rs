@@ -1,8 +1,8 @@
 use crate::{
     event::{KeyCode, MouseButton},
     theme::ThemeContext,
-    AccessibilityNode, AccessibilityRole, Event, EventResult, LayoutConstraint, Point, Rect, Size,
-    Visibility, Widget, WidgetState,
+    AccessibilityNode, AccessibilityRole, Event, EventResult, ImageView, LayoutConstraint, Point,
+    Rect, Size, Visibility, Widget, WidgetState,
 };
 
 pub struct WorkspaceGridView {
@@ -24,8 +24,25 @@ pub struct WorkspaceGridView {
     /// counts parallel to `items` lets the renderer show live membership
     /// without making the toolkit invent window records or geometry.
     pub window_counts: Vec<usize>,
-    /// Cell pressed most recently, drained by [`WorkspaceGridView::take_activated`].
+    /// Compositor-produced Space captures aligned with [`Self::items`].
+    /// Missing captures are represented by `None`; the grid never fabricates
+    /// imagery for a Space whose compositor renderer is unavailable.
+    thumbnails: Vec<Option<ImageView>>,
+    /// Cell clicked most recently, drained by [`WorkspaceGridView::take_activated`].
     activated: Option<usize>,
+    /// Pointer press retained until release so a click can be distinguished
+    /// from a real drag without optimistically switching Spaces.
+    pointer_press: Option<PointerPress>,
+    /// A target Space currently under a pointer drag, if any.
+    drag_target: Option<usize>,
+    /// Target Space committed when a drag is released over another cell.
+    dropped: Option<usize>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct PointerPress {
+    cell: usize,
+    point: Point,
 }
 
 /// Cell geometry constants shared by the SDK painter and `handle_event`'s
@@ -36,6 +53,10 @@ pub const GRID_GUTTER: f32 = 6.0;
 pub const GRID_COLS: usize = 2;
 pub const GRID_ROWS: usize = 2;
 const GRID_MIN_CELL_HEIGHT: f32 = 34.0;
+const GRID_THUMBNAIL_MARGIN: f32 = 6.0;
+const GRID_THUMBNAIL_LABEL_HEIGHT: f32 = 16.0;
+const GRID_THUMBNAIL_GAP: f32 = 3.0;
+const POINTER_DRAG_THRESHOLD: f32 = 8.0;
 
 impl Default for WorkspaceGridView {
     fn default() -> Self {
@@ -52,8 +73,61 @@ impl WorkspaceGridView {
             space_ids: Vec::new(),
             items: Vec::new(),
             window_counts: Vec::new(),
+            thumbnails: Vec::new(),
             activated: None,
+            pointer_press: None,
+            drag_target: None,
+            dropped: None,
         }
+    }
+
+    /// Replace the compositor-owned captures associated with the current
+    /// ordered Space snapshot. The vector is intentionally allowed to be
+    /// shorter than `items`; absent entries simply render the metadata-only
+    /// cell.
+    pub fn set_thumbnails(&mut self, thumbnails: Vec<Option<ImageView>>) {
+        self.thumbnails = thumbnails.into_iter().take(self.items.len()).collect();
+    }
+
+    /// Return the decoded compositor capture for one Space, if available.
+    pub fn thumbnail(&self, index: usize) -> Option<&ImageView> {
+        self.thumbnails.get(index).and_then(Option::as_ref)
+    }
+
+    /// Destination rect for the thumbnail while preserving its source aspect
+    /// ratio. The label occupies a small strip below it; cells without a
+    /// compositor capture return `Rect::ZERO`.
+    pub fn thumbnail_rect(&self, index: usize) -> Rect {
+        let Some(image) = self.thumbnail(index) else {
+            return Rect::ZERO;
+        };
+        let cell = self.cell_rect(index);
+        if cell.width <= 0.0 || cell.height <= 0.0 {
+            return Rect::ZERO;
+        }
+        let max_width = (cell.width - GRID_THUMBNAIL_MARGIN * 2.0).max(0.0);
+        let max_height = (cell.height
+            - GRID_THUMBNAIL_MARGIN * 2.0
+            - GRID_THUMBNAIL_LABEL_HEIGHT
+            - GRID_THUMBNAIL_GAP)
+            .max(0.0);
+        if max_width <= 0.0 || max_height <= 0.0 {
+            return Rect::ZERO;
+        }
+        let source_width = image.display_width().max(1) as f32;
+        let source_height = image.display_height().max(1) as f32;
+        let aspect = source_width / source_height;
+        let (width, height) = if max_width / max_height <= aspect {
+            (max_width, max_width / aspect)
+        } else {
+            (max_height * aspect, max_height)
+        };
+        Rect::new(
+            cell.x + (cell.width - width) * 0.5,
+            cell.y + GRID_THUMBNAIL_MARGIN + (max_height - height) * 0.5,
+            width,
+            height,
+        )
     }
 
     /// Number of rows required to display all current items in the two-column
@@ -102,6 +176,17 @@ impl WorkspaceGridView {
         self.activated.take()
     }
 
+    /// Drain a pointer drag that was released over another Space cell.
+    pub fn take_dropped(&mut self) -> Option<usize> {
+        self.dropped.take()
+    }
+
+    /// Return the current pointer drag target for the renderer's drop-target
+    /// affordance. The target is transient and never changes compositor state.
+    pub fn drag_target(&self) -> Option<usize> {
+        self.drag_target
+    }
+
     /// Keep keyboard focus valid after the shell replaces the live Space
     /// snapshot while this overview is open.
     pub fn normalize_focus(&mut self) {
@@ -133,6 +218,17 @@ impl WorkspaceGridView {
             self.focused_index = next;
         }
         true
+    }
+
+    fn pointer_dragging(&self, point: Point) -> bool {
+        let Some(press) = self.pointer_press else {
+            return false;
+        };
+        let dx = point.x - press.point.x;
+        let dy = point.y - press.point.y;
+        dx.is_finite()
+            && dy.is_finite()
+            && dx.mul_add(dx, dy * dy) >= POINTER_DRAG_THRESHOLD * POINTER_DRAG_THRESHOLD
     }
 }
 
@@ -192,11 +288,52 @@ impl Widget for WorkspaceGridView {
                     Some(cell) => {
                         self.state.focused = true;
                         self.focused_index = cell;
-                        self.activated = Some(cell);
+                        self.pointer_press = Some(PointerPress {
+                            cell,
+                            point: *point,
+                        });
+                        self.drag_target = None;
+                        self.dropped = None;
                         EventResult::Handled
                     }
                     None => EventResult::Ignored,
                 }
+            }
+            Event::MouseMove { point, .. } => {
+                if self.pointer_press.is_none() {
+                    return EventResult::Ignored;
+                }
+                if self.pointer_dragging(*point) {
+                    self.drag_target = self.cell_at(*point);
+                }
+                // PointerDispatcher's implicit capture keeps this widget
+                // informed even when a drag leaves the grid.
+                EventResult::Handled
+            }
+            Event::MouseUp {
+                button: MouseButton::Left,
+                point,
+                ..
+            } => {
+                let dragging = self.drag_target.is_some() || self.pointer_dragging(*point);
+                let Some(press) = self.pointer_press.take() else {
+                    return EventResult::Ignored;
+                };
+                if dragging {
+                    let target = self.cell_at(*point);
+                    self.drag_target = None;
+                    if target.is_some() && target != Some(press.cell) {
+                        self.dropped = target;
+                    }
+                } else if self.cell_at(*point) == Some(press.cell) {
+                    self.activated = Some(press.cell);
+                }
+                EventResult::Handled
+            }
+            Event::MouseLeave => {
+                self.pointer_press = None;
+                self.drag_target = None;
+                EventResult::Handled
             }
             Event::KeyDown { key, modifiers }
                 if !modifiers.meta && !modifiers.control && !modifiers.alt =>
@@ -279,9 +416,28 @@ mod tests {
         g
     }
 
+    fn center(rect: Rect) -> Point {
+        Point::new(rect.x + rect.width * 0.5, rect.y + rect.height * 0.5)
+    }
+
     fn press(x: f32, y: f32) -> Event {
         Event::MouseDown {
             button: MouseButton::Left,
+            point: Point::new(x, y),
+            modifiers: Modifiers::NONE,
+        }
+    }
+
+    fn release(x: f32, y: f32) -> Event {
+        Event::MouseUp {
+            button: MouseButton::Left,
+            point: Point::new(x, y),
+            modifiers: Modifiers::NONE,
+        }
+    }
+
+    fn move_to(x: f32, y: f32) -> Event {
+        Event::MouseMove {
             point: Point::new(x, y),
             modifiers: Modifiers::NONE,
         }
@@ -301,9 +457,58 @@ mod tests {
             let c = g.cell_rect(i);
             let result = g.handle_event(&press(c.x + c.width * 0.5, c.y + c.height * 0.5));
             assert!(matches!(result, EventResult::Handled), "cell {i}");
+            let result = g.handle_event(&release(c.x + c.width * 0.5, c.y + c.height * 0.5));
+            assert!(matches!(result, EventResult::Handled), "cell {i} release");
             assert_eq!(g.take_activated(), Some(i));
             assert_eq!(g.take_activated(), None, "drains exactly once");
         }
+    }
+
+    #[test]
+    fn drag_between_cells_reports_drop_without_switch_activation() {
+        let mut g = grid();
+        let source = center(g.cell_rect(0));
+        let target = center(g.cell_rect(1));
+
+        assert!(matches!(
+            g.handle_event(&press(source.x, source.y)),
+            EventResult::Handled
+        ));
+        assert!(matches!(
+            g.handle_event(&move_to(target.x, target.y)),
+            EventResult::Handled
+        ));
+        assert_eq!(g.drag_target(), Some(1));
+        assert_eq!(g.take_activated(), None);
+
+        assert!(matches!(
+            g.handle_event(&release(target.x, target.y)),
+            EventResult::Handled
+        ));
+        assert_eq!(g.take_dropped(), Some(1));
+        assert_eq!(g.take_activated(), None);
+        assert_eq!(g.drag_target(), None);
+    }
+
+    #[test]
+    fn drag_released_outside_grid_is_cancelled() {
+        let mut g = grid();
+        let source = center(g.cell_rect(0));
+        assert!(matches!(
+            g.handle_event(&press(source.x, source.y)),
+            EventResult::Handled
+        ));
+        assert!(matches!(
+            g.handle_event(&move_to(10.0, 10.0)),
+            EventResult::Handled
+        ));
+        assert_eq!(g.drag_target(), None);
+        assert!(matches!(
+            g.handle_event(&release(10.0, 10.0)),
+            EventResult::Handled
+        ));
+        assert_eq!(g.take_dropped(), None);
+        assert_eq!(g.take_activated(), None);
     }
 
     #[test]
@@ -502,5 +707,32 @@ mod tests {
         assert_eq!(node.children[2].description, "99 windows");
         assert_eq!(node.children[2].rect.x, g.cell_rect(2).x);
         assert_eq!(node.children[2].rect.y, g.cell_rect(2).y);
+    }
+
+    #[test]
+    fn thumbnail_geometry_is_inside_cell_and_preserves_aspect_ratio() {
+        let mut g = grid();
+        g.set_thumbnails(vec![Some(
+            ImageView::new(640, 400, vec![0; 640 * 400 * 4]).unwrap(),
+        )]);
+
+        let cell = g.cell_rect(0);
+        let thumbnail = g.thumbnail_rect(0);
+        assert!(thumbnail.width > 0.0 && thumbnail.height > 0.0);
+        assert!(cell.contains(Point::new(thumbnail.x, thumbnail.y)));
+        assert!(cell.contains(Point::new(
+            thumbnail.x + thumbnail.width,
+            thumbnail.y + thumbnail.height
+        )));
+        let expected = 640.0 / 400.0;
+        assert!(((thumbnail.width / thumbnail.height) - expected).abs() < 0.001);
+    }
+
+    #[test]
+    fn missing_thumbnail_has_no_draw_rect() {
+        let g = grid();
+        let rect = g.thumbnail_rect(0);
+        assert_eq!(rect.width, 0.0);
+        assert_eq!(rect.height, 0.0);
     }
 }

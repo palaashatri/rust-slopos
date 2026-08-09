@@ -3650,6 +3650,8 @@ dependencies = [
  "calloop 0.13.0",
  "calloop-wayland-source",
  "futures",
+ "image",
+ "libc",
  "log",
  "parking_lot",
  "serde",

@@ -86,6 +86,10 @@ pub struct WorkspaceSwipeRecognizer {
     fingers: u32,
     delta_x: f64,
     delta_y: f64,
+    /// Becomes false when finite input would overflow the accumulator. An
+    /// overflowed gesture is rejected instead of turning into an infinite
+    /// distance that could unexpectedly switch Spaces.
+    valid: bool,
 }
 
 impl WorkspaceSwipeRecognizer {
@@ -94,6 +98,7 @@ impl WorkspaceSwipeRecognizer {
         self.fingers = fingers;
         self.delta_x = 0.0;
         self.delta_y = 0.0;
+        self.valid = true;
     }
 
     /// Accumulate one libinput swipe update. Invalid samples are ignored.
@@ -101,8 +106,14 @@ impl WorkspaceSwipeRecognizer {
         if self.fingers < 3 || !delta_x.is_finite() || !delta_y.is_finite() {
             return;
         }
-        self.delta_x += delta_x;
-        self.delta_y += delta_y;
+        let next_x = self.delta_x + delta_x;
+        let next_y = self.delta_y + delta_y;
+        if !next_x.is_finite() || !next_y.is_finite() {
+            self.valid = false;
+            return;
+        }
+        self.delta_x = next_x;
+        self.delta_y = next_y;
     }
 
     /// Finish the current gesture and return at most one compositor action.
@@ -110,7 +121,8 @@ impl WorkspaceSwipeRecognizer {
     pub fn end(&mut self, cancelled: bool) -> Option<WorkspaceSwipeAction> {
         let horizontal = self.delta_x.abs();
         let vertical = self.delta_y.abs();
-        let action = if !cancelled
+        let action = if self.valid
+            && !cancelled
             && self.fingers >= 3
             && horizontal >= WORKSPACE_SWIPE_MIN_DISTANCE
             && horizontal >= vertical * WORKSPACE_SWIPE_HORIZONTAL_RATIO
@@ -2545,6 +2557,15 @@ mod tests {
         let mut recognizer = WorkspaceSwipeRecognizer::default();
         recognizer.begin(3);
         recognizer.update(f64::NAN, f64::INFINITY);
+        assert_eq!(recognizer.end(false), None);
+    }
+
+    #[test]
+    fn workspace_swipe_reducer_rejects_finite_accumulator_overflow() {
+        let mut recognizer = WorkspaceSwipeRecognizer::default();
+        recognizer.begin(3);
+        recognizer.update(f64::MAX, 0.0);
+        recognizer.update(f64::MAX, 0.0);
         assert_eq!(recognizer.end(false), None);
     }
 }

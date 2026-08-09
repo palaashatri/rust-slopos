@@ -21,6 +21,7 @@ winit = "0.30"
 serde = { workspace = true }
 
 serde_json = { workspace = true }
+image = { workspace = true }
 toml = { workspace = true }
 tokio = { workspace = true }
 thiserror = { workspace = true }
@@ -30,6 +31,7 @@ tracing-subscriber = { workspace = true }
 parking_lot = { workspace = true }
 uuid = { workspace = true }
 anyhow = "1"
+libc = { workspace = true }
 futures = { workspace = true }
 
 # NetworkManager / UPower D-Bus clients (Linux only; host tests use Unavailable fallbacks).

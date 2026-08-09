@@ -3915,6 +3915,23 @@ fn draw_workspace_grid_view(canvas: &mut Canvas<'_>, _rect: Rect, grid: &Workspa
             );
             canvas.stroke(focus_rect, render_accent());
         }
+        if grid.drag_target() == Some(i) {
+            let inset = 2.0;
+            let drop_rect = Rect::new(
+                cell_r.x + inset,
+                cell_r.y + inset,
+                (cell_r.width - inset * 2.0).max(0.0),
+                (cell_r.height - inset * 2.0).max(0.0),
+            );
+            canvas.stroke(drop_rect, render_accent());
+        }
+
+        if let Some(thumbnail) = grid.thumbnail(i) {
+            let thumbnail_rect = grid.thumbnail_rect(i);
+            if thumbnail_rect.width > 0.0 && thumbnail_rect.height > 0.0 {
+                canvas.image(thumbnail, thumbnail_rect);
+            }
+        }
 
         let base_label = grid.items.get(i).map(String::as_str).unwrap_or("");
         let label = match grid.window_counts.get(i).copied() {
@@ -3935,10 +3952,15 @@ fn draw_workspace_grid_view(canvas: &mut Canvas<'_>, _rect: Rect, grid: &Workspa
             theme_color("text")
         };
         let text_width = canvas.measure_text(&label);
+        let text_y = if grid.thumbnail(i).is_some() {
+            cell_y + cell_h - 14.0
+        } else {
+            cell_y + (cell_h - 12.0) * 0.5 + 2.0
+        };
         canvas.text(
             &label,
             cell_x + (cell_w - text_width) * 0.5,
-            cell_y + (cell_h - 12.0) * 0.5 + 2.0,
+            text_y,
             text_color,
         );
     }
@@ -5647,7 +5669,7 @@ mod tests {
         parse_theme_preference, publish_bytes_atomically, theme_accents, ApplicationMenuAction,
         Canvas, CLASSIC_DARK_GRAY_RGBA, COLOR_DARK_TITLE_INACTIVE, DESKTOP_ITEM_WIDTH,
     };
-    use slopos_kit::{ImageView, Rect};
+    use slopos_kit::{ImageView, Rect, Widget, WorkspaceGridView};
     use slopos_render::font::{shape_text, TextLayoutOptions};
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -5755,6 +5777,44 @@ mod tests {
             1
         );
         assert_eq!(draw_data.image_vertices.len(), 6);
+    }
+
+    #[test]
+    fn workspace_grid_paints_compositor_thumbnail_pixels() {
+        let mut grid = WorkspaceGridView::new();
+        grid.items = vec!["Space 1".into()];
+        grid.set_rect(Rect::new(0.0, 0.0, 240.0, 160.0));
+        let pixels = vec![10, 20, 30, 255, 40, 50, 60, 255];
+        grid.set_thumbnails(vec![Some(ImageView::new(2, 1, pixels.clone()).unwrap())]);
+
+        let mut canvas = Canvas::new(240.0, 160.0);
+        super::draw_workspace_grid_view(&mut canvas, grid.rect(), &grid);
+        let draw_data = canvas.finish();
+        let image_commands = draw_data
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                super::DrawCommand::Image { upload, .. } => Some(upload),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(image_commands.len(), 1);
+        assert_eq!(image_commands[0].pixels.as_ref(), pixels.as_slice());
+    }
+
+    #[test]
+    fn workspace_grid_without_thumbnail_emits_no_image_command() {
+        let mut grid = WorkspaceGridView::new();
+        grid.items = vec!["Space 1".into()];
+        grid.set_rect(Rect::new(0.0, 0.0, 240.0, 160.0));
+
+        let mut canvas = Canvas::new(240.0, 160.0);
+        super::draw_workspace_grid_view(&mut canvas, grid.rect(), &grid);
+        let draw_data = canvas.finish();
+        assert!(!draw_data
+            .commands
+            .iter()
+            .any(|command| matches!(command, super::DrawCommand::Image { .. })));
     }
 
     #[test]

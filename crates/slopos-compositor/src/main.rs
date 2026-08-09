@@ -33,10 +33,11 @@ mod linux {
     use std::time::Duration;
 
     use slopos_bus::{
-        write_display_policy_snapshot, write_outputs_snapshot, write_spaces_snapshot,
-        DisplayPolicyRequest, DisplayPolicySnapshot, HeadlessInputEvent, OutputSnapshot,
-        OutputsSnapshot, SessionControlListener, SessionControlRequest, SpaceTargetWire,
-        SpacesControlCommand, SpacesSnapshot, WindowPresentationAction,
+        session_space_thumbnail_path, write_display_policy_snapshot, write_outputs_snapshot,
+        write_space_thumbnail_manifest, write_spaces_snapshot, DisplayPolicyRequest,
+        DisplayPolicySnapshot, HeadlessInputEvent, OutputSnapshot, OutputsSnapshot,
+        SessionControlListener, SessionControlRequest, SpaceTargetWire, SpaceThumbnailEntry,
+        SpaceThumbnailManifest, SpacesControlCommand, SpacesSnapshot, WindowPresentationAction,
     };
     use slopos_compositor::frame_timing::{FrameScheduler, RefreshRate};
     use slopos_compositor::hdr::{ColorSpace, HdrCapabilities, HdrFallbackReason};
@@ -378,16 +379,20 @@ mod linux {
             &self,
             spaces: &SpacesModel,
         ) -> Vec<(X11Window, WlSurface, Rectangle<i32, Logical>)> {
+            self.associated_targets_on_space(spaces, spaces.active_space())
+        }
+
+        fn associated_targets_on_space(
+            &self,
+            spaces: &SpacesModel,
+            space: SpaceId,
+        ) -> Vec<(X11Window, WlSurface, Rectangle<i32, Logical>)> {
             self.entries
                 .iter()
                 .filter(|entry| {
                     entry.state.visible()
                         && entry.surface.alive()
-                        && x11_window_visible_on_space(
-                            spaces,
-                            entry.surface.window_id(),
-                            spaces.active_space(),
-                        )
+                        && x11_window_visible_on_space(spaces, entry.surface.window_id(), space)
                 })
                 .filter_map(|entry| {
                     entry
@@ -939,6 +944,10 @@ mod linux {
         x11_interactive_grab: Option<X11InteractiveGrab>,
         /// Reducer for explicitly injected headless three-finger gestures.
         workspace_swipe: WorkspaceSwipeRecognizer,
+        /// Set by the typed Spaces thumbnail request and consumed on the next
+        /// renderer-backed frame. Headless sessions intentionally leave the
+        /// generated files absent because they have no real pixels to capture.
+        thumbnail_refresh_requested: bool,
         /// Tracks BTN_LEFT so stale xdg move/resize requests cannot start a grab.
         left_button_down: bool,
         /// The most recent left-button press delivered to an application surface.
@@ -1085,10 +1094,14 @@ mod linux {
         }
 
         fn window_visible_on_active(&self, window_id: &str) -> bool {
+            self.window_visible_on_space(window_id, self.spaces.active_space())
+        }
+
+        fn window_visible_on_space(&self, window_id: &str, space: SpaceId) -> bool {
             self.spaces
                 .window_spaces(window_id)
                 .into_iter()
-                .any(|space| space == self.spaces.active_space())
+                .any(|candidate| candidate == space)
         }
 
         fn publish_spaces_state(&mut self, persist: bool) {
@@ -1404,6 +1417,10 @@ mod linux {
                             .set_application_policy(app_id, target)
                             .map(|()| self.spaces.active_space())
                     })
+                }
+                SpacesControlCommand::RefreshThumbnails => {
+                    self.thumbnail_refresh_requested = true;
+                    Ok(self.spaces.active_space())
                 }
             };
 
@@ -1997,6 +2014,165 @@ mod linux {
 
         fn request_redraw(&mut self) {
             self.frame_dirty = true;
+        }
+
+        /// Collect real mapped client pixels for the currently selected Space
+        /// without adding placeholder rectangles. This helper is used only by
+        /// the thumbnail readback path; an unavailable or uncommitted client
+        /// therefore contributes no fabricated window image.
+        fn collect_space_thumbnail_elements(
+            &self,
+            renderer: &mut GlesRenderer,
+            space: SpaceId,
+        ) -> Vec<WaylandSurfaceRenderElement<GlesRenderer>> {
+            let scale = (640.0 / f64::from(self.output_size.w.max(1)))
+                .min(480.0 / f64::from(self.output_size.h.max(1)))
+                .clamp(0.05, 1.0);
+            let physical_point = |x: f64, y: f64| {
+                Point::<i32, Physical>::from((
+                    (x * scale).round() as i32,
+                    (y * scale).round() as i32,
+                ))
+            };
+            let mut elements = Vec::new();
+
+            for layer in self
+                .layer_surfaces
+                .iter()
+                .filter(|layer| matches!(layer.layer, Layer::Background | Layer::Bottom))
+            {
+                let loc = physical_point(f64::from(layer.geo.loc.x), f64::from(layer.geo.loc.y));
+                elements.extend(render_elements_from_surface_tree(
+                    renderer,
+                    layer.surface.wl_surface(),
+                    loc,
+                    scale,
+                    1.0_f32,
+                    Kind::Unspecified,
+                ));
+            }
+
+            for window in self.windows.iter().filter(|window| {
+                !window.minimized && self.window_visible_on_space(&window.window_id, space)
+            }) {
+                let loc =
+                    physical_point(f64::from(window.position.x), f64::from(window.position.y));
+                elements.extend(render_elements_from_surface_tree(
+                    renderer,
+                    window.toplevel.wl_surface(),
+                    loc,
+                    scale,
+                    1.0_f32,
+                    Kind::Unspecified,
+                ));
+                for (popup, popup_offset) in
+                    PopupManager::popups_for_surface(window.toplevel.wl_surface())
+                {
+                    let popup_loc = Self::popup_origin(window.position, &popup, popup_offset);
+                    elements.extend(render_elements_from_surface_tree(
+                        renderer,
+                        popup.wl_surface(),
+                        physical_point(f64::from(popup_loc.x), f64::from(popup_loc.y)),
+                        scale,
+                        1.0_f32,
+                        Kind::Unspecified,
+                    ));
+                }
+            }
+
+            for (_, surface, geometry) in self
+                .x11_scene
+                .associated_targets_on_space(&self.spaces, space)
+            {
+                let origin = Self::x11_surface_scene_origin(geometry);
+                elements.extend(render_elements_from_surface_tree(
+                    renderer,
+                    &surface,
+                    physical_point(f64::from(origin.x), f64::from(origin.y)),
+                    scale,
+                    1.0_f32,
+                    Kind::Unspecified,
+                ));
+            }
+            elements
+        }
+
+        fn capture_space_thumbnails(&mut self) {
+            if !self.thumbnail_refresh_requested {
+                return;
+            }
+            self.thumbnail_refresh_requested = false;
+
+            let Some(mut renderer) = self.renderer.take() else {
+                tracing::debug!("Spaces thumbnails unavailable without a renderer");
+                let manifest = SpaceThumbnailManifest {
+                    session_epoch: self.spaces_session_epoch,
+                    generation: self.spaces_revision,
+                    captures: Vec::new(),
+                };
+                if let Err(error) = write_space_thumbnail_manifest(&manifest) {
+                    tracing::warn!(%error, "could not clear unavailable Space thumbnails");
+                }
+                return;
+            };
+            let ids = self.spaces.space_ids();
+            let scale = (640.0 / f64::from(self.output_size.w.max(1)))
+                .min(480.0 / f64::from(self.output_size.h.max(1)))
+                .clamp(0.05, 1.0);
+            let capture_size = (
+                (f64::from(self.output_size.w.max(1)) * scale).round() as i32,
+                (f64::from(self.output_size.h.max(1)) * scale).round() as i32,
+            );
+            let mut captures = Vec::new();
+
+            for id in ids {
+                let elements = self.collect_space_thumbnail_elements(&mut renderer, id);
+                let Some(path) = session_space_thumbnail_path(id.get()) else {
+                    continue;
+                };
+                match slopos_compositor::screenshot::capture_to_path(
+                    &mut renderer,
+                    &elements,
+                    capture_size,
+                    [
+                        RETRO_GRAY.0 as f32 / 255.0,
+                        RETRO_GRAY.1 as f32 / 255.0,
+                        RETRO_GRAY.2 as f32 / 255.0,
+                        1.0,
+                    ],
+                    &path,
+                ) {
+                    Ok(_) => {
+                        captures.push(SpaceThumbnailEntry {
+                            space_id: id.get(),
+                            width: capture_size.0 as u32,
+                            height: capture_size.1 as u32,
+                        });
+                        tracing::info!(space = id.get(), path = %path.display(), "Space thumbnail captured");
+                    }
+                    Err(error) => {
+                        tracing::warn!(space = id.get(), %error, "Space thumbnail capture failed")
+                    }
+                }
+            }
+
+            self.renderer = Some(renderer);
+            let manifest = SpaceThumbnailManifest {
+                session_epoch: self.spaces_session_epoch,
+                generation: if captures.is_empty() {
+                    self.spaces_revision
+                } else {
+                    self.spaces_revision.saturating_add(1)
+                },
+                captures,
+            };
+            if let Err(error) = write_space_thumbnail_manifest(&manifest) {
+                tracing::warn!(%error, "could not publish Space thumbnail manifest");
+            }
+            if !manifest.captures.is_empty() {
+                self.publish_spaces_state(false);
+                self.request_full_redraw();
+            }
         }
 
         /// Record dirty rects when a window moves/resizes (`accumulate_damage` over old+new).
@@ -3445,6 +3621,7 @@ mod linux {
             self.prune_dead_windows();
             self.cleanup_popup_state();
             self.layer_surfaces.retain(|l| l.surface.alive());
+            self.capture_space_thumbnails();
 
             // Present plan: workspace switch forces full redraw; otherwise use pending
             // damage heuristic (still full clear today — partial clip is follow-on).
@@ -6094,6 +6271,7 @@ mod linux {
             interactive_grab: None,
             x11_interactive_grab: None,
             workspace_swipe: WorkspaceSwipeRecognizer::default(),
+            thumbnail_refresh_requested: false,
             left_button_down: false,
             last_pointer_press: None,
             frame_dirty: true,

@@ -204,10 +204,13 @@ pub use window_rules::{
 };
 pub use workspace_manager::{WorkspaceManager, COMPOSITOR_WORKSPACE_COUNT, SHELL_DESKTOP_COUNT};
 
+use image::{ImageFormat, ImageReader, Limits};
 use parking_lot::RwLock;
 use slopos_bus::{
-    read_spaces_snapshot, send_application_menu_action, send_session_control,
-    SessionControlRequest, SpaceTargetWire, SpacesControlCommand, WindowPresentationAction,
+    read_space_thumbnail_manifest, read_spaces_snapshot, send_application_menu_action,
+    send_session_control, session_space_thumbnail_path, SessionControlRequest, SpaceTargetWire,
+    SpacesControlCommand, WindowPresentationAction, MAX_SPACE_THUMBNAIL_HEIGHT,
+    MAX_SPACE_THUMBNAIL_WIDTH,
 };
 use slopos_kit::button::Button;
 use slopos_kit::design_tokens::{MENU_BAR_HEIGHT, MENU_BAR_HEIGHT_PX, WINDOW_TITLE_BAR_HEIGHT};
@@ -225,11 +228,12 @@ use slopos_kit::window::Window;
 use slopos_kit::workspace_grid_view::WorkspaceGridView;
 use slopos_kit::PointerDispatcher;
 use slopos_kit::{
-    AccessibilityNode, AccessibilityTree, DockView, Event, EventResult, Layout, LayoutConstraint,
-    Point, Rect, Size, Widget, WidgetState,
+    AccessibilityNode, AccessibilityTree, DockView, Event, EventResult, ImageView, Layout,
+    LayoutConstraint, Point, Rect, Size, Widget, WidgetState,
 };
-use std::fs;
-use std::path::PathBuf;
+use std::fs::{self, OpenOptions};
+use std::io::{Cursor, Read};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -247,6 +251,106 @@ pub enum ShellError {
     Theme(String),
     #[error("menu error: {0}")]
     Menu(String),
+}
+
+const MAX_SPACE_THUMBNAIL_BYTES: u64 = 8 * 1024 * 1024;
+
+/// Decode one compositor-owned PNG only when it is a bounded regular file.
+///
+/// The compositor is the sole producer. A missing, malformed, oversized, or
+/// symlinked file is treated as unavailable, so the shell never substitutes a
+/// fabricated window image in the overview.
+fn load_space_thumbnail(id: u64) -> Option<ImageView> {
+    let path = session_space_thumbnail_path(id)?;
+    load_space_thumbnail_path(&path)
+}
+
+fn load_space_thumbnail_path(path: &Path) -> Option<ImageView> {
+    let bytes = read_bounded_thumbnail_file(path)?;
+    let mut reader = ImageReader::with_format(Cursor::new(bytes), ImageFormat::Png);
+    let mut limits = Limits::default();
+    limits.max_image_width = Some(MAX_SPACE_THUMBNAIL_WIDTH);
+    limits.max_image_height = Some(MAX_SPACE_THUMBNAIL_HEIGHT);
+    limits.max_alloc = Some(MAX_SPACE_THUMBNAIL_BYTES);
+    reader.limits(limits);
+    let decoded = reader.decode().ok()?;
+    let rgba = decoded.to_rgba8();
+    let (width, height) = rgba.dimensions();
+    if width == 0
+        || height == 0
+        || width > MAX_SPACE_THUMBNAIL_WIDTH
+        || height > MAX_SPACE_THUMBNAIL_HEIGHT
+    {
+        return None;
+    }
+    ImageView::new(width, height, rgba.into_raw()).ok()
+}
+
+#[cfg(unix)]
+fn read_bounded_thumbnail_file(path: &Path) -> Option<Vec<u8>> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    let mut file = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)
+        .ok()?;
+    let before = file.metadata().ok()?;
+    if !before.file_type().is_file()
+        || before.len() == 0
+        || before.len() > MAX_SPACE_THUMBNAIL_BYTES
+    {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    (&mut file)
+        .take(MAX_SPACE_THUMBNAIL_BYTES.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .ok()?;
+    let after = file.metadata().ok()?;
+    if before.len() != after.len() || bytes.len() as u64 != after.len() {
+        return None;
+    }
+    Some(bytes)
+}
+
+#[cfg(not(unix))]
+fn read_bounded_thumbnail_file(path: &Path) -> Option<Vec<u8>> {
+    let metadata = fs::symlink_metadata(path).ok()?;
+    if metadata.file_type().is_symlink()
+        || !metadata.file_type().is_file()
+        || metadata.len() == 0
+        || metadata.len() > MAX_SPACE_THUMBNAIL_BYTES
+    {
+        return None;
+    }
+    let bytes = fs::read(path).ok()?;
+    (bytes.len() as u64 == metadata.len()).then_some(bytes)
+}
+
+fn load_space_thumbnails(
+    ids: &[u64],
+    expected_session_epoch: u64,
+    expected_revision: u64,
+) -> Vec<Option<ImageView>> {
+    let Ok(manifest) = read_space_thumbnail_manifest() else {
+        return ids.iter().map(|_| None).collect();
+    };
+    if manifest.session_epoch != expected_session_epoch || manifest.generation != expected_revision
+    {
+        return ids.iter().map(|_| None).collect();
+    }
+    ids.iter()
+        .copied()
+        .map(|id| {
+            let entry = manifest
+                .captures
+                .iter()
+                .find(|entry| entry.space_id == id)?;
+            let image = load_space_thumbnail(id)?;
+            (image.width() == entry.width && image.height() == entry.height).then_some(image)
+        })
+        .collect()
 }
 
 pub struct SloposI {
@@ -1170,6 +1274,8 @@ impl ShellDesktop {
         ids: &[u64],
         labels: &[String],
         counts: &[usize],
+        session_epoch: u64,
+        revision: u64,
     ) {
         if let Some(grid) = widget.as_any_mut().downcast_mut::<WorkspaceGridView>() {
             grid.active_index = active;
@@ -1179,24 +1285,57 @@ impl ShellDesktop {
             grid.items.extend(labels.iter().cloned());
             grid.window_counts.clear();
             grid.window_counts.extend(counts.iter().copied());
+            grid.set_thumbnails(load_space_thumbnails(ids, session_epoch, revision));
             grid.normalize_focus();
+        }
+    }
+
+    fn request_space_thumbnails(&self) {
+        if !self.compositor_owns_ordinary_windows() {
+            return;
+        }
+        let request = SessionControlRequest::Spaces {
+            command: SpacesControlCommand::RefreshThumbnails,
+        };
+        if let Err(error) = send_session_control(&request) {
+            tracing::debug!(%error, "could not request compositor Space thumbnails");
         }
     }
 
     /// Keep an already-open overview in sync with a newly reconciled snapshot.
     fn refresh_workspace_overview(&mut self) {
         let (active, _, ids, labels, counts) = self.workspace_overview_data();
+        let (session_epoch, revision) = {
+            let manager = self.workspace_manager.read();
+            (manager.session_epoch, manager.revision)
+        };
         for shell_window in &mut self.windows {
             if shell_window.window.title() == "Workspace" {
                 let mut update = |widget: &mut dyn Widget| {
-                    Self::update_workspace_grid(widget, active, &ids, &labels, &counts)
+                    Self::update_workspace_grid(
+                        widget,
+                        active,
+                        &ids,
+                        &labels,
+                        &counts,
+                        session_epoch,
+                        revision,
+                    )
                 };
                 for_each_widget_mut(&mut shell_window.window, &mut update);
             }
         }
         if let Some(window) = self.workspace_overview.as_mut() {
             let mut update = |widget: &mut dyn Widget| {
-                Self::update_workspace_grid(widget, active, &ids, &labels, &counts)
+                Self::update_workspace_grid(
+                    widget,
+                    active,
+                    &ids,
+                    &labels,
+                    &counts,
+                    session_epoch,
+                    revision,
+                )
             };
             for_each_widget_mut(window, &mut update);
         }
@@ -1792,7 +1931,18 @@ impl ShellDesktop {
                 return;
             }
 
+            // The compositor owns thumbnail pixels. Request a refresh before
+            // constructing the overview; the next authoritative Spaces
+            // snapshot causes `refresh_workspace_overview` to load the newly
+            // committed files. Captures are only accepted when their manifest
+            // matches that authoritative session epoch and revision.
+            self.request_space_thumbnails();
+
             let (active, name, ids, labels, counts) = self.workspace_overview_data();
+            let (session_epoch, revision) = {
+                let manager = self.workspace_manager.read();
+                (manager.session_epoch, manager.revision)
+            };
             let visible_count = counts.get(active).copied().unwrap_or(0);
             let mut layout = Layout::vertical(12.0);
             layout.add(Box::new(Label::new("Select/Switch Workspace:")));
@@ -1804,6 +1954,11 @@ impl ShellDesktop {
             grid.space_ids = ids;
             grid.items = labels;
             grid.window_counts = counts;
+            grid.set_thumbnails(load_space_thumbnails(
+                &grid.space_ids,
+                session_epoch,
+                revision,
+            ));
             layout.add(Box::new(grid));
 
             let desc = format!("Active: {} ({} windows)", name, visible_count);
@@ -2053,14 +2208,22 @@ impl ShellDesktop {
             // but the Spaces overview is shell chrome and must remain
             // interactive on the Background layer.
             let mut grid_cell = None;
+            let mut grid_drop = None;
             if let Some(overview) = self.workspace_overview.as_mut() {
                 for_each_widget_mut(overview, &mut |widget| {
                     if let Some(grid) = widget.as_any_mut().downcast_mut::<WorkspaceGridView>() {
+                        grid_drop = grid.take_dropped();
                         grid_cell = grid.take_activated();
                     }
                 });
             }
-            if let Some(cell) = grid_cell {
+            if let Some(cell) = grid_drop {
+                // A pointer drag in the overview means “move the currently
+                // focused compositor window to this Space”. The compositor
+                // remains the sole authority; the shell only sends the typed
+                // request and waits for its next authoritative snapshot.
+                let _ = self.move_active_window_to_workspace_cell(cell);
+            } else if let Some(cell) = grid_cell {
                 let _ = self.select_workspace_cell(cell);
             }
             return;
@@ -2086,6 +2249,10 @@ impl ShellDesktop {
                         clicked_buttons.push(button.label().to_string());
                     }
                 } else if let Some(grid) = widget.as_any_mut().downcast_mut::<WorkspaceGridView>() {
+                    // The legacy shell has no compositor-owned active-window
+                    // move path; consume any pointer drop without turning it
+                    // into an unrelated Space selection.
+                    let _ = grid.take_dropped();
                     if let Some(cell) = grid.take_activated() {
                         grid_cell = Some(cell);
                     }
@@ -5244,6 +5411,111 @@ mod tests {
         assert_eq!(desktop.active_workspace(), 0);
     }
 
+    #[test]
+    fn compositor_thumbnail_loader_accepts_bounded_png_and_rejects_missing_or_symlink() {
+        let root = temp_shell_root();
+        let path = root.join("spaces-thumbnail-1.png");
+        let image = image::RgbaImage::from_pixel(2, 1, image::Rgba([1, 2, 3, 255]));
+        image.save_with_format(&path, ImageFormat::Png).unwrap();
+
+        let decoded = load_space_thumbnail_path(&path).expect("valid compositor PNG");
+        assert_eq!(decoded.width(), 2);
+        assert_eq!(decoded.height(), 1);
+        assert_eq!(decoded.pixels(), &[1, 2, 3, 255, 1, 2, 3, 255]);
+        assert!(load_space_thumbnail_path(&root.join("missing.png")).is_none());
+
+        #[cfg(unix)]
+        {
+            let symlink = root.join("spaces-thumbnail-link.png");
+            std::os::unix::fs::symlink(&path, &symlink).unwrap();
+            assert!(
+                load_space_thumbnail_path(&symlink).is_none(),
+                "shell must not follow a thumbnail symlink"
+            );
+        }
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn compositor_thumbnail_loader_rejects_non_png_and_oversized_dimensions() {
+        let root = temp_shell_root();
+        let non_png = root.join("not-png.png");
+        fs::write(&non_png, b"not a PNG").unwrap();
+        assert!(load_space_thumbnail_path(&non_png).is_none());
+
+        let oversized = root.join("oversized.png");
+        let image = image::RgbaImage::from_pixel(
+            MAX_SPACE_THUMBNAIL_WIDTH + 1,
+            1,
+            image::Rgba([0, 0, 0, 255]),
+        );
+        image
+            .save_with_format(&oversized, ImageFormat::Png)
+            .unwrap();
+        assert!(load_space_thumbnail_path(&oversized).is_none());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn thumbnail_loader_requires_the_current_atomic_manifest() {
+        let _environment_guard = SESSION_RUNTIME_ENV_LOCK.lock().unwrap();
+        let root = temp_shell_root();
+        let previous_runtime = std::env::var_os("SLOPOS_SESSION_RUNTIME_DIR");
+        std::env::set_var("SLOPOS_SESSION_RUNTIME_DIR", &root);
+
+        let path = root.join("spaces-thumbnail-1.png");
+        image::RgbaImage::from_pixel(2, 1, image::Rgba([9, 8, 7, 255]))
+            .save_with_format(&path, ImageFormat::Png)
+            .unwrap();
+        slopos_bus::write_space_thumbnail_manifest(&slopos_bus::SpaceThumbnailManifest {
+            session_epoch: 3,
+            generation: 4,
+            captures: vec![slopos_bus::SpaceThumbnailEntry {
+                space_id: 1,
+                width: 2,
+                height: 1,
+            }],
+        })
+        .unwrap();
+
+        let loaded = load_space_thumbnails(&[1, 2], 3, 4);
+        assert!(loaded[0].is_some(), "manifest-listed capture is accepted");
+        assert!(loaded[1].is_none(), "unlisted Space has no capture");
+
+        slopos_bus::write_space_thumbnail_manifest(&slopos_bus::SpaceThumbnailManifest {
+            session_epoch: 3,
+            generation: 5,
+            captures: Vec::new(),
+        })
+        .unwrap();
+        assert!(load_space_thumbnails(&[1], 3, 5)[0].is_none());
+
+        slopos_bus::write_space_thumbnail_manifest(&slopos_bus::SpaceThumbnailManifest {
+            session_epoch: 99,
+            generation: 4,
+            captures: vec![slopos_bus::SpaceThumbnailEntry {
+                space_id: 1,
+                width: 2,
+                height: 1,
+            }],
+        })
+        .unwrap();
+        assert!(
+            load_space_thumbnails(&[1], 3, 4)[0].is_none(),
+            "captures from a prior compositor session must not be reused"
+        );
+
+        if let Some(previous_runtime) = previous_runtime {
+            std::env::set_var("SLOPOS_SESSION_RUNTIME_DIR", previous_runtime);
+        } else {
+            std::env::remove_var("SLOPOS_SESSION_RUNTIME_DIR");
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[cfg(unix)]
     #[test]
     fn live_workspace_switch_sends_stable_id_without_optimistic_mirror_mutation() {
@@ -5711,6 +5983,8 @@ mod tests {
 
         let result = desktop.handle_event(&left_down(cell0));
         assert!(matches!(result, EventResult::Handled));
+        let result = desktop.handle_event(&left_up(cell0));
+        assert!(matches!(result, EventResult::Handled));
         assert_eq!(desktop.active_workspace(), 0, "cell 0 press switches back");
         assert!(
             !desktop.windows.iter().any(|w| w.id == overview_id),
@@ -5797,6 +6071,12 @@ mod tests {
             });
         desktop.set_layer_shell_bound(true);
         desktop.open_workspace_status_window();
+        assert_eq!(
+            listener.drain(),
+            vec![SessionControlRequest::Spaces {
+                command: SpacesControlCommand::RefreshThumbnails,
+            }]
+        );
         desktop.set_input_filter(Some(ShellPaintFilter::SpacesOverview));
 
         fn grid_cell_center(window: &Window, cell: usize) -> Point {
@@ -5817,6 +6097,10 @@ mod tests {
             desktop.handle_event(&left_down(cell)),
             EventResult::Handled
         ));
+        assert!(matches!(
+            desktop.handle_event(&left_up(cell)),
+            EventResult::Handled
+        ));
         assert_eq!(
             listener.drain(),
             vec![SessionControlRequest::Spaces {
@@ -5824,6 +6108,120 @@ mod tests {
             }]
         );
         assert!(desktop.workspace_overview.is_none());
+
+        if let Some(previous_runtime) = previous_runtime {
+            std::env::set_var("SLOPOS_SESSION_RUNTIME_DIR", previous_runtime);
+        } else {
+            std::env::remove_var("SLOPOS_SESSION_RUNTIME_DIR");
+        }
+        drop(listener);
+        fs::remove_dir_all(runtime).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn live_workspace_overview_drag_moves_active_window_by_stable_space_id() {
+        use slopos_bus::{SessionControlListener, SessionControlRequest, SpaceTargetWire};
+
+        let _environment_guard = SESSION_RUNTIME_ENV_LOCK.lock().unwrap();
+        let runtime = std::env::temp_dir().join(format!(
+            "slo-wsd-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&runtime).unwrap();
+        let listener = SessionControlListener::bind(&runtime).unwrap();
+        let previous_runtime = std::env::var_os("SLOPOS_SESSION_RUNTIME_DIR");
+        std::env::set_var("SLOPOS_SESSION_RUNTIME_DIR", &runtime);
+
+        let (mut desktop, _) = test_desktop();
+        desktop
+            .workspace_manager
+            .write()
+            .apply_snapshot(&slopos_bus::SpacesSnapshot {
+                session_epoch: 1,
+                revision: 13,
+                active_space: 11,
+                multi_monitor_policy: slopos_bus::SpacesDisplayPolicy::SharedSpan,
+                application_policies: Vec::new(),
+                spaces: vec![
+                    slopos_bus::SpaceSnapshot {
+                        id: 11,
+                        order: 0,
+                        name: "Personal".to_string(),
+                        active: true,
+                        window_count: 1,
+                        wallpaper: None,
+                        appearance: None,
+                        classification: slopos_bus::SpaceClassification::Normal,
+                        output_id: None,
+                    },
+                    slopos_bus::SpaceSnapshot {
+                        id: 22,
+                        order: 1,
+                        name: "Projects".to_string(),
+                        active: false,
+                        window_count: 2,
+                        wallpaper: None,
+                        appearance: None,
+                        classification: slopos_bus::SpaceClassification::Normal,
+                        output_id: None,
+                    },
+                ],
+            });
+        desktop.set_layer_shell_bound(true);
+        desktop.set_input_filter(Some(ShellPaintFilter::SpacesOverview));
+        desktop.open_workspace_status_window();
+        assert_eq!(
+            listener.drain(),
+            vec![SessionControlRequest::Spaces {
+                command: slopos_bus::SpacesControlCommand::RefreshThumbnails,
+            }]
+        );
+
+        fn grid_cell_center(window: &Window, cell: usize) -> Point {
+            fn find(widget: &dyn Widget, cell: usize) -> Option<Point> {
+                if let Some(grid) = widget.as_any().downcast_ref::<WorkspaceGridView>() {
+                    return Some(center(grid.cell_rect(cell)));
+                }
+                widget
+                    .children()
+                    .into_iter()
+                    .find_map(|child| find(child, cell))
+            }
+            find(window, cell).expect("live workspace overview grid exists")
+        }
+
+        let source = grid_cell_center(desktop.workspace_overview.as_ref().unwrap(), 0);
+        let target = grid_cell_center(desktop.workspace_overview.as_ref().unwrap(), 1);
+        assert!(matches!(
+            desktop.handle_event(&left_down(source)),
+            EventResult::Handled
+        ));
+        assert!(matches!(
+            desktop.handle_event(&Event::MouseMove {
+                point: target,
+                modifiers: Modifiers::NONE,
+            }),
+            EventResult::Handled
+        ));
+        assert!(matches!(
+            desktop.handle_event(&left_up(target)),
+            EventResult::Handled
+        ));
+        assert_eq!(
+            listener.drain(),
+            vec![SessionControlRequest::Spaces {
+                command: slopos_bus::SpacesControlCommand::MoveActiveWindow {
+                    target: SpaceTargetWire::Id { id: 22 },
+                },
+            }]
+        );
+        assert!(desktop.workspace_overview.is_none());
+        assert!(desktop.input_filter.is_none());
 
         if let Some(previous_runtime) = previous_runtime {
             std::env::set_var("SLOPOS_SESSION_RUNTIME_DIR", previous_runtime);
@@ -5891,6 +6289,12 @@ mod tests {
         desktop.set_layer_shell_bound(true);
         desktop.set_input_filter(Some(ShellPaintFilter::SpacesOverview));
         desktop.open_workspace_status_window();
+        assert_eq!(
+            listener.drain(),
+            vec![SessionControlRequest::Spaces {
+                command: SpacesControlCommand::RefreshThumbnails,
+            }]
+        );
 
         let key = |key| Event::KeyDown {
             key,
@@ -5915,6 +6319,12 @@ mod tests {
         assert!(desktop.input_filter.is_none());
 
         desktop.open_workspace_status_window();
+        assert_eq!(
+            listener.drain(),
+            vec![SessionControlRequest::Spaces {
+                command: SpacesControlCommand::RefreshThumbnails,
+            }]
+        );
         assert!(matches!(
             desktop.handle_event(&key(slopos_kit::event::KeyCode::Escape)),
             EventResult::Handled
@@ -5924,6 +6334,12 @@ mod tests {
         assert!(listener.drain().is_empty(), "dismissal must not send IPC");
 
         desktop.open_workspace_status_window();
+        assert_eq!(
+            listener.drain(),
+            vec![SessionControlRequest::Spaces {
+                command: SpacesControlCommand::RefreshThumbnails,
+            }]
+        );
         {
             let mut manager = desktop.workspace_manager.write();
             manager.workspaces.clear();
@@ -6002,6 +6418,12 @@ mod tests {
         desktop.set_layer_shell_bound(true);
         desktop.set_input_filter(Some(ShellPaintFilter::SpacesOverview));
         desktop.open_workspace_status_window();
+        assert_eq!(
+            listener.drain(),
+            vec![SessionControlRequest::Spaces {
+                command: slopos_bus::SpacesControlCommand::RefreshThumbnails,
+            }]
+        );
 
         let arrow_right = Event::KeyDown {
             key: slopos_kit::event::KeyCode::ArrowRight,

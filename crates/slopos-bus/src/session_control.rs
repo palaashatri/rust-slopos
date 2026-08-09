@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::spaces::SpacesControlCommand;
+use crate::spaces::{SpaceThumbnailManifest, SpacesControlCommand, SPACE_THUMBNAIL_MANIFEST_FILE};
 
 pub const SESSION_CONTROL_SOCKET: &str = "control.sock";
 const APPLICATION_CONTROL_DIR: &str = "app-control";
@@ -379,6 +379,126 @@ pub fn read_spaces_snapshot() -> io::Result<crate::SpacesSnapshot> {
     })?;
     let bytes = std::fs::read(path)?;
     serde_json::from_slice(&bytes).map_err(io::Error::other)
+}
+
+/// Publish one complete compositor-owned Space thumbnail manifest atomically.
+///
+/// The manifest is written after all individual PNGs have been committed. A
+/// shell can therefore ignore stale files and only display captures listed by
+/// this generation.
+#[cfg(unix)]
+pub fn write_space_thumbnail_manifest(manifest: &SpaceThumbnailManifest) -> io::Result<()> {
+    use std::fs::{self, OpenOptions};
+    use std::io::Write;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    let path = crate::session_space_thumbnail_manifest_path().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            "SLOPOS_SESSION_RUNTIME_DIR is not set or unsafe",
+        )
+    })?;
+    let parent = path.parent().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "thumbnail manifest path has no parent",
+        )
+    })?;
+    fs::create_dir_all(parent)?;
+    let bytes = serde_json::to_vec_pretty(manifest).map_err(io::Error::other)?;
+    let counter = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let temp = parent.join(format!(
+        ".{}.{}.tmp",
+        SPACE_THUMBNAIL_MANIFEST_FILE, counter
+    ));
+    let mut file = OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&temp)?;
+    let result = (|| {
+        file.write_all(&bytes)?;
+        file.sync_all()?;
+        drop(file);
+        fs::rename(&temp, &path)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    result
+}
+
+#[cfg(not(unix))]
+pub fn write_space_thumbnail_manifest(_manifest: &SpaceThumbnailManifest) -> io::Result<()> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "thumbnail manifests require the Unix session runtime",
+    ))
+}
+
+/// Read the latest atomic thumbnail manifest for the current session.
+pub fn read_space_thumbnail_manifest() -> io::Result<SpaceThumbnailManifest> {
+    let path = crate::session_space_thumbnail_manifest_path().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            "SLOPOS_SESSION_RUNTIME_DIR is not set or unsafe",
+        )
+    })?;
+    #[cfg(unix)]
+    let bytes = {
+        use std::fs::OpenOptions;
+        use std::io::Read;
+        use std::os::unix::fs::OpenOptionsExt;
+
+        let mut file = OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(&path)?;
+        let before = file.metadata()?;
+        if !before.file_type().is_file()
+            || before.len() == 0
+            || before.len() > crate::MAX_SPACE_THUMBNAIL_MANIFEST_BYTES
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "thumbnail manifest is not a bounded regular file",
+            ));
+        }
+        let mut bytes = Vec::new();
+        (&mut file)
+            .take(crate::MAX_SPACE_THUMBNAIL_MANIFEST_BYTES.saturating_add(1))
+            .read_to_end(&mut bytes)?;
+        let after = file.metadata()?;
+        if before.len() != after.len()
+            || bytes.len() as u64 != after.len()
+            || bytes.len() as u64 > crate::MAX_SPACE_THUMBNAIL_MANIFEST_BYTES
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "thumbnail manifest changed during read",
+            ));
+        }
+        bytes
+    };
+    #[cfg(not(unix))]
+    let bytes = std::fs::read(path)?;
+    if bytes.len() as u64 > crate::MAX_SPACE_THUMBNAIL_MANIFEST_BYTES {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "thumbnail manifest exceeds the bounded read limit",
+        ));
+    }
+    let manifest =
+        serde_json::from_slice::<SpaceThumbnailManifest>(&bytes).map_err(io::Error::other)?;
+    if !manifest.is_valid() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "thumbnail manifest contains invalid or duplicate captures",
+        ));
+    }
+    Ok(manifest)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -769,6 +889,18 @@ mod tests {
     fn request_round_trips_through_json() {
         let request = SessionControlRequest::FocusedWindow {
             action: WindowPresentationAction::ToggleFullscreen,
+        };
+        let encoded = serde_json::to_vec(&request).unwrap();
+        assert_eq!(
+            serde_json::from_slice::<SessionControlRequest>(&encoded).unwrap(),
+            request
+        );
+    }
+
+    #[test]
+    fn refresh_thumbnails_request_round_trips_through_json() {
+        let request = SessionControlRequest::Spaces {
+            command: SpacesControlCommand::RefreshThumbnails,
         };
         let encoded = serde_json::to_vec(&request).unwrap();
         assert_eq!(

@@ -65,7 +65,7 @@ pub fn capture_if_requested(
     if !SHOT_REQUESTED.swap(false, Ordering::SeqCst) {
         return;
     }
-    match capture(renderer, elements, size, clear) {
+    match capture_to_path(renderer, elements, size, clear, &shot_path()) {
         Ok(path) => {
             tracing::info!(path = %path.display(), "screenshot written");
             eprintln!("[slopos-compositor] screenshot written: {}", path.display());
@@ -98,11 +98,17 @@ fn validate_capture_size(width: i32, height: i32) -> anyhow::Result<(u32, u32, u
     Ok((width as u32, height as u32, bytes))
 }
 
-fn capture(
+/// Render real compositor elements into a bounded offscreen PNG.
+///
+/// The caller supplies the destination so product surfaces such as
+/// compositor-owned Spaces thumbnails can use the same readback path as the
+/// SIGUSR1 QA capture without sharing a global filename.
+pub fn capture_to_path(
     renderer: &mut GlesRenderer,
     elements: &[WaylandSurfaceRenderElement<GlesRenderer>],
     (width, height): (i32, i32),
     clear: [f32; 4],
+    destination: &Path,
 ) -> anyhow::Result<PathBuf> {
     let (width_u32, height_u32, expected_bytes) = validate_capture_size(width, height)?;
     let physical: Size<i32, Physical> = Size::from((width, height));
@@ -158,9 +164,8 @@ fn capture(
 
     let image = image::RgbaImage::from_raw(width_u32, height_u32, rgba)
         .ok_or_else(|| anyhow::anyhow!("RGBA image dimensions do not match readback"))?;
-    let destination = shot_path();
-    save_png_atomic(&destination, image)?;
-    Ok(destination)
+    save_png_atomic(destination, image)?;
+    Ok(destination.to_path_buf())
 }
 
 fn flip_rows_in_place(bytes: &mut [u8], width: usize, height: usize) -> anyhow::Result<()> {
