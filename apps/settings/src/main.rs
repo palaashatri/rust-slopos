@@ -1102,6 +1102,7 @@ impl SettingsView {
                 Button::new("Apply Metadata"),
                 Button::new("Assign Output"),
                 Button::new("Clear Output"),
+                Button::new("Move Active Window to Output"),
             ],
             spaces_policy_buttons: vec![
                 Button::new("Shared Across Displays"),
@@ -1283,6 +1284,7 @@ impl SettingsView {
                 && snapshot.multi_monitor_policy == SpacesDisplayPolicy::IndependentPerDisplay,
         );
         self.spaces_action_buttons[7].set_enabled(has_active);
+        self.spaces_action_buttons[8].set_enabled(has_active);
         self.spaces_classification_button.set_enabled(has_active);
         self.spaces_classification_button
             .set_label(match active.map(|s| s.classification) {
@@ -1407,6 +1409,23 @@ impl SettingsView {
             let _ = self.send_spaces_command(SpacesControlCommand::AssignOutput {
                 id: active.id,
                 output_id: None,
+            });
+            return;
+        }
+        if index == 8 {
+            let output_id = self.spaces_output_field.text().trim();
+            if output_id.is_empty() {
+                self.spaces_feedback = Some("ENTER AN OUTPUT ID FIRST".to_string());
+                self.refresh_labels();
+                return;
+            }
+            if output_id.chars().any(char::is_control) {
+                self.spaces_feedback = Some("INVALID OUTPUT ID".to_string());
+                self.refresh_labels();
+                return;
+            }
+            let _ = self.send_spaces_command(SpacesControlCommand::MoveActiveWindowToOutput {
+                output_id: output_id.to_string(),
             });
             return;
         }
@@ -2842,6 +2861,50 @@ mod tests {
                     command: SpacesControlCommand::Select { id: 22 }
                 }]
             );
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn settings_spaces_moves_active_window_to_selected_output() {
+        with_spaces_runtime(|_runtime, listener| {
+            let mut snapshot = spaces_snapshot_for_settings();
+            snapshot.multi_monitor_policy = SpacesDisplayPolicy::IndependentPerDisplay;
+            snapshot.revision = 4;
+            slopos_bus::write_spaces_snapshot(&snapshot).unwrap();
+
+            let mut view = SettingsView::load(SettingsStore::new(temp_settings_path()));
+            view.select_category(Category::Spaces);
+            view.set_rect(Rect::new(0.0, 0.0, 720.0, 720.0));
+            view.layout(LayoutConstraint::tight(Size::new(720.0, 720.0)));
+
+            view.spaces_output_field.set_text("HDMI-A-1");
+            let move_rect = view.spaces_action_buttons[8].rect();
+            click(&mut view, move_rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::MoveActiveWindowToOutput {
+                        output_id: "HDMI-A-1".to_string(),
+                    },
+                }]
+            );
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn settings_spaces_rejects_empty_active_window_output_target() {
+        with_spaces_runtime(|_runtime, listener| {
+            let mut view = SettingsView::load(SettingsStore::new(temp_settings_path()));
+            view.select_category(Category::Spaces);
+            view.set_rect(Rect::new(0.0, 0.0, 720.0, 720.0));
+            view.layout(LayoutConstraint::tight(Size::new(720.0, 720.0)));
+
+            let move_rect = view.spaces_action_buttons[8].rect();
+            click(&mut view, move_rect);
+            assert!(listener.drain().is_empty());
+            assert!(view.status.text.contains("ENTER AN OUTPUT ID FIRST"));
         });
     }
 
