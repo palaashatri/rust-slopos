@@ -2,7 +2,7 @@
 //!
 //! # What works today
 //! - Role name + numeric `AtspiRole` mapping for kit chrome and widgets
-//! - Flat (+ one nested level) `AccessibilityTree` → D-Bus `Accessible` objects
+//! - Flat top-level + recursively nested live-widget `AccessibilityTree` → D-Bus `Accessible` objects
 //! - `org.a11y.atspi.Action` on actionable roles (Activate / Press / Focus)
 //! - Pure keyboard chrome focus-order policy (menu bar → desktop icons → dock)
 //! - Session / a11y-bus registration with best-effort registry `Socket.Embed`
@@ -29,7 +29,7 @@
 //!   (`OnceLock`/`Mutex`/`Vec`). Shell drains the queue in `update()` into real
 //!   chrome/session handlers. Still not Orca-complete (snapshot tree, no live
 //!   widget drive for every control).
-//! - **Shallow nesting**: only one child level under flat nodes is exported.
+//! - **Nested snapshots**: authored and live-widget child nodes are exported recursively.
 //! - **Selection / Table / Value** pure helpers are partial; full Collection not shipped.
 //! - **Relation set** pure helpers only ([`AccessibleRelation`]).
 //! - **Shell chrome tree is structural**, not bound to live menu/dock widgets.
@@ -37,7 +37,7 @@
 //! Raising Orca-usable domain means keeping roles/actions present and testable,
 //! not claiming full assistive-tech parity.
 
-use crate::Rect;
+use crate::{Rect, Visibility, Widget, WidgetId};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Mutex, OnceLock};
 
@@ -1454,6 +1454,14 @@ pub struct AccessibilityNode {
     pub children: Vec<AccessibilityNode>,
     pub index: usize,
     pub parent: Option<usize>,
+    /// The live widget that produced this node, when the node came from
+    /// [`accessibility_tree_from_widget`].  Hand-authored AT-SPI nodes keep
+    /// this as `None`, which preserves their legacy numeric object paths.
+    ///
+    /// Widget ids are process-local but stable for a widget's lifetime.  The
+    /// id is therefore a better identity for a live object than its position
+    /// in a frame (which can change when a sibling is inserted or removed).
+    pub widget_id: Option<WidgetId>,
 }
 
 impl AccessibilityNode {
@@ -1467,6 +1475,7 @@ impl AccessibilityNode {
             children: vec![],
             index: 0,
             parent: None,
+            widget_id: None,
         }
     }
 
@@ -1489,6 +1498,63 @@ impl AccessibilityNode {
     pub fn actions(&self) -> Vec<AccessibleAction> {
         actions_for_role(self.role)
     }
+
+    /// Attach the identity of the live widget represented by this node.
+    pub fn with_widget_id(mut self, widget_id: WidgetId) -> Self {
+        self.widget_id = Some(widget_id);
+        self
+    }
+}
+
+/// Build a current accessibility snapshot from a live widget tree.
+///
+/// Widgets are asked for their authored [`AccessibilityNode`] first.  When a
+/// widget supplies explicit children (for example a custom application root),
+/// those children remain authoritative; otherwise the widget's live
+/// [`Widget::children`] are recursively converted.  A widget without an
+/// accessibility node is transparent and contributes any accessible
+/// descendants it contains.
+///
+/// The node's geometry and live state are always refreshed from the widget,
+/// while role/label/description and authored state fields remain intact.  A
+/// `WidgetId` is retained on every generated node so callers can derive stable
+/// AT-SPI paths across frame snapshots even when sibling order changes.
+pub fn accessibility_tree_from_widget(root: &dyn Widget) -> AccessibilityTree {
+    let mut tree = AccessibilityTree::new();
+    tree.nodes.extend(accessibility_nodes_from_widget(root));
+    tree
+}
+
+fn accessibility_nodes_from_widget(widget: &dyn Widget) -> Vec<AccessibilityNode> {
+    let children = widget.children();
+    let Some(mut node) = widget.accessibility() else {
+        // Containers that have no semantic node are transparent.  This keeps
+        // a decorative/layout wrapper from hiding accessible descendants.
+        return children
+            .into_iter()
+            .flat_map(accessibility_nodes_from_widget)
+            .collect();
+    };
+
+    node.rect = widget.rect();
+    node.state.enabled = widget.enabled();
+    node.state.visible = widget.visibility() == Visibility::Visible;
+    node.state.focused = widget.widget_state().focused;
+    node.widget_id = Some(widget.id());
+
+    // An authored child list is intentional.  Settings and other custom
+    // roots use it to expose semantic children that are not one-to-one with
+    // the rendering widgets; deriving Widget::children in that case would
+    // duplicate those entries.  Generic widgets with no authored children
+    // get their live descendants here.
+    if node.children.is_empty() {
+        node.children = children
+            .into_iter()
+            .flat_map(accessibility_nodes_from_widget)
+            .collect();
+    }
+
+    vec![node]
 }
 
 // ---------------------------------------------------------------------------
@@ -1500,6 +1566,39 @@ impl AccessibilityNode {
 #[derive(Debug, Default, Clone)]
 pub struct AccessibilityTree {
     nodes: Vec<AccessibilityNode>,
+}
+
+/// Stable path segment for a live widget id.  `WidgetId`'s display form is
+/// deliberately sanitized so the resulting path remains a valid D-Bus object
+/// path component while retaining the numeric id for diagnostics.
+fn widget_id_path_segment(widget_id: WidgetId) -> String {
+    format!("w_{}", sanitize_path_segment(&widget_id.to_string()))
+}
+
+fn widget_id_accessible_id(widget_id: WidgetId) -> String {
+    format!("widget_{}", sanitize_path_segment(&widget_id.to_string()))
+}
+
+/// Return the object path for a node in its current tree position.
+///
+/// Live widget nodes use an absolute `w_<WidgetId>` segment.  Authored child
+/// nodes have no widget identity and retain the historical `/c{index}` path.
+/// Top-level authored nodes retain their canonical numeric index paths.
+fn accessibility_node_path(
+    node: &AccessibilityNode,
+    parent_path: Option<&str>,
+    index: usize,
+) -> String {
+    if let Some(widget_id) = node.widget_id {
+        format!(
+            "{ATSPI_ACCESSIBLE_PREFIX}/{}",
+            widget_id_path_segment(widget_id)
+        )
+    } else if let Some(parent_path) = parent_path {
+        format!("{parent_path}/c{index}")
+    } else {
+        atspi_object_path(index)
+    }
 }
 
 impl AccessibilityTree {
@@ -1546,9 +1645,23 @@ impl AccessibilityTree {
             .collect()
     }
 
-    /// D-Bus object paths for each flat node (canonical numeric form).
+    /// D-Bus object paths for each top-level node.
+    ///
+    /// Hand-authored nodes retain canonical numeric paths.  Nodes produced
+    /// from live widgets use their stable `WidgetId` path segment.
     pub fn to_atspi_paths(&self) -> Vec<String> {
-        (0..self.nodes.len()).map(atspi_object_path).collect()
+        self.nodes
+            .iter()
+            .enumerate()
+            .map(|(index, node)| accessibility_node_path(node, None, index))
+            .collect()
+    }
+
+    /// Return the stable object path for a top-level node at `index`.
+    pub fn path_for_index(&self, index: usize) -> Option<String> {
+        self.nodes
+            .get(index)
+            .map(|node| accessibility_node_path(node, None, index))
     }
 
     /// Apply a focus change for the accessible at `path` and emit events.
@@ -1563,7 +1676,30 @@ impl AccessibilityTree {
     /// [`try_emit_atspi_dbus_event`] (or the shell `atspi_bus` helper) for each
     /// drained event — this method does not touch the bus connection.
     pub fn focus_changed(&mut self, path: &str, bus: &mut AccessibilityEventBus) {
-        let target = flat_index_from_atspi_path(path);
+        let target = flat_index_from_atspi_path(path).or_else(|| {
+            self.nodes
+                .iter()
+                .enumerate()
+                .find(|(index, node)| accessibility_node_path(node, None, *index) == path)
+                .map(|(index, _)| index)
+        });
+
+        // A stable widget path can identify a generated descendant directly.
+        // Numeric paths retain their historical flat-parent semantics, but a
+        // live child should receive the focused state on its own object.
+        if target.is_none() {
+            let matched = self
+                .nodes
+                .iter_mut()
+                .enumerate()
+                .fold(false, |matched, (index, node)| {
+                    set_focus_path(node, None, index, path, bus) || matched
+                });
+            if matched {
+                bus.focus_changed(path);
+                return;
+            }
+        }
 
         // Emit StateChanged for nodes whose focused bit flips.
         for (i, node) in self.nodes.iter_mut().enumerate() {
@@ -1581,9 +1717,32 @@ impl AccessibilityTree {
 
     /// Focus the flat node at `index` (canonical path) and emit events.
     pub fn focus_changed_index(&mut self, index: usize, bus: &mut AccessibilityEventBus) {
-        let path = atspi_object_path(index);
-        self.focus_changed(&path, bus);
+        if let Some(path) = self.path_for_index(index) {
+            self.focus_changed(&path, bus);
+        }
     }
+}
+
+fn set_focus_path(
+    node: &mut AccessibilityNode,
+    parent_path: Option<&str>,
+    index: usize,
+    target_path: &str,
+    bus: &mut AccessibilityEventBus,
+) -> bool {
+    let path = accessibility_node_path(node, parent_path, index);
+    let is_target = path == target_path;
+    if node.state.focused != is_target {
+        bus.focused_state_changed(&path, is_target);
+        node.state.focused = is_target;
+    }
+
+    let mut matched = is_target;
+    for (child_index, child) in node.children.iter_mut().enumerate() {
+        matched =
+            set_focus_path(child, Some(path.as_str()), child_index, target_path, bus) || matched;
+    }
+    matched
 }
 
 // ---------------------------------------------------------------------------
@@ -2088,7 +2247,7 @@ fn accessibility_tree_signature(tree: &AccessibilityTree) -> String {
 
         let _ = write!(
             out,
-            "{}\u{1f}{}\u{1f}{}\u{1f}{:.3},{:.3},{:.3},{:.3}\u{1f}{:?}\u{1f}{:?}\u{1f}{:?};",
+            "{}\u{1f}{}\u{1f}{}\u{1f}{:.3},{:.3},{:.3},{:.3}\u{1f}{:?}\u{1f}{:?}\u{1f}{:?}\u{1f}{:?};",
             node.role_name(),
             node.label,
             node.description,
@@ -2099,6 +2258,7 @@ fn accessibility_tree_signature(tree: &AccessibilityTree) -> String {
             node.state,
             node.index,
             node.parent,
+            node.widget_id,
         );
         for child in &node.children {
             append_node(child, out);
@@ -2134,25 +2294,15 @@ fn collect_accessibility_nodes<'a>(tree: &'a AccessibilityTree) -> Vec<Accessibi
             node,
         });
         for (index, child) in node.children.iter().enumerate() {
-            visit(
-                child,
-                format!("{path}/c{index}"),
-                path.clone(),
-                index,
-                entries,
-            );
+            let child_path = accessibility_node_path(child, Some(path.as_str()), index);
+            visit(child, child_path, path.clone(), index, entries);
         }
     }
 
     let mut entries = Vec::new();
     for (index, node) in tree.nodes.iter().enumerate() {
-        visit(
-            node,
-            atspi_object_path(index),
-            ATSPI_ROOT_PATH.to_string(),
-            index,
-            &mut entries,
-        );
+        let path = accessibility_node_path(node, None, index);
+        visit(node, path, ATSPI_ROOT_PATH.to_string(), index, &mut entries);
     }
     entries
 }
@@ -2264,7 +2414,8 @@ fn remove_atspi_tree(
 ) -> Result<(), Box<dyn std::error::Error>> {
     fn remove_node(server: &ObjectServer, node: &AccessibilityNode, path: &str) {
         for (child_index, child) in node.children.iter().enumerate() {
-            remove_node(server, child, &format!("{path}/c{child_index}"));
+            let child_path = accessibility_node_path(child, Some(path), child_index);
+            remove_node(server, child, &child_path);
         }
         let _ = server.remove::<AtspiComponent, _>(path);
         let _ = server.remove::<AtspiText, _>(path);
@@ -2273,7 +2424,8 @@ fn remove_atspi_tree(
     }
 
     for (index, node) in tree.nodes().iter().enumerate() {
-        remove_node(server, node, &atspi_object_path(index));
+        let path = accessibility_node_path(node, None, index);
+        remove_node(server, node, &path);
     }
     let _ = server.remove::<AtspiApplication, _>(ATSPI_ROOT_PATH);
     let _ = server.remove::<AtspiAccessible, _>(ATSPI_ROOT_PATH);
@@ -2324,8 +2476,11 @@ fn export_atspi_tree(
         index_in_parent: usize,
         accessible_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let child_paths: Vec<String> = (0..node.children.len())
-            .map(|child_index| format!("{path}/c{child_index}"))
+        let child_paths: Vec<String> = node
+            .children
+            .iter()
+            .enumerate()
+            .map(|(child_index, child)| accessibility_node_path(child, Some(path), child_index))
             .collect();
         let object = AtspiAccessible {
             name: node.label.clone(),
@@ -2352,8 +2507,11 @@ fn export_atspi_tree(
             server.at(path, AtspiComponent::from_node(node))?;
         }
         for (child_index, child) in node.children.iter().enumerate() {
-            let child_path = format!("{path}/c{child_index}");
-            let child_id = format!("{accessible_id}_c{child_index}");
+            let child_path = accessibility_node_path(child, Some(path), child_index);
+            let child_id = child
+                .widget_id
+                .map(widget_id_accessible_id)
+                .unwrap_or_else(|| format!("{accessible_id}_c{child_index}"));
             export_node(
                 server,
                 bus_name,
@@ -2368,7 +2526,11 @@ fn export_atspi_tree(
     }
 
     for (index, node) in tree.nodes().iter().enumerate() {
-        let path = atspi_object_path(index);
+        let path = accessibility_node_path(node, None, index);
+        let accessible_id = node
+            .widget_id
+            .map(widget_id_accessible_id)
+            .unwrap_or_else(|| format!("n{index}"));
         export_node(
             server,
             bus_name,
@@ -2376,7 +2538,7 @@ fn export_atspi_tree(
             &path,
             ATSPI_ROOT_PATH,
             index,
-            &format!("n{index}"),
+            &accessible_id,
         )?;
     }
 
@@ -2792,6 +2954,194 @@ mod tests {
         assert_eq!(tree.len(), 1);
         assert_eq!(tree.nodes()[0].label, "Demo");
         assert_eq!(tree.nodes()[0].role, AccessibilityRole::Window);
+    }
+
+    struct TestWidget {
+        state: crate::WidgetState,
+        role: AccessibilityRole,
+        label: String,
+        children: Vec<Box<dyn Widget>>,
+        explicit_children: Vec<AccessibilityNode>,
+    }
+
+    impl TestWidget {
+        fn new(role: AccessibilityRole, label: &str) -> Self {
+            Self {
+                state: crate::WidgetState::new(),
+                role,
+                label: label.to_string(),
+                children: Vec::new(),
+                explicit_children: Vec::new(),
+            }
+        }
+    }
+
+    impl Widget for TestWidget {
+        fn widget_state(&self) -> &crate::WidgetState {
+            &self.state
+        }
+
+        fn widget_state_mut(&mut self) -> &mut crate::WidgetState {
+            &mut self.state
+        }
+
+        fn layout(&mut self, constraint: crate::LayoutConstraint) -> crate::Size {
+            constraint.clamp(crate::Size::new(self.rect().width, self.rect().height))
+        }
+
+        fn draw(&self, _theme: &crate::ThemeContext) {}
+
+        fn accessibility(&self) -> Option<AccessibilityNode> {
+            let mut node = AccessibilityNode::new(self.role, &self.label);
+            node.children = self.explicit_children.clone();
+            Some(node)
+        }
+
+        fn children(&self) -> Vec<&dyn Widget> {
+            self.children
+                .iter()
+                .map(|child| child.as_ref() as &dyn Widget)
+                .collect()
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+    }
+
+    fn path_for_label(tree: &AccessibilityTree, label: &str) -> String {
+        collect_accessibility_nodes(tree)
+            .into_iter()
+            .find(|entry| entry.node.label == label)
+            .map(|entry| entry.path)
+            .unwrap_or_else(|| panic!("missing accessibility node {label:?}"))
+    }
+
+    #[test]
+    fn widget_accessibility_tree_recurses_and_enriches_live_state() {
+        let mut root = TestWidget::new(AccessibilityRole::Window, "root");
+        let mut group = TestWidget::new(AccessibilityRole::Group, "group");
+        group.children.push(Box::new(TestWidget::new(
+            AccessibilityRole::Button,
+            "nested",
+        )));
+        root.children.push(Box::new(group));
+        root.set_rect(Rect::new(10.0, 20.0, 300.0, 200.0));
+        root.set_enabled(false);
+        root.set_visibility(Visibility::Hidden);
+        root.widget_state_mut().focused = true;
+
+        let tree = accessibility_tree_from_widget(&root);
+        assert_eq!(tree.len(), 1);
+        let node = tree.get(0).expect("root node");
+        assert_eq!(node.children.len(), 1);
+        assert_eq!(node.children[0].children[0].label, "nested");
+        assert_eq!(node.rect.x, 10.0);
+        assert_eq!(node.rect.y, 20.0);
+        assert_eq!(node.rect.width, 300.0);
+        assert_eq!(node.rect.height, 200.0);
+        assert!(!node.state.enabled);
+        assert!(!node.state.visible);
+        assert!(node.state.focused);
+        assert_eq!(node.widget_id, Some(root.id()));
+        assert!(node.children[0].widget_id.is_some());
+    }
+
+    #[test]
+    fn authored_accessibility_children_are_not_duplicated_from_widgets() {
+        let mut root = TestWidget::new(AccessibilityRole::Window, "Settings");
+        root.explicit_children
+            .push(AccessibilityNode::new(AccessibilityRole::List, "Sidebar"));
+        root.children.push(Box::new(TestWidget::new(
+            AccessibilityRole::Button,
+            "render-only child",
+        )));
+
+        let tree = accessibility_tree_from_widget(&root);
+        assert_eq!(tree.len(), 1);
+        assert_eq!(tree.get(0).unwrap().children.len(), 1);
+        assert_eq!(tree.get(0).unwrap().children[0].label, "Sidebar");
+    }
+
+    #[test]
+    fn widget_paths_remain_stable_when_dynamic_children_reorder_add_and_remove() {
+        let mut root = TestWidget::new(AccessibilityRole::Window, "root");
+        root.children
+            .push(Box::new(TestWidget::new(AccessibilityRole::Button, "A")));
+        root.children
+            .push(Box::new(TestWidget::new(AccessibilityRole::Button, "B")));
+
+        let first = accessibility_tree_from_widget(&root);
+        let path_a = path_for_label(&first, "A");
+        let path_b = path_for_label(&first, "B");
+        assert!(path_a.contains("/w_widgetid_"));
+        assert!(path_b.contains("/w_widgetid_"));
+        assert_ne!(path_a, path_b);
+
+        root.children.swap(0, 1);
+        root.children
+            .push(Box::new(TestWidget::new(AccessibilityRole::Button, "C")));
+        let reordered = accessibility_tree_from_widget(&root);
+        assert_eq!(path_for_label(&reordered, "A"), path_a);
+        assert_eq!(path_for_label(&reordered, "B"), path_b);
+        let path_c = path_for_label(&reordered, "C");
+        assert_ne!(path_c, path_a);
+        assert_ne!(path_c, path_b);
+
+        root.children.remove(1);
+        let removed = accessibility_tree_from_widget(&root);
+        assert!(collect_accessibility_nodes(&removed)
+            .iter()
+            .all(|entry| entry.node.label != "A"));
+        assert_eq!(path_for_label(&removed, "B"), path_b);
+        assert_eq!(path_for_label(&removed, "C"), path_c);
+    }
+
+    #[test]
+    fn text_field_snapshot_tracks_text_and_keeps_widget_path() {
+        let mut field = crate::TextField::new();
+        field.set_text("before");
+        field.set_rect(Rect::new(4.0, 8.0, 120.0, 26.0));
+        field.widget_state_mut().focused = true;
+
+        let before = accessibility_tree_from_widget(&field);
+        let path = before.to_atspi_paths()[0].clone();
+        assert_eq!(before.get(0).unwrap().label, "before");
+        assert_eq!(before.get(0).unwrap().rect.x, 4.0);
+        assert_eq!(before.get(0).unwrap().rect.y, 8.0);
+        assert_eq!(before.get(0).unwrap().rect.width, 120.0);
+        assert_eq!(before.get(0).unwrap().rect.height, 26.0);
+        assert!(before.get(0).unwrap().state.focused);
+
+        field.set_text("after");
+        let after = accessibility_tree_from_widget(&field);
+        assert_eq!(after.get(0).unwrap().label, "after");
+        assert_eq!(after.to_atspi_paths()[0], path);
+    }
+
+    #[test]
+    fn stable_descendant_path_focuses_the_descendant() {
+        let mut root = TestWidget::new(AccessibilityRole::Window, "root");
+        root.children.push(Box::new(TestWidget::new(
+            AccessibilityRole::Button,
+            "child",
+        )));
+        let mut tree = accessibility_tree_from_widget(&root);
+        let child_path = path_for_label(&tree, "child");
+        let mut bus = AccessibilityEventBus::new();
+
+        tree.focus_changed(&child_path, &mut bus);
+
+        assert!(!tree.get(0).unwrap().state.focused);
+        assert!(tree.get(0).unwrap().children[0].state.focused);
+        assert!(bus
+            .drain()
+            .iter()
+            .any(|event| event.kind == AccessibleEventKind::Focus && event.path == child_path));
     }
 
     // ----- AccessibleAction -------------------------------------------------

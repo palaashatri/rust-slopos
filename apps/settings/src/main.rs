@@ -16,8 +16,8 @@ use slopos_kit::slider::Slider;
 use slopos_kit::text_field::TextField;
 use slopos_kit::window::Window;
 use slopos_kit::{
-    AccessibilityNode, Event, EventResult, FocusManager, LayoutConstraint, PointerDispatcher, Rect,
-    Size, ThemeContext, Widget, WidgetState,
+    AccessibilityNode, AccessibilityRole, Event, EventResult, FocusManager, LayoutConstraint,
+    PointerDispatcher, Rect, Size, ThemeContext, Widget, WidgetState,
 };
 use slopos_sdk::{build_menu, Application};
 use slopos_shell::DisplayConfig;
@@ -2043,7 +2043,15 @@ impl Widget for SettingsView {
     }
 
     fn accessibility(&self) -> Option<AccessibilityNode> {
-        None
+        // The SDK recursively projects this root through the live widget
+        // children below. Keeping the root semantic (rather than returning
+        // None) means Settings is discoverable before a category-specific
+        // control tree is selected and lets the sync path publish live
+        // focus, bounds and text changes for every visible control.
+        Some(AccessibilityNode::new(
+            AccessibilityRole::Window,
+            "Settings",
+        ))
     }
 
     fn children(&self) -> Vec<&dyn Widget> {

@@ -7,8 +7,8 @@ use slopos_kit::toolbar::Toolbar;
 use slopos_kit::tree_view::{TreeNode, TreeView};
 use slopos_kit::window::Window;
 use slopos_kit::{
-    AccessibilityNode, Event, EventResult, FocusManager, LayoutConstraint, PointerDispatcher, Rect,
-    Size, ThemeContext, Widget, WidgetState,
+    AccessibilityNode, AccessibilityRole, Event, EventResult, FocusManager, LayoutConstraint,
+    PointerDispatcher, Rect, Size, ThemeContext, Widget, WidgetState,
 };
 use slopos_sdk::{build_menu, Application};
 use std::path::PathBuf;
@@ -818,7 +818,7 @@ impl Widget for FinderView {
     }
 
     fn accessibility(&self) -> Option<AccessibilityNode> {
-        None
+        Some(AccessibilityNode::new(AccessibilityRole::Window, "Finder"))
     }
 
     fn children(&self) -> Vec<&dyn Widget> {

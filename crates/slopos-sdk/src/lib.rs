@@ -37,7 +37,9 @@ use slopos_kit::tree_view::{TreeNode, TreeView};
 use slopos_kit::window::{hit_test_window_chrome, Window, WindowChromeHit};
 use slopos_kit::workspace_grid_view::WorkspaceGridView;
 use slopos_kit::{
-    Color, ImageView, LayoutConstraint, MonospaceView, Point, Rect, Size, Widget, WidgetId,
+    accessibility_tree_from_widget, at_spi_connection_available, default_accessibility_tree,
+    register_at_spi_app_with_tree, sync_at_spi_registered_tree, AccessibilityTree, Color,
+    ImageView, LayoutConstraint, MonospaceView, Point, Rect, Size, Widget, WidgetId,
 };
 use slopos_render::font::{
     ellipsize_text as render_ellipsize_text, shape_text, ShapedGlyph, TextLayout, TextLayoutOptions,
@@ -562,11 +564,70 @@ impl Application {
             scale: f32,
             control_requests: Option<mpsc::Receiver<ApplicationMenuRequest>>,
             menu_action_handler: Option<MenuActionHandler>,
+            accessibility_registration_started: bool,
+            last_accessibility_registration_attempt: Option<std::time::Instant>,
         }
 
         impl AppHandler {
             fn modifiers(&self) -> Modifiers {
                 modifiers_from_winit(self.modifiers)
+            }
+
+            /// Snapshot the live window for the toolkit accessibility bridge.
+            /// A window-less application still exports a truthful minimal
+            /// application child, while a missing D-Bus session remains a
+            /// non-fatal best-effort condition inside the kit registration
+            /// helpers.
+            fn accessibility_tree(&self) -> AccessibilityTree {
+                self.window
+                    .as_ref()
+                    .map(|window| accessibility_tree_from_widget(window))
+                    .unwrap_or_else(|| default_accessibility_tree(&self.name))
+            }
+
+            fn register_initial_accessibility(&mut self) {
+                self.accessibility_registration_started = true;
+                self.last_accessibility_registration_attempt = Some(std::time::Instant::now());
+                let tree = self.accessibility_tree();
+                if let Err(error) = register_at_spi_app_with_tree(&self.name, &tree) {
+                    tracing::warn!(
+                        app = %self.name,
+                        %error,
+                        "initial AT-SPI accessibility export failed; continuing without external bus"
+                    );
+                }
+            }
+
+            fn maybe_retry_accessibility_registration(&mut self) {
+                // A headless startup may have no session/a11y bus yet.  Keep
+                // that path non-fatal, but retry at a bounded cadence so a
+                // bus that appears shortly after launch can still receive the
+                // live tree.  Avoid a registration attempt on every frame.
+                const RETRY_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+                if !self.accessibility_registration_started
+                    || at_spi_connection_available()
+                    || self
+                        .last_accessibility_registration_attempt
+                        .is_some_and(|attempt| attempt.elapsed() < RETRY_INTERVAL)
+                {
+                    return;
+                }
+                self.register_initial_accessibility();
+            }
+
+            fn sync_accessibility(&mut self) {
+                self.maybe_retry_accessibility_registration();
+                let tree = self.accessibility_tree();
+                match sync_at_spi_registered_tree(&tree) {
+                    Ok(_) => {}
+                    Err(error) => {
+                        tracing::warn!(
+                            app = %self.name,
+                            %error,
+                            "AT-SPI accessibility snapshot sync failed; continuing"
+                        );
+                    }
+                }
             }
 
             fn dispatch(&mut self, event: slopos_kit::Event) -> slopos_kit::EventResult {
@@ -575,6 +636,10 @@ impl Application {
                 } else {
                     slopos_kit::EventResult::Ignored
                 };
+                // Dispatch can mutate labels, focus, enabled state, or the
+                // dynamic child list. Publish the resulting snapshot before
+                // asking the platform window to redraw.
+                self.sync_accessibility();
                 self.dirty = true;
                 if let Some(window) = &self.platform_window {
                     window.request_redraw();
@@ -591,6 +656,7 @@ impl Application {
                     win.layout(LayoutConstraint::tight(size));
                     self.dirty = true;
                 }
+                self.sync_accessibility();
             }
 
             fn drain_menu_actions(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
@@ -628,6 +694,7 @@ impl Application {
                         if let Some(platform_window) = &self.platform_window {
                             platform_window.request_redraw();
                         }
+                        self.sync_accessibility();
                         tracing::info!(
                             bundle_id = %self.bundle_id,
                             action_id = %request.action_id,
@@ -655,6 +722,7 @@ impl Application {
                         win.layout(LayoutConstraint::tight(size));
                     }
                 }
+                self.sync_accessibility();
                 let Some(window) = &self.window else {
                     return;
                 };
@@ -703,6 +771,7 @@ impl Application {
                         match futures::executor::block_on(WgpuPresenter::new(window.clone())) {
                             Ok(presenter) => {
                                 self.layout_window(size.width, size.height);
+                                self.register_initial_accessibility();
                                 window.request_redraw();
                                 self.presenter = Some(presenter);
                                 self.platform_window = Some(window);
@@ -940,6 +1009,7 @@ impl Application {
                 if let Some(ref mut win) = self.window {
                     win.update();
                 }
+                self.sync_accessibility();
                 if self.dirty {
                     if let Some(window) = &self.platform_window {
                         window.request_redraw();
@@ -1006,6 +1076,8 @@ impl Application {
             scale: 1.0,
             control_requests,
             menu_action_handler: self.menu_action_handler.take(),
+            accessibility_registration_started: false,
+            last_accessibility_registration_attempt: None,
         };
         if let Err(err) = event_loop.run(&mut handler) {
             tracing::error!("application event loop failed: {err}");

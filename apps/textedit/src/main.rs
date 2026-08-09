@@ -6,8 +6,8 @@ use slopos_kit::text_field::TextField;
 use slopos_kit::toolbar::Toolbar;
 use slopos_kit::window::Window;
 use slopos_kit::{
-    widget_by_id, AccessibilityNode, Event, EventResult, FocusManager, LayoutConstraint,
-    PointerDispatcher, Rect, Size, ThemeContext, Visibility, Widget, WidgetState,
+    widget_by_id, AccessibilityNode, AccessibilityRole, Event, EventResult, FocusManager,
+    LayoutConstraint, PointerDispatcher, Rect, Size, ThemeContext, Visibility, Widget, WidgetState,
 };
 use slopos_sdk::{build_menu, Application};
 use std::path::{Path, PathBuf};
@@ -973,7 +973,10 @@ impl Widget for TextEditView {
     }
 
     fn accessibility(&self) -> Option<AccessibilityNode> {
-        None
+        Some(AccessibilityNode::new(
+            AccessibilityRole::Window,
+            "TextEdit",
+        ))
     }
 
     fn children(&self) -> Vec<&dyn Widget> {
