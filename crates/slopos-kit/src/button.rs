@@ -1,5 +1,6 @@
 use crate::{
     event::{KeyCode, MouseButton},
+    measure_text_width,
     theme::ThemeContext,
     AccessibilityNode, AccessibilityRole, Event, EventResult, LayoutConstraint, Rect, Size,
     Visibility, Widget, WidgetState,
@@ -59,7 +60,7 @@ impl Widget for Button {
     }
 
     fn layout(&mut self, constraint: LayoutConstraint) -> Size {
-        let width = self.label.chars().count() as f32 * 7.5 + 20.0;
+        let width = measure_text_width(&self.label) + 20.0;
         let height = 28.0;
         let size = constraint.clamp(Size::new(width, height));
         self.set_rect(Rect::new(
@@ -194,6 +195,22 @@ mod tests {
             point: Point::new(x, y),
             modifiers: Modifiers::NONE,
         }
+    }
+
+    #[test]
+    fn layout_uses_shaped_label_width_and_preserves_button_padding() {
+        let label = "Wiii 日本語";
+        let mut button = Button::new(label);
+        let size = button.layout(LayoutConstraint::UNBOUNDED);
+
+        assert!((size.width - (measure_text_width(label) + 20.0)).abs() < 0.01);
+        assert_eq!(size.height, 28.0);
+
+        let old_estimate = label.chars().count() as f32 * 7.5 + 20.0;
+        assert!(
+            (size.width - old_estimate).abs() > 0.5,
+            "button geometry must not use the fixed per-character width estimate"
+        );
     }
 
     #[test]
