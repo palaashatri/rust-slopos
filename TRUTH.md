@@ -5,7 +5,7 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`7032c7dd1bad2583866d0e1172aa19fed1066a62`
+`9c88d17c8d1a5cf7018cd12e74d4f2e47be53184`
 **Audit date:** 2026-08-09
 **Audit basis:** current-source review through the audited SHA, commit-delta
 review, exact-commit Ubuntu UTM build/test/lint/release evidence, retained
@@ -26,13 +26,65 @@ XWayland scene and malformed-Spaces-persistence recovery gates at
 three-finger gesture policy/build/test gates at
 `b9ab5045107a230817d3814c0a70f680778b4c00`, plus the exact-commit
 headless synthetic gesture runtime gate and full Ubuntu UTM regression gates
-at `7032c7dd1bad2583866d0e1172aa19fed1066a62`.
+at `7032c7dd1bad2583866d0e1172aa19fed1066a62`, plus the exact-commit
+compositor output-migration gates at
+`a669059be4e6a1f43a8e636a239aa89de356396d` and the exact-commit Settings
+output-migration control gates at
+`9c88d17c8d1a5cf7018cd12e74d4f2e47be53184`.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**
 
 Documentation commits after the audited implementation do not change the
 product score unless they are accompanied by implementation and evidence.
+
+### Current implementation wave — compositor-owned focused-window output migration
+
+Implementation commit `a669059be4e6a1f43a8e636a239aa89de356396d` adds a typed
+`MoveActiveWindowToOutput` Spaces command. The nested compositor validates the
+connector and focused native window before applying a pure, tested migration
+plan that remaps/clamps normal and restored geometry, preserves fullscreen and
+other presentation states, updates restore output identity, sends the new
+configure and rebinds output membership. The DRM backend rejects unavailable
+connectors and XWayland focus explicitly instead of mutating shell bookkeeping;
+the single-connector DRM limitation remains honest.
+
+The exact Ubuntu UTM checkout is
+`/home/ubuntu/rust-slopos-qa-xwayland-current-2` on
+`ubuntu@192.168.64.17`, detached at the implementation SHA. Exact locked
+format, workspace check, focused bus protocol tests, focused compositor
+output-migration tests, full workspace tests, Clippy with `-D warnings`, and
+release workspace build all exited `0` under
+`artifacts/qa/2026-08-09-exact-a669059-utm/`. The host dirty-source regression
+set also exited `0` under
+`artifacts/qa/2026-08-09-output-migration-host-r1/`.
+
+This wave proves typed protocol and geometry policy plus build/test evidence;
+it does not prove live multi-output migration, DRM/KMS connector hotplug,
+XWayland output migration, physical displays, rendering pixels, or hardware.
+The DRM path still supports only its current connector. The overall SLOPOS-I
+verdict remains **63/100** and strict compositor completion remains **77/100**;
+no score increase is justified from this software-only gate.
+
+### Current implementation wave — Settings output-migration control
+
+Implementation commit `9c88d17c8d1a5cf7018cd12e74d4f2e47be53184` exposes a
+Settings Spaces action labelled `Move Active Window to Output`. It validates
+empty and control-character connector identifiers and sends the typed
+compositor-owned request; it does not maintain or apply a shell-side geometry
+model. Host format, Settings tests and Settings Clippy all exited `0` under
+`artifacts/qa/2026-08-09-output-migration-settings-host-r1/`. The exact-commit
+UTM checkout at the same SHA passed format, all 24 Settings tests and Settings
+Clippy under
+`artifacts/qa/2026-08-09-output-migration-settings-ui-utm-r2/`; the exact
+release Settings build exited `0` in
+`artifacts/qa/2026-08-09-output-migration-settings-ui-utm-r3/`.
+
+The Settings evidence proves request emission and validation only. It does not
+prove that a physical or DRM multi-output session can perform the migration,
+nor does it prove XWayland migration, third-party compatibility, rendering,
+accessibility or hardware. The overall SLOPOS-I verdict remains **63/100**;
+displays and Spaces remain below their completion gates.
 
 ### Current implementation wave — headless synthetic gesture runtime evidence
 
