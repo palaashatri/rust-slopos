@@ -1,4 +1,5 @@
 use slopos_kit::event::{KeyCode, Modifiers};
+use slopos_kit::measure_text_width;
 use slopos_kit::menu::{Menu, MenuItem, MenuItemKind};
 use slopos_sdk::MenuManifest;
 use std::collections::HashMap;
@@ -28,6 +29,10 @@ pub struct ShortcutBinding {
     pub modifiers: Modifiers,
     pub action_id: String,
     pub app_id: Option<String>,
+}
+
+fn menu_title_advance(title: &str) -> f32 {
+    measure_text_width(title) + 15.0
 }
 
 impl Default for MenuServer {
@@ -713,7 +718,7 @@ impl MenuServer {
                 font_size: 13.0,
                 color: slopos_render::Color::BLACK,
             });
-            x += (menu.title.len() as f32) * 8.0 + 15.0;
+            x += menu_title_advance(&menu.title);
         }
 
         slopos_render::RenderNode::Group { children }
@@ -926,5 +931,29 @@ mod tests {
         for item in &server.status_items {
             assert!(!item.label.is_empty());
         }
+    }
+
+    #[test]
+    fn render_menu_bar_advances_by_shaped_title_width() {
+        let mut server = MenuServer::new();
+        server.menus = vec![Menu::new("日本語"), Menu::new("Wiii")];
+
+        let node = server.render_menu_bar();
+        let slopos_render::RenderNode::Group { children } = node else {
+            panic!("menu bar should render as a group");
+        };
+        let text_nodes = children
+            .iter()
+            .filter_map(|child| match child {
+                slopos_render::RenderNode::Text { x, text, .. } => Some((*x, text.as_str())),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(text_nodes.len(), 2);
+        assert_eq!(text_nodes[0].1, "日本語");
+        assert_eq!(text_nodes[1].1, "Wiii");
+
+        let expected = 10.0 + measure_text_width("日本語") + 15.0;
+        assert!((text_nodes[1].0 - expected).abs() < 0.01);
     }
 }

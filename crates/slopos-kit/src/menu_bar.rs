@@ -1,3 +1,4 @@
+use crate::measure_text_width;
 use crate::{
     design_tokens::{
         MENU_BAR_LEADING, MENU_DROPDOWN_VERTICAL_PADDING, MENU_ITEM_GAP, MENU_ITEM_HEIGHT,
@@ -84,9 +85,11 @@ impl MenuBar {
             .map(|item| {
                 let shortcut_width = item
                     .shortcut
-                    .map(|(key, modifiers)| shortcut_len(key, modifiers) as f32 * 7.0 + 18.0)
+                    .map(|(key, modifiers)| {
+                        measure_text_width(&shortcut_label(key, modifiers)) + 18.0
+                    })
                     .unwrap_or(0.0);
-                item.label.len() as f32 * 7.0 + shortcut_width + 44.0
+                measure_text_width(&item.label) + shortcut_width + 44.0
             })
             .fold(180.0, f32::max);
         Some(Rect::new(
@@ -124,25 +127,52 @@ impl MenuBar {
     }
 }
 
-fn shortcut_len(key: crate::event::KeyCode, modifiers: crate::event::Modifiers) -> usize {
-    let mut len = key_label(key).len();
+fn shortcut_label(key: crate::event::KeyCode, modifiers: crate::event::Modifiers) -> String {
+    let mut parts = Vec::new();
     if modifiers.control {
-        len += 5;
+        parts.push("Ctrl");
     }
     if modifiers.alt {
-        len += 4;
+        parts.push("Alt");
     }
     if modifiers.shift {
-        len += 6;
+        parts.push("Shift");
     }
     if modifiers.meta {
-        len += 4;
+        parts.push("Cmd");
     }
-    len
+    parts.push(key_label(key));
+    parts.join("+")
 }
 
 fn key_label(key: crate::event::KeyCode) -> &'static str {
     match key {
+        crate::event::KeyCode::A => "A",
+        crate::event::KeyCode::B => "B",
+        crate::event::KeyCode::C => "C",
+        crate::event::KeyCode::D => "D",
+        crate::event::KeyCode::E => "E",
+        crate::event::KeyCode::F => "F",
+        crate::event::KeyCode::G => "G",
+        crate::event::KeyCode::H => "H",
+        crate::event::KeyCode::I => "I",
+        crate::event::KeyCode::J => "J",
+        crate::event::KeyCode::K => "K",
+        crate::event::KeyCode::L => "L",
+        crate::event::KeyCode::M => "M",
+        crate::event::KeyCode::N => "N",
+        crate::event::KeyCode::O => "O",
+        crate::event::KeyCode::P => "P",
+        crate::event::KeyCode::Q => "Q",
+        crate::event::KeyCode::R => "R",
+        crate::event::KeyCode::S => "S",
+        crate::event::KeyCode::T => "T",
+        crate::event::KeyCode::U => "U",
+        crate::event::KeyCode::V => "V",
+        crate::event::KeyCode::W => "W",
+        crate::event::KeyCode::X => "X",
+        crate::event::KeyCode::Y => "Y",
+        crate::event::KeyCode::Z => "Z",
         crate::event::KeyCode::Backspace => "Del",
         crate::event::KeyCode::Escape => "Esc",
         crate::event::KeyCode::Enter => "Ret",
@@ -181,14 +211,12 @@ impl Widget for MenuBar {
         const LEADING: f32 = MENU_BAR_LEADING;
         const TITLE_PAD: f32 = MENU_TITLE_HORIZONTAL_PADDING;
         const ITEM_GAP: f32 = MENU_ITEM_GAP;
-        const CHAR_W: f32 = 7.0;
-
         self.menu_rects.clear();
         let mut x = self.rect().x + LEADING;
         for (i, menu) in self.menus.iter().enumerate() {
             // Apple / first menu needs room for the icon before the title text.
             let icon_extra = if i == 0 { 14.0 } else { 0.0 };
-            let width = menu.title.len() as f32 * CHAR_W + TITLE_PAD + icon_extra;
+            let width = measure_text_width(&menu.title) + TITLE_PAD + icon_extra;
             self.menu_rects
                 .push(Rect::new(x, self.rect().y, width, size.height));
             x += width + ITEM_GAP;
@@ -278,6 +306,7 @@ impl Widget for MenuBar {
 mod tests {
     use super::*;
     use crate::{event::Modifiers, Point};
+    use slopos_render::font::{shape_text, TextLayoutOptions};
 
     fn test_menu_bar() -> MenuBar {
         let mut file = Menu::new("File");
@@ -368,5 +397,45 @@ mod tests {
         let mut empty = MenuBar::new(vec![]);
         assert!(!empty.open_first_menu());
         assert!(empty.open_menu.is_none());
+    }
+
+    #[test]
+    fn menu_title_geometry_uses_shaped_width_for_unicode_and_variable_glyphs() {
+        let mut menu_bar = MenuBar::new(vec![Menu::new("SLOPOS"), Menu::new("日本語")]);
+        menu_bar.layout(LayoutConstraint::tight(Size::new(640.0, 19.0)));
+
+        let expected = shape_text("日本語", TextLayoutOptions::new(13.0, 1.0)).first_line_width()
+            + MENU_TITLE_HORIZONTAL_PADDING;
+        let actual = menu_bar.menu_rects()[1].width;
+        assert!((actual - expected).abs() < 0.01);
+
+        let byte_count_estimate = "日本語".len() as f32 * 7.0 + MENU_TITLE_HORIZONTAL_PADDING;
+        assert!(
+            (actual - byte_count_estimate).abs() > 0.5,
+            "Unicode title must not use a UTF-8 byte-count width estimate"
+        );
+    }
+
+    #[test]
+    fn dropdown_geometry_measures_unicode_labels_and_shortcuts() {
+        let label = "日本語".repeat(8);
+        let mut menu = Menu::new("File");
+        menu.add_action(label.clone()).with_shortcut(
+            crate::event::KeyCode::A,
+            Modifiers {
+                meta: true,
+                ..Modifiers::NONE
+            },
+        );
+        let mut menu_bar = MenuBar::new(vec![menu]);
+        menu_bar.layout(LayoutConstraint::tight(Size::new(640.0, 19.0)));
+
+        let expected_label =
+            shape_text(&label, TextLayoutOptions::new(13.0, 1.0)).first_line_width();
+        let expected_shortcut =
+            shape_text("Cmd+A", TextLayoutOptions::new(13.0, 1.0)).first_line_width();
+        let expected = (expected_label + expected_shortcut + 18.0 + 44.0).max(180.0);
+        let actual = menu_bar.dropdown_rect(0).expect("laid out menu").width;
+        assert!((actual - expected).abs() < 0.01);
     }
 }

@@ -3537,6 +3537,14 @@ fn draw_resize_grow_box(canvas: &mut Canvas<'_>, window_rect: Rect) {
     }
 }
 
+fn status_item_advance(canvas: &Canvas<'_>, text: &str, requested_width: f32) -> f32 {
+    requested_width.max(canvas.measure_text(text) + 12.0)
+}
+
+fn menu_button_advance(canvas: &Canvas<'_>, label: &str) -> f32 {
+    canvas.measure_text(label) + 18.0
+}
+
 fn draw_widget(canvas: &mut Canvas<'_>, widget: &dyn Widget) {
     let rect = widget.rect();
     if rect.width <= 0.0 || rect.height <= 0.0 {
@@ -3730,7 +3738,7 @@ fn draw_widget(canvas: &mut Canvas<'_>, widget: &dyn Widget) {
         let mut x = rect.x + 8.0;
         for item in &status.items {
             canvas.text(&item.text, x, rect.y + 8.0, theme_color("text"));
-            x += item.width.max(item.text.len() as f32 * 7.0 + 12.0);
+            x += status_item_advance(canvas, &item.text, item.width);
         }
     } else if let Some(dialog) = widget.as_any().downcast_ref::<Dialog>() {
         draw_dialog(canvas, rect, dialog);
@@ -4211,7 +4219,7 @@ fn draw_menu_bar(canvas: &mut Canvas<'_>, rect: Rect, toolbar: &Toolbar) {
         if let Some(button) = child.as_any().downcast_ref::<Button>() {
             let label = button.label();
             canvas.text(label, x, rect.y + 8.0, theme_color("text"));
-            x += label.len() as f32 * 8.0 + 18.0;
+            x += menu_button_advance(canvas, label);
         }
     }
 
@@ -5738,8 +5746,9 @@ fn distance_squared(a: Point, b: Point) -> f32 {
 mod tests {
     use super::{
         format_clock_from_seconds, inactive_title_color, is_application_menu_action,
-        parse_theme_preference, publish_bytes_atomically, theme_accents, ApplicationMenuAction,
-        Canvas, CLASSIC_DARK_GRAY_RGBA, COLOR_DARK_TITLE_INACTIVE, DESKTOP_ITEM_WIDTH,
+        menu_button_advance, parse_theme_preference, publish_bytes_atomically, status_item_advance,
+        theme_accents, ApplicationMenuAction, Canvas, CLASSIC_DARK_GRAY_RGBA,
+        COLOR_DARK_TITLE_INACTIVE, DESKTOP_ITEM_WIDTH,
     };
     use slopos_kit::{ImageView, Rect, Widget, WorkspaceGridView};
     use slopos_render::font::{shape_text, TextLayoutOptions};
@@ -6001,6 +6010,20 @@ mod tests {
             canvas.measure_text(text),
             expected
         );
+    }
+
+    #[test]
+    fn menu_and_status_advances_use_shaped_canvas_widths() {
+        let canvas = Canvas::new(320.0, 100.0);
+        let text = "Wiii 日本語";
+        let measured = canvas.measure_text(text);
+
+        assert!((status_item_advance(&canvas, text, 0.0) - (measured + 12.0)).abs() < 0.01);
+        assert_eq!(
+            status_item_advance(&canvas, text, measured + 20.0),
+            measured + 20.0
+        );
+        assert!((menu_button_advance(&canvas, text) - (measured + 18.0)).abs() < 0.01);
     }
 
     #[test]
