@@ -516,9 +516,11 @@ pub const ATSPI_COMPONENT_IFACE: &str = "org.a11y.atspi.Component";
 
 /// Pure in-process text content + caret/selection for AT-SPI Text queries.
 ///
-/// Not exported on D-Bus yet — callers use this for toolkit tests and future
-/// bus wiring. Character offsets are UTF-8 byte indices for simplicity in tests
-/// (real AT-SPI uses UTF-16 offsets; conversion can land with bus export).
+/// Exported by the toolkit's snapshot `AtspiText` interface. Character
+/// offsets remain UTF-8 byte indices internally for compatibility with the
+/// existing widget model; a future full AT-SPI text implementation must add
+/// the protocol's UTF-16 offset conversion rather than exposing byte offsets
+/// as if they were character indices.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct AccessibleTextState {
     pub text: String,
