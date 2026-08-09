@@ -243,6 +243,52 @@ fn initial_layer_size(kind: ChromeSurfaceKind, _width: u32, _height: u32) -> (u3
     }
 }
 
+/// Return the configured logical size for a layer surface, falling back to
+/// the current output size for the full-width chrome surfaces.  Layer-shell
+/// configure events normally provide a non-zero size; the fallback keeps the
+/// resize path deterministic if a compositor leaves an anchored dimension at
+/// zero.
+fn configured_surface_size(
+    kind: ChromeSurfaceKind,
+    configured: Option<(u32, u32)>,
+    output_w: u32,
+    output_h: u32,
+) -> (u32, u32) {
+    configured.unwrap_or(match kind {
+        ChromeSurfaceKind::Background => (output_w, output_h),
+        ChromeSurfaceKind::Menu => (output_w, MENU_H),
+        ChromeSurfaceKind::Dock => (output_w, DOCK_H),
+        ChromeSurfaceKind::MenuPopup | ChromeSurfaceKind::SpacesOverview => (1, 1),
+    })
+}
+
+/// Apply a compositor output configure to the shell runtime.
+///
+/// The layer-shell protocol delivers a configure to each chrome surface, but
+/// the shell owns one shared widget tree.  Re-layout that tree at the new
+/// physical output dimensions and explicitly mark it dirty so the next event
+/// loop turn repaints every layer with the new geometry.
+fn resize_runtime_for_output(
+    output_size: &mut (u32, u32),
+    configured_output: Option<(u32, u32)>,
+    buffer_scale: u32,
+    scale: f32,
+    runtime: &mut UiRuntime,
+) -> bool {
+    let next = configured_output.unwrap_or(*output_size);
+    let changed = *output_size != next;
+    *output_size = next;
+    runtime.resize(
+        scale_surface_dimension(next.0, buffer_scale),
+        scale_surface_dimension(next.1, buffer_scale),
+        scale,
+    );
+    // UiRuntime::resize re-lays out but intentionally does not own the
+    // driver's repaint policy.  A layer configure always invalidates pixels.
+    runtime.mark_dirty();
+    changed
+}
+
 /// Main entry: exclusive Top/Bottom chrome + Background desktop.
 pub fn run_layer_desktop(content: Box<dyn Widget>, width: u32, height: u32) -> anyhow::Result<()> {
     let conn = Connection::connect_to_env().map_err(|e| anyhow!("wayland connect: {}", e))?;
@@ -274,6 +320,7 @@ pub fn run_layer_desktop(content: Box<dyn Widget>, width: u32, height: u32) -> a
         spaces_origin: (0.0, 0.0),
         active_toplevel_mtime: None,
         spaces_state_mtime: None,
+        layer_configure_pending: false,
     };
 
     event_queue
@@ -434,13 +481,7 @@ pub fn run_layer_desktop(content: Box<dyn Widget>, width: u32, height: u32) -> a
     let display_ptr = conn.backend().display_ptr() as *mut c_void;
 
     for surf in &mut state.surfaces {
-        let (cw, ch) = surf.configured.unwrap_or(match surf.kind {
-            ChromeSurfaceKind::Background => (width, height),
-            ChromeSurfaceKind::Menu => (width, MENU_H),
-            ChromeSurfaceKind::Dock => (width, DOCK_H),
-            ChromeSurfaceKind::MenuPopup => (1, 1),
-            ChromeSurfaceKind::SpacesOverview => (1, 1),
-        });
+        let (cw, ch) = configured_surface_size(surf.kind, surf.configured, width, height);
         let (rw, rh) = (
             scale_surface_dimension(cw, buffer_scale),
             scale_surface_dimension(ch, buffer_scale),
@@ -478,6 +519,10 @@ pub fn run_layer_desktop(content: Box<dyn Widget>, width: u32, height: u32) -> a
         }
     });
     paint_all(&mut state, &mut runtime)?;
+    // The initial configure was consumed while creating the renderers.  Only
+    // later protocol configures should enter the live resize reconciliation
+    // path below.
+    state.layer_configure_pending = false;
     state.runtime = Some(runtime);
 
     // Wake at most once a second for the menu clock. Wayland input/configure
@@ -489,6 +534,45 @@ pub fn run_layer_desktop(content: Box<dyn Widget>, width: u32, height: u32) -> a
         let spaces_state_changed = spaces_state_mtime_changed(&mut state.spaces_state_mtime);
 
         if let Some(mut runtime) = state.runtime.take() {
+            if state.layer_configure_pending {
+                let configured_output = state
+                    .surfaces
+                    .iter()
+                    .find(|surface| surface.kind == ChromeSurfaceKind::Background)
+                    .and_then(|surface| surface.configured);
+                let mut output_size = (state.output_w, state.output_h);
+                let scale = detect_shell_scale_from_env().as_f64() as f32;
+                resize_runtime_for_output(
+                    &mut output_size,
+                    configured_output,
+                    state.buffer_scale,
+                    scale,
+                    &mut runtime,
+                );
+                (state.output_w, state.output_h) = output_size;
+
+                // Every layer receives its own configure. Resize all existing
+                // swapchains from their latest configured dimensions before
+                // repainting; popup/overview surfaces remain 1x1 while closed.
+                let output_w = state.output_w;
+                let output_h = state.output_h;
+                let buffer_scale = state.buffer_scale;
+                for surface in &mut state.surfaces {
+                    let (width, height) = configured_surface_size(
+                        surface.kind,
+                        surface.configured,
+                        output_w,
+                        output_h,
+                    );
+                    if let Some(renderer) = surface.renderer.as_mut() {
+                        renderer.resize(
+                            scale_surface_dimension(width, buffer_scale),
+                            scale_surface_dimension(height, buffer_scale),
+                        );
+                    }
+                }
+                state.layer_configure_pending = false;
+            }
             runtime.tick();
             if active_toplevel_changed || spaces_state_changed {
                 // The compositor publishes focus independently of shell input;
@@ -887,6 +971,9 @@ struct LayerDesktopState {
     active_toplevel_mtime: Option<SystemTime>,
     /// Last observed compositor Spaces projection mtime.
     spaces_state_mtime: Option<SystemTime>,
+    /// Set by layer-shell Configure events and consumed after dispatch so the
+    /// shared runtime and every surface swapchain are resized together.
+    layer_configure_pending: bool,
 }
 
 impl Dispatch<wl_registry::WlRegistry, ()> for LayerDesktopState {
@@ -1190,6 +1277,7 @@ impl Dispatch<ZwlrLayerSurfaceV1, ChromeSurfaceKind> for LayerDesktopState {
             height,
         } = event
         {
+            state.layer_configure_pending = true;
             let w = if width == 0 {
                 match kind {
                     ChromeSurfaceKind::MenuPopup => 1,
@@ -1221,6 +1309,7 @@ impl Dispatch<ZwlrLayerSurfaceV1, ChromeSurfaceKind> for LayerDesktopState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use slopos_kit::{Label, Rect};
 
     #[test]
     fn full_width_chrome_requests_compositor_sized_layers() {
@@ -1248,6 +1337,29 @@ mod tests {
             initial_layer_size(ChromeSurfaceKind::SpacesOverview, 1280, 800),
             (1, 1)
         );
+    }
+
+    #[test]
+    fn layer_configure_resizes_runtime_and_invalidates_pixels() {
+        let mut runtime = UiRuntime::new(Box::new(Label::new("resize")), 640, 480, 1.0);
+        runtime.clear_dirty();
+        let mut output_size = (640, 480);
+
+        let changed =
+            resize_runtime_for_output(&mut output_size, Some((1280, 720)), 1, 1.0, &mut runtime);
+
+        assert!(changed);
+        assert_eq!(output_size, (1280, 720));
+        assert!(runtime.is_dirty());
+        let root_rect = runtime
+            .with_root_content_mut(|root| root.rect())
+            .expect("runtime root");
+        assert_eq!(root_rect, Rect::new(0.0, 0.0, 1280.0, 720.0));
+        assert_eq!(
+            configured_surface_size(ChromeSurfaceKind::Menu, None, 1280, 720),
+            (1280, MENU_H)
+        );
+        assert_eq!(scale_surface_dimension(1280, 2), 2560);
     }
 
     #[test]

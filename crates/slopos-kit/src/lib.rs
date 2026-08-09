@@ -81,7 +81,7 @@ pub use split_view::SplitView;
 pub use status_bar::{StatusBar, StatusBarAlignment, StatusBarItem};
 pub use tab_view::{Tab, TabView};
 pub use text_field::TextField;
-pub use text_metrics::measure_text_width;
+pub use text_metrics::{measure_text_width, text_byte_offset_at_x, TEXT_FIELD_TEXT_INSET};
 pub use theme::{ThemeContext, ThemeToken, ThemeValue};
 pub use toolbar::Toolbar;
 pub use tree_view::TreeView;

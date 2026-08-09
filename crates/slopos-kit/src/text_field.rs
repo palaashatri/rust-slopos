@@ -1,8 +1,9 @@
 use crate::{
     event::{KeyCode, MouseButton},
+    text_byte_offset_at_x,
     theme::ThemeContext,
     AccessibilityNode, AccessibilityRole, AccessibleTextState, Event, EventResult,
-    LayoutConstraint, Rect, Size, Widget, WidgetState,
+    LayoutConstraint, Rect, Size, Widget, WidgetState, TEXT_FIELD_TEXT_INSET,
 };
 
 pub struct TextField {
@@ -149,16 +150,6 @@ impl TextField {
     pub fn set_cursor_position(&mut self, pos: usize) {
         self.cursor_position = self.clamp_position(pos);
         self.selection_anchor = None;
-    }
-
-    /// Return the byte offset of the `char_index`-th character (or the end if
-    /// `text` is shorter), never landing inside a multi-byte character.
-    fn byte_position_for_char_index(&self, char_index: usize) -> usize {
-        self.text
-            .char_indices()
-            .nth(char_index)
-            .map(|(i, _)| i)
-            .unwrap_or(self.text.len())
     }
 
     /// Move the cursor back one full character (may be multi-byte) — the
@@ -322,14 +313,14 @@ impl Widget for TextField {
                     return EventResult::Ignored;
                 }
                 self.widget_state_mut().focused = true;
-                // ~7px per glyph is the same rough monospace advance the SDK
-                // painter uses elsewhere (see `draw_dialog`'s button sizing);
-                // good enough to land the caret near the click. The resulting
-                // byte offset is still clamped to a Unicode boundary.
-                const CHAR_WIDTH: f32 = 7.0;
-                let clicked_chars =
-                    ((point.x - self.rect().x) / CHAR_WIDTH).round().max(0.0) as usize;
-                let clicked = self.byte_position_for_char_index(clicked_chars);
+                // The SDK painter starts text six logical pixels inside the
+                // field. Map the click through the same shaped layout so
+                // proportional glyphs, ligatures and Unicode never collapse
+                // to a fixed-width character estimate.
+                let clicked = text_byte_offset_at_x(
+                    &self.text,
+                    point.x - self.rect().x - TEXT_FIELD_TEXT_INSET,
+                );
                 if modifiers.shift {
                     if self.selection_anchor.is_none() {
                         self.selection_anchor = Some(self.cursor_position);
@@ -447,7 +438,7 @@ impl Widget for TextField {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{event::Modifiers, Point};
+    use crate::{event::Modifiers, measure_text_width, Point};
     use std::sync::{Arc, Mutex};
 
     fn key(key: KeyCode) -> Event {
@@ -497,12 +488,18 @@ mod tests {
     #[test]
     fn click_inside_rect_focuses_and_places_cursor_near_the_click() {
         let mut field = TextField::new();
-        field.set_text("héllo");
         field.set_rect(Rect::new(100.0, 0.0, 200.0, 26.0));
         assert!(!field.widget_state().focused);
 
-        // ~2 characters in from the left edge of the rect.
-        let point = Point::new(100.0 + 2.0 * 7.0, 10.0);
+        let text = "héllo";
+        field.set_text(text);
+        let he_width = measure_text_width("hé");
+        let hel_width = measure_text_width("hél");
+        // Click just past the `hé` caret, still well before the next `l`.
+        let point = Point::new(
+            100.0 + TEXT_FIELD_TEXT_INSET + he_width + (hel_width - he_width) * 0.2,
+            10.0,
+        );
         let result = field.handle_event(&Event::MouseDown {
             button: MouseButton::Left,
             point,
@@ -516,6 +513,41 @@ mod tests {
             3,
             "lands after 'h' + 'é' (3 bytes), never mid-character"
         );
+    }
+
+    #[test]
+    fn click_uses_shaped_width_for_proportional_text() {
+        let mut field = TextField::new();
+        let text = "Wiii";
+        field.set_text(text);
+        field.set_rect(Rect::new(100.0, 0.0, 200.0, 26.0));
+
+        let layout = slopos_render::font::shape_text(
+            text,
+            slopos_render::font::TextLayoutOptions::new(13.0, 1.0),
+        );
+        let first = layout
+            .glyphs()
+            .iter()
+            .find(|glyph| glyph.cluster_start == 0)
+            .expect("first glyph");
+        let next = layout
+            .glyphs()
+            .iter()
+            .find(|glyph| glyph.cluster_start == first.cluster_end)
+            .expect("second glyph");
+        let first_end = first.x + first.advance;
+        let next_end = next.x + next.advance;
+        let click_x = first_end + (next_end - first_end) * 0.2;
+
+        let result = field.handle_event(&Event::MouseDown {
+            button: MouseButton::Left,
+            point: Point::new(100.0 + TEXT_FIELD_TEXT_INSET + click_x, 10.0),
+            modifiers: Modifiers::NONE,
+        });
+
+        assert!(matches!(result, EventResult::Handled));
+        assert_eq!(field.cursor_position(), first.cluster_end);
     }
 
     #[test]

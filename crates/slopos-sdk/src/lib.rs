@@ -40,6 +40,7 @@ use slopos_kit::{
     accessibility_tree_from_widget, at_spi_connection_available, default_accessibility_tree,
     register_at_spi_app_with_tree, sync_at_spi_registered_tree, AccessibilityTree, Color,
     ImageView, LayoutConstraint, MonospaceView, Point, Rect, Size, Widget, WidgetId,
+    TEXT_FIELD_TEXT_INSET,
 };
 use slopos_render::font::{
     ellipsize_text as render_ellipsize_text, shape_text, ShapedGlyph, TextLayout, TextLayoutOptions,
@@ -3608,7 +3609,7 @@ fn draw_widget(canvas: &mut Canvas<'_>, widget: &dyn Widget) {
         };
         canvas.text(
             text,
-            rect.x + 6.0,
+            rect.x + TEXT_FIELD_TEXT_INSET,
             rect.y + 8.0,
             if render_dark_mode() {
                 COLOR_DARK_TEXT
