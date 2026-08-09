@@ -2102,9 +2102,7 @@ mod linux {
                     layer
                         .surface
                         .with_pending_state(|state| state.size = Some(local.size));
-                    if let Err(error) = layer.surface.send_configure() {
-                        tracing::debug!(%error, "could not reconfigure layer after nested resize");
-                    }
+                    let _serial = layer.surface.send_configure();
                 }
                 self.clamp_normal_windows_to_work_area();
                 self.sync_all_window_output_membership();
