@@ -577,6 +577,83 @@ impl AccessibleTextState {
         self.get_text(start, end)
     }
 
+    /// Resolve an AT-SPI `GetTextAtOffset` boundary to character offsets.
+    ///
+    /// AT-SPI uses Unicode character positions at this boundary. Boundary
+    /// types follow the public protocol values: character (`0`), word
+    /// (`1`/`2`), sentence (`3`/`4`) and line (`5`/`6`). Word and sentence
+    /// ranges are deliberately conservative Unicode-scalar runs; this keeps
+    /// the result deterministic for assistive clients without slicing UTF-8
+    /// or pretending that the toolkit already has a full locale word-break
+    /// engine.
+    pub fn text_range_atspi_offset(
+        &self,
+        offset: usize,
+        boundary_type: u32,
+    ) -> Option<(usize, usize)> {
+        let chars: Vec<char> = self.text.chars().collect();
+        let count = chars.len();
+        let offset = offset.min(count);
+        if count == 0 || offset == count {
+            return Some((count, count));
+        }
+
+        match boundary_type {
+            // AtspiTextBoundaryType::CHAR.
+            0 => Some((offset, offset + 1)),
+            // WORD_START / WORD_END. Keep punctuation and whitespace in
+            // their own runs so every offset has a stable non-empty result.
+            1 | 2 => {
+                let class = text_boundary_class(chars[offset]);
+                let mut start = offset;
+                while start > 0 && text_boundary_class(chars[start - 1]) == class {
+                    start -= 1;
+                }
+                let mut end = offset + 1;
+                while end < count && text_boundary_class(chars[end]) == class {
+                    end += 1;
+                }
+                Some((start, end))
+            }
+            // SENTENCE_START / SENTENCE_END. Include terminators in the
+            // sentence that owns them, but not the following whitespace.
+            3 | 4 => {
+                let mut start = offset;
+                while start > 0 && !is_sentence_terminator(chars[start - 1]) {
+                    start -= 1;
+                }
+                if start < offset && is_sentence_terminator(chars[start]) {
+                    start += 1;
+                }
+                while start < count && chars[start].is_whitespace() {
+                    start += 1;
+                }
+                let mut end = offset.max(start);
+                while end < count {
+                    let ch = chars[end];
+                    end += 1;
+                    if is_sentence_terminator(ch) {
+                        break;
+                    }
+                }
+                Some((start.min(count), end.min(count)))
+            }
+            // LINE_START / LINE_END. Newline itself belongs to neither line.
+            5 | 6 => {
+                let mut start = offset;
+                while start > 0 && chars[start - 1] != '\n' {
+                    start -= 1;
+                }
+                let mut end = offset;
+                while end < count && chars[end] != '\n' {
+                    end += 1;
+                }
+                Some((start, end))
+            }
+            _ => None,
+        }
+    }
+
     /// Current caret offset in AT-SPI character positions.
     pub fn atspi_caret_offset(&self) -> usize {
         self.atspi_offset_for_byte(self.caret_offset)
@@ -618,6 +695,20 @@ impl AccessibleTextState {
     pub fn selected_text(&self) -> String {
         self.get_text(self.selection_start, self.selection_end)
     }
+}
+
+fn text_boundary_class(ch: char) -> u8 {
+    if ch.is_alphanumeric() || ch == '_' {
+        1
+    } else if ch.is_whitespace() {
+        2
+    } else {
+        3
+    }
+}
+
+fn is_sentence_terminator(ch: char) -> bool {
+    matches!(ch, '.' | '!' | '?' | '\u{3002}' | '\u{ff01}' | '\u{ff1f}')
 }
 
 fn floor_char_boundary(s: &str, mut i: usize) -> usize {
@@ -2198,6 +2289,32 @@ impl AtspiText {
         self.state.get_text_atspi(start, end)
     }
 
+    /// Return the text and character range for an AT-SPI boundary query.
+    ///
+    /// The toolkit currently implements the protocol's character, word,
+    /// sentence and line boundaries. Unknown boundary values are rejected so
+    /// assistive clients cannot mistake a fabricated range for real text.
+    fn get_text_at_offset(
+        &self,
+        offset: i32,
+        boundary_type: u32,
+    ) -> fdo::Result<(String, i32, i32)> {
+        let offset = offset.max(0) as usize;
+        let (start, end) = self
+            .state
+            .text_range_atspi_offset(offset, boundary_type)
+            .ok_or_else(|| {
+                fdo::Error::InvalidArgs(format!(
+                    "unsupported AT-SPI text boundary type {boundary_type}"
+                ))
+            })?;
+        Ok((
+            self.state.get_text_atspi(start, Some(end)),
+            i32::try_from(start).unwrap_or(i32::MAX),
+            i32::try_from(end).unwrap_or(i32::MAX),
+        ))
+    }
+
     fn get_n_selections(&self) -> i32 {
         if self.state.selection_start != self.state.selection_end {
             1
@@ -3536,6 +3653,29 @@ mod tests {
         assert_eq!(text.get_text(2, -1), "e\u{301}");
         assert_eq!(text.get_n_selections(), 1);
         assert_eq!(text.get_selection(0).unwrap(), (1, 2));
+    }
+
+    #[test]
+    fn atspi_text_get_text_at_offset_supports_unicode_boundaries() {
+        let text = AtspiText {
+            state: AccessibleTextState::new("Hi 😀 world!\nNext"),
+        };
+
+        assert_eq!(text.get_text_at_offset(3, 0).unwrap(), ("😀".into(), 3, 4));
+        assert_eq!(
+            text.get_text_at_offset(5, 1).unwrap(),
+            ("world".into(), 5, 10)
+        );
+        assert_eq!(
+            text.get_text_at_offset(0, 3).unwrap(),
+            ("Hi 😀 world!".into(), 0, 11)
+        );
+        assert_eq!(
+            text.get_text_at_offset(12, 5).unwrap(),
+            ("Next".into(), 12, 16)
+        );
+        assert_eq!(text.get_text_at_offset(99, 0).unwrap(), ("".into(), 16, 16));
+        assert!(text.get_text_at_offset(0, 99).is_err());
     }
 
     #[test]

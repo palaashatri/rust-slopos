@@ -10,8 +10,9 @@
 
 use slopos_compositor::frame_timing::{FrameScheduler, RefreshRate};
 use slopos_compositor::{
-    calculate_presentation_geometry, transition_presentation_state, MultiMonitorPolicy,
-    SpaceTarget, SpacesModel, TilePlacement, WindowGeometry, WindowPresentationState,
+    calculate_presentation_geometry, plan_window_output_migration, transition_presentation_state,
+    MultiMonitorPolicy, SpaceTarget, SpacesModel, TilePlacement, WindowGeometry,
+    WindowPresentationState,
 };
 use std::time::{Duration, Instant};
 
@@ -287,6 +288,60 @@ fn xwayland_interactive_grabs_use_the_authoritative_x11_scene() {
             "XWayland move/resize handling must contain the scene-authoritative marker {marker}"
         );
     }
+}
+
+#[test]
+fn focused_xwayland_output_migration_updates_scene_and_output_membership() {
+    let source = include_str!("../src/main.rs");
+    for marker in [
+        "visible_surface",
+        "focused XWayland window to output",
+        ".configure(Some(geometry))",
+        "self.x11_scene.configure",
+        "self.sync_x11_scene_output_membership",
+    ] {
+        assert!(
+            source.contains(marker),
+            "focused XWayland output migration must contain authoritative marker {marker}"
+        );
+    }
+    assert!(
+        !source.contains("focused XWayland window output migration is not implemented"),
+        "focused XWayland output migration must not reject a mapped scene window"
+    );
+}
+
+#[test]
+fn nested_resize_reconciles_output_layers_and_readiness() {
+    let source = include_str!("../src/main.rs");
+    for marker in [
+        "handle_nested_x11_resize",
+        "nested_x11_resize_logical_output_size",
+        "self.laid_out_outputs[0]",
+        "configure_output(wl_output",
+        "layer_surface_request(&layer.surface)",
+        "self.pointer_pos.x",
+        "publish_session_readiness(",
+    ] {
+        assert!(
+            source.contains(marker),
+            "nested resize must reconcile authoritative marker {marker}"
+        );
+    }
+}
+
+#[test]
+fn xwayland_output_migration_plan_keeps_normal_geometry_inside_target_work_area() {
+    let plan = plan_window_output_migration(
+        WindowPresentationState::Normal,
+        WindowGeometry::new(760, 120, 500, 400),
+        None,
+        WindowGeometry::new(0, 0, 1000, 800),
+        WindowGeometry::new(1000, 0, 800, 600),
+        WindowGeometry::new(1000, 24, 800, 576),
+    );
+    assert_eq!(plan.geometry, WindowGeometry::new(1300, 90, 500, 400));
+    assert_eq!(plan.restore_geometry, None);
 }
 
 #[test]

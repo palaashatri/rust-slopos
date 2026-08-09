@@ -53,15 +53,16 @@ mod linux {
         output_index_for_geometry, output_index_for_point, output_scale_summary,
         plan_window_output_migration, pointer_grab_request_is_valid_for_window, prefer_full_redraw,
         register_wayland_display_source, remap_geometry_between_outputs,
-        resolve_laid_out_outputs_from_env, selection_bytes_for_mime_with_text_fallback,
-        session_mode_note, surface_tree_root, text_input_capability_from_env,
-        text_input_capability_summary, total_output_size, transition_presentation_state,
-        validated_runtime_output_layout, window_paint_source, CompositorBackendKind, DamageRect,
-        DisplayPolicy, InteractiveGrab, InteractiveGrabKind, LaidOutOutput, OutputScale,
-        PlaceholderPresentStats, PointerConstraintMotion, ResizeEdges, SpaceId, SpaceTarget,
-        SpacesError, SpacesModel, TextInputCapability, WindowGeometry, WindowPaintSource,
-        WindowPresentationState, WindowRestoreState, WorkspaceId, WorkspaceState,
-        WorkspaceSwipeAction, WorkspaceSwipeRecognizer, DEFAULT_WINDOW_H, DEFAULT_WINDOW_W,
+        resolve_laid_out_outputs_from_env, scale_physical_to_logical,
+        selection_bytes_for_mime_with_text_fallback, session_mode_note, surface_tree_root,
+        text_input_capability_from_env, text_input_capability_summary, total_output_size,
+        transition_presentation_state, validated_runtime_output_layout, window_paint_source,
+        CompositorBackendKind, DamageRect, DisplayPolicy, InteractiveGrab, InteractiveGrabKind,
+        LaidOutOutput, OutputScale, PlaceholderPresentStats, PointerConstraintMotion, ResizeEdges,
+        SpaceId, SpaceTarget, SpacesError, SpacesModel, TextInputCapability, WindowGeometry,
+        WindowPaintSource, WindowPresentationState, WindowRestoreState, WorkspaceId,
+        WorkspaceState, WorkspaceSwipeAction, WorkspaceSwipeRecognizer, DEFAULT_WINDOW_H,
+        DEFAULT_WINDOW_W,
     };
     use smithay::desktop::{
         find_popup_root_surface, get_popup_toplevel_coords, utils::under_from_surface_tree,
@@ -373,6 +374,23 @@ mod linux {
                 .iter()
                 .find(|entry| entry.surface.window_id() == window_id)
                 .map(|entry| entry.state.geometry)
+        }
+
+        /// Return a mapped, associated X11 surface that is still alive.
+        ///
+        /// Focus can outlive an XWayland map/unmap notification by one event
+        /// loop turn.  Callers that mutate scene geometry must therefore
+        /// revalidate the registry entry instead of trusting the cached focus
+        /// handle alone.
+        fn visible_surface(&self, window_id: X11Window) -> Option<X11WmSurface> {
+            self.entries
+                .iter()
+                .find(|entry| {
+                    entry.surface.window_id() == window_id
+                        && entry.state.visible()
+                        && entry.surface.alive()
+                })
+                .map(|entry| entry.surface.clone())
         }
 
         fn associated_targets(
@@ -2019,6 +2037,109 @@ mod linux {
             self.frame_dirty = true;
         }
 
+        /// Convert a nested X11 host resize into the compositor's physical
+        /// render-target extent.  Smithay drains this same resize event from
+        /// `X11Surface::buffer`, so the state used by `renderer.render` must
+        /// be updated before the next frame is painted.
+        fn nested_x11_resize_output_size(new_size: Size<u16, Logical>) -> Size<i32, Physical> {
+            Size::<i32, Physical>::from((
+                i32::from(new_size.w).max(1),
+                i32::from(new_size.h).max(1),
+            ))
+        }
+
+        fn nested_x11_resize_logical_output_size(
+            new_size: Size<u16, Logical>,
+            scale: OutputScale,
+        ) -> Size<i32, Logical> {
+            let physical = Self::nested_x11_resize_output_size(new_size);
+            let (width, height) = scale_physical_to_logical((physical.w, physical.h), scale);
+            Size::<i32, Logical>::from((width.max(1), height.max(1)))
+        }
+
+        fn handle_nested_x11_resize(&mut self, new_size: Size<u16, Logical>) {
+            let next = Self::nested_x11_resize_output_size(new_size);
+            let previous = self.output_size;
+            self.output_size = next;
+
+            // The nested host canvas is the only physical output in the
+            // single-output development topology. Keep the compositor's
+            // logical output authority in lockstep with the new swapchain so
+            // layer-shell surfaces, work areas, wl_output mode and client
+            // hit-testing do not remain pinned to the startup dimensions.
+            if self.laid_out_outputs.len() == 1 {
+                let logical =
+                    Self::nested_x11_resize_logical_output_size(new_size, self.output_scale);
+                let mut output = self.laid_out_outputs[0];
+                output.config.width = logical.w;
+                output.config.height = logical.h;
+                self.laid_out_outputs[0] = output;
+                if let Some(wl_output) = self.outputs.first() {
+                    configure_output(wl_output, &output, self.refresh_mhz, self.output_scale);
+                }
+
+                let output_area = output_geometry(&output);
+                for layer in &mut self.layer_surfaces {
+                    let (requested, anchor, margins, exclusive_zone) =
+                        layer_surface_request(&layer.surface);
+                    let local = layer_geometry_for(
+                        &layer.namespace,
+                        layer.layer,
+                        Size::from((output_area.width, output_area.height)),
+                        requested,
+                        anchor,
+                        margins,
+                    );
+                    layer.output_index = 0;
+                    layer.geo = Rectangle::new(
+                        Point::from((
+                            output_area.x.saturating_add(local.loc.x),
+                            output_area.y.saturating_add(local.loc.y),
+                        )),
+                        local.size,
+                    );
+                    layer.exclusive_zone = exclusive_zone;
+                    layer
+                        .surface
+                        .with_pending_state(|state| state.size = Some(local.size));
+                    if let Err(error) = layer.surface.send_configure() {
+                        tracing::debug!(%error, "could not reconfigure layer after nested resize");
+                    }
+                }
+                self.clamp_normal_windows_to_work_area();
+                self.sync_all_window_output_membership();
+                self.publish_outputs_state();
+                if let Err(error) = slopos_compositor::publish_session_readiness(
+                    &self.wayland_socket_name,
+                    self.output_size.w,
+                    self.output_size.h,
+                ) {
+                    tracing::debug!(%error, "could not publish nested resize readiness");
+                }
+            }
+
+            self.pointer_pos.x = self
+                .pointer_pos
+                .x
+                .clamp(0.0, f64::from(next.w.saturating_sub(1).max(0)));
+            self.pointer_pos.y = self
+                .pointer_pos
+                .y
+                .clamp(0.0, f64::from(next.h.saturating_sub(1).max(0)));
+
+            // X11Surface::buffer() drops its old swapchain buffers when it
+            // consumes ConfigureNotify. Always repaint the complete target,
+            // including when the server repeats the same dimensions.
+            self.request_full_redraw();
+            tracing::info!(
+                old_width = previous.w,
+                old_height = previous.h,
+                width = next.w,
+                height = next.h,
+                "nested host canvas resized"
+            );
+        }
+
         /// Collect real mapped client pixels for the currently selected Space
         /// without adding placeholder rectangles. This helper is used only by
         /// the thumbnail readback path; an unavailable or uncommitted client
@@ -2215,13 +2336,13 @@ mod linux {
             self.note_window_geometry_change(&id, old, new);
         }
 
-        /// Move the focused native window to a compositor-owned output.
+        /// Move the focused window to a compositor-owned output.
         ///
-        /// The target connector and active native toplevel are validated
-        /// before any window or restore metadata is changed.  XWayland focus
-        /// has no native `MappedWindow` geometry record in this backend, so it
-        /// is rejected explicitly instead of silently moving only shell
-        /// bookkeeping.
+        /// The target connector and active surface are validated before any
+        /// geometry or restore metadata is changed.  Native XDG toplevels and
+        /// rootless XWayland windows both use the compositor-owned output
+        /// migration policy; XWayland geometry is committed through the XWM
+        /// surface before the scene registry is updated.
         fn move_active_window_to_output(
             &mut self,
             output_id: &str,
@@ -2231,26 +2352,76 @@ mod linux {
                 .iter()
                 .position(|name| name == output_id)
                 .ok_or_else(|| SpacesError::InvalidOutputId(output_id.to_owned()))?;
-            let active_window_id = self.activated_window_id.clone().ok_or_else(|| {
-                if self.xwayland_keyboard_focus.is_some() {
-                    SpacesError::InvalidWindowId(
-                        "focused XWayland window output migration is not implemented".to_owned(),
-                    )
-                } else {
-                    SpacesError::InvalidWindowId(String::new())
-                }
-            })?;
-            let window_index = self
-                .windows
-                .iter()
-                .position(|window| window.window_id == active_window_id)
-                .ok_or_else(|| SpacesError::InvalidWindowId(active_window_id.clone()))?;
             let target_output = self
                 .laid_out_outputs
                 .get(target_index)
                 .map(output_geometry)
                 .ok_or_else(|| SpacesError::InvalidOutputId(output_id.to_owned()))?;
             let target_work_area = self.work_area_for_output_index(target_index);
+
+            let Some(active_window_id) = self.activated_window_id.clone() else {
+                if let Some(focused_x11) = self
+                    .xwayland_keyboard_focus
+                    .as_ref()
+                    .and_then(|window| self.x11_scene.visible_surface(window.window_id()))
+                {
+                    let x11_window_id = focused_x11.window_id();
+                    let current_geometry = self
+                        .x11_scene
+                        .geometry(x11_window_id)
+                        .map(|geometry| {
+                            WindowGeometry::new(
+                                geometry.loc.x,
+                                geometry.loc.y,
+                                geometry.size.w,
+                                geometry.size.h,
+                            )
+                        })
+                        .ok_or_else(|| {
+                            SpacesError::InvalidWindowId(x11_space_window_id(x11_window_id))
+                        })?;
+                    let old_index =
+                        output_index_for_geometry(&self.laid_out_outputs, current_geometry)
+                            .unwrap_or(target_index);
+                    let old_output = self
+                        .laid_out_outputs
+                        .get(old_index)
+                        .map(output_geometry)
+                        .unwrap_or(target_output);
+                    let migration = plan_window_output_migration(
+                        WindowPresentationState::Normal,
+                        current_geometry,
+                        None,
+                        old_output,
+                        target_output,
+                        target_work_area,
+                    );
+                    let geometry = Rectangle::new(
+                        Point::from((migration.geometry.x, migration.geometry.y)),
+                        Size::from((migration.geometry.width, migration.geometry.height)),
+                    );
+                    focused_x11.configure(Some(geometry)).map_err(|error| {
+                        SpacesError::InvalidWindowId(format!(
+                            "XWayland window {x11_window_id} configure failed: {error}"
+                        ))
+                    })?;
+                    self.x11_scene.configure(focused_x11, geometry);
+                    self.sync_x11_scene_output_membership(x11_window_id);
+                    self.request_full_redraw();
+                    tracing::info!(
+                        window = x11_window_id,
+                        %output_id,
+                        "moved focused XWayland window to output"
+                    );
+                    return Ok(self.spaces.active_space());
+                }
+                return Err(SpacesError::InvalidWindowId(String::new()));
+            };
+            let window_index = self
+                .windows
+                .iter()
+                .position(|window| window.window_id == active_window_id)
+                .ok_or_else(|| SpacesError::InvalidWindowId(active_window_id.clone()))?;
             let current_geometry = self.windows[window_index].geometry();
             let current_state = self.windows[window_index].presentation_state;
             let restore_state = self.windows[window_index].restore_state.clone();
@@ -6266,7 +6437,7 @@ mod linux {
                         state.request_redraw();
                     }
                     X11Event::Resized { new_size, .. } => {
-                        tracing::debug!("resized: {:?}", new_size);
+                        state.handle_nested_x11_resize(new_size);
                     }
                     X11Event::Input { event, .. } => match event {
                         BackendInputEvent::Keyboard { event: ev } => {
@@ -6431,6 +6602,37 @@ mod linux {
 
         tracing::info!("slopos-compositor exiting");
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod nested_resize_tests {
+        use super::*;
+
+        #[test]
+        fn uses_the_swapchain_physical_extent() {
+            assert_eq!(
+                SloposCompositor::nested_x11_resize_output_size(Size::from((1193_u16, 768_u16))),
+                Size::<i32, Physical>::from((1193, 768)),
+            );
+            assert_eq!(
+                SloposCompositor::nested_x11_resize_output_size(Size::from((0_u16, 0_u16))),
+                Size::<i32, Physical>::from((1, 1)),
+            );
+            assert_eq!(
+                SloposCompositor::nested_x11_resize_logical_output_size(
+                    Size::from((2560_u16, 1600_u16)),
+                    OutputScale::new(2, 1).unwrap(),
+                ),
+                Size::<i32, Logical>::from((1280, 800)),
+            );
+            assert_eq!(
+                SloposCompositor::nested_x11_resize_logical_output_size(
+                    Size::from((1_u16, 1_u16)),
+                    OutputScale::new(3, 2).unwrap(),
+                ),
+                Size::<i32, Logical>::from((1, 1)),
+            );
+        }
     }
 
     #[cfg(test)]

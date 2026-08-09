@@ -75,9 +75,21 @@ struct LoadedImage {
     path: PathBuf,
     width: u32,
     height: u32,
+    /// Dimensions declared by the encoded image before EXIF orientation is
+    /// applied. Vision validates these against the original encoded bytes.
+    encoded_width: u32,
+    encoded_height: u32,
     encoded: Vec<u8>,
     media_type: Option<ImageMediaType>,
     pixels: Vec<u8>,
+}
+
+#[derive(Debug)]
+struct DecodedImage {
+    image: DynamicImage,
+    media_type: Option<ImageMediaType>,
+    /// Dimensions declared by the encoded bytes before display orientation.
+    encoded_dimensions: (u32, u32),
 }
 
 /// Parse the deliberately small Preview CLI: zero or one image path.
@@ -125,9 +137,7 @@ fn media_type_for_format(format: ImageFormat) -> Option<ImageMediaType> {
     }
 }
 
-fn decode_encoded_image_limited(
-    data: &[u8],
-) -> Result<(DynamicImage, Option<ImageMediaType>), String> {
+fn decode_encoded_image_limited(data: &[u8]) -> Result<DecodedImage, String> {
     if data.len() as u64 > MAX_ENCODED_BYTES {
         return Err("encoded image exceeds the Preview size limit".to_string());
     }
@@ -154,6 +164,7 @@ fn decode_encoded_image_limited(
             pixels, MAX_SOURCE_PIXELS
         ));
     }
+    let encoded_dimensions = (width, height);
 
     let mut decoder = ImageReader::new(Cursor::new(data))
         .with_guessed_format()
@@ -166,34 +177,39 @@ fn decode_encoded_image_limited(
     let mut image = DynamicImage::from_decoder(decoder)
         .map_err(|error| format!("cannot decode image: {error}"))?;
     image.apply_orientation(orientation);
-    Ok((image, media_type_for_format(format)))
+    Ok(DecodedImage {
+        image,
+        media_type: media_type_for_format(format),
+        encoded_dimensions,
+    })
 }
 
-fn decode_image_limited(
-    path: &Path,
-) -> Result<(DynamicImage, Vec<u8>, Option<ImageMediaType>), String> {
+fn decode_image_limited(path: &Path) -> Result<(DecodedImage, Vec<u8>), String> {
     let encoded_bytes = validate_image_path(path, MAX_ENCODED_BYTES)?;
     let data = fs::read(path).map_err(|error| format!("cannot read image: {error}"))?;
     if data.len() as u64 > MAX_ENCODED_BYTES || data.len() as u64 != encoded_bytes {
         return Err("image changed while it was being read".to_string());
     }
 
-    let (image, media_type) = decode_encoded_image_limited(&data)?;
-    Ok((image, data, media_type))
+    let image = decode_encoded_image_limited(&data)?;
+    Ok((image, data))
 }
 
 fn load_image(path: &Path) -> Result<LoadedImage, String> {
-    let (image, encoded, media_type) = decode_image_limited(path)?;
-    let width = image.width();
-    let height = image.height();
-    let pixels = image.to_rgba8().into_raw();
+    let (decoded, encoded) = decode_image_limited(path)?;
+    let (encoded_width, encoded_height) = decoded.encoded_dimensions;
+    let width = decoded.image.width();
+    let height = decoded.image.height();
+    let pixels = decoded.image.to_rgba8().into_raw();
 
     Ok(LoadedImage {
         path: path.to_path_buf(),
         width,
         height,
+        encoded_width,
+        encoded_height,
         encoded,
-        media_type,
+        media_type: decoded.media_type,
         pixels,
     })
 }
@@ -264,6 +280,8 @@ struct ImageCanvas {
     path: PathBuf,
     encoded: Vec<u8>,
     media_type: Option<ImageMediaType>,
+    encoded_width: u32,
+    encoded_height: u32,
     source_width: u32,
     source_height: u32,
     zoom: f32,
@@ -278,6 +296,8 @@ impl ImageCanvas {
             path: PathBuf::new(),
             encoded: Vec::new(),
             media_type: None,
+            encoded_width: 0,
+            encoded_height: 0,
             source_width: 0,
             source_height: 0,
             zoom: 1.0,
@@ -293,6 +313,8 @@ impl ImageCanvas {
             path: image.path,
             encoded: image.encoded,
             media_type: image.media_type,
+            encoded_width: image.encoded_width,
+            encoded_height: image.encoded_height,
             source_width: image.width,
             source_height: image.height,
             zoom: 1.0,
@@ -1030,8 +1052,12 @@ impl PreviewView {
                 media_type,
                 encoded_bytes: image.encoded.len() as u64,
                 dimensions: PixelSize {
-                    width: image.source_width,
-                    height: image.source_height,
+                    // The daemon decodes the original bytes without applying
+                    // Preview's display orientation, so metadata must use
+                    // the dimensions declared by the encoded image rather
+                    // than the post-EXIF display dimensions.
+                    width: image.encoded_width,
+                    height: image.encoded_height,
                 },
                 sha256: None,
                 label,
@@ -1783,12 +1809,12 @@ fn validate_asset_response(asset: &AssetDataResponse) -> Result<PixelSize, Strin
     if asset.asset.metadata.media_type != ImageMediaType::Png {
         return Err("lifted-subject asset is not declared as PNG".to_string());
     }
-    let (decoded, media_type) = decode_encoded_image_limited(&asset.bytes)?;
+    let decoded = decode_encoded_image_limited(&asset.bytes)?;
     let dimensions = asset.asset.metadata.dimensions;
-    if decoded.width() != dimensions.width || decoded.height() != dimensions.height {
+    if decoded.image.width() != dimensions.width || decoded.image.height() != dimensions.height {
         return Err("asset dimensions do not match its metadata".to_string());
     }
-    if media_type != Some(ImageMediaType::Png) {
+    if decoded.media_type != Some(ImageMediaType::Png) {
         return Err("asset format does not match its metadata".to_string());
     }
     Ok(dimensions)
@@ -1915,6 +1941,8 @@ mod tests {
             path: PathBuf::new(),
             encoded: Vec::new(),
             media_type: None,
+            encoded_width: 640,
+            encoded_height: 480,
             source_width: 640,
             source_height: 480,
             zoom: 1.0,
@@ -2066,11 +2094,53 @@ mod tests {
     }
 
     #[test]
+    fn vision_request_uses_encoded_dimensions_after_display_orientation() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("oriented.png");
+        let encoded = png_bytes(2, 3);
+        let canvas = ImageCanvas::from_loaded(LoadedImage {
+            path,
+            // Simulate a 90-degree EXIF-oriented display: the decoded pixels
+            // are transposed for Preview, while Vision receives the original
+            // bytes and therefore validates their encoded 2 x 3 dimensions.
+            width: 3,
+            height: 2,
+            encoded_width: 2,
+            encoded_height: 3,
+            encoded,
+            media_type: Some(ImageMediaType::Png),
+            pixels: vec![0; 3 * 2 * 4],
+        })
+        .unwrap();
+        let mut view = PreviewView::new(None);
+        view.image_scroll.set_content(Box::new(canvas));
+
+        let request = view
+            .build_vision_request(VisionAction::ExtractText)
+            .unwrap();
+        let VisionJob::ExtractText(job) = request.job else {
+            panic!("expected Extract Text request");
+        };
+        let ImageSource::Inline(image) = job.source else {
+            panic!("expected inline image source");
+        };
+        assert_eq!(
+            image.metadata.dimensions,
+            PixelSize {
+                width: 2,
+                height: 3,
+            }
+        );
+    }
+
+    #[test]
     fn image_canvas_rejects_inconsistent_rgba_source() {
         let result = ImageCanvas::from_loaded(LoadedImage {
             path: PathBuf::from("broken.png"),
             width: 2,
             height: 2,
+            encoded_width: 2,
+            encoded_height: 2,
             encoded: Vec::new(),
             media_type: None,
             pixels: vec![0; 15],
