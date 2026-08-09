@@ -19,9 +19,9 @@
 //!   replaces the exported object graph when the owning application supplies a
 //!   new widget snapshot.  Applications without an update loop remain
 //!   register-time snapshots.
-//! - **`org.a11y.atspi.Text` is exported on D-Bus** for text-bearing roles at
-//!   registration (label snapshot + caret props). **Live typing is not synced**
-//!   until re-register; Orca may still miss mid-session edits.
+//! - **`org.a11y.atspi.Text` is exported on D-Bus** for text-bearing roles.
+//!   Editable widgets publish their current text, caret and selection on every
+//!   synchronized snapshot, using UTF-16 code-unit offsets at the bus boundary.
 //! - **`org.a11y.atspi.Component` is exported** with GetExtents/Contains; extents
 //!   are often zero until layout bounds are filled into the tree.
 //! - **`DoAction`**: valid indices push onto [`drain_pending_actions`] **and**
@@ -545,6 +545,66 @@ impl AccessibleTextState {
         self.text.chars().count() as i32
     }
 
+    /// Number of UTF-16 code units required by the AT-SPI Text interface.
+    pub fn utf16_character_count(&self) -> i32 {
+        self.text.encode_utf16().count() as i32
+    }
+
+    /// Convert an internal UTF-8 byte offset to an AT-SPI UTF-16 offset.
+    ///
+    /// Offsets are first clamped to a valid UTF-8 boundary.  The returned
+    /// value is therefore always a valid boundary between UTF-16 code units
+    /// for the represented text (astral characters consume two units).
+    pub fn utf16_offset_for_byte(&self, offset: usize) -> usize {
+        let boundary = floor_char_boundary(&self.text, offset.min(self.text.len()));
+        self.text[..boundary].encode_utf16().count()
+    }
+
+    /// Convert an AT-SPI UTF-16 offset to an internal UTF-8 byte offset.
+    ///
+    /// A value in the middle of an astral surrogate pair snaps to the start
+    /// of that scalar, which preserves the toolkit's character-boundary
+    /// invariant instead of ever slicing a partial UTF-8 sequence.
+    pub fn byte_offset_for_utf16(&self, offset: usize) -> usize {
+        if offset == 0 {
+            return 0;
+        }
+        let mut units = 0usize;
+        for (byte, ch) in self.text.char_indices() {
+            if units >= offset {
+                return byte;
+            }
+            let next = units + ch.len_utf16();
+            if offset < next {
+                return byte;
+            }
+            units = next;
+        }
+        self.text.len()
+    }
+
+    /// Return a UTF-8 substring addressed by AT-SPI UTF-16 offsets.
+    pub fn get_text_utf16(&self, start: usize, end: Option<usize>) -> String {
+        let start = self.byte_offset_for_utf16(start);
+        let end = end
+            .map(|offset| self.byte_offset_for_utf16(offset))
+            .unwrap_or(self.text.len());
+        self.get_text(start, end)
+    }
+
+    /// Current caret offset in AT-SPI UTF-16 code units.
+    pub fn utf16_caret_offset(&self) -> usize {
+        self.utf16_offset_for_byte(self.caret_offset)
+    }
+
+    /// Current selection range in AT-SPI UTF-16 code units.
+    pub fn utf16_selection(&self) -> (usize, usize) {
+        (
+            self.utf16_offset_for_byte(self.selection_start),
+            self.utf16_offset_for_byte(self.selection_end),
+        )
+    }
+
     pub fn get_text(&self, start: usize, end: usize) -> String {
         let end = end.min(self.text.len());
         let start = start.min(end);
@@ -887,6 +947,12 @@ pub enum AccessibleEventKind {
     BoundsChanged,
     /// Active descendant within a container changed.
     ActiveDescendantChanged,
+    /// Text content changed. Detail fields use AT-SPI UTF-16 offsets.
+    TextChanged,
+    /// Caret moved. `detail1` is the new AT-SPI UTF-16 offset.
+    TextCaretMoved,
+    /// Text selection changed.
+    TextSelectionChanged,
     /// Accessible object created / added to the tree.
     ObjectCreated,
     /// Accessible object destroyed / removed from the tree.
@@ -901,6 +967,9 @@ impl AccessibleEventKind {
             Self::StateChanged => "StateChanged",
             Self::BoundsChanged => "BoundsChanged",
             Self::ActiveDescendantChanged => "ActiveDescendantChanged",
+            Self::TextChanged => "TextChanged",
+            Self::TextCaretMoved => "TextCaretMoved",
+            Self::TextSelectionChanged => "TextSelectionChanged",
             Self::ObjectCreated => "ObjectCreated",
             Self::ObjectDestroyed => "ObjectDestroyed",
         }
@@ -972,6 +1041,33 @@ pub fn serialize_event_for_dbus(event: &AccessibleEvent) -> SerializedAtspiEvent
         AccessibleEventKind::ActiveDescendantChanged => SerializedAtspiEvent {
             interface: ATSPI_EVENT_OBJECT_IFACE,
             member: "ActiveDescendantChanged",
+            path: event.path.clone(),
+            detail: String::new(),
+            detail1: event.detail1,
+            detail2: event.detail2,
+            any_data: event.any_data.clone(),
+        },
+        AccessibleEventKind::TextChanged => SerializedAtspiEvent {
+            interface: ATSPI_EVENT_OBJECT_IFACE,
+            member: "TextChanged",
+            path: event.path.clone(),
+            detail: String::new(),
+            detail1: event.detail1,
+            detail2: event.detail2,
+            any_data: event.any_data.clone(),
+        },
+        AccessibleEventKind::TextCaretMoved => SerializedAtspiEvent {
+            interface: ATSPI_EVENT_OBJECT_IFACE,
+            member: "TextCaretMoved",
+            path: event.path.clone(),
+            detail: String::new(),
+            detail1: event.detail1,
+            detail2: event.detail2,
+            any_data: event.any_data.clone(),
+        },
+        AccessibleEventKind::TextSelectionChanged => SerializedAtspiEvent {
+            interface: ATSPI_EVENT_OBJECT_IFACE,
+            member: "TextSelectionChanged",
             path: event.path.clone(),
             detail: String::new(),
             detail1: event.detail1,
@@ -1061,6 +1157,50 @@ impl AccessibleEvent {
             detail1: 0,
             detail2: 0,
             any_data: descendant_path.into(),
+        }
+    }
+
+    /// Construct a TextChanged event. Offsets and lengths use UTF-16 code
+    /// units, matching the public AT-SPI Text interface.
+    pub fn text_changed(
+        path: impl Into<String>,
+        offset_utf16: usize,
+        length_utf16: usize,
+        text: impl Into<String>,
+    ) -> Self {
+        Self {
+            path: path.into(),
+            kind: AccessibleEventKind::TextChanged,
+            detail1: i32::try_from(offset_utf16).unwrap_or(i32::MAX),
+            detail2: i32::try_from(length_utf16).unwrap_or(i32::MAX),
+            any_data: text.into(),
+        }
+    }
+
+    /// Construct a TextCaretMoved event with a UTF-16 caret offset.
+    pub fn text_caret_moved(path: impl Into<String>, offset_utf16: usize) -> Self {
+        Self {
+            path: path.into(),
+            kind: AccessibleEventKind::TextCaretMoved,
+            detail1: i32::try_from(offset_utf16).unwrap_or(i32::MAX),
+            detail2: 0,
+            any_data: String::new(),
+        }
+    }
+
+    /// Construct a TextSelectionChanged event. `detail1`/`detail2` are the
+    /// ordered UTF-16 selection endpoints.
+    pub fn text_selection_changed(
+        path: impl Into<String>,
+        start_utf16: usize,
+        end_utf16: usize,
+    ) -> Self {
+        Self {
+            path: path.into(),
+            kind: AccessibleEventKind::TextSelectionChanged,
+            detail1: i32::try_from(start_utf16).unwrap_or(i32::MAX),
+            detail2: i32::try_from(end_utf16).unwrap_or(i32::MAX),
+            any_data: String::new(),
         }
     }
 
@@ -1453,6 +1593,10 @@ pub struct AccessibilityNode {
     pub description: String,
     pub rect: Rect,
     pub state: AccessibilityState,
+    /// Live text/caret/selection state for editable or text-bearing widgets.
+    /// Internal offsets remain UTF-8 byte indices; the D-Bus exporter converts
+    /// them to the UTF-16 code-unit offsets required by AT-SPI.
+    pub text_state: Option<AccessibleTextState>,
     pub children: Vec<AccessibilityNode>,
     pub index: usize,
     pub parent: Option<usize>,
@@ -1474,6 +1618,7 @@ impl AccessibilityNode {
             description: String::new(),
             rect: Rect::ZERO,
             state: AccessibilityState::default(),
+            text_state: None,
             children: vec![],
             index: 0,
             parent: None,
@@ -1543,6 +1688,9 @@ fn accessibility_nodes_from_widget(widget: &dyn Widget) -> Vec<AccessibilityNode
     node.state.visible = widget.visibility() == Visibility::Visible;
     node.state.focused = widget.widget_state().focused;
     node.widget_id = Some(widget.id());
+    if let Some(text_state) = widget.accessibility_text() {
+        node.text_state = Some(text_state);
+    }
 
     // An authored child list is intentional.  Settings and other custom
     // roots use it to expose semantic children that are not one-to-one with
@@ -2027,18 +2175,22 @@ impl AtspiAction {
     }
 }
 
-/// D-Bus `org.a11y.atspi.Text` — snapshot of label/entry text at register time.
+/// D-Bus `org.a11y.atspi.Text` — synchronized text/caret/selection state.
 ///
-/// Caret/selection are initialized to end-of-text / empty. Live typing is not
-/// mirrored until re-register/sync lands (Orca may still miss live edits).
+/// The toolkit stores UTF-8 byte offsets internally.  Every public AT-SPI
+/// offset is translated to UTF-16 code units so astral Unicode remains safe
+/// for assistive technologies.
 struct AtspiText {
     state: AccessibleTextState,
 }
 
 impl AtspiText {
-    fn from_label(label: &str) -> Self {
+    fn from_node(node: &AccessibilityNode) -> Self {
         Self {
-            state: AccessibleTextState::new(label),
+            state: node
+                .text_state
+                .clone()
+                .unwrap_or_else(|| AccessibleTextState::new(&node.label)),
         }
     }
 }
@@ -2047,22 +2199,22 @@ impl AtspiText {
 impl AtspiText {
     #[zbus(property, name = "CharacterCount")]
     fn character_count(&self) -> i32 {
-        self.state.character_count()
+        self.state.utf16_character_count()
     }
 
     #[zbus(property, name = "CaretOffset")]
     fn caret_offset(&self) -> i32 {
-        self.state.caret_offset as i32
+        i32::try_from(self.state.utf16_caret_offset()).unwrap_or(i32::MAX)
     }
 
     fn get_text(&self, start_offset: i32, end_offset: i32) -> String {
         let start = start_offset.max(0) as usize;
         let end = if end_offset < 0 {
-            self.state.text.len()
+            None
         } else {
-            end_offset as usize
+            Some(end_offset as usize)
         };
-        self.state.get_text(start, end)
+        self.state.get_text_utf16(start, end)
     }
 
     fn get_n_selections(&self) -> i32 {
@@ -2077,9 +2229,10 @@ impl AtspiText {
         if selection_num != 0 || self.state.selection_start == self.state.selection_end {
             return Err(fdo::Error::InvalidArgs("no such selection".into()));
         }
+        let (start, end) = self.state.utf16_selection();
         Ok((
-            self.state.selection_start as i32,
-            self.state.selection_end as i32,
+            i32::try_from(start).unwrap_or(i32::MAX),
+            i32::try_from(end).unwrap_or(i32::MAX),
         ))
     }
 }
@@ -2249,7 +2402,7 @@ fn accessibility_tree_signature(tree: &AccessibilityTree) -> String {
 
         let _ = write!(
             out,
-            "{}\u{1f}{}\u{1f}{}\u{1f}{:.3},{:.3},{:.3},{:.3}\u{1f}{:?}\u{1f}{:?}\u{1f}{:?}\u{1f}{:?};",
+            "{}\u{1f}{}\u{1f}{}\u{1f}{:.3},{:.3},{:.3},{:.3}\u{1f}{:?}\u{1f}{:?}\u{1f}{:?}\u{1f}{:?}\u{1f}{:?};",
             node.role_name(),
             node.label,
             node.description,
@@ -2258,6 +2411,7 @@ fn accessibility_tree_signature(tree: &AccessibilityTree) -> String {
             node.rect.width,
             node.rect.height,
             node.state,
+            node.text_state,
             node.index,
             node.parent,
             node.widget_id,
@@ -2331,6 +2485,89 @@ fn children_changed_event(
     }
 }
 
+fn text_change_span(previous: &str, current: &str) -> (usize, usize, String) {
+    let previous_chars: Vec<char> = previous.chars().collect();
+    let current_chars: Vec<char> = current.chars().collect();
+    let mut prefix = 0usize;
+    while prefix < previous_chars.len()
+        && prefix < current_chars.len()
+        && previous_chars[prefix] == current_chars[prefix]
+    {
+        prefix += 1;
+    }
+
+    let mut suffix = 0usize;
+    while suffix < previous_chars.len().saturating_sub(prefix)
+        && suffix < current_chars.len().saturating_sub(prefix)
+        && previous_chars[previous_chars.len() - 1 - suffix]
+            == current_chars[current_chars.len() - 1 - suffix]
+    {
+        suffix += 1;
+    }
+
+    let offset_utf16 = previous_chars[..prefix]
+        .iter()
+        .map(|ch| ch.len_utf16())
+        .sum();
+    let replacement: String = current_chars[prefix..current_chars.len() - suffix]
+        .iter()
+        .collect();
+    let replacement_len_utf16 = replacement.encode_utf16().count();
+    (offset_utf16, replacement_len_utf16, replacement)
+}
+
+fn append_text_diff_events(
+    path: &str,
+    previous: Option<&AccessibleTextState>,
+    current: Option<&AccessibleTextState>,
+    events: &mut Vec<AccessibleEvent>,
+) {
+    match (previous, current) {
+        (Some(previous), Some(current)) => {
+            if previous.text != current.text {
+                let (offset, length, replacement) = text_change_span(&previous.text, &current.text);
+                events.push(AccessibleEvent::text_changed(
+                    path,
+                    offset,
+                    length,
+                    replacement,
+                ));
+            }
+            if previous.caret_offset != current.caret_offset {
+                events.push(AccessibleEvent::text_caret_moved(
+                    path,
+                    current.utf16_caret_offset(),
+                ));
+            }
+            if previous.selection_start != current.selection_start
+                || previous.selection_end != current.selection_end
+            {
+                let (start, end) = current.utf16_selection();
+                events.push(AccessibleEvent::text_selection_changed(path, start, end));
+            }
+        }
+        (None, Some(current)) => {
+            events.push(AccessibleEvent::text_changed(
+                path,
+                0,
+                current.utf16_character_count().max(0) as usize,
+                current.text.clone(),
+            ));
+            events.push(AccessibleEvent::text_caret_moved(
+                path,
+                current.utf16_caret_offset(),
+            ));
+        }
+        (Some(previous), None) => {
+            events.push(AccessibleEvent::text_changed(path, 0, 0, String::new()));
+            if previous.caret_offset != 0 {
+                events.push(AccessibleEvent::text_caret_moved(path, 0));
+            }
+        }
+        (None, None) => {}
+    }
+}
+
 fn accessibility_tree_diff_events(
     previous: &AccessibilityTree,
     current: &AccessibilityTree,
@@ -2392,6 +2629,12 @@ fn accessibility_tree_diff_events(
         if rect_changed(previous_entry.node.rect, current_entry.node.rect) {
             events.push(AccessibleEvent::bounds_changed(&current_entry.path));
         }
+        append_text_diff_events(
+            &current_entry.path,
+            previous_entry.node.text_state.as_ref(),
+            current_entry.node.text_state.as_ref(),
+            &mut events,
+        );
     }
 
     for previous_entry in &previous_entries {
@@ -2503,7 +2746,7 @@ fn export_atspi_tree(
             server.at(path, AtspiAction::from_role(node.role, path, &node.label))?;
         }
         if role_has_text(node.role) {
-            server.at(path, AtspiText::from_label(&node.label))?;
+            server.at(path, AtspiText::from_node(node))?;
         }
         if role_has_component(node.role) {
             server.at(path, AtspiComponent::from_node(node))?;
@@ -3288,6 +3531,61 @@ mod tests {
     }
 
     #[test]
+    fn accessible_text_state_uses_utf16_offsets_for_atspi() {
+        let mut t = AccessibleTextState::new("A😀e\u{301}");
+        assert_eq!(t.character_count(), 4);
+        assert_eq!(t.utf16_character_count(), 5);
+
+        let after_emoji = "A😀".len();
+        t.set_caret(after_emoji);
+        t.set_selection("A".len(), after_emoji);
+        assert_eq!(t.utf16_caret_offset(), 3);
+        assert_eq!(t.utf16_selection(), (1, 3));
+        assert_eq!(t.get_text_utf16(1, Some(3)), "😀");
+        // A UTF-16 offset in the middle of a surrogate pair snaps to its
+        // scalar's UTF-8 start rather than splitting the string.
+        assert_eq!(t.get_text_utf16(2, Some(3)), "😀");
+    }
+
+    #[test]
+    fn accessibility_tree_diff_reports_live_text_caret_and_selection() {
+        let mut previous = AccessibilityTree::new();
+        let mut previous_node = AccessibilityNode::new(AccessibilityRole::TextField, "A😀");
+        let mut previous_text = AccessibleTextState::new("A😀");
+        previous_text.set_caret("A".len());
+        previous_node.text_state = Some(previous_text);
+        previous.add(previous_node);
+
+        let mut current = previous.clone();
+        current.nodes[0].label = "A😀!".to_string();
+        let mut current_text = AccessibleTextState::new("A😀!");
+        current_text.set_caret("A😀!".len());
+        current_text.set_selection("A".len(), "A😀".len());
+        current.nodes[0].text_state = Some(current_text);
+
+        let events = accessibility_tree_diff_events(&previous, &current);
+        let path = atspi_object_path(0);
+        assert!(events
+            .iter()
+            .any(|event| event.kind == AccessibleEventKind::TextChanged
+                && event.path == path
+                && event.detail1 == 3
+                && event.detail2 == 1
+                && event.any_data == "!"));
+        assert!(events.iter().any(|event| {
+            event.kind == AccessibleEventKind::TextCaretMoved
+                && event.path == path
+                && event.detail1 == 4
+        }));
+        assert!(events.iter().any(|event| {
+            event.kind == AccessibleEventKind::TextSelectionChanged
+                && event.path == path
+                && event.detail1 == 1
+                && event.detail2 == 3
+        }));
+    }
+
+    #[test]
     fn accessible_component_contains_and_extents() {
         let c = AccessibleComponent {
             x: 10,
@@ -3465,6 +3763,15 @@ mod tests {
             AccessibleEventKind::ActiveDescendantChanged.as_str(),
             "ActiveDescendantChanged"
         );
+        assert_eq!(AccessibleEventKind::TextChanged.as_str(), "TextChanged");
+        assert_eq!(
+            AccessibleEventKind::TextCaretMoved.as_str(),
+            "TextCaretMoved"
+        );
+        assert_eq!(
+            AccessibleEventKind::TextSelectionChanged.as_str(),
+            "TextSelectionChanged"
+        );
         assert_eq!(AccessibleEventKind::ObjectCreated.as_str(), "ObjectCreated");
         assert_eq!(
             AccessibleEventKind::ObjectDestroyed.as_str(),
@@ -3515,6 +3822,25 @@ mod tests {
         assert_eq!(ad.member, "ActiveDescendantChanged");
         assert_eq!(ad.path, "/parent");
         assert_eq!(ad.any_data, "/child");
+    }
+
+    #[test]
+    fn serialize_text_events_preserves_utf16_details() {
+        let text = serialize_event_for_dbus(&AccessibleEvent::text_changed("/text", 3, 1, "!"));
+        assert_eq!(text.interface, ATSPI_EVENT_OBJECT_IFACE);
+        assert_eq!(text.member, "TextChanged");
+        assert_eq!(text.detail1, 3);
+        assert_eq!(text.detail2, 1);
+        assert_eq!(text.any_data, "!");
+
+        let caret = serialize_event_for_dbus(&AccessibleEvent::text_caret_moved("/text", 4));
+        assert_eq!(caret.member, "TextCaretMoved");
+        assert_eq!(caret.detail1, 4);
+
+        let selection =
+            serialize_event_for_dbus(&AccessibleEvent::text_selection_changed("/text", 1, 3));
+        assert_eq!(selection.member, "TextSelectionChanged");
+        assert_eq!((selection.detail1, selection.detail2), (1, 3));
     }
 
     #[test]

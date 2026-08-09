@@ -1,8 +1,8 @@
 use crate::{
     event::{KeyCode, MouseButton},
     theme::ThemeContext,
-    AccessibilityNode, AccessibilityRole, Event, EventResult, LayoutConstraint, Rect, Size, Widget,
-    WidgetState,
+    AccessibilityNode, AccessibilityRole, AccessibleTextState, Event, EventResult,
+    LayoutConstraint, Rect, Size, Widget, WidgetState,
 };
 
 pub struct TextField {
@@ -427,6 +427,15 @@ impl Widget for TextField {
         )
     }
 
+    fn accessibility_text(&self) -> Option<AccessibleTextState> {
+        let mut state = AccessibleTextState::new(self.text.clone());
+        state.set_caret(self.cursor_position);
+        if let Some((start, end)) = self.selection_range() {
+            state.set_selection(start, end);
+        }
+        Some(state)
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -648,6 +657,18 @@ mod tests {
         assert_eq!(field.cursor_position(), 2);
         assert_eq!(field.selection_range(), None);
         assert_eq!(*changes.lock().unwrap(), vec!["aXz"]);
+    }
+
+    #[test]
+    fn accessibility_snapshot_tracks_live_utf8_caret_and_selection() {
+        let mut field = TextField::new();
+        field.set_text("A😀B");
+        field.set_selection("A".len(), "A😀".len());
+
+        let snapshot = field.accessibility_text().expect("text snapshot");
+        assert_eq!(snapshot.text, "A😀B");
+        assert_eq!(snapshot.caret_offset, "A😀".len());
+        assert_eq!(snapshot.selected_text(), "😀");
     }
 
     #[test]

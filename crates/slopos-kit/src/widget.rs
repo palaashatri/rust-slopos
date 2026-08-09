@@ -1,6 +1,6 @@
 use crate::{
-    theme::ThemeContext, AccessibilityNode, CursorStyle, Event, EventResult, LayoutConstraint,
-    Rect, Size, Visibility,
+    theme::ThemeContext, AccessibilityNode, AccessibleTextState, CursorStyle, Event, EventResult,
+    LayoutConstraint, Rect, Size, Visibility,
 };
 use std::any::Any;
 use std::fmt;
@@ -115,6 +115,14 @@ pub trait Widget: Send {
         }
     }
     fn accessibility(&self) -> Option<AccessibilityNode> {
+        None
+    }
+    /// Return the live text/caret/selection state represented by this widget.
+    ///
+    /// The optional snapshot is kept separate from [`Widget::accessibility`]
+    /// so semantic labels can remain authored while editable controls expose
+    /// their current UTF-8-backed editing state to the AT-SPI bridge.
+    fn accessibility_text(&self) -> Option<AccessibleTextState> {
         None
     }
     fn children(&self) -> Vec<&dyn Widget> {
