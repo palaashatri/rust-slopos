@@ -26,8 +26,8 @@
 //!
 //! # ScreenCast note
 //!
-//! [`ScreencastStream`] values are **protocol-level stubs**. `node_id` fields are placeholders
-//! for a future PipeWire graph — this code does **not** create live PipeWire nodes or streams.
+//! [`ScreencastStream`] values are reserved for a future live PipeWire graph;
+//! this code does **not** create live PipeWire nodes or streams.
 //! Sessions expose a typed [`PortalScreencastCapability`] so a PipeWire socket being present is
 //! distinguishable from a live stream. The existing
 //! [`PortalScreencastSession::backend_note`] remains available for the portal wire result.
@@ -65,13 +65,6 @@ pub const PORTAL_SCREENCAST_INTERFACE: &str = "org.freedesktop.portal.ScreenCast
 pub const SCREENCAST_SOURCE_TYPE_MONITOR: u32 = 1;
 /// ScreenCast source type bit: application windows.
 pub const SCREENCAST_SOURCE_TYPE_WINDOW: u32 = 2;
-
-/// Default placeholder PipeWire-style node id (not a live graph node).
-pub const SCREENCAST_PLACEHOLDER_NODE_ID: u32 = 42;
-/// Default stub stream width.
-pub const SCREENCAST_DEFAULT_WIDTH: u32 = 1920;
-/// Default stub stream height.
-pub const SCREENCAST_DEFAULT_HEIGHT: u32 = 1080;
 
 static PORTAL_CAPTURE_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -374,12 +367,10 @@ pub struct PortalScreencastRequest {
     pub cursor_mode: u32,
 }
 
-/// One ScreenCast stream entry returned by Start.
-///
-/// **Stub:** `node_id` is a protocol-level placeholder, not a live PipeWire node.
+/// One ScreenCast stream entry returned by a live backend.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScreencastStream {
-    /// Placeholder node id for portal clients (not a live PipeWire graph node).
+    /// PipeWire node id supplied by the live graph.
     pub node_id: u32,
     pub width: u32,
     pub height: u32,
@@ -397,7 +388,7 @@ pub struct ScreencastStream {
 pub enum PortalScreencastCapability {
     /// No usable screencast capability is represented by the current session data.
     Unavailable,
-    /// The portal protocol can be answered, but streams are placeholders only.
+    /// The portal protocol is present, but no media stream is available.
     PortalStub,
     /// A PipeWire socket is present, but no live graph or stream is attached here.
     PipeWireReady,
@@ -425,7 +416,7 @@ impl PortalScreencastCapability {
 /// Lifecycle state exposed by the pure ScreenCast handlers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PortalScreencastState {
-    /// CreateSession completed; the default placeholder may still be replaced.
+    /// CreateSession completed; no stream is available yet.
     Created,
     /// SelectSources completed successfully.
     SourcesSelected,
@@ -448,7 +439,7 @@ impl PortalScreencastState {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PortalScreencastSession {
     pub session_id: String,
-    /// Streams for Start; initially one monitor stub after create.
+    /// Streams supplied by a live backend after source selection.
     pub streams: Vec<ScreencastStream>,
     /// Request options recorded at create.
     pub types: u32,
@@ -553,29 +544,8 @@ fn capability_from_backend_note(
 
 static NEXT_SCREENCAST_SESSION: AtomicU64 = AtomicU64::new(1);
 
-fn default_source_type(types: u32) -> u32 {
-    if types & SCREENCAST_SOURCE_TYPE_MONITOR != 0 {
-        SCREENCAST_SOURCE_TYPE_MONITOR
-    } else if types & SCREENCAST_SOURCE_TYPE_WINDOW != 0 {
-        SCREENCAST_SOURCE_TYPE_WINDOW
-    } else {
-        // Portal clients that pass types=0 still get a monitor stub.
-        SCREENCAST_SOURCE_TYPE_MONITOR
-    }
-}
-
-fn placeholder_stream(node_id: u32, source_type: u32) -> ScreencastStream {
-    ScreencastStream {
-        node_id,
-        width: SCREENCAST_DEFAULT_WIDTH,
-        height: SCREENCAST_DEFAULT_HEIGHT,
-        source_type,
-    }
-}
-
-/// Pure ScreenCast CreateSession: assigns an incremental session id and one monitor stream stub.
-///
-/// The stream's `node_id` is a placeholder — PipeWire is not started or connected.
+/// Pure ScreenCast CreateSession: assigns an incremental session id without
+/// fabricating a stream when no live PipeWire graph is attached.
 /// Default backend note is [`SCREENCAST_NOTE_PORTAL_STUB`]; use
 /// [`create_screencast_session_with_backend_note`] when a readiness probe is available.
 pub fn create_screencast_session(req: PortalScreencastRequest) -> PortalScreencastSession {
@@ -588,13 +558,9 @@ pub fn create_screencast_session_with_backend_note(
     backend_note: impl Into<String>,
 ) -> PortalScreencastSession {
     let n = NEXT_SCREENCAST_SESSION.fetch_add(1, Ordering::Relaxed);
-    let source_type = default_source_type(req.types);
     PortalScreencastSession {
         session_id: format!("screencast-{n}"),
-        streams: vec![placeholder_stream(
-            SCREENCAST_PLACEHOLDER_NODE_ID,
-            source_type,
-        )],
+        streams: Vec::new(),
         types: req.types,
         multiple: req.multiple,
         cursor_mode: req.cursor_mode,
@@ -625,7 +591,7 @@ fn validate_screencast_source_ids(source_ids: &[u32]) -> Result<(), String> {
     Ok(())
 }
 
-/// Pure ScreenCast SelectSources: bind `source_ids` as stream node_id placeholders.
+/// Pure ScreenCast SelectSources: bind only live graph sources.
 ///
 /// Empty `source_ids` is an error (cancelled / nothing selected). When `multiple` is
 /// false, more than one id is rejected. Zero and duplicate ids are rejected before the session
@@ -644,19 +610,17 @@ pub fn select_screencast_sources(
         return Err("multiple sources not allowed".into());
     }
     validate_screencast_source_ids(source_ids)?;
-    let source_type = default_source_type(session.types);
-    session.streams = source_ids
-        .iter()
-        .map(|&node_id| placeholder_stream(node_id, source_type))
-        .collect();
-    session.sources_selected = true;
-    Ok(())
+    if !session.capability().is_live() {
+        return Err("live PipeWire source graph unavailable".into());
+    }
+    let _ = source_ids;
+    Err("live PipeWire stream metadata unavailable".into())
 }
 
-/// Pure ScreenCast Start outcome: non-empty stub streams + honest backend note.
+/// Pure ScreenCast Start outcome from a live backend.
 ///
-/// D-Bus Start maps `streams` / `note` into the results dict. Streams remain
-/// protocol placeholders — no live PipeWire.
+/// D-Bus Start maps `streams` / `note` into the results dict. This type is
+/// only constructible by a future live backend; the current path fails closed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScreencastStartOutcome {
     pub streams: Vec<ScreencastStream>,
@@ -670,23 +634,22 @@ impl ScreencastStartOutcome {
     }
 }
 
-/// Pure ScreenCast Start: requires at least one stream (protocol-level stubs only).
+/// Pure ScreenCast Start: requires a live PipeWire stream.
 ///
-/// On success marks the session started and guarantees a non-empty
-/// [`PortalScreencastSession::backend_note`] (defaults to
-/// [`SCREENCAST_NOTE_PORTAL_STUB`] if create left it blank). Streams remain
-/// placeholders — no live PipeWire.
+/// On success marks the session started and requires a non-empty backend note
+/// and a live PipeWire capability.
 pub fn start_screencast(session: &mut PortalScreencastSession) -> Result<(), String> {
+    if !session.capability().is_live() {
+        return Err("live PipeWire stream backend unavailable".into());
+    }
     if session.streams.is_empty() {
         return Err("no streams to start".into());
     }
     if session.started {
         return Err("session already started".into());
     }
-    // CreateSession already supplies a default stream; SelectSources is optional for the
-    // simplified path so Start can succeed after create alone.
     if session.backend_note.trim().is_empty() {
-        session.backend_note = SCREENCAST_NOTE_PORTAL_STUB.to_string();
+        return Err("live PipeWire backend note is missing".into());
     }
     session.started = true;
     Ok(())
@@ -961,7 +924,7 @@ mod tests {
     }
 
     #[test]
-    fn create_screencast_session_assigns_id_and_monitor_stream() {
+    fn create_screencast_session_does_not_fabricate_streams() {
         let req = PortalScreencastRequest {
             types: SCREENCAST_SOURCE_TYPE_MONITOR,
             multiple: false,
@@ -971,10 +934,8 @@ mod tests {
         let b = create_screencast_session(req);
         assert!(a.session_id.starts_with("screencast-"));
         assert_ne!(a.session_id, b.session_id);
-        assert_eq!(a.streams.len(), 1);
-        assert_eq!(a.streams[0].source_type, SCREENCAST_SOURCE_TYPE_MONITOR);
-        assert_eq!(a.streams[0].node_id, SCREENCAST_PLACEHOLDER_NODE_ID);
-        assert_eq!(a.streams[0].width, SCREENCAST_DEFAULT_WIDTH);
+        assert!(a.streams.is_empty());
+        assert_eq!(a.capability(), PortalScreencastCapability::Unavailable);
         assert_eq!(a.cursor_mode, 1);
         assert!(!a.sources_selected);
         assert!(!a.started);
@@ -1015,20 +976,16 @@ mod tests {
         assert!(PortalScreencastCapability::PipeWireLive.is_live());
 
         let mut session = create_screencast_session(PortalScreencastRequest::default());
-        let outcome = start_screencast_with_readiness(&mut session, &pipewire_ready).unwrap();
+        let error = start_screencast_with_readiness(&mut session, &pipewire_ready).unwrap_err();
+        assert!(error.contains("live PipeWire"));
         assert_eq!(
             session.capability(),
-            PortalScreencastCapability::PipeWireReady
+            PortalScreencastCapability::Unavailable
         );
-        assert_eq!(
-            outcome.capability(),
-            PortalScreencastCapability::PipeWireReady
-        );
-        assert!(!outcome.capability().is_live());
     }
 
     #[test]
-    fn screencast_lifecycle_exposes_create_select_start_transitions() {
+    fn screencast_lifecycle_stops_before_fake_select_or_start() {
         let mut session = create_screencast_session(PortalScreencastRequest {
             types: SCREENCAST_SOURCE_TYPE_MONITOR,
             multiple: false,
@@ -1037,30 +994,28 @@ mod tests {
         assert_eq!(session.state(), PortalScreencastState::Created);
         assert_eq!(session.state().as_str(), "created");
 
-        select_screencast_sources(&mut session, &[7]).unwrap();
-        assert_eq!(session.state(), PortalScreencastState::SourcesSelected);
-        assert_eq!(session.state().as_str(), "sources_selected");
-
-        start_screencast(&mut session).unwrap();
-        assert_eq!(session.state(), PortalScreencastState::Started);
-        assert_eq!(session.state().as_str(), "started");
-        assert!(start_screencast(&mut session).is_err());
-        assert_eq!(session.state(), PortalScreencastState::Started);
+        assert!(select_screencast_sources(&mut session, &[7])
+            .unwrap_err()
+            .contains("live PipeWire"));
+        assert!(start_screencast(&mut session)
+            .unwrap_err()
+            .contains("live PipeWire"));
+        assert_eq!(session.state(), PortalScreencastState::Created);
     }
 
     #[test]
-    fn select_screencast_sources_updates_streams() {
+    fn select_screencast_sources_fails_closed_without_live_graph() {
         let mut session = create_screencast_session(PortalScreencastRequest {
             types: SCREENCAST_SOURCE_TYPE_MONITOR | SCREENCAST_SOURCE_TYPE_WINDOW,
             multiple: true,
             cursor_mode: 0,
         });
         assert!(select_screencast_sources(&mut session, &[]).is_err());
-        select_screencast_sources(&mut session, &[7, 9]).unwrap();
-        assert!(session.sources_selected);
-        assert_eq!(session.streams.len(), 2);
-        assert_eq!(session.streams[0].node_id, 7);
-        assert_eq!(session.streams[1].node_id, 9);
+        assert!(select_screencast_sources(&mut session, &[7, 9])
+            .unwrap_err()
+            .contains("live PipeWire"));
+        assert!(!session.sources_selected);
+        assert!(session.streams.is_empty());
     }
 
     #[test]
@@ -1096,17 +1051,19 @@ mod tests {
         assert_eq!(session.streams, original_streams);
         assert_eq!(session.state(), PortalScreencastState::Created);
 
-        select_screencast_sources(&mut session, &[7, 9]).unwrap();
-        assert_eq!(session.state(), PortalScreencastState::SourcesSelected);
+        assert!(select_screencast_sources(&mut session, &[7, 9])
+            .unwrap_err()
+            .contains("live PipeWire"));
+        assert_eq!(session.state(), PortalScreencastState::Created);
     }
 
     #[test]
     fn start_screencast_requires_non_empty_streams() {
         let mut session = create_screencast_session(PortalScreencastRequest::default());
-        start_screencast(&mut session).unwrap();
-        assert!(session.started);
-        assert!(!session.streams.is_empty());
-        assert!(start_screencast(&mut session).is_err());
+        assert!(start_screencast(&mut session)
+            .unwrap_err()
+            .contains("live PipeWire"));
+        assert!(!session.started);
 
         let mut empty = create_screencast_session(PortalScreencastRequest::default());
         empty.streams.clear();
@@ -1138,67 +1095,53 @@ mod tests {
             &crate::screencast_pw::probe_screencast_readiness(None, false, false),
         );
         assert_eq!(session.backend_note, SCREENCAST_NOTE_PORTAL_STUB);
-        // Start still succeeds with stubs — note does not imply live streams.
-        start_screencast(&mut session).unwrap();
-        assert!(session.started);
+        // Socket readiness does not imply live streams.
+        assert!(start_screencast(&mut session)
+            .unwrap_err()
+            .contains("live PipeWire"));
+        assert!(!session.started);
     }
 
-    /// Structural: create → start pure path (real handlers) keeps non-empty streams
-    /// and an honest backend note forced via `create_screencast_session_with_backend_note`.
+    /// Create/Start never reports success for socket readiness or protocol-only notes.
     #[test]
-    fn screencast_create_start_note_on_real_pure_path() {
+    fn screencast_create_start_note_fails_closed_without_live_backend() {
         for forced in [SCREENCAST_NOTE_PORTAL_STUB, SCREENCAST_NOTE_PIPEWIRE_SOCKET] {
             let mut session = create_screencast_session_with_backend_note(
                 PortalScreencastRequest::default(),
                 forced,
             );
-            start_screencast(&mut session).unwrap();
-            assert!(
-                !session.streams.is_empty(),
-                "Start must leave non-empty streams (forced note {forced})"
-            );
-            assert!(
-                session.backend_note.contains("portal_stub")
-                    || session.backend_note.contains("pipewire"),
-                "note must be honest after Start: {:?}",
-                session.backend_note
-            );
-            assert_eq!(session.backend_note, forced);
-            assert!(session.started);
+            let error = start_screencast(&mut session).unwrap_err();
+            assert!(error.contains("live PipeWire"), "{error}");
+            assert!(!session.started);
+            assert!(session.streams.is_empty());
         }
 
-        // Probe-driven Start (same pure path D-Bus uses).
+        // Probe-driven Start (the same pure path D-Bus uses) also fails closed.
         let ready_stub = crate::screencast_pw::probe_screencast_readiness(None, false, false);
         let mut session = create_screencast_session(PortalScreencastRequest::default());
-        let outcome = start_screencast_with_readiness(&mut session, &ready_stub).unwrap();
-        assert!(!outcome.streams.is_empty());
-        assert!(
-            outcome.note.contains("portal_stub") || outcome.note.contains("pipewire"),
-            "probe Start note must be honest: {:?}",
-            outcome.note
-        );
-        assert_eq!(outcome.note, SCREENCAST_NOTE_PORTAL_STUB);
+        let error = start_screencast_with_readiness(&mut session, &ready_stub).unwrap_err();
+        assert!(error.contains("live PipeWire"), "{error}");
 
         let ready_pw =
             crate::screencast_pw::probe_screencast_readiness(Some("/run/user/1000"), true, false);
         let mut session = create_screencast_session(PortalScreencastRequest::default());
-        let outcome = start_screencast_with_readiness(&mut session, &ready_pw).unwrap();
-        assert!(!outcome.streams.is_empty());
-        assert!(
-            outcome.note.contains("portal_stub") || outcome.note.contains("pipewire"),
-            "probe Start note must be honest: {:?}",
-            outcome.note
-        );
-        assert_eq!(outcome.note, SCREENCAST_NOTE_PIPEWIRE_SOCKET);
-        // Empty note at Start is filled with portal_stub (honesty default).
+        let error = start_screencast_with_readiness(&mut session, &ready_pw).unwrap_err();
+        assert!(error.contains("live PipeWire"), "{error}");
+
+        // An empty note is not upgraded to a protocol-success default.
         let mut blank = create_screencast_session(PortalScreencastRequest::default());
         blank.backend_note.clear();
-        start_screencast(&mut blank).unwrap();
-        assert!(!blank.streams.is_empty());
-        assert!(
-            blank.backend_note.contains("portal_stub") || blank.backend_note.contains("pipewire")
-        );
-        assert_eq!(blank.backend_note, SCREENCAST_NOTE_PORTAL_STUB);
+        let error = start_screencast(&mut blank).unwrap_err();
+        assert!(error.contains("live PipeWire"), "{error}");
+    }
+
+    #[test]
+    fn screencast_start_never_reports_protocol_placeholder_success() {
+        let mut session = create_screencast_session(PortalScreencastRequest::default());
+        let error = start_screencast(&mut session).unwrap_err();
+        assert!(error.contains("live PipeWire"));
+        assert!(!session.started);
+        assert!(session.streams.is_empty());
     }
 
     #[test]

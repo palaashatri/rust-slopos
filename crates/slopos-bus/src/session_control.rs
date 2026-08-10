@@ -101,7 +101,9 @@ pub enum SessionControlRequest {
     /// invoking its in-process readback path.  This is intentionally a
     /// one-way request; callers observe the atomically committed PNG at the
     /// requested path and must treat a timeout or missing file as failure.
-    CaptureScreenshot { destination: PathBuf },
+    CaptureScreenshot {
+        destination: PathBuf,
+    },
     /// Drive the nested/headless compositor's Smithay pointer path for a
     /// deterministic protocol test. Production nested and DRM sessions
     /// explicitly ignore this request.

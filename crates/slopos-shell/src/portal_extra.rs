@@ -249,6 +249,16 @@ pub fn clear_inhibit_store_for_tests() {
     }
 }
 
+/// Serialize unit tests that intentionally mutate the process-wide inhibit table.
+#[cfg(test)]
+pub(crate) fn inhibit_test_guard() -> std::sync::MutexGuard<'static, ()> {
+    static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    TEST_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .expect("inhibit test lock poisoned")
+}
+
 /// Whether an inhibit cookie blocks idle lock (flag Idle or Suspend).
 pub fn inhibit_blocks_idle(cookie: &PortalInhibitCookie) -> bool {
     cookie.flags & (InhibitFlag::Idle as u32 | InhibitFlag::Suspend as u32) != 0
@@ -336,6 +346,7 @@ mod tests {
 
     #[test]
     fn inhibit_store_register_release_and_idle_merge() {
+        let _test_guard = inhibit_test_guard();
         clear_inhibit_store_for_tests();
         assert!(!portal_blocks_idle());
         assert!(active_inhibits().is_empty());

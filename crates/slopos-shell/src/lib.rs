@@ -149,8 +149,7 @@ pub use portal::{
     PortalSettingsNamespace, ScreencastStartOutcome, ScreencastStream, PORTAL_BUS_NAME,
     PORTAL_FILECHOOSER_INTERFACE, PORTAL_OPENURI_INTERFACE, PORTAL_PATH, PORTAL_REQUEST_INTERFACE,
     PORTAL_SCREENCAST_INTERFACE, PORTAL_SCREENSHOT_INTERFACE, PORTAL_SETTINGS_INTERFACE,
-    SCREENCAST_DEFAULT_HEIGHT, SCREENCAST_DEFAULT_WIDTH, SCREENCAST_NOTE_PIPEWIRE_SOCKET,
-    SCREENCAST_NOTE_PORTAL_STUB, SCREENCAST_PLACEHOLDER_NODE_ID, SCREENCAST_SOURCE_TYPE_MONITOR,
+    SCREENCAST_NOTE_PIPEWIRE_SOCKET, SCREENCAST_NOTE_PORTAL_STUB, SCREENCAST_SOURCE_TYPE_MONITOR,
     SCREENCAST_SOURCE_TYPE_WINDOW,
 };
 pub use portal_dbus::try_register_portal_session_bus;
@@ -7151,6 +7150,7 @@ mod tests {
 
     #[test]
     fn portal_idle_inhibit_merges_into_phase() {
+        let _test_guard = crate::portal_extra::inhibit_test_guard();
         clear_inhibit_store_for_tests();
         let cfg = IdleConfig {
             warn_after_secs: 1,
