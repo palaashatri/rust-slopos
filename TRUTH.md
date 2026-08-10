@@ -5,19 +5,20 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`a4cfcd840ec9071d8ee068ca17228aa1f134de99`
+`89ff48f12be37c45f7f74c2a98781a8e40d62b1f`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
-`artifacts/qa/coordination/current-wave-a4cf/`. `cargo fmt --all -- --check`,
+`artifacts/qa/coordination/current-wave-89ff/`. `cargo fmt --all -- --check`,
 `cargo check --workspace --all-targets --locked`,
 `cargo test --workspace --locked`,
 `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`,
 and `cargo build --workspace --release --locked` all exited 0 with
-`SLOPOS_COMMIT` set to this exact head. The locked metadata check and committed
-lockfile check also remain read-only. The earlier baseline additionally covered
-the app-bundle packaging path, session-file dry run, and owned-artifact cleanup
-allow-list checks.
+`SLOPOS_COMMIT` set to this exact implementation commit. A read-only
+`cargo metadata --locked --format-version 1 --no-deps` check and a clean
+`git diff --exit-code -- Cargo.lock` also exited 0. The earlier baseline
+additionally covered the app-bundle packaging path, session-file dry run, and
+owned-artifact cleanup allow-list checks.
 
 The viewport gate is now wired to a compositor-owned nested-frame producer:
 SIGUSR1 requests an offscreen readback, an atomic `viewport-state.json` records
@@ -40,6 +41,13 @@ available; the signed install/update/remove transaction service is still
 incomplete. The shell no longer exposes commands that only opened placeholder
 status windows. The D-Bus Print portal also returns an error until a job is
 actually submitted to a print service.
+
+The latest source wave also makes NetworkManager connection requests wait for
+and report the real command result, requires a second explicit activation for
+destructive session actions, and exposes safe installed-bundle update/remove
+transactions with rollback-preserving installation paths. These are
+source/build/test verified in the exact VM gate; they do not establish a full
+distribution catalogue, authentication stack, or clean-machine release path.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**

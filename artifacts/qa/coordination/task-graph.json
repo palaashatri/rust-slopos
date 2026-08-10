@@ -3,7 +3,7 @@
   "objective": "Complete software-completable SLOPOS-I requirements from the supplied zero-regression production programme.",
   "branch": "codex-complete-spec",
   "base_commit": "8d3d3a8da0364e22c4562f568a292bf6a9e502d7",
-  "implementation_commit": "a4cfcd840ec9071d8ee068ca17228aa1f134de99",
+  "implementation_commit": "89ff48f12be37c45f7f74c2a98781a8e40d62b1f",
   "coordination_policy": "Exclusive file ownership; serial integration; no generated Markdown hand-off files.",
   "tasks": [
     {
@@ -19,7 +19,7 @@
       "status": "in_progress",
       "scope": ["authoritative output geometry", "layer-shell configure sizes", "framebuffer dimension checks", "edge-band detection", "JSON evidence"],
       "completed_slice": "compositor-owned nested readback state, strict JSON/PNG validator, SIGUSR1 runtime driver, and deterministic positive/negative fixtures",
-      "evidence": "current-wave-a4cf/status.json and viewport-driver.log"
+      "evidence": "current-wave-89ff/status.json"
     },
     {
       "id": "artifact-hygiene",
@@ -33,15 +33,15 @@
       "owner": "subsystem-review",
       "status": "in_progress",
       "scope": ["stub/no-op audit", "portals", "settings/services", "applications", "accessibility", "security", "packaging"],
-      "completed_slice": "CI lockfile validation, installer/cache paths, package provenance, stage harness counter, honest screenshot/print/App Store results, and hidden shell placeholders"
+      "completed_slice": "CI lockfile validation, installer/cache paths, package provenance, stage harness counter, honest screenshot/print/App Store results, hidden shell placeholders, checked NetworkManager results, session confirmations, and safe installed-bundle update/remove transactions"
     },
     {
       "id": "verification",
       "owner": "orchestrator",
       "status": "in_progress",
       "scope": ["focused tests", "workspace gates", "Ubuntu VM runtime evidence", "TRUTH update"],
-      "evidence": "current-wave-a4cf/status.json",
-      "truth_audit_commit": "a4cfcd840ec9071d8ee068ca17228aa1f134de99"
+      "evidence": "current-wave-89ff/status.json",
+      "truth_audit_commit": "89ff48f12be37c45f7f74c2a98781a8e40d62b1f"
     }
   ]
 }
