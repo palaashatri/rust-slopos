@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "status": "packaging_provenance_passed",
+  "implementation_commit": "6013afcc82769ffc5d207d1a46de4add62bd2fe1",
+  "branch": "codex-complete-spec",
+  "captured_at": "2026-08-10",
+  "scope": "Arch VM provisioning repository provenance and shell syntax",
+  "commands": {
+    "arch_install_syntax": "bash -n packaging/vm/arch-install.sh",
+    "arch_install_arm64_syntax": "bash -n packaging/vm/arch-install-arm64.sh",
+    "provision_arm64_syntax": "bash -n packaging/vm/provision-arm64.sh",
+    "stage4_syntax": "bash -n packaging/vm/stage-4-verify.sh",
+    "cleanup_syntax": "sh -n scripts/cleanup-owned-artifacts.sh",
+    "canonical_url_check": "grep canonical rust-slopos URL in all three scripts",
+    "rust_tree_comparison": "git diff --quiet c6e7f6a..6013afc -- crates Cargo.toml Cargo.lock"
+  },
+  "exit_codes": {
+    "packaging_vm_check": 0,
+    "rust_tree_comparison": 0
+  },
+  "repository_url": "https://github.com/palaashatri/rust-slopos.git",
+  "rust_gate_evidence": {
+    "source_commit": "c6e7f6a61b0f780fe138897cc32c9a12813dee22",
+    "unchanged_at_this_commit": true,
+    "evidence": "../current-wave-c6e7f6a/status.json"
+  }
+}
