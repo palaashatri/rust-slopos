@@ -2545,9 +2545,7 @@ impl ShellDesktop {
             }
             "shell.toggle_fullscreen" => {
                 if self.compositor_owns_ordinary_windows() {
-                    self.request_focused_window_action(
-                        WindowPresentationAction::ToggleFullscreen,
-                    );
+                    self.request_focused_window_action(WindowPresentationAction::ToggleFullscreen);
                 } else if let Some(id) = self.active_window_id() {
                     self.toggle_window_fullscreen(id);
                 }
