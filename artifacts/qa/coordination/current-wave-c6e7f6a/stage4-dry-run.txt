@@ -1,0 +1,31 @@
+Stage 4 Verification Results
+Generated: 2026-08-10T06:40:10Z
+VM: ubuntu
+Mode: dry-run
+Prefix: <system-installed>
+Cargo target: <not supplied>
+
+PASS: dry-run mode selected; no installed-state claim will be made
+PASS: install.sh present
+PASS: install.sh syntax is valid
+PASS: install.sh has session wiring, locked build and shared target support
+PASS: scripts/install-session-files.sh present
+PASS: install-session-files.sh syntax is valid
+PASS: packaging/arch/PKGBUILD present
+PASS: PKGBUILD defines locked shared-target build
+PASS: packaging/debian/control present
+PASS: packaging/debian/rules present
+PASS: debian/rules defines locked shared-target build
+PASS: packaging/iso/packages.x86_64 present
+PASS: packaging/iso/build-iso.sh present
+PASS: packaging/iso/profiledef.sh present
+PASS: session installer dry-run command succeeded
+PASS: session installer dry-run wrote no files
+PASS: dry-run plan contains share/wayland-sessions/slopos-i.desktop
+PASS: dry-run plan contains share/xsessions/slopos-i.desktop
+PASS: dry-run plan contains bin/start-slopos-i
+PASS: dry-run plan contains lib/systemd/user/slopos-i.service
+UNVERIFIED: session-file install was planned only; no installed state is claimed
+UNVERIFIED: upgrade lifecycle has no package transaction runner
+UNVERIFIED: rollback lifecycle has no package transaction runner
+UNVERIFIED: uninstall lifecycle has no package transaction runner

@@ -5,37 +5,39 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`16a4475a65b11cf51ca90be3c5982920d8aae8c0`
+`c6e7f6a61b0f780fe138897cc32c9a12813dee22`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
-`artifacts/qa/coordination/current-wave-2406/`. `cargo fmt --all -- --check`,
+`artifacts/qa/coordination/current-wave-c6e7f6a/`. `cargo fmt --all -- --check`,
 `cargo check --workspace --all-targets --locked`,
 `cargo test --workspace --locked`,
 `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`,
 and `cargo build --workspace --release --locked` all exited 0 with
-`SLOPOS_COMMIT` set to this exact implementation commit. A read-only
+the source tree synchronized from this exact implementation commit. A read-only
 `cargo metadata --locked --format-version 1 --no-deps` check and a clean
 `git diff --exit-code -- Cargo.lock` also exited 0. The earlier baseline
 additionally covered the app-bundle packaging path, session-file dry run, and
 owned-artifact cleanup allow-list checks.
 
-The viewport gate is now wired to a compositor-owned nested-frame producer:
-SIGUSR1 requests an offscreen readback, an atomic `viewport-state.json` records
-the exact logical/physical output, requested/effective scale, layer configure
-serials and committed frame revision, and the PNG hash/dimensions are checked
-by `scripts/viewport_gate.py`. `scripts/capture-viewport-runtime.sh` drives the
-request and waits for a new state/frame pair. Its deterministic fixture passes,
-its three-pixel clear-edge fixture fails, and fixture provenance is rejected by
-normal runtime mode. The Ubuntu VM could not produce runtime evidence: nested
-Smithay X11 needs DRI3 (unavailable in the installed Xvfb/Weston path) and the
-DRM node was busy. Fractional-scale pixel coverage therefore remains unproven.
+The viewport path now propagates a validated effective rational scale through
+nested and DRM render/readback calls. The compositor rejects logical/physical
+extent mismatches, and the atomic `viewport-state.json` contract records output
+dimensions, requested/effective scale, layer configure serials and committed
+frame revision. `scripts/viewport_gate.py` checks those fields, PNG hashes and
+dimensions, and contiguous clear/unpainted edge bands; its deterministic fixture
+passes, its three-pixel clear-edge fixture fails, and fixture provenance is
+rejected by normal runtime mode. The Ubuntu VM could not produce runtime
+evidence: nested Smithay X11 needs DRI3 (unavailable in the installed Xvfb/Weston
+path) and the DRM node was busy. Fractional-scale pixel coverage and the live
+resize matrix therefore remain unproven.
 
 Portal operations without authoritative services now fail closed rather than
 fabricating settings, file selections, remote launches, keyring values or
-PipeWire node IDs. The registered bus remains a private development backend,
-not standard `org.freedesktop.portal.Desktop`; live PipeWire and browser
-consumer evidence are absent. App Store suggestions from an empty or unsigned
+PipeWire node IDs. The frontend registration now uses the standard
+`org.freedesktop.portal.Desktop` bus/path and Request/Response/Close lifecycle,
+but it remains an incomplete backend; live PipeWire and browser consumer
+evidence are absent. App Store suggestions from an empty or unsigned
 catalog are labelled `FEATURED` and unknown entries are no longer reported as
 available; the signed install/update/remove transaction service is still
 incomplete. The shell no longer exposes commands that only opened placeholder
@@ -51,9 +53,10 @@ distribution catalogue, authentication stack, or clean-machine release path.
 The About dialog now uses the factual development-preview label rather than a
 production/version claim. Unsupported Settings.ReadAll and ScreenCast
 CreateSession calls now fail closed; standard portal registration and the live
-PipeWire graph remain unimplemented. Session Recent Items now records the
-bounded, de-duplicated applications and locations opened during the current
-session; durable history remains intentionally unimplemented.
+PipeWire graph remain unimplemented. Session Recent Items now persists a bounded,
+de-duplicated, versioned list atomically under the XDG data directory and reloads
+it on startup; malformed, symlinked and wrong-version files fail closed. It has
+no removal UI or retention policy beyond the bounded list.
 Finder's sidebar and status-bar menu actions now toggle their real widgets and
 reflow the file grid; the path bar remains hidden until a dedicated widget is
 implemented. The default shell menu also no longer exposes unindexed Help
@@ -72,15 +75,16 @@ competes with KDE Plasma and GNOME as a daily driver.
   but a real nested/DRM framebuffer plus layer configure/ack/frame cycle is not
   yet observed in the available VM. Fractional scales and the required resize
   matrix remain release-blocking until that runtime gate passes.
-- The portal implementation remains private/nonstandard and has no live
-  permission-mediated PipeWire graph or Firefox/Chromium consumer evidence.
+- The portal frontend now uses standard names, but it has no live
+  permission-mediated PipeWire graph or Firefox/Chromium consumer evidence;
+  the service backends remain incomplete.
 - First-party Settings, shell controls, software management, security/permission
   services, third-party compatibility, accessibility workflows, recovery and
   physical DRM/HDR/VRR gates remain incomplete or unverified.
-- The Arch package is pinned to the audited main archive until a signed release
-  tag is published; clean install, upgrade, rollback and uninstall are not
-  proven by the current VM run. The stage-4 harness still reports missing
-  pre-install runtime assets by design.
+- The stage-4 harness now validates all release ELF/session assets in a private
+  clean-room prefix, but exits 2 while upgrade, rollback and uninstall
+  transactions remain explicitly unverified. The Arch package is pinned to the
+  audited main archive until a signed release tag is published.
 
 ### Historical implementation wave — full-width shell chrome and shaped label geometry
 
