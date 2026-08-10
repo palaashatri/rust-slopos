@@ -3236,11 +3236,7 @@ mod linux {
 
             // Preserve each layer's connector identity when possible. A removed
             // connector deterministically falls back to the first active output.
-            for (layer, old_name) in self
-                .layer_surfaces
-                .iter_mut()
-                .zip(layer_output_names.into_iter())
-            {
+            for (layer, old_name) in self.layer_surfaces.iter_mut().zip(layer_output_names) {
                 let output_index = self
                     .output_names
                     .iter()

@@ -1,0 +1,3 @@
+failure=runtime gate requires provenance kind=runtime and capture=compositor_framebuffer
+viewport-gate: failed
+evidence=/home/ubuntu/slopos/artifacts/qa/coordination/baseline-8d3d3a8/viewport-self-test/runtime-rejection.json

@@ -4,7 +4,7 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc="SLOPOS-I: a classic-Mac-styled Linux desktop environment in Rust"
 arch=('x86_64' 'aarch64')
-url="https://github.com/palaashatri/retroshell"
+url="https://github.com/palaashatri/rust-slopos"
 license=('MIT')
 depends=(
   wayland
@@ -45,26 +45,33 @@ optdepends=(
 provides=('slopos-i')
 conflicts=('slopos-i')
 
-source=("$pkgname-$pkgver.tar.gz::https://github.com/slopos-i/slopos-i/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+# Until a signed release tag is published, pin the source archive to the exact
+# audited main commit instead of following a mutable branch or skipping the
+# checksum.  Update both values as part of the release process.
+_commit=8d3d3a8da0364e22c4562f568a292bf6a9e502d7
+_source_dir="rust-slopos-${_commit}"
+source=("$pkgname-$pkgver.tar.gz::https://github.com/palaashatri/rust-slopos/archive/${_commit}.tar.gz")
+sha256sums=('0f4a6b0ad408977039dcd78f2d15df675d70b2aeafc29e94e216b06a1a3aa882')
 
 build() {
-  cd "$srcdir/$pkgname-$pkgver"
+  cd "$srcdir/$_source_dir"
+  export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$srcdir/.cargo-target}"
   cargo build --release --workspace --locked
 }
 
 package() {
-  cd "$srcdir/$pkgname-$pkgver"
+  cd "$srcdir/$_source_dir"
+  export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$srcdir/.cargo-target}"
 
   # Install binaries
-  install -Dm755 target/release/slopos-session "$pkgdir/usr/bin/slopos-session"
-  install -Dm755 target/release/slopos-compositor "$pkgdir/usr/bin/slopos-compositor"
-  install -Dm755 target/release/slopos-shell "$pkgdir/usr/bin/slopos-shell"
-  install -Dm755 target/release/finder "$pkgdir/usr/bin/finder"
-  install -Dm755 target/release/settings "$pkgdir/usr/bin/settings"
-  install -Dm755 target/release/textedit "$pkgdir/usr/bin/textedit"
-  install -Dm755 target/release/terminal "$pkgdir/usr/bin/terminal"
-  install -Dm755 target/release/appstore "$pkgdir/usr/bin/appstore"
+  install -Dm755 "$CARGO_TARGET_DIR/release/slopos-session" "$pkgdir/usr/bin/slopos-session"
+  install -Dm755 "$CARGO_TARGET_DIR/release/slopos-compositor" "$pkgdir/usr/bin/slopos-compositor"
+  install -Dm755 "$CARGO_TARGET_DIR/release/slopos-shell" "$pkgdir/usr/bin/slopos-shell"
+  install -Dm755 "$CARGO_TARGET_DIR/release/finder" "$pkgdir/usr/bin/finder"
+  install -Dm755 "$CARGO_TARGET_DIR/release/settings" "$pkgdir/usr/bin/settings"
+  install -Dm755 "$CARGO_TARGET_DIR/release/textedit" "$pkgdir/usr/bin/textedit"
+  install -Dm755 "$CARGO_TARGET_DIR/release/terminal" "$pkgdir/usr/bin/terminal"
+  install -Dm755 "$CARGO_TARGET_DIR/release/appstore" "$pkgdir/usr/bin/appstore"
   install -Dm755 scripts/start-slopos-i "$pkgdir/usr/bin/start-slopos-i"
 
   # Install session files

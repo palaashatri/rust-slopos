@@ -5,6 +5,13 @@
 
 set -euo pipefail
 
+# Keep every invocation on one explicit cache path.  Callers may override it
+# for CI or a shared QA VM, but a fresh checkout must not create a private
+# target tree for each run.
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
+mkdir -p "$CARGO_TARGET_DIR"
+
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 PREFIX="${PREFIX:-/usr/local}"
@@ -127,7 +134,7 @@ if [[ $NO_BUILD -eq 0 ]]; then
     fi
   fi
 
-  cargo build --release --workspace
+  cargo build --release --workspace --locked
   echo "✓ Build complete"
 else
   echo "Skipping build (assuming binaries already exist)"
@@ -139,14 +146,14 @@ echo ""
 echo "Installing binaries to $PREFIX/bin..."
 
 BINARIES=(
-  "target/release/slopos-session"
-  "target/release/slopos-compositor"
-  "target/release/slopos-shell"
-  "target/release/finder"
-  "target/release/settings"
-  "target/release/textedit"
-  "target/release/terminal"
-  "target/release/appstore"
+  "$CARGO_TARGET_DIR/release/slopos-session"
+  "$CARGO_TARGET_DIR/release/slopos-compositor"
+  "$CARGO_TARGET_DIR/release/slopos-shell"
+  "$CARGO_TARGET_DIR/release/finder"
+  "$CARGO_TARGET_DIR/release/settings"
+  "$CARGO_TARGET_DIR/release/textedit"
+  "$CARGO_TARGET_DIR/release/terminal"
+  "$CARGO_TARGET_DIR/release/appstore"
 )
 
 for bin in "${BINARIES[@]}"; do
@@ -217,8 +224,9 @@ echo "  $PREFIX/bin/finder, settings, textedit, terminal, appstore"
 echo "  $PREFIX/bin/start-slopos-i"
 echo ""
 echo "Session files:"
-echo "  ~/.config/wayland-sessions/slopos-i-wayland.desktop"
-echo "  ~/.local/share/systemd/user/slopos-i.service"
+echo "  $PREFIX/share/wayland-sessions/slopos-i.desktop"
+echo "  $PREFIX/share/xsessions/slopos-i.desktop"
+echo "  $PREFIX/lib/systemd/user/slopos-i.service"
 echo ""
 
 if [[ $WITH_GREETER -eq 0 ]]; then

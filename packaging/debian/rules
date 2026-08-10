@@ -2,20 +2,25 @@
 %:
 	dh $@
 
+# Honour a caller-provided shared Cargo cache while keeping package builds
+# isolated by default when no cache path is supplied.
+CARGO_TARGET_DIR ?= $(CURDIR)/.cargo-target
+export CARGO_TARGET_DIR
+
 override_dh_auto_build:
 	cargo build --release --workspace --locked
 
 override_dh_auto_install:
 	# Install binaries
 	dh_auto_install -- --release
-	install -Dm755 target/release/slopos-session debian/slopos-i/usr/bin/slopos-session
-	install -Dm755 target/release/slopos-compositor debian/slopos-i/usr/bin/slopos-compositor
-	install -Dm755 target/release/slopos-shell debian/slopos-i/usr/bin/slopos-shell
-	install -Dm755 target/release/finder debian/slopos-i/usr/bin/finder
-	install -Dm755 target/release/settings debian/slopos-i/usr/bin/settings
-	install -Dm755 target/release/textedit debian/slopos-i/usr/bin/textedit
-	install -Dm755 target/release/terminal debian/slopos-i/usr/bin/terminal
-	install -Dm755 target/release/appstore debian/slopos-i/usr/bin/appstore
+	install -Dm755 $(CARGO_TARGET_DIR)/release/slopos-session debian/slopos-i/usr/bin/slopos-session
+	install -Dm755 $(CARGO_TARGET_DIR)/release/slopos-compositor debian/slopos-i/usr/bin/slopos-compositor
+	install -Dm755 $(CARGO_TARGET_DIR)/release/slopos-shell debian/slopos-i/usr/bin/slopos-shell
+	install -Dm755 $(CARGO_TARGET_DIR)/release/finder debian/slopos-i/usr/bin/finder
+	install -Dm755 $(CARGO_TARGET_DIR)/release/settings debian/slopos-i/usr/bin/settings
+	install -Dm755 $(CARGO_TARGET_DIR)/release/textedit debian/slopos-i/usr/bin/textedit
+	install -Dm755 $(CARGO_TARGET_DIR)/release/terminal debian/slopos-i/usr/bin/terminal
+	install -Dm755 $(CARGO_TARGET_DIR)/release/appstore debian/slopos-i/usr/bin/appstore
 	install -Dm755 scripts/start-slopos-i debian/slopos-i/usr/bin/start-slopos-i
 
 	# Install session files

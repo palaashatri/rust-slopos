@@ -26,9 +26,10 @@ resolve_bin() {
   fi
   local here candidate
   here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local target_dir="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
   for candidate in \
-    "$here/../target/release/$name" \
-    "$here/../target/debug/$name" \
+    "$target_dir/release/$name" \
+    "$target_dir/debug/$name" \
     "$HOME/.local/bin/$name" \
     "/usr/local/bin/$name" \
     "/usr/bin/$name"

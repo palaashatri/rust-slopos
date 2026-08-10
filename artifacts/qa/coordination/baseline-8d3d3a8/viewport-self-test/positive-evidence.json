@@ -1,0 +1,156 @@
+{
+  "backend": "fixture",
+  "branch": "viewport-gate-self-test",
+  "checks": {
+    "all_layers_configured_acknowledged_committed": true,
+    "background_full_output": true,
+    "clear_edge_bands_at_most_two_pixels": true,
+    "dock_full_width": true,
+    "framebuffer_exact_dimensions": true,
+    "framebuffer_sha256": true,
+    "logical_physical_effective_scale": true,
+    "menu_full_width": true,
+    "provenance": true,
+    "schema_version": true
+  },
+  "commit": "0000000000000000000000000000000000000000",
+  "component": "slopos-viewport-gate",
+  "evidence_level": "self_test_fixture",
+  "failures": [],
+  "framebuffer": {
+    "actual_dimensions": {
+      "height": 10,
+      "width": 16
+    },
+    "clear_color": [
+      0,
+      0,
+      0,
+      255
+    ],
+    "clear_edge_bands": {
+      "bottom": 0,
+      "left": 0,
+      "right": 0,
+      "top": 0
+    },
+    "clear_tolerance": 0,
+    "declared_dimensions": {
+      "height": 10,
+      "width": 16
+    },
+    "format": "png",
+    "path": "/home/ubuntu/slopos/artifacts/qa/coordination/baseline-8d3d3a8/viewport-self-test/framebuffer.png",
+    "sha256": "b17154bda5052a32df6f44494732af5500e5c2d97c94f2e9c9590ffd3a5ae85e"
+  },
+  "framebuffer_path": "/home/ubuntu/slopos/artifacts/qa/coordination/baseline-8d3d3a8/viewport-self-test/framebuffer.png",
+  "layers": [
+    {
+      "ack_serial": 11,
+      "acknowledged": true,
+      "active": true,
+      "committed": true,
+      "committed_frame_revision": 7,
+      "configure_serial": 11,
+      "configured": {
+        "height": 10,
+        "width": 16
+      },
+      "geometry": {
+        "height": 10,
+        "width": 16,
+        "x": 0,
+        "y": 0
+      },
+      "geometry_space": "logical",
+      "layer": "background",
+      "namespace": "slopos-background",
+      "output": "fixture-output",
+      "requested": {
+        "height": 0,
+        "width": 0
+      },
+      "role": "background"
+    },
+    {
+      "ack_serial": 12,
+      "acknowledged": true,
+      "active": true,
+      "committed": true,
+      "committed_frame_revision": 7,
+      "configure_serial": 12,
+      "configured": {
+        "height": 2,
+        "width": 16
+      },
+      "geometry": {
+        "height": 2,
+        "width": 16,
+        "x": 0,
+        "y": 0
+      },
+      "geometry_space": "logical",
+      "layer": "top",
+      "namespace": "slopos-i-menu",
+      "output": "fixture-output",
+      "requested": {
+        "height": 0,
+        "width": 0
+      },
+      "role": "menu"
+    },
+    {
+      "ack_serial": 13,
+      "acknowledged": true,
+      "active": true,
+      "committed": true,
+      "committed_frame_revision": 7,
+      "configure_serial": 13,
+      "configured": {
+        "height": 2,
+        "width": 16
+      },
+      "geometry": {
+        "height": 2,
+        "width": 16,
+        "x": 0,
+        "y": 8
+      },
+      "geometry_space": "logical",
+      "layer": "bottom",
+      "namespace": "slopos-i-dock",
+      "output": "fixture-output",
+      "requested": {
+        "height": 0,
+        "width": 0
+      },
+      "role": "dock"
+    }
+  ],
+  "output": {
+    "effective_scale": {
+      "denominator": 1,
+      "numerator": 1
+    },
+    "frame_revision": 7,
+    "logical": {
+      "height": 10,
+      "width": 16
+    },
+    "name": "fixture-output",
+    "physical": {
+      "height": 10,
+      "width": 16
+    },
+    "requested_scale": {
+      "denominator": 1,
+      "numerator": 1
+    },
+    "revision": 3
+  },
+  "schema_version": 1,
+  "started_at_utc": "1970-01-01T00:00:00Z",
+  "state_path": "/home/ubuntu/slopos/artifacts/qa/coordination/baseline-8d3d3a8/viewport-self-test/state.json",
+  "state_sha256": "8d61c61dc1cb212757fef4bad8f39b0ec3823810289210056145e2e828c68f2d",
+  "status": "passed"
+}

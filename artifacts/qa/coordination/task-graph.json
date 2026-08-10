@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "objective": "Complete software-completable SLOPOS-I requirements from the supplied zero-regression production programme.",
+  "branch": "codex-complete-spec",
+  "base_commit": "8d3d3a8da0364e22c4562f568a292bf6a9e502d7",
+  "coordination_policy": "Exclusive file ownership; serial integration; no generated Markdown hand-off files.",
+  "tasks": [
+    {
+      "id": "baseline",
+      "owner": "orchestrator",
+      "status": "completed",
+      "scope": ["git provenance", "locked workspace gates", "current TRUTH audit"],
+      "evidence": "baseline-8d3d3a8/{fmt,check,test,clippy,release-final}.log"
+    },
+    {
+      "id": "viewport-gate",
+      "owner": "qa-runtime",
+      "status": "completed",
+      "scope": ["authoritative output geometry", "layer-shell configure sizes", "framebuffer dimension checks", "edge-band detection", "JSON evidence"],
+      "evidence": "baseline-8d3d3a8/viewport-self-test/{positive-evidence,negative-evidence}.json"
+    },
+    {
+      "id": "artifact-hygiene",
+      "owner": "qa-runtime",
+      "status": "completed",
+      "scope": ["shared Cargo target", "owned cleanup script", "process/socket/artifact checks"],
+      "evidence": "baseline-8d3d3a8/{cleanup-inventory,cleanup-refusal}.log"
+    },
+    {
+      "id": "release-blockers",
+      "owner": "subsystem-review",
+      "status": "in_progress",
+      "scope": ["stub/no-op audit", "portals", "settings/services", "applications", "accessibility", "security", "packaging"],
+      "completed_slice": "CI lockfile validation, installer/cache paths, package provenance, and stage harness counter"
+    },
+    {
+      "id": "verification",
+      "owner": "orchestrator",
+      "status": "in_progress",
+      "scope": ["focused tests", "workspace gates", "Ubuntu VM runtime evidence", "TRUTH update"],
+      "evidence": "baseline-8d3d3a8/"
+    }
+  ]
+}

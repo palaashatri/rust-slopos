@@ -46,23 +46,14 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Regenerate workspace lockfile
+      - name: Validate committed workspace lockfile without mutation
         run: |
-          cargo generate-lockfile
-          mkdir -p artifacts/qa/generated-lockfile
-          cp Cargo.lock artifacts/qa/generated-lockfile/Cargo.lock
-
-      - name: Upload regenerated lockfile
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-lockfile-${{ env.SOURCE_SHA }}
-          path: artifacts/qa/generated-lockfile/Cargo.lock
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Verify committed lockfile is current
-        run: git diff --exit-code -- Cargo.lock
+          # `--locked` makes Cargo reject a stale or missing lockfile instead
+          # of resolving newer compatible transitive versions.  CI must never
+          # regenerate or upload a different lockfile: dependency refresh is
+          # an intentional developer operation reviewed in the source diff.
+          cargo metadata --locked --format-version 1 --no-deps > /dev/null
+          git diff --exit-code -- Cargo.lock
 
   linux:
     name: build + test (linux)

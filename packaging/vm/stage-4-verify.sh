@@ -29,19 +29,19 @@ log_test() {
 
 log_pass() {
   echo -e "${GREEN}[PASS]${NC} $*"
-  ((PASSED++))
+  PASSED=$((PASSED + 1))
   echo "PASS: $*" >> "$RESULTS_FILE"
 }
 
 log_fail() {
   echo -e "${RED}[FAIL]${NC} $*"
-  ((FAILED++))
+  FAILED=$((FAILED + 1))
   echo "FAIL: $*" >> "$RESULTS_FILE"
 }
 
 log_warn() {
   echo -e "${YELLOW}[WARN]${NC} $*"
-  ((WARNINGS++))
+  WARNINGS=$((WARNINGS + 1))
   echo "WARN: $*" >> "$RESULTS_FILE"
 }
 

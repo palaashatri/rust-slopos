@@ -19,7 +19,11 @@ ICON="${6:-}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
-cargo build --release -p "$APP"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
+mkdir -p "$CARGO_TARGET_DIR"
+
+cargo build --release -p "$APP" --locked
 
 case "$APP" in
   finder)
@@ -40,7 +44,7 @@ APP_DIR="$OUTDIR/${NAME}.app"
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Resources" "$APP_DIR/bin"
 
-install -m755 "target/release/$APP" "$APP_DIR/bin/$APP"
+install -m755 "$CARGO_TARGET_DIR/release/$APP" "$APP_DIR/bin/$APP"
 
 cat > "$APP_DIR/Resources/Info.toml" <<EOF
 bundle_id = "${BUNDLE_ID}"
