@@ -25,6 +25,7 @@ fn main() -> anyhow::Result<()> {
 #[cfg(target_os = "linux")]
 mod linux {
     use anyhow::Context;
+    use sha2::{Digest, Sha256};
     use std::collections::{HashMap, HashSet};
     use std::fs::{self, File, OpenOptions};
     use std::io::{Read, Write};
@@ -32,7 +33,6 @@ mod linux {
     use std::path::PathBuf;
     use std::sync::Arc;
     use std::time::Duration;
-    use sha2::{Digest, Sha256};
 
     use slopos_bus::{
         session_space_thumbnail_path, write_display_policy_snapshot, write_outputs_snapshot,
@@ -55,7 +55,7 @@ mod linux {
         output_index_for_geometry, output_index_for_point, output_scale_summary,
         plan_window_output_migration, pointer_grab_request_is_valid_for_window, prefer_full_redraw,
         register_wayland_display_source, remap_geometry_between_outputs,
-        resolve_laid_out_outputs_from_env, scale_physical_to_logical,
+        resolve_laid_out_outputs_from_env, scale_logical_to_physical, scale_physical_to_logical,
         selection_bytes_for_mime_with_text_fallback, session_mode_note, surface_tree_root,
         text_input_capability_from_env, text_input_capability_summary, total_output_size,
         transition_presentation_state, validated_runtime_output_layout, window_paint_source,
@@ -1194,17 +1194,11 @@ mod linux {
         }
 
         fn configure_layer(layer: &mut MappedLayer) {
-            match layer.surface.send_configure() {
-                Ok(serial) => {
-                    layer.configure_serial = u32::from(serial);
-                    layer.ack_serial = None;
-                    layer.has_committed = false;
-                    layer.committed_frame_revision = 0;
-                }
-                Err(error) => {
-                    tracing::debug!(?error, namespace = %layer.namespace, "could not configure layer surface");
-                }
-            }
+            let serial = layer.surface.send_configure();
+            layer.configure_serial = u32::from(serial);
+            layer.ack_serial = None;
+            layer.has_committed = false;
+            layer.committed_frame_revision = 0;
         }
 
         fn viewport_output_name(&self) -> &str {
@@ -1226,6 +1220,30 @@ mod linux {
             let logical_height = output.config.height.max(1) as u32;
             let physical_width = self.output_size.w.max(1) as u32;
             let physical_height = self.output_size.h.max(1) as u32;
+            let requested_scale = self.output_scale.reduced();
+            let effective_scale = Self::effective_nested_output_scale(requested_scale);
+            let expected_physical = apply_scale_to_output_config(
+                slopos_compositor::OutputConfig {
+                    width: logical_width as i32,
+                    height: logical_height as i32,
+                },
+                effective_scale,
+            );
+            if expected_physical.width.max(1) as u32 != physical_width
+                || expected_physical.height.max(1) as u32 != physical_height
+            {
+                return Err(anyhow::anyhow!(
+                    "viewport physical extent {}x{} disagrees with logical {}x{} at effective scale {}/{} (expected {}x{})",
+                    physical_width,
+                    physical_height,
+                    logical_width,
+                    logical_height,
+                    effective_scale.numerator,
+                    effective_scale.denominator,
+                    expected_physical.width,
+                    expected_physical.height,
+                ));
+            }
             let mut hasher = Sha256::new();
             let mut file = File::open(framebuffer)
                 .with_context(|| format!("open viewport framebuffer {}", framebuffer.display()))?;
@@ -1299,8 +1317,8 @@ mod linux {
                     "name": output_name,
                     "logical": {"width": logical_width, "height": logical_height},
                     "physical": {"width": physical_width, "height": physical_height},
-                    "requested_scale": {"numerator": self.output_scale.numerator, "denominator": self.output_scale.denominator},
-                    "effective_scale": {"numerator": self.output_scale.numerator, "denominator": self.output_scale.denominator},
+                    "requested_scale": {"numerator": requested_scale.numerator, "denominator": requested_scale.denominator},
+                    "effective_scale": {"numerator": effective_scale.numerator, "denominator": effective_scale.denominator},
                     "revision": self.outputs_revision.max(1),
                     "frame_revision": self.viewport_frame_revision
                 },
@@ -2228,6 +2246,45 @@ mod linux {
             Size::<i32, Logical>::from((width.max(1), height.max(1)))
         }
 
+        /// Convert a logical scene coordinate to the physical nested render
+        /// target using the rational output scale.  Surface-tree locations are
+        /// scene coordinates, not buffer coordinates, so applying this once at
+        /// collection keeps integer and fractional scales on the same path.
+        fn nested_logical_point_to_physical(
+            point: Point<i32, Logical>,
+            scale: OutputScale,
+        ) -> Point<i32, Physical> {
+            let scale_coordinate = |value: i32| {
+                let scaled = i128::from(value) * i128::from(scale.numerator);
+                let denominator = i128::from(scale.denominator);
+                let rounded = if scaled >= 0 {
+                    (scaled + denominator / 2) / denominator
+                } else {
+                    (scaled - denominator / 2) / denominator
+                };
+                rounded.clamp(i128::from(i32::MIN), i128::from(i32::MAX)) as i32
+            };
+            Point::<i32, Physical>::from((scale_coordinate(point.x), scale_coordinate(point.y)))
+        }
+
+        /// Convert a logical placeholder extent to physical pixels without
+        /// undersizing odd dimensions under a fractional scale.
+        fn nested_logical_size_to_physical(
+            size: Size<i32, Logical>,
+            scale: OutputScale,
+        ) -> Size<i32, Physical> {
+            let (width, height) = scale_logical_to_physical((size.w, size.h), scale);
+            Size::<i32, Physical>::from((width.max(0), height.max(0)))
+        }
+
+        /// Nested GLES accepts a rational scene scale.  Keep this separate
+        /// from the integer `wl_output.scale` advertisement so viewport state
+        /// records the actual framebuffer ratio rather than the protocol's
+        /// compatibility quantisation.
+        fn effective_nested_output_scale(requested: OutputScale) -> OutputScale {
+            requested.reduced()
+        }
+
         fn handle_nested_x11_resize(&mut self, new_size: Size<u16, Logical>) {
             let next = Self::nested_x11_resize_output_size(new_size);
             let previous = self.output_size;
@@ -2318,13 +2375,15 @@ mod linux {
             renderer: &mut GlesRenderer,
             space: SpaceId,
         ) -> Vec<WaylandSurfaceRenderElement<GlesRenderer>> {
-            let scale = (640.0 / f64::from(self.output_size.w.max(1)))
+            let thumbnail_scale = (640.0 / f64::from(self.output_size.w.max(1)))
                 .min(480.0 / f64::from(self.output_size.h.max(1)))
                 .clamp(0.05, 1.0);
+            let output_scale = Self::effective_nested_output_scale(self.output_scale).as_f64();
+            let render_scale = output_scale * thumbnail_scale;
             let physical_point = |x: f64, y: f64| {
                 Point::<i32, Physical>::from((
-                    (x * scale).round() as i32,
-                    (y * scale).round() as i32,
+                    (x * render_scale).round() as i32,
+                    (y * render_scale).round() as i32,
                 ))
             };
             let mut elements = Vec::new();
@@ -2339,7 +2398,7 @@ mod linux {
                     renderer,
                     layer.surface.wl_surface(),
                     loc,
-                    scale,
+                    render_scale,
                     1.0_f32,
                     Kind::Unspecified,
                 ));
@@ -2354,7 +2413,7 @@ mod linux {
                     renderer,
                     window.toplevel.wl_surface(),
                     loc,
-                    scale,
+                    render_scale,
                     1.0_f32,
                     Kind::Unspecified,
                 ));
@@ -2366,7 +2425,7 @@ mod linux {
                         renderer,
                         popup.wl_surface(),
                         physical_point(f64::from(popup_loc.x), f64::from(popup_loc.y)),
-                        scale,
+                        render_scale,
                         1.0_f32,
                         Kind::Unspecified,
                     ));
@@ -2382,7 +2441,7 @@ mod linux {
                     renderer,
                     &surface,
                     physical_point(f64::from(origin.x), f64::from(origin.y)),
-                    scale,
+                    render_scale,
                     1.0_f32,
                     Kind::Unspecified,
                 ));
@@ -2409,12 +2468,14 @@ mod linux {
                 return;
             };
             let ids = self.spaces.space_ids();
-            let scale = (640.0 / f64::from(self.output_size.w.max(1)))
+            let thumbnail_scale = (640.0 / f64::from(self.output_size.w.max(1)))
                 .min(480.0 / f64::from(self.output_size.h.max(1)))
                 .clamp(0.05, 1.0);
+            let output_scale = Self::effective_nested_output_scale(self.output_scale).as_f64();
+            let render_scale = output_scale * thumbnail_scale;
             let capture_size = (
-                (f64::from(self.output_size.w.max(1)) * scale).round() as i32,
-                (f64::from(self.output_size.h.max(1)) * scale).round() as i32,
+                (f64::from(self.output_size.w.max(1)) * thumbnail_scale).round() as i32,
+                (f64::from(self.output_size.h.max(1)) * thumbnail_scale).round() as i32,
             );
             let mut captures = Vec::new();
 
@@ -2427,6 +2488,7 @@ mod linux {
                     &mut renderer,
                     &elements,
                     capture_size,
+                    render_scale,
                     [
                         RETRO_GRAY.0 as f32 / 255.0,
                         RETRO_GRAY.1 as f32 / 255.0,
@@ -4068,6 +4130,14 @@ mod linux {
             let cursor_status = self.cursor_status.clone();
             let cursor_position = self.pointer_pos;
             let active_space = self.spaces.active_space();
+            let render_scale = Self::effective_nested_output_scale(self.output_scale);
+            let render_scale_factor = render_scale.as_f64();
+            let logical_to_physical = |point: Point<i32, Logical>| {
+                Self::nested_logical_point_to_physical(point, render_scale)
+            };
+            let logical_size_to_physical = |size: Size<i32, Logical>| {
+                Self::nested_logical_size_to_physical(size, render_scale)
+            };
             let visible_window_ids: HashSet<String> = self
                 .windows
                 .iter()
@@ -4167,19 +4237,19 @@ mod linux {
                         render_elements_from_surface_tree(
                             renderer,
                             popup.wl_surface(),
-                            Point::<i32, Physical>::from((popup_loc.x, popup_loc.y)),
-                            1.0_f64,
+                            logical_to_physical(popup_loc),
+                            render_scale_factor,
                             1.0_f32,
                             Kind::Unspecified,
                         )
                     });
                 surface_elements.extend(popup_elements);
-                let loc = Point::<i32, Physical>::from((layer.geo.loc.x, layer.geo.loc.y));
+                let loc = logical_to_physical(layer.geo.loc);
                 surface_elements.extend(render_elements_from_surface_tree(
                     renderer,
                     layer.surface.wl_surface(),
                     loc,
-                    1.0_f64,
+                    render_scale_factor,
                     1.0_f32,
                     Kind::Unspecified,
                 ));
@@ -4191,15 +4261,15 @@ mod linux {
                 .filter(|w| visible_window_ids.contains(&w.window_id))
                 .collect();
             for (i, w) in visible_windows.iter().enumerate() {
-                let loc = Point::<i32, Physical>::from((w.position.x, w.position.y));
+                let loc = logical_to_physical(Point::from((w.position.x, w.position.y)));
                 let popup_elements = PopupManager::popups_for_surface(w.toplevel.wl_surface())
                     .flat_map(|(popup, popup_offset)| {
                         let popup_loc = Self::popup_origin(w.position, &popup, popup_offset);
                         render_elements_from_surface_tree(
                             renderer,
                             popup.wl_surface(),
-                            Point::<i32, Physical>::from((popup_loc.x, popup_loc.y)),
-                            1.0_f64,
+                            logical_to_physical(popup_loc),
+                            render_scale_factor,
                             1.0_f32,
                             Kind::Unspecified,
                         )
@@ -4209,7 +4279,7 @@ mod linux {
                     renderer,
                     w.toplevel.wl_surface(),
                     loc,
-                    1.0_f64,
+                    render_scale_factor,
                     1.0_f32,
                     Kind::Unspecified,
                 );
@@ -4222,8 +4292,8 @@ mod linux {
                         let color_idx = i % WIN_COLORS.len();
                         let (r, g, b) = WIN_COLORS[color_idx];
                         let rect = Rectangle::new(
-                            Point::<i32, Physical>::from((w.position.x, w.position.y)),
-                            Size::<i32, Physical>::from((w.size.w, w.size.h)),
+                            logical_to_physical(Point::from((w.position.x, w.position.y))),
+                            logical_size_to_physical(Size::from((w.size.w, w.size.h))),
                         );
                         placeholders.push((rect, Color32F::from([r, g, b, 1.0_f32])));
                     }
@@ -4235,15 +4305,12 @@ mod linux {
             // stable while association/map callbacks prevent duplicate entries.
             let mut rendered_x11_windows = Vec::new();
             for (window_id, surface, geometry) in &visible_x11_surfaces {
-                let loc = Point::<i32, Physical>::from((
-                    Self::x11_surface_scene_origin(*geometry).x,
-                    Self::x11_surface_scene_origin(*geometry).y,
-                ));
+                let loc = logical_to_physical(Self::x11_surface_scene_origin(*geometry));
                 let elements = render_elements_from_surface_tree(
                     renderer,
                     surface,
                     loc,
-                    1.0_f64,
+                    render_scale_factor,
                     1.0_f32,
                     Kind::Unspecified,
                 );
@@ -4265,19 +4332,19 @@ mod linux {
                         render_elements_from_surface_tree(
                             renderer,
                             popup.wl_surface(),
-                            Point::<i32, Physical>::from((popup_loc.x, popup_loc.y)),
-                            1.0_f64,
+                            logical_to_physical(popup_loc),
+                            render_scale_factor,
                             1.0_f32,
                             Kind::Unspecified,
                         )
                     });
                 surface_elements.extend(popup_elements);
-                let loc = Point::<i32, Physical>::from((layer.geo.loc.x, layer.geo.loc.y));
+                let loc = logical_to_physical(layer.geo.loc);
                 surface_elements.extend(render_elements_from_surface_tree(
                     renderer,
                     layer.surface.wl_surface(),
                     loc,
-                    1.0_f64,
+                    render_scale_factor,
                     1.0_f32,
                     Kind::Unspecified,
                 ));
@@ -4295,15 +4362,20 @@ mod linux {
                         .and_then(|attrs| attrs.lock().ok().map(|attrs| attrs.hotspot))
                         .unwrap_or_else(|| Point::from((0, 0)))
                 });
+                let cursor_loc = logical_to_physical(Point::from((
+                    cursor_position.x.round() as i32,
+                    cursor_position.y.round() as i32,
+                )));
+                let hotspot = logical_to_physical(hotspot);
                 let cursor_loc = Point::<i32, Physical>::from((
-                    cursor_position.x.round() as i32 - hotspot.x,
-                    cursor_position.y.round() as i32 - hotspot.y,
+                    cursor_loc.x - hotspot.x,
+                    cursor_loc.y - hotspot.y,
                 ));
                 let cursor_elements = render_elements_from_surface_tree(
                     renderer,
                     surface,
                     cursor_loc,
-                    1.0_f64,
+                    render_scale_factor,
                     1.0_f32,
                     Kind::Cursor,
                 );
@@ -4316,6 +4388,7 @@ mod linux {
                 renderer,
                 &surface_elements,
                 (self.output_size.w, self.output_size.h),
+                render_scale_factor,
                 [
                     RETRO_GRAY.0 as f32 / 255.0,
                     RETRO_GRAY.1 as f32 / 255.0,
@@ -4381,7 +4454,7 @@ mod linux {
                 surface_elements.reverse();
                 if let Err(e) = draw_render_elements::<GlesRenderer, _, _>(
                     &mut frame,
-                    1.0_f64,
+                    render_scale_factor,
                     &surface_elements,
                     &[full_screen],
                 ) {
@@ -4438,16 +4511,28 @@ mod linux {
                     (1, 12, 3),
                 ];
                 for &(x, y, width) in OUTLINE {
+                    let start = logical_to_physical(Point::from((origin_x + x, origin_y + y)));
+                    let end =
+                        logical_to_physical(Point::from((origin_x + x + width, origin_y + y + 1)));
                     let rect = Rectangle::new(
-                        Point::<i32, Physical>::from((origin_x + x, origin_y + y)),
-                        Size::<i32, Physical>::from((width, 1)),
+                        start,
+                        Size::<i32, Physical>::from((
+                            (end.x - start.x).max(1),
+                            (end.y - start.y).max(1),
+                        )),
                     );
                     let _ = frame.clear(black, &[rect]);
                 }
                 for &(x, y, width) in FILL {
+                    let start = logical_to_physical(Point::from((origin_x + x, origin_y + y)));
+                    let end =
+                        logical_to_physical(Point::from((origin_x + x + width, origin_y + y + 1)));
                     let rect = Rectangle::new(
-                        Point::<i32, Physical>::from((origin_x + x, origin_y + y)),
-                        Size::<i32, Physical>::from((width, 1)),
+                        start,
+                        Size::<i32, Physical>::from((
+                            (end.x - start.x).max(1),
+                            (end.y - start.y).max(1),
+                        )),
                     );
                     let _ = frame.clear(white, &[rect]);
                 }
@@ -5297,11 +5382,7 @@ mod linux {
             surface.with_pending_state(|state| {
                 state.size = Some(geo.size);
             });
-            let configure_serial = surface
-                .send_configure()
-                .ok()
-                .map(u32::from)
-                .unwrap_or(0);
+            let configure_serial = u32::from(surface.send_configure());
             let wl_surface = surface.wl_surface().clone();
             self.layer_surfaces.push(MappedLayer {
                 surface,
@@ -6852,6 +6933,34 @@ mod linux {
                     OutputScale::new(3, 2).unwrap(),
                 ),
                 Size::<i32, Logical>::from((1, 1)),
+            );
+        }
+
+        #[test]
+        fn nested_render_geometry_matrix_keeps_requested_and_effective_scale_consistent() {
+            let logical = (1024, 768);
+            let point = Point::<i32, Logical>::from((101, 77));
+            let cases = [
+                (OutputScale::new(1, 1).unwrap(), (1024, 768), (101, 77)),
+                (OutputScale::new(5, 4).unwrap(), (1280, 960), (126, 96)),
+                (OutputScale::new(3, 2).unwrap(), (1536, 1152), (152, 116)),
+                (OutputScale::new(2, 1).unwrap(), (2048, 1536), (202, 154)),
+            ];
+
+            for (requested, expected_size, expected_point) in cases {
+                let effective = SloposCompositor::effective_nested_output_scale(requested);
+                assert_eq!(effective, requested);
+                assert_eq!(scale_logical_to_physical(logical, effective), expected_size);
+                assert_eq!(
+                    SloposCompositor::nested_logical_point_to_physical(point, effective),
+                    Point::<i32, Physical>::from(expected_point),
+                );
+            }
+
+            let unreduced = OutputScale::new(10, 8).unwrap();
+            assert_eq!(
+                SloposCompositor::effective_nested_output_scale(unreduced),
+                OutputScale::new(5, 4).unwrap(),
             );
         }
     }

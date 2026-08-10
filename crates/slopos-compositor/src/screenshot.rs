@@ -60,12 +60,13 @@ pub fn capture_if_requested(
     renderer: &mut GlesRenderer,
     elements: &[WaylandSurfaceRenderElement<GlesRenderer>],
     size: (i32, i32),
+    scale: f64,
     clear: [f32; 4],
 ) -> Option<PathBuf> {
     if !SHOT_REQUESTED.swap(false, Ordering::SeqCst) {
         return None;
     }
-    match capture_to_path(renderer, elements, size, clear, &shot_path()) {
+    match capture_to_path(renderer, elements, size, scale, clear, &shot_path()) {
         Ok(path) => {
             tracing::info!(path = %path.display(), "screenshot written");
             eprintln!("[slopos-compositor] screenshot written: {}", path.display());
@@ -100,6 +101,13 @@ fn validate_capture_size(width: i32, height: i32) -> anyhow::Result<(u32, u32, u
     Ok((width as u32, height as u32, bytes))
 }
 
+fn validate_render_scale(scale: f64) -> anyhow::Result<f64> {
+    if !scale.is_finite() || !(0.01..=64.0).contains(&scale) {
+        anyhow::bail!("render scale {scale} is outside the finite range 0.01..=64.0");
+    }
+    Ok(scale)
+}
+
 /// Render real compositor elements into a bounded offscreen PNG.
 ///
 /// The caller supplies the destination so product surfaces such as
@@ -109,10 +117,12 @@ pub fn capture_to_path(
     renderer: &mut GlesRenderer,
     elements: &[WaylandSurfaceRenderElement<GlesRenderer>],
     (width, height): (i32, i32),
+    scale: f64,
     clear: [f32; 4],
     destination: &Path,
 ) -> anyhow::Result<PathBuf> {
     let (width_u32, height_u32, expected_bytes) = validate_capture_size(width, height)?;
+    let scale = validate_render_scale(scale)?;
     let physical: Size<i32, Physical> = Size::from((width, height));
     let buffer: Size<i32, BufferCoord> = Size::from((width, height));
 
@@ -131,7 +141,7 @@ pub fn capture_to_path(
         frame
             .clear(Color32F::from(clear), &damage)
             .map_err(|error| anyhow::anyhow!("clear screenshot frame: {error}"))?;
-        draw_render_elements::<GlesRenderer, _, _>(&mut frame, 1.0, elements, &damage)
+        draw_render_elements::<GlesRenderer, _, _>(&mut frame, scale, elements, &damage)
             .map_err(|error| anyhow::anyhow!("draw screenshot elements: {error}"))?;
         let _render_sync = frame
             .finish()
@@ -259,6 +269,16 @@ mod tests {
         assert!(validate_capture_size(-1, 1080).is_err());
         assert!(validate_capture_size(MAX_CAPTURE_DIMENSION + 1, 1).is_err());
         assert!(validate_capture_size(16_384, 16_384).is_err());
+    }
+
+    #[test]
+    fn render_scale_accepts_supported_integer_and_fractional_values() {
+        for scale in [1.0, 1.25, 1.5, 2.0] {
+            assert_eq!(validate_render_scale(scale).unwrap(), scale);
+        }
+        assert!(validate_render_scale(0.0).is_err());
+        assert!(validate_render_scale(f64::NAN).is_err());
+        assert!(validate_render_scale(f64::INFINITY).is_err());
     }
 
     #[test]

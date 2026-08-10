@@ -3,20 +3,23 @@
 //! Pure request/result types and handlers are portable (macOS host tests). Linux session-bus
 //! export lives in [`crate::portal_dbus`] and calls these pure functions.
 //!
-//! # D-Bus well-known names / paths (impl side)
+//! # D-Bus well-known names / paths
 //!
-//! SLOPOS-I registers a development-only backend that third parties can call
-//! directly. It is not the standard `org.freedesktop.portal.Desktop` request
-//! API and must not be presented as production portal compatibility:
+//! The Linux export uses the standard xdg-desktop-portal bus name, object path,
+//! and frontend-facing interface names.  This does not imply that every
+//! backend is available: operations without an authoritative compositor,
+//! chooser, settings, launcher, or PipeWire service fail closed.
 //!
 //! | Role | Value |
 //! |------|--------|
-//! | Bus name | [`PORTAL_BUS_NAME`] (`org.slopos-i.Portal`) |
-//! | Object path | [`PORTAL_PATH`] (`/org/slopos-i/portal`) |
-//! | Screenshot iface | [`PORTAL_SCREENSHOT_INTERFACE`] (`org.freedesktop.impl.portal.Screenshot`) |
-//! | Settings iface | [`PORTAL_SETTINGS_INTERFACE`] (`org.freedesktop.impl.portal.Settings`) |
-//! | OpenURI iface | [`PORTAL_OPENURI_INTERFACE`] (`org.freedesktop.impl.portal.OpenURI`) |
-//! | ScreenCast iface | [`PORTAL_SCREENCAST_INTERFACE`] (`org.freedesktop.impl.portal.ScreenCast`) |
+//! | Bus name | [`PORTAL_BUS_NAME`] (`org.freedesktop.portal.Desktop`) |
+//! | Object path | [`PORTAL_PATH`] (`/org/freedesktop/portal/desktop`) |
+//! | Request iface | [`PORTAL_REQUEST_INTERFACE`] (`org.freedesktop.portal.Request`) |
+//! | Screenshot iface | [`PORTAL_SCREENSHOT_INTERFACE`] (`org.freedesktop.portal.Screenshot`) |
+//! | Settings iface | [`PORTAL_SETTINGS_INTERFACE`] (`org.freedesktop.portal.Settings`) |
+//! | OpenURI iface | [`PORTAL_OPENURI_INTERFACE`] (`org.freedesktop.portal.OpenURI`) |
+//! | FileChooser iface | [`PORTAL_FILECHOOSER_INTERFACE`] (`org.freedesktop.portal.FileChooser`) |
+//! | ScreenCast iface | [`PORTAL_SCREENCAST_INTERFACE`] (`org.freedesktop.portal.ScreenCast`) |
 //!
 //! Local shell menus do not expose screenshot or recording commands until the
 //! compositor-owned capture and PipeWire paths are connected.
@@ -39,20 +42,22 @@ use crate::capture::{take_screenshot, CaptureError};
 // D-Bus constants (session-bus portal backend)
 // ---------------------------------------------------------------------------
 
-/// Well-known session bus name for SLOPOS-I portal handlers.
-pub const PORTAL_BUS_NAME: &str = "org.slopos-i.Portal";
-/// Object path for portal interfaces.
-pub const PORTAL_PATH: &str = "/org/slopos-i/portal";
-/// FreeDesktop portal Screenshot implementation interface.
-pub const PORTAL_SCREENSHOT_INTERFACE: &str = "org.freedesktop.impl.portal.Screenshot";
-/// FreeDesktop portal Settings implementation interface.
-pub const PORTAL_SETTINGS_INTERFACE: &str = "org.freedesktop.impl.portal.Settings";
-/// FreeDesktop portal OpenURI implementation interface.
-pub const PORTAL_OPENURI_INTERFACE: &str = "org.freedesktop.impl.portal.OpenURI";
-/// FreeDesktop portal FileChooser implementation interface.
-pub const PORTAL_FILECHOOSER_INTERFACE: &str = "org.freedesktop.impl.portal.FileChooser";
-/// FreeDesktop portal ScreenCast implementation interface.
-pub const PORTAL_SCREENCAST_INTERFACE: &str = "org.freedesktop.impl.portal.ScreenCast";
+/// Standard xdg-desktop-portal session bus name.
+pub const PORTAL_BUS_NAME: &str = "org.freedesktop.portal.Desktop";
+/// Standard xdg-desktop-portal object path.
+pub const PORTAL_PATH: &str = "/org/freedesktop/portal/desktop";
+/// Shared xdg-desktop-portal Request interface.
+pub const PORTAL_REQUEST_INTERFACE: &str = "org.freedesktop.portal.Request";
+/// Standard frontend-facing Screenshot interface.
+pub const PORTAL_SCREENSHOT_INTERFACE: &str = "org.freedesktop.portal.Screenshot";
+/// Standard frontend-facing Settings interface.
+pub const PORTAL_SETTINGS_INTERFACE: &str = "org.freedesktop.portal.Settings";
+/// Standard frontend-facing OpenURI interface.
+pub const PORTAL_OPENURI_INTERFACE: &str = "org.freedesktop.portal.OpenURI";
+/// Standard frontend-facing FileChooser interface.
+pub const PORTAL_FILECHOOSER_INTERFACE: &str = "org.freedesktop.portal.FileChooser";
+/// Standard frontend-facing ScreenCast interface.
+pub const PORTAL_SCREENCAST_INTERFACE: &str = "org.freedesktop.portal.ScreenCast";
 
 /// ScreenCast source type bit: monitors / outputs.
 pub const SCREENCAST_SOURCE_TYPE_MONITOR: u32 = 1;
@@ -862,27 +867,22 @@ mod tests {
 
     #[test]
     fn bus_constants_match_documented_names() {
-        assert_eq!(PORTAL_BUS_NAME, "org.slopos-i.Portal");
-        assert_eq!(PORTAL_PATH, "/org/slopos-i/portal");
+        assert_eq!(PORTAL_BUS_NAME, "org.freedesktop.portal.Desktop");
+        assert_eq!(PORTAL_PATH, "/org/freedesktop/portal/desktop");
+        assert_eq!(PORTAL_REQUEST_INTERFACE, "org.freedesktop.portal.Request");
         assert_eq!(
             PORTAL_SCREENSHOT_INTERFACE,
-            "org.freedesktop.impl.portal.Screenshot"
+            "org.freedesktop.portal.Screenshot"
         );
-        assert_eq!(
-            PORTAL_SETTINGS_INTERFACE,
-            "org.freedesktop.impl.portal.Settings"
-        );
-        assert_eq!(
-            PORTAL_OPENURI_INTERFACE,
-            "org.freedesktop.impl.portal.OpenURI"
-        );
+        assert_eq!(PORTAL_SETTINGS_INTERFACE, "org.freedesktop.portal.Settings");
+        assert_eq!(PORTAL_OPENURI_INTERFACE, "org.freedesktop.portal.OpenURI");
         assert_eq!(
             PORTAL_FILECHOOSER_INTERFACE,
-            "org.freedesktop.impl.portal.FileChooser"
+            "org.freedesktop.portal.FileChooser"
         );
         assert_eq!(
             PORTAL_SCREENCAST_INTERFACE,
-            "org.freedesktop.impl.portal.ScreenCast"
+            "org.freedesktop.portal.ScreenCast"
         );
     }
 

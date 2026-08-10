@@ -37,6 +37,7 @@ pub mod portal;
 pub mod portal_dbus;
 pub mod portal_extra;
 pub mod power;
+pub mod recent_items;
 pub mod screencast_pw;
 pub mod session_actions;
 pub mod session_clients;
@@ -146,7 +147,7 @@ pub use portal::{
     PortalFileChooserRequest, PortalFileChooserResult, PortalScreencastRequest,
     PortalScreencastSession, PortalScreenshotRequest, PortalScreenshotResult,
     PortalSettingsNamespace, ScreencastStartOutcome, ScreencastStream, PORTAL_BUS_NAME,
-    PORTAL_FILECHOOSER_INTERFACE, PORTAL_OPENURI_INTERFACE, PORTAL_PATH,
+    PORTAL_FILECHOOSER_INTERFACE, PORTAL_OPENURI_INTERFACE, PORTAL_PATH, PORTAL_REQUEST_INTERFACE,
     PORTAL_SCREENCAST_INTERFACE, PORTAL_SCREENSHOT_INTERFACE, PORTAL_SETTINGS_INTERFACE,
     SCREENCAST_DEFAULT_HEIGHT, SCREENCAST_DEFAULT_WIDTH, SCREENCAST_NOTE_PIPEWIRE_SOCKET,
     SCREENCAST_NOTE_PORTAL_STUB, SCREENCAST_PLACEHOLDER_NODE_ID, SCREENCAST_SOURCE_TYPE_MONITOR,
@@ -539,9 +540,10 @@ struct ShellDesktop {
     /// Last application-launch error, if any. Set by `launch_external_app` on failure.
     /// Intended for display in the status bar (rendering integration pending).
     last_error: Option<String>,
-    /// Most recently opened applications and locations for the session Recent Items view.
-    /// The list is bounded and de-duplicated; durable history is intentionally not enabled yet.
+    /// Most recently opened applications and locations for the Recent Items view.
+    /// The bounded list is persisted under the user's XDG data directory.
     recent_items: Vec<String>,
+    recent_items_path: PathBuf,
     /// Whether the screen is currently locked.
     locked: bool,
     /// Lock screen overlay widget, shown when `locked` is true.
@@ -827,6 +829,8 @@ impl ShellDesktop {
         let expected_lock_password = get_lock_password();
         let mut lock_password_field = TextField::new().with_placeholder("Enter password");
         lock_password_field.is_password = true;
+        let recent_items_path = recent_items::default_path();
+        let recent_items = recent_items::load(&recent_items_path);
         let mut shell = Self {
             state: WidgetState::new(),
             menu_bar: MenuBar::new(menus),
@@ -845,7 +849,8 @@ impl ShellDesktop {
             bundle_ids,
             notification_popup_windows: Vec::new(),
             last_error: None,
-            recent_items: Vec::new(),
+            recent_items,
+            recent_items_path,
             locked: false,
             lock_screen_widget,
             lock_password_field,
@@ -2096,7 +2101,11 @@ impl ShellDesktop {
         }
         self.recent_items.retain(|existing| existing != &item);
         self.recent_items.insert(0, item);
-        self.recent_items.truncate(20);
+        self.recent_items = recent_items::normalize_items(&self.recent_items);
+        if let Err(error) = recent_items::save(&self.recent_items_path, &self.recent_items) {
+            self.last_error = Some(format!("Recent Items could not be saved: {error}"));
+            tracing::warn!(%error, path = %self.recent_items_path.display(), "failed to persist Recent Items");
+        }
     }
 
     /// Apply a Force Quit list selection (window title, external client, or foreign toplevel).
@@ -4918,6 +4927,7 @@ mod tests {
     #[test]
     fn recent_items_are_deduplicated_and_bounded() {
         let (mut desktop, _) = test_desktop();
+        desktop.recent_items_path = temp_shell_root().join("recent-items.json");
         desktop.recent_items.clear();
         desktop.record_recent_item("Home".to_string());
         desktop.record_recent_item("Applications".to_string());
@@ -4935,6 +4945,10 @@ mod tests {
             .recent_items
             .iter()
             .any(|item| item == "Applications"));
+        assert_eq!(
+            recent_items::load(&desktop.recent_items_path),
+            desktop.recent_items
+        );
     }
 
     fn assert_rect_eq(actual: Rect, expected: Rect) {

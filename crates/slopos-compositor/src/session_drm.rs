@@ -713,6 +713,12 @@ fn capture_space_thumbnails(renderer: &mut GlesRenderer, state: &mut DrmSessionS
     let scale = (640.0 / physical_width)
         .min(480.0 / physical_height)
         .clamp(0.05, 1.0);
+    let output_scale = state
+        .outputs
+        .first()
+        .map(|output| output.current_scale().fractional_scale())
+        .unwrap_or(f64::NAN);
+    let render_scale = output_scale * scale;
     let capture_size = (
         (physical_width * scale).round() as i32,
         (physical_height * scale).round() as i32,
@@ -731,6 +737,7 @@ fn capture_space_thumbnails(renderer: &mut GlesRenderer, state: &mut DrmSessionS
             renderer,
             &elements,
             capture_size,
+            render_scale,
             DRM_CLEAR_COLOR,
             &path,
         ) {
@@ -1584,6 +1591,11 @@ pub fn run_drm_session() -> Result<()> {
                     &mut renderer,
                     &elements,
                     state.physical_output_size,
+                    state
+                        .outputs
+                        .first()
+                        .map(|output| output.current_scale().fractional_scale())
+                        .unwrap_or(f64::NAN),
                     clear,
                 );
                 if let Some(comp) = state.drm_compositor.as_mut() {
