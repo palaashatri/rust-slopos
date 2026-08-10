@@ -63,16 +63,14 @@ mod linux {
     use super::*;
     use crate::portal::{
         create_screencast_session_with_backend_note, handle_file_chooser_open,
-        handle_file_chooser_save, handle_portal_screenshot_request, plan_open_uri,
-        portal_screenshot_uri_for, portal_screenshots_dir, read_all_portal_settings,
-        read_portal_setting, select_screencast_sources, start_screencast_with_readiness,
-        take_portal_style_screenshot_with, OpenUriAction, PortalFileChooserRequest,
-        PortalScreencastRequest, PortalScreencastSession, PortalScreenshotRequest,
+        handle_file_chooser_save, plan_open_uri, portal_screenshot_uri_for,
+        read_all_portal_settings, read_portal_setting, select_screencast_sources,
+        start_screencast_with_readiness, take_portal_style_screenshot_with, OpenUriAction,
+        PortalFileChooserRequest, PortalScreencastRequest, PortalScreencastSession,
+        PortalScreenshotRequest,
     };
     use std::collections::HashMap;
-    use std::path::PathBuf;
     use std::sync::Mutex as StdMutex;
-    use std::time::{SystemTime, UNIX_EPOCH};
     use zbus::blocking::connection::Builder as ConnectionBuilder;
     use zbus::blocking::Connection;
     use zbus::interface;
@@ -89,7 +87,7 @@ mod linux {
 
     #[interface(name = "org.freedesktop.impl.portal.Screenshot")]
     impl PortalScreenshotIface {
-        /// Portal Screenshot: pure plan + best-effort local capture.
+        /// Portal Screenshot: return success only after a real local capture.
         ///
         /// Returns `(response, results)` where response `0` = success, `2` = error/cancel.
         /// `results` includes `uri` (`file://...`) on success.
@@ -108,19 +106,11 @@ mod linux {
                 include_cursor,
             };
 
-            // Prefer real capture when tools are available; fall back to pure planned path.
             let result = match take_portal_style_screenshot_with(request) {
-                Ok(r) => r,
-                Err(_) => {
-                    let base = std::env::var_os("HOME")
-                        .map(PathBuf::from)
-                        .unwrap_or_else(|| PathBuf::from("/tmp"));
-                    let dir = portal_screenshots_dir(&base);
-                    let now = SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .map(|d| d.as_secs())
-                        .unwrap_or(0);
-                    handle_portal_screenshot_request(request, &dir, now)
+                Ok(result) => result,
+                Err(error) => {
+                    tracing::warn!(error = %error, "portal screenshot capture failed");
+                    return (2u32, HashMap::new());
                 }
             };
 
