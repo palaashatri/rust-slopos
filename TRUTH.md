@@ -5,20 +5,21 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`6013afcc82769ffc5d207d1a46de4add62bd2fe1`
+`32d5d944e95fd3cef956e0b105496f1cb494df09`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
-`artifacts/qa/coordination/current-wave-6013afc/` and the unchanged Rust gate
+`artifacts/qa/coordination/current-wave-32d5d94/`, the packaging wave under
+`artifacts/qa/coordination/current-wave-6013afc/`, and the unchanged Rust gate
 wave under `artifacts/qa/coordination/current-wave-c6e7f6a/`. `cargo fmt --all -- --check`,
 `cargo check --workspace --all-targets --locked`,
 `cargo test --workspace --locked`,
 `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`,
 and `cargo build --workspace --release --locked` all exited 0 with
-the Rust source tree at `c6e7f6a`; `git diff --quiet c6e7f6a..6013afc -- crates
-Cargo.toml Cargo.lock` exited 0, proving this packaging-only wave did not alter
-that tested Rust tree. The packaging VM syntax and canonical repository URL
-checks at `6013afc` also exited 0. A read-only
+the Rust source tree at `c6e7f6a`; `git diff --quiet c6e7f6a..32d5d94 -- crates
+Cargo.toml Cargo.lock` exited 0, proving these packaging-only waves did not
+alter that tested Rust tree. The packaging VM syntax, canonical repository URL,
+and shared-target cleanup checks at `32d5d94` also exited 0. A read-only
 `cargo metadata --locked --format-version 1 --no-deps` check and a clean
 `git diff --exit-code -- Cargo.lock` also exited 0. The earlier baseline
 additionally covered the app-bundle packaging path, session-file dry run, and

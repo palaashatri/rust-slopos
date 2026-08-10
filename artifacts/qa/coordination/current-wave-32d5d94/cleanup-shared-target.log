@@ -1,0 +1,12 @@
+source_commit: 32d5d944e95fd3cef956e0b105496f1cb494df09
+branch: codex-complete-spec
+commands:
+  sh -n scripts/cleanup-owned-artifacts.sh
+  sh scripts/cleanup-owned-artifacts.sh
+  CARGO_TARGET_DIR=/tmp/slopos-unsafe-target sh scripts/cleanup-owned-artifacts.sh --apply
+observed:
+  default target: /home/ubuntu/.cache/slopos-i/cargo-target
+  default dry-run: passed; target and QA scratch absent after cleanup
+  unsafe allow-list probe: exit 1 with refusal, no deletion
+  CLEANUP_DEFAULT_AND_ALLOWLIST=passed
+  CLEANUP_SCRIPT_CHECK_EXIT=0
