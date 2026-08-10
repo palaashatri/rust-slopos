@@ -2575,7 +2575,7 @@ impl ShellDesktop {
             "shell.clear_notifications" => self.clear_notifications(),
             "shell.recent_items" => {
                 let lines = if self.recent_items.is_empty() {
-                    vec!["No recent items in this session.".to_string()]
+                    vec!["No recent items yet.".to_string()]
                 } else {
                     self.recent_items.clone()
                 };
