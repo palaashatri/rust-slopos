@@ -539,6 +539,9 @@ struct ShellDesktop {
     /// Last application-launch error, if any. Set by `launch_external_app` on failure.
     /// Intended for display in the status bar (rendering integration pending).
     last_error: Option<String>,
+    /// Most recently opened applications and locations for the session Recent Items view.
+    /// The list is bounded and de-duplicated; durable history is intentionally not enabled yet.
+    recent_items: Vec<String>,
     /// Whether the screen is currently locked.
     locked: bool,
     /// Lock screen overlay widget, shown when `locked` is true.
@@ -842,6 +845,7 @@ impl ShellDesktop {
             bundle_ids,
             notification_popup_windows: Vec::new(),
             last_error: None,
+            recent_items: Vec::new(),
             locked: false,
             lock_screen_widget,
             lock_password_field,
@@ -1451,6 +1455,8 @@ impl ShellDesktop {
     }
 
     fn open_folder_window<S: Into<String>>(&mut self, title: S, path: PathBuf) -> Uuid {
+        let title = title.into();
+        self.record_recent_item(format!("{title} — {}", path.display()));
         if self.compositor_owns_ordinary_windows() {
             // Directory browsing is a real Finder client operation in the
             // compositor-owned session. `open_path_with_mime` builds the
@@ -1461,7 +1467,6 @@ impl ShellDesktop {
         }
 
         let rect = self.next_finder_rect();
-        let title = title.into();
         let mut window = build_folder_window(&title, &path);
         window.set_rect(rect);
         let workspace = self.active_workspace();
@@ -2049,6 +2054,7 @@ impl ShellDesktop {
                 tracing::info!(
                     "Launched multi-client app {bundle_id} as pid {pid} (compositor-managed surface)"
                 );
+                self.record_recent_item(format!("{binary_name} ({bundle_id})"));
                 // Foreign-toplevel mirror for Force Quit / task list (with pid).
                 self.foreign_toplevels.add(ForeignToplevelEntry::new(
                     format!("session-client-{pid}"),
@@ -2081,6 +2087,16 @@ impl ShellDesktop {
                 );
             }
         }
+    }
+
+    fn record_recent_item(&mut self, item: String) {
+        let item = item.trim().to_string();
+        if item.is_empty() {
+            return;
+        }
+        self.recent_items.retain(|existing| existing != &item);
+        self.recent_items.insert(0, item);
+        self.recent_items.truncate(20);
     }
 
     /// Apply a Force Quit list selection (window title, external client, or foreign toplevel).
@@ -2550,14 +2566,14 @@ impl ShellDesktop {
             }
             "shell.notification_center" => self.open_notification_center_window(),
             "shell.clear_notifications" => self.clear_notifications(),
-            "shell.recent_items" => self.open_shell_status_window(
-                "Recent Items",
-                [
-                    "Recent item tracking is not populated yet.".to_string(),
-                    "Finder and app launches will be recorded here once session history is wired."
-                        .to_string(),
-                ],
-            ),
+            "shell.recent_items" => {
+                let lines = if self.recent_items.is_empty() {
+                    vec!["No recent items in this session.".to_string()]
+                } else {
+                    self.recent_items.clone()
+                };
+                self.open_shell_status_window("Recent Items", lines);
+            }
             "shell.force_quit" => self.open_force_quit_window(),
             "shell.lock" => self.handle_session_action(session_actions::SessionAction::Lock),
             "shell.log_out" | "shell.logout" => {
@@ -5009,6 +5025,28 @@ mod tests {
         desktop.mime_open_spawn = false;
         desktop.network_connect_spawn = false;
         (desktop, window_manager)
+    }
+
+    #[test]
+    fn recent_items_are_deduplicated_and_bounded() {
+        let (mut desktop, _) = test_desktop();
+        desktop.recent_items.clear();
+        desktop.record_recent_item("Home".to_string());
+        desktop.record_recent_item("Applications".to_string());
+        desktop.record_recent_item("Home".to_string());
+        assert_eq!(desktop.recent_items, ["Home", "Applications"]);
+        for index in 0..25 {
+            desktop.record_recent_item(format!("item-{index}"));
+        }
+        assert_eq!(desktop.recent_items.len(), 20);
+        assert_eq!(
+            desktop.recent_items.first().map(String::as_str),
+            Some("item-24")
+        );
+        assert!(!desktop
+            .recent_items
+            .iter()
+            .any(|item| item == "Applications"));
     }
 
     fn assert_rect_eq(actual: Rect, expected: Rect) {
