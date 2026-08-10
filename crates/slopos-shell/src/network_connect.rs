@@ -1,8 +1,8 @@
-//! NetworkManager Wi-Fi connect planning + best-effort nmcli spawn.
+//! NetworkManager Wi-Fi connect planning + checked `nmcli` execution.
 //!
-//! Pure helpers validate requests and build nmcli-style argv. Execution is
-//! best-effort: missing `nmcli` returns [`Err`] and never panics (macOS CI /
-//! hosts without NetworkManager).
+//! Pure helpers validate requests and build nmcli-style argv. Execution waits
+//! for NetworkManager to report success; missing `nmcli`, a non-zero exit, or
+//! malformed input returns [`Err`] and never panics.
 
 use std::process::Command;
 
@@ -106,27 +106,43 @@ pub fn describe_nm_connect_plan(plan: &[String]) -> String {
     format!("exec: {}", parts.join(" "))
 }
 
-/// Best-effort spawn of a validated nmcli argv plan (like session `systemctl` spawn).
+/// Execute a validated nmcli argv plan and wait for NetworkManager's result.
 ///
 /// - Empty plan → `Err`
 /// - Missing binary / spawn failure → `Err` (never panics)
-/// - Child started successfully → `Ok(())` (does not wait for association)
+/// - Non-zero exit → `Err` with sanitized command/stderr context
+/// - Zero exit → `Ok(())`, meaning NetworkManager accepted the operation
 pub fn execute_nm_connect_plan(plan: &[String]) -> Result<(), String> {
     if plan.is_empty() {
         return Err("nm connect plan is empty".to_string());
     }
     let program = &plan[0];
     let args = &plan[1..];
-    match Command::new(program).args(args).spawn() {
-        Ok(_child) => Ok(()),
-        Err(err) => Err(format!(
-            "could not spawn {}: {err}",
+    let output = Command::new(program).args(args).output().map_err(|err| {
+        format!(
+            "could not execute {}: {err}",
             describe_nm_connect_plan(plan)
-        )),
+        )
+    })?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if detail.is_empty() {
+        Err(format!(
+            "NetworkManager rejected {} (status {})",
+            describe_nm_connect_plan(plan),
+            output.status
+        ))
+    } else {
+        Err(format!(
+            "NetworkManager rejected {}: {detail}",
+            describe_nm_connect_plan(plan)
+        ))
     }
 }
 
-/// Validate → plan → best-effort nmcli spawn.
+/// Validate → plan → checked nmcli execution.
 ///
 /// Pure validation errors and spawn failures both return `Err(String)`.
 pub fn connect_wifi(req: &NmConnectRequest) -> Result<(), String> {

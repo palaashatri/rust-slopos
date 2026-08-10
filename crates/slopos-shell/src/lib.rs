@@ -2866,7 +2866,7 @@ impl ShellDesktop {
                         std::env::var("SLOPOS_WIFI_SSID").unwrap_or_default()
                     ),
                     summary.clone(),
-                    "Best-effort nmcli spawn (association is asynchronous).".to_string(),
+                    "NetworkManager accepted the connection request.".to_string(),
                 ],
             );
         } else if let Some(Err(err)) = &self.last_network_connect {
