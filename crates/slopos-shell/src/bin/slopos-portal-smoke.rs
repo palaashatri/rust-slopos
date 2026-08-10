@@ -12,7 +12,9 @@ fn main() {
         PORTAL_SETTINGS_INTERFACE,
     };
     use slopos_shell::portal_dbus::try_register_portal_session_bus;
+    use std::collections::HashMap;
     use zbus::blocking::{Connection, Proxy};
+    use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 
     let interfaces = [
         PORTAL_SCREENSHOT_INTERFACE,
@@ -84,6 +86,59 @@ fn main() {
         }
     };
 
+    if std::env::var_os("SLOPOS_PORTAL_ALLOW_SYNTHETIC_SELECTION").is_some() {
+        eprintln!("portal smoke must exercise the fail-closed chooser path");
+        std::process::exit(2);
+    }
+    let chooser = match Proxy::new(
+        &connection,
+        PORTAL_BUS_NAME,
+        PORTAL_PATH,
+        PORTAL_FILECHOOSER_INTERFACE,
+    ) {
+        Ok(proxy) => proxy,
+        Err(error) => {
+            eprintln!("cannot create FileChooser proxy: {error}");
+            std::process::exit(1);
+        }
+    };
+    let mut options = HashMap::<String, OwnedValue>::new();
+    options.insert(
+        "handle_token".into(),
+        match OwnedValue::try_from(Value::from("portal_smoke")) {
+            Ok(value) => value,
+            Err(error) => {
+                eprintln!("cannot encode portal handle token: {error}");
+                std::process::exit(1);
+            }
+        },
+    );
+    let request_path: OwnedObjectPath =
+        match chooser.call("OpenFile", &("", "SLOPOS portal smoke", options)) {
+            Ok(path) => path,
+            Err(error) => {
+                eprintln!("standard FileChooser OpenFile call failed: {error}");
+                std::process::exit(1);
+            }
+        };
+    let request = match Proxy::new(
+        &connection,
+        PORTAL_BUS_NAME,
+        request_path.as_str(),
+        PORTAL_REQUEST_INTERFACE,
+    ) {
+        Ok(proxy) => proxy,
+        Err(error) => {
+            eprintln!("cannot create dynamic Request proxy: {error}");
+            std::process::exit(1);
+        }
+    };
+    let close_result: zbus::Result<()> = request.call("Close", &());
+    if let Err(error) = close_result {
+        eprintln!("dynamic Request.Close failed: {error}");
+        std::process::exit(1);
+    }
+
     println!(
         "{}",
         serde_json::json!({
@@ -94,6 +149,7 @@ fn main() {
             "interfaces": interfaces,
             "request_interface": PORTAL_REQUEST_INTERFACE,
             "request_lifecycle": "dynamic_request_object_paths",
+            "request_probe": "FileChooser.OpenFile failed closed and Request.Close succeeded",
             "backend_scope": "frontend_registration_only",
             "live_pipewire": false,
             "permission_backend": false,

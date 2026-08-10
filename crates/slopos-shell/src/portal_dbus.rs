@@ -226,7 +226,6 @@ mod linux {
             #[zbus(header)] header: Header<'_>,
             #[zbus(connection)] connection: &Connection,
             #[zbus(object_server)] server: &ObjectServer,
-            _handle: ObjectPath<'_>,
             _parent_window: &str,
             options: HashMap<String, OwnedValue>,
         ) -> fdo::Result<OwnedObjectPath> {
@@ -560,9 +559,8 @@ mod linux {
     /// normal portal calls fail closed before selection is attempted.
     fn option_string_loose(options: &HashMap<String, OwnedValue>, key: &str) -> Option<String> {
         let value = options.get(key)?;
-        let value = format!("{value:?}");
-        let value = value.trim().trim_matches('"');
-        (!value.is_empty() && value != "()").then(|| value.to_owned())
+        let value = <&str>::try_from(value).ok()?.trim();
+        (!value.is_empty()).then(|| value.to_owned())
     }
 
     pub(super) fn register() -> Result<(), Box<dyn std::error::Error>> {
