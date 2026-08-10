@@ -1,0 +1,12 @@
+export CARGO_TARGET_DIR=/home/ubuntu/.cache/slopos-i/cargo-target
+export SLOPOS_COMMIT=a4cfcd840ec9071d8ee068ca17228aa1f134de99
+export SLOPOS_BRANCH=codex-complete-spec
+cargo fmt --all -- --check
+cargo check --workspace --all-targets --locked
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo build --workspace --release --locked
+sh -n scripts/capture-viewport-runtime.sh
+scripts/capture-viewport-runtime.sh --help
+scripts/verify-viewport-runtime.sh --self-test
+scripts/capture-viewport-runtime.sh --pid 999999 --state /tmp/no-state.json --framebuffer /tmp/no-frame.png

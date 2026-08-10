@@ -1,0 +1,9 @@
+usage: scripts/capture-viewport-runtime.sh --pid PID --state STATE --framebuffer PNG [--artifact JSON] [--timeout SECONDS]
+The compositor must be running and configured with SLOPOS_SHOT_PATH=PNG.
+viewport-gate self-test: passed
+fixture_root=target/viewport-gate-self-test
+positive_status=passed evidence=target/viewport-gate-self-test/positive-evidence.json
+negative_status=failed evidence=target/viewport-gate-self-test/negative-evidence.json
+negative_failure=clear/unpainted edge band exceeds 2 pixels: top=3
+capture-viewport-runtime: compositor PID 999999 is not running
+statuses:0,0,0,2

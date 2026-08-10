@@ -5,44 +5,53 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`e4eea7d9c8a03dd2fb017f8f114d5f8dba36aca0`
+`a4cfcd840ec9071d8ee068ca17228aa1f134de99`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
-`artifacts/qa/coordination/baseline-8d3d3a8/`. `cargo fmt --all -- --check`,
+`artifacts/qa/coordination/current-wave-a4cf/`. `cargo fmt --all -- --check`,
 `cargo check --workspace --all-targets --locked`,
 `cargo test --workspace --locked`,
 `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`,
-and `cargo build --workspace --release --locked` all exited 0. The same VM
-ran the locked metadata check without changing `Cargo.lock`, the app-bundle
-packaging path, the session-file dry run, and the owned-artifact cleanup
+and `cargo build --workspace --release --locked` all exited 0 with
+`SLOPOS_COMMIT` set to this exact head. The locked metadata check and committed
+lockfile check also remain read-only. The earlier baseline additionally covered
+the app-bundle packaging path, session-file dry run, and owned-artifact cleanup
 allow-list checks.
 
-The viewport gate is a schema-validating QA tool. Its deterministic fixture
-passes, its three-pixel clear-edge fixture fails, and a fixture is rejected by
-the normal runtime mode because it is not compositor provenance. No current
-artifact proves a real compositor framebuffer or a live layer configure/ack
-cycle; those remain release-blocking runtime work. Screenshot portal failures
-now return an error response instead of a fabricated URI, but the portal itself
-remains a protocol/PipeWire stub rather than a production xdg-desktop-portal
-implementation. App Store suggestions from an empty or unsigned catalog are
-labelled `FEATURED` and unknown entries are no longer reported as available;
-the signed install/update/remove transaction service is still incomplete. The
-shell no longer exposes the Recent Items, Print, Sidebar or Toolbar commands
-that previously only opened placeholder status windows. The D-Bus Print portal
-also returns an error until a job is actually submitted to a print service.
+The viewport gate is now wired to a compositor-owned nested-frame producer:
+SIGUSR1 requests an offscreen readback, an atomic `viewport-state.json` records
+the exact logical/physical output, requested/effective scale, layer configure
+serials and committed frame revision, and the PNG hash/dimensions are checked
+by `scripts/viewport_gate.py`. `scripts/capture-viewport-runtime.sh` drives the
+request and waits for a new state/frame pair. Its deterministic fixture passes,
+its three-pixel clear-edge fixture fails, and fixture provenance is rejected by
+normal runtime mode. The Ubuntu VM could not produce runtime evidence: nested
+Smithay X11 needs DRI3 (unavailable in the installed Xvfb/Weston path) and the
+DRM node was busy. Fractional-scale pixel coverage therefore remains unproven.
+
+Portal operations without authoritative services now fail closed rather than
+fabricating settings, file selections, remote launches, keyring values or
+PipeWire node IDs. The registered bus remains a private development backend,
+not standard `org.freedesktop.portal.Desktop`; live PipeWire and browser
+consumer evidence are absent. App Store suggestions from an empty or unsigned
+catalog are labelled `FEATURED` and unknown entries are no longer reported as
+available; the signed install/update/remove transaction service is still
+incomplete. The shell no longer exposes commands that only opened placeholder
+status windows. The D-Bus Print portal also returns an error until a job is
+actually submitted to a print service.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**
 
 ### Open release blockers
 
-- The viewport validator is fixture-tested only; nested compositor readback and
-  compositor-owned output/layer configure/ack/frame telemetry are not yet wired
-  into a runtime evidence producer.
-- The portal implementation still contains private protocol and PipeWire
-  placeholders, and the screenshot/recording path is not a production Wayland
-  screencast implementation. Firefox/Chromium consumer evidence is absent.
+- The compositor viewport producer and runtime driver are source/build tested,
+  but a real nested/DRM framebuffer plus layer configure/ack/frame cycle is not
+  yet observed in the available VM. Fractional scales and the required resize
+  matrix remain release-blocking until that runtime gate passes.
+- The portal implementation remains private/nonstandard and has no live
+  permission-mediated PipeWire graph or Firefox/Chromium consumer evidence.
 - First-party Settings, shell controls, software management, security/permission
   services, third-party compatibility, accessibility workflows, recovery and
   physical DRM/HDR/VRR gates remain incomplete or unverified.

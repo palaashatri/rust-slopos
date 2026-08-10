@@ -3,7 +3,7 @@
   "objective": "Complete software-completable SLOPOS-I requirements from the supplied zero-regression production programme.",
   "branch": "codex-complete-spec",
   "base_commit": "8d3d3a8da0364e22c4562f568a292bf6a9e502d7",
-  "implementation_commit": "e4eea7d9c8a03dd2fb017f8f114d5f8dba36aca0",
+  "implementation_commit": "a4cfcd840ec9071d8ee068ca17228aa1f134de99",
   "coordination_policy": "Exclusive file ownership; serial integration; no generated Markdown hand-off files.",
   "tasks": [
     {
@@ -16,9 +16,10 @@
     {
       "id": "viewport-gate",
       "owner": "qa-runtime",
-      "status": "completed",
+      "status": "in_progress",
       "scope": ["authoritative output geometry", "layer-shell configure sizes", "framebuffer dimension checks", "edge-band detection", "JSON evidence"],
-      "evidence": "baseline-8d3d3a8/viewport-self-test/{positive-evidence,negative-evidence}.json"
+      "completed_slice": "compositor-owned nested readback state, strict JSON/PNG validator, SIGUSR1 runtime driver, and deterministic positive/negative fixtures",
+      "evidence": "current-wave-a4cf/status.json and viewport-driver.log"
     },
     {
       "id": "artifact-hygiene",
@@ -37,10 +38,10 @@
     {
       "id": "verification",
       "owner": "orchestrator",
-      "status": "completed",
+      "status": "in_progress",
       "scope": ["focused tests", "workspace gates", "Ubuntu VM runtime evidence", "TRUTH update"],
-      "evidence": "baseline-8d3d3a8/",
-      "truth_audit_commit": "e4eea7d9c8a03dd2fb017f8f114d5f8dba36aca0"
+      "evidence": "current-wave-a4cf/status.json",
+      "truth_audit_commit": "a4cfcd840ec9071d8ee068ca17228aa1f134de99"
     }
   ]
 }
