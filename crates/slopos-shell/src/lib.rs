@@ -2591,10 +2591,6 @@ impl ShellDesktop {
                 "Save",
                 ["The active shell window has no document to save.".to_string()],
             ),
-            "shell.print" => self.open_shell_status_window(
-                "Print",
-                ["Printing is not connected to a system print service yet.".to_string()],
-            ),
             "shell.screenshot" | "shell.portal_screenshot" => {
                 // shell.portal_screenshot is the FreeDesktop portal-facing path;
                 // until xdg-desktop-portal is wired it uses the same local capture.
@@ -2685,7 +2681,6 @@ impl ShellDesktop {
             }
             "finder.new_folder" => self.handle_new_folder(),
             "finder.get_info" => self.handle_get_info(),
-            "finder.rename" => self.handle_rename(),
             "finder.move_to_trash" => self.handle_move_to_trash(),
             _ if self.handle_sdk_app_menu_action(action) => {}
             _ => tracing::info!("Unhandled menu action: {action}"),
@@ -3170,67 +3165,6 @@ impl ShellDesktop {
             .iter()
             .find(|item| item.selected)
             .map(|item| item.label.clone())
-    }
-
-    fn handle_rename(&mut self) {
-        let Some(id) = self.active_window_id() else {
-            return;
-        };
-        let Some(index) = self.window_index(id) else {
-            return;
-        };
-        let folder_path_opt = self.windows[index].folder_path.clone();
-        let Some(folder_path) = folder_path_opt else {
-            self.open_shell_status_window(
-                "Rename",
-                ["Select a file in a folder window first.".to_string()],
-            );
-            return;
-        };
-        let Some(old_name) = self.selected_file_name(index) else {
-            self.open_shell_status_window(
-                "Rename",
-                [
-                    "No file selected. Click a file icon to select it, then choose Rename."
-                        .to_string(),
-                ],
-            );
-            return;
-        };
-
-        // Derive a new name: append " copy" or increment a counter if "copy" already present.
-        let new_name = derive_rename_suggestion(&old_name);
-        let old_path = folder_path.join(&old_name);
-        let new_path = folder_path.join(&new_name);
-
-        match fs::rename(&old_path, &new_path) {
-            Ok(()) => {
-                tracing::info!(
-                    "Renamed '{}' -> '{}'",
-                    old_path.display(),
-                    new_path.display()
-                );
-                self.refresh_active_folder_window();
-                self.open_shell_status_window(
-                    "Rename",
-                    [
-                        format!("Renamed: {old_name}"),
-                        format!("New name: {new_name}"),
-                        "Note: a text-input prompt is not yet available; a suggested name was applied automatically.".to_string(),
-                    ],
-                );
-            }
-            Err(err) => {
-                tracing::error!("Rename failed: {err}");
-                self.open_shell_status_window(
-                    "Rename Failed",
-                    [
-                        format!("Could not rename '{old_name}'."),
-                        format!("Error: {err}"),
-                    ],
-                );
-            }
-        }
     }
 
     fn handle_move_to_trash(&mut self) {
@@ -3929,33 +3863,6 @@ fn human_readable_size(bytes: u64) -> String {
         format!("{:.1} KB", bytes as f64 / KB as f64)
     } else {
         format!("{bytes} bytes")
-    }
-}
-
-fn derive_rename_suggestion(name: &str) -> String {
-    let path = std::path::Path::new(name);
-    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or(name);
-    let ext = path.extension().and_then(|s| s.to_str());
-
-    // If the stem already ends with " copy N", increment N.
-    // Otherwise append " copy".
-    let new_stem = if let Some(idx) = stem.rfind(" copy") {
-        let suffix = &stem[idx + 5..];
-        if suffix.is_empty() {
-            format!("{} copy 2", &stem[..idx])
-        } else if let Ok(n) = suffix.trim().parse::<u32>() {
-            format!("{} copy {}", &stem[..idx], n + 1)
-        } else {
-            format!("{stem} copy")
-        }
-    } else {
-        format!("{stem} copy")
-    };
-
-    if let Some(ext) = ext {
-        format!("{new_stem}.{ext}")
-    } else {
-        new_stem
     }
 }
 
