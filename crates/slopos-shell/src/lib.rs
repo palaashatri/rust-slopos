@@ -2672,18 +2672,6 @@ impl ShellDesktop {
                         .to_string(),
                 ],
             ),
-            "shell.show_sidebar" => self.open_shell_status_window(
-                "Sidebar",
-                ["The internal shell Finder view does not have a sidebar yet.".to_string()],
-            ),
-            "shell.help_search" => self.open_shell_status_window(
-                "Help",
-                [
-                    "Help search is not indexed yet.".to_string(),
-                    "Use README.md for setup, AGENTS.md for the development plan, and TRUTH.md for current status."
-                        .to_string(),
-                ],
-            ),
             "workspace.previous" => self.switch_to_previous_workspace(),
             "workspace.next" => self.switch_to_next_workspace(),
             action if action.starts_with("workspace.switch.") => {
@@ -5856,18 +5844,6 @@ mod tests {
         assert_eq!(desktop.session_clients.len(), 1);
         assert!(desktop.apply_force_quit_entry("client: finder (pid 424242)"));
         assert_eq!(desktop.session_clients.len(), 0);
-    }
-
-    #[test]
-    fn help_search_menu_opens_status_window() {
-        let (mut desktop, _) = test_desktop();
-
-        desktop.handle_menu_action("shell.help_search");
-
-        let active = desktop.windows.last().expect("help window");
-        assert_eq!(active.window.title(), "Help");
-        let lines = message_window_lines(active);
-        assert!(lines.iter().any(|line| line.contains("not indexed yet")));
     }
 
     #[test]
