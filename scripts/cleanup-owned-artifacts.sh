@@ -13,6 +13,7 @@ REPO_ROOT=$(CDPATH= cd "$SCRIPT_DIR/.." && pwd)
 DEFAULT_TARGET_DIR=${XDG_CACHE_HOME:-"$HOME/.cache"}/slopos-i/cargo-target
 TARGET_DIR=${CARGO_TARGET_DIR:-$DEFAULT_TARGET_DIR}
 SCRATCH_DIR="$REPO_ROOT/artifacts/qa/coordination/scratch"
+TMP_OWNED_ROOT=/tmp
 APPLY=0
 
 if [ "$#" -gt 1 ] || { [ "$#" -eq 1 ] && [ "$1" != "--apply" ]; }; then
@@ -39,9 +40,21 @@ report_path() {
   fi
 }
 
+report_tmp_owned() {
+  tmp_owned=$(find "$TMP_OWNED_ROOT" -mindepth 1 -maxdepth 1 \
+    -name 'slopos-i_*' -print 2>/dev/null)
+  if [ -n "$tmp_owned" ]; then
+    printf '%s\n' "$tmp_owned"
+  else
+    printf '%s\n' "$TMP_OWNED_ROOT/slopos-i_*\tabsent"
+  fi
+}
+
 printf '%s\n' "SLOPOS owned-artifact cleanup (apply=$APPLY)"
 report_path "$TARGET_DIR"
 report_path "$SCRATCH_DIR"
+printf '%s\n' 'Owned temporary test paths:'
+report_tmp_owned
 
 if [ "$APPLY" -eq 1 ]; then
   if ! is_owned_target "$TARGET_DIR"; then
@@ -55,5 +68,21 @@ if [ "$APPLY" -eq 1 ]; then
   if [ -e "$SCRATCH_DIR" ]; then
     rm -rf "$SCRATCH_DIR"
     printf '%s\n' "removed $SCRATCH_DIR"
+  fi
+  tmp_owned=$(find "$TMP_OWNED_ROOT" -mindepth 1 -maxdepth 1 \
+    -name 'slopos-i_*' -print 2>/dev/null)
+  if [ -n "$tmp_owned" ]; then
+    printf '%s\n' "$tmp_owned" | while IFS= read -r path; do
+      case "$path" in
+        "$TMP_OWNED_ROOT"/slopos-i_*)
+          rm -rf "$path"
+          printf '%s\n' "removed $path"
+          ;;
+        *)
+          printf '%s\n' "refusing unexpected temporary path: $path" >&2
+          exit 1
+          ;;
+      esac
+    done
   fi
 fi
