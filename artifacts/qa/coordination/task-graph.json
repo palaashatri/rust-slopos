@@ -32,7 +32,7 @@
       "owner": "subsystem-review",
       "status": "in_progress",
       "scope": ["stub/no-op audit", "portals", "settings/services", "applications", "accessibility", "security", "packaging"],
-      "completed_slice": "CI lockfile validation, installer/cache paths, package provenance, and stage harness counter"
+      "completed_slice": "CI lockfile validation, installer/cache paths, package provenance, stage harness counter, honest screenshot/print/App Store results, and hidden shell placeholders"
     },
     {
       "id": "verification",
