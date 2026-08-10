@@ -1,0 +1,5 @@
+# Release and QA entry points must remain executable on Linux/FreeBSD checkouts.
+/*.sh text eol=lf
+/scripts/** text eol=lf
+/packaging/**/*.sh text eol=lf
+/packaging/arch/PKGBUILD text eol=lf
