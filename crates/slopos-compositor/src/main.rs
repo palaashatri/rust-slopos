@@ -3640,6 +3640,16 @@ mod linux {
                 SessionControlRequest::SetDisplayPolicy { policy } => {
                     self.apply_display_policy_request(policy);
                 }
+                SessionControlRequest::CaptureScreenshot { destination } => {
+                    match slopos_compositor::screenshot::request_capture_to(&destination) {
+                        Ok(()) => self.request_full_redraw(),
+                        Err(error) => tracing::warn!(
+                            destination = %destination.display(),
+                            %error,
+                            "compositor screenshot request rejected"
+                        ),
+                    }
+                }
                 SessionControlRequest::HeadlessTestInput { event } => {
                     if !self.headless_test_input_enabled {
                         tracing::warn!(

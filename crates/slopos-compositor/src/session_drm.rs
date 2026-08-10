@@ -2493,6 +2493,16 @@ impl DrmSessionState {
                     "runtime display policy is unsupported on DRM until physical KMS policy transactions are implemented"
                 );
             }
+            SessionControlRequest::CaptureScreenshot { destination } => {
+                match crate::screenshot::request_capture_to(&destination) {
+                    Ok(()) => self.request_redraw(),
+                    Err(error) => tracing::warn!(
+                        destination = %destination.display(),
+                        %error,
+                        "DRM compositor screenshot request rejected"
+                    ),
+                }
+            }
             SessionControlRequest::HeadlessTestInput { .. } => {
                 tracing::warn!("rejecting headless test input on the production DRM backend");
             }

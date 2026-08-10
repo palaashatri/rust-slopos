@@ -95,6 +95,13 @@ pub enum SessionControlRequest {
     SetDisplayPolicy {
         policy: DisplayPolicyRequest,
     },
+    /// Capture the next compositor-owned framebuffer into an absolute path.
+    ///
+    /// The compositor validates the destination and schedules a redraw before
+    /// invoking its in-process readback path.  This is intentionally a
+    /// one-way request; callers observe the atomically committed PNG at the
+    /// requested path and must treat a timeout or missing file as failure.
+    CaptureScreenshot { destination: PathBuf },
     /// Drive the nested/headless compositor's Smithay pointer path for a
     /// deterministic protocol test. Production nested and DRM sessions
     /// explicitly ignore this request.
@@ -944,6 +951,18 @@ mod tests {
                 refresh_rate: "120hz".into(),
                 color_space: "srgb".into(),
             },
+        };
+        let encoded = serde_json::to_vec(&request).unwrap();
+        assert_eq!(
+            serde_json::from_slice::<SessionControlRequest>(&encoded).unwrap(),
+            request
+        );
+    }
+
+    #[test]
+    fn compositor_screenshot_request_round_trips_through_json() {
+        let request = SessionControlRequest::CaptureScreenshot {
+            destination: PathBuf::from("/tmp/slopos-portal-shot.png"),
         };
         let encoded = serde_json::to_vec(&request).unwrap();
         assert_eq!(

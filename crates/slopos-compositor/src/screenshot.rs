@@ -9,6 +9,7 @@ use std::fs::{self, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, OnceLock};
 
 use smithay::backend::allocator::Fourcc;
 use smithay::backend::renderer::element::surface::WaylandSurfaceRenderElement;
@@ -20,6 +21,7 @@ use smithay::backend::renderer::{
 use smithay::utils::{Buffer as BufferCoord, Physical, Rectangle, Size, Transform};
 
 pub static SHOT_REQUESTED: AtomicBool = AtomicBool::new(false);
+static REQUESTED_PATH: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
 
 const MAX_CAPTURE_DIMENSION: i32 = 16_384;
 const MAX_CAPTURE_PIXELS: u64 = 67_108_864; // 8192², 256 MiB at RGBA8.
@@ -59,7 +61,36 @@ fn validate_shot_path(path: PathBuf) -> anyhow::Result<PathBuf> {
     Ok(path)
 }
 
+fn requested_path() -> &'static Mutex<Option<PathBuf>> {
+    REQUESTED_PATH.get_or_init(|| Mutex::new(None))
+}
+
+/// Request an in-process compositor framebuffer capture for the next frame.
+///
+/// Portal/session clients use this instead of signalling an arbitrary PID.
+/// The path is validated before it is published to the render loop; the
+/// existing SIGUSR1 QA path continues to use `SLOPOS_SHOT_PATH`.
+pub fn request_capture_to(destination: &Path) -> anyhow::Result<()> {
+    let destination = validate_shot_path(destination.to_path_buf())?;
+    let mut pending = requested_path()
+        .lock()
+        .map_err(|_| anyhow::anyhow!("screenshot request state is poisoned"))?;
+    if pending.is_some() || SHOT_REQUESTED.load(Ordering::Acquire) {
+        anyhow::bail!("a compositor screenshot is already pending");
+    }
+    *pending = Some(destination);
+    SHOT_REQUESTED.store(true, Ordering::Release);
+    Ok(())
+}
+
 fn shot_path() -> anyhow::Result<PathBuf> {
+    if let Some(path) = requested_path()
+        .lock()
+        .map_err(|_| anyhow::anyhow!("screenshot request state is poisoned"))?
+        .take()
+    {
+        return Ok(path);
+    }
     let path = std::env::var_os("SLOPOS_SHOT_PATH")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/tmp/slopos-i-shot.png"));
@@ -285,6 +316,7 @@ mod tests {
             validate_shot_path(PathBuf::from("/tmp/slopos-capture.png")).unwrap(),
             PathBuf::from("/tmp/slopos-capture.png")
         );
+        assert!(request_capture_to(Path::new("relative.png")).is_err());
     }
 
     #[test]

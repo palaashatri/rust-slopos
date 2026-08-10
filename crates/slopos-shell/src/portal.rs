@@ -35,8 +35,10 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::capture::CaptureError;
+use slopos_bus::{send_session_control, SessionControlRequest};
 
 // ---------------------------------------------------------------------------
 // D-Bus constants (session-bus portal backend)
@@ -70,6 +72,8 @@ pub const SCREENCAST_PLACEHOLDER_NODE_ID: u32 = 42;
 pub const SCREENCAST_DEFAULT_WIDTH: u32 = 1920;
 /// Default stub stream height.
 pub const SCREENCAST_DEFAULT_HEIGHT: u32 = 1080;
+
+static PORTAL_CAPTURE_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 // ---------------------------------------------------------------------------
 // Screenshot
@@ -137,11 +141,46 @@ pub fn handle_portal_screenshot_request(
 
 /// Take a screenshot through the portal-facing API surface.
 ///
-/// The portal path requires a compositor-owned readback. The shell's legacy
-/// capture helpers use host-X11 commands and must never be exposed as a
-/// portal result, so this remains fail-closed until that backend is connected.
+/// The portal path requests a compositor-owned readback over the authenticated
+/// session-control socket. The shell's legacy capture helpers use host-X11
+/// commands and are never exposed as a portal result. A missing compositor,
+/// missing session runtime or capture timeout fails closed.
 pub fn take_portal_style_screenshot() -> Result<PathBuf, CaptureError> {
-    Err(CaptureError::CompositorBackendUnavailable)
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .ok_or(CaptureError::CompositorBackendUnavailable)?;
+    if std::env::var_os("SLOPOS_SESSION_RUNTIME_DIR").is_none() {
+        return Err(CaptureError::CompositorBackendUnavailable);
+    }
+
+    let screenshots_dir = portal_screenshots_dir(&home);
+    std::fs::create_dir_all(&screenshots_dir)?;
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default();
+    let nonce = PORTAL_CAPTURE_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let filename = format!(
+        "SLOPOS-I-Portal-Screenshot-{now}-{nonce}.png",
+        now = now,
+        nonce = nonce
+    );
+    let path = screenshots_dir.join(filename);
+    send_session_control(&SessionControlRequest::CaptureScreenshot {
+        destination: path.clone(),
+    })
+    .map_err(|_| CaptureError::CompositorBackendUnavailable)?;
+
+    let deadline = std::time::Instant::now() + Duration::from_secs(3);
+    loop {
+        if path.is_file() {
+            return Ok(path);
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err(CaptureError::CompositorBackendUnavailable);
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
 }
 
 /// Portal-style capture with explicit request options.
