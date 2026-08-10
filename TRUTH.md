@@ -5,11 +5,11 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`884039739336c4634620b267d95544251626e2ef`
+`b3266fe95fd13882f066c836a01913b62e110f10`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
-`artifacts/qa/coordination/current-wave-8840/`. `cargo fmt --all -- --check`,
+`artifacts/qa/coordination/current-wave-b326/`. `cargo fmt --all -- --check`,
 `cargo check --workspace --all-targets --locked`,
 `cargo test --workspace --locked`,
 `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`,
@@ -56,7 +56,8 @@ bounded, de-duplicated applications and locations opened during the current
 session; durable history remains intentionally unimplemented.
 Finder's sidebar and status-bar menu actions now toggle their real widgets and
 reflow the file grid; the path bar remains hidden until a dedicated widget is
-implemented.
+implemented. The default shell menu also no longer exposes unindexed Help
+Search or fallback Rename actions.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**
