@@ -5,29 +5,32 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`f05bb54a12d2eb69e99e002ba423321002ec63be`
+`2686825f6b114ec87e13144c35b2453a69def407`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
+`artifacts/qa/coordination/current-wave-2686825/`, the cleanup wave under
 `artifacts/qa/coordination/current-wave-f05bb54/`, the portal wave under
 `artifacts/qa/coordination/current-wave-f9c8ce5/`, the hygiene wave under
 `artifacts/qa/coordination/current-wave-32d5d94/`, the packaging wave under
 `artifacts/qa/coordination/current-wave-6013afc/`, and the unchanged Rust gate
-wave under `artifacts/qa/coordination/current-wave-c6e7f6a/`. `cargo fmt --all -- --check`,
+wave under `artifacts/qa/coordination/current-wave-c6e7f6a/`. The baseline
+`cargo fmt --all -- --check`,
 `cargo check --workspace --all-targets --locked`,
 `cargo test --workspace --locked`,
 `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`,
-and `cargo build --workspace --release --locked` all exited 0 with
-the Rust source tree at `c6e7f6a`; `git diff --quiet c6e7f6a..32d5d94 -- crates
-Cargo.toml Cargo.lock` exited 0, proving these packaging-only waves did not
-alter that tested Rust tree. The packaging VM syntax, canonical repository URL,
-and shared-target cleanup checks at `32d5d94` also exited 0. The exact `f9c8ce5`
-source head then passed the workspace locked gates and a `dbus-run-session`
+and `cargo build --workspace --release --locked` all exited 0 for the Rust
+source tree at `c6e7f6a`; `git diff --quiet c6e7f6a..32d5d94 -- crates Cargo.toml
+Cargo.lock` exited 0, proving the intervening packaging-only waves did not alter
+that tested Rust tree. The packaging VM syntax, canonical repository URL, and
+shared-target cleanup checks at `32d5d94` also exited 0. The exact current head
+then passed the workspace locked gates and a `dbus-run-session`
 probe that introspected the standard portal bus/path and five static interfaces;
 the probe records `frontend_registration_only`, `live_pipewire=false` and
-`permission_backend=false`. The current cleanup-only head has no Rust-tree
-changes (`git diff --quiet f9c8ce5..f05bb54 -- crates Cargo.toml Cargo.lock`
-exited 0). A read-only
+`permission_backend=false`. This head also fixes the standard Screenshot
+method signature and decodes zvariant string options without using Debug text;
+the request probe exercised that path and closed the dynamic Request object.
+A read-only
 `cargo metadata --locked --format-version 1 --no-deps` check and a clean
 `git diff --exit-code -- Cargo.lock` also exited 0. The earlier baseline
 additionally covered the app-bundle packaging path, session-file dry run, and
