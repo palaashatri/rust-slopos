@@ -14,6 +14,8 @@ fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
+target_root="${CARGO_TARGET_DIR:-$repo_root/target}"
+debug_dir="$target_root/debug"
 for tool in cargo grep sed stat timeout wayland-info python3; do
   command -v "$tool" >/dev/null 2>&1 || {
     printf 'missing required tool: %s\n' "$tool" >&2
@@ -102,7 +104,7 @@ export SLOPOS_SESSION_RUNTIME_DIR="$runtime_dir"
 export SLOPOS_SESSION_TOKEN="topology-${commit_sha}-$$"
 unset DISPLAY WAYLAND_DISPLAY SLOPOS_CLIENT_WAYLAND_DISPLAY
 
-target/debug/slopos-compositor --backend headless >"$compositor_log" 2>&1 &
+"$debug_dir/slopos-compositor" --backend headless >"$compositor_log" 2>&1 &
 compositor_pid=$!
 readiness="$runtime_dir/readiness"
 for _ in $(seq 1 100); do

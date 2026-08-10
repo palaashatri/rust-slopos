@@ -22,6 +22,8 @@ fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
+target_root="${CARGO_TARGET_DIR:-$repo_root/target}"
+debug_dir="$target_root/debug"
 
 for tool in cargo sed grep stat timeout wayland-info python3; do
   if ! command -v "$tool" >/dev/null 2>&1; then
@@ -377,7 +379,7 @@ export SLOPOS_TEST_INPUT=1
 unset DISPLAY WAYLAND_DISPLAY SLOPOS_CLIENT_WAYLAND_DISPLAY
 
 printf 'Starting SLOPOS-owned headless compositor\n'
-target/debug/slopos-compositor --backend headless >"$compositor_log" 2>&1 &
+"${debug_dir}"/slopos-compositor --backend headless >"$compositor_log" 2>&1 &
 compositor_pid=$!
 
 readiness="$runtime_dir/readiness"
@@ -445,7 +447,7 @@ done
 
 printf 'Exercising pointer-constraint request/destroy lifecycle\n'
 WAYLAND_DISPLAY="$socket_name" timeout 20s \
-  target/debug/examples/headless_pointer_constraints_client >"$pointer_constraints_log" 2>&1
+  "${debug_dir}"/examples/headless_pointer_constraints_client >"$pointer_constraints_log" 2>&1
 for marker in SLOPOS_POINTER_LOCK_REQUEST_ACCEPTED SLOPOS_POINTER_CONFINE_REQUEST_ACCEPTED SLOPOS_POINTER_CONSTRAINTS_OK; do
   if ! grep -q "^${marker}" "$pointer_constraints_log"; then
     write_artifact failed "missing_${marker}"
@@ -461,7 +463,7 @@ fi
 
 printf 'Exercising client DnD invalid-serial rejection (no input grab available headlessly)\n'
 WAYLAND_DISPLAY="$socket_name" timeout 20s \
-  target/debug/examples/headless_clipboard_client dnd-invalid-serial >"$dnd_log" 2>&1
+  "${debug_dir}"/examples/headless_clipboard_client dnd-invalid-serial >"$dnd_log" 2>&1
 if ! has_dnd_marker SLOPOS_DND_INVALID_SERIAL_REJECTED; then
   write_artifact failed "missing_SLOPOS_DND_INVALID_SERIAL_REJECTED"
   cat "$dnd_log" >&2
@@ -476,7 +478,7 @@ fi
 
 printf 'Exercising native cross-client text/URI DnD with synthetic headless input\n'
 WAYLAND_DISPLAY="$socket_name" timeout 45s \
-  target/debug/examples/headless_dnd_client source >"$dnd_source_log" 2>&1 &
+  "${debug_dir}"/examples/headless_dnd_client source >"$dnd_source_log" 2>&1 &
 dnd_source_pid=$!
 source_ready=false
 for _ in $(seq 1 100); do
@@ -499,7 +501,7 @@ if [[ "$source_ready" != true ]]; then
 fi
 
 WAYLAND_DISPLAY="$socket_name" timeout 45s \
-  target/debug/examples/headless_dnd_client target >"$dnd_target_log" 2>&1 &
+  "${debug_dir}"/examples/headless_dnd_client target >"$dnd_target_log" 2>&1 &
 dnd_target_pid=$!
 target_ready=false
 for _ in $(seq 1 100); do
@@ -592,7 +594,7 @@ fi
 
 printf 'Exercising DnD target disconnect cancellation and compositor survival\n'
 WAYLAND_DISPLAY="$socket_name" timeout 45s \
-  target/debug/examples/headless_dnd_client source >"$dnd_abort_source_log" 2>&1 &
+  "${debug_dir}"/examples/headless_dnd_client source >"$dnd_abort_source_log" 2>&1 &
 dnd_abort_source_pid=$!
 source_ready=false
 for _ in $(seq 1 100); do
@@ -615,7 +617,7 @@ if [[ "$source_ready" != true ]]; then
 fi
 
 WAYLAND_DISPLAY="$socket_name" timeout 45s \
-  target/debug/examples/headless_dnd_client target-abort >"$dnd_abort_target_log" 2>&1 &
+  "${debug_dir}"/examples/headless_dnd_client target-abort >"$dnd_abort_target_log" 2>&1 &
 dnd_abort_target_pid=$!
 target_ready=false
 for _ in $(seq 1 100); do
@@ -693,7 +695,7 @@ fi
 
 printf 'Exercising native text-input-v3/input-method-v2 lifecycle\n'
 WAYLAND_DISPLAY="$socket_name" timeout 30s \
-  target/debug/examples/headless_text_input_client ime >"$text_input_ime_log" 2>&1 &
+  "${debug_dir}"/examples/headless_text_input_client ime >"$text_input_ime_log" 2>&1 &
 text_input_ime_pid=$!
 ime_ready=false
 for _ in $(seq 1 100); do
@@ -716,7 +718,7 @@ if [[ "$ime_ready" != true ]]; then
 fi
 
 if ! WAYLAND_DISPLAY="$socket_name" timeout 30s \
-  target/debug/examples/headless_text_input_client app >"$text_input_app_log" 2>&1; then
+  "${debug_dir}"/examples/headless_text_input_client app >"$text_input_app_log" 2>&1; then
   write_artifact failed "text_input_app_runtime_failed"
   cat "$text_input_app_log" >&2
   cat "$text_input_ime_log" >&2
@@ -762,7 +764,7 @@ fi
 
 printf 'Exercising native cross-client clipboard offer, transfer and missing-MIME EOF\n'
 WAYLAND_DISPLAY="$socket_name" timeout 120s \
-  target/debug/examples/headless_clipboard_client source >"$clipboard_source_log" 2>&1 &
+  "${debug_dir}"/examples/headless_clipboard_client source >"$clipboard_source_log" 2>&1 &
 clipboard_source_pid=$!
 source_ready=false
 for _ in $(seq 1 100); do
@@ -785,7 +787,7 @@ if [[ "$source_ready" != true ]]; then
 fi
 
 WAYLAND_DISPLAY="$socket_name" timeout 30s \
-  target/debug/examples/headless_clipboard_client sink >"$clipboard_sink_log" 2>&1
+  "${debug_dir}"/examples/headless_clipboard_client sink >"$clipboard_sink_log" 2>&1
 for marker in \
   SLOPOS_CLIPBOARD_OFFER_VERIFIED \
   SLOPOS_CLIPBOARD_TRANSFER_VERIFIED \
@@ -801,7 +803,7 @@ done
 
 printf 'Exercising clipboard target death during a large transfer\n'
 if ! WAYLAND_DISPLAY="$socket_name" timeout 30s \
-  target/debug/examples/headless_clipboard_client sink-abort >"$clipboard_sink_abort_log" 2>&1; then
+  "${debug_dir}"/examples/headless_clipboard_client sink-abort >"$clipboard_sink_abort_log" 2>&1; then
   write_artifact failed "clipboard_target_death_sink_failed"
   cat "$clipboard_source_log" >&2
   cat "$clipboard_sink_abort_log" >&2
@@ -838,7 +840,7 @@ fi
 
 printf 'Exercising clipboard source cancellation on selection replacement\n'
 if ! WAYLAND_DISPLAY="$socket_name" timeout 10s \
-  target/debug/examples/headless_clipboard_client source-once >"$clipboard_replacement_source_log" 2>&1; then
+  "${debug_dir}"/examples/headless_clipboard_client source-once >"$clipboard_replacement_source_log" 2>&1; then
   write_artifact failed "clipboard_source_replacement_failed"
   cat "$clipboard_source_log" >&2
   cat "$clipboard_replacement_source_log" >&2
@@ -878,14 +880,14 @@ clipboard_source_pid=""
 
 printf 'Exercising clipboard source-death clearing\n'
 if ! WAYLAND_DISPLAY="$socket_name" timeout 10s \
-  target/debug/examples/headless_clipboard_client source-once >>"$clipboard_source_log" 2>&1; then
+  "${debug_dir}"/examples/headless_clipboard_client source-once >>"$clipboard_source_log" 2>&1; then
   write_artifact failed "clipboard_source_death_source_failed"
   cat "$clipboard_source_log" >&2
   exit 1
 fi
 sleep 1
 if ! WAYLAND_DISPLAY="$socket_name" timeout 10s \
-  target/debug/examples/headless_clipboard_client sink-after-source-death >>"$clipboard_sink_log" 2>&1; then
+  "${debug_dir}"/examples/headless_clipboard_client sink-after-source-death >>"$clipboard_sink_log" 2>&1; then
   write_artifact failed "clipboard_source_death_sink_failed"
   cat "$clipboard_source_log" >&2
   cat "$clipboard_sink_log" >&2
@@ -907,7 +909,7 @@ fi
 
 printf 'Exercising native cross-client primary-selection offer, transfer and missing-MIME EOF\n'
 WAYLAND_DISPLAY="$socket_name" timeout 120s \
-  target/debug/examples/headless_clipboard_client primary-source >"$primary_selection_source_log" 2>&1 &
+  "${debug_dir}"/examples/headless_clipboard_client primary-source >"$primary_selection_source_log" 2>&1 &
 primary_selection_source_pid=$!
 primary_source_ready=false
 for _ in $(seq 1 100); do
@@ -930,7 +932,7 @@ if [[ "$primary_source_ready" != true ]]; then
 fi
 
 WAYLAND_DISPLAY="$socket_name" timeout 30s \
-  target/debug/examples/headless_clipboard_client primary-sink >"$primary_selection_sink_log" 2>&1
+  "${debug_dir}"/examples/headless_clipboard_client primary-sink >"$primary_selection_sink_log" 2>&1
 for marker in \
   SLOPOS_PRIMARY_SELECTION_OFFER_VERIFIED \
   SLOPOS_PRIMARY_SELECTION_TRANSFER_VERIFIED \
@@ -949,7 +951,7 @@ combine_primary_selection_logs
 
 printf 'Stressing abrupt toplevel and popup disconnect cleanup\n'
 WAYLAND_DISPLAY="$socket_name" SLOPOS_DISCONNECT_STRESS_CYCLES=64 timeout 45s \
-  target/debug/examples/headless_disconnect_stress >"$stress_log" 2>&1
+  "${debug_dir}"/examples/headless_disconnect_stress >"$stress_log" 2>&1
 if ! stress_passed; then
   write_artifact failed "abrupt_disconnect_stress_failed"
   cat "$stress_log" >&2
@@ -964,7 +966,7 @@ fi
 
 printf 'Completing healthy presentation and popup lifecycles after stress\n'
 WAYLAND_DISPLAY="$socket_name" timeout 30s \
-  target/debug/examples/headless_toplevel_client >"$protocol_log" 2>&1
+  "${debug_dir}"/examples/headless_toplevel_client >"$protocol_log" 2>&1
 for marker in \
   SLOPOS_XDG_TOPLEVEL_CONFIGURED \
   SLOPOS_XDG_TOPLEVEL_MAXIMIZED \
