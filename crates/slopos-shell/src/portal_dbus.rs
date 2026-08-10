@@ -1,17 +1,15 @@
 //! FreeDesktop portal session-bus export (Linux only).
 //!
 //! Host tests never open D-Bus. On Linux, [`try_register_portal_session_bus`]
-//! best-effort claims [`crate::portal::PORTAL_BUS_NAME`] and serves Screenshot,
-//! Settings, OpenURI, FileChooser, ScreenCast, plus simplified Secret / Print /
-//! Inhibit interfaces that call pure handlers in [`crate::portal`] /
-//! [`crate::portal_extra`].
+//! best-effort claims [`crate::portal::PORTAL_BUS_NAME`] for the currently
+//! implemented backend interfaces. Operations that do not have an authoritative
+//! service behind them return the portal error response instead of fabricating a
+//! URI, setting, selection, keyring value, remote launch, or PipeWire node.
 //!
-//! ScreenCast streams exposed on the bus are protocol-level stubs (`node_id`
-//! placeholders) — PipeWire is not started or connected. Start results include
-//! an honest `note` (`backend=portal_stub` or `backend=pipewire_socket_present`).
-//!
-//! Inhibit cookies are stored process-wide so shell idle policy can poll
-//! [`crate::portal_extra::active_inhibits`].
+//! The registration is therefore an explicit development backend, not a claim
+//! of standard `org.freedesktop.portal.Desktop` compatibility. ScreenCast is
+//! refused until a permission-mediated PipeWire graph is attached, and the
+//! screenshot path is refused when compositor-owned readback is unavailable.
 
 use crate::portal::{PORTAL_BUS_NAME, PORTAL_PATH};
 
@@ -64,8 +62,7 @@ mod linux {
     use crate::portal::{
         create_screencast_session_with_backend_note, handle_file_chooser_open,
         handle_file_chooser_save, plan_open_uri, portal_screenshot_uri_for,
-        read_all_portal_settings, read_portal_setting, select_screencast_sources,
-        start_screencast_with_readiness, take_portal_style_screenshot_with, OpenUriAction,
+        select_screencast_sources, take_portal_style_screenshot_with, OpenUriAction,
         PortalFileChooserRequest, PortalScreencastRequest, PortalScreencastSession,
         PortalScreenshotRequest,
     };
@@ -129,24 +126,17 @@ mod linux {
     impl PortalSettingsIface {
         /// Settings.Read — pure map lookup; value as string variant.
         fn read(&self, namespace: &str, key: &str) -> zbus::fdo::Result<OwnedValue> {
-            match read_portal_setting(namespace, key) {
-                Some(v) => OwnedValue::try_from(Value::from(v))
-                    .map_err(|e| zbus::fdo::Error::Failed(format!("value conversion failed: {e}"))),
-                None => Err(zbus::fdo::Error::Failed(format!(
-                    "setting not found: {namespace} / {key}"
-                ))),
-            }
+            let _ = (namespace, key);
+            Err(zbus::fdo::Error::Failed(
+                "SLOPOS Settings portal is not connected to an authoritative settings service"
+                    .into(),
+            ))
         }
 
         /// Settings.ReadAll — pure map for the namespace.
         fn read_all(&self, namespace: &str) -> HashMap<String, OwnedValue> {
-            let mut out = HashMap::new();
-            for (k, v) in read_all_portal_settings(namespace) {
-                if let Ok(owned) = OwnedValue::try_from(Value::from(v)) {
-                    out.insert(k, owned);
-                }
-            }
-            out
+            let _ = namespace;
+            HashMap::new()
         }
     }
 
@@ -164,6 +154,14 @@ mod linux {
             title: &str,
             options: HashMap<String, OwnedValue>,
         ) -> (u32, HashMap<String, OwnedValue>) {
+            if std::env::var("SLOPOS_PORTAL_ALLOW_SYNTHETIC_SELECTION")
+                .ok()
+                .as_deref()
+                != Some("1")
+            {
+                tracing::warn!("portal FileChooser refused: no interactive chooser is connected");
+                return (2u32, HashMap::new());
+            }
             let multiple = option_bool(&options, "multiple").unwrap_or(false);
             let directory = option_bool(&options, "directory").unwrap_or(false);
             // Optional string options: best-effort; pure tests cover selection logic.
@@ -201,6 +199,14 @@ mod linux {
             title: &str,
             options: HashMap<String, OwnedValue>,
         ) -> (u32, HashMap<String, OwnedValue>) {
+            if std::env::var("SLOPOS_PORTAL_ALLOW_SYNTHETIC_SELECTION")
+                .ok()
+                .as_deref()
+                != Some("1")
+            {
+                tracing::warn!("portal FileChooser refused: no interactive chooser is connected");
+                return (2u32, HashMap::new());
+            }
             let current_folder = option_string_loose(&options, "current_folder");
             let current_name = option_string_loose(&options, "current_name");
             let confirm = option_bool(&options, "confirm").unwrap_or(true);
@@ -250,7 +256,13 @@ mod linux {
             _options: HashMap<String, OwnedValue>,
         ) -> u32 {
             match plan_open_uri(uri) {
-                Ok(OpenUriAction::ValidatedRemote) => 0,
+                Ok(OpenUriAction::ValidatedRemote) => {
+                    tracing::warn!(
+                        uri,
+                        "portal OpenURI refused: no authoritative remote URI launcher"
+                    );
+                    2
+                }
                 Ok(OpenUriAction::MimeOpen(plan)) => {
                     let argv = crate::mime_open::spawn_argv(&plan);
                     match crate::session_clients::spawn_open_plan(&plan) {
@@ -418,39 +430,19 @@ mod linux {
             session_id: &str,
             _options: HashMap<String, OwnedValue>,
         ) -> (u32, HashMap<String, OwnedValue>) {
-            // Refresh readiness at Start via pure path so note reflects socket state.
+            // A PipeWire socket/probe is not a live stream.  Until the
+            // compositor has attached a permission-mediated node and exported
+            // it through PipeWire, refuse rather than returning placeholder
+            // node ids as a successful Start result.
             let readiness = crate::screencast_pw::probe_screencast_readiness_host();
-            let outcome = with_screencast_sessions(|map| {
-                let session = map.get_mut(session_id)?;
-                start_screencast_with_readiness(session, &readiness).ok()
-            });
-            match outcome {
-                Some(started) if !started.streams.is_empty() => {
-                    let summary = started
-                        .streams
-                        .iter()
-                        .map(|s| {
-                            format!("{}:{}x{}:{}", s.node_id, s.width, s.height, s.source_type)
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n");
-                    let mut results: HashMap<String, OwnedValue> = HashMap::new();
-                    if let Ok(v) = OwnedValue::try_from(Value::from(summary)) {
-                        results.insert("streams".into(), v);
-                    }
-                    if let Some(first) = started.streams.first() {
-                        if let Ok(v) = OwnedValue::try_from(Value::from(first.node_id)) {
-                            results.insert("node_id".into(), v);
-                        }
-                    }
-                    // Honest backend string (portal_stub | pipewire_socket_present).
-                    if let Ok(v) = OwnedValue::try_from(Value::from(started.note)) {
-                        results.insert("note".into(), v);
-                    }
-                    (0u32, results)
-                }
-                _ => (2u32, HashMap::new()),
-            }
+            tracing::warn!(
+                session_id,
+                backend = readiness.backend.as_str(),
+                socket = readiness.pipewire_socket_present,
+                "portal ScreenCast Start refused: live PipeWire export is unavailable"
+            );
+            let _ = session_id;
+            (2u32, HashMap::new())
         }
     }
 
@@ -476,19 +468,15 @@ mod linux {
                 app_id: app_id.to_string(),
                 token: Vec::new(),
             };
-            match handle_secret_retrieve(&req) {
-                PortalSecretResult::Lookup { label } => {
-                    let mut results = HashMap::new();
-                    if let Ok(v) = OwnedValue::try_from(Value::from(label)) {
-                        results.insert("label".into(), v);
-                    }
-                    (0u32, results)
-                }
-                PortalSecretResult::Rejected { reason } => {
-                    tracing::debug!(%reason, "portal Secret rejected");
-                    (2u32, HashMap::new())
-                }
-            }
+            let planned = handle_secret_retrieve(&req);
+            tracing::warn!(
+                ?planned,
+                "portal Secret refused: no keyring backend is connected"
+            );
+            let _ = PortalSecretResult::Rejected {
+                reason: "keyring backend unavailable".into(),
+            };
+            (2u32, HashMap::new())
         }
     }
 

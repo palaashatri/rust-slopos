@@ -5,7 +5,9 @@
 //!
 //! # D-Bus well-known names / paths (impl side)
 //!
-//! SLOPOS-I registers a simplified portal backend third parties can call directly:
+//! SLOPOS-I registers a development-only backend that third parties can call
+//! directly. It is not the standard `org.freedesktop.portal.Desktop` request
+//! API and must not be presented as production portal compatibility:
 //!
 //! | Role | Value |
 //! |------|--------|
@@ -16,8 +18,8 @@
 //! | OpenURI iface | [`PORTAL_OPENURI_INTERFACE`] (`org.freedesktop.impl.portal.OpenURI`) |
 //! | ScreenCast iface | [`PORTAL_SCREENCAST_INTERFACE`] (`org.freedesktop.impl.portal.ScreenCast`) |
 //!
-//! Local shell menus still use [`take_portal_style_screenshot`] (capture path) via
-//! `shell.portal_screenshot`.
+//! Local shell menus do not expose screenshot or recording commands until the
+//! compositor-owned capture and PipeWire paths are connected.
 //!
 //! # ScreenCast note
 //!

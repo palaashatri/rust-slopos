@@ -61,18 +61,20 @@ pub fn capture_if_requested(
     elements: &[WaylandSurfaceRenderElement<GlesRenderer>],
     size: (i32, i32),
     clear: [f32; 4],
-) {
+) -> Option<PathBuf> {
     if !SHOT_REQUESTED.swap(false, Ordering::SeqCst) {
-        return;
+        return None;
     }
     match capture_to_path(renderer, elements, size, clear, &shot_path()) {
         Ok(path) => {
             tracing::info!(path = %path.display(), "screenshot written");
             eprintln!("[slopos-compositor] screenshot written: {}", path.display());
+            Some(path)
         }
         Err(error) => {
             tracing::warn!(error = %error, "screenshot failed");
             eprintln!("[slopos-compositor] screenshot failed: {error:#}");
+            None
         }
     }
 }

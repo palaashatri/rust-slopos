@@ -1580,7 +1580,7 @@ pub fn run_drm_session() -> Result<()> {
                 };
                 // QA: honour a pending SIGUSR1 screenshot request before the real
                 // scanout render (offscreen readback; see screenshot.rs).
-                crate::screenshot::capture_if_requested(
+                let _ = crate::screenshot::capture_if_requested(
                     &mut renderer,
                     &elements,
                     state.physical_output_size,

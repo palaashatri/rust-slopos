@@ -279,28 +279,10 @@ impl MenuServer {
                     meta: true,
                 },
             );
-        file_menu.add_separator();
-        file_menu
-            .add_action("Take Screenshot")
-            .with_action("shell.screenshot")
-            .with_shortcut(
-                KeyCode::Key3,
-                Modifiers {
-                    shift: true,
-                    control: false,
-                    alt: false,
-                    meta: true,
-                },
-            );
-        file_menu
-            .add_action("Portal Screenshot")
-            .with_action("shell.portal_screenshot");
-        file_menu
-            .add_action("Start Screen Recording")
-            .with_action("shell.start_recording");
-        file_menu
-            .add_action("Stop Screen Recording")
-            .with_action("shell.stop_recording");
+        // Screenshot and recording remain intentionally absent until the
+        // compositor-owned screenshot/portal paths provide a real framebuffer
+        // capture and a real PipeWire stream.  Keeping the commands hidden is
+        // safer than presenting host-X11 helpers as production desktop media.
 
         let mut edit_menu = Menu::new("Edit");
         edit_menu

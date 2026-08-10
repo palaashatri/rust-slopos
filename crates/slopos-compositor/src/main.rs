@@ -26,11 +26,13 @@ fn main() -> anyhow::Result<()> {
 mod linux {
     use anyhow::Context;
     use std::collections::{HashMap, HashSet};
-    use std::io::Write;
+    use std::fs::{self, File, OpenOptions};
+    use std::io::{Read, Write};
     use std::os::unix::io::OwnedFd;
     use std::path::PathBuf;
     use std::sync::Arc;
     use std::time::Duration;
+    use sha2::{Digest, Sha256};
 
     use slopos_bus::{
         session_space_thumbnail_path, write_display_policy_snapshot, write_outputs_snapshot,
@@ -174,6 +176,7 @@ mod linux {
     const RETRO_GRAY: (u8, u8, u8) = (152, 152, 148);
     const MAX_DISABLED_OUTPUT_GLOBALS: usize = 64;
     const XWAYLAND_RESTART_BUDGET: u8 = 3;
+    const VIEWPORT_STATE_FILE: &str = "viewport-state.json";
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub(super) struct XWaylandRecoveryBudget {
@@ -576,6 +579,19 @@ mod linux {
         geo: Rectangle<i32, Logical>,
         /// Exclusive work-area reservation requested by the layer client.
         exclusive_zone: i32,
+        /// Last client-requested logical size.  Zero means compositor-sized.
+        requested: Size<i32, Logical>,
+        /// Last configure serial emitted by the compositor for this surface.
+        configure_serial: u32,
+        /// A matching committed buffer is the observable acknowledgement point
+        /// for the configure serial.  Smithay validates the protocol ack before
+        /// exposing the new current state; retaining the serial here makes that
+        /// state available to the runtime viewport evidence.
+        ack_serial: Option<u32>,
+        /// Whether this layer has committed at least one buffer.
+        has_committed: bool,
+        /// Frame revision at which the last committed buffer was presented.
+        committed_frame_revision: u64,
     }
 
     #[derive(Clone)]
@@ -977,6 +993,8 @@ mod linux {
         output_size: Size<i32, Physical>,
         // Serial counter for synthetic events
         serial: u32,
+        /// Monotonic revision of compositor frames used by viewport evidence.
+        viewport_frame_revision: u64,
 
         // GL rendering
         renderer: Option<GlesRenderer>,
@@ -1173,6 +1191,159 @@ mod linux {
             if let Err(error) = write_outputs_snapshot(&snapshot) {
                 tracing::debug!(%error, "could not publish output topology snapshot");
             }
+        }
+
+        fn configure_layer(layer: &mut MappedLayer) {
+            match layer.surface.send_configure() {
+                Ok(serial) => {
+                    layer.configure_serial = u32::from(serial);
+                    layer.ack_serial = None;
+                    layer.has_committed = false;
+                    layer.committed_frame_revision = 0;
+                }
+                Err(error) => {
+                    tracing::debug!(?error, namespace = %layer.namespace, "could not configure layer surface");
+                }
+            }
+        }
+
+        fn viewport_output_name(&self) -> &str {
+            self.output_names
+                .first()
+                .map(String::as_str)
+                .unwrap_or("output-0")
+        }
+
+        fn publish_viewport_state(&self, framebuffer: &std::path::Path) -> anyhow::Result<()> {
+            let runtime = std::env::var_os("SLOPOS_SESSION_RUNTIME_DIR")
+                .map(PathBuf::from)
+                .ok_or_else(|| anyhow::anyhow!("SLOPOS_SESSION_RUNTIME_DIR is not set"))?;
+            let output = self
+                .laid_out_outputs
+                .first()
+                .ok_or_else(|| anyhow::anyhow!("viewport state has no output"))?;
+            let logical_width = output.config.width.max(1) as u32;
+            let logical_height = output.config.height.max(1) as u32;
+            let physical_width = self.output_size.w.max(1) as u32;
+            let physical_height = self.output_size.h.max(1) as u32;
+            let mut hasher = Sha256::new();
+            let mut file = File::open(framebuffer)
+                .with_context(|| format!("open viewport framebuffer {}", framebuffer.display()))?;
+            let mut bytes = [0_u8; 1024 * 1024];
+            loop {
+                let read = file.read(&mut bytes)?;
+                if read == 0 {
+                    break;
+                }
+                hasher.update(&bytes[..read]);
+            }
+            let framebuffer_hash = format!("{:x}", hasher.finalize());
+            let output_name = self.viewport_output_name().to_owned();
+            let output_area = output_geometry(output);
+            let layers = self
+                .layer_surfaces
+                .iter()
+                .filter_map(|layer| {
+                    let role = match layer.namespace.as_str() {
+                        "slopos-i-desktop" => "background",
+                        "slopos-i-menu" => "menu",
+                        "slopos-i-dock" => "dock",
+                        _ => return None,
+                    };
+                    let local_x = layer.geo.loc.x.saturating_sub(output_area.x);
+                    let local_y = layer.geo.loc.y.saturating_sub(output_area.y);
+                    let configure_serial = layer.configure_serial;
+                    let acknowledged = layer
+                        .ack_serial
+                        .is_some_and(|serial| serial == configure_serial && serial != 0);
+                    Some(serde_json::json!({
+                        "namespace": layer.namespace.clone(),
+                        "layer": format!("{:?}", layer.layer).to_ascii_lowercase(),
+                        "role": role,
+                        "output": output_name.clone(),
+                        "geometry_space": "logical",
+                        "requested": {
+                            "width": layer.requested.w.max(0),
+                            "height": layer.requested.h.max(0)
+                        },
+                        "configured": {
+                            "width": layer.geo.size.w.max(1),
+                            "height": layer.geo.size.h.max(1)
+                        },
+                        "geometry": {
+                            "x": local_x.max(0),
+                            "y": local_y.max(0),
+                            "width": layer.geo.size.w.max(1),
+                            "height": layer.geo.size.h.max(1)
+                        },
+                        "active": layer.has_committed,
+                        "configure_serial": configure_serial,
+                        "acknowledged": acknowledged,
+                        "ack_serial": layer.ack_serial.unwrap_or(0),
+                        "committed": layer.has_committed,
+                        "committed_frame_revision": layer.committed_frame_revision
+                    }))
+                })
+                .collect::<Vec<_>>();
+            let framebuffer_path = framebuffer
+                .canonicalize()
+                .unwrap_or_else(|_| framebuffer.to_path_buf());
+            let state = serde_json::json!({
+                "schema_version": 1,
+                "commit": env!("SLOPOS_BUILD_COMMIT"),
+                "branch": env!("SLOPOS_BUILD_BRANCH"),
+                "backend": self.display_backend_name(),
+                "provenance": {"kind": "runtime", "capture": "compositor_framebuffer"},
+                "coordinate_space": "logical",
+                "output": {
+                    "name": output_name,
+                    "logical": {"width": logical_width, "height": logical_height},
+                    "physical": {"width": physical_width, "height": physical_height},
+                    "requested_scale": {"numerator": self.output_scale.numerator, "denominator": self.output_scale.denominator},
+                    "effective_scale": {"numerator": self.output_scale.numerator, "denominator": self.output_scale.denominator},
+                    "revision": self.outputs_revision.max(1),
+                    "frame_revision": self.viewport_frame_revision
+                },
+                "framebuffer": {
+                    "path": framebuffer_path,
+                    "format": "png",
+                    "dimensions": {"width": physical_width, "height": physical_height},
+                    "sha256": framebuffer_hash,
+                    "clear_color": [RETRO_GRAY.0, RETRO_GRAY.1, RETRO_GRAY.2, 255],
+                    "clear_tolerance": 16
+                },
+                "layers": layers
+            });
+            let destination = runtime.join(VIEWPORT_STATE_FILE);
+            fs::create_dir_all(&runtime)?;
+            let temporary = destination.with_file_name(format!(
+                ".{}.tmp-{}",
+                VIEWPORT_STATE_FILE,
+                std::process::id()
+            ));
+            let result = (|| -> anyhow::Result<()> {
+                let file = OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(&temporary)?;
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    file.set_permissions(fs::Permissions::from_mode(0o600))?;
+                }
+                let mut writer = std::io::BufWriter::new(file);
+                serde_json::to_writer_pretty(&mut writer, &state)?;
+                writer.write_all(b"\n")?;
+                writer.flush()?;
+                writer.get_ref().sync_all()?;
+                drop(writer);
+                fs::rename(&temporary, &destination)?;
+                Ok(())
+            })();
+            if result.is_err() {
+                let _ = fs::remove_file(&temporary);
+            }
+            result
         }
 
         /// Repair per-display Space assignments whenever the authoritative
@@ -2102,7 +2273,7 @@ mod linux {
                     layer
                         .surface
                         .with_pending_state(|state| state.size = Some(local.size));
-                    let _serial = layer.surface.send_configure();
+                    Self::configure_layer(layer);
                 }
                 self.clamp_normal_windows_to_work_area();
                 self.sync_all_window_output_membership();
@@ -3268,10 +3439,11 @@ mod linux {
                     local.size,
                 );
                 layer.exclusive_zone = exclusive_zone;
+                layer.requested = requested;
                 layer
                     .surface
                     .with_pending_state(|state| state.size = Some(local.size));
-                layer.surface.send_configure();
+                Self::configure_layer(layer);
             }
 
             let work_areas = (0..self.laid_out_outputs.len())
@@ -4140,6 +4312,17 @@ mod linux {
             }
 
             // Acquire the next buffer from the X11 swapchain
+            let capture_path = slopos_compositor::screenshot::capture_if_requested(
+                renderer,
+                &surface_elements,
+                (self.output_size.w, self.output_size.h),
+                [
+                    RETRO_GRAY.0 as f32 / 255.0,
+                    RETRO_GRAY.1 as f32 / 255.0,
+                    RETRO_GRAY.2 as f32 / 255.0,
+                    1.0_f32,
+                ],
+            );
             let (mut dmabuf, _age) = match x11_surface.buffer() {
                 Ok(pair) => pair,
                 Err(e) => {
@@ -4271,13 +4454,35 @@ mod linux {
             }
 
             // Finish the frame (flushes GL commands)
-            if let Err(e) = frame.finish() {
-                eprintln!("[render] frame finish failed: {e}");
-            }
+            let frame_finished = match frame.finish() {
+                Ok(_) => true,
+                Err(e) => {
+                    eprintln!("[render] frame finish failed: {e}");
+                    false
+                }
+            };
 
             // Present to the X11 window
-            if let Err(e) = x11_surface.submit() {
-                eprintln!("[render] submit failed: {e}");
+            let submitted = match x11_surface.submit() {
+                Ok(()) => true,
+                Err(e) => {
+                    eprintln!("[render] submit failed: {e}");
+                    false
+                }
+            };
+
+            if frame_finished && submitted {
+                self.viewport_frame_revision = self.viewport_frame_revision.saturating_add(1);
+                for layer in &mut self.layer_surfaces {
+                    if layer.has_committed {
+                        layer.committed_frame_revision = self.viewport_frame_revision;
+                    }
+                }
+                if let Some(path) = capture_path {
+                    if let Err(error) = self.publish_viewport_state(&path) {
+                        tracing::warn!(%error, "could not publish runtime viewport state");
+                    }
+                }
             }
 
             // Release frame callbacks for everything we just presented. Clients
@@ -4450,14 +4655,21 @@ mod linux {
                     local_geo.size,
                 );
                 let current = layer.surface.current_state();
+                if current.size == Some(geo.size) {
+                    layer.has_committed = true;
+                    if layer.configure_serial != 0 {
+                        layer.ack_serial = Some(layer.configure_serial);
+                    }
+                }
                 if current.size != Some(geo.size) {
                     layer.surface.with_pending_state(|state| {
                         state.size = Some(geo.size);
                     });
-                    layer.surface.send_configure();
+                    Self::configure_layer(layer);
                 }
                 layer.geo = geo;
                 layer.exclusive_zone = exclusive_zone;
+                layer.requested = requested;
                 layer_membership = Some((layer.surface.wl_surface().clone(), layer.output_index));
                 break;
             }
@@ -5085,7 +5297,11 @@ mod linux {
             surface.with_pending_state(|state| {
                 state.size = Some(geo.size);
             });
-            surface.send_configure();
+            let configure_serial = surface
+                .send_configure()
+                .ok()
+                .map(u32::from)
+                .unwrap_or(0);
             let wl_surface = surface.wl_surface().clone();
             self.layer_surfaces.push(MappedLayer {
                 surface,
@@ -5094,6 +5310,11 @@ mod linux {
                 output_index,
                 geo,
                 exclusive_zone,
+                requested,
+                configure_serial,
+                ack_serial: None,
+                has_committed: false,
+                committed_frame_revision: 0,
             });
             self.sync_surface_to_output(&wl_surface, output_index);
             self.clamp_normal_windows_to_work_area();
@@ -6170,6 +6391,11 @@ mod linux {
         } else {
             CompositorBackendKind::NestedX11
         };
+        if !headless {
+            // Nested output readback uses the same GL renderer and element list
+            // as presentation; headless has no framebuffer to capture.
+            slopos_compositor::screenshot::install_signal_handler();
+        }
         eprintln!(
             "[slopos-compositor] backend: {} (explicit)",
             if headless { "Headless" } else { "NestedX11" }
@@ -6531,6 +6757,7 @@ mod linux {
             frame_dirty: true,
             output_size,
             serial: 0,
+            viewport_frame_revision: 0,
             renderer: renderer_opt,
             x11_surface: x11_surface_opt,
             clipboard_source: None,
