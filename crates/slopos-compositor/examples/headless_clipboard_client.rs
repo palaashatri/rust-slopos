@@ -9,7 +9,8 @@
 //! types, and keeps its focused toplevel alive. The sink creates another
 //! toplevel, receives the selection offer, reads the exact payload, and verifies
 //! that an unsupported MIME request terminates with EOF. This is protocol/runtime
-//! evidence only; it is not GTK, Qt, XWayland, physical-input, successful
+//! evidence only; it is not GTK, Qt, XWayland, physical-input,
+//! successful
 //! cross-client DnD or hardware compatibility evidence. The DnD mode is limited
 //! to checking that an invalid serial is rejected without entering a drag.
 
