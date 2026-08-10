@@ -1,0 +1,38 @@
+interface: 'wl_compositor',                              version:  5, name:  1
+interface: 'wl_subcompositor',                           version:  1, name:  2
+interface: 'wl_shm',                                     version:  2, name:  3
+	formats (fourcc):
+	         0 = 'AR24'
+	         1 = 'XR24'
+interface: 'zwp_relative_pointer_manager_v1',            version:  1, name:  4
+interface: 'zwp_pointer_constraints_v1',                 version:  1, name:  5
+interface: 'xdg_wm_base',                                version:  6, name:  6
+interface: 'wl_data_device_manager',                     version:  3, name:  7
+interface: 'zwp_primary_selection_device_manager_v1',    version:  1, name:  8
+interface: 'zxdg_output_manager_v1',                     version:  3, name:  9
+	xdg_output_v1
+		output: 19
+		name: 'RIGHT'
+		description: 'SLOPOS-I - Logical Output 2 - RIGHT'
+		logical_x: 0, logical_y: 0
+		logical_width: 1024, logical_height: 768
+interface: 'zwlr_layer_shell_v1',                        version:  4, name: 11
+interface: 'ext_foreign_toplevel_list_v1',               version:  1, name: 12
+interface: 'zxdg_decoration_manager_v1',                 version:  1, name: 13
+interface: 'zwp_text_input_manager_v3',                  version:  1, name: 14
+interface: 'zwp_input_method_manager_v2',                version:  1, name: 15
+interface: 'wl_seat',                                    version:  9, name: 16
+	name: seat0
+	capabilities: pointer keyboard
+	keyboard repeat rate: 25
+	keyboard repeat delay: 200
+interface: 'wl_output',                                  version:  4, name: 19
+	name: RIGHT
+	description: SLOPOS-I - Logical Output 2 - RIGHT
+	x: 0, y: 0, scale: 1,
+	physical_width: 0 mm, physical_height: 0 mm,
+	make: 'SLOPOS-I', model: 'Logical Output 2',
+	subpixel_orientation: unknown, output_transform: normal,
+	mode:
+		width: 1024 px, height: 768 px, refresh: 60.000 Hz,
+		flags: current preferred

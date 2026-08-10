@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "component": "slopos-compositor",
+  "commit": "4b3a55189c26fcee9a842f05b77c958b8cf74778",
+  "branch": "codex-complete-spec",
+  "started_at_utc": "2026-08-10T08:38:10Z",
+  "duration_seconds": 37,
+  "status": "passed",
+  "failed_step": "",
+  "evidence_level": "build_and_test_only",
+  "runtime_verified": false,
+  "hardware_verified": false,
+  "log": "4b3a55189c26fcee9a842f05b77c958b8cf74778.log"
+}

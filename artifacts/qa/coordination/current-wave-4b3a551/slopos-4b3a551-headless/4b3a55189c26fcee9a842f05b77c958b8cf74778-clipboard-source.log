@@ -1,0 +1,6 @@
+SLOPOS_CLIPBOARD_SOURCE_READY offers=text/plain;charset=utf-8,text/plain,application/x-slopos-large
+SLOPOS_CLIPBOARD_SOURCE_SENT mime=text/plain;charset=utf-8 bytes=47
+SLOPOS_CLIPBOARD_SOURCE_SENT mime=application/x-slopos-large bytes=1048576
+SLOPOS_SELECTION_TARGET_DISCONNECTED mime=application/x-slopos-large error=Broken pipe (os error 32)
+SLOPOS_CLIPBOARD_SOURCE_CANCELLED
+SLOPOS_CLIPBOARD_SOURCE_READY offers=text/plain;charset=utf-8,text/plain,application/x-slopos-large

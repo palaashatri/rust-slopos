@@ -1,0 +1,4 @@
+commit=4b3a55189c26fcee9a842f05b77c958b8cf74778
+branch=codex-complete-spec
+Linux ubuntu 7.0.0-29-generic #29-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 17 20:52:35 UTC 2026 x86_64 GNU/Linux
+os=Ubuntu 26.04

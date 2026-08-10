@@ -1,0 +1,22 @@
+{
+  "backend": null,
+  "branch": null,
+  "capture_driver": {
+    "observed_at_utc": "2026-08-10T08:37:20Z",
+    "pid": 1
+  },
+  "checks": {},
+  "commit": null,
+  "component": "slopos-viewport-gate",
+  "evidence_level": "runtime_capture_driver",
+  "failures": [
+    "cannot resolve compositor executable: [Errno 13] Permission denied: '/proc/1/exe'"
+  ],
+  "framebuffer": null,
+  "framebuffer_path": "/tmp/no-frame.png",
+  "layers": [],
+  "output": null,
+  "schema_version": 1,
+  "state_path": "/tmp/no-state.json",
+  "status": "failed"
+}

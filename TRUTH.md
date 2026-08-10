@@ -5,7 +5,7 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`c3950734efed2528fe9670f6daa269fd986aa5d3`
+`4b3a55189c26fcee9a842f05b77c958b8cf74778`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
@@ -38,11 +38,13 @@ A read-only
 `git diff --exit-code -- Cargo.lock` also exited 0. The earlier baseline
 additionally covered the app-bundle packaging path, session-file dry run, and
 owned-artifact cleanup allow-list checks. The exact current head
-`c3950734efed2528fe9670f6daa269fd986aa5d3` then repeated all six locked
-workspace gates; its Screenshot helper now rejects unsupported `interactive`
-and `include_cursor` options with an explicit error instead of claiming a
-capture it cannot honor. Evidence for this wave is under
-`artifacts/qa/coordination/current-wave-c395073/`.
+`4b3a55189c26fcee9a842f05b77c958b8cf74778` repeated all six locked workspace
+gates in the Ubuntu VM using the shared
+`/home/ubuntu/.cache/slopos-i/cargo-target` directory. The compositor contract,
+headless protocol smoke and logical output topology gates all passed; their
+machine-readable results explicitly leave DRM/KMS, rendering, hardware and
+physical multi-monitor claims false. Evidence for this exact wave is under
+`artifacts/qa/coordination/current-wave-4b3a551/`.
 
 The viewport path now propagates a validated effective rational scale through
 nested and DRM render/readback calls. The compositor rejects logical/physical
@@ -109,6 +111,45 @@ competes with KDE Plasma and GNOME as a daily driver.
   clean-room prefix, but exits 2 while upgrade, rollback and uninstall
   transactions remain explicitly unverified. The Arch package is pinned to the
   audited main archive until a signed release tag is published.
+
+### Current implementation wave — bounded service, portal and evidence hardening
+
+At audited implementation commit
+`4b3a55189c26fcee9a842f05b77c958b8cf74778`, the App Store now accepts only
+local regular files or bounded HTTPS catalogue/archive sources, verifies signed
+catalogue metadata before fetching an archive, limits remote bytes, and removes
+downloaded temporary archives after installation. Plain HTTP, unknown schemes,
+symlinked local archives, missing trust material and malformed sources fail
+closed. This is source/build/test verified; it is not a signed distribution
+catalogue or clean-machine install/update proof.
+
+Settings network status now comes from the shell's authoritative
+NetworkManager D-Bus snapshot and renders `UNAVAILABLE` explicitly when the
+service cannot be queried. Focused shell and Settings tests, workspace tests
+and Clippy passed in the exact Ubuntu VM wave. This does not prove every
+Settings domain or rollback path.
+
+The standard portal frontend no longer advertises a Screenshot target without
+compositor-owned readback, no longer fabricates FileChooser selections, and
+maps only actual PipeWire node IDs into ScreenCast sources. The standard
+Request/Response/Close lifecycle remains present, but live permission decisions,
+PipeWire graph creation and Firefox/Chromium consumer evidence remain absent.
+
+The viewport validator now rejects headless runtime evidence, requires exact
+logical/physical dimensions, rational effective scales, layer configure/ack/
+commit state, PNG hashes and contiguous clear-edge checks. The capture driver
+requires the real `slopos-compositor` executable, PID start-time identity,
+absolute compositor paths and a fresh frame revision. Its deterministic
+self-test passed and its invalid edge/PID cases failed as expected; no real
+nested or DRM framebuffer capture was observed in this VM.
+
+The exact VM wave passed `cargo fmt --all -- --check`, locked workspace check,
+locked workspace tests, Clippy with `-D warnings`, release build, locked
+metadata, compositor contract, headless protocol smoke and logical output
+topology. The evidence summary is
+`artifacts/qa/coordination/current-wave-4b3a551/summary.json`. The overall
+score remains **63/100**; these bounded changes do not close the release
+blockers above.
 
 ### Historical implementation wave — full-width shell chrome and shaped label geometry
 
