@@ -49,10 +49,17 @@ pub fn install_signal_handler() {
     }
 }
 
-fn shot_path() -> PathBuf {
-    std::env::var_os("SLOPOS_SHOT_PATH")
+fn shot_path() -> anyhow::Result<PathBuf> {
+    let path = std::env::var_os("SLOPOS_SHOT_PATH")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/tmp/slopos-i-shot.png"))
+        .unwrap_or_else(|| PathBuf::from("/tmp/slopos-i-shot.png"));
+    if !path.is_absolute() {
+        anyhow::bail!(
+            "SLOPOS_SHOT_PATH must be absolute so runtime evidence cannot be redirected by cwd: {}",
+            path.display()
+        );
+    }
+    Ok(path)
 }
 
 /// Capture on the next rendered frame when SIGUSR1 requested it.
@@ -66,7 +73,15 @@ pub fn capture_if_requested(
     if !SHOT_REQUESTED.swap(false, Ordering::SeqCst) {
         return None;
     }
-    match capture_to_path(renderer, elements, size, scale, clear, &shot_path()) {
+    let path = match shot_path() {
+        Ok(path) => path,
+        Err(error) => {
+            tracing::warn!(error = %error, "screenshot path rejected");
+            eprintln!("[slopos-compositor] screenshot failed: {error:#}");
+            return None;
+        }
+    };
+    match capture_to_path(renderer, elements, size, scale, clear, &path) {
         Ok(path) => {
             tracing::info!(path = %path.display(), "screenshot written");
             eprintln!("[slopos-compositor] screenshot written: {}", path.display());

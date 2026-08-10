@@ -20,7 +20,7 @@ use slopos_kit::{
     PointerDispatcher, Rect, Size, ThemeContext, Widget, WidgetState,
 };
 use slopos_sdk::{build_menu, Application};
-use slopos_shell::DisplayConfig;
+use slopos_shell::{get_network_status, DisplayConfig};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -546,9 +546,7 @@ impl SettingsState {
                 self.volume_percent
             ),
             Category::Network => {
-                let live = live_network_summary()
-                    .map(|s| format!(" / LIVE {s}"))
-                    .unwrap_or_default();
+                let live = format!(" / LIVE {}", live_network_summary());
                 format!(
                     "NETWORK - {}{}",
                     self.network_profile.to_ascii_uppercase(),
@@ -860,22 +858,11 @@ fn apply_system_volume(percent: u8) -> Result<(), String> {
     Err("no pactl/wpctl (volume preference saved only)".into())
 }
 
-/// Live network summary for status line (nmcli if available).
-fn live_network_summary() -> Option<String> {
-    let output = std::process::Command::new("nmcli")
-        .args(["-t", "-f", "STATE,CONNECTIVITY", "g"])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
-    let line = text.lines().next()?.trim();
-    if line.is_empty() {
-        return None;
-    }
-    // Typical: "connected:full" or "disconnected:none"
-    Some(line.replace(':', " / ").to_ascii_uppercase())
+/// Live network summary from the same authoritative NetworkManager D-Bus
+/// snapshot used by shell status surfaces. Errors stay visible as
+/// `UNAVAILABLE`; a missing `nmcli` must not silently hide the live state.
+fn live_network_summary() -> String {
+    get_network_status().settings_summary()
 }
 
 fn parse_percent(value: &str, fallback: u8) -> u8 {

@@ -1303,9 +1303,12 @@ mod linux {
                     }))
                 })
                 .collect::<Vec<_>>();
-            let framebuffer_path = framebuffer
-                .canonicalize()
-                .unwrap_or_else(|_| framebuffer.to_path_buf());
+            let framebuffer_path = framebuffer.canonicalize().with_context(|| {
+                format!(
+                    "resolve compositor-owned viewport framebuffer {}",
+                    framebuffer.display()
+                )
+            })?;
             let state = serde_json::json!({
                 "schema_version": 1,
                 "commit": env!("SLOPOS_BUILD_COMMIT"),

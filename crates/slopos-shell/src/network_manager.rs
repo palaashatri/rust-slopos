@@ -72,6 +72,25 @@ impl NetworkStatus {
             _ => format!("Network: {}", self.state.as_str()),
         }
     }
+
+    /// Compact value for Settings and other controls that need the same live
+    /// NetworkManager result as the shell status surfaces.
+    ///
+    /// An unavailable D-Bus query is represented explicitly instead of being
+    /// omitted from the UI. This keeps Settings from displaying a stale
+    /// preference as if it were the current device state.
+    pub fn settings_summary(&self) -> String {
+        if !self.available || self.state == ConnectivityState::Unavailable {
+            return "UNAVAILABLE".to_string();
+        }
+        let state = self.state.as_str().to_ascii_uppercase();
+        match self.primary_connection_name.as_deref() {
+            Some(name) if !name.is_empty() => {
+                format!("{} / {state}", name.to_ascii_uppercase())
+            }
+            _ => state,
+        }
+    }
 }
 
 /// Query NetworkManager connectivity (or return Unavailable).
@@ -182,6 +201,25 @@ mod tests {
             available: true,
         };
         assert_eq!(status.summary_line(), "Network: Wi-Fi (Full)");
+    }
+
+    #[test]
+    fn settings_summary_is_explicit_when_network_manager_is_unavailable() {
+        assert_eq!(
+            NetworkStatus::unavailable().settings_summary(),
+            "UNAVAILABLE"
+        );
+    }
+
+    #[test]
+    fn settings_summary_uses_authoritative_connection_and_state() {
+        let status = NetworkStatus {
+            state: ConnectivityState::Full,
+            primary_connection_id: Some("uuid".into()),
+            primary_connection_name: Some("Home Wi-Fi".into()),
+            available: true,
+        };
+        assert_eq!(status.settings_summary(), "HOME WI-FI / FULL");
     }
 
     #[test]

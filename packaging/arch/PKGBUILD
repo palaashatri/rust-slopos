@@ -32,6 +32,7 @@ depends=(
   xorg-xwayland
   foot
   wl-clipboard
+  curl
 )
 makedepends=(
   cargo

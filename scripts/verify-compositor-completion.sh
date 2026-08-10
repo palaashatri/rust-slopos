@@ -18,15 +18,26 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-for tool in cargo git grep sed date; do
+for tool in cargo grep sed date; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     printf 'verify-compositor-completion: missing required tool: %s\n' "$tool" >&2
     exit 2
   fi
 done
 
-commit_sha="$(git rev-parse HEAD)"
-branch="$(git branch --show-current || true)"
+git_checkout=0
+if command -v git >/dev/null 2>&1 && git rev-parse --show-toplevel >/dev/null 2>&1; then
+  git_checkout=1
+  commit_sha="$(git rev-parse HEAD)"
+  branch="$(git branch --show-current || true)"
+else
+  commit_sha="${SLOPOS_COMMIT:-}"
+  branch="${GIT_BRANCH:-}"
+  if [[ ! "$commit_sha" =~ ^[0-9a-fA-F]{40}$ || -z "$branch" ]]; then
+    printf 'verify-compositor-completion: outside a Git checkout, set SLOPOS_COMMIT (40 hex) and GIT_BRANCH\n' >&2
+    exit 2
+  fi
+fi
 timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 artifact_dir="${SLOPOS_QA_ARTIFACT_DIR:-artifacts/qa/compositor-contract}"
 mkdir -p "$artifact_dir"
@@ -35,7 +46,7 @@ log="$artifact_dir/${commit_sha}.log"
 
 # Refuse to record a clean result for a dirty checkout: evidence must identify
 # the exact source that was tested.
-if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+if [[ "$git_checkout" -eq 1 && -n "$(git status --porcelain --untracked-files=no)" ]]; then
   printf 'verify-compositor-completion: tracked working tree is dirty\n' >&2
   exit 2
 fi

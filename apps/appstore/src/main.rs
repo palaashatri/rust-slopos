@@ -12,12 +12,14 @@ use slopos_kit::{
     PointerDispatcher, Rect, Size, ThemeContext, Visibility, Widget, WidgetState,
 };
 use slopos_sdk::{build_menu, Application};
+use std::io::Read;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
 
 mod bundle_install;
 
 use bundle_install::{
-    install_signed_archive, parse_signed_catalog, remove_installed_bundle, CatalogEntry, TrustStore,
+    install_signed_url, parse_signed_catalog, remove_installed_bundle, CatalogEntry, TrustStore,
 };
 
 // Signed-catalog suggestions shown when no search is active. These are never
@@ -34,6 +36,112 @@ const CATEGORIES: &[(&str, &[&str])] = &[
     ("OFFICE", &["text", "edit", "document"]),
     ("NETWORK", &["network", "finder"]),
 ];
+
+const MAX_REMOTE_CATALOG_BYTES: usize = 8 * 1024 * 1024;
+
+#[derive(Debug, Eq, PartialEq)]
+enum CatalogReadError {
+    Missing,
+    Message(String),
+}
+
+/// Read a local catalogue or a bounded HTTPS catalogue source. Signature
+/// verification remains in `CatalogStore::load`; this helper only obtains
+/// bytes and fails closed for insecure or unknown schemes.
+fn read_catalog_source(source: &std::path::Path) -> Result<Vec<u8>, CatalogReadError> {
+    let source_text = source.to_string_lossy();
+    if !source_text.contains("://") {
+        return std::fs::read(source).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                CatalogReadError::Missing
+            } else {
+                CatalogReadError::Message(error.to_string())
+            }
+        });
+    }
+    if !source_text.starts_with("https://") {
+        return Err(CatalogReadError::Message(
+            "only local paths and https:// catalogue URLs are supported".to_string(),
+        ));
+    }
+    if source_text.chars().any(char::is_control) {
+        return Err(CatalogReadError::Message(
+            "catalogue URL contains control characters".to_string(),
+        ));
+    }
+    let mut child = Command::new("curl")
+        .args([
+            "--fail",
+            "--silent",
+            "--show-error",
+            "--location",
+            "--proto",
+            "=https",
+            "--tlsv1.2",
+            "--connect-timeout",
+            "15",
+            "--max-time",
+            "60",
+            "--output",
+            "-",
+            "--",
+            source_text.as_ref(),
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| CatalogReadError::Message(format!("start curl: {error}")))?;
+
+    let result = (|| {
+        let mut stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| CatalogReadError::Message("curl stdout was not captured".to_string()))?;
+        let mut bytes = Vec::new();
+        let mut buffer = [0u8; 64 * 1024];
+        loop {
+            let read = stdout
+                .read(&mut buffer)
+                .map_err(|error| CatalogReadError::Message(format!("read catalog: {error}")))?;
+            if read == 0 {
+                break;
+            }
+            if bytes.len().saturating_add(read) > MAX_REMOTE_CATALOG_BYTES {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(CatalogReadError::Message(format!(
+                    "remote catalogue exceeds {} bytes",
+                    MAX_REMOTE_CATALOG_BYTES
+                )));
+            }
+            bytes.extend_from_slice(&buffer[..read]);
+        }
+        let status = child
+            .wait()
+            .map_err(|error| CatalogReadError::Message(format!("wait for curl: {error}")))?;
+        if !status.success() {
+            let stderr = child
+                .stderr
+                .take()
+                .map(|mut stderr| {
+                    let mut text = String::new();
+                    let _ = stderr.read_to_string(&mut text);
+                    text
+                })
+                .unwrap_or_default();
+            return Err(CatalogReadError::Message(format!(
+                "curl exited with {status}: {}",
+                stderr.trim()
+            )));
+        }
+        Ok(bytes)
+    })();
+    if result.is_err() && child.try_wait().ok().flatten().is_none() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+    result
+}
 
 fn main() {
     let _ = tracing_subscriber::fmt::try_init();
@@ -130,33 +238,43 @@ impl CatalogStore {
             },
         };
         let mut load_error = None;
-        let entries = match std::fs::read(&path) {
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
-            Err(error) => {
-                load_error = Some(format!("catalog read failed: {error}"));
-                Vec::new()
-            }
-            Ok(bytes) => {
-                let Some(store) = trust_store.as_ref() else {
-                    load_error = Some(format!(
-                        "signed catalog requires trust store {}",
-                        trust_path.display()
-                    ));
-                    return Self {
-                        entries: Vec::new(),
-                        source,
-                        trust_store: None,
-                        load_error,
+        let remote_without_trust =
+            trust_store.is_none() && path.to_string_lossy().starts_with("https://");
+        let entries = if remote_without_trust {
+            load_error = Some(format!(
+                "signed catalog requires trust store {}",
+                trust_path.display()
+            ));
+            Vec::new()
+        } else {
+            match read_catalog_source(&path) {
+                Err(CatalogReadError::Missing) => Vec::new(),
+                Err(CatalogReadError::Message(error)) => {
+                    load_error = Some(format!("catalog read failed: {error}"));
+                    Vec::new()
+                }
+                Ok(bytes) => {
+                    let Some(store) = trust_store.as_ref() else {
+                        load_error = Some(format!(
+                            "signed catalog requires trust store {}",
+                            trust_path.display()
+                        ));
+                        return Self {
+                            entries: Vec::new(),
+                            source,
+                            trust_store: None,
+                            load_error,
+                        };
                     };
-                };
-                match parse_signed_catalog(&bytes).and_then(|catalog| {
-                    catalog.verify(store)?;
-                    Ok(catalog.entries)
-                }) {
-                    Ok(entries) => entries,
-                    Err(error) => {
-                        load_error = Some(format!("catalog authentication failed: {error:?}"));
-                        Vec::new()
+                    match parse_signed_catalog(&bytes).and_then(|catalog| {
+                        catalog.verify(store)?;
+                        Ok(catalog.entries)
+                    }) {
+                        Ok(entries) => entries,
+                        Err(error) => {
+                            load_error = Some(format!("catalog authentication failed: {error:?}"));
+                            Vec::new()
+                        }
                     }
                 }
             }
@@ -293,14 +411,6 @@ fn trust_store_path() -> PathBuf {
         .map(PathBuf::from)
         .unwrap_or_else(|| home_dir().join(".config"));
     config_root.join("slopos-i").join("appstore-trust.json")
-}
-
-fn resolve_archive_url(url: &str) -> PathBuf {
-    if let Some(rest) = url.strip_prefix("file://") {
-        PathBuf::from(rest)
-    } else {
-        PathBuf::from(url)
-    }
 }
 
 /// Best-effort rescan signal for the shell (Task 3.10 confirms runtime pickup).
@@ -596,7 +706,6 @@ impl AppStoreView {
             self.backend.app_details(&entry.name).state,
             AppInstallState::Installed
         );
-        let archive = resolve_archive_url(&entry.url);
         let install_dir = default_install_dir();
         self.progress_bar.indeterminate = true;
         self.progress_label.text = format!(
@@ -624,7 +733,7 @@ impl AppStoreView {
             self.progress_label.text = self.status.text.clone();
             return;
         };
-        match install_signed_archive(&archive, &entry, trust_store, &install_dir) {
+        match install_signed_url(&entry.url, &entry, trust_store, &install_dir) {
             Ok(path) => {
                 self.progress_bar.indeterminate = false;
                 self.progress_bar.value = 1.0;
@@ -1282,5 +1391,29 @@ mod tests {
         view.category_index = 6;
         view.apply_category_filter();
         assert!(!view.results.items.is_empty());
+    }
+
+    #[test]
+    fn catalog_source_reads_local_file_and_reports_missing_sources() {
+        let path = std::env::temp_dir().join(format!(
+            "slopos-catalog-source-{}-{}.json",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("test")
+        ));
+        std::fs::write(&path, br"{}\n").expect("write catalog fixture");
+        assert_eq!(read_catalog_source(&path), Ok(br"{}\n".to_vec()));
+        std::fs::remove_file(&path).ok();
+        assert_eq!(read_catalog_source(&path), Err(CatalogReadError::Missing));
+    }
+
+    #[test]
+    fn catalog_source_rejects_insecure_urls() {
+        let error = read_catalog_source(&PathBuf::from("http://example.invalid/catalog.json"))
+            .expect_err("plain HTTP catalogues must fail closed");
+        assert!(matches!(
+            error,
+            CatalogReadError::Message(message)
+                if message.contains("https://")
+        ));
     }
 }

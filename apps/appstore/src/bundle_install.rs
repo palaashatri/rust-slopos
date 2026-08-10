@@ -11,8 +11,9 @@
 
 use std::collections::HashSet;
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::{Component, Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -238,6 +239,8 @@ impl TrustStore {
 #[derive(Debug, Eq, PartialEq)]
 pub enum InstallError {
     Io(String),
+    Download(String),
+    ArchiveTooLarge { limit: u64 },
     Checksum { expected: String, got: String },
     Extract(String),
     NoDotApp,
@@ -249,6 +252,203 @@ pub enum InstallError {
     PublisherMismatch { key_id: String, publisher: String },
     InvalidTrustStore(String),
     ArchiveSizeMismatch { expected: u64, got: u64 },
+}
+
+/// Maximum archive size accepted from a remote catalogue URL before
+/// authentication and extraction. This bounds both disk use and the amount
+/// of untrusted data the installer will process.
+pub const MAX_REMOTE_ARCHIVE_BYTES: u64 = 512 * 1024 * 1024;
+
+/// A resolved package archive. Local `file://`/path entries refer to an
+/// existing regular file; HTTPS entries are downloaded into a uniquely named
+/// private temporary file and must be removed by the caller after installation
+/// (or failure).
+#[derive(Debug, Eq, PartialEq)]
+pub struct ResolvedArchive {
+    pub path: PathBuf,
+    pub temporary: bool,
+}
+
+/// Resolve a signed catalogue archive URL without weakening archive
+/// authentication. Only local files and HTTPS are accepted; plain HTTP and
+/// arbitrary URI schemes fail closed. HTTPS transfers use curl's TLS and
+/// certificate validation, stream into a create-new temporary file, enforce a
+/// bounded size, and return the process error to the UI.
+pub fn resolve_archive_url(
+    url: &str,
+    download_dir: &Path,
+) -> Result<ResolvedArchive, InstallError> {
+    let url = url.trim();
+    if url.is_empty() || url.chars().any(char::is_control) {
+        return Err(InstallError::Download(
+            "archive URL must be non-empty and contain no control characters".to_string(),
+        ));
+    }
+
+    let local_path = if let Some(path) = url.strip_prefix("file://") {
+        Some(PathBuf::from(path))
+    } else if !url.contains("://") {
+        Some(PathBuf::from(url))
+    } else {
+        None
+    };
+    if let Some(path) = local_path {
+        let metadata = fs::symlink_metadata(&path).map_err(|error| {
+            InstallError::Download(format!(
+                "local archive {} is unavailable: {error}",
+                path.display()
+            ))
+        })?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(InstallError::Download(format!(
+                "local archive {} must be a regular non-symlink file",
+                path.display()
+            )));
+        }
+        return Ok(ResolvedArchive {
+            path,
+            temporary: false,
+        });
+    }
+
+    if !url.starts_with("https://") {
+        return Err(InstallError::Download(
+            "only file:// paths and https:// archive URLs are supported".to_string(),
+        ));
+    }
+    if !command_exists("curl") {
+        return Err(InstallError::Download(
+            "curl is required for HTTPS package retrieval".to_string(),
+        ));
+    }
+
+    fs::create_dir_all(download_dir).map_err(|error| InstallError::Io(error.to_string()))?;
+    let target = unique_child_path(download_dir, "download");
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&target)
+        .map_err(|error| InstallError::Download(format!("create download file: {error}")))?;
+
+    let mut child = Command::new("curl")
+        .args([
+            "--fail",
+            "--silent",
+            "--show-error",
+            "--location",
+            "--proto",
+            "=https",
+            "--tlsv1.2",
+            "--connect-timeout",
+            "15",
+            "--max-time",
+            "120",
+            "--output",
+            "-",
+            "--",
+            url,
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| {
+            let _ = fs::remove_file(&target);
+            InstallError::Download(format!("start curl: {error}"))
+        })?;
+
+    let result = (|| {
+        let mut stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| InstallError::Download("curl stdout was not captured".to_string()))?;
+        let mut buffer = [0u8; 64 * 1024];
+        let mut total = 0u64;
+        loop {
+            let read = stdout
+                .read(&mut buffer)
+                .map_err(|error| InstallError::Download(format!("read curl output: {error}")))?;
+            if read == 0 {
+                break;
+            }
+            total = total.saturating_add(read as u64);
+            if total > MAX_REMOTE_ARCHIVE_BYTES {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(InstallError::ArchiveTooLarge {
+                    limit: MAX_REMOTE_ARCHIVE_BYTES,
+                });
+            }
+            file.write_all(&buffer[..read])
+                .map_err(|error| InstallError::Download(format!("write download: {error}")))?;
+        }
+        file.sync_all()
+            .map_err(|error| InstallError::Download(format!("sync download: {error}")))?;
+        let status = child
+            .wait()
+            .map_err(|error| InstallError::Download(format!("wait for curl: {error}")))?;
+        if !status.success() {
+            let stderr = child
+                .stderr
+                .take()
+                .map(|mut stderr| {
+                    let mut text = String::new();
+                    let _ = stderr.read_to_string(&mut text);
+                    text
+                })
+                .unwrap_or_default();
+            return Err(InstallError::Download(format!(
+                "curl exited with {status}: {}",
+                stderr.trim()
+            )));
+        }
+        Ok(ResolvedArchive {
+            path: target.clone(),
+            temporary: true,
+        })
+    })();
+
+    if result.is_err() {
+        if child.try_wait().ok().flatten().is_none() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        let _ = fs::remove_file(&target);
+    }
+    result
+}
+
+/// Remove a temporary archive returned by [`resolve_archive_url`]. Local
+/// catalogue paths are intentionally left untouched.
+pub fn cleanup_resolved_archive(archive: &ResolvedArchive) -> Result<(), InstallError> {
+    if archive.temporary {
+        fs::remove_file(&archive.path).map_err(|error| InstallError::Io(error.to_string()))?;
+    }
+    Ok(())
+}
+
+/// Authenticate catalogue metadata before resolving a remote URL, then
+/// install the verified archive and clean up any downloaded temporary file.
+/// The signature check intentionally precedes network access so an untrusted
+/// entry cannot turn the manager into an arbitrary URL fetcher.
+pub fn install_signed_url(
+    url: &str,
+    entry: &CatalogEntry,
+    trust_store: &TrustStore,
+    install_dir: &Path,
+) -> Result<PathBuf, InstallError> {
+    entry.verify(trust_store, "archive")?;
+    let archive = resolve_archive_url(url, install_dir)?;
+    let result = install_signed_archive(&archive.path, entry, trust_store, install_dir);
+    if let Err(error) = cleanup_resolved_archive(&archive) {
+        tracing::warn!(?error, path = %archive.path.display(), "downloaded archive cleanup failed");
+    }
+    result
+}
+
+fn command_exists(name: &str) -> bool {
+    std::env::var_os("PATH")
+        .map(|paths| std::env::split_paths(&paths).any(|dir| dir.join(name).is_file()))
+        .unwrap_or(false)
 }
 
 fn verify_signed_message(
@@ -1685,6 +1885,47 @@ mod tests {
                 .count(),
             0
         );
+        fs::remove_dir_all(&work).ok();
+    }
+
+    #[test]
+    fn archive_url_resolution_accepts_regular_local_files_only() {
+        let work = test_work("archive-url-local");
+        let (archive, _) = build_tiny_app_tar_gz(&work);
+        let file_url = format!("file://{}", archive.display());
+
+        let resolved = resolve_archive_url(&file_url, &work).expect("file URL should resolve");
+        assert_eq!(resolved.path, archive);
+        assert!(!resolved.temporary);
+        cleanup_resolved_archive(&resolved).expect("local source must not be removed");
+        assert!(archive.is_file());
+
+        for url in [
+            "http://example.invalid/TinyApp.app.tar.gz",
+            "ftp://example.invalid/TinyApp.app.tar.gz",
+            "",
+        ] {
+            assert!(matches!(
+                resolve_archive_url(url, &work),
+                Err(InstallError::Download(_))
+            ));
+        }
+
+        fs::remove_dir_all(&work).ok();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn archive_url_resolution_rejects_symlinked_local_archives() {
+        let work = test_work("archive-url-symlink");
+        let (archive, _) = build_tiny_app_tar_gz(&work);
+        let link = work.join("linked.tar.gz");
+        std::os::unix::fs::symlink(&archive, &link).unwrap();
+
+        assert!(matches!(
+            resolve_archive_url(&format!("file://{}", link.display()), &work),
+            Err(InstallError::Download(message)) if message.contains("regular non-symlink")
+        ));
         fs::remove_dir_all(&work).ok();
     }
 

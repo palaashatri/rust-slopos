@@ -89,9 +89,8 @@ mod linux {
     use std::sync::Mutex as StdMutex;
 
     use crate::portal::{
-        handle_file_chooser_open, handle_file_chooser_save, plan_open_uri,
-        portal_screenshot_uri_for, take_portal_style_screenshot_with, OpenUriAction,
-        PortalFileChooserRequest, PortalScreenshotRequest,
+        plan_open_uri, portal_screenshot_uri_for, take_portal_style_screenshot_with, OpenUriAction,
+        PortalScreenshotRequest,
     };
     use zbus::blocking::connection::Builder as ConnectionBuilder;
     use zbus::blocking::Connection as BlockingConnection;
@@ -196,14 +195,6 @@ mod linux {
         results
     }
 
-    fn uri_results(uris: &[String]) -> HashMap<String, OwnedValue> {
-        let mut results = HashMap::new();
-        if let Ok(value) = OwnedValue::try_from(Value::from(uris.to_vec())) {
-            results.insert("uris".into(), value);
-        }
-        results
-    }
-
     struct PortalScreenshotIface;
 
     #[interface(name = "org.freedesktop.portal.Screenshot")]
@@ -215,9 +206,11 @@ mod linux {
 
         #[zbus(property, name = "AvailableTargets")]
         fn available_targets(&self) -> u32 {
-            // Only whole-output capture is potentially available; window and
-            // area picking are not advertised until those targets are real.
-            1
+            // The current external capture helpers are not compositor-owned
+            // readback and therefore cannot be advertised as a portal target.
+            // Keep this at zero until a real compositor capture backend is
+            // connected; Screenshot still returns a Request/Response error.
+            0
         }
 
         #[zbus(out_args("handle"))]
@@ -291,9 +284,11 @@ mod linux {
             title: &str,
             options: HashMap<String, OwnedValue>,
         ) -> fdo::Result<OwnedObjectPath> {
-            let (response, results) =
-                synthetic_file_open_if_enabled(parent_window, title, &options);
-            complete_request(&header, &options, server, connection, response, results).await
+            let _ = (parent_window, title);
+            tracing::warn!(
+                "standard FileChooser OpenFile failed closed: no interactive chooser backend"
+            );
+            complete_request(&header, &options, server, connection, 2, error_response()).await
         }
 
         #[zbus(out_args("handle"))]
@@ -306,79 +301,11 @@ mod linux {
             title: &str,
             options: HashMap<String, OwnedValue>,
         ) -> fdo::Result<OwnedObjectPath> {
-            let (response, results) =
-                synthetic_file_save_if_enabled(parent_window, title, &options);
-            complete_request(&header, &options, server, connection, response, results).await
-        }
-    }
-
-    fn synthetic_file_open_if_enabled(
-        _parent_window: &str,
-        title: &str,
-        options: &HashMap<String, OwnedValue>,
-    ) -> (u32, HashMap<String, OwnedValue>) {
-        if std::env::var("SLOPOS_PORTAL_ALLOW_SYNTHETIC_SELECTION")
-            .ok()
-            .as_deref()
-            != Some("1")
-        {
-            tracing::warn!("standard FileChooser OpenFile failed closed: no interactive chooser");
-            return (2, error_response());
-        }
-        let req = PortalFileChooserRequest {
-            title: title.into(),
-            multiple: option_bool(options, "multiple").unwrap_or(false),
-            directory: option_bool(options, "directory").unwrap_or(false),
-            current_folder: option_string_loose(options, "current_folder"),
-            ..Default::default()
-        };
-        let names = option_string_loose(options, "selected")
-            .map(|selected| {
-                selected
-                    .split(['\n', ','])
-                    .map(str::trim)
-                    .filter(|name| !name.is_empty())
-                    .map(str::to_owned)
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        let refs = names.iter().map(String::as_str).collect::<Vec<_>>();
-        match handle_file_chooser_open(&req, &refs) {
-            Ok(result) if !result.uris.is_empty() => (0, uri_results(&result.uris)),
-            Ok(_) => (1, error_response()),
-            Err(error) => {
-                tracing::warn!(%error, "standard FileChooser OpenFile failed");
-                (2, error_response())
-            }
-        }
-    }
-
-    fn synthetic_file_save_if_enabled(
-        _parent_window: &str,
-        title: &str,
-        options: &HashMap<String, OwnedValue>,
-    ) -> (u32, HashMap<String, OwnedValue>) {
-        if std::env::var("SLOPOS_PORTAL_ALLOW_SYNTHETIC_SELECTION")
-            .ok()
-            .as_deref()
-            != Some("1")
-        {
-            tracing::warn!("standard FileChooser SaveFile failed closed: no interactive chooser");
-            return (2, error_response());
-        }
-        let req = PortalFileChooserRequest {
-            title: title.into(),
-            current_folder: option_string_loose(options, "current_folder"),
-            current_name: option_string_loose(options, "current_name"),
-            ..Default::default()
-        };
-        match handle_file_chooser_save(&req, option_bool(options, "confirm").unwrap_or(true)) {
-            Ok(result) if !result.uris.is_empty() => (0, uri_results(&result.uris)),
-            Ok(_) => (1, error_response()),
-            Err(error) => {
-                tracing::warn!(%error, "standard FileChooser SaveFile failed");
-                (2, error_response())
-            }
+            let _ = (parent_window, title);
+            tracing::warn!(
+                "standard FileChooser SaveFile failed closed: no interactive chooser backend"
+            );
+            complete_request(&header, &options, server, connection, 2, error_response()).await
         }
     }
 

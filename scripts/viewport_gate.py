@@ -412,6 +412,10 @@ def evaluate(
             raise GateError("state.commit must be a 40-character hexadecimal SHA")
         branch = string_value(required(state, "branch", "state"), "state.branch")
         backend = string_value(required(state, "backend", "state"), "state.backend")
+        if not allow_fixture and backend.lower() == "headless":
+            raise GateError(
+                "runtime viewport gate requires a framebuffer backend; headless output is not capture evidence"
+            )
         evidence["commit"] = commit
         evidence["branch"] = branch
         evidence["backend"] = backend

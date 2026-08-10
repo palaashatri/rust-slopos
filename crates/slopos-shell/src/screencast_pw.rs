@@ -176,12 +176,15 @@ pub fn plan_list_pipewire_nodes() -> PwListNodesPlan {
     }
 }
 
-/// Map discovery sources → portal stream node ids (still may be placeholders).
+/// Map discovery sources to real PipeWire node ids.
+///
+/// A source without `pw_node_id` is only descriptive metadata (for example a
+/// monitor discovered from the compositor).  It must not be converted to the
+/// source's local id because that would fabricate a PipeWire node id for
+/// ScreenCast.Start.  Such sources are omitted until the permission-mediated
+/// PipeWire graph reports an actual node.
 pub fn source_ids_for_portal(sources: &[ScreencastSource]) -> Vec<u32> {
-    sources
-        .iter()
-        .map(|s| s.pw_node_id.unwrap_or(s.id))
-        .collect()
+    sources.iter().filter_map(|s| s.pw_node_id).collect()
 }
 
 /// Whether Start can claim a non-stub backend for this readiness + selection.
@@ -224,7 +227,10 @@ mod tests {
         let src = sources_from_outputs(&[("eDP-1".into(), 1920, 1080)], 100);
         assert_eq!(src.len(), 1);
         assert_eq!(src[0].id, 100);
-        assert_eq!(source_ids_for_portal(&src), vec![100]);
+        assert!(source_ids_for_portal(&src).is_empty());
+        let mut live = src[0].clone();
+        live.pw_node_id = Some(9001);
+        assert_eq!(source_ids_for_portal(&[live]), vec![9001]);
         let plan = plan_list_pipewire_nodes();
         assert_eq!(plan.argv[0], "pw-cli");
     }
