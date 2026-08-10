@@ -2654,11 +2654,6 @@ impl ShellDesktop {
                     );
                 }
             },
-            "shell.undo" | "shell.redo" | "shell.cut" | "shell.copy" | "shell.paste"
-            | "shell.select_all" => self.open_shell_status_window(
-                "Edit",
-                ["This edit command is only available inside document-aware apps.".to_string()],
-            ),
             "shell.show_toolbar" => self.open_shell_status_window(
                 "Toolbar",
                 [

@@ -21,32 +21,10 @@ fn main() {
     let mut app = Application::new("Finder", "com.slopos.finder");
 
     let mut file_menu = build_menu("File");
-    file_menu.add_action("New Finder Window").with_shortcut(
-        KeyCode::N,
-        Modifiers {
-            shift: false,
-            control: false,
-            alt: false,
-            meta: true,
-        },
-    );
     file_menu.add_action("New Folder").with_shortcut(
         KeyCode::N,
         Modifiers {
             shift: true,
-            control: false,
-            alt: false,
-            meta: true,
-        },
-    );
-    file_menu.add_separator();
-    file_menu
-        .add_action("Open")
-        .with_shortcut(KeyCode::O, Modifiers::NONE);
-    file_menu.add_action("Close Window").with_shortcut(
-        KeyCode::W,
-        Modifiers {
-            shift: false,
             control: false,
             alt: false,
             meta: true,
@@ -72,68 +50,22 @@ fn main() {
             meta: true,
         },
     );
-    file_menu.add_action("Empty Trash...");
-
-    let mut edit_menu = build_menu("Edit");
-    edit_menu.add_action("Undo");
-    edit_menu.add_action("Redo");
-    edit_menu.add_separator();
-    edit_menu.add_action("Cut");
-    edit_menu.add_action("Copy");
-    edit_menu.add_action("Paste");
-    edit_menu.add_separator();
-    edit_menu.add_action("Select All");
-
     let mut view_menu = build_menu("View");
-    view_menu.add_action("as Icons");
-    view_menu.add_action("as List");
-    view_menu.add_action("as Columns");
-    view_menu.add_action("as Gallery");
-    view_menu.add_separator();
     view_menu.add_action("Show Status Bar");
     view_menu.add_action("Show Sidebar");
-    view_menu.add_separator();
-    view_menu.add_action("Enter Fullscreen").with_shortcut(
-        KeyCode::F,
-        Modifiers {
-            shift: false,
-            control: false,
-            alt: false,
-            meta: true,
-        },
-    );
 
     let mut go_menu = build_menu("Go");
     go_menu.add_action("Back");
     go_menu.add_action("Forward");
     go_menu.add_separator();
     go_menu.add_action("Enclosing Folder");
-    go_menu.add_separator();
-    go_menu.add_action("Recent Folders");
-    go_menu.add_action("Documents");
-    go_menu.add_action("Desktop");
-    go_menu.add_action("Downloads");
     go_menu.add_action("Home");
-    go_menu.add_action("Applications");
-    go_menu.add_action("Utilities");
 
     let mut window_menu = build_menu("Window");
     window_menu.add_action("Minimize");
     window_menu.add_action("Zoom");
-    window_menu.add_separator();
-    window_menu.add_action("Show All");
 
-    let mut help_menu = build_menu("Help");
-    help_menu.add_action("Finder Help");
-
-    app.set_menus(vec![
-        file_menu,
-        edit_menu,
-        view_menu,
-        go_menu,
-        window_menu,
-        help_menu,
-    ]);
+    app.set_menus(vec![file_menu, view_menu, go_menu, window_menu]);
 
     // The global menu is rendered by slopos-shell, but application commands
     // stay in Finder. The SDK delivers the namespaced action over the

@@ -60,33 +60,10 @@ fn main() {
         },
     );
 
-    let mut edit_menu = build_menu("Edit");
-    edit_menu.add_action("Copy").with_shortcut(
-        KeyCode::C,
-        Modifiers {
-            shift: false,
-            control: false,
-            alt: false,
-            meta: true,
-        },
-    );
-    edit_menu.add_action("Paste").with_shortcut(
-        KeyCode::V,
-        Modifiers {
-            shift: false,
-            control: false,
-            alt: false,
-            meta: true,
-        },
-    );
-
     let mut window_menu = build_menu("Window");
     window_menu.add_action("Minimize");
 
-    let mut help_menu = build_menu("Help");
-    help_menu.add_action("App Store Help");
-
-    app.set_menus(vec![store_menu, edit_menu, window_menu, help_menu]);
+    app.set_menus(vec![store_menu, window_menu]);
 
     app.on_menu_action(|action, window| {
         let Some(content) = window.content.as_mut() else {

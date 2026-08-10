@@ -64,16 +64,6 @@ fn main() {
             meta: true,
         },
     );
-    file_menu.add_separator();
-    file_menu.add_action("Close").with_shortcut(
-        KeyCode::W,
-        Modifiers {
-            shift: false,
-            control: false,
-            alt: false,
-            meta: true,
-        },
-    );
 
     let mut edit_menu = build_menu("Edit");
     edit_menu.add_action("Undo").with_shortcut(
@@ -142,24 +132,11 @@ fn main() {
         },
     );
 
-    let mut format_menu = build_menu("Format");
-    format_menu.add_action("Make Plain Text");
-    format_menu.add_action("Wrap to Window");
-
     let mut window_menu = build_menu("Window");
     window_menu.add_action("Minimize");
     window_menu.add_action("Zoom");
 
-    let mut help_menu = build_menu("Help");
-    help_menu.add_action("TextEdit Help");
-
-    app.set_menus(vec![
-        file_menu,
-        edit_menu,
-        format_menu,
-        window_menu,
-        help_menu,
-    ]);
+    app.set_menus(vec![file_menu, edit_menu, window_menu]);
 
     // Keep document operations in TextEdit while the shell owns only the
     // global menu presentation and compositor-owned window operations.

@@ -34,7 +34,8 @@ fn server_has_desktop_8() -> bool {
 #[test]
 fn test_menu_server() {
     let server = MenuServer::new();
-    assert_eq!(server.menus.len(), 6);
+    assert_eq!(server.menus.len(), 5);
+    assert!(!server.menus.iter().any(|menu| menu.title == "Edit"));
     let window_menu = server
         .menus
         .iter()

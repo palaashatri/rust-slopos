@@ -16,18 +16,6 @@ fn main() {
 
     let mut shell_menu = build_menu("Shell");
     {
-        let item = shell_menu.add_action("New Window");
-        item.with_shortcut(
-            KeyCode::N,
-            Modifiers {
-                shift: false,
-                control: false,
-                alt: false,
-                meta: true,
-            },
-        );
-    }
-    {
         let item = shell_menu.add_action("New Tab");
         item.with_shortcut(
             KeyCode::T,
@@ -52,19 +40,6 @@ fn main() {
             },
         );
     }
-    {
-        let item = shell_menu.add_action("Close Window");
-        item.with_shortcut(
-            KeyCode::W,
-            Modifiers {
-                shift: false,
-                control: false,
-                alt: false,
-                meta: true,
-            },
-        );
-    }
-
     let mut edit_menu = build_menu("Edit");
     {
         let item = edit_menu.add_action("Copy");
@@ -104,24 +79,11 @@ fn main() {
         );
     }
 
-    let mut view_menu = build_menu("View");
-    view_menu.add_action("Zoom In");
-    view_menu.add_action("Zoom Out");
-
     let mut window_menu = build_menu("Window");
     window_menu.add_action("Minimize");
     window_menu.add_action("Zoom");
 
-    let mut help_menu = build_menu("Help");
-    help_menu.add_action("Terminal Help");
-
-    app.set_menus(vec![
-        shell_menu,
-        edit_menu,
-        view_menu,
-        window_menu,
-        help_menu,
-    ]);
+    app.set_menus(vec![shell_menu, edit_menu, window_menu]);
 
     // Menu presentation belongs to the shell; tab and terminal commands are
     // handled by this client over its private application endpoint.

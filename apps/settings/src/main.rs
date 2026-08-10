@@ -31,38 +31,12 @@ fn main() {
     let mut app = Application::new("Settings", "com.slopos.settings");
 
     let mut file_menu = build_menu("File");
-    file_menu.add_action("Close").with_shortcut(
-        KeyCode::W,
-        Modifiers {
-            shift: false,
-            control: false,
-            alt: false,
-            meta: true,
-        },
-    );
-    file_menu.add_separator();
     file_menu.add_action("Show All Settings");
-
-    let mut edit_menu = build_menu("Edit");
-    edit_menu.add_action("Undo");
-    edit_menu.add_action("Redo");
-
-    let mut view_menu = build_menu("View");
-    view_menu.add_action("Show Search");
 
     let mut window_menu = build_menu("Window");
     window_menu.add_action("Minimize");
 
-    let mut help_menu = build_menu("Help");
-    help_menu.add_action("Settings Help");
-
-    app.set_menus(vec![
-        file_menu,
-        edit_menu,
-        view_menu,
-        window_menu,
-        help_menu,
-    ]);
+    app.set_menus(vec![file_menu, window_menu]);
 
     app.on_menu_action(|action, window| {
         let Some(content) = window.content.as_mut() else {

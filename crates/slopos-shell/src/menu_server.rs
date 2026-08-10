@@ -284,81 +284,6 @@ impl MenuServer {
         // capture and a real PipeWire stream.  Keeping the commands hidden is
         // safer than presenting host-X11 helpers as production desktop media.
 
-        let mut edit_menu = Menu::new("Edit");
-        edit_menu
-            .add_action("Undo")
-            .with_action("shell.undo")
-            .with_shortcut(
-                KeyCode::Z,
-                Modifiers {
-                    shift: false,
-                    control: false,
-                    alt: false,
-                    meta: true,
-                },
-            );
-        edit_menu
-            .add_action("Redo")
-            .with_action("shell.redo")
-            .with_shortcut(
-                KeyCode::Z,
-                Modifiers {
-                    shift: true,
-                    control: false,
-                    alt: false,
-                    meta: true,
-                },
-            );
-        edit_menu.add_separator();
-        edit_menu
-            .add_action("Cut")
-            .with_action("shell.cut")
-            .with_shortcut(
-                KeyCode::X,
-                Modifiers {
-                    shift: false,
-                    control: false,
-                    alt: false,
-                    meta: true,
-                },
-            );
-        edit_menu
-            .add_action("Copy")
-            .with_action("shell.copy")
-            .with_shortcut(
-                KeyCode::C,
-                Modifiers {
-                    shift: false,
-                    control: false,
-                    alt: false,
-                    meta: true,
-                },
-            );
-        edit_menu
-            .add_action("Paste")
-            .with_action("shell.paste")
-            .with_shortcut(
-                KeyCode::V,
-                Modifiers {
-                    shift: false,
-                    control: false,
-                    alt: false,
-                    meta: true,
-                },
-            );
-        edit_menu
-            .add_action("Select All")
-            .with_action("shell.select_all")
-            .with_shortcut(
-                KeyCode::A,
-                Modifiers {
-                    shift: false,
-                    control: false,
-                    alt: false,
-                    meta: true,
-                },
-            );
-
         let mut view_menu = Menu::new("View");
         view_menu
             .add_action("Enter Fullscreen")
@@ -378,14 +303,7 @@ impl MenuServer {
         let help_menu = Menu::new("Help");
         // Help search is not exposed until an indexed help service exists.
 
-        self.menus = vec![
-            system_menu,
-            file_menu,
-            edit_menu,
-            view_menu,
-            window_menu,
-            help_menu,
-        ];
+        self.menus = vec![system_menu, file_menu, view_menu, window_menu, help_menu];
     }
 
     pub fn set_app_menus(&mut self, app_id: &str, menus: Vec<Menu>) {
