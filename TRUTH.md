@@ -5,7 +5,7 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`1dd99e4258d1b79b11de1ff8dc09fa922a7504d8`
+`db03c075634f2f362dc9a64b9745f885860562e5`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under

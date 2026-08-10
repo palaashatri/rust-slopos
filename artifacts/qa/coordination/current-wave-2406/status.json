@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "status": "passed",
-  "implementation_commit": "1dd99e4258d1b79b11de1ff8dc09fa922a7504d8",
-  "source_commit_under_test": "1dd99e4258d1b79b11de1ff8dc09fa922a7504d8",
+  "implementation_commit": "db03c075634f2f362dc9a64b9745f885860562e5",
+  "source_commit_under_test": "db03c075634f2f362dc9a64b9745f885860562e5",
   "branch": "codex-complete-spec",
-  "captured_at": "2026-08-10T05:30:40Z",
+  "captured_at": "2026-08-10T05:42:48Z",
   "environment": {
     "vm": "VirtualBox Ubuntu VM",
     "distribution": "Ubuntu 26.04 x86_64",
@@ -29,13 +29,13 @@
   },
   "lockfile_diff": 0,
   "logs": [
-    "slopos-2406c-fmt.log",
-    "slopos-2406c-check.log",
-    "slopos-2406c-test.log",
-    "slopos-2406c-clippy.log",
-    "slopos-2406c-release.log",
-    "slopos-2406c-metadata-readonly.log",
-    "slopos-2406c-lockfile.log"
+    "slopos-db03-fmt.log",
+    "slopos-db03-check.log",
+    "slopos-db03-test.log",
+    "slopos-db03-clippy.log",
+    "slopos-db03-release.log",
+    "slopos-db03-metadata.log",
+    "slopos-db03-lockfile.log"
   ],
   "runtime_viewport": {
     "status": "not_observed",
@@ -49,7 +49,7 @@
   "packaging_stage4": {
     "status": "failed",
     "exit_code": 1,
-    "log": "slopos-2406c-stage4.log",
+    "log": "slopos-db03-stage4.log",
     "reason": "Pre-install VM lacks the installed desktop/session assets; the harness correctly reports three failures and six warnings instead of claiming a release install pass."
   },
   "cleanup": {

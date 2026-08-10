@@ -65,7 +65,7 @@
 
 [0;34m========== Summary ==========[0m
 
-Results written to: /tmp/stage4-results-1786340008.txt
+Results written to: /tmp/stage4-results-1786340598.txt
 
   [0;32mPassed:[0m  15
   [0;31mFailed:[0m  3
@@ -75,7 +75,7 @@ Results written to: /tmp/stage4-results-1786340008.txt
 [0;31m✗ Some tests failed[0m
 
 Stage 4 Verification Results
-Generated: Mon Aug 10 05:33:28 AM UTC 2026
+Generated: Mon Aug 10 05:43:18 AM UTC 2026
 VM: unknown
 
 FAIL: slopos-i.desktop not found
