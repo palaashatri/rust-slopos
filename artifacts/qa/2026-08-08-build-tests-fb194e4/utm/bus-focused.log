@@ -1,0 +1,46 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.37s
+     Running unittests src/lib.rs (target/debug/deps/slopos_bus-97c96d9c3ecdc318)
+
+running 12 tests
+test session_control::tests::activate_application_request_round_trips_through_json ... ok
+test session_control::tests::headless_test_input_request_round_trips_through_json ... ok
+test session_control::tests::listener_drains_switch_workspace_request ... ok
+test session_control::tests::application_listener_drains_typed_menu_requests ... ok
+test session_control::tests::linux_listener_enables_kernel_peer_credentials ... ok
+test session_control::tests::listener_drains_typed_requests ... ok
+test session_control::tests::output_reconfiguration_request_round_trips_through_json ... ok
+test session_control::tests::peer_uid_policy_requires_an_exact_credential_match ... ok
+test session_control::tests::session_control_socket_is_owner_only ... ok
+test session_control::tests::switch_workspace_request_round_trips_through_json ... ok
+test session_control::tests::request_round_trips_through_json ... ok
+test tests::test_slopos_bus_queue_and_dispatch ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/bus_tests.rs (target/debug/deps/bus_tests-adff890d1d775b9d)
+
+running 3 tests
+test test_local_transport ... ok
+test test_service_registry ... ok
+test test_message_creation ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/spaces_protocol.rs (target/debug/deps/spaces_protocol-fe94654bf9990c86)
+
+running 6 tests
+test legacy_spaces_snapshot_defaults_new_authority_fields ... ok
+test move_window_wire_shape_is_explicitly_tagged ... ok
+test spaces_control_commands_round_trip_through_session_control_json ... ok
+test session_control_listener_drains_a_typed_spaces_command ... ok
+test spaces_snapshot_writer_replaces_runtime_file_atomically ... ok
+test spaces_snapshot_round_trip_preserves_revision_order_active_and_counts ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests slopos_bus
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

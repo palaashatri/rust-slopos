@@ -1,0 +1,20 @@
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T05:56:49.744820Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T05:56:51.065870Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T05:56:52.421039Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T05:56:53.748446Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T05:56:55.091453Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T05:56:55.789832Z[0m [32m INFO[0m [2mslopos_compositor::session_drm[0m[2m:[0m applied compositor presentation request [3mwindow_id[0m[2m=[0moDiEEeoxwc8qloLPcH86KFsfzYA2a5X1 [3maction[0m[2m=[0mRestore [3mstate[0m[2m=[0mNormal
+[slopos-compositor/drm] client connected
+[2m2026-08-01T05:56:56.394553Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected

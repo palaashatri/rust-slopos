@@ -1,0 +1,65 @@
+# Base system packages for SLOPOS-I live ISO
+# Add base live packages + SLOPOS-I deps + build tools
+
+# Base system
+base
+linux
+linux-firmware
+intel-ucode
+amd-ucode
+systemd
+systemd-sysvcompat
+efibootmgr
+grub
+dosfstools
+e2fsprogs
+btrfs-progs
+xfsprogs
+
+# SLOPOS-I runtime dependencies (from packaging/deps/arch.txt)
+wayland
+wayland-protocols
+libxkbcommon
+libinput
+seatd
+libdrm
+mesa
+vulkan-icd-loader
+vulkan-swrast
+vulkan-tools
+libdisplay-info
+pixman
+dbus
+at-spi2-core
+fontconfig
+freetype2
+ttf-dejavu
+ttf-liberation
+pipewire
+pipewire-pulse
+wireplumber
+polkit
+xorg-xwayland
+foot
+wl-clipboard
+
+# Build tools (so ISO can build SLOPOS-I if needed)
+base-devel
+pkgconf
+rust
+git
+curl
+wget
+
+# Greeter for session selection
+greetd
+tuigreet
+
+# Development tools
+vim
+nano
+htop
+man-db
+man-pages
+networkmanager
+openssh

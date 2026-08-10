@@ -1,0 +1,18 @@
+DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+HOME=/home/ubuntu
+LANG=en_US.UTF-8
+LC_ALL=C.UTF-8
+LC_CTYPE=C.UTF-8
+LOGNAME=ubuntu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+PWD=/home/ubuntu
+SHELL=/bin/bash
+SHLVL=1
+SSH_CLIENT=192.168.64.1 62512 22
+SSH_CONNECTION=192.168.64.1 62512 192.168.64.15 22
+USER=ubuntu
+XDG_RUNTIME_DIR=/run/user/1000
+XDG_SESSION_CLASS=user
+XDG_SESSION_ID=1041
+XDG_SESSION_TYPE=tty
+_=/usr/bin/env

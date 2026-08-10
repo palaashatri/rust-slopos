@@ -1,7 +1,7 @@
 name = "Settings"
-bundle_id = "com.retro.settings"
+bundle_id = "com.slopos.settings"
 version = "1.0.0"
-author = "Retro Project"
+author = "SLOPOS-I Project"
 minimum_platform = "1.0"
 entrypoint = "Executable/settings"
 file_types = []

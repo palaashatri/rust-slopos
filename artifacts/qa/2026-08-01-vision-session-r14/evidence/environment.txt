@@ -1,0 +1,21 @@
+Sat Aug  1 13:53:15 UTC 2026
+Linux ubuntu 7.0.0-28-generic #28-Ubuntu SMP PREEMPT_DYNAMIC Sun Jun 21 00:50:10 UTC 2026 aarch64 GNU/Linux
+rustc 1.97.1 (8bab26f4f 2026-07-14)
+cargo 1.97.1 (c980f4866 2026-06-30)
+
+Disk:
+Filesystem                         Size  Used Avail Use% Mounted on
+/dev/mapper/ubuntu--vg-ubuntu--lv   30G   16G   13G  56% /
+
+Memory:
+               total        used        free      shared  buff/cache   available
+Mem:           3.3Gi       439Mi       1.4Gi       4.1Mi       1.6Gi       2.9Gi
+Swap:          3.8Gi        87Mi       3.7Gi
+
+GPU/render:
+
+Source hashes:
+e99aac9702acb08d6b99fbbe8887805fafd06329138749adc6ae136d75a5c4e4  crates/slopos-session/src/main.rs
+f85d7ab0b53130919b75266826be250ede95bb9b4c2cf171424b4c6abe4ee205  crates/slopos-visiond/src/main.rs
+c780c90c107e17c21a5fc83f4af7eef71aaeed588ed69af1c1ce39a53af64cb6  crates/slopos-vision-protocol/src/lib.rs
+ccf6e7416892c3bf08c047ec07d819a9824f80555b03c532b789fc1732f411cb  apps/preview/src/viewer.rs

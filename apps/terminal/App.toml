@@ -1,7 +1,7 @@
 name = "Terminal"
-bundle_id = "com.retro.terminal"
+bundle_id = "com.slopos.terminal"
 version = "1.0.0"
-author = "Retro Project"
+author = "SLOPOS-I Project"
 minimum_platform = "1.0"
 entrypoint = "Executable/terminal"
 file_types = []

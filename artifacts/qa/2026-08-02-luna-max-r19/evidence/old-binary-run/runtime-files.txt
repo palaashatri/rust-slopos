@@ -1,0 +1,15 @@
+-rw------- ubuntu ubuntu 47 2026-08-02T07:10:17.7514757500 token
+-rw-rw---- ubuntu ubuntu 0 2026-08-02T07:10:19.0488088490 wayland-1.lock
+-rw-rw-r-- ubuntu ubuntu 10 2026-08-02T07:10:19.0538089080 client-wayland-display
+-rw-rw-r-- ubuntu ubuntu 10 2026-08-02T07:10:19.0538089080 slopos-client-wayland-display
+-rw-rw-r-- ubuntu ubuntu 10 2026-08-02T07:10:19.0538089080 wayland-display
+-rw-rw-r-- ubuntu ubuntu 25 2026-08-02T07:10:20.6798282500 active-toplevel
+-rw-rw-r-- ubuntu ubuntu 96 2026-08-02T07:10:19.0538089080 readiness
+drwx------ ubuntu ubuntu 320 2026-08-02T07:10:20.6798282500 session-18c7eb69fe80700b-3f26-0
+drwx------ ubuntu ubuntu 40 2026-08-02T07:10:17.7514757500 logs
+drwx------ ubuntu ubuntu 40 2026-08-02T07:10:17.8817949670 vision-artifacts
+drwxrwxr-x ubuntu ubuntu 60 2026-08-02T07:10:20.4338253240 slopos-i
+drwxrwxr-x ubuntu ubuntu 60 2026-08-02T07:10:20.6668280960 app-control
+srw------- ubuntu ubuntu 0 2026-08-02T07:10:17.8967951450 vision.sock
+srwxrwxr-x ubuntu ubuntu 0 2026-08-02T07:10:19.0508088730 wayland-1
+srwxrwxr-x ubuntu ubuntu 0 2026-08-02T07:10:19.0538089080 control.sock

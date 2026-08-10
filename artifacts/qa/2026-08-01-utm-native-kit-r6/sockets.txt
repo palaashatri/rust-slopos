@@ -1,0 +1,6 @@
+      266      0 srwxrwxr-x   1 ubuntu   ubuntu          0 Aug  1 06:21 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/app-control/com.slopos.finder.sock
+      256      0 srwxrwxr-x   1 ubuntu   ubuntu          0 Aug  1 06:21 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/control.sock
+      255      0 srwxrwxr-x   1 ubuntu   ubuntu          0 Aug  1 06:21 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/wayland-1
+u_dgr UNCONN 0      0                            /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/control.sock 249434            * 0   
+u_dgr UNCONN 0      0      /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/app-control/com.slopos.finder.sock 250382            * 0   
+u_str LISTEN 0      4096                            /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/wayland-1 249433            * 0   

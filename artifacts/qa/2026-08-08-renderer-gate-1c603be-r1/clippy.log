@@ -1,0 +1,8 @@
+COMMAND clippy
+    Checking slopos-fonts v0.1.0 (/home/ubuntu/rust-slopos-qa-1c603be/crates/slopos-fonts)
+    Checking slopos-bus v0.1.0 (/home/ubuntu/rust-slopos-qa-1c603be/crates/slopos-bus)
+    Checking slopos-render v0.1.0 (/home/ubuntu/rust-slopos-qa-1c603be/crates/slopos-render)
+    Checking slopos-kit v0.1.0 (/home/ubuntu/rust-slopos-qa-1c603be/crates/slopos-kit)
+    Checking slopos-sdk v0.1.0 (/home/ubuntu/rust-slopos-qa-1c603be/crates/slopos-sdk)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.52s
+EXIT clippy=0

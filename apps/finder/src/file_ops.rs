@@ -276,7 +276,7 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let test_root = temp.join(format!("retroshell_finder_test_{}", unique_id));
+        let test_root = temp.join(format!("slopos-i_finder_test_{}", unique_id));
 
         // 1. Create Directory
         create_directory(&test_root).unwrap();
@@ -354,10 +354,7 @@ mod tests {
         let trashed_file_2 = test_root.join(".local/share/Trash/files/to_trash 1.txt");
         assert!(trashed_file_2.exists());
         assert_eq!(fs::read_to_string(&trashed_file).unwrap(), "trash me");
-        assert_eq!(
-            fs::read_to_string(&trashed_file_2).unwrap(),
-            "trash me too"
-        );
+        assert_eq!(fs::read_to_string(&trashed_file_2).unwrap(), "trash me too");
 
         if let Ok(val) = old_home {
             std::env::set_var("HOME", val);
@@ -376,15 +373,14 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("retroshell_finder_test_{label}_{nanos}"));
+        let dir = std::env::temp_dir().join(format!("slopos-i_finder_test_{label}_{nanos}"));
         create_directory(&dir).unwrap();
         dir
     }
 
     #[test]
     fn test_is_cross_device_error_matches_exdev_and_error_kind() {
-        let by_kind =
-            std::io::Error::new(std::io::ErrorKind::CrossesDevices, "cross-device link");
+        let by_kind = std::io::Error::new(std::io::ErrorKind::CrossesDevices, "cross-device link");
         assert!(is_cross_device_error(&by_kind));
 
         let by_raw_os_error = std::io::Error::from_raw_os_error(18);

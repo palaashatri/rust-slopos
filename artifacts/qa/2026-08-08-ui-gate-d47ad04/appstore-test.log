@@ -1,0 +1,36 @@
+COMMAND appstore-test
+   Compiling xattr v1.6.1
+   Compiling filetime v0.2.29
+   Compiling tar v0.4.46
+   Compiling appstore v0.1.0 (/home/ubuntu/rust-slopos-qa-d47ad04/apps/appstore)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.20s
+     Running unittests src/main.rs (target/debug/deps/appstore-1536c1269a496339)
+
+running 23 tests
+test bundle_install::tests::install_from_archive_checksum_mismatch ... ok
+test bundle_install::tests::parse_catalog_reads_entries ... ok
+test bundle_install::tests::replacement_failure_restores_previous_bundle ... ok
+test bundle_install::tests::install_from_archive_roundtrip ... ok
+test bundle_install::tests::extraction_rejects_absolute_and_parent_paths ... ok
+test bundle_install::tests::staged_bundle_rejects_unsafe_app_name ... ok
+test bundle_install::tests::staged_bundle_requires_manifest_and_entrypoint ... ok
+test bundle_install::tests::replacement_installs_new_version_after_validation ... ok
+test tests::appstore_does_not_advertise_unimplemented_transaction_controls ... ok
+test bundle_install::tests::staged_bundle_rejects_nested_bundle_layout ... ok
+test tests::appstore_install_requires_catalog_entry ... ok
+test tests::appstore_results_click_selects_app_and_fills_detail ... ok
+test bundle_install::tests::staged_bundle_requires_declared_entrypoint_file ... ok
+test tests::appstore_search_button_click_dispatches_search ... ok
+test tests::appstore_query_click_focuses_field_and_typing_lands_there ... ok
+test tests::catalog_store_search_filters_fallback_featured_apps ... ok
+test tests::appstore_search_reports_featured_on_startup ... ok
+test tests::category_filter_all_returns_all_items ... ok
+test tests::category_filter_keywords_match_subset ... ok
+test tests::featured_list_returns_expected_count ... ok
+test tests::category_index_switches_apply_filter ... ok
+test tests::package_name_extracts_common_result_formats ... ok
+test bundle_install::tests::extraction_rejects_symlink_hardlink_and_device_entries ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+EXIT appstore-test=0

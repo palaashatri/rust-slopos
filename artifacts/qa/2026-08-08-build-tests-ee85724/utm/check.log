@@ -1,0 +1,13 @@
+
+===== check =====
+    Checking slopos-kit v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-kit)
+    Checking slopos-sdk v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-sdk)
+    Checking slopos-shell v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-shell)
+    Checking appstore v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/appstore)
+    Checking terminal v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/terminal)
+    Checking finder v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/finder)
+    Checking preview v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/preview)
+    Checking textedit v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/textedit)
+    Checking settings v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/settings)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.84s
+exit=0

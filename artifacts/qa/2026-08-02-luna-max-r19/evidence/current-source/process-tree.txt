@@ -1,0 +1,7 @@
+  31161       1   31157 S        360  0.0  2064 /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/slopos-session --backend drm
+  31164   31161   31164 Sl       360  0.0 24736  \_ /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/slopos-visiond
+  31165   31161   31165 Sl       360  1.0 114260  \_ /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/slopos-compositor --backend drm
+  31175   31161   31175 Sl       359  9.0 834124  \_ /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/slopos-shell
+  31713       1   31707 Sl       219  1.3 303248 /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/finder
+  31714       1   31707 Sl       219  1.6 290892 /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/settings
+  31715       1   31707 Sl       219  9.1 339644 /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/terminal

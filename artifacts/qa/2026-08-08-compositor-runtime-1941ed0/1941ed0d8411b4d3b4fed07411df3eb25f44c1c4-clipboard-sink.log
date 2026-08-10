@@ -1,0 +1,3 @@
+SLOPOS_CLIPBOARD_OFFER_VERIFIED mimes=text/plain;charset=utf-8,text/plain
+SLOPOS_CLIPBOARD_TRANSFER_VERIFIED bytes=47
+SLOPOS_CLIPBOARD_MISSING_MIME_EOF_VERIFIED mime=application/x-slopos-missing

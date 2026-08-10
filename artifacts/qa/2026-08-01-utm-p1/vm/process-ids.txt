@@ -1,0 +1,4 @@
+session=27344
+compositor=27346
+shell=27348
+runtime=/tmp/slopos-qa-2026-08-01-utm-p1-drm-accept

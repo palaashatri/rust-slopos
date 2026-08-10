@@ -1,0 +1,5 @@
+ 356441       1 Ss   ./target/debug/slopos-session --backend drm
+ 356443  356441 Sl   /home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/slopos-visiond
+ 356444  356441 Sl   /home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/slopos-compositor --backend drm
+ 356454  356441 Sl   /home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/slopos-shell
+ 356692       1 Ssl  ./target/debug/preview /home/ubuntu/qa/2026-08-01-luna-max-r16/qa/input-small.jpeg

@@ -1,0 +1,17 @@
+/run/user/1000/slopos-i/session-18c7a75457923d78-238248/app-control/com.slopos.finder.sock ubuntu:ubuntu 775
+/run/user/1000/slopos-i/session-18c7a75457923d78-238248/app-control/com.slopos.settings.sock ubuntu:ubuntu 775
+/run/user/1000/slopos-i/session-18c7a75457923d78-238248/control.sock ubuntu:ubuntu 775
+/run/user/1000/slopos-i/session-18c7a75457923d78-238248/wayland-1 ubuntu:ubuntu 775
+total 24
+-rw-rw-r-- 1 ubuntu ubuntu 27 Aug  1 10:24 active-toplevel
+drwxrwxr-x 2 ubuntu ubuntu 80 Aug  1 10:23 app-control
+-rw-rw-r-- 1 ubuntu ubuntu 10 Aug  1 10:22 client-wayland-display
+srwxrwxr-x 1 ubuntu ubuntu  0 Aug  1 10:22 control.sock
+drwx------ 2 ubuntu ubuntu 40 Aug  1 10:22 logs
+-rw-rw-r-- 1 ubuntu ubuntu 80 Aug  1 10:22 readiness
+-rw-rw-r-- 1 ubuntu ubuntu 10 Aug  1 10:22 slopos-client-wayland-display
+drwxrwxr-x 3 ubuntu ubuntu 60 Aug  1 10:22 slopos-i
+-rw------- 1 ubuntu ubuntu 30 Aug  1 10:22 token
+srwxrwxr-x 1 ubuntu ubuntu  0 Aug  1 10:22 wayland-1
+-rw-rw---- 1 ubuntu ubuntu  0 Aug  1 10:22 wayland-1.lock
+-rw-rw-r-- 1 ubuntu ubuntu 10 Aug  1 10:22 wayland-display

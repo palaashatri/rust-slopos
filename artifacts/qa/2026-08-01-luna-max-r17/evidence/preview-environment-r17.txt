@@ -1,0 +1,5 @@
+XDG_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7bfb950aa2b32-365227
+WAYLAND_DISPLAY=wayland-1
+SLOPOS_SESSION_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7bfb950aa2b32-365227
+SLOPOS_VISION_SOCKET=/run/user/1000/slopos-i/session-18c7bfb950aa2b32-365227/vision.sock
+SLOPOS_VISION_ARTIFACT_DIR=/run/user/1000/slopos-i/session-18c7bfb950aa2b32-365227/vision-artifacts

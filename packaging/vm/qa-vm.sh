@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# In-guest QA for the RetroShell VM: the first real DRM/KMS run of
-# retro-compositor. Fetch and run from the guest console:
+# In-guest QA for the SLOPOS-I VM: the first real DRM/KMS run of
+# slopos-compositor. Fetch and run from the guest console:
 #   curl -sL http://10.0.2.2:8000/qa-vm.sh | bash
 #
 # Installs the host's SSH key (so later QA can drive the VM over ssh),
 # pulls the latest branch, rebuilds, then exercises the compositor on the
 # real seat with libinput + KMS.
 set -u
-REPO=/home/retro/retroshell
+REPO=/home/retro/slopos-i
 QA=/home/retro/qa
 BIN=$REPO/target/release
 mkdir -p "$QA"

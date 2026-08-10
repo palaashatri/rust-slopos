@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
-# Unattended Arch Linux install for the RetroShell verification VM.
+# Unattended Arch Linux install for the SLOPOS-I verification VM.
 #
 # Fetched and run from the archiso live environment:
 #   curl -sL http://10.0.2.2:8000/arch-install.sh | bash
 #
-# Produces a machine that boots straight into retro-compositor on real
+# Produces a machine that boots straight into slopos-compositor on real
 # DRM/KMS (VirtualBox VMSVGA -> vmwgfx), which is the environment the
 # project has never actually been tested on.
 set -euxo pipefail
 
 DISK=/dev/sda
-HOSTNAME=retroshell-vm
+HOSTNAME=slopos-i-vm
 USERNAME=retro
 PASSWORD=retro
-REPO_URL="${REPO_URL:-https://github.com/palaashatri/retroshell.git}"
+REPO_URL="${REPO_URL:-https://github.com/palaashatri/slopos-i.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
+HOST_HTTP="${HOST_HTTP:-http://10.0.2.2:8000}"   # host file server (qa_key.pub)
 
 echo "=== clock + mirrors ==="
 timedatectl set-ntp true || true
@@ -32,7 +33,7 @@ mount "${DISK}2" /mnt
 mkdir -p /mnt/boot
 mount "${DISK}1" /mnt/boot
 
-echo "=== pacstrap base system + RetroShell build/runtime deps ==="
+echo "=== pacstrap base system + SLOPOS-I build/runtime deps ==="
 pacstrap -K /mnt \
   base linux linux-firmware \
   networkmanager sudo vim nano git curl wget \
@@ -91,37 +92,44 @@ cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf <<EOF
 ExecStart=
 ExecStart=-/sbin/agetty -o '-p -f -- \\\\u' --noclear --autologin $USERNAME %I \$TERM
 EOF
+
+# Install the host's SSH public key for the retro user (served by Task 0.2).
+install -d -m 700 -o $USERNAME -g $USERNAME /home/$USERNAME/.ssh
+curl -sL $HOST_HTTP/qa_key.pub -o /home/$USERNAME/.ssh/authorized_keys
+chown $USERNAME:$USERNAME /home/$USERNAME/.ssh/authorized_keys
+chmod 600 /home/$USERNAME/.ssh/authorized_keys
 CHROOT
 
-echo "=== clone + build RetroShell as $USERNAME ==="
+echo "=== clone + build SLOPOS-I as $USERNAME ==="
 arch-chroot /mnt /bin/bash -euxo pipefail <<CHROOT
 su - $USERNAME -c '
   set -euxo pipefail
-  git clone --branch "$REPO_BRANCH" "$REPO_URL" ~/retroshell || git clone "$REPO_URL" ~/retroshell
-  cd ~/retroshell
+  git clone --branch "$REPO_BRANCH" "$REPO_URL" ~/slopos-i || git clone "$REPO_URL" ~/slopos-i
+  cd ~/slopos-i
   cargo build --release --workspace 2>&1 | tail -40
-  mkdir -p ~/.config/retroshell
-  cat > ~/.config/retroshell/settings.conf <<EOF
+  mkdir -p ~/.config/slopos-i
+  cat > ~/.config/slopos-i/settings.conf <<EOF
 theme=classic
 appearance=light
 hdr_requested=false
 vrr_adaptive=false
 refresh_rate=60hz
 color_space=srgb
-lock_password=retroshell
+lock_password=slopos-i
 EOF
 '
 CHROOT
 
 echo "=== install session files ==="
 arch-chroot /mnt /bin/bash -euxo pipefail <<CHROOT
-install -Dm755 /home/$USERNAME/retroshell/target/release/retro-compositor /usr/local/bin/retro-compositor
-install -Dm755 /home/$USERNAME/retroshell/target/release/retro-shell      /usr/local/bin/retro-shell
+install -Dm755 /home/$USERNAME/slopos-i/target/release/slopos-compositor /usr/local/bin/slopos-compositor
+install -Dm755 /home/$USERNAME/slopos-i/target/release/slopos-shell      /usr/local/bin/slopos-shell
+install -Dm755 /home/$USERNAME/slopos-i/target/release/slopos-lock       /usr/local/bin/slopos-lock || true
 for a in finder settings textedit terminal appstore; do
-  install -Dm755 /home/$USERNAME/retroshell/target/release/\$a /usr/local/bin/\$a || true
+  install -Dm755 /home/$USERNAME/slopos-i/target/release/\$a /usr/local/bin/\$a || true
 done
-install -Dm755 /home/$USERNAME/retroshell/scripts/start-retroshell /usr/local/bin/start-retroshell || true
-install -Dm644 /home/$USERNAME/retroshell/packaging/retroshell.desktop /usr/share/wayland-sessions/retroshell.desktop || true
+install -Dm755 /home/$USERNAME/slopos-i/scripts/start-slopos-i /usr/local/bin/start-slopos-i || true
+install -Dm644 /home/$USERNAME/slopos-i/packaging/slopos-i.desktop /usr/share/wayland-sessions/slopos-i.desktop || true
 CHROOT
 
 echo "=== done; rebooting into the installed system ==="

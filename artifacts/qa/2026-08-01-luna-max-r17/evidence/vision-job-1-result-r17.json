@@ -1,0 +1,2 @@
+{"protocol_version":1,"payload":{"type":"job_result","job_id":"job-1","operation":"extract_text","status":"succeeded","result":{"operation":"extract_text","full_text":"日且\n1","lines":[{"text":"日且","bounds":{"x":61,"y":72,"width":66,"height":15},"confidence_milli":511,"words":[{"text":"日且","bounds":{"x":61,"y":72,"width":66,"height":15},"confidence_milli":511}]},{"text":"1","bounds":{"x":49,"y":88,"width":9,"height":9},"confidence_milli":613,"words":[{"text":"1","bounds":{"x":49,"y":88,"width":9,"height":9},"confidence_milli":613}]}]},"error":null}}
+

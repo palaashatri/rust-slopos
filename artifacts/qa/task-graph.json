@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "product": "SLOPOS-I",
+  "branch": "docs/program-design",
+  "objective": "Advance the existing product toward the frozen 100/100 acceptance contract using implementation and reproducible evidence.",
+  "nodes": [
+    {
+      "id": "baseline",
+      "lane": "integration",
+      "status": "completed",
+      "depends_on": [],
+      "acceptance": [
+        "clean branch verified",
+        "mandatory formatting, build, test, clippy and release gates recorded"
+      ]
+    },
+    {
+      "id": "compositor_gap",
+      "lane": "compositor",
+      "status": "completed",
+      "depends_on": ["baseline"],
+      "acceptance": [
+        "bounded production gap selected from current source and evidence",
+        "normal and failure paths tested"
+      ]
+    },
+    {
+      "id": "implementation_wave",
+      "lane": "compositor",
+      "status": "completed",
+      "depends_on": ["compositor_gap"],
+      "acceptance": [
+        "end-to-end behavior connected to the compositor",
+        "no mock-only completion path"
+      ]
+    },
+    {
+      "id": "verification",
+      "lane": "qa",
+      "status": "completed",
+      "depends_on": ["implementation_wave"],
+      "acceptance": [
+        "focused and broad gates pass or are explicitly diagnosed",
+        "evidence records exact commit, command and environment"
+      ]
+    },
+    {
+      "id": "truth_and_delivery",
+      "lane": "integration",
+      "status": "completed",
+      "depends_on": ["verification"],
+      "acceptance": [
+        "TRUTH.md matches current evidence",
+        "focused commit is pushed to docs/program-design"
+      ]
+    }
+  ],
+  "completed_commit": "a688ba527495da2fd2172ab8ccc1effd9d631eed",
+  "evidence": [
+    "2026-08-08-compositor-runtime-a688ba5/build-tests/",
+    "2026-08-08-compositor-runtime-a688ba5/headless/",
+    "2026-08-08-compositor-runtime-a688ba5/topology/"
+  ]
+}

@@ -1,0 +1,12 @@
+$ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+    Checking slopos-kit v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/crates/slopos-kit)
+    Checking slopos-sdk v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/crates/slopos-sdk)
+    Checking slopos-shell v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/crates/slopos-shell)
+    Checking textedit v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/textedit)
+    Checking appstore v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/appstore)
+    Checking finder v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/finder)
+    Checking preview v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/preview)
+    Checking terminal v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/terminal)
+    Checking settings v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/settings)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.98s
+exit=0

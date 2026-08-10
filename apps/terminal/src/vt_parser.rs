@@ -1,3 +1,5 @@
+#![allow(unused_imports, clippy::collapsible_match, clippy::unnecessary_cast)]
+
 use crate::terminal::Terminal;
 use vte::{Params, Perform};
 
@@ -20,7 +22,10 @@ impl<'a> Perform for VtHandler<'a> {
                 // Outside the region, LF just moves the cursor down, stopping at
                 // the last row of the screen without scrolling.
                 let top = self.term.scroll_top;
-                let bottom = self.term.scroll_bottom.min(self.term.rows.saturating_sub(1));
+                let bottom = self
+                    .term
+                    .scroll_bottom
+                    .min(self.term.rows.saturating_sub(1));
                 if self.term.cursor_y == bottom && self.term.cursor_y >= top {
                     self.term.scroll_up();
                 } else if self.term.cursor_y + 1 < self.term.rows {
@@ -62,13 +67,7 @@ impl<'a> Perform for VtHandler<'a> {
         }
     }
 
-    fn csi_dispatch(
-        &mut self,
-        params: &Params,
-        intermediates: &[u8],
-        _ignore: bool,
-        action: char,
-    ) {
+    fn csi_dispatch(&mut self, params: &Params, intermediates: &[u8], _ignore: bool, action: char) {
         // Handle DEC private modes (CSI ? Ps h/l)
         if intermediates.contains(&b'?') {
             let mode: u16 = params
@@ -112,8 +111,8 @@ impl<'a> Perform for VtHandler<'a> {
                 while i < flat.len() {
                     match flat[i] {
                         0 => {
-                            self.term.current_fg = retro_kit::Color::WHITE;
-                            self.term.current_bg = retro_kit::Color::BLACK;
+                            self.term.current_fg = slopos_kit::Color::WHITE;
+                            self.term.current_bg = slopos_kit::Color::BLACK;
                             self.term.current_bold = false;
                             self.term.current_italic = false;
                             self.term.current_underline = false;
@@ -138,7 +137,7 @@ impl<'a> Perform for VtHandler<'a> {
                                 let r = flat[i + 2] as f32 / 255.0;
                                 let g = flat[i + 3] as f32 / 255.0;
                                 let b = flat[i + 4] as f32 / 255.0;
-                                self.term.current_fg = retro_kit::Color::new(r, g, b, 1.0);
+                                self.term.current_fg = slopos_kit::Color::new(r, g, b, 1.0);
                                 i += 4;
                             }
                         }
@@ -153,7 +152,7 @@ impl<'a> Perform for VtHandler<'a> {
                                 let r = flat[i + 2] as f32 / 255.0;
                                 let g = flat[i + 3] as f32 / 255.0;
                                 let b = flat[i + 4] as f32 / 255.0;
-                                self.term.current_bg = retro_kit::Color::new(r, g, b, 1.0);
+                                self.term.current_bg = slopos_kit::Color::new(r, g, b, 1.0);
                                 i += 4;
                             }
                         }
@@ -318,47 +317,42 @@ fn first_param_or(params: &Params, default: u16) -> u16 {
     }
 }
 
-fn map_ansi_color(code: u16) -> retro_kit::Color {
+fn map_ansi_color(code: u16) -> slopos_kit::Color {
     match code {
-        0 => retro_kit::Color::BLACK,
-        1 => retro_kit::Color::new(0.8, 0.0, 0.0, 1.0),
-        2 => retro_kit::Color::new(0.0, 0.8, 0.0, 1.0),
-        3 => retro_kit::Color::new(0.8, 0.8, 0.0, 1.0),
-        4 => retro_kit::Color::new(0.0, 0.0, 0.8, 1.0),
-        5 => retro_kit::Color::new(0.8, 0.0, 0.8, 1.0),
-        6 => retro_kit::Color::new(0.0, 0.8, 0.8, 1.0),
-        _ => retro_kit::Color::WHITE,
+        0 => slopos_kit::Color::BLACK,
+        1 => slopos_kit::Color::new(0.8, 0.0, 0.0, 1.0),
+        2 => slopos_kit::Color::new(0.0, 0.8, 0.0, 1.0),
+        3 => slopos_kit::Color::new(0.8, 0.8, 0.0, 1.0),
+        4 => slopos_kit::Color::new(0.0, 0.0, 0.8, 1.0),
+        5 => slopos_kit::Color::new(0.8, 0.0, 0.8, 1.0),
+        6 => slopos_kit::Color::new(0.0, 0.8, 0.8, 1.0),
+        _ => slopos_kit::Color::WHITE,
     }
 }
 
-fn map_256_color(idx: u16) -> retro_kit::Color {
+fn map_256_color(idx: u16) -> slopos_kit::Color {
     if idx < 8 {
         map_ansi_color(idx)
     } else if idx < 16 {
         match idx {
-            8 => retro_kit::Color::new(0.3, 0.3, 0.3, 1.0),
-            9 => retro_kit::Color::new(1.0, 0.3, 0.3, 1.0),
-            10 => retro_kit::Color::new(0.3, 1.0, 0.3, 1.0),
-            11 => retro_kit::Color::new(1.0, 1.0, 0.3, 1.0),
-            12 => retro_kit::Color::new(0.3, 0.3, 1.0, 1.0),
-            13 => retro_kit::Color::new(1.0, 0.3, 1.0, 1.0),
-            14 => retro_kit::Color::new(0.3, 1.0, 1.0, 1.0),
-            _ => retro_kit::Color::WHITE,
+            8 => slopos_kit::Color::new(0.3, 0.3, 0.3, 1.0),
+            9 => slopos_kit::Color::new(1.0, 0.3, 0.3, 1.0),
+            10 => slopos_kit::Color::new(0.3, 1.0, 0.3, 1.0),
+            11 => slopos_kit::Color::new(1.0, 1.0, 0.3, 1.0),
+            12 => slopos_kit::Color::new(0.3, 0.3, 1.0, 1.0),
+            13 => slopos_kit::Color::new(1.0, 0.3, 1.0, 1.0),
+            14 => slopos_kit::Color::new(0.3, 1.0, 1.0, 1.0),
+            _ => slopos_kit::Color::WHITE,
         }
     } else if idx < 232 {
         let cube_idx = idx - 16;
         let r = (cube_idx / 36) % 6;
         let g = (cube_idx / 6) % 6;
         let b = cube_idx % 6;
-        retro_kit::Color::new(
-            r as f32 / 5.0,
-            g as f32 / 5.0,
-            b as f32 / 5.0,
-            1.0,
-        )
+        slopos_kit::Color::new(r as f32 / 5.0, g as f32 / 5.0, b as f32 / 5.0, 1.0)
     } else {
         let gray = (idx - 232) as f32 / 23.0;
-        retro_kit::Color::new(gray, gray, gray, 1.0)
+        slopos_kit::Color::new(gray, gray, gray, 1.0)
     }
 }
 
@@ -481,7 +475,7 @@ mod tests {
         assert_eq!(term.grid[3].c, ' '); // cleared
         assert_eq!(term.grid[4].c, ' '); // cleared (whole next row erased too)
         assert_eq!(term.grid[7].c, ' '); // cleared
-        // ED does not move the cursor.
+                                         // ED does not move the cursor.
         assert_eq!(term.cursor_x, 2);
         assert_eq!(term.cursor_y, 0);
     }
@@ -524,7 +518,7 @@ mod tests {
         assert_eq!(term.grid[2 * term.cols].c, '3');
         assert_eq!(term.grid[3 * term.cols].c, ' '); // new blank line at the margin
         assert_eq!(term.grid[4 * term.cols].c, '4'); // below region: untouched
-        // Cursor stays pinned to the bottom margin, not the screen bottom.
+                                                     // Cursor stays pinned to the bottom margin, not the screen bottom.
         assert_eq!(term.cursor_y, 3);
     }
 

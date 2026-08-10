@@ -1,0 +1,365 @@
+[2m2026-08-01T04:06:20.260276Z[0m [32m INFO[0m [2mterminal::tabs[0m[2m:[0m Opening tab 1 (Shell 1) with PID 61919
+[2m2026-08-01T04:06:20.260724Z[0m [32m INFO[0m [2mslopos_sdk[0m[2m:[0m Application 'Terminal' started
+[2m2026-08-01T04:06:20.320599Z[0m [31mERROR[0m [2msctk_adwaita::config[0m[2m:[0m XDG Settings Portal did not return response in time: timeout: 100ms, key: color-scheme
+[2m2026-08-01T04:06:20.353680Z[0m [33m WARN[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m InstanceFlags::VALIDATION requested, but unable to find layer: VK_LAYER_KHRONOS_validation
+[2m2026-08-01T04:06:20.353751Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	No valid vk_loader_settings.json file found, no loader settings will be active
+[2m2026-08-01T04:06:20.353784Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.353797Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Searching for implicit layer manifest files
+[2m2026-08-01T04:06:20.353804Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.353810Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   In following locations:
+[2m2026-08-01T04:06:20.353816Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.353822Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /home/ubuntu/.config/vulkan/implicit_layer.d
+[2m2026-08-01T04:06:20.353828Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.353834Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /etc/xdg/vulkan/implicit_layer.d
+[2m2026-08-01T04:06:20.353840Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.353845Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /etc/vulkan/implicit_layer.d
+[2m2026-08-01T04:06:20.353851Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.353856Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /home/ubuntu/.local/share/vulkan/implicit_layer.d
+[2m2026-08-01T04:06:20.353862Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.353868Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/local/share/vulkan/implicit_layer.d
+[2m2026-08-01T04:06:20.353874Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.353879Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/implicit_layer.d
+[2m2026-08-01T04:06:20.353886Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.353907Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   Found the following files:
+[2m2026-08-01T04:06:20.353915Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.353921Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json
+[2m2026-08-01T04:06:20.353927Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.353942Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
+[2m2026-08-01T04:06:20.353948Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.353961Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found manifest file /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json (file version 1.2.1)
+[2m2026-08-01T04:06:20.353968Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.353983Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found manifest file /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json (file version 1.0.0)
+[2m2026-08-01T04:06:20.353990Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354002Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Searching for explicit layer manifest files
+[2m2026-08-01T04:06:20.354008Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354014Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   In following locations:
+[2m2026-08-01T04:06:20.354019Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354025Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /home/ubuntu/.config/vulkan/explicit_layer.d
+[2m2026-08-01T04:06:20.354035Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354041Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /etc/xdg/vulkan/explicit_layer.d
+[2m2026-08-01T04:06:20.354046Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354052Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /etc/vulkan/explicit_layer.d
+[2m2026-08-01T04:06:20.354058Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354063Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /home/ubuntu/.local/share/vulkan/explicit_layer.d
+[2m2026-08-01T04:06:20.354069Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354074Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/local/share/vulkan/explicit_layer.d
+[2m2026-08-01T04:06:20.354080Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354086Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/explicit_layer.d
+[2m2026-08-01T04:06:20.354091Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354110Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   Found the following files:
+[2m2026-08-01T04:06:20.354117Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354127Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/explicit_layer.d/VkLayer_MESA_screenshot.json
+[2m2026-08-01T04:06:20.354135Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354142Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/explicit_layer.d/VkLayer_MESA_overlay.json
+[2m2026-08-01T04:06:20.354148Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354154Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/explicit_layer.d/VkLayer_INTEL_nullhw.json
+[2m2026-08-01T04:06:20.354161Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354181Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found manifest file /usr/share/vulkan/explicit_layer.d/VkLayer_MESA_screenshot.json (file version 1.0.0)
+[2m2026-08-01T04:06:20.354191Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354204Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found manifest file /usr/share/vulkan/explicit_layer.d/VkLayer_MESA_overlay.json (file version 1.0.0)
+[2m2026-08-01T04:06:20.354212Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354224Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found manifest file /usr/share/vulkan/explicit_layer.d/VkLayer_INTEL_nullhw.json (file version 1.0.0)
+[2m2026-08-01T04:06:20.354403Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354418Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Searching for driver manifest files
+[2m2026-08-01T04:06:20.354425Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354430Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   In following locations:
+[2m2026-08-01T04:06:20.354436Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354442Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /home/ubuntu/.config/vulkan/icd.d
+[2m2026-08-01T04:06:20.354448Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354454Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /etc/xdg/vulkan/icd.d
+[2m2026-08-01T04:06:20.354460Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354465Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /etc/vulkan/icd.d
+[2m2026-08-01T04:06:20.354471Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354477Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /home/ubuntu/.local/share/vulkan/icd.d
+[2m2026-08-01T04:06:20.354483Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354488Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/local/share/vulkan/icd.d
+[2m2026-08-01T04:06:20.354505Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354513Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d
+[2m2026-08-01T04:06:20.354520Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354555Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   Found the following files:
+[2m2026-08-01T04:06:20.354563Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354570Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/nouveau_icd.json
+[2m2026-08-01T04:06:20.354577Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354582Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/broadcom_icd.json
+[2m2026-08-01T04:06:20.354588Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354598Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/panfrost_icd.json
+[2m2026-08-01T04:06:20.354604Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354610Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/freedreno_icd.json
+[2m2026-08-01T04:06:20.354620Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354626Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/gfxstream_vk_icd.json
+[2m2026-08-01T04:06:20.354632Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354638Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/virtio_icd.json
+[2m2026-08-01T04:06:20.354644Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354649Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/asahi_icd.json
+[2m2026-08-01T04:06:20.354655Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354660Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/lvp_icd.json
+[2m2026-08-01T04:06:20.354666Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354672Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/intel_icd.json
+[2m2026-08-01T04:06:20.354678Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354683Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/powervr_mesa_icd.json
+[2m2026-08-01T04:06:20.354689Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354697Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/radeon_icd.json
+[2m2026-08-01T04:06:20.354703Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354715Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/nouveau_icd.json, version 1.0.1
+[2m2026-08-01T04:06:20.354722Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354758Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/broadcom_icd.json, version 1.0.1
+[2m2026-08-01T04:06:20.354766Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354782Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/panfrost_icd.json, version 1.0.1
+[2m2026-08-01T04:06:20.354790Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354806Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/freedreno_icd.json, version 1.0.1
+[2m2026-08-01T04:06:20.354814Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354828Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/gfxstream_vk_icd.json, version 1.0.1
+[2m2026-08-01T04:06:20.354835Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354848Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/virtio_icd.json, version 1.0.1
+[2m2026-08-01T04:06:20.354857Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354870Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/asahi_icd.json, version 1.0.1
+[2m2026-08-01T04:06:20.354878Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354892Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/lvp_icd.json, version 1.0.1
+[2m2026-08-01T04:06:20.354899Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354913Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/intel_icd.json, version 1.0.1
+[2m2026-08-01T04:06:20.354919Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354932Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/powervr_mesa_icd.json, version 1.0.1
+[2m2026-08-01T04:06:20.354939Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.354953Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/radeon_icd.json, version 1.0.1
+[2m2026-08-01T04:06:20.354964Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355217Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Insert instance layer "VK_LAYER_MESA_device_select" (/usr/lib/aarch64-linux-gnu/libVkLayer_MESA_device_select.so)
+[2m2026-08-01T04:06:20.355289Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355300Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	vkCreateInstance layer callstack setup to:
+[2m2026-08-01T04:06:20.355306Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355313Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Application>
+[2m2026-08-01T04:06:20.355319Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355325Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T04:06:20.355332Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355339Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Loader>
+[2m2026-08-01T04:06:20.355344Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355350Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T04:06:20.355357Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355362Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   VK_LAYER_MESA_device_select
+[2m2026-08-01T04:06:20.355368Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355373Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           Type: Implicit
+[2m2026-08-01T04:06:20.355379Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355384Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           Enabled By: Implicit Layer
+[2m2026-08-01T04:06:20.355390Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355395Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	               Disable Env Var:  NODEVICE_SELECT
+[2m2026-08-01T04:06:20.355401Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355407Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           Manifest: /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
+[2m2026-08-01T04:06:20.355414Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355419Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           Library:  /usr/lib/aarch64-linux-gnu/libVkLayer_MESA_device_select.so
+[2m2026-08-01T04:06:20.355425Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355439Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T04:06:20.355445Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.355450Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Drivers>
+[2m2026-08-01T04:06:20.355455Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.362400Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m Enabling debug utils
+[2m2026-08-01T04:06:20.364747Z[0m [32m INFO[0m [2mwgpu_hal::gles::egl[0m[2m:[0m Using Wayland platform
+libEGL warning: failed to get driver name for fd -1
+
+libEGL warning: MESA-LOADER: failed to retrieve device information
+
+libEGL warning: failed to get driver name for fd -1
+
+[2m2026-08-01T04:06:20.384719Z[0m [31mERROR[0m [2mwgpu_hal::gles::egl[0m[2m:[0m EGL 'eglInitialize' code 0x3003: DRI2: failed to get driver name
+MESA: error: ZINK: failed to choose pdev
+libEGL warning: egl: failed to create dri2 screen
+[2m2026-08-01T04:06:20.513340Z[0m [33m WARN[0m [2mwgpu_hal::gles::egl[0m[2m:[0m Re-initializing Gles context due to Wayland window
+libEGL warning: failed to get driver name for fd -1
+
+libEGL warning: MESA-LOADER: failed to retrieve device information
+
+libEGL warning: failed to get driver name for fd -1
+
+[2m2026-08-01T04:06:20.542167Z[0m [31mERROR[0m [2mwgpu_hal::gles::egl[0m[2m:[0m EGL 'eglInitialize' code 0x3003: DRI2: failed to get driver name
+MESA: error: ZINK: failed to choose pdev
+libEGL warning: egl: failed to create dri2 screen
+[2m2026-08-01T04:06:20.715896Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	linux_read_sorted_physical_devices:
+[2m2026-08-01T04:06:20.715956Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.715977Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Original order:
+[2m2026-08-01T04:06:20.715991Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.716015Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)
+[2m2026-08-01T04:06:20.716030Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.716041Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Sorted order:
+[2m2026-08-01T04:06:20.716051Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.716062Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)  
+[2m2026-08-01T04:06:20.716074Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.716102Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	linux_read_sorted_physical_devices:
+[2m2026-08-01T04:06:20.716116Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.716129Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Original order:
+[2m2026-08-01T04:06:20.716144Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.716160Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)
+[2m2026-08-01T04:06:20.716189Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.716198Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Sorted order:
+[2m2026-08-01T04:06:20.716204Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.716209Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)  
+[2m2026-08-01T04:06:20.716216Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.734481Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	linux_read_sorted_physical_devices:
+[2m2026-08-01T04:06:20.734530Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.734543Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Original order:
+[2m2026-08-01T04:06:20.734550Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.734564Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)
+[2m2026-08-01T04:06:20.734577Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.734587Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Sorted order:
+[2m2026-08-01T04:06:20.734598Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.734605Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)  
+[2m2026-08-01T04:06:20.734612Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.734624Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	linux_read_sorted_physical_devices:
+[2m2026-08-01T04:06:20.734636Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.734647Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Original order:
+[2m2026-08-01T04:06:20.734657Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.734667Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)
+[2m2026-08-01T04:06:20.734673Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.734679Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Sorted order:
+[2m2026-08-01T04:06:20.734685Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.734690Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)  
+[2m2026-08-01T04:06:20.734696Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.752574Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_radeon.so due to not having any physical devices
+[2m2026-08-01T04:06:20.752637Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.752843Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_powervr_mesa.so due to not having any physical devices
+[2m2026-08-01T04:06:20.752857Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.753000Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_intel.so due to not having any physical devices
+[2m2026-08-01T04:06:20.753012Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.753127Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_asahi.so due to not having any physical devices
+[2m2026-08-01T04:06:20.753140Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.753513Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_virtio.so due to not having any physical devices
+[2m2026-08-01T04:06:20.753558Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.753656Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_gfxstream.so due to not having any physical devices
+[2m2026-08-01T04:06:20.753675Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.753885Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_freedreno.so due to not having any physical devices
+[2m2026-08-01T04:06:20.753963Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.754210Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_panfrost.so due to not having any physical devices
+[2m2026-08-01T04:06:20.754948Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.755089Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_broadcom.so due to not having any physical devices
+[2m2026-08-01T04:06:20.755107Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.755211Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_nouveau.so due to not having any physical devices
+[2m2026-08-01T04:06:20.755222Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.929497Z[0m [32m INFO[0m [2mwgpu_core::instance[0m[2m:[0m Adapter Vulkan AdapterInfo { name: "llvmpipe (LLVM 21.1.8, 128 bits)", vendor: 65541, device: 0, device_type: Cpu, driver: "llvmpipe", driver_info: "Mesa 26.0.3-1ubuntu1 (LLVM 21.1.8)", backend: Vulkan }
+[2m2026-08-01T04:06:20.929775Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Failed to find vkGetDeviceProcAddr in layer "/usr/lib/aarch64-linux-gnu/libVkLayer_MESA_device_select.so"
+[2m2026-08-01T04:06:20.929802Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.929810Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	vkCreateDevice layer callstack setup to:
+[2m2026-08-01T04:06:20.929817Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.929823Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Application>
+[2m2026-08-01T04:06:20.929828Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.929834Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T04:06:20.929839Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.929845Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Loader>
+[2m2026-08-01T04:06:20.929851Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.929856Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T04:06:20.929862Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.929867Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Device>
+[2m2026-08-01T04:06:20.929873Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:20.929943Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	       Using "llvmpipe (LLVM 21.1.8, 128 bits)" with driver: "/usr/lib/aarch64-linux-gnu/libvulkan_lvp.so"
+[2m2026-08-01T04:06:20.929951Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xadc8c51077c0, name: ?)
+[2m2026-08-01T04:06:21.245748Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T04:06:21.438211Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T04:06:21.488631Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0

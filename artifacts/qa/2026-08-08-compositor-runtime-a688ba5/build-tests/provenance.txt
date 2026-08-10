@@ -1,0 +1,3 @@
+291565445dd8fc9ea4e7304fd58738de6a5707cd9d73ec4903dfa3229cb333c7  target/debug/slopos-compositor
+7081fecda6acff7db7ce5b26d3afdb92640da46d592bd7ba2f9a25f5498ee871  target/release/slopos-compositor
+a688ba527495da2fd2172ab8ccc1effd9d631eed

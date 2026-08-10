@@ -1,0 +1,7 @@
+COMMAND appstore-clippy
+    Checking xattr v1.6.1
+    Checking filetime v0.2.29
+    Checking tar v0.4.46
+    Checking appstore v0.1.0 (/home/ubuntu/rust-slopos-qa-d47ad04/apps/appstore)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.22s
+EXIT appstore-clippy=0

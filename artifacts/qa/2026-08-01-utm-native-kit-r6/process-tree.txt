@@ -1,0 +1,189 @@
+USER         PID    PPID    PGID     SID STAT     ELAPSED COMMAND
+root           2       0       0       0 S       04:27:19 [kthreadd]
+root           3       2       0       0 S       04:27:19  \_ [pool_workqueue_release]
+root           4       2       0       0 I<      04:27:19  \_ [kworker/R-rcu_gp]
+root           5       2       0       0 I<      04:27:19  \_ [kworker/R-sync_wq]
+root           6       2       0       0 I<      04:27:19  \_ [kworker/R-kvfree_rcu_reclaim]
+root           7       2       0       0 I<      04:27:19  \_ [kworker/R-slub_flushwq]
+root           8       2       0       0 I<      04:27:19  \_ [kworker/R-netns]
+root          10       2       0       0 I<      04:27:19  \_ [kworker/0:0H-kblockd]
+root          13       2       0       0 I<      04:27:19  \_ [kworker/R-mm_percpu_wq]
+root          14       2       0       0 S       04:27:19  \_ [ksoftirqd/0]
+root          15       2       0       0 I       04:27:19  \_ [rcu_preempt]
+root          16       2       0       0 S       04:27:19  \_ [rcu_exp_par_gp_kthread_worker/0]
+root          17       2       0       0 S       04:27:19  \_ [rcu_exp_gp_kthread_worker]
+root          18       2       0       0 S       04:27:19  \_ [migration/0]
+root          19       2       0       0 S       04:27:19  \_ [idle_inject/0]
+root          20       2       0       0 S       04:27:19  \_ [cpuhp/0]
+root          21       2       0       0 S       04:27:19  \_ [cpuhp/1]
+root          22       2       0       0 S       04:27:19  \_ [idle_inject/1]
+root          23       2       0       0 S       04:27:19  \_ [migration/1]
+root          24       2       0       0 S       04:27:19  \_ [ksoftirqd/1]
+root          26       2       0       0 I<      04:27:19  \_ [kworker/1:0H-kblockd]
+root          27       2       0       0 S       04:27:19  \_ [cpuhp/2]
+root          28       2       0       0 S       04:27:19  \_ [idle_inject/2]
+root          29       2       0       0 S       04:27:19  \_ [migration/2]
+root          30       2       0       0 S       04:27:19  \_ [ksoftirqd/2]
+root          32       2       0       0 I<      04:27:19  \_ [kworker/2:0H-kblockd]
+root          33       2       0       0 S       04:27:19  \_ [cpuhp/3]
+root          34       2       0       0 S       04:27:19  \_ [idle_inject/3]
+root          35       2       0       0 S       04:27:19  \_ [migration/3]
+root          36       2       0       0 S       04:27:19  \_ [ksoftirqd/3]
+root          38       2       0       0 I<      04:27:19  \_ [kworker/3:0H-kblockd]
+root          39       2       0       0 S       04:27:19  \_ [cpuhp/4]
+root          40       2       0       0 S       04:27:19  \_ [idle_inject/4]
+root          41       2       0       0 S       04:27:19  \_ [migration/4]
+root          42       2       0       0 S       04:27:19  \_ [ksoftirqd/4]
+root          44       2       0       0 I<      04:27:19  \_ [kworker/4:0H-kblockd]
+root          45       2       0       0 S       04:27:19  \_ [cpuhp/5]
+root          46       2       0       0 S       04:27:19  \_ [idle_inject/5]
+root          47       2       0       0 S       04:27:19  \_ [migration/5]
+root          48       2       0       0 S       04:27:19  \_ [ksoftirqd/5]
+root          50       2       0       0 I<      04:27:19  \_ [kworker/5:0H-kblockd]
+root          51       2       0       0 S       04:27:19  \_ [cpuhp/6]
+root          52       2       0       0 S       04:27:19  \_ [idle_inject/6]
+root          53       2       0       0 S       04:27:19  \_ [migration/6]
+root          54       2       0       0 S       04:27:19  \_ [ksoftirqd/6]
+root          56       2       0       0 I<      04:27:19  \_ [kworker/6:0H-kblockd]
+root          57       2       0       0 S       04:27:19  \_ [cpuhp/7]
+root          58       2       0       0 S       04:27:19  \_ [idle_inject/7]
+root          59       2       0       0 S       04:27:19  \_ [migration/7]
+root          60       2       0       0 S       04:27:19  \_ [ksoftirqd/7]
+root          62       2       0       0 I<      04:27:19  \_ [kworker/7:0H-kblockd]
+root          63       2       0       0 S       04:27:19  \_ [kdevtmpfs]
+root          64       2       0       0 I<      04:27:19  \_ [kworker/R-inet_frag_wq]
+root          65       2       0       0 I       04:27:19  \_ [rcu_tasks_kthread]
+root          66       2       0       0 I       04:27:19  \_ [rcu_tasks_rude_kthread]
+root          67       2       0       0 S       04:27:19  \_ [kauditd]
+root          68       2       0       0 S       04:27:19  \_ [khungtaskd]
+root          69       2       0       0 S       04:27:19  \_ [oom_reaper]
+root          71       2       0       0 I<      04:27:19  \_ [kworker/R-writeback]
+root          72       2       0       0 S       04:27:19  \_ [kcompactd0]
+root          73       2       0       0 SN      04:27:19  \_ [ksmd]
+root          74       2       0       0 SN      04:27:19  \_ [khugepaged]
+root          75       2       0       0 I<      04:27:19  \_ [kworker/R-kblockd]
+root          76       2       0       0 I<      04:27:19  \_ [kworker/R-blkcg_punt_bio]
+root          77       2       0       0 I<      04:27:19  \_ [kworker/R-kintegrityd]
+root          80       2       0       0 S<      04:27:19  \_ [pr/ttyAMA-1]
+root          81       2       0       0 I<      04:27:19  \_ [kworker/R-tpm_dev_wq]
+root          82       2       0       0 I<      04:27:19  \_ [kworker/R-ata_sff]
+root          83       2       0       0 I<      04:27:19  \_ [kworker/R-md_bitmap]
+root          84       2       0       0 I<      04:27:19  \_ [kworker/R-md_llbitmap_io]
+root          85       2       0       0 I<      04:27:19  \_ [kworker/R-md_llbitmap_unplug]
+root          86       2       0       0 I<      04:27:19  \_ [kworker/R-edac-poller]
+root          87       2       0       0 I<      04:27:19  \_ [kworker/R-devfreq_wq]
+root          88       2       0       0 S       04:27:19  \_ [watchdogd]
+root          89       2       0       0 I<      04:27:19  \_ [kworker/R-quota_events_unbound]
+root          91       2       0       0 S       04:27:19  \_ [kswapd0]
+root          93       2       0       0 S       04:27:19  \_ [ecryptfs-kthread]
+root          94       2       0       0 I<      04:27:19  \_ [kworker/R-kthrotld]
+root          95       2       0       0 S       04:27:19  \_ [irq/49-ACPI:Ged]
+root          96       2       0       0 I<      04:27:19  \_ [kworker/R-acpi_thermal_pm]
+root          99       2       0       0 I<      04:27:19  \_ [kworker/R-mld]
+root         100       2       0       0 I<      04:27:19  \_ [kworker/R-ipv6_addrconf]
+root         101       2       0       0 I<      04:27:19  \_ [kworker/R-kstrp]
+root         106       2       0       0 I<      04:27:19  \_ [kworker/u33:0]
+root         110       2       0       0 I<      04:27:19  \_ [kworker/R-charger_manager]
+root         112       2       0       0 S       04:27:19  \_ [hwrng]
+root         446       2       0       0 S       04:27:18  \_ [card0-crtc0]
+root         482       2       0       0 S       04:27:18  \_ [scsi_eh_0]
+root         483       2       0       0 I<      04:27:18  \_ [kworker/R-scsi_tmf_0]
+root         484       2       0       0 S       04:27:18  \_ [usb-storage]
+root         485       2       0       0 I<      04:27:18  \_ [kworker/R-uas]
+root         513       2       0       0 I<      04:27:17  \_ [kworker/R-kdmflush/252:0]
+root         548       2       0       0 I<      04:27:17  \_ [kworker/3:1H-kblockd]
+root         558       2       0       0 I<      04:27:17  \_ [kworker/1:1H-kblockd]
+root         565       2       0       0 S       04:27:17  \_ [jbd2/dm-0-8]
+root         566       2       0       0 I<      04:27:17  \_ [kworker/R-ext4-rsv-conversion]
+root         817       2       0       0 I<      04:27:16  \_ [kworker/6:1H-kblockd]
+root         868       2       0       0 I<      04:27:16  \_ [kworker/R-kmpathd]
+root         869       2       0       0 I<      04:27:16  \_ [kworker/R-kmpath_handlerd]
+root         874       2       0       0 I<      04:27:16  \_ [kworker/4:1H-kblockd]
+root         897       2       0       0 I<      04:27:16  \_ [kworker/0:1H-kblockd]
+root         898       2       0       0 I<      04:27:16  \_ [kworker/5:1H-kblockd]
+root         901       2       0       0 I<      04:27:16  \_ [kworker/7:1H-kblockd]
+root         913       2       0       0 I<      04:27:16  \_ [kworker/2:1H-kblockd]
+root        1155       2       0       0 S       04:27:15  \_ [jbd2/vda2-8]
+root        1156       2       0       0 I<      04:27:15  \_ [kworker/R-ext4-rsv-conversion]
+root        1379       2       0       0 I<      04:27:15  \_ [kworker/R-cfg80211]
+root       73654       2       0       0 I       01:01:59  \_ [kworker/1:1-events]
+root       80190       2       0       0 I          45:29  \_ [kworker/4:1-events]
+root       80854       2       0       0 I          41:47  \_ [kworker/u32:1-ext4-rsv-conversion]
+root       89593       2       0       0 I          35:57  \_ [kworker/u32:2-events_power_efficient]
+root       91144       2       0       0 I          34:35  \_ [kworker/6:0-events]
+root       96305       2       0       0 I          25:36  \_ [kworker/3:0-events]
+root      104197       2       0       0 S          21:10  \_ [psimon]
+root      104236       2       0       0 I          21:09  \_ [kworker/2:4-mm_percpu_wq]
+root      104239       2       0       0 I          21:09  \_ [kworker/5:5-mm_percpu_wq]
+root      104257       2       0       0 I          21:09  \_ [kworker/7:2-events]
+root      104283       2       0       0 S          21:08  \_ [psimon]
+root      118922       2       0       0 I          20:01  \_ [kworker/u32:3-ext4-rsv-conversion]
+root      122017       2       0       0 I          15:56  \_ [kworker/0:1-events]
+root      122182       2       0       0 I          15:34  \_ [kworker/7:0-mm_percpu_wq]
+root      123453       2       0       0 I          12:15  \_ [kworker/u32:0-ext4-rsv-conversion]
+root      124448       2       0       0 I          10:26  \_ [kworker/0:0-events]
+root      124577       2       0       0 I          10:18  \_ [kworker/7:1-events]
+root      125172       2       0       0 I          09:57  \_ [kworker/6:2-mm_percpu_wq]
+root      125184       2       0       0 I          09:47  \_ [kworker/5:0-mm_percpu_wq]
+root      125579       2       0       0 I          09:20  \_ [kworker/2:1-mm_percpu_wq]
+root      126811       2       0       0 I          07:41  \_ [kworker/u32:5-writeback]
+root      126861       2       0       0 I          07:31  \_ [kworker/3:1-mm_percpu_wq]
+root      127359       2       0       0 I          06:50  \_ [kworker/4:2-mm_percpu_wq]
+root      127914       2       0       0 I          05:55  \_ [kworker/1:0-mm_percpu_wq]
+root      128512       2       0       0 I          04:25  \_ [kworker/6:1-events]
+root      129717       2       0       0 I          04:01  \_ [kworker/0:2-cgwb_release]
+root      130446       2       0       0 I          03:42  \_ [kworker/2:0-mm_percpu_wq]
+root      130557       2       0       0 I          03:26  \_ [kworker/5:1-events]
+root      131195       2       0       0 I          02:10  \_ [kworker/3:2-events]
+root      131561       2       0       0 I          00:57  \_ [kworker/u32:4-flush-252:0]
+root      131562       2       0       0 I          00:57  \_ [kworker/u32:6-ext4-rsv-conversion]
+root      131563       2       0       0 I          00:57  \_ [kworker/u32:7]
+root           1       0       1       1 Ss      04:27:19 /usr/lib/systemd/systemd --system --deserialize=163
+root         890       1     890     890 SLsl    04:27:16 /usr/sbin/multipathd -d -s
+root        1383       1    1383    1383 Ss      04:27:15 /bin/sh /usr/lib/systemd/scripts/chronyd-starter.sh -n -F 1
+_chrony     1484    1383    1383    1383 S       04:27:15  \_ /usr/sbin/chronyd -n -F 1
+_chrony     1518    1484    1383    1383 S       04:27:15      \_ /usr/sbin/chronyd -n -F 1
+message+    1384       1    1384    1384 Ss      04:27:15 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+root        1391       1    1391    1391 Ss      04:27:15 /usr/bin/python3 /usr/bin/networkd-dispatcher --run-startup-triggers
+polkitd     1392       1    1392    1392 Ssl     04:27:15 /usr/lib/polkit-1/polkitd --no-debug --log-level=notice
+root        1395       1    1395    1395 Ss      04:27:15 seatd -g video
+root        1400       1    1400    1400 Ss      04:27:15 /usr/lib/systemd/systemd-logind
+root        1452       1    1452    1452 Ss      04:27:15 /usr/sbin/cron -f -P
+syslog      1460       1    1460    1460 Ssl     04:27:15 /usr/sbin/rsyslogd -n -iNONE
+root        1500       1    1500    1500 Ssl     04:27:15 /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-signal
+root        1507       1    1507    1507 Ss+     04:27:15 /usr/sbin/agetty --noreset --noclear --issue-file=/etc/issue:/etc/issue.d:/run/issue.d:/usr/lib/issue.d --keep-baud 115200,57600,38400,9600 - vt220
+root        1543       1    1543    1543 Ssl     04:27:15 /usr/sbin/ModemManager
+root        1547       1    1547    1547 Ss      04:27:15 login -- ubuntu
+ubuntu      2216    1547    2216    2216 Ss+     04:24:56  \_ -bash
+ubuntu      2193       1    2193    2193 Ss      04:24:57 /usr/lib/systemd/systemd --user --deserialize=12
+ubuntu      2198    2193    2193    2193 S       04:24:56  \_ (sd-pam)
+ubuntu     18674    2193   18674   18674 Ss      03:49:59  \_ /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+ubuntu     21677       1   21638   21638 S       03:48:27 Xvfb :99 -screen 0 1280x800x24 -nolisten tcp
+ubuntu     33740       1   33740   33740 Ss+     03:23:29 /bin/bash
+ubuntu     34005       1   34005   34005 Ss+     03:22:56 /bin/bash
+ubuntu     34497       1   34497   34497 Ss+     03:18:10 /bin/bash
+ubuntu     57045       1   57045   57045 Ss+     02:26:18 /bin/bash
+ubuntu     60813       1   60813   60813 Ss+     02:20:32 /bin/bash
+ubuntu     61347       1   61347   61347 Ss+     02:18:22 /bin/bash
+ubuntu     61919       1   61919   61919 Ss+     02:16:35 /bin/bash
+ubuntu     95579       1   95579   95579 Ss+        27:54 /bin/bash
+root      104215       1  104215  104215 S<s        21:09 /usr/lib/systemd/systemd-journald
+root      104221       1  104221  104221 Ss         21:09 sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
+root      132153  104221  132153  132153 Ss         00:01  \_ sshd-session: ubuntu [priv]
+ubuntu    132216  132153  132153  132153 S          00:00      \_ sshd-session: ubuntu@notty
+ubuntu    132217  132216  132217  132217 Ss         00:00          \_ bash -c artifact=/home/ubuntu/qa/2026-08-01-utm-native-kit-r6; runtime=$(find /run/user/1000/slopos-i -mindepth 1 -maxdepth 1 -type d -name "session-*" -print -quit); printf "%s\n" "$runtime" > "$artifact/runtime-dir.txt"; cat "$runtime/readiness" > "$artifact/readiness.txt"; cat "$runtime/client-wayland-display" >> "$artifact/readiness.txt"; find "$runtime" -maxdepth 2 -printf "%M %u %g %s %p\n" | sort > "$artifact/runtime-files.txt"; ps -eo user,pid,ppid,pgid,sid,stat,etime,args --forest > "$artifact/process-tree.txt"; { printf "runtime=%s\n" "$runtime"; cat "$runtime/readiness"; printf "\nprocess-environments\n"; for pid in $(pgrep -f "slopos-session|slopos-compositor|slopos-shell|target/debug/(finder|settings|textedit|terminal|appstore)"); do printf "PID=%s\n" "$pid"; tr "\\0" "\\n" < "/proc/$pid/environ" | grep -E "^(WAYLAND_DISPLAY|XDG_RUNTIME_DIR|SLOPOS_|DISPLAY|LIBGL|GALLIUM)=" | sort || true; done; } > "$artifact/process-environments.txt"; { find "$runtime" -type s -ls; ss -lx | grep -E "slopos|wayland-" || true; } > "$artifact/sockets.txt"; if [ -f "$runtime/active-toplevel" ]; then cat "$runtime/active-toplevel" > "$artifact/active-toplevel-initial.txt"; fi; printf "runtime=%s\n" "$runtime"; cat "$runtime/readiness"
+ubuntu    132224  132217  132217  132217 R          00:00              \_ ps -eo user,pid,ppid,pgid,sid,stat,etime,args --forest
+systemd+  104253       1  104253  104253 Ss         21:09 /usr/lib/systemd/systemd-resolved
+root      104262       1  104262  104262 Ssl        21:09 /usr/libexec/fwupd/fwupd
+root      104265       1  104265  104265 Ss         21:09 /usr/lib/systemd/systemd-udevd
+root      104266       1  104266  104266 Ssl        21:09 /usr/libexec/udisks2/udisksd
+systemd+  104284       1  104284  104284 Ss         21:08 /usr/lib/systemd/systemd-networkd
+ubuntu    131508       1  131507  131507 S          00:59 target/debug/slopos-session --backend drm
+ubuntu    131509  131508  131509  131507 Sl         00:59  \_ /home/ubuntu/qa/2026-08-01-utm-native-kit-r6/source/target/debug/slopos-compositor --backend drm
+ubuntu    131512  131508  131512  131507 Sl         00:58  \_ /home/ubuntu/qa/2026-08-01-utm-native-kit-r6/source/target/debug/slopos-shell
+ubuntu    131523  131512  131512  131507 Sl         00:58      \_ /home/ubuntu/qa/2026-08-01-utm-native-kit-r6/source/target/debug/finder
+ubuntu    131881       1  131879  131879 Sl         00:28 /home/ubuntu/qa/2026-08-01-utm-native-kit-r6/source/target/debug/settings
+ubuntu    131887       1  131879  131879 Sl         00:27 /home/ubuntu/qa/2026-08-01-utm-native-kit-r6/source/target/debug/textedit
+ubuntu    131943       1  131879  131879 Sl         00:27 /home/ubuntu/qa/2026-08-01-utm-native-kit-r6/source/target/debug/terminal
+ubuntu    131946  131943  131946  131946 Ss+        00:27  \_ /bin/bash
+ubuntu    131993       1  131879  131879 Sl         00:26 /home/ubuntu/qa/2026-08-01-utm-native-kit-r6/source/target/debug/appstore

@@ -1,0 +1,19 @@
+[slopos-compositor] backend: NestedX11 (explicit)
+[2m2026-08-01T10:38:48.178461Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m display policy applied: hdr_requested=false hdr_supported=false vrr_adaptive=false refresh=60hz color_space=srgb color_applied=true
+[slopos-compositor] display policy: hdr_requested=false hdr_supported=false vrr_adaptive=false refresh=60hz color_space=srgb
+[slopos-compositor] text_input=im+text-input-v3
+[slopos-compositor] input_method=zwp_input_method_v2
+[2m2026-08-01T10:38:48.179754Z[0m [32m INFO[0m [1minput_seat[0m[1m{[0m[3mname[0m[2m=[0m"seat0"[1m}[0m[2m:[0m[1madd_keyboard[0m[1m{[0m[3mxkb_config[0m[2m=[0mXkbConfig { rules: "", model: "", layout: "", variant: "", options: None } [3mrepeat_delay[0m[2m=[0m200 [3mrepeat_rate[0m[2m=[0m25[1m}[0m[2m:[0m[1minput_keyboard[0m[2m:[0m [2msmithay::input::keyboard[0m[2m:[0m Initializing a xkbcommon handler with keymap query
+[2m2026-08-01T10:38:48.188339Z[0m [32m INFO[0m [1minput_seat[0m[1m{[0m[3mname[0m[2m=[0m"seat0"[1m}[0m[2m:[0m[1madd_keyboard[0m[1m{[0m[3mxkb_config[0m[2m=[0mXkbConfig { rules: "", model: "", layout: "", variant: "", options: None } [3mrepeat_delay[0m[2m=[0m200 [3mrepeat_rate[0m[2m=[0m25[1m}[0m[2m:[0m[1minput_keyboard[0m[2m:[0m [2msmithay::input::keyboard[0m[2m:[0m Loaded Keymap [3mname[0m[2m=[0m"English (US)"
+[slopos-compositor] session_mode=nested_x11 (not DRM/KMS; SLOPOS owns the nested compositor); output_scale=1/1 (1.00x)
+[slopos-compositor] outputs source=default 1 head(s): X11-1 1024x768@(0,0)
+[2m2026-08-01T10:38:48.190958Z[0m [32m INFO[0m [1mnew[0m[1m{[0m[3mname[0m[2m=[0m"X11-1" [3mphysical[0m[2m=[0mPhysicalProperties { size: Size<smithay::utils::geometry::Raw> { w: 0, h: 0 }, subpixel: Unknown, make: "SLOPOS-I", model: "X11 Output 1" }[1m}[0m[2m:[0m [2msmithay::output[0m[2m:[0m Creating new Output [3mname[0m[2m=[0m"X11-1"
+[2m2026-08-01T10:38:48.191023Z[0m [32m INFO[0m [2msmithay::wayland::output[0m[2m:[0m Creating new wl_output [3moutput[0m[2m=[0m"X11-1"
+[2m2026-08-01T10:38:48.191091Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m wl_output 1 (X11-1) 1024x768 at (0,0) refresh=60000 mHz output_scale=1/1 (1.00x)
+[2m2026-08-01T10:38:48.191099Z[0m [32m INFO[0m [2msmithay::backend::x11[0m[2m:[0m Connecting to the X server
+[2m2026-08-01T10:38:48.196205Z[0m [32m INFO[0m [2msmithay::backend::x11[0m[2m:[0m Connected [3mscreen[0m[2m=[0m0
+[2m2026-08-01T10:38:48.197989Z[0m [32m INFO[0m [2msmithay::backend::x11::extension[0m[2m:[0m Loaded extension Present version 1.0
+[2m2026-08-01T10:38:48.198467Z[0m [32m INFO[0m [2msmithay::backend::x11::extension[0m[2m:[0m Loaded extension XFIXES version 4.0
+[2m2026-08-01T10:38:48.198587Z[0m [31mERROR[0m [2msmithay::backend::x11::extension[0m[2m:[0m required extension DRI3 not found
+Error: requested nested backend could not initialize Smithay X11 transport: Extension "DRI3" version 1.0 was not found.
+slopos-session: slopos-compositor exited during startup: exit status: 1

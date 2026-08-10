@@ -1,0 +1,30 @@
+[2m2026-08-01T13:01:21.576449Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client connected
+[2m2026-08-01T13:01:22.626696Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T13:01:23.646013Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T13:01:24.659001Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T13:01:25.671775Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T13:01:26.684582Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client connected
+[2m2026-08-01T13:01:27.744118Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T13:01:28.751773Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T13:01:28.934775Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 7
+[slopos-session] shutdown signal received; stopping session
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client disconnected

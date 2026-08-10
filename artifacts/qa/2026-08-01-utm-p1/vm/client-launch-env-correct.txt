@@ -1,0 +1,2 @@
+runtime=/tmp/slopos-qa-2026-08-01-utm-p1-idle-fix/slopos-i/session-18c78f0215b7a66b-33469
+wayland=wayland-1

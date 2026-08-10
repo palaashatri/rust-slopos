@@ -1,0 +1,3 @@
+/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0/wayland-1 mode=775 uid=1000 gid=1000 inode=158 type=socket
+/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0/control.sock mode=775 uid=1000 gid=1000 inode=159 type=socket
+/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0/vision.sock mode=600 uid=1000 gid=1000 inode=156 type=socket

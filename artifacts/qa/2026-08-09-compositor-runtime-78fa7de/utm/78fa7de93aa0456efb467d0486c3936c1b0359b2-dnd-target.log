@@ -1,0 +1,5 @@
+SLOPOS_DND_TARGET_READY
+SLOPOS_DND_ENTER_VERIFIED serial=10 mime=text/plain;charset=utf-8 action=copy
+SLOPOS_DND_OFFER_VERIFIED mimes=text/plain;charset=utf-8,text/uri-list
+SLOPOS_DND_TEXT_TRANSFER_VERIFIED bytes=45
+SLOPOS_DND_URI_TRANSFER_VERIFIED bytes=28

@@ -1,0 +1,14 @@
+runtime=/run/user/1000/slopos-i/session-18c792872e4c3301-60377
+d 700 /run/user/1000/slopos-i/session-18c792872e4c3301-60377
+d 700 /run/user/1000/slopos-i/session-18c792872e4c3301-60377/logs
+d 775 /run/user/1000/slopos-i/session-18c792872e4c3301-60377/slopos-i
+f 600 /run/user/1000/slopos-i/session-18c792872e4c3301-60377/token
+f 660 /run/user/1000/slopos-i/session-18c792872e4c3301-60377/wayland-1.lock
+f 664 /run/user/1000/slopos-i/session-18c792872e4c3301-60377/active-toplevel
+f 664 /run/user/1000/slopos-i/session-18c792872e4c3301-60377/client-wayland-display
+f 664 /run/user/1000/slopos-i/session-18c792872e4c3301-60377/readiness
+f 664 /run/user/1000/slopos-i/session-18c792872e4c3301-60377/slopos-client-wayland-display
+f 664 /run/user/1000/slopos-i/session-18c792872e4c3301-60377/wayland-display
+s 775 /run/user/1000/slopos-i/session-18c792872e4c3301-60377/wayland-1
+socket_owner:
+socket 775 ubuntu:ubuntu /run/user/1000/slopos-i/session-18c792872e4c3301-60377/wayland-1

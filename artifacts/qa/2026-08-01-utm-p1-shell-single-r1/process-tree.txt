@@ -1,0 +1,179 @@
+    PID    PPID    PGID STAT %CPU   RSS     ELAPSED COMMAND
+      2       0       0 S     0.0     0    02:42:42 [kthreadd]
+      3       2       0 S     0.0     0    02:42:42  \_ [pool_workqueue_release]
+      4       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-rcu_gp]
+      5       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-sync_wq]
+      6       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-kvfree_rcu_reclaim]
+      7       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-slub_flushwq]
+      8       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-netns]
+     10       2       0 I<    0.0     0    02:42:42  \_ [kworker/0:0H-kblockd]
+     13       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-mm_percpu_wq]
+     14       2       0 S     0.0     0    02:42:42  \_ [ksoftirqd/0]
+     15       2       0 I     0.0     0    02:42:42  \_ [rcu_preempt]
+     16       2       0 S     0.0     0    02:42:42  \_ [rcu_exp_par_gp_kthread_worker/0]
+     17       2       0 S     0.0     0    02:42:42  \_ [rcu_exp_gp_kthread_worker]
+     18       2       0 S     0.0     0    02:42:42  \_ [migration/0]
+     19       2       0 S     0.0     0    02:42:42  \_ [idle_inject/0]
+     20       2       0 S     0.0     0    02:42:42  \_ [cpuhp/0]
+     21       2       0 S     0.0     0    02:42:42  \_ [cpuhp/1]
+     22       2       0 S     0.0     0    02:42:42  \_ [idle_inject/1]
+     23       2       0 S     0.0     0    02:42:42  \_ [migration/1]
+     24       2       0 S     0.0     0    02:42:42  \_ [ksoftirqd/1]
+     26       2       0 I<    0.0     0    02:42:42  \_ [kworker/1:0H-kblockd]
+     27       2       0 S     0.0     0    02:42:42  \_ [cpuhp/2]
+     28       2       0 S     0.0     0    02:42:42  \_ [idle_inject/2]
+     29       2       0 S     0.0     0    02:42:42  \_ [migration/2]
+     30       2       0 S     0.0     0    02:42:42  \_ [ksoftirqd/2]
+     32       2       0 I<    0.0     0    02:42:42  \_ [kworker/2:0H-kblockd]
+     33       2       0 S     0.0     0    02:42:42  \_ [cpuhp/3]
+     34       2       0 S     0.0     0    02:42:42  \_ [idle_inject/3]
+     35       2       0 S     0.0     0    02:42:42  \_ [migration/3]
+     36       2       0 S     0.0     0    02:42:42  \_ [ksoftirqd/3]
+     38       2       0 I<    0.0     0    02:42:42  \_ [kworker/3:0H-kblockd]
+     39       2       0 S     0.0     0    02:42:42  \_ [cpuhp/4]
+     40       2       0 S     0.0     0    02:42:42  \_ [idle_inject/4]
+     41       2       0 S     0.0     0    02:42:42  \_ [migration/4]
+     42       2       0 S     0.0     0    02:42:42  \_ [ksoftirqd/4]
+     44       2       0 I<    0.0     0    02:42:42  \_ [kworker/4:0H-kblockd]
+     45       2       0 S     0.0     0    02:42:42  \_ [cpuhp/5]
+     46       2       0 S     0.0     0    02:42:42  \_ [idle_inject/5]
+     47       2       0 S     0.0     0    02:42:42  \_ [migration/5]
+     48       2       0 S     0.0     0    02:42:42  \_ [ksoftirqd/5]
+     50       2       0 I<    0.0     0    02:42:42  \_ [kworker/5:0H-kblockd]
+     51       2       0 S     0.0     0    02:42:42  \_ [cpuhp/6]
+     52       2       0 S     0.0     0    02:42:42  \_ [idle_inject/6]
+     53       2       0 S     0.0     0    02:42:42  \_ [migration/6]
+     54       2       0 S     0.0     0    02:42:42  \_ [ksoftirqd/6]
+     56       2       0 I<    0.0     0    02:42:42  \_ [kworker/6:0H-kblockd]
+     57       2       0 S     0.0     0    02:42:42  \_ [cpuhp/7]
+     58       2       0 S     0.0     0    02:42:42  \_ [idle_inject/7]
+     59       2       0 S     0.0     0    02:42:42  \_ [migration/7]
+     60       2       0 S     0.0     0    02:42:42  \_ [ksoftirqd/7]
+     62       2       0 I<    0.0     0    02:42:42  \_ [kworker/7:0H-kblockd]
+     63       2       0 S     0.0     0    02:42:42  \_ [kdevtmpfs]
+     64       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-inet_frag_wq]
+     65       2       0 I     0.0     0    02:42:42  \_ [rcu_tasks_kthread]
+     66       2       0 I     0.0     0    02:42:42  \_ [rcu_tasks_rude_kthread]
+     67       2       0 S     0.0     0    02:42:42  \_ [kauditd]
+     68       2       0 S     0.0     0    02:42:42  \_ [khungtaskd]
+     69       2       0 S     0.0     0    02:42:42  \_ [oom_reaper]
+     71       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-writeback]
+     72       2       0 S     0.7     0    02:42:42  \_ [kcompactd0]
+     73       2       0 SN    0.0     0    02:42:42  \_ [ksmd]
+     74       2       0 SN    0.0     0    02:42:42  \_ [khugepaged]
+     75       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-kblockd]
+     76       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-blkcg_punt_bio]
+     77       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-kintegrityd]
+     80       2       0 S<    0.0     0    02:42:42  \_ [pr/ttyAMA-1]
+     81       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-tpm_dev_wq]
+     82       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-ata_sff]
+     83       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-md_bitmap]
+     84       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-md_llbitmap_io]
+     85       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-md_llbitmap_unplug]
+     86       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-edac-poller]
+     87       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-devfreq_wq]
+     88       2       0 S     0.0     0    02:42:42  \_ [watchdogd]
+     89       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-quota_events_unbound]
+     91       2       0 S     4.8     0    02:42:42  \_ [kswapd0]
+     93       2       0 S     0.0     0    02:42:42  \_ [ecryptfs-kthread]
+     94       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-kthrotld]
+     95       2       0 S     0.0     0    02:42:42  \_ [irq/49-ACPI:Ged]
+     96       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-acpi_thermal_pm]
+     99       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-mld]
+    100       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-ipv6_addrconf]
+    101       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-kstrp]
+    106       2       0 I<    0.0     0    02:42:42  \_ [kworker/u33:0]
+    110       2       0 I<    0.0     0    02:42:42  \_ [kworker/R-charger_manager]
+    112       2       0 S     0.0     0    02:42:42  \_ [hwrng]
+    446       2       0 S     0.0     0    02:42:41  \_ [card0-crtc0]
+    482       2       0 S     0.0     0    02:42:40  \_ [scsi_eh_0]
+    483       2       0 I<    0.0     0    02:42:40  \_ [kworker/R-scsi_tmf_0]
+    484       2       0 S     0.0     0    02:42:40  \_ [usb-storage]
+    485       2       0 I<    0.0     0    02:42:40  \_ [kworker/R-uas]
+    513       2       0 I<    0.0     0    02:42:40  \_ [kworker/R-kdmflush/252:0]
+    548       2       0 I<    0.0     0    02:42:40  \_ [kworker/3:1H-kblockd]
+    558       2       0 I<    0.0     0    02:42:40  \_ [kworker/1:1H-kblockd]
+    565       2       0 S     0.0     0    02:42:40  \_ [jbd2/dm-0-8]
+    566       2       0 I<    0.0     0    02:42:40  \_ [kworker/R-ext4-rsv-conversion]
+    817       2       0 I<    0.0     0    02:42:39  \_ [kworker/6:1H-kblockd]
+    849       2       0 S     0.0     0    02:42:39  \_ [psimon]
+    868       2       0 I<    0.0     0    02:42:39  \_ [kworker/R-kmpathd]
+    869       2       0 I<    0.0     0    02:42:39  \_ [kworker/R-kmpath_handlerd]
+    874       2       0 I<    0.0     0    02:42:39  \_ [kworker/4:1H-kblockd]
+    897       2       0 I<    0.0     0    02:42:39  \_ [kworker/0:1H-kblockd]
+    898       2       0 I<    0.0     0    02:42:39  \_ [kworker/5:1H-kblockd]
+    901       2       0 I<    0.0     0    02:42:39  \_ [kworker/7:1H-kblockd]
+    913       2       0 I<    0.0     0    02:42:39  \_ [kworker/2:1H-kblockd]
+    925       2       0 S     0.0     0    02:42:39  \_ [psimon]
+   1155       2       0 S     0.0     0    02:42:38  \_ [jbd2/vda2-8]
+   1156       2       0 I<    0.0     0    02:42:38  \_ [kworker/R-ext4-rsv-conversion]
+   1379       2       0 I<    0.0     0    02:42:38  \_ [kworker/R-cfg80211]
+  35660       2       0 I     0.0     0    01:20:48  \_ [kworker/u32:7-events_unbound]
+  57674       2       0 I     0.0     0       39:37  \_ [kworker/2:0-cgroup_free]
+  57757       2       0 I     0.0     0       39:24  \_ [kworker/7:1-mm_percpu_wq]
+  63294       2       0 I     0.0     0       25:05  \_ [kworker/u32:0-flush-252:0]
+  63741       2       0 I     0.0     0       24:41  \_ [kworker/6:0-events]
+  63787       2       0 I     0.0     0       24:34  \_ [kworker/5:0-events]
+  65875       2       0 I     0.0     0       19:14  \_ [kworker/u32:2-ext4-rsv-conversion]
+  65876       2       0 I     0.0     0       18:57  \_ [kworker/1:0-events]
+  66729       2       0 I     0.0     0       16:01  \_ [kworker/3:1-events]
+  67451       2       0 I     0.0     0       15:59  \_ [kworker/0:0-events]
+  67527       2       0 I     0.0     0       15:53  \_ [kworker/6:1-events]
+  67532       2       0 I     0.0     0       12:37  \_ [kworker/4:0-events]
+  67534       2       0 I     0.0     0       10:46  \_ [kworker/u32:1-events_power_efficient]
+  67535       2       0 I     0.0     0       10:33  \_ [kworker/0:2-events]
+  67536       2       0 I     0.0     0       09:59  \_ [kworker/3:0-mm_percpu_wq]
+  67541       2       0 I     0.0     0       08:05  \_ [kworker/2:2-events]
+  67783       2       0 I     0.0     0       07:37  \_ [kworker/1:1-events]
+  68254       2       0 I     0.0     0       07:02  \_ [kworker/u32:3-ext4-rsv-conversion]
+  68518       2       0 I     0.0     0       06:32  \_ [kworker/5:1-events]
+  69069       2       0 I     0.0     0       05:53  \_ [kworker/7:2-events]
+  69199       2       0 I     0.0     0       05:42  \_ [kworker/4:1-mm_percpu_wq]
+  69342       2       0 I     0.0     0       05:20  \_ [kworker/6:2-cgroup_free]
+  69343       2       0 I     0.0     0       05:04  \_ [kworker/0:1-cgroup_free]
+  70178       2       0 I     0.0     0       03:48  \_ [kworker/u32:4]
+  70179       2       0 I     0.0     0       03:48  \_ [kworker/u32:5]
+  70180       2       0 I     0.0     0       03:43  \_ [kworker/3:2-mm_percpu_wq]
+      1       0       1 Ss    0.1  9748    02:42:42 /usr/lib/systemd/systemd --switched-root --system --deserialize=51
+    857       1     857 S<s   0.1 16452    02:42:39 /usr/lib/systemd/systemd-journald
+    890       1     890 SLsl  0.0 17432    02:42:39 /usr/sbin/multipathd -d -s
+    914       1     914 Ss    0.0  4696    02:42:39 /usr/lib/systemd/systemd-resolved
+    923       1     923 Ss    0.0  3028    02:42:39 /usr/lib/systemd/systemd-udevd
+   1353       1    1353 Ss    0.0  5888    02:42:38 /usr/lib/systemd/systemd-networkd
+   1383       1    1383 Ss    0.0  1432    02:42:38 /bin/sh /usr/lib/systemd/scripts/chronyd-starter.sh -n -F 1
+   1484    1383    1383 S     0.0  2660    02:42:37  \_ /usr/sbin/chronyd -n -F 1
+   1518    1484    1383 S     0.0  1160    02:42:37      \_ /usr/sbin/chronyd -n -F 1
+   1384       1    1384 Ss    0.0  4408    02:42:38 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1391       1    1391 Ss    0.0  6248    02:42:38 /usr/bin/python3 /usr/bin/networkd-dispatcher --run-startup-triggers
+   1392       1    1392 Ssl   0.1  9036    02:42:38 /usr/lib/polkit-1/polkitd --no-debug --log-level=notice
+   1395       1    1395 Ss    0.0  1596    02:42:38 seatd -g video
+   1400       1    1400 Ss    0.0  7236    02:42:38 /usr/lib/systemd/systemd-logind
+   1401       1    1401 Ssl   0.0 11524    02:42:38 /usr/libexec/udisks2/udisksd
+   1452       1    1452 Ss    0.0  2048    02:42:38 /usr/sbin/cron -f -P
+   1460       1    1460 Ssl   0.0  3172    02:42:37 /usr/sbin/rsyslogd -n -iNONE
+   1500       1    1500 Ssl   0.0  2884    02:42:37 /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-signal
+   1507       1    1507 Ss+   0.0  1788    02:42:37 /usr/sbin/agetty --noreset --noclear --issue-file=/etc/issue:/etc/issue.d:/run/issue.d:/usr/lib/issue.d --keep-baud 115200,57600,38400,9600 - vt220
+   1543       1    1543 Ssl   0.0  6752    02:42:37 /usr/sbin/ModemManager
+   1547       1    1547 Ss    0.0  2256    02:42:37 login -- ubuntu
+   2216    1547    2216 Ss+   0.0  1688    02:40:19  \_ -bash
+   1642       1    1642 Ss    0.0  4772    02:41:52 sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
+  72483    1642   72483 Ss   12.0 11092       00:00  \_ sshd-session: ubuntu [priv]
+  72530   72483   72483 S     0.0  7332       00:00      \_ sshd-session: ubuntu@notty
+  72531   72530   72531 Ss    0.0  3344       00:00          \_ bash -c runtime=$(find /run/user/1000/slopos-i -maxdepth 2 -type f -name readiness -print -quit); out=/home/ubuntu/qa/2026-08-01-utm-p1-shell-single-r1; printf "runtime=%s\n" "$runtime" > "$out/readiness.txt"; cat "$runtime" >> "$out/readiness.txt"; ps -eo pid,ppid,pgid,stat,pcpu,rss,etime,command --forest > "$out/process-tree.txt"; find "$(dirname "$runtime")" -maxdepth 2 -printf "%y %m %p\n" | sort > "$out/runtime-files.txt"; grep -n "spawn_client failed.*slopos-shell" "$out/session.log" > "$out/duplicate-shell-warning.txt" || true; grep -n "shell pid=\|Launched multi-client app\|layer-shell surface\|WAYLAND_DISPLAY" "$out/session.log" > "$out/topology.log" || true
+  72534   72531   72531 R     100  3504       00:00              \_ ps -eo pid,ppid,pgid,stat,pcpu,rss,etime,command --forest
+   2193       1    2193 Ss    0.0  5716    02:40:19 /usr/lib/systemd/systemd --user
+   2198    2193    2193 S     0.0   836    02:40:19  \_ (sd-pam)
+  18674    2193   18674 Ss    0.0  4312    02:05:22  \_ /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+  15033       1   15033 Ssl   0.1 11168    02:18:44 /usr/libexec/fwupd/fwupd
+  21677       1   21638 S     0.0  9648    02:03:50 Xvfb :99 -screen 0 1280x800x24 -nolisten tcp
+  33740       1   33740 Ss+   0.0  2392    01:38:52 /bin/bash
+  34005       1   34005 Ss+   0.0  4884    01:38:19 /bin/bash
+  34497       1   34497 Ss+   0.0  2408    01:33:33 /bin/bash
+  57045       1   57045 Ss+   0.0  3228       41:40 /bin/bash
+  60813       1   60813 Ss+   0.0  3824       35:55 /bin/bash
+  61347       1   61347 Ss+   0.0  6560       33:44 /bin/bash
+  61919       1   61919 Ss+   0.0  7136       31:58 /bin/bash
+  71907       1   71905 S     0.0  2008       02:59 target/debug/slopos-session --backend drm
+  71909   71907   71909 Rl    5.1 110576      02:59  \_ /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/slopos-compositor --backend drm
+  71911   71907   71911 Sl    6.4 767876      02:58  \_ /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/slopos-shell
+  71922   71911   71911 Sl    0.5 236300      02:58      \_ /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/finder

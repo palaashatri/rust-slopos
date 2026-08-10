@@ -1,7 +1,7 @@
 name = "Graphite"
-identifier = "com.retro.theme.graphite"
+identifier = "com.slopos.theme.graphite"
 version = "1.0"
-author = "RetroShell"
+author = "SLOPOS-I"
 description = "Graphite theme with gray accent colors"
 is_dark = false
 accent = "#666666"

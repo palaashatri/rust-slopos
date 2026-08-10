@@ -1,0 +1,5 @@
+preview_exit=124
+preview_started=true
+wgpu_adapter_observed=true
+llvmpipe_observed=true
+status=passed

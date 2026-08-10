@@ -1,0 +1,7 @@
+schema_version=1
+feature=final-committed-source-gates
+branch=docs/program-design
+source_commit=78fa7de93aa0456efb467d0486c3936c1b0359b2
+qa_host=macOS host (Linux UTM remains acceptance environment)
+hardware_verified=false
+status=passed

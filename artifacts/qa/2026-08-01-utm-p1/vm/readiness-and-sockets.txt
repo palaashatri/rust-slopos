@@ -1,0 +1,20 @@
+session_dir=/tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i/session-18c78e7318662fe2-27344
+client-display=wayland-1
+readiness:
+wayland-1
+pid=27346
+token=18c78e731866c7e7-27344-27344
+token-file-mode=600 ubuntu ubuntu
+socket-stat:
+700 ubuntu ubuntu directory /tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i
+664 ubuntu ubuntu regular file /tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i/session-18c78e7318662fe2-27344/client-wayland-display
+700 ubuntu ubuntu directory /tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i/session-18c78e7318662fe2-27344/logs
+664 ubuntu ubuntu regular file /tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i/session-18c78e7318662fe2-27344/readiness
+664 ubuntu ubuntu regular file /tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i/session-18c78e7318662fe2-27344/slopos-client-wayland-display
+775 ubuntu ubuntu directory /tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i/session-18c78e7318662fe2-27344/slopos-i
+600 ubuntu ubuntu regular file /tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i/session-18c78e7318662fe2-27344/token
+775 ubuntu ubuntu socket /tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i/session-18c78e7318662fe2-27344/wayland-1
+660 ubuntu ubuntu regular empty file /tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i/session-18c78e7318662fe2-27344/wayland-1.lock
+664 ubuntu ubuntu regular file /tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i/session-18c78e7318662fe2-27344/wayland-display
+socket-inodes:
+1334 /tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i

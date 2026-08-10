@@ -1,0 +1,170 @@
+USER         PID    PPID    PGID     SID STAT     ELAPSED   RSS %CPU COMMAND
+root           2       0       0       0 S          52:34     0  0.0 [kthreadd]
+root           3       2       0       0 S          52:34     0  0.0  \_ [pool_workqueue_release]
+root           4       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-rcu_gp]
+root           5       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-sync_wq]
+root           6       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-kvfree_rcu_reclaim]
+root           7       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-slub_flushwq]
+root           8       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-netns]
+root          10       2       0       0 I<         52:34     0  0.0  \_ [kworker/0:0H-kblockd]
+root          13       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-mm_percpu_wq]
+root          14       2       0       0 S          52:34     0  0.0  \_ [ksoftirqd/0]
+root          15       2       0       0 I          52:34     0  0.1  \_ [rcu_preempt]
+root          16       2       0       0 S          52:34     0  0.0  \_ [rcu_exp_par_gp_kthread_worker/0]
+root          17       2       0       0 S          52:34     0  0.0  \_ [rcu_exp_gp_kthread_worker]
+root          18       2       0       0 S          52:34     0  0.0  \_ [migration/0]
+root          19       2       0       0 S          52:34     0  0.0  \_ [idle_inject/0]
+root          20       2       0       0 S          52:34     0  0.0  \_ [cpuhp/0]
+root          21       2       0       0 S          52:34     0  0.0  \_ [cpuhp/1]
+root          22       2       0       0 S          52:34     0  0.0  \_ [idle_inject/1]
+root          23       2       0       0 S          52:34     0  0.0  \_ [migration/1]
+root          24       2       0       0 S          52:34     0  0.0  \_ [ksoftirqd/1]
+root          26       2       0       0 I<         52:34     0  0.0  \_ [kworker/1:0H-kblockd]
+root          27       2       0       0 S          52:34     0  0.0  \_ [cpuhp/2]
+root          28       2       0       0 S          52:34     0  0.0  \_ [idle_inject/2]
+root          29       2       0       0 S          52:34     0  0.0  \_ [migration/2]
+root          30       2       0       0 S          52:34     0  0.0  \_ [ksoftirqd/2]
+root          32       2       0       0 I<         52:34     0  0.0  \_ [kworker/2:0H-kblockd]
+root          33       2       0       0 S          52:34     0  0.0  \_ [cpuhp/3]
+root          34       2       0       0 S          52:34     0  0.0  \_ [idle_inject/3]
+root          35       2       0       0 S          52:34     0  0.0  \_ [migration/3]
+root          36       2       0       0 S          52:34     0  0.0  \_ [ksoftirqd/3]
+root          38       2       0       0 I<         52:34     0  0.0  \_ [kworker/3:0H-kblockd]
+root          39       2       0       0 S          52:34     0  0.0  \_ [cpuhp/4]
+root          40       2       0       0 S          52:34     0  0.0  \_ [idle_inject/4]
+root          41       2       0       0 S          52:34     0  0.0  \_ [migration/4]
+root          42       2       0       0 S          52:34     0  0.0  \_ [ksoftirqd/4]
+root          44       2       0       0 I<         52:34     0  0.0  \_ [kworker/4:0H-kblockd]
+root          45       2       0       0 S          52:34     0  0.0  \_ [cpuhp/5]
+root          46       2       0       0 S          52:34     0  0.0  \_ [idle_inject/5]
+root          47       2       0       0 S          52:34     0  0.0  \_ [migration/5]
+root          48       2       0       0 S          52:34     0  0.0  \_ [ksoftirqd/5]
+root          50       2       0       0 I<         52:34     0  0.0  \_ [kworker/5:0H-kblockd]
+root          51       2       0       0 S          52:34     0  0.0  \_ [cpuhp/6]
+root          52       2       0       0 S          52:34     0  0.0  \_ [idle_inject/6]
+root          53       2       0       0 S          52:34     0  0.0  \_ [migration/6]
+root          54       2       0       0 S          52:34     0  0.0  \_ [ksoftirqd/6]
+root          56       2       0       0 I<         52:34     0  0.0  \_ [kworker/6:0H-kblockd]
+root          57       2       0       0 S          52:34     0  0.0  \_ [cpuhp/7]
+root          58       2       0       0 S          52:34     0  0.0  \_ [idle_inject/7]
+root          59       2       0       0 S          52:34     0  0.0  \_ [migration/7]
+root          60       2       0       0 S          52:34     0  0.0  \_ [ksoftirqd/7]
+root          62       2       0       0 I<         52:34     0  0.0  \_ [kworker/7:0H-kblockd]
+root          63       2       0       0 S          52:34     0  0.0  \_ [kdevtmpfs]
+root          64       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-inet_frag_wq]
+root          65       2       0       0 I          52:34     0  0.0  \_ [rcu_tasks_kthread]
+root          66       2       0       0 I          52:34     0  0.0  \_ [rcu_tasks_rude_kthread]
+root          67       2       0       0 S          52:34     0  0.0  \_ [kauditd]
+root          68       2       0       0 S          52:34     0  0.0  \_ [khungtaskd]
+root          69       2       0       0 S          52:34     0  0.0  \_ [oom_reaper]
+root          71       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-writeback]
+root          72       2       0       0 S          52:34     0  0.9  \_ [kcompactd0]
+root          73       2       0       0 SN         52:34     0  0.0  \_ [ksmd]
+root          74       2       0       0 SN         52:34     0  0.0  \_ [khugepaged]
+root          75       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-kblockd]
+root          76       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-blkcg_punt_bio]
+root          77       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-kintegrityd]
+root          80       2       0       0 S<         52:34     0  0.0  \_ [pr/ttyAMA-1]
+root          81       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-tpm_dev_wq]
+root          82       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-ata_sff]
+root          83       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-md_bitmap]
+root          84       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-md_llbitmap_io]
+root          85       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-md_llbitmap_unplug]
+root          86       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-edac-poller]
+root          87       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-devfreq_wq]
+root          88       2       0       0 S          52:34     0  0.0  \_ [watchdogd]
+root          89       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-quota_events_unbound]
+root          91       2       0       0 S          52:34     0 14.6  \_ [kswapd0]
+root          92       2       0       0 I          52:34     0  0.1  \_ [kworker/u32:2-events_unbound]
+root          93       2       0       0 S          52:34     0  0.0  \_ [ecryptfs-kthread]
+root          94       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-kthrotld]
+root          95       2       0       0 S          52:34     0  0.0  \_ [irq/49-ACPI:Ged]
+root          96       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-acpi_thermal_pm]
+root          99       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-mld]
+root         100       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-ipv6_addrconf]
+root         101       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-kstrp]
+root         106       2       0       0 I<         52:34     0  0.0  \_ [kworker/u33:0]
+root         110       2       0       0 I<         52:34     0  0.0  \_ [kworker/R-charger_manager]
+root         112       2       0       0 S          52:34     0  0.0  \_ [hwrng]
+root         446       2       0       0 S          52:33     0  0.0  \_ [card0-crtc0]
+root         482       2       0       0 S          52:33     0  0.0  \_ [scsi_eh_0]
+root         483       2       0       0 I<         52:33     0  0.0  \_ [kworker/R-scsi_tmf_0]
+root         484       2       0       0 S          52:33     0  0.0  \_ [usb-storage]
+root         485       2       0       0 I<         52:33     0  0.0  \_ [kworker/R-uas]
+root         513       2       0       0 I<         52:32     0  0.0  \_ [kworker/R-kdmflush/252:0]
+root         548       2       0       0 I<         52:32     0  0.0  \_ [kworker/3:1H-kblockd]
+root         558       2       0       0 I<         52:32     0  0.0  \_ [kworker/1:1H-kblockd]
+root         565       2       0       0 S          52:32     0  0.0  \_ [jbd2/dm-0-8]
+root         566       2       0       0 I<         52:32     0  0.0  \_ [kworker/R-ext4-rsv-conversion]
+root         817       2       0       0 I<         52:32     0  0.0  \_ [kworker/6:1H-kblockd]
+root         849       2       0       0 S          52:31     0  0.0  \_ [psimon]
+root         868       2       0       0 I<         52:31     0  0.0  \_ [kworker/R-kmpathd]
+root         869       2       0       0 I<         52:31     0  0.0  \_ [kworker/R-kmpath_handlerd]
+root         874       2       0       0 I<         52:31     0  0.0  \_ [kworker/4:1H-kblockd]
+root         897       2       0       0 I<         52:31     0  0.0  \_ [kworker/0:1H-kblockd]
+root         898       2       0       0 I<         52:31     0  0.0  \_ [kworker/5:1H-kblockd]
+root         901       2       0       0 I<         52:31     0  0.0  \_ [kworker/7:1H-kblockd]
+root         913       2       0       0 I<         52:31     0  0.0  \_ [kworker/2:1H-kblockd]
+root         925       2       0       0 S          52:31     0  0.0  \_ [psimon]
+root        1155       2       0       0 S          52:30     0  0.0  \_ [jbd2/vda2-8]
+root        1156       2       0       0 I<         52:30     0  0.0  \_ [kworker/R-ext4-rsv-conversion]
+root        1379       2       0       0 I<         52:30     0  0.0  \_ [kworker/R-cfg80211]
+root        2372       2       0       0 I          46:06     0  0.5  \_ [kworker/2:1-events]
+root       13292       2       0       0 I          34:28     0  0.1  \_ [kworker/4:0-events]
+root       13584       2       0       0 I          31:26     0  0.3  \_ [kworker/1:2-events]
+root       13597       2       0       0 I          31:14     0  0.1  \_ [kworker/u32:3-events_unbound]
+root       15276       2       0       0 I          23:40     0  0.1  \_ [kworker/6:1-events]
+root       15279       2       0       0 I          23:00     0  0.1  \_ [kworker/7:1-events]
+root       15343       2       0       0 I          19:28     0  0.0  \_ [kworker/0:2-events]
+root       15425       2       0       0 I          18:39     0  0.0  \_ [kworker/u32:4-events_unbound]
+root       15487       2       0       0 I          18:30     0  0.0  \_ [kworker/5:2-events]
+root       21818       2       0       0 I          13:25     0  0.0  \_ [kworker/1:1-events]
+root       22432       2       0       0 I          12:19     0  0.0  \_ [kworker/3:1-events]
+root       22737       2       0       0 I          11:32     0  0.0  \_ [kworker/4:1-mm_percpu_wq]
+root       23320       2       0       0 I          07:30     0  0.0  \_ [kworker/u32:0-flush-252:0]
+root       23637       2       0       0 I          05:40     0  0.0  \_ [kworker/7:0-events]
+root       23652       2       0       0 I          05:34     0  0.0  \_ [kworker/3:2-events]
+root       23749       2       0       0 I          05:08     0  0.0  \_ [kworker/6:0-events]
+root       23757       2       0       0 I          05:07     0  0.0  \_ [kworker/2:0-cgroup_free]
+root       23758       2       0       0 I          05:06     0  0.0  \_ [kworker/5:1-events]
+root       23759       2       0       0 I          05:04     0  0.0  \_ [kworker/0:0-events]
+root       23760       2       0       0 I          04:55     0  0.0  \_ [kworker/1:0-cgroup_free]
+root       23881       2       0       0 I          04:47     0  0.0  \_ [kworker/u32:1-events_unbound]
+root       24189       2       0       0 I          04:40     0  0.0  \_ [kworker/4:2-events]
+root       27287       2       0       0 I          01:48     0  0.0  \_ [kworker/u32:5]
+root       27288       2       0       0 I          01:48     0  0.0  \_ [kworker/u32:6-ext4-rsv-conversion]
+root           1       0       1       1 Ss         52:34  9444  0.1 /usr/lib/systemd/systemd --switched-root --system --deserialize=51
+root         857       1     857     857 S<s        52:31 15312  0.1 /usr/lib/systemd/systemd-journald
+root         890       1     890     890 SLsl       52:31 17432  0.0 /usr/sbin/multipathd -d -s
+systemd+     914       1     914     914 Ss         52:31  3516  0.0 /usr/lib/systemd/systemd-resolved
+root         923       1     923     923 Ss         52:31  3028  0.0 /usr/lib/systemd/systemd-udevd
+systemd+    1353       1    1353    1353 Ss         52:30  5828  0.0 /usr/lib/systemd/systemd-networkd
+root        1383       1    1383    1383 Ss         52:30  1432  0.0 /bin/sh /usr/lib/systemd/scripts/chronyd-starter.sh -n -F 1
+_chrony     1484    1383    1383    1383 S          52:30  2740  0.0  \_ /usr/sbin/chronyd -n -F 1
+_chrony     1518    1484    1383    1383 S          52:30  1160  0.0      \_ /usr/sbin/chronyd -n -F 1
+message+    1384       1    1384    1384 Ss         52:30  4100  0.0 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+root        1391       1    1391    1391 Ss         52:30  2784  0.0 /usr/bin/python3 /usr/bin/networkd-dispatcher --run-startup-triggers
+polkitd     1392       1    1392    1392 Ssl        52:30 11640  0.2 /usr/lib/polkit-1/polkitd --no-debug --log-level=notice
+root        1395       1    1395    1395 Ss         52:30  1596  0.0 seatd -g video
+root        1400       1    1400    1400 Ss         52:30  5308  0.0 /usr/lib/systemd/systemd-logind
+root        1401       1    1401    1401 Ssl        52:30 12252  0.0 /usr/libexec/udisks2/udisksd
+root        1452       1    1452    1452 Ss         52:30  2044  0.0 /usr/sbin/cron -f -P
+syslog      1460       1    1460    1460 Ssl        52:30  3448  0.1 /usr/sbin/rsyslogd -n -iNONE
+root        1500       1    1500    1500 Ssl        52:30  2884  0.0 /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-signal
+root        1507       1    1507    1507 Ss+        52:30  1804  0.0 /usr/sbin/agetty --noreset --noclear --issue-file=/etc/issue:/etc/issue.d:/run/issue.d:/usr/lib/issue.d --keep-baud 115200,57600,38400,9600 - vt220
+root        1543       1    1543    1543 Ssl        52:30  7404  0.0 /usr/sbin/ModemManager
+root        1547       1    1547    1547 Ss         52:30  2256  0.0 login -- ubuntu
+ubuntu      2216    1547    2216    2216 Ss+        50:11  1688  0.0  \_ -bash
+root        1642       1    1642    1642 Ss         51:44  4772  0.0 sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
+root       27540    1642   27540   27540 Ss         00:00 12964  3.7  \_ sshd-session: ubuntu [priv]
+ubuntu     27596   27540   27540   27540 S          00:00  8960  0.0      \_ sshd-session: ubuntu@notty
+ubuntu     27597   27596   27597   27597 Ss         00:00  3400  0.0          \_ bash -c set -eu; qa=/home/ubuntu/qa/2026-08-01-compositor-p1/artifacts/qa/2026-08-01-utm-p1; session=$(cat "$qa/session-drm-accept.pid"); compositor=$(pgrep -P "$session" -f "slopos-compositor" | head -n 1); shell=$(pgrep -P "$session" -f "slopos-shell" | head -n 1); runtime=$(tr "\0" "\n" < "/proc/$session/environ" | sed -n "s/^XDG_RUNTIME_DIR=//p" | head -n 1); printf "session=%s\ncompositor=%s\nshell=%s\nruntime=%s\n" "$session" "$compositor" "$shell" "$runtime" > "$qa/process-ids.txt"; ps -eo user,pid,ppid,pgid,sid,stat,etime,rss,pcpu,args --forest > "$qa/process-tree.txt"; { echo "session"; tr "\0" "\n" < "/proc/$session/environ" | grep -E "^(DISPLAY|WAYLAND_DISPLAY|SLOPOS_|XDG_RUNTIME_DIR|XDG_SESSION_TYPE|XDG_CURRENT_DESKTOP|DESKTOP_SESSION)=" || true; echo "compositor"; tr "\0" "\n" < "/proc/$compositor/environ" | grep -E "^(DISPLAY|WAYLAND_DISPLAY|SLOPOS_|XDG_RUNTIME_DIR|XDG_SESSION_TYPE|XDG_CURRENT_DESKTOP|DESKTOP_SESSION)=" || true; echo "shell"; tr "\0" "\n" < "/proc/$shell/environ" | grep -E "^(DISPLAY|WAYLAND_DISPLAY|SLOPOS_|XDG_RUNTIME_DIR|XDG_SESSION_TYPE|XDG_CURRENT_DESKTOP|DESKTOP_SESSION)=" || true; } > "$qa/process-environments.txt"; find "$runtime" -maxdepth 3 -printf "%M %u %g %p\n" | sort > "$qa/runtime-files.txt"; find "$runtime" -type s -printf "%M %u %g %p\n" 2>/dev/null > "$qa/private-sockets.txt"; session_dir=$(find "$runtime/slopos-i" -mindepth 1 -maxdepth 1 -type d | head -n 1); { printf "session_dir=%s\n" "$session_dir"; printf "client-display="; cat "$session_dir/client-wayland-display"; printf "readiness:\n"; cat "$session_dir/readiness"; printf "token-file-mode="; stat -c "%a %U %G" "$session_dir/token"; printf "socket-stat:\n"; stat -c "%a %U %G %F %n" "$runtime"/* "$session_dir"/* 2>/dev/null || true; printf "socket-inodes:\n"; stat -c "%i %n" "$runtime"/* 2>/dev/null || true; } > "$qa/readiness-and-sockets.txt"; grep -E "client connected|toplevel mapped|workspace active|foreign-toplevel|popup|focus|activated|serial|grab|screenshot" "$qa/session-drm-accept.log" > "$qa/interaction-log-filtered.txt" || true; cat "$qa/process-ids.txt"; cat "$qa/process-environments.txt"; cat "$qa/private-sockets.txt"; cat "$qa/readiness-and-sockets.txt"
+ubuntu     27609   27597   27597   27597 R          00:00  5020  0.0              \_ ps -eo user,pid,ppid,pgid,sid,stat,etime,rss,pcpu,args --forest
+ubuntu      2193       1    2193    2193 Ss         50:12  7056  0.0 /usr/lib/systemd/systemd --user
+ubuntu      2198    2193    2193    2193 S          50:12   836  0.0  \_ (sd-pam)
+ubuntu     18674    2193   18674   18674 Ss         15:14  4416  0.0  \_ /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+root       15033       1   15033   15033 Ssl        28:36  9980  0.4 /usr/libexec/fwupd/fwupd
+ubuntu     21677       1   21638   21638 S          13:42 18908  0.0 Xvfb :99 -screen 0 1280x800x24 -nolisten tcp
+ubuntu     27344       1   27341   27341 S          01:28  2012  0.0 /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/slopos-session --backend drm
+ubuntu     27346   27344   27346   27341 Sl         01:28 102408 2.5  \_ /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/slopos-compositor --backend drm
+ubuntu     27348   27344   27348   27341 Sl         01:28 489696 84.1  \_ /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/slopos-shell

@@ -1,0 +1,642 @@
+[slopos-compositor] backend: Headless (explicit)
+[2m2026-08-08T08:00:26.758798Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m display policy applied: hdr_requested=false hdr_supported=false vrr_adaptive=false refresh=60hz color_space=srgb color_applied=true
+[slopos-compositor] display policy: hdr_requested=false hdr_supported=false vrr_adaptive=false refresh=60hz color_space=srgb
+[slopos-compositor] text_input=im+text-input-v3
+[slopos-compositor] input_method=zwp_input_method_v2
+[2m2026-08-08T08:00:26.772673Z[0m [32m INFO[0m [1minput_seat[0m[1m{[0m[3mname[0m[2m=[0m"seat0"[1m}[0m[2m:[0m[1madd_keyboard[0m[1m{[0m[3mxkb_config[0m[2m=[0mXkbConfig { rules: "", model: "", layout: "", variant: "", options: None } [3mrepeat_delay[0m[2m=[0m200 [3mrepeat_rate[0m[2m=[0m25[1m}[0m[2m:[0m[1minput_keyboard[0m[2m:[0m [2msmithay::input::keyboard[0m[2m:[0m Initializing a xkbcommon handler with keymap query
+[2m2026-08-08T08:00:26.775805Z[0m [32m INFO[0m [1minput_seat[0m[1m{[0m[3mname[0m[2m=[0m"seat0"[1m}[0m[2m:[0m[1madd_keyboard[0m[1m{[0m[3mxkb_config[0m[2m=[0mXkbConfig { rules: "", model: "", layout: "", variant: "", options: None } [3mrepeat_delay[0m[2m=[0m200 [3mrepeat_rate[0m[2m=[0m25[1m}[0m[2m:[0m[1minput_keyboard[0m[2m:[0m [2msmithay::input::keyboard[0m[2m:[0m Loaded Keymap [3mname[0m[2m=[0m"English (US)"
+[slopos-compositor] session_mode=headless (no host display transport); output_scale=1/1 (1.00x)
+[slopos-compositor] outputs source=default 1 head(s): X11-1 1024x768@(0,0)
+[2m2026-08-08T08:00:26.781037Z[0m [32m INFO[0m [1mnew[0m[1m{[0m[3mname[0m[2m=[0m"X11-1" [3mphysical[0m[2m=[0mPhysicalProperties { size: Size<smithay::utils::geometry::Raw> { w: 0, h: 0 }, subpixel: Unknown, make: "SLOPOS-I", model: "Logical Output 1" }[1m}[0m[2m:[0m [2msmithay::output[0m[2m:[0m Creating new Output [3mname[0m[2m=[0m"X11-1"
+[2m2026-08-08T08:00:26.781261Z[0m [32m INFO[0m [2msmithay::wayland::output[0m[2m:[0m Creating new wl_output [3moutput[0m[2m=[0m"X11-1"
+[2m2026-08-08T08:00:26.781757Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m wl_output 1 (X11-1) 1024x768 at (0,0) refresh=60000 mHz output_scale=1/1 (1.00x)
+[2m2026-08-08T08:00:26.781983Z[0m [32m INFO[0m [2msmithay::wayland::socket[0m[2m:[0m Created new socket [3mname[0m[2m=[0mSome("wayland-1")
+[2m2026-08-08T08:00:26.782747Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m Listening on WAYLAND_DISPLAY=wayland-1
+[slopos-compositor] WAYLAND_DISPLAY=wayland-1
+WAYLAND_DISPLAY=wayland-1
+[2m2026-08-08T08:00:26.783180Z[0m [34mDEBUG[0m [2msmithay::xwayland::x11_sockets[0m[2m:[0m Attempting to aquire an X11 display lock [3mdisplay[0m[2m=[0m0
+[2m2026-08-08T08:00:26.783197Z[0m [34mDEBUG[0m [2msmithay::xwayland::x11_sockets[0m[2m:[0m Failed to acquire lock [3mdisplay[0m[2m=[0m0
+[2m2026-08-08T08:00:26.783733Z[0m [34mDEBUG[0m [2msmithay::xwayland::x11_sockets[0m[2m:[0m Lock was blocked by a defunct X11 server, trying again [3mdisplay[0m[2m=[0m0
+[2m2026-08-08T08:00:26.783744Z[0m [34mDEBUG[0m [2msmithay::xwayland::x11_sockets[0m[2m:[0m Attempting to aquire an X11 display lock [3mdisplay[0m[2m=[0m0
+[2m2026-08-08T08:00:26.783779Z[0m [34mDEBUG[0m [2msmithay::xwayland::x11_sockets[0m[2m:[0m X11 lock acquired [3mdisplay[0m[2m=[0m0
+[2m2026-08-08T08:00:26.784361Z[0m [32m INFO[0m [2msmithay::xwayland::xserver[0m[2m:[0m spawning XWayland instance
+[2m2026-08-08T08:00:26.786449Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m XWayland spawning (will claim DISPLAY=:0 when ready)
+[2m2026-08-08T08:00:26.786483Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m slopos-compositor event loop starting
+[2m2026-08-08T08:00:26.847373Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[2m2026-08-08T08:00:26.847480Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 11 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:26.847649Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[2m2026-08-08T08:00:26.849595Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m6
+[2m2026-08-08T08:00:26.851045Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:26.903396Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[2m2026-08-08T08:00:26.903777Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m5
+[2m2026-08-08T08:00:26.904121Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m XWayland ready on DISPLAY=:0 — starting X11 WM
+[2m2026-08-08T08:00:26.906588Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Created WM Window [3mwindow[0m[2m=[0m2097154
+[2m2026-08-08T08:00:26.906624Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm::settings[0m[2m:[0m Created XSettings window [3mwindow[0m[2m=[0m2097155
+[2m2026-08-08T08:00:26.907287Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Selection init [3mselection_window[0m[2m=[0m2097156 [3mselection[0m[2m=[0mClipboard [3matom[0m[2m=[0m284
+[2m2026-08-08T08:00:26.907314Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Selection init [3mselection_window[0m[2m=[0m2097157 [3mselection[0m[2m=[0mPrimary [3matom[0m[2m=[0m1
+[slopos-compositor] XWayland ready DISPLAY=:0
+[2m2026-08-08T08:00:26.907454Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m4
+[2m2026-08-08T08:00:26.907674Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Got X11 event [3mevent[0m[2m=[0mCreateNotify(CreateNotifyEvent { .. }) [3mshould_ignore[0m[2m=[0mfalse
+[2m2026-08-08T08:00:26.907761Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Got X11 event [3mevent[0m[2m=[0mPropertyNotify(PropertyNotifyEvent { .. }) [3mshould_ignore[0m[2m=[0mfalse
+[2m2026-08-08T08:00:26.907935Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Got X11 event [3mevent[0m[2m=[0mPropertyNotify(PropertyNotifyEvent { .. }) [3mshould_ignore[0m[2m=[0mfalse
+[2m2026-08-08T08:00:26.907951Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Got X11 event [3mevent[0m[2m=[0mPropertyNotify(PropertyNotifyEvent { .. }) [3mshould_ignore[0m[2m=[0mfalse
+[2m2026-08-08T08:00:26.907959Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Got X11 event [3mevent[0m[2m=[0mPropertyNotify(PropertyNotifyEvent { .. }) [3mshould_ignore[0m[2m=[0mfalse
+[2m2026-08-08T08:00:26.907966Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Got X11 event [3mevent[0m[2m=[0mPropertyNotify(PropertyNotifyEvent { .. }) [3mshould_ignore[0m[2m=[0mfalse
+[2m2026-08-08T08:00:26.907986Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Got X11 event [3mevent[0m[2m=[0mCreateNotify(CreateNotifyEvent { .. }) [3mshould_ignore[0m[2m=[0mfalse
+[2m2026-08-08T08:00:26.908029Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Got X11 event [3mevent[0m[2m=[0mCreateNotify(CreateNotifyEvent { .. }) [3mshould_ignore[0m[2m=[0mfalse
+[2m2026-08-08T08:00:26.908038Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Got X11 event [3mevent[0m[2m=[0mCreateNotify(CreateNotifyEvent { .. }) [3mshould_ignore[0m[2m=[0mfalse
+[2m2026-08-08T08:00:26.912116Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Got X11 event [3mevent[0m[2m=[0mMappingNotify(MappingNotifyEvent { .. }) [3mshould_ignore[0m[2m=[0mfalse
+[2m2026-08-08T08:00:26.912136Z[0m [34mDEBUG[0m [1mxwayland_wm[0m[1m{[0m[3mid[0m[2m=[0m0[1m}[0m[2m:[0m [2msmithay::xwayland::xwm[0m[2m:[0m Got X11 event [3mevent[0m[2m=[0mMappingNotify(MappingNotifyEvent { .. }) [3mshould_ignore[0m[2m=[0mfalse
+[2m2026-08-08T08:00:26.969050Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:26.970968Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[2m2026-08-08T08:00:26.975542Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:26.975839Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[2m2026-08-08T08:00:26.976081Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m3
+[2m2026-08-08T08:00:26.976274Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[2m2026-08-08T08:00:26.976613Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m4
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:27.079077Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:27.079250Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=lHerpZUizL40HjvCA8okrSrJFzKtHu0S workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:27.080952Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m15
+[2m2026-08-08T08:00:27.081255Z[0m [34mDEBUG[0m [2mslopos_compositor::linux[0m[2m:[0m clipboard selection updated [3mmime_types[0m[2m=[0m["text/plain;charset=utf-8", "text/plain", "application/x-slopos-large"]
+[2m2026-08-08T08:00:27.081311Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m4
+[2m2026-08-08T08:00:27.190720Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 15 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:27.195186Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=Blc1ihfF4v06vNjLMBiNfhU76QRbw6lM workspace active=0/8 windows=2 visible=2 dist=[0:2,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:27.196389Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m11
+[2m2026-08-08T08:00:27.196875Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m5
+[2m2026-08-08T08:00:27.197110Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m1
+[2m2026-08-08T08:00:27.202440Z[0m [34mDEBUG[0m [2msmithay::wayland::selection::offer[0m[2m:[0m Denying a wl_data_offer.receive with invalid mime type
+[2m2026-08-08T08:00:27.202912Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m1
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:27.204633Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m1
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:27.400658Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:27.400993Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=a4cVaQyApPF9VTS2bBahRgTyMq869ApM workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:27.402029Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m15
+[2m2026-08-08T08:00:27.402237Z[0m [34mDEBUG[0m [2mslopos_compositor::linux[0m[2m:[0m clipboard selection updated [3mmime_types[0m[2m=[0m["text/plain;charset=utf-8", "text/plain", "application/x-slopos-large"]
+[2m2026-08-08T08:00:27.402288Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m4
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:28.941015Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:28.941396Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=V7ZeegYt1etc0Fl4OwDw798kOc6aTou1 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:28.943449Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m11
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.079095Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.079336Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=9TaSsDQ8nSa2UMSai1TeqEyYybwhu7vI workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.081282Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m14
+[2m2026-08-08T08:00:29.081937Z[0m [34mDEBUG[0m [2mslopos_compositor::linux[0m[2m:[0m primary selection updated [3mmime_types[0m[2m=[0m["text/plain;charset=utf-8", "text/plain"]
+[2m2026-08-08T08:00:29.082035Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m4
+[2m2026-08-08T08:00:29.194263Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 15 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.194673Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=NrSgHiyZqGmghnkBlqkG4IfmuCN6i87c workspace active=0/8 windows=2 visible=2 dist=[0:2,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.196230Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m11
+[2m2026-08-08T08:00:29.196766Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m5
+[2m2026-08-08T08:00:29.197083Z[0m [34mDEBUG[0m [2msmithay::wayland::selection::offer[0m[2m:[0m Denying a primary_selection_offer.receive with invalid mime type
+[2m2026-08-08T08:00:29.197139Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m1
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.197952Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m1
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.412899Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.413309Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=MYcSqp0oVZuzZDayeFpy94vX8JGefE23 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.414092Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.414368Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.414713Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.414788Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=zLqBNscEpj743Vlxb21XhAzKtOJzLGiZ workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.415384Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.415850Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.416109Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.416198Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=g0BhhzQTj5X9VsAvK6pqXgyDXTlB6Hn6 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.416820Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.417149Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.417432Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.417650Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=aGQa3Nu6GoJX9TX0f6F6Nmflv2tFDrx6 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.418124Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.418461Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.418795Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.418909Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=EMahnmQeYkIbPhYD9jkOc75wz2TITprH workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.419561Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.419917Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.420165Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.420264Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=yJ2ErncoYxi4azjkf7OpRyQunOl3l0m6 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.420861Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.421153Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.421453Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.421620Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=tHzs3UA43ESfgjUNHo0pOP1iKthpFQs9 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.422162Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.422410Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.422684Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.422757Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=Ve9VZQ3zv9i1mIXmFWALjHTiqos4r3ED workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.423198Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.423549Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.423816Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.423925Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=2lJE4nDDYp92HqWQCpR0ksz0uPchEheY workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.424338Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.424602Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.424859Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.424907Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=1Xplqgq1Rxvsyjppr3N5dhOeC7SjAZQo workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.425348Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.425690Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.425934Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.425982Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=JbA6DemLOO7xucvdtTwuimyb992dQS0f workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.426647Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.426901Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.427132Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.427195Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=ZqqUl4GKBqyYjgSAV20fI10fL25FwD63 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.427631Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.427853Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.428042Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.428097Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=hBTge7eN2nmvoI5a4FoVmYFLIHZbgQTx workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.428404Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.428708Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.428901Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.428961Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=eLZLuVxh4A3BQWdCGRcHP4XiNB6AlRes workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.429335Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.429638Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.429821Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.429878Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=39bJaHJa2BiJv8z2vuB5ziHDdJWjSVpi workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.430184Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.430367Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.430543Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.430600Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=dunbOGTgiq4rTtagSv6suhsWsLfnWQ3V workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.430924Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.431120Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.431284Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.431345Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=MpLBDNd1hAnZ7dPBe0VLXPv7LbS3dgRu workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.431670Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.431859Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.432067Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.432122Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=Q2YFmMXEkjBFyMAQnOwBRVu8El8FfYgh workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.432531Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.432785Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.433003Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.433059Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=SNDzM5W8yX5I9lDX59K9dxr4k5NAn9Ay workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.433555Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.433765Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.433971Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.434032Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=W8LEoiXSkswXKMGTl0JqABWBb7XdkExc workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.434400Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.434760Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.434990Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.435033Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=SQjcPkUmi9hsskF6A0RjLV66jmsPphho workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.435396Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.435619Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.435818Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.435902Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=fiDigzHflEWdhpDAhyyOutetcxzoJJuM workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.436321Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.436562Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.436797Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.436853Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=XDZ3Vm4hiN4VJJQCpMpznG76EUbx5VS5 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.437351Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.437682Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.437906Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.438023Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=HeHBftktTuJ4U2db1iBPd9lG2Uhb8OL1 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.438475Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.438802Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.439012Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.439076Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=k2W2qyQa5HcKCGgSF4Io30ImGhVm1RVr workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.439572Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.439810Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.440073Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.440146Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=jArTmjIjDJyEMkJQK6JCAQWXaGG06jyX workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.440735Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.441015Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.441231Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.441279Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=ynJex0IddKY9MGH1paMHXpfZ0T035urS workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.441718Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.441952Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.442132Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.442187Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=YPLQsb1Y9Ev4D9WXlR7HxOzt6GMUWKQA workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.442614Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.442859Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.443023Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.443076Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=zargwISueeE9jNxKmr8EzoO3sljD1YKn workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.443391Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.443666Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.443841Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.443908Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=D5yyJzaCQoQ2zPwknKIAsZO3pH6INtRI workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.444220Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.444410Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.444595Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.444640Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=iL2BD5K0F64c3kCTzrUDe1ud8KnJDh1S workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.444952Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.445148Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.445309Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.445358Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=Hx2d3ZHRVjKN5vrUIjvvivZZovixcqu5 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.445670Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.445854Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.446017Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.446092Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=XMAh7V3zqFO7grJoJIBKdYFXGuHT3S0Q workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.446462Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.446741Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.446963Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.447039Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=8XXoZASuiQjDNRgvoVPxPcJfCe167EuV workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.447454Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.447777Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.447969Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.448069Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=Li7eAdlx3Pe2GPkSzV4s7lRBsWqFkSam workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.448616Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.448809Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.449063Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.449127Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=tI4sKpJpvYRWZkmQJ8srBuLgFF1Q5qHL workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.449632Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.449851Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.450036Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.450086Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=mJXmqitDodISMZ8D1QFssTloWNAc0Spo workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.450434Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.450650Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.450794Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.450848Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=3WsUFs1cWX8AAX4e6ANkX6TVmiReP3cR workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.451167Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.451348Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.451620Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.451683Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=OpnaHxIwMX5BhpzRJuPPwjJ1clVXatz1 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.452077Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.452294Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.452588Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.452643Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=DWR5mdnb5oFzRn5BQVoRnJKqSAWMJr75 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.453036Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.453246Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.453421Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.453474Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=aGOry5fWsPO2WkVP7kh4ORSWhlJSMMxR workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.453830Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.454017Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.454170Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.454225Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=qUufKzLYeb5Rro8yDJPu30v5LVwsdF2s workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.454622Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.454834Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.455031Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.455089Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=PHAw57lVxFtHp5FIBiLqK6CgIhazwU1x workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.455524Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.455754Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.456009Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.456061Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=AL0KH1K9MylzOLXZLoYRCEn1RFR6z0fU workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.456471Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.456768Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.457062Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.457125Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=tQNmhsfADd67NhTyXY2TCXUMPIByJG0r workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.457623Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.457889Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.458054Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.458101Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=9MDFM2rHV0e4lJtqQygb9fYmKMTA7Buy workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.458471Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.458688Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.458855Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.458911Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=dxgg8Ho50gHvCgNm90X9IPf4E2mYR6cL workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.459338Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.459655Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.459835Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.459896Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=gAVLvFKhYlcu2AchVLAypEWjjtva8IAf workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.460251Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.460442Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.460681Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.460738Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=pe3YbeeTi6P6NQurnGsO12yEhcH0zVuo workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.461131Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.461346Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.461600Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.461650Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=389Q8zBRzhlsSJHWX2DbV6SjLZsIw2oj workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.461963Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.462165Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.462349Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.462406Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=b35k2UcR3ckJ900yqfDgnfne1MVuk9n6 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.462995Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.463219Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.463423Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.463469Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=Zg4QLHENGAQDDVtCCqTpnT9x4iAuSDoM workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.463886Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.464106Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.464268Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.464320Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=7v96OWu5l8cXBlBcKBfLAJWKR6uaNRWc workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.464707Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.464883Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.465039Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.465090Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=8Uz1jTEYPYkY3hUZADe7KmmlBP9Er7i7 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.465419Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.465812Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.466187Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.466247Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=OXdudZISWr2QiDGB3oi0s0UEwTm9YF4E workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.466825Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.467031Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.467201Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.467251Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=0bfhKy24h14k2zwfMuHIngqishCv6KZK workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.467648Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.467853Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.468014Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.468068Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=aQXO8Oe1PhRzDnsGquAx7Cwh0FPV8ok3 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.468458Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.468773Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.468956Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.469017Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=9QXQjeENAOe1VwZfmx5WKWUcw5P1okPX workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.469574Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.469816Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.470023Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.470076Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=TWrLoHchp93VLsgsMRifwd4wPgOJ0sqK workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.470611Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.470856Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.471109Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.471174Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=CpWiEqQ1jDTxnKqhEitbexnjBaO8VR8E workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.471645Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.471935Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.472126Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.472221Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=LW6q0oxVBhsbsMtmOFeAwmlBeq9E8JSD workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.472665Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.472865Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.473018Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.473076Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=N97ZDiu1eSRel2vv62KayNgFUdD8pdLc workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.473457Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.473805Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.474002Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.474052Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=yzCr5vLCug1UfDJQ6PUmcAz4qv5xLm9F workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.474472Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.474856Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.475056Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.475117Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=ij5Uzskx4lqPqQidQXqEd0nPuSBvastP workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.475520Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.475728Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[slopos-compositor] client disconnected
+[2m2026-08-08T08:00:29.532112Z[0m [34mDEBUG[0m [2msmithay::wayland::socket[0m[2m:[0m New client connected [3msocket[0m[2m=[0mSome("wayland-1") [3mclient[0m[2m=[0mUnixStream { fd: FileDesc(OwnedFd { fd: 13 }), local: "/tmp/slopos-headless-runtime.ri9vzw/wayland-1" (pathname), peer: (unnamed) }
+[slopos-compositor] client connected
+[2m2026-08-08T08:00:29.533427Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m2
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=P6cN8oHbNEn6UvSNQnH7s0Ff6yms8FW0 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[2m2026-08-08T08:00:29.535284Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m8
+[2m2026-08-08T08:00:29.535519Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m3
+[2m2026-08-08T08:00:29.535757Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m1
+[2m2026-08-08T08:00:29.535979Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m3
+[2m2026-08-08T08:00:29.536194Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m3
+[2m2026-08-08T08:00:29.536559Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m10
+[2m2026-08-08T08:00:29.536782Z[0m [34mDEBUG[0m [2mslopos_compositor[0m[2m:[0m Wayland client requests dispatched [3mdispatched[0m[2m=[0m7
+[slopos-compositor] client disconnected

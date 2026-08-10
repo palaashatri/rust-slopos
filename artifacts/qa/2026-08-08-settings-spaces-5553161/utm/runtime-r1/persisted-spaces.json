@@ -1,0 +1,73 @@
+{
+  "spaces": [
+    {
+      "id": 1,
+      "name": "Desktop 1",
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "windows": [
+        "UkBNAAuXbZNK2zwMDQE11xIUSmmD95VM"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Desktop 2",
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "windows": []
+    },
+    {
+      "id": 3,
+      "name": "Desktop 3",
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "windows": []
+    },
+    {
+      "id": 4,
+      "name": "Desktop 4",
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "windows": []
+    },
+    {
+      "id": 5,
+      "name": "Desktop 5",
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "windows": []
+    },
+    {
+      "id": 6,
+      "name": "Desktop 6",
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "windows": []
+    },
+    {
+      "id": 7,
+      "name": "Desktop 7",
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "windows": []
+    },
+    {
+      "id": 8,
+      "name": "Desktop 8",
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "windows": []
+    }
+  ],
+  "active_space": 2,
+  "next_space_id": 10,
+  "multi_monitor_policy": "shared_span"
+}

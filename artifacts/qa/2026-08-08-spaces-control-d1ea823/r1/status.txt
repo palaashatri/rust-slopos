@@ -1,0 +1,8 @@
+compositor_ready=true
+mapped_windows=2
+client_a_exit=0
+client_b_exit=0
+compositor_exit=143
+workspace_switch_observed=true
+invalid_workspace_rejected=true
+status=passed

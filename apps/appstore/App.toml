@@ -1,5 +1,5 @@
 name = "App Store"
-bundle_id = "com.retro.appstore"
+bundle_id = "com.slopos.appstore"
 version = "0.1.0"
 category = "System"
 entrypoint = "Executable/appstore"

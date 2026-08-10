@@ -1,0 +1,14 @@
+[package]
+name = "slopos-kit"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+slopos-render = { path = "../slopos-render" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+zbus = { workspace = true }

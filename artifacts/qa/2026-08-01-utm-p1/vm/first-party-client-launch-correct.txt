@@ -1,0 +1,112 @@
+runtime=/tmp/slopos-qa-2026-08-01-utm-p1-idle-fix/slopos-i/session-18c78f0215b7a66b-33469
+wayland=wayland-1
+ubuntu     33822   33809   33809 Sl         00:08 /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/finder
+ubuntu     33887   33809   33809 Sl         00:07 /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/settings
+ubuntu     33945   33809   33809 Sl         00:06 /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/textedit
+ubuntu     34003   33809   33809 Sl         00:05 /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/terminal
+ubuntu     34069   33809   33809 Sl         00:04 /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/appstore
+--- finder ---
+[2m2026-08-01T02:59:56.787493Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0d2c59ce410, name: ?)
+[2m2026-08-01T02:59:56.787506Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T02:59:56.787518Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0d2c59ce410, name: ?)
+[2m2026-08-01T02:59:56.787530Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Loader>
+[2m2026-08-01T02:59:56.787542Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0d2c59ce410, name: ?)
+[2m2026-08-01T02:59:56.787554Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T02:59:56.787568Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0d2c59ce410, name: ?)
+[2m2026-08-01T02:59:56.787580Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Device>
+[2m2026-08-01T02:59:56.787593Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0d2c59ce410, name: ?)
+[2m2026-08-01T02:59:56.787730Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	       Using "llvmpipe (LLVM 21.1.8, 128 bits)" with driver: "/usr/lib/aarch64-linux-gnu/libvulkan_lvp.so"
+[2m2026-08-01T02:59:56.787747Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0d2c59ce410, name: ?)
+[2m2026-08-01T02:59:57.175185Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T02:59:57.312305Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T02:59:57.367180Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T02:59:57.462701Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 1
+--- settings ---
+[2m2026-08-01T02:59:57.768477Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xc61e48ed9680, name: ?)
+[2m2026-08-01T02:59:57.768482Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T02:59:57.768488Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xc61e48ed9680, name: ?)
+[2m2026-08-01T02:59:57.768494Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Loader>
+[2m2026-08-01T02:59:57.768499Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xc61e48ed9680, name: ?)
+[2m2026-08-01T02:59:57.768505Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T02:59:57.768510Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xc61e48ed9680, name: ?)
+[2m2026-08-01T02:59:57.768516Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Device>
+[2m2026-08-01T02:59:57.768521Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xc61e48ed9680, name: ?)
+[2m2026-08-01T02:59:57.768590Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	       Using "llvmpipe (LLVM 21.1.8, 128 bits)" with driver: "/usr/lib/aarch64-linux-gnu/libvulkan_lvp.so"
+[2m2026-08-01T02:59:57.768598Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xc61e48ed9680, name: ?)
+[2m2026-08-01T02:59:58.156384Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T02:59:58.311129Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T02:59:58.359730Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T02:59:58.471977Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 1
+--- textedit ---
+[2m2026-08-01T02:59:58.852672Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xc50f1c8ecb60, name: ?)
+[2m2026-08-01T02:59:58.852678Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T02:59:58.852683Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xc50f1c8ecb60, name: ?)
+[2m2026-08-01T02:59:58.852689Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Loader>
+[2m2026-08-01T02:59:58.852695Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xc50f1c8ecb60, name: ?)
+[2m2026-08-01T02:59:58.852700Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T02:59:58.852706Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xc50f1c8ecb60, name: ?)
+[2m2026-08-01T02:59:58.852711Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Device>
+[2m2026-08-01T02:59:58.852716Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xc50f1c8ecb60, name: ?)
+[2m2026-08-01T02:59:58.852785Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	       Using "llvmpipe (LLVM 21.1.8, 128 bits)" with driver: "/usr/lib/aarch64-linux-gnu/libvulkan_lvp.so"
+[2m2026-08-01T02:59:58.852793Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xc50f1c8ecb60, name: ?)
+[2m2026-08-01T02:59:59.220190Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T02:59:59.365989Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T02:59:59.415712Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T02:59:59.547477Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 1
+--- terminal ---
+[2m2026-08-01T02:59:59.855085Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb307d93546b0, name: ?)
+[2m2026-08-01T02:59:59.855091Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T02:59:59.855097Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb307d93546b0, name: ?)
+[2m2026-08-01T02:59:59.855102Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Loader>
+[2m2026-08-01T02:59:59.855108Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb307d93546b0, name: ?)
+[2m2026-08-01T02:59:59.855113Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T02:59:59.855119Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb307d93546b0, name: ?)
+[2m2026-08-01T02:59:59.855125Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Device>
+[2m2026-08-01T02:59:59.855130Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb307d93546b0, name: ?)
+[2m2026-08-01T02:59:59.855201Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	       Using "llvmpipe (LLVM 21.1.8, 128 bits)" with driver: "/usr/lib/aarch64-linux-gnu/libvulkan_lvp.so"
+[2m2026-08-01T02:59:59.855209Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb307d93546b0, name: ?)
+[2m2026-08-01T03:00:00.232030Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T03:00:00.382828Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T03:00:00.422403Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T03:00:00.565330Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 1
+--- appstore ---
+	   <Application>
+[2m2026-08-01T03:00:00.957650Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb5d65c48cb00, name: ?)
+[2m2026-08-01T03:00:00.957656Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T03:00:00.957662Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb5d65c48cb00, name: ?)
+[2m2026-08-01T03:00:00.957669Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Loader>
+[2m2026-08-01T03:00:00.957675Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb5d65c48cb00, name: ?)
+[2m2026-08-01T03:00:00.957680Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T03:00:00.957685Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb5d65c48cb00, name: ?)
+[2m2026-08-01T03:00:00.957691Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Device>
+[2m2026-08-01T03:00:00.957696Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb5d65c48cb00, name: ?)
+[2m2026-08-01T03:00:00.957754Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	       Using "llvmpipe (LLVM 21.1.8, 128 bits)" with driver: "/usr/lib/aarch64-linux-gnu/libvulkan_lvp.so"
+[2m2026-08-01T03:00:00.957761Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb5d65c48cb00, name: ?)
+[2m2026-08-01T03:00:01.334421Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T03:00:01.532766Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T03:00:01.606636Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0

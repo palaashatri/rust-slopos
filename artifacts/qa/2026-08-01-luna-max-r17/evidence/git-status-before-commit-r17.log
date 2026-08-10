@@ -1,0 +1,13 @@
+* docs/program-design...origin/docs/program-design
+ M apps/preview/src/main.rs
+ M apps/preview/src/viewer.rs
+ M apps/textedit/src/main.rs
+ M crates/slopos-compositor/src/cursor_theme.rs
+ M crates/slopos-compositor/src/spaces.rs
+ M crates/slopos-compositor/src/window_state.rs
+ M crates/slopos-fonts/src/lib.rs
+ M crates/slopos-render/src/font.rs
+ M crates/slopos-sdk/src/lib.rs
+ M crates/slopos-shell/src/portal.rs
+?? apps/textedit/src/save.rs
+?? artifacts/qa/2026-08-01-luna-max-r17/

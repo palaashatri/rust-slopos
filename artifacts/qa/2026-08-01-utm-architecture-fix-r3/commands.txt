@@ -1,0 +1,6 @@
+backend command: target/debug/slopos-session --backend drm
+shell: SLOPOS_START_APP=finder
+clients: private XDG_RUNTIME_DIR + WAYLAND_DISPLAY from readiness
+visual capture: UTM Computer Use screenshots
+guest grim: attempted and recorded in grim.log
+SIGUSR1 compositor capture: attempted and recorded in session.log

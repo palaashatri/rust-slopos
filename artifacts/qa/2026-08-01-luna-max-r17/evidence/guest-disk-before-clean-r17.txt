@@ -1,0 +1,3 @@
+Filesystem                         Size  Used Avail Use% Mounted on
+/dev/mapper/ubuntu--vg-ubuntu--lv   30G   29G  133M 100% /
+7.7G	/home/ubuntu/qa/2026-08-01-luna-max-r16/target

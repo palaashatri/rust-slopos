@@ -1,0 +1,34 @@
+Building exact-commit compositor d1ea8239621c0c761d0471caea2a1f042e9677b6
+   Compiling bytemuck v1.25.2
+   Compiling libm v0.2.16
+   Compiling xkeysym v0.2.1
+   Compiling smithay-client-toolkit v0.19.2
+   Compiling winit v0.30.13
+   Compiling num-complex v0.4.6
+   Compiling drm v0.14.1
+   Compiling qoi v0.4.1
+   Compiling xkbcommon-dl v0.4.2
+   Compiling xkbcommon v0.8.0
+   Compiling gbm v0.18.0
+   Compiling pulp v0.22.3
+   Compiling smithay v0.7.0
+   Compiling exr v1.74.2
+   Compiling image v0.25.10
+   Compiling slopos-compositor v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-compositor)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 53.04s
+Starting SLOPOS-owned headless compositor
+Connecting registry client to wayland-1
+Exercising pointer-constraint request/destroy lifecycle
+Exercising client DnD invalid-serial rejection (no input grab available headlessly)
+Exercising native cross-client text/URI DnD with synthetic headless input
+Exercising native text-input-v3/input-method-v2 lifecycle
+Exercising native cross-client clipboard offer, transfer and missing-MIME EOF
+Exercising clipboard target death during a large transfer
+Exercising clipboard source cancellation on selection replacement
+Exercising clipboard source-death clearing
+Exercising native cross-client primary-selection offer, transfer and missing-MIME EOF
+Stressing abrupt toplevel and popup disconnect cleanup
+Completing healthy presentation and popup lifecycles after stress
+Headless runtime protocol smoke passed for d1ea8239621c0c761d0471caea2a1f042e9677b6
+Evidence: /home/ubuntu/qa/2026-08-08-compositor-runtime-d1ea823/d1ea8239621c0c761d0471caea2a1f042e9677b6.json
+This does not prove DRM/KMS, rendering, input, popup grabs, XWayland, HDR, VRR, or hardware compatibility.

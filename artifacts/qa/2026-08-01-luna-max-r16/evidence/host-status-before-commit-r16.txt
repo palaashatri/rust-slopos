@@ -1,0 +1,10 @@
+* docs/program-design...origin/docs/program-design
+ M apps/preview/src/viewer.rs
+ M crates/slopos-compositor/src/spaces.rs
+ M crates/slopos-fonts/src/lib.rs
+?? artifacts/qa/2026-08-01-luna-max-r16/
+?? scripts/__pycache__/
+apps/preview/src/viewer.rs             | 361 +++++++++++++++++++++++--
+ crates/slopos-compositor/src/spaces.rs | 474 ++++++++++++++++++++++++++++++++-
+ crates/slopos-fonts/src/lib.rs         |  96 ++++++-
+ 3 files changed, 890 insertions(+), 41 deletions(-)

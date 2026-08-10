@@ -1,0 +1,5 @@
+host=Ubuntu UTM
+ip=192.168.64.17
+user=ubuntu
+repo=/home/ubuntu/rust-slopos-qa-d1ea823
+sha=5553161ed9ac378602cbef5c510d32c0cab799b8

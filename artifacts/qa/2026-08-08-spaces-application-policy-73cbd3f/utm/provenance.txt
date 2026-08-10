@@ -1,0 +1,2 @@
+73cbd3f49269a5a4b7a3f10079e3064abef5c5b3
+b7e192f1028960cb539ab09bab422fbd8730260af240f5c065d44591555168b1  scripts/verify-spaces-application-policy-runtime.sh

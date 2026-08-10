@@ -1,0 +1,2 @@
+source-build-path=/home/ubuntu/qa/2026-08-02-luna-max-r19-src
+source-build-status=finished

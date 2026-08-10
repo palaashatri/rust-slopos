@@ -1,0 +1,12 @@
+d 700 /run/user/1000/slopos-i/session-18c794608db8b11b-71907
+d 700 /run/user/1000/slopos-i/session-18c794608db8b11b-71907/logs
+d 775 /run/user/1000/slopos-i/session-18c794608db8b11b-71907/slopos-i
+d 775 /run/user/1000/slopos-i/session-18c794608db8b11b-71907/slopos-i/menus
+f 600 /run/user/1000/slopos-i/session-18c794608db8b11b-71907/token
+f 660 /run/user/1000/slopos-i/session-18c794608db8b11b-71907/wayland-1.lock
+f 664 /run/user/1000/slopos-i/session-18c794608db8b11b-71907/active-toplevel
+f 664 /run/user/1000/slopos-i/session-18c794608db8b11b-71907/client-wayland-display
+f 664 /run/user/1000/slopos-i/session-18c794608db8b11b-71907/readiness
+f 664 /run/user/1000/slopos-i/session-18c794608db8b11b-71907/slopos-client-wayland-display
+f 664 /run/user/1000/slopos-i/session-18c794608db8b11b-71907/wayland-display
+s 775 /run/user/1000/slopos-i/session-18c794608db8b11b-71907/wayland-1

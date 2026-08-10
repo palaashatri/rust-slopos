@@ -1,0 +1,5 @@
+SLOPOS_DND_SOURCE_READY
+SLOPOS_DND_SOURCE_STARTED serial=6 icon=true
+SLOPOS_DND_SOURCE_DROP_PERFORMED
+SLOPOS_DND_SOURCE_SENT mime=text/plain;charset=utf-8 bytes=45
+SLOPOS_DND_SOURCE_SENT mime=text/uri-list bytes=28

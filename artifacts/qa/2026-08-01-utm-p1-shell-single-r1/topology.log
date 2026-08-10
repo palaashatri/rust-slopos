@@ -1,0 +1,8 @@
+32:[slopos-compositor] WAYLAND_DISPLAY=wayland-1 (DRM session)
+33:WAYLAND_DISPLAY=wayland-1
+37:[slopos-session] shell pid=71911
+60:[2m2026-08-01T04:35:20.667590Z[0m [32m INFO[0m [2mslopos_shell[0m[2m:[0m Launched multi-client app com.slopos.finder as pid 71922 (compositor-managed surface)
+63:[slopos-compositor/drm] layer-shell surface namespace=slopos-i-desktop layer=Background
+64:[slopos-compositor/drm] layer-shell surface namespace=slopos-i-menu layer=Top
+65:[slopos-compositor/drm] layer-shell surface namespace=slopos-i-dock layer=Bottom
+66:[slopos-compositor/drm] layer-shell surface namespace=slopos-i-menu-popup layer=Overlay

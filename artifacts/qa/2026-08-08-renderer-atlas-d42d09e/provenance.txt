@@ -1,0 +1,8 @@
+commit=d42d09eb002502d70dad26b039299534e0ebf2cc
+branch=docs/program-design
+date=2026-08-08T13:18:19Z
+runtime=/tmp/slopos-renderer-atlas-runtime.uh7FNN
+Linux ubuntu 7.0.0-29-generic #29-Ubuntu SMP PREEMPT_DYNAMIC Sat Jul 18 01:12:25 UTC 2026 aarch64 GNU/Linux
+image=/usr/share/icons/Adwaita/48x48/devices/audio-headphones.png
+compositor_pid=309913
+socket=wayland-1

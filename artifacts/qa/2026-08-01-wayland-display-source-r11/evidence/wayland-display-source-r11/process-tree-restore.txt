@@ -1,0 +1,4 @@
+ 238248       1 S    target/debug/slopos-session --backend drm
+ 238250  238248 Sl   /home/ubuntu/qa/2026-08-01-backend-transport-r10/target/debug/slopos-compositor --backend drm
+ 238252  238248 Sl   /home/ubuntu/qa/2026-08-01-backend-transport-r10/target/debug/slopos-shell
+ 238263  238252 Sl   /home/ubuntu/qa/2026-08-01-backend-transport-r10/target/debug/finder

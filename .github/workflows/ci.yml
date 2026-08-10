@@ -1,11 +1,17 @@
 name: CI
 
-# The compositor is Linux-only: on macOS/Windows crates/retro-compositor
+# The compositor is Linux-only: on macOS/Windows crates/slopos-compositor
 # compiles down to a stub main() that prints "Linux-only". That is exactly how
 # a borrow-checker error in the real implementation went unnoticed from
 # 2026-07-11 to 2026-07-26 while ~30 commits claimed the compositor was "live".
 # This workflow exists so that cannot happen again: the workspace must build on
 # Linux for every push and pull request.
+#
+# Pull requests in this repository may represent long-lived implementation
+# branches whose base predates workspace-wide renames and lockfile replacement.
+# GitHub's synthetic refs/pull/*/merge snapshot can therefore contain a
+# mechanically merged but internally stale Cargo.lock. Source validation runs
+# against the exact proposed head commit; GitHub reports mergeability separately.
 
 on:
   push:
@@ -13,18 +19,61 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
-  # Fail fast on a machine with limited RAM rather than OOM-killing rustc.
   CARGO_NET_RETRY: 3
   RUST_BACKTRACE: 1
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
+  lockfile:
+    name: lockfile consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Regenerate workspace lockfile
+        run: |
+          cargo generate-lockfile
+          mkdir -p artifacts/qa/generated-lockfile
+          cp Cargo.lock artifacts/qa/generated-lockfile/Cargo.lock
+
+      - name: Upload regenerated lockfile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-lockfile-${{ env.SOURCE_SHA }}
+          path: artifacts/qa/generated-lockfile/Cargo.lock
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Verify committed lockfile is current
+        run: git diff --exit-code -- Cargo.lock
+
   linux:
     name: build + test (linux)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
 
       - name: Install system dependencies
         run: |
@@ -47,26 +96,79 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      # --all-targets so tests, benches and examples are type-checked too —
-      # a test-only compile error is still a broken tree.
       - name: Build workspace
         run: cargo build --workspace --all-targets --locked
 
       - name: Test workspace
         run: cargo test --workspace --locked
 
-      # Not -D warnings yet: the tree carries pre-existing warnings and turning
-      # them into errors now would make CI red for reasons unrelated to the
-      # change under review. This still fails on genuine clippy errors.
-      # TODO: clear the backlog, then add `-- -D warnings`.
+      # The tree still carries warning debt outside the compositor. This job
+      # fails on clippy errors while leaving warning promotion for a separate
+      # cleanup milestone.
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked
+
+  compositor-contract:
+    name: compositor completion contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Install compositor dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config wayland-utils \
+            libwayland-dev libwayland-egl-backend-dev \
+            libvulkan-dev libegl1-mesa-dev libgles2-mesa-dev \
+            libxkbcommon-dev libdbus-1-dev \
+            libfontconfig-dev libfreetype6-dev \
+            libdrm-dev libgbm-dev \
+            libxcb1-dev libxcb-icccm4-dev libxcb-keysyms1-dev \
+            libxcb-randr0-dev libxcb-util0-dev libxcb-xfixes0-dev \
+            libinput-dev libudev-dev libseat-dev libsystemd-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: compositor-contract
+
+      - name: Run exact-commit compositor source/build gate
+        run: bash scripts/verify-compositor-completion.sh
+
+      - name: Run SLOPOS headless Wayland runtime gate
+        run: bash scripts/verify-compositor-headless-runtime.sh
+
+      - name: Upload compositor evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compositor-contract-${{ env.SOURCE_SHA }}
+          path: |
+            artifacts/qa/compositor-contract/
+            artifacts/qa/compositor-headless-runtime/
+          if-no-files-found: error
+          retention-days: 30
 
   release-build:
     name: release build (linux)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
 
       - name: Install system dependencies
         run: |
@@ -86,20 +188,23 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 
-      # The release profile is what packaging/vm and scripts/start-retroshell
-      # actually install, so it gets its own gate.
       - name: Build release binaries
         run: cargo build --workspace --release --locked
 
   formatting:
     name: rustfmt
     runs-on: ubuntu-latest
-    # Informational for now: the tree is not fully rustfmt-clean. Flip
-    # continue-on-error off once `cargo fmt --all` has been run and reviewed.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - run: cargo fmt --all --check
+
+      - name: Verify formatting
+        run: cargo fmt --all --check

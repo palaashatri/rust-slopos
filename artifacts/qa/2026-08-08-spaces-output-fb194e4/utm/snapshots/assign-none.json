@@ -1,0 +1,96 @@
+{
+  "session_epoch": 1786203795848430348,
+  "revision": 4,
+  "active_space": 1,
+  "multi_monitor_policy": "independent_per_display",
+  "spaces": [
+    {
+      "id": 1,
+      "order": 0,
+      "name": "Desktop 1",
+      "active": true,
+      "window_count": 0,
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "output_id": null
+    },
+    {
+      "id": 2,
+      "order": 1,
+      "name": "Desktop 2",
+      "active": false,
+      "window_count": 0,
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "output_id": null
+    },
+    {
+      "id": 3,
+      "order": 2,
+      "name": "Desktop 3",
+      "active": false,
+      "window_count": 0,
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "output_id": null
+    },
+    {
+      "id": 4,
+      "order": 3,
+      "name": "Desktop 4",
+      "active": false,
+      "window_count": 0,
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "output_id": null
+    },
+    {
+      "id": 5,
+      "order": 4,
+      "name": "Desktop 5",
+      "active": false,
+      "window_count": 0,
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "output_id": null
+    },
+    {
+      "id": 6,
+      "order": 5,
+      "name": "Desktop 6",
+      "active": false,
+      "window_count": 0,
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "output_id": null
+    },
+    {
+      "id": 7,
+      "order": 6,
+      "name": "Desktop 7",
+      "active": false,
+      "window_count": 0,
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "output_id": null
+    },
+    {
+      "id": 8,
+      "order": 7,
+      "name": "Desktop 8",
+      "active": false,
+      "window_count": 0,
+      "wallpaper": null,
+      "appearance": null,
+      "classification": "normal",
+      "output_id": null
+    }
+  ]
+}

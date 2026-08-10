@@ -1,0 +1,2 @@
+{"protocol_version":1,"payload":{"type":"error","code":"invalid_request","message":"invalid Vision request: invalid type: map, expected unit struct ProbeRequest at line 1 column 62","operation":null,"retryable":false}}
+nc_exit=0

@@ -1,0 +1,18 @@
+Building exact-commit compositor 698832658d240a3c82497a71f1d73262b974b8bc
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.43s
+Starting SLOPOS-owned headless compositor
+Connecting registry client to wayland-1
+Exercising pointer-constraint request/destroy lifecycle
+Exercising client DnD invalid-serial rejection (no input grab available headlessly)
+Exercising native cross-client text/URI DnD with synthetic headless input
+Exercising native text-input-v3/input-method-v2 lifecycle
+Exercising native cross-client clipboard offer, transfer and missing-MIME EOF
+Exercising clipboard target death during a large transfer
+Exercising clipboard source cancellation on selection replacement
+Exercising clipboard source-death clearing
+Exercising native cross-client primary-selection offer, transfer and missing-MIME EOF
+Stressing abrupt toplevel and popup disconnect cleanup
+Completing healthy presentation and popup lifecycles after stress
+Headless runtime protocol smoke passed for 698832658d240a3c82497a71f1d73262b974b8bc
+Evidence: /home/ubuntu/rust-slopos-qa-5577f36/artifacts/qa/2026-08-08-compositor-runtime-6988326/698832658d240a3c82497a71f1d73262b974b8bc.json
+This does not prove DRM/KMS, rendering, input, popup grabs, XWayland, HDR, VRR, or hardware compatibility.

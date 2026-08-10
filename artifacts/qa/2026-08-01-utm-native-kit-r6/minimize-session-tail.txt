@@ -1,0 +1,40 @@
+[slopos-compositor/drm] client connected
+[2m2026-08-01T06:22:57.174488Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T06:22:58.521058Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T06:22:59.896645Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T06:23:01.232179Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T06:23:01.392703Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T06:23:02.021485Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 4
+[2m2026-08-01T06:23:02.790349Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 4
+[2m2026-08-01T06:23:02.866290Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 4
+[slopos-compositor/drm] client connected
+[2m2026-08-01T06:23:03.193642Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T06:23:03.493622Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T06:23:04.799209Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T06:23:06.173762Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T06:23:07.486889Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T06:23:08.822474Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T06:23:09.743188Z[0m [32m INFO[0m [2mslopos_compositor::session_drm[0m[2m:[0m applied compositor presentation request [3mwindow_id[0m[2m=[0mvA38h8etVLdJR5qqNlSFUzsyxWQpa0AQ [3maction[0m[2m=[0mMinimize [3mstate[0m[2m=[0mMinimized
+[slopos-compositor/drm] client connected
+[2m2026-08-01T06:23:10.161898Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m6
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T06:23:10.312072Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T06:23:10.660038Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 5

@@ -1,0 +1,6 @@
+settings pid=61792
+settings: app_id=com.slopos.settings
+textedit pid=61851
+textedit: app_id=com.slopos.textedit
+terminal pid=61917
+terminal: app_id=com.slopos.terminal

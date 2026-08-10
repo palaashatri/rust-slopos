@@ -1,0 +1,3 @@
+process_check=empty
+runtime_session_dirs=/run/user/1000/slopos-i
+2377:[slopos-session] shutdown signal received; stopping session

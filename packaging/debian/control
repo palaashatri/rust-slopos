@@ -1,0 +1,20 @@
+Source: slopos-i
+Section: x11
+Priority: optional
+Maintainer: SLOPOS-I Contributors <team@slopos-i.local>
+Homepage: https://github.com/palaashatri/retroshell
+Vcs-Git: https://github.com/palaashatri/retroshell.git
+Vcs-Browser: https://github.com/palaashatri/retroshell
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Build-Depends: debhelper-compat (= 13), cargo, pkg-config, curl
+
+Package: slopos-i
+Architecture: amd64 arm64
+Depends: libwayland-dev, wayland-protocols, libxkbcommon-dev, libinput-dev, seatd, libseat-dev, libdrm-dev, libgbm-dev, libegl-dev, libgles2-mesa-dev, mesa-vulkan-drivers, libvulkan1, libvulkan-dev, vulkan-tools, libdisplay-info-dev, libpixman-1-dev, dbus, at-spi2-core, libfontconfig1-dev, libfreetype-dev, fonts-dejavu, fonts-liberation, pipewire, pipewire-pulse, wireplumber, policykit-1, xwayland, foot, wl-clipboard
+Description: Classic-Mac-styled Linux desktop environment
+ SLOPOS-I is a complete desktop environment written in Rust,
+ featuring a retro macOS aesthetic with a Wayland compositor,
+ app store, and integrated suite of first-party applications.
+ .
+ This package installs the compositor, shell, and core applications.

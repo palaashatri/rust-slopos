@@ -1,0 +1,12 @@
+source=/home/ubuntu/qa/2026-08-01-luna-max-r18-src
+06e3722fbe781907bc25181d2ffe7d209bee0411
+## docs/program-design...origin/docs/program-design
+Linux ubuntu 7.0.0-28-generic #28-Ubuntu SMP PREEMPT_DYNAMIC Sun Jun 21 00:50:10 UTC 2026 aarch64 GNU/Linux
+Ubuntu 26.04 LTS
+cargo=/home/ubuntu/.cargo/bin/cargo
+cargo 1.97.1 (c980f4866 2026-06-30)
+rustc 1.97.1 (8bab26f4f 2026-07-14)
+WAYLAND_DISPLAY=
+DISPLAY=
+XDG_RUNTIME_DIR=/run/user/1000
+/usr/sbin/seatd

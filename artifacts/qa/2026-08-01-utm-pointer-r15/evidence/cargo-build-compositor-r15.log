@@ -1,0 +1,17 @@
+   Compiling bytemuck v1.25.2
+   Compiling xkeysym v0.2.1
+   Compiling libm v0.2.16
+   Compiling smithay-client-toolkit v0.19.2
+   Compiling winit v0.30.13
+   Compiling num-complex v0.4.6
+   Compiling drm v0.14.1
+   Compiling qoi v0.4.1
+   Compiling xkbcommon-dl v0.4.2
+   Compiling xkbcommon v0.8.0
+   Compiling gbm v0.18.0
+   Compiling pulp v0.22.3
+   Compiling exr v1.74.2
+   Compiling smithay v0.7.0
+   Compiling image v0.25.10
+   Compiling slopos-compositor v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-compositor)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 53.66s

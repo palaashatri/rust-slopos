@@ -2,15 +2,17 @@
 name = "settings"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 
 [[bin]]
 name = "settings"
 path = "src/main.rs"
 
 [dependencies]
-retro-sdk = { path = "../../crates/retro-sdk" }
-retro-kit = { path = "../../crates/retro-kit" }
-retro-shell = { path = "../../crates/retro-shell" }
+slopos-sdk = { path = "../../crates/slopos-sdk" }
+slopos-kit = { path = "../../crates/slopos-kit" }
+slopos-shell = { path = "../../crates/slopos-shell" }
+slopos-bus = { path = "../../crates/slopos-bus" }
 serde = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true }

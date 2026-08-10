@@ -1,0 +1,381 @@
+   Compiling cfg-if v1.0.4
+   Compiling bitflags v2.13.1
+   Compiling log v0.4.33
+   Compiling memchr v2.8.3
+   Compiling once_cell v1.21.4
+   Compiling libc v0.2.189
+   Compiling smallvec v1.15.2
+   Compiling linux-raw-sys v0.12.1
+   Compiling crossbeam-utils v0.8.22
+   Compiling bytemuck v1.25.2
+   Compiling serde_core v1.0.229
+   Compiling pin-project-lite v0.2.17
+   Compiling thiserror v1.0.69
+   Compiling hashbrown v0.17.1
+   Compiling equivalent v1.0.2
+   Compiling zerocopy v0.8.56
+   Compiling libloading v0.8.9
+   Compiling num-traits v0.2.19
+   Compiling indexmap v2.14.0
+   Compiling rustix v1.1.4
+   Compiling crossbeam-epoch v0.9.20
+   Compiling typenum v1.20.1
+   Compiling crossbeam-deque v0.8.7
+   Compiling arrayvec v0.7.8
+   Compiling rayon-core v1.13.0
+   Compiling either v1.17.0
+   Compiling cpufeatures v0.2.17
+   Compiling generic-array v0.14.7
+   Compiling scopeguard v1.2.0
+   Compiling dlib v0.5.3
+   Compiling rayon v1.12.0
+   Compiling serde v1.0.229
+   Compiling slab v0.4.12
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling parking_lot_core v0.9.12
+   Compiling digest v0.10.7
+   Compiling lock_api v0.4.14
+   Compiling wayland-sys v0.31.11
+   Compiling zmij v1.0.23
+   Compiling parking_lot v0.12.5
+   Compiling itoa v1.0.18
+   Compiling scoped-tls v1.0.1
+   Compiling hex v0.4.3
+   Compiling simd-adler32 v0.3.10
+   Compiling downcast-rs v1.2.1
+   Compiling fastrand v2.5.0
+   Compiling serde_json v1.0.151
+   Compiling profiling v1.0.18
+   Compiling equator v0.4.2
+   Compiling num-integer v0.1.46
+   Compiling tracing-core v0.1.36
+   Compiling num-bigint v0.4.8
+   Compiling aligned-vec v0.6.4
+   Compiling quick-xml v0.41.0
+   Compiling adler2 v2.0.1
+   Compiling futures-core v0.3.33
+   Compiling stable_deref_trait v1.2.1
+   Compiling miniz_oxide v0.8.9
+   Compiling as-slice v0.2.1
+   Compiling v_frame v0.3.9
+   Compiling thiserror v2.0.19
+   Compiling libm v0.2.16
+   Compiling anyhow v1.0.104
+   Compiling num-rational v0.4.2
+   Compiling wayland-backend v0.3.16
+   Compiling polling v3.11.0
+   Compiling wayland-scanner v0.31.11
+   Compiling tracing v0.1.44
+   Compiling crc32fast v1.5.0
+   Compiling aligned v0.4.3
+   Compiling sha2 v0.10.9
+   Compiling nom v8.0.0
+   Compiling no_std_io2 v0.9.4
+   Compiling parking v2.2.1
+   Compiling y4m v0.8.0
+   Compiling quick-error v2.0.1
+   Compiling av-scenechange v0.14.1
+   Compiling bitstream-io v4.10.0
+   Compiling flate2 v1.1.9
+   Compiling half v2.7.1
+   Compiling maybe-rayon v0.1.1
+   Compiling itertools v0.14.0
+   Compiling num-complex v0.4.6
+   Compiling pulp-wasm-simd-flag v0.1.1
+   Compiling wayland-client v0.31.15
+   Compiling reborrow v0.5.5
+   Compiling weezl v0.1.12
+   Compiling imgref v1.12.2
+   Compiling futures-io v0.3.33
+   Compiling new_debug_unreachable v1.0.6
+   Compiling zune-core v0.5.1
+   Compiling pulp v0.22.3
+   Compiling zune-jpeg v0.5.15
+   Compiling loop9 v0.1.5
+   Compiling fdeflate v0.3.7
+   Compiling zune-inflate v0.2.54
+   Compiling avif-serialize v0.8.9
+   Compiling bit_field v0.10.3
+   Compiling pxfm v0.1.30
+   Compiling rgb v0.8.53
+   Compiling av1-grain v0.2.5
+   Compiling color_quant v1.1.0
+   Compiling fax v0.2.7
+   Compiling byteorder-lite v0.1.0
+   Compiling linux-raw-sys v0.4.15
+   Compiling lebe v0.5.3
+   Compiling image-webp v0.2.4
+   Compiling rustix v0.38.44
+   Compiling rav1e v0.8.1
+   Compiling tiff v0.11.3
+   Compiling moxcms v0.8.1
+   Compiling gif v0.14.2
+   Compiling exr v1.74.2
+   Compiling png v0.18.1
+   Compiling wayland-server v0.31.14
+   Compiling qoi v0.4.1
+   Compiling ravif v0.13.0
+   Compiling static_assertions v1.1.0
+   Compiling wayland-protocols v0.32.13
+   Compiling event-listener v5.4.2
+   Compiling memmap2 v0.9.11
+   Compiling xkeysym v0.2.1
+   Compiling toml_edit v0.25.13+spec-1.1.0
+   Compiling image v0.25.10
+   Compiling event-listener-strategy v0.5.4
+   Compiling getrandom v0.3.4
+   Compiling ppv-lite86 v0.2.21
+   Compiling concurrent-queue v2.5.0
+   Compiling proc-macro-crate v3.5.0
+   Compiling getrandom v0.4.3
+   Compiling calloop v0.13.0
+   Compiling futures-lite v2.6.1
+   Compiling memmap2 v0.8.0
+   Compiling futures-sink v0.3.33
+   Compiling xcursor v0.3.11
+   Compiling raw-window-handle v0.6.2
+   Compiling arrayref v0.3.9
+   Compiling strict-num v0.1.1
+   Compiling cursor-icon v1.2.0
+   Compiling ttf-parser v0.25.1
+   Compiling wayland-csd-frame v0.3.0
+   Compiling tiny-skia-path v0.11.4
+   Compiling wayland-cursor v0.31.14
+   Compiling futures-channel v0.3.33
+   Compiling xkbcommon v0.7.0
+   Compiling calloop-wayland-source v0.3.0
+   Compiling getrandom v0.2.17
+   Compiling ab_glyph_rasterizer v0.1.10
+   Compiling atomic-waker v1.1.2
+   Compiling futures-task v0.3.33
+   Compiling async-task v4.7.1
+   Compiling futures-util v0.3.33
+   Compiling piper v0.2.5
+   Compiling rand_core v0.6.4
+   Compiling enumflags2 v0.7.12
+   Compiling owned_ttf_parser v0.25.1
+   Compiling ab_glyph v0.2.32
+   Compiling tiny-skia v0.11.4
+   Compiling zvariant_derive v4.2.0
+   Compiling async-channel v2.5.0
+   Compiling gethostname v1.1.0
+   Compiling x11rb-protocol v0.13.2
+   Compiling endi v1.1.1
+   Compiling as-raw-xcb-connection v1.0.1
+   Compiling zvariant v4.2.0
+   Compiling blocking v1.6.2
+   Compiling x11-dl v2.21.0
+   Compiling memoffset v0.9.1
+   Compiling ahash v0.8.12
+   Compiling rand_chacha v0.3.1
+   Compiling async-lock v3.4.2
+   Compiling xkbcommon-dl v0.4.2
+   Compiling dpi v0.1.2
+   Compiling smol_str v0.2.2
+   Compiling wayland-protocols-wlr v0.3.12
+   Compiling wayland-protocols-plasma v0.3.12
+   Compiling percent-encoding v2.3.2
+   Compiling zbus_names v3.0.0
+   Compiling async-fs v2.2.0
+   Compiling rand v0.8.7
+   Compiling smithay-client-toolkit v0.19.2
+   Compiling nix v0.29.0
+   Compiling async-io v2.6.0
+   Compiling sctk-adwaita v0.10.1
+   Compiling async-executor v1.14.0
+   Compiling zbus_macros v4.4.0
+   Compiling async-broadcast v0.7.2
+   Compiling ordered-stream v0.2.0
+   Compiling sha1 v0.10.7
+   Compiling errno v0.3.14
+   Compiling xdg-home v1.3.0
+   Compiling socket2 v0.6.5
+   Compiling signal-hook-registry v1.4.8
+   Compiling mio v1.2.2
+   Compiling bytes v1.12.1
+   Compiling futures-executor v0.3.33
+   Compiling uuid v1.24.0
+   Compiling futures v0.3.33
+   Compiling tokio v1.53.1
+   Compiling bit-vec v0.7.0
+   Compiling foldhash v0.1.5
+   Compiling rustc-hash v1.1.0
+   Compiling termcolor v1.4.1
+   Compiling unicode-width v0.1.14
+   Compiling bit-set v0.6.0
+   Compiling hashbrown v0.15.5
+   Compiling codespan-reporting v0.11.1
+   Compiling font-types v0.7.3
+   Compiling spirv v0.3.0+sdk-1.3.268.0
+   Compiling gpu-alloc-types v0.3.1
+   Compiling gpu-descriptor-types v0.2.0
+   Compiling hexf-parse v0.2.1
+   Compiling unicode-xid v0.2.6
+   Compiling gpu-descriptor v0.3.2
+   Compiling gpu-alloc v0.6.2
+   Compiling zbus v4.4.0
+   Compiling read-fonts v0.22.7
+   Compiling ash v0.38.0+1.3.281
+   Compiling naga v22.1.0
+   Compiling x11rb v0.13.2
+   Compiling winit v0.30.13
+   Compiling slopos-bus v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-bus)
+   Compiling khronos-egl v6.0.0
+   Compiling wgpu-types v22.0.0
+   Compiling tinyvec_macros v0.1.1
+   Compiling lazy_static v1.5.0
+   Compiling ttf-parser v0.20.0
+   Compiling roxmltree v0.20.0
+   Compiling glow v0.13.1
+   Compiling renderdoc-sys v1.1.0
+   Compiling fontconfig-parser v0.5.8
+   Compiling sharded-slab v0.1.7
+   Compiling tinyvec v1.12.0
+   Compiling wgpu-hal v22.0.0
+   Compiling skrifa v0.22.3
+   Compiling slotmap v1.1.1
+   Compiling tracing-log v0.2.0
+   Compiling thread_local v1.1.10
+   Compiling zeno v0.2.3
+   Compiling unicode-ccc v0.1.2
+   Compiling yazi v0.1.6
+   Compiling nu-ansi-term v0.50.3
+   Compiling unicode-properties v0.1.4
+   Compiling unicode-bidi-mirroring v0.1.0
+   Compiling unicode-script v0.5.8
+   Compiling fontdb v0.16.2
+   Compiling tracing-subscriber v0.3.23
+   Compiling rustybuzz v0.12.1
+   Compiling slopos-fonts v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-fonts)
+   Compiling self_cell v1.3.0
+   Compiling unicode-linebreak v0.1.5
+   Compiling swash v0.1.19
+   Compiling wgpu-core v22.1.0
+   Compiling unicode-bidi v0.3.18
+   Compiling unicode-segmentation v1.13.3
+   Compiling rangemap v1.7.1
+   Compiling sys-locale v0.3.2
+   Compiling tempfile v3.27.0
+   Compiling serde_spanned v0.6.9
+   Compiling cosmic-text v0.11.2
+   Compiling toml_datetime v0.6.11
+   Compiling linux-raw-sys v0.9.4
+   Compiling toml_write v0.1.2
+   Compiling winnow v0.7.15
+   Compiling drm-sys v0.8.1
+   Compiling libudev-sys v0.1.4
+   Compiling io-lifetimes v1.0.11
+   Compiling drm-ffi v0.9.1
+   Compiling drm-fourcc v2.2.0
+   Compiling rand_core v0.9.5
+   Compiling rand_chacha v0.9.0
+   Compiling drm v0.14.1
+   Compiling toml_edit v0.22.27
+   Compiling udev v0.9.3
+   Compiling libseat-sys v0.2.0
+   Compiling gbm-sys v0.4.0
+   Compiling input-sys v1.19.0
+   Compiling approx v0.4.0
+   Compiling libseat v0.2.4
+   Compiling input v0.9.1
+   Compiling cgmath v0.18.0
+   Compiling rand v0.9.5
+   Compiling wgpu v22.1.0
+   Compiling gbm v0.18.0
+   Compiling wayland-protocols-misc v0.3.12
+   Compiling xkbcommon v0.8.0
+   Compiling wayland-egl v0.32.11
+   Compiling calloop v0.14.4
+   Compiling toml v0.8.23
+   Compiling encoding_rs v0.8.35
+   Compiling appendlist v1.4.0
+   Compiling atomic_float v1.1.0
+   Compiling rten-base v0.24.0
+   Compiling typeid v1.0.3
+   Compiling rten-simd v0.24.0
+   Compiling rten-tensor v0.24.0
+   Compiling bitflags v1.3.2
+   Compiling flatbuffers v24.12.23
+   Compiling smithay v0.7.0
+   Compiling slopos-render v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-render)
+   Compiling rten-gemm v0.24.0
+   Compiling rten-shape-inference v0.24.0
+   Compiling rten-model-file v0.24.0
+   Compiling slopos-kit v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-kit)
+   Compiling rten-vecmath v0.24.0
+   Compiling num_cpus v1.17.0
+   Compiling rten-onnx v0.24.0
+   Compiling rustc-hash v2.1.3
+   Compiling slopos-vision-protocol v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-vision-protocol)
+   Compiling rten v0.24.0
+   Compiling utf8parse v0.2.2
+   Compiling aho-corasick v1.1.5
+   Compiling regex-syntax v0.8.11
+   Compiling slopos-sdk v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-sdk)
+   Compiling regex-automata v0.4.18
+   Compiling anstyle-parse v1.0.0
+   Compiling anstyle v1.0.14
+   Compiling slopos-shell v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-shell)
+   Compiling regex v1.13.1
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling jiff-core v0.1.0
+   Compiling anstyle-query v1.1.5
+   Compiling colorchoice v1.0.5
+   Compiling anstream v1.0.0
+   Compiling jiff v0.2.35
+   Compiling env_filter v2.0.0
+   Compiling slopos-vision-client v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-vision-client)
+   Compiling xattr v1.6.1
+   Compiling filetime v0.2.29
+   Compiling vte v0.11.1
+   Compiling tar v0.4.46
+   Compiling nix v0.27.1
+   Compiling env_logger v0.11.11
+   Compiling appstore v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/appstore)
+   Compiling terminal v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/terminal)
+   Compiling preview v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/preview)
+error: could not create incremental compilation crate directory `/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/incremental/slopos_lock-28n7t5ryadgwq`: No space left on device (os error 28)
+
+error: could not compile `slopos-shell` (bin "slopos-lock" test) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+rustc-LLVM ERROR: IO failure on output stream: No space left on device
+error: could not compile `rten` (lib)
+
+Caused by:
+  No space left on device (os error 28)
+
+Caused by:
+  failed to parse process output: `rustc --crate-name rten --edition=2024 /home/ubuntu/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rten-0.24.0/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --crate-type cdylib --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 '--allow=clippy::uninlined_format_args' '--allow=clippy::too_many_arguments' '--allow=clippy::needless_range_loop' '--allow=clippy::manual_repeat_n' '--allow=clippy::assertions_on_constants' --cfg 'feature="default"' --cfg 'feature="onnx_format"' --cfg 'feature="rten_format"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("all-ops", "default", "fft", "mmap", "onnx_format", "random", "rten_format", "wasm_api"))' -C metadata=31a3ba7f25ee5a03 -C extra-filename=-5893fff5e8cab903 --out-dir /home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps -L dependency=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps --extern flatbuffers=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libflatbuffers-0279ffceb77da49f.rlib --extern num_cpus=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libnum_cpus-053b7b53d282663f.rlib --extern rayon=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/librayon-100fa135f40669a7.rlib --extern rten_base=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/librten_base-91d000ec67524a8f.rlib --extern rten_gemm=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/librten_gemm-72595859fccef309.rlib --extern rten_model_file=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/librten_model_file-39e903f0c045586a.rlib --extern rten_onnx=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/librten_onnx-293611621de4ac5f.rlib --extern rten_shape_inference=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/librten_shape_inference-af20b8c999b82b08.rlib --extern rten_simd=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/librten_simd-9547379125358841.rlib --extern rten_tensor=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/librten_tensor-385b032632dbb7d5.rlib --extern rten_vecmath=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/librten_vecmath-55b1782ed1a3e00b.rlib --extern rustc_hash=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/librustc_hash-5fe794ac79fe5e55.rlib --extern smallvec=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libsmallvec-a94e47f5e99c1f79.rlib --extern typeid=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libtypeid-09e62802f856102d.rlib --cap-lints allow` (exit status: 101)
+error: linking with `cc` failed: exit status: 1
+  |
+  = note:  "cc" "/tmp/rustcbsUKnI/symbols.o" "<122 object files omitted>" "-Wl,--as-needed" "-Wl,-Bstatic" "/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/{libtracing_subscriber-5ba393967ef44ddc,libthread_local-fcb64cae7f2e9fac,libnu_ansi_term-2d6692c8b043ea66,libsharded_slab-06adb3fdc5368ed4,liblazy_static-754122aad6d1046d,libtracing_log-b2427f31b9ef2fb3}.rlib" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib/{libtest-*,libgetopts-*,librustc_std_workspace_std-*}.rlib" "/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/{libtar-b186a2a576a8609d,libxattr-2a78d9976d2ef785,libfiletime-36b9e681913d8c29,libflate2-ecd28585e42250a8,libminiz_oxide-f0b4c512f1e33890,libsimd_adler32-e13762835a8e3dfa,libcrc32fast-4965170ed5c3c547,libslopos_sdk-56349412650a94d0,libfutures-57a15514d19c0b93,libfutures_executor-d88788e780ddd9ec,libslopos_bus-2f2adaa00892093b,libserde_json-f48c253a7cdb8b3d,libitoa-7012666f50b76ded,libzmij-5727b45fe9a2fe55,libslopos_kit-f0e1a96ab6f75eb7,libslopos_render-51d5e20df7bcc048,libwgpu-3e6075cbbc9606ca,libwgpu_core-8bc3c312037d73b2,libwgpu_hal-20a68d1d5f9ff43f,librenderdoc_sys-09bb8eb8400438c1,libgpu_descriptor-1d5c4fd0befef298,libhashbrown-1a2d885841d8cf4b,libfoldhash-f19277ec769ec718,libgpu_descriptor_types-625b534b4c8be8f7,libkhronos_egl-05d3716487985bd5,libprofiling-30e41d0eb68cb9dd,libgpu_alloc-5d3bd2bab4587137,libgpu_alloc_types-c0adad086c7ab9d8,libash-2d7bba9249b2703e,libnaga-3af8aff2f4a7cf9c,libhexf_parse-243f6ecf3f2a8984,libunicode_xid-5db25a238a7d6338,libindexmap-66a8a7c1e401e2ad,libequivalent-c193e5cdb9285d5e,libhashbrown-012f39131696a76d,libbit_set-219ea757a30d611f,libbit_vec-ad9596cd7ecaf84c,libcodespan_reporting-7adb7f58c205c43f,libunicode_width-3e4b6b6a211ddd03,libtermcolor-5d9cb6974c642e60,libspirv-84c3a31004bb3c4b,libwgpu_types-6c4c783b9d47be9a,libglow-db1093c72e7cc989,libslopos_fonts-2f168b125be4bc8e,libsha2-efa1b8e74eab8b6c,libcosmic_text-5f4ce93743fff9c1,librustc_hash-6e0ef825f8abe377,libunicode_linebreak-ce7fd5126cd9e56f,libsys_locale-88d1f8ae0bcd6dd4,liblibm-94e2a66e7eecfbad,libswash-0a5a5d68b14655ee,libyazi-35392d1f327244c6,libskrifa-8b13f51f0d54d726,libread_fonts-2902ab24d8464591,libfont_types-a82a7446e70805b2,libzeno-c12edf5b68fb0464,libself_cell-4474e8c14aacff17,librustybuzz-a365fcdb6fd13700,libunicode_bidi_mirroring-f1b53a307cc54191,libunicode_properties-f2b97693f406f12f,libunicode_ccc-7270ffb9afe6f1fa,libunicode_script-c85d8ca9b2910544,libunicode_segmentation-93a3a927c16ac1df,libunicode_bidi-3369861c6f359378,libfontdb-69d1ff2d26ff2fcc,libfontconfig_parser-e49050ea850d41b4,libroxmltree-a3cd69854ae06e49,libtinyvec-ad74dd8d6de3dd0e,libtinyvec_macros-057a89fb9cc58a50,libslotmap-156ba22410e00187,libttf_parser-8c4da60afd6404c8,librangemap-fe084d466ad89691,libwinit-cbdc44faec5a90a6,libsctk_adwaita-a9bf87b04a601246,libab_glyph-2ce040e09acb0d43,libowned_ttf_parser-96f2b8e21a0eca62,libttf_parser-a60a0345b70ac582,libab_glyph_rasterizer-75211617190a3062,libtiny_skia-bbf63e638890432a,libarrayvec-b5b912a36d3886f9,libtiny_skia_path-4bfdf5f0bb9216cf,libstrict_num-64ca20b9ceec4c92,libarrayref-d9134d9755786624,libpercent_encoding-81250939c7bce0cf,libx11rb-23714b9c36344171,libgethostname-20e565988d3f0d99,libas_raw_xcb_connection-af4c6c6f294bb1f6,libx11rb_protocol-51c35ce4ef85a910,libwayland_protocols_plasma-92507fb062c0e6fe,libahash-d8e63f3c26c14a7a,libgetrandom-398b01617771fbc3,libsmithay_client_toolkit-f4d75d7edbc240af,libwayland_cursor-3058c2be4abe3421,libxcursor-7b97ec3a82634b90,libxkbcommon-d11d13e8ca3acc7e,libmemmap2-cedd7bd946a733eb,libwayland_protocols_wlr-328c5da56194cb83,libwayland_protocols-f4076f0e9529be4d,libwayland_server-ad16d5ae49ef4141,libwayland_csd_frame-f3cbc92404d12cd6,libcalloop_wayland_source-f2e51a06d7d6f94e,libwayland_client-e7bc1fd672a37cef,libwayland_backend-2a82fcb929a38efa,libdowncast_rs-e94e2dccc35d4caf,libscoped_tls-aae4d5c1436133e0,libwayland_sys-bd07a04bff6b7dc3,libcalloop-f5f98803596c9159,libthiserror-9b41cf17f025601b,librustix-3f88ae61d00555d2,liblinux_raw_sys-5ebb4e0d433c9da2,libmemmap2-a67d5e94457280fa,libx11_dl-46473851b937a2d0,libxkbcommon_dl-669b5945c6cf0564,libxkeysym-945840d66ca74746,libbytemuck-eb599204ff31640d,libdlib-38ff5b04d6eb5cc0,liblibloading-bd177e06cb80d3fc,libsmol_str-124d7b56444b363a,libcursor_icon-a6ca6ce812a357d2,libdpi-1ba1e4d21164c040,libraw_window_handle-a303a480343c2df1,libparking_lot-abed7b40816fc09d,libparking_lot_core-fa0f184d026d4150,libsmallvec-a94e47f5e99c1f79,liblock_api-0e7763072df34ff6,libscopeguard-3352466c84a0078e,libzbus-0f88650ec52c215b,libasync_fs-71176070bb432cfe,libblocking-511b62e64f4f713a,libpiper-75bf463ba099ac89,libatomic_waker-dd89eb6cca19795d,libasync_channel-32f58c3b9b9c1fe1,libhex-134fcf7fbc126f64,libasync_lock-36cf0502612dcb38,libasync_executor-d26313da299c2e31,libasync_task-dc2cc844a0671ea4,librand-bbe466ffec0f8d37,librand_chacha-2c0a0ecca1a000aa,libppv_lite86-ae190896e5b9f7b1,libzerocopy-742da87ae95e0e6e,librand_core-2b9edf235d1794be,libgetrandom-eaecde60898b4b33,libxdg_home-25d5ddf35178acd6,libsha1-ce536aabcf2a04fe,libdigest-6d35ba27cb1c2fd4,libblock_buffer-dcf939e604d8bccc,libcrypto_common-7548b2f37b500948,libgeneric_array-5fb5e3f8b0e69c77,libtypenum-24621d0826a0dc93,libfutures_util-e9ac5f318f9d8b4e,libmemchr-8fe9920232e0f3f5,libfutures_channel-abdcf6f0f447b3ba,libfutures_sink-7a5d2df5c5342a56,libfutures_task-dc3b9e9a711c31dc,libtracing-15a6b65b29889561,liblog-dd7b4cc107cd3be3,libtracing_core-9171822538d5f752,libonce_cell-28bc718446465453,libordered_stream-4b94ae52ae80f69a,libasync_broadcast-1d4de94f2f10e7c4,libevent_listener_strategy-e9dcfdb86b56cd99,libevent_listener-6c896a8b41e812dd,libnix-b0e2d8456fb2db5f,libmemoffset-9c2ed417e45c4769,liblibc-4f4cae6a82aa4ad2,libasync_io-ee14192988bba1ad,libslab-640e42c042464861,libpolling-500e80ff483f1a7e,libcfg_if-21ed7849f7fe6dc6,libconcurrent_queue-4a1cc2943180b7f5,libcrossbeam_utils-ed9eb6aa3a2b5287,librustix-56e25300981bbe0b,libbitflags-88c5a7f1c6d4be4b,liblinux_raw_sys-40a21c327d6d70c4,libfutures_lite-f4f1d016090071ab,libfutures_core-0c987a1d7af62bb9,libparking-25afb7f4ddd88ff6,libpin_project_lite-98338e1f4ab49fea,libfastrand-4df31e1fb9c01174,libfutures_io-ee9a56242dc8c7fa,libzbus_names-3e7e25e7eb40446b,libzvariant-633df7ddcbde299a,libenumflags2-993e6a956b582ac4,libendi-fc480d87ce8f6ef3,libserde-71879fcc2cdc0b92,libserde_core-1eaf5eae73cbed23,libstatic_assertions-1c0ca78b5e3875b6}.rlib" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-Wl,-Bdynamic" "-lxkbcommon" "-lxkbcommon" "-ldl" "-ldl" "-lgcc_s" "-lutil" "-lrt" "-lpthread" "-lm" "-ldl" "-lc" "-L" "/tmp/rustcbsUKnI/raw-dylibs" "-Wl,--eh-frame-hdr" "-Wl,-z,noexecstack" "-L" "/usr/lib/aarch64-linux-gnu" "-L" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib" "-o" "/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/appstore-9518616f734ba15b" "-Wl,--gc-sections" "-pie" "-Wl,-z,relro,-z,now" "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: /usr/bin/aarch64-linux-gnu-ld.bfd: final link failed: No space left on device
+          collect2: error: ld returned 1 exit status
+          
+
+error: linking with `cc` failed: exit status: 1
+  |
+  = note:  "cc" "/tmp/rustcL7PHWj/symbols.o" "<136 object files omitted>" "-Wl,--as-needed" "-Wl,-Bstatic" "/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/{libtracing_subscriber-5ba393967ef44ddc,libthread_local-fcb64cae7f2e9fac,libnu_ansi_term-2d6692c8b043ea66,libsharded_slab-06adb3fdc5368ed4,liblazy_static-754122aad6d1046d,libtracing_log-b2427f31b9ef2fb3}.rlib" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib/{libtest-*,libgetopts-*,librustc_std_workspace_std-*}.rlib" "/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/{libvte-dfc579c158a904f4,libutf8parse-dade07f761482883,libnix-67c0cae4e98371f8,libslopos_sdk-56349412650a94d0,libfutures-57a15514d19c0b93,libfutures_executor-d88788e780ddd9ec,libslopos_bus-2f2adaa00892093b,libserde_json-f48c253a7cdb8b3d,libitoa-7012666f50b76ded,libzmij-5727b45fe9a2fe55,libslopos_kit-f0e1a96ab6f75eb7,libslopos_render-51d5e20df7bcc048,libwgpu-3e6075cbbc9606ca,libwgpu_core-8bc3c312037d73b2,libwgpu_hal-20a68d1d5f9ff43f,librenderdoc_sys-09bb8eb8400438c1,libgpu_descriptor-1d5c4fd0befef298,libhashbrown-1a2d885841d8cf4b,libfoldhash-f19277ec769ec718,libgpu_descriptor_types-625b534b4c8be8f7,libkhronos_egl-05d3716487985bd5,libprofiling-30e41d0eb68cb9dd,libgpu_alloc-5d3bd2bab4587137,libgpu_alloc_types-c0adad086c7ab9d8,libash-2d7bba9249b2703e,libnaga-3af8aff2f4a7cf9c,libhexf_parse-243f6ecf3f2a8984,libunicode_xid-5db25a238a7d6338,libindexmap-66a8a7c1e401e2ad,libequivalent-c193e5cdb9285d5e,libhashbrown-012f39131696a76d,libbit_set-219ea757a30d611f,libbit_vec-ad9596cd7ecaf84c,libcodespan_reporting-7adb7f58c205c43f,libunicode_width-3e4b6b6a211ddd03,libtermcolor-5d9cb6974c642e60,libspirv-84c3a31004bb3c4b,libwgpu_types-6c4c783b9d47be9a,libglow-db1093c72e7cc989,libslopos_fonts-2f168b125be4bc8e,libsha2-efa1b8e74eab8b6c,libcosmic_text-5f4ce93743fff9c1,librustc_hash-6e0ef825f8abe377,libunicode_linebreak-ce7fd5126cd9e56f,libsys_locale-88d1f8ae0bcd6dd4,liblibm-94e2a66e7eecfbad,libswash-0a5a5d68b14655ee,libyazi-35392d1f327244c6,libskrifa-8b13f51f0d54d726,libread_fonts-2902ab24d8464591,libfont_types-a82a7446e70805b2,libzeno-c12edf5b68fb0464,libself_cell-4474e8c14aacff17,librustybuzz-a365fcdb6fd13700,libunicode_bidi_mirroring-f1b53a307cc54191,libunicode_properties-f2b97693f406f12f,libunicode_ccc-7270ffb9afe6f1fa,libunicode_script-c85d8ca9b2910544,libunicode_segmentation-93a3a927c16ac1df,libunicode_bidi-3369861c6f359378,libfontdb-69d1ff2d26ff2fcc,libfontconfig_parser-e49050ea850d41b4,libroxmltree-a3cd69854ae06e49,libtinyvec-ad74dd8d6de3dd0e,libtinyvec_macros-057a89fb9cc58a50,libslotmap-156ba22410e00187,libttf_parser-8c4da60afd6404c8,librangemap-fe084d466ad89691,libwinit-cbdc44faec5a90a6,libsctk_adwaita-a9bf87b04a601246,libab_glyph-2ce040e09acb0d43,libowned_ttf_parser-96f2b8e21a0eca62,libttf_parser-a60a0345b70ac582,libab_glyph_rasterizer-75211617190a3062,libtiny_skia-bbf63e638890432a,libarrayvec-b5b912a36d3886f9,libtiny_skia_path-4bfdf5f0bb9216cf,libstrict_num-64ca20b9ceec4c92,libarrayref-d9134d9755786624,libpercent_encoding-81250939c7bce0cf,libx11rb-23714b9c36344171,libgethostname-20e565988d3f0d99,libas_raw_xcb_connection-af4c6c6f294bb1f6,libx11rb_protocol-51c35ce4ef85a910,libwayland_protocols_plasma-92507fb062c0e6fe,libahash-d8e63f3c26c14a7a,libgetrandom-398b01617771fbc3,libsmithay_client_toolkit-f4d75d7edbc240af,libwayland_cursor-3058c2be4abe3421,libxcursor-7b97ec3a82634b90,libxkbcommon-d11d13e8ca3acc7e,libmemmap2-cedd7bd946a733eb,libwayland_protocols_wlr-328c5da56194cb83,libwayland_protocols-f4076f0e9529be4d,libwayland_server-ad16d5ae49ef4141,libwayland_csd_frame-f3cbc92404d12cd6,libcalloop_wayland_source-f2e51a06d7d6f94e,libwayland_client-e7bc1fd672a37cef,libwayland_backend-2a82fcb929a38efa,libdowncast_rs-e94e2dccc35d4caf,libscoped_tls-aae4d5c1436133e0,libwayland_sys-bd07a04bff6b7dc3,libcalloop-f5f98803596c9159,libthiserror-9b41cf17f025601b,librustix-3f88ae61d00555d2,liblinux_raw_sys-5ebb4e0d433c9da2,libmemmap2-a67d5e94457280fa,libx11_dl-46473851b937a2d0,libxkbcommon_dl-669b5945c6cf0564,libxkeysym-945840d66ca74746,libbytemuck-eb599204ff31640d,libdlib-38ff5b04d6eb5cc0,liblibloading-bd177e06cb80d3fc,libsmol_str-124d7b56444b363a,libcursor_icon-a6ca6ce812a357d2,libdpi-1ba1e4d21164c040,libraw_window_handle-a303a480343c2df1,libparking_lot-abed7b40816fc09d,libparking_lot_core-fa0f184d026d4150,libsmallvec-a94e47f5e99c1f79,liblock_api-0e7763072df34ff6,libscopeguard-3352466c84a0078e,libzbus-0f88650ec52c215b,libasync_fs-71176070bb432cfe,libblocking-511b62e64f4f713a,libpiper-75bf463ba099ac89,libatomic_waker-dd89eb6cca19795d,libasync_channel-32f58c3b9b9c1fe1,libhex-134fcf7fbc126f64,libasync_lock-36cf0502612dcb38,libasync_executor-d26313da299c2e31,libasync_task-dc2cc844a0671ea4,librand-bbe466ffec0f8d37,librand_chacha-2c0a0ecca1a000aa,libppv_lite86-ae190896e5b9f7b1,libzerocopy-742da87ae95e0e6e,librand_core-2b9edf235d1794be,libgetrandom-eaecde60898b4b33,libxdg_home-25d5ddf35178acd6,libsha1-ce536aabcf2a04fe,libdigest-6d35ba27cb1c2fd4,libblock_buffer-dcf939e604d8bccc,libcrypto_common-7548b2f37b500948,libgeneric_array-5fb5e3f8b0e69c77,libtypenum-24621d0826a0dc93,libfutures_util-e9ac5f318f9d8b4e,libmemchr-8fe9920232e0f3f5,libfutures_channel-abdcf6f0f447b3ba,libfutures_sink-7a5d2df5c5342a56,libfutures_task-dc3b9e9a711c31dc,libtracing-15a6b65b29889561,liblog-dd7b4cc107cd3be3,libtracing_core-9171822538d5f752,libonce_cell-28bc718446465453,libordered_stream-4b94ae52ae80f69a,libasync_broadcast-1d4de94f2f10e7c4,libevent_listener_strategy-e9dcfdb86b56cd99,libevent_listener-6c896a8b41e812dd,libnix-b0e2d8456fb2db5f,libmemoffset-9c2ed417e45c4769,liblibc-4f4cae6a82aa4ad2,libasync_io-ee14192988bba1ad,libslab-640e42c042464861,libpolling-500e80ff483f1a7e,libcfg_if-21ed7849f7fe6dc6,libconcurrent_queue-4a1cc2943180b7f5,libcrossbeam_utils-ed9eb6aa3a2b5287,librustix-56e25300981bbe0b,libbitflags-88c5a7f1c6d4be4b,liblinux_raw_sys-40a21c327d6d70c4,libfutures_lite-f4f1d016090071ab,libfutures_core-0c987a1d7af62bb9,libparking-25afb7f4ddd88ff6,libpin_project_lite-98338e1f4ab49fea,libfastrand-4df31e1fb9c01174,libfutures_io-ee9a56242dc8c7fa,libzbus_names-3e7e25e7eb40446b,libzvariant-633df7ddcbde299a,libenumflags2-993e6a956b582ac4,libendi-fc480d87ce8f6ef3,libserde-71879fcc2cdc0b92,libserde_core-1eaf5eae73cbed23,libstatic_assertions-1c0ca78b5e3875b6}.rlib" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-Wl,-Bdynamic" "-lxkbcommon" "-lxkbcommon" "-ldl" "-ldl" "-lgcc_s" "-lutil" "-lrt" "-lpthread" "-lm" "-ldl" "-lc" "-L" "/tmp/rustcL7PHWj/raw-dylibs" "-Wl,--eh-frame-hdr" "-Wl,-z,noexecstack" "-L" "/usr/lib/aarch64-linux-gnu" "-L" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib" "-o" "/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/terminal-1f62f09fcbef07de" "-Wl,--gc-sections" "-pie" "-Wl,-z,relro,-z,now" "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: /usr/bin/aarch64-linux-gnu-ld.bfd: final link failed: No space left on device
+          collect2: error: ld returned 1 exit status
+          
+
+error: could not compile `terminal` (bin "terminal" test) due to 1 previous error
+error: could not compile `appstore` (bin "appstore" test) due to 1 previous error
+rustc-LLVM ERROR: IO failure on output stream: No space left on device
+error: could not compile `smithay` (lib)
+
+Caused by:
+  process didn't exit successfully: `rustc --crate-name smithay --edition=2021 /home/ubuntu/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-0.7.0/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --cfg 'feature="backend_drm"' --cfg 'feature="backend_egl"' --cfg 'feature="backend_gbm"' --cfg 'feature="backend_libinput"' --cfg 'feature="backend_session"' --cfg 'feature="backend_session_libseat"' --cfg 'feature="backend_udev"' --cfg 'feature="backend_winit"' --cfg 'feature="backend_x11"' --cfg 'feature="cc"' --cfg 'feature="desktop"' --cfg 'feature="drm"' --cfg 'feature="drm-ffi"' --cfg 'feature="encoding_rs"' --cfg 'feature="gbm"' --cfg 'feature="gl_generator"' --cfg 'feature="input"' --cfg 'feature="libloading"' --cfg 'feature="libseat"' --cfg 'feature="pkg-config"' --cfg 'feature="renderer_gl"' --cfg 'feature="scopeguard"' --cfg 'feature="tempfile"' --cfg 'feature="udev"' --cfg 'feature="wayland-client"' --cfg 'feature="wayland-cursor"' --cfg 'feature="wayland-egl"' --cfg 'feature="wayland-protocols"' --cfg 'feature="wayland-protocols-misc"' --cfg 'feature="wayland-protocols-wlr"' --cfg 'feature="wayland-server"' --cfg 'feature="wayland_frontend"' --cfg 'feature="winit"' --cfg 'feature="x11rb"' --cfg 'feature="x11rb_event_source"' --cfg 'feature="xwayland"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("aliasable", "ash", "backend_drm", "backend_egl", "backend_gbm", "backend_gbm_has_create_with_modifiers2", "backend_gbm_has_fd_for_plane", "backend_libinput", "backend_session", "backend_session_libseat", "backend_udev", "backend_vulkan", "backend_winit", "backend_x11", "cc", "default", "desktop", "drm", "drm-ffi", "encoding_rs", "gbm", "gl_generator", "glow", "input", "libloading", "libseat", "pixman", "pkg-config", "renderer_gl", "renderer_glow", "renderer_multi", "renderer_pixman", "renderer_test", "scopeguard", "tempfile", "test_all_features", "udev", "use_bindgen", "use_system_lib", "wayland-backend", "wayland-client", "wayland-cursor", "wayland-egl", "wayland-protocols", "wayland-protocols-misc", "wayland-protocols-wlr", "wayland-server", "wayland-sys", "wayland_frontend", "winit", "x11rb", "x11rb_event_source", "xwayland"))' -C metadata=9b748961cb826355 -C extra-filename=-44adf23b42c16aba --out-dir /home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps -L dependency=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps --extern appendlist=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libappendlist-d8b70597561d3aad.rmeta --extern atomic_float=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libatomic_float-5ffda963c04d2f1f.rmeta --extern bitflags=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libbitflags-88c5a7f1c6d4be4b.rmeta --extern calloop=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libcalloop-4d24eab9d57a1d55.rmeta --extern cgmath=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libcgmath-77f3b405e6a10549.rmeta --extern cursor_icon=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libcursor_icon-a6ca6ce812a357d2.rmeta --extern downcast_rs=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libdowncast_rs-e94e2dccc35d4caf.rmeta --extern drm=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libdrm-96754a20f8205b25.rmeta --extern drm_ffi=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libdrm_ffi-0ac0f36c05cfadc5.rmeta --extern drm_fourcc=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libdrm_fourcc-33c8d2024c996fed.rmeta --extern encoding_rs=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libencoding_rs-4035e2b4233ac626.rmeta --extern errno=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/liberrno-99de43ad2798577a.rmeta --extern gbm=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libgbm-d4be839a820ec77a.rmeta --extern indexmap=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libindexmap-66a8a7c1e401e2ad.rmeta --extern input=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libinput-cafd6c48dba2ec7e.rmeta --extern libc=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/liblibc-4f4cae6a82aa4ad2.rmeta --extern libloading=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/liblibloading-bd177e06cb80d3fc.rmeta --extern libseat=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/liblibseat-a4853c12912cd4e0.rmeta --extern profiling=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libprofiling-30e41d0eb68cb9dd.rmeta --extern rand=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/librand-9f691fb05ef9a409.rmeta --extern rustix=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/librustix-56e25300981bbe0b.rmeta --extern scopeguard=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libscopeguard-3352466c84a0078e.rmeta --extern sha2=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libsha2-efa1b8e74eab8b6c.rmeta --extern smallvec=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libsmallvec-a94e47f5e99c1f79.rmeta --extern tempfile=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libtempfile-e41924284c26330e.rmeta --extern thiserror=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libthiserror-03eeca08f1718e62.rmeta --extern tracing=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libtracing-15a6b65b29889561.rmeta --extern udev=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libudev-73c0cb09ca606919.rmeta --extern wayland_client=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libwayland_client-e7bc1fd672a37cef.rmeta --extern wayland_cursor=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libwayland_cursor-3058c2be4abe3421.rmeta --extern wayland_egl=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libwayland_egl-6e1bfee86b8e4563.rmeta --extern wayland_protocols=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libwayland_protocols-f4076f0e9529be4d.rmeta --extern wayland_protocols_misc=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libwayland_protocols_misc-5a7aba1312163fe7.rmeta --extern wayland_protocols_wlr=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libwayland_protocols_wlr-328c5da56194cb83.rmeta --extern wayland_server=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libwayland_server-ad16d5ae49ef4141.rmeta --extern winit=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libwinit-cbdc44faec5a90a6.rmeta --extern x11rb=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libx11rb-23714b9c36344171.rmeta --extern xkbcommon=/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/libxkbcommon-0c8c0ca48936bc27.rmeta --cap-lints allow -L native=/usr/lib/aarch64-linux-gnu -L native=/usr/lib/aarch64-linux-gnu -L native=/usr/lib/aarch64-linux-gnu -L native=/usr/lib/aarch64-linux-gnu -L native=/usr/lib/aarch64-linux-gnu -l gbm -l gbm --cfg 'feature="backend_gbm_has_fd_for_plane"' --cfg 'feature="backend_gbm_has_create_with_modifiers2"'` (exit status: 101)
+error: linking with `cc` failed: exit status: 1
+  |
+  = note:  "cc" "/tmp/rustc6BUJMf/symbols.o" "<106 object files omitted>" "-Wl,--as-needed" "-Wl,-Bstatic" "/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/{libtracing_subscriber-5ba393967ef44ddc,libthread_local-fcb64cae7f2e9fac,libnu_ansi_term-2d6692c8b043ea66,libsharded_slab-06adb3fdc5368ed4,liblazy_static-754122aad6d1046d,libtracing_log-b2427f31b9ef2fb3,libtempfile-e41924284c26330e,libgetrandom-ef8e1fd3e1e5b176}.rlib" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib/{libtest-*,libgetopts-*,librustc_std_workspace_std-*}.rlib" "/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/{libslopos_vision_client-c3178e79f35dde9b,libsocket2-9a0fec2eb3ae3c86,libslopos_vision_protocol-0fb8a3eb4cde88e7,libslopos_sdk-56349412650a94d0,libfutures-57a15514d19c0b93,libfutures_executor-d88788e780ddd9ec,libslopos_bus-2f2adaa00892093b,libserde_json-f48c253a7cdb8b3d,libitoa-7012666f50b76ded,libzmij-5727b45fe9a2fe55,libslopos_kit-f0e1a96ab6f75eb7,libslopos_render-51d5e20df7bcc048,libwgpu-3e6075cbbc9606ca,libwgpu_core-8bc3c312037d73b2,libwgpu_hal-20a68d1d5f9ff43f,librenderdoc_sys-09bb8eb8400438c1,libgpu_descriptor-1d5c4fd0befef298,libhashbrown-1a2d885841d8cf4b,libfoldhash-f19277ec769ec718,libgpu_descriptor_types-625b534b4c8be8f7,libkhronos_egl-05d3716487985bd5,libgpu_alloc-5d3bd2bab4587137,libgpu_alloc_types-c0adad086c7ab9d8,libash-2d7bba9249b2703e,libnaga-3af8aff2f4a7cf9c,libhexf_parse-243f6ecf3f2a8984,libunicode_xid-5db25a238a7d6338,libindexmap-66a8a7c1e401e2ad,libequivalent-c193e5cdb9285d5e,libhashbrown-012f39131696a76d,libbit_set-219ea757a30d611f,libbit_vec-ad9596cd7ecaf84c,libcodespan_reporting-7adb7f58c205c43f,libunicode_width-3e4b6b6a211ddd03,libtermcolor-5d9cb6974c642e60,libspirv-84c3a31004bb3c4b,libwgpu_types-6c4c783b9d47be9a,libglow-db1093c72e7cc989,libslopos_fonts-2f168b125be4bc8e,libsha2-efa1b8e74eab8b6c,libcosmic_text-5f4ce93743fff9c1,librustc_hash-6e0ef825f8abe377,libunicode_linebreak-ce7fd5126cd9e56f,libsys_locale-88d1f8ae0bcd6dd4,liblibm-94e2a66e7eecfbad,libswash-0a5a5d68b14655ee,libyazi-35392d1f327244c6,libskrifa-8b13f51f0d54d726,libread_fonts-2902ab24d8464591,libfont_types-a82a7446e70805b2,libzeno-c12edf5b68fb0464,libself_cell-4474e8c14aacff17,librustybuzz-a365fcdb6fd13700,libunicode_bidi_mirroring-f1b53a307cc54191,libunicode_properties-f2b97693f406f12f,libunicode_ccc-7270ffb9afe6f1fa,libunicode_script-c85d8ca9b2910544,libunicode_segmentation-93a3a927c16ac1df,libunicode_bidi-3369861c6f359378,libfontdb-69d1ff2d26ff2fcc,libfontconfig_parser-e49050ea850d41b4,libroxmltree-a3cd69854ae06e49,libtinyvec-ad74dd8d6de3dd0e,libtinyvec_macros-057a89fb9cc58a50,libslotmap-156ba22410e00187,libttf_parser-8c4da60afd6404c8,librangemap-fe084d466ad89691,libwinit-cbdc44faec5a90a6,libsctk_adwaita-a9bf87b04a601246,libab_glyph-2ce040e09acb0d43,libowned_ttf_parser-96f2b8e21a0eca62,libttf_parser-a60a0345b70ac582,libab_glyph_rasterizer-75211617190a3062,libtiny_skia-bbf63e638890432a,libtiny_skia_path-4bfdf5f0bb9216cf,libstrict_num-64ca20b9ceec4c92,libarrayref-d9134d9755786624,libpercent_encoding-81250939c7bce0cf,libx11rb-23714b9c36344171,libgethostname-20e565988d3f0d99,libas_raw_xcb_connection-af4c6c6f294bb1f6,libx11rb_protocol-51c35ce4ef85a910,libwayland_protocols_plasma-92507fb062c0e6fe,libahash-d8e63f3c26c14a7a,libgetrandom-398b01617771fbc3,libsmithay_client_toolkit-f4d75d7edbc240af,libwayland_cursor-3058c2be4abe3421,libxcursor-7b97ec3a82634b90,libxkbcommon-d11d13e8ca3acc7e,libmemmap2-cedd7bd946a733eb,libwayland_protocols_wlr-328c5da56194cb83,libwayland_protocols-f4076f0e9529be4d,libwayland_server-ad16d5ae49ef4141,libwayland_csd_frame-f3cbc92404d12cd6,libcalloop_wayland_source-f2e51a06d7d6f94e,libwayland_client-e7bc1fd672a37cef,libwayland_backend-2a82fcb929a38efa,libdowncast_rs-e94e2dccc35d4caf,libscoped_tls-aae4d5c1436133e0,libwayland_sys-bd07a04bff6b7dc3,libcalloop-f5f98803596c9159,libthiserror-9b41cf17f025601b,librustix-3f88ae61d00555d2,liblinux_raw_sys-5ebb4e0d433c9da2,libmemmap2-a67d5e94457280fa,libx11_dl-46473851b937a2d0,libxkbcommon_dl-669b5945c6cf0564,libxkeysym-945840d66ca74746,libdlib-38ff5b04d6eb5cc0,liblibloading-bd177e06cb80d3fc,libsmol_str-124d7b56444b363a,libcursor_icon-a6ca6ce812a357d2,libdpi-1ba1e4d21164c040,libraw_window_handle-a303a480343c2df1,libparking_lot-abed7b40816fc09d,libparking_lot_core-fa0f184d026d4150,liblock_api-0e7763072df34ff6,libscopeguard-3352466c84a0078e,libzbus-0f88650ec52c215b,libasync_fs-71176070bb432cfe,libblocking-511b62e64f4f713a,libpiper-75bf463ba099ac89,libatomic_waker-dd89eb6cca19795d,libasync_channel-32f58c3b9b9c1fe1,libhex-134fcf7fbc126f64,libasync_lock-36cf0502612dcb38,libasync_executor-d26313da299c2e31,libasync_task-dc2cc844a0671ea4,librand-bbe466ffec0f8d37,librand_chacha-2c0a0ecca1a000aa,libppv_lite86-ae190896e5b9f7b1,librand_core-2b9edf235d1794be,libgetrandom-eaecde60898b4b33,libxdg_home-25d5ddf35178acd6,libsha1-ce536aabcf2a04fe,libdigest-6d35ba27cb1c2fd4,libblock_buffer-dcf939e604d8bccc,libcrypto_common-7548b2f37b500948,libgeneric_array-5fb5e3f8b0e69c77,libtypenum-24621d0826a0dc93,libfutures_util-e9ac5f318f9d8b4e,libfutures_channel-abdcf6f0f447b3ba,libfutures_sink-7a5d2df5c5342a56,libfutures_task-dc3b9e9a711c31dc,libtracing-15a6b65b29889561,libtracing_core-9171822538d5f752,libonce_cell-28bc718446465453,libordered_stream-4b94ae52ae80f69a,libasync_broadcast-1d4de94f2f10e7c4,libevent_listener_strategy-e9dcfdb86b56cd99,libevent_listener-6c896a8b41e812dd,libnix-b0e2d8456fb2db5f,libmemoffset-9c2ed417e45c4769,liblibc-4f4cae6a82aa4ad2,libasync_io-ee14192988bba1ad,libslab-640e42c042464861,libpolling-500e80ff483f1a7e,libconcurrent_queue-4a1cc2943180b7f5,librustix-56e25300981bbe0b,liblinux_raw_sys-40a21c327d6d70c4,libfutures_lite-f4f1d016090071ab,libfutures_core-0c987a1d7af62bb9,libparking-25afb7f4ddd88ff6,libpin_project_lite-98338e1f4ab49fea,libfastrand-4df31e1fb9c01174,libfutures_io-ee9a56242dc8c7fa,libzbus_names-3e7e25e7eb40446b,libzvariant-633df7ddcbde299a,libenumflags2-993e6a956b582ac4,libendi-fc480d87ce8f6ef3,libserde-71879fcc2cdc0b92,libserde_core-1eaf5eae73cbed23,libstatic_assertions-1c0ca78b5e3875b6,libimage-17e9e88402a5ec0a,libqoi-34c3b381a34f49c6,libmoxcms-535f3ac7ccafd594,libpxfm-2f89dab9869942b8,libimage_webp-4080ea60ea266327,libtiff-d4555f3aaa665eea,libfax-a333eda59c797f27,libpng-c94ad71cea838b4b,libbitflags-88c5a7f1c6d4be4b,libflate2-ecd28585e42250a8,libfdeflate-846d4daa16058a6e,libcrc32fast-4965170ed5c3c547,libexr-604b802d907a8123,libminiz_oxide-f0b4c512f1e33890,libzune_inflate-314079da11d12e82,libsimd_adler32-e13762835a8e3dfa,libbit_field-ea4e1499046ac334,liblebe-42f1497cdb4b3dea,libhalf-e1b7b7598bf72e21,libzerocopy-742da87ae95e0e6e,libsmallvec-a94e47f5e99c1f79,libzune_jpeg-d825868bf9732954,libzune_core-c469bb276d2bb6d3,libgif-370a76f32916ccce,libcolor_quant-fd197c9f8311020a,libweezl-81f289ee8160e40f,libbyteorder_lite-68220dd523803345,libravif-b5e8b4df9d939925,libloop9-c70391f5debf3180,libavif_serialize-bb6c5d163958a161,libquick_error-2ba38ac86603d6b4,librgb-7dbd34c8f06761f4,librav1e-0f48de0f31a5aa58,libprofiling-30e41d0eb68cb9dd,libav_scenechange-c1e3f74e22647bbc,liby4m-0885cfacbdb1ffed,libaligned-da6e1d50485a09a8,libas_slice-4ad3f2a809955ab8,libstable_deref_trait-129a18051456ebfd,libav1_grain-7ed9f9a94d2118f4,liblog-dd7b4cc107cd3be3,libnom-9b4034018c72c256,libmemchr-8fe9920232e0f3f5,libnum_rational-697a832c9e8fbc21,libnum_bigint-260e689a6856ad44,libnum_integer-28bd84cba20b1880,libanyhow-2f5ffd315594526e,libmaybe_rayon-aea3986cd9aace09,librayon-100fa135f40669a7,librayon_core-7b148c961f59d2b9,libcrossbeam_deque-96ad7932b028bbb7,libcrossbeam_epoch-de94d6326f8f5ec3,libcrossbeam_utils-ed9eb6aa3a2b5287,libcfg_if-21ed7849f7fe6dc6,libv_frame-44ca3e1a0611fe98,libarrayvec-b5b912a36d3886f9,libaligned_vec-778b0722ed4b503f,libequator-47c621bdb92915fe,libthiserror-03eeca08f1718e62,libbitstream_io-3714293b426bcd50,libitertools-8c4b157021178c5e,libeither-8756f23d18465511,libimgref-37e2b1174eaadfe2,libbytemuck-eb599204ff31640d,libnum_traits-f8fd283a33a868bd}.rlib" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-Wl,-Bdynamic" "-lxkbcommon" "-lxkbcommon" "-ldl" "-ldl" "-lgcc_s" "-lutil" "-lrt" "-lpthread" "-lm" "-ldl" "-lc" "-L" "/tmp/rustc6BUJMf/raw-dylibs" "-Wl,--eh-frame-hdr" "-Wl,-z,noexecstack" "-L" "/usr/lib/aarch64-linux-gnu" "-L" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib" "-o" "/home/ubuntu/rust-slopos-qa-d1ea823/target/debug/deps/preview-beac15e1b1388cf9" "-Wl,--gc-sections" "-pie" "-Wl,-z,relro,-z,now" "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: /usr/bin/aarch64-linux-gnu-ld.bfd: final link failed: No space left on device
+          collect2: error: ld returned 1 exit status
+          
+
+error: could not compile `preview` (bin "preview" test) due to 1 previous error

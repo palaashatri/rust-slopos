@@ -1,0 +1,15 @@
+-rw------- ubuntu ubuntu 30 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/token
+-rw-rw---- ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/wayland-1.lock
+-rw-rw-r-- ubuntu ubuntu 10 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/client-wayland-display
+-rw-rw-r-- ubuntu ubuntu 10 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/slopos-client-wayland-display
+-rw-rw-r-- ubuntu ubuntu 10 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/wayland-display
+-rw-rw-r-- ubuntu ubuntu 27 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/active-toplevel
+-rw-rw-r-- ubuntu ubuntu 80 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/readiness
+drwx------ ubuntu ubuntu 280 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508
+drwx------ ubuntu ubuntu 40 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/logs
+drwxrwxr-x ubuntu ubuntu 140 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/slopos-i/menus
+drwxrwxr-x ubuntu ubuntu 60 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/app-control
+drwxrwxr-x ubuntu ubuntu 60 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/slopos-i
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/app-control/com.slopos.finder.sock
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/control.sock
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c79a31f8f6c2d3-131508/wayland-1

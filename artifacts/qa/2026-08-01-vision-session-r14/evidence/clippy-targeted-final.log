@@ -1,0 +1,11 @@
+    Checking preview v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/apps/preview)
+    Checking slopos-visiond v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-visiond)
+    Checking slopos-compositor v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-compositor)
+    Checking slopos-shell v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-shell)
+    Checking slopos-vision v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-vision)
+    Checking slopos-vision-client v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-vision-client)
+    Checking slopos-fonts v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-fonts)
+    Checking slopos-vision-protocol v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-vision-protocol)
+    Checking slopos-session v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-session)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.76s
+clippy_exit=0

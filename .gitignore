@@ -1,16 +1,23 @@
 target/
 target-docker/
-.serena/
 .DS_Store
 *.swp
 *.swo
-*~
-*.mp4
-*.png
-!docs/screenshots/*.png
-docs/superpowers/
 
 # VM QA access key (generated locally by packaging/vm tooling)
 packaging/vm/qa_key
 packaging/vm/qa_key.pub
+packaging/vm/known_hosts
 packaging/vm/*.png
+
+# Model weights — downloaded for local dev tests, never committed.
+# The model manifest (models/vision/manifest.toml) is committed; weights
+# are fetched by scripts into the directories below.
+models/vision/*.onnx
+models/vision/*.rten
+models/vision/*.txt
+models/vision/*.bin
+
+# One local UTM perf capture is too large for GitHub's 100 MB file limit.
+# Keep the raw capture locally while retaining the surrounding QA evidence.
+artifacts/qa/2026-08-01-utm-p1/vm/perf-shell.txt

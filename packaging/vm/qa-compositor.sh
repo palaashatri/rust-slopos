@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The first real DRM/KMS run of retro-compositor.
+# The first real DRM/KMS run of slopos-compositor.
 # Runs from a TTY on the Arch VM (vmwgfx gives us KMS + a render node).
 set -u
 QA=/home/retro/qa; mkdir -p "$QA"
@@ -19,15 +19,15 @@ if command -v modetest >/dev/null 2>&1; then
   modetest -c 2>/dev/null | head -30
 fi
 
-step "start retro-compositor on the DRM/KMS path"
-pkill -f retro-compositor 2>/dev/null; sleep 1
+step "start slopos-compositor on the DRM/KMS path"
+pkill -f slopos-compositor 2>/dev/null; sleep 1
 export XDG_RUNTIME_DIR=/run/user/$(id -u)
 mkdir -p "$XDG_RUNTIME_DIR"; chmod 700 "$XDG_RUNTIME_DIR"
 unset DISPLAY WAYLAND_DISPLAY
 export RUST_LOG=info RUST_BACKTRACE=1
-export RETROSHELL_COMPOSITOR_WIDTH=1280 RETROSHELL_COMPOSITOR_HEIGHT=800
+export SLOPOS_COMPOSITOR_WIDTH=1280 SLOPOS_COMPOSITOR_HEIGHT=800
 
-setsid retro-compositor > "$QA/compositor.log" 2>&1 < /dev/null &
+setsid slopos-compositor > "$QA/compositor.log" 2>&1 < /dev/null &
 COMP=$!
 SOCK=""
 for _ in $(seq 1 40); do
@@ -60,8 +60,8 @@ else
   echo "wayland-info not installed"
 fi
 
-step "run retro-shell as a client"
-setsid retro-shell > "$QA/shell.log" 2>&1 < /dev/null &
+step "run slopos-shell as a client"
+setsid slopos-shell > "$QA/shell.log" 2>&1 < /dev/null &
 SH=$!
 sleep 10
 kill -0 $SH 2>/dev/null && echo "SHELL_ALIVE=YES" || { echo "SHELL_ALIVE=NO"; tail -25 "$QA/shell.log"; }

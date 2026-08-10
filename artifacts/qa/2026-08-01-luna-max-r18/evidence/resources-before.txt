@@ -1,0 +1,38 @@
+Filesystem                         Size  Used Avail Use% Mounted on
+/dev/mapper/ubuntu--vg-ubuntu--lv   30G   26G  2.4G  92% /
+/dev/mapper/ubuntu--vg-ubuntu--lv   30G   26G  2.4G  92% /
+tmpfs                              338M   16K  338M   1% /run/user/1000
+               total        used        free      shared  buff/cache   available
+Mem:           3.3Gi       412Mi       2.0Gi       4.0Mi       1.1Gi       2.9Gi
+Swap:          3.8Gi        96Mi       3.7Gi
+8
+    PID    PPID STAT   RSS COMMAND
+ 104215       1 S<s  28928 systemd-journal
+    890       1 SLsl 17432 multipathd
+ 104262       1 Ssl  17252 fwupd
+ 368380  104221 Ss   12912 sshd-session
+ 368377  104221 Ss   12676 sshd-session
+ 104266       1 Ssl  11432 udisksd
+ 368376  104221 Ss   11084 sshd-session
+ 368516  368380 S     8920 sshd-session
+      1       0 Ss    8868 systemd
+ 368514  368377 S     8672 sshd-session
+ 368519  368376 S     7200 sshd-session
+   1392       1 Ssl   6664 polkitd
+ 368526  368520 S     6436 head
+   1543       1 Ssl   6372 ModemManager
+   1391       1 Ss    5772 networkd-dispat
+ 104284       1 Ss    5320 systemd-network
+   1400       1 Ss    5128 systemd-logind
+ 104221       1 Ss    4424 sshd
+ 104253       1 Ss    4412 systemd-resolve
+   1384       1 Ss    4144 dbus-daemon
+   2216    1547 Ss+   3840 bash
+   2193       1 Ss    3772 systemd
+ 163958    2193 Ss    3544 dbus-daemon
+ 368525  368520 R     3492 ps
+  21677       1 S     3448 Xvfb
+ 368520  368514 Ss    3352 bash
+ 368524  368516 Ss    3336 bash
+   1460       1 Ssl   3324 rsyslogd
+   1500       1 Ssl   2884 unattended-upgr

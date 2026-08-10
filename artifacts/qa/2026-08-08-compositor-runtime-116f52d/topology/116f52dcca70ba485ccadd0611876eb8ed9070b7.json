@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "component": "slopos-compositor-output-topology",
+  "commit": "116f52dcca70ba485ccadd0611876eb8ed9070b7",
+  "branch": "docs/program-design",
+  "started_at_utc": "2026-08-08T07:20:06Z",
+  "status": "passed",
+  "failure": "",
+  "evidence_level": "headless_runtime_topology",
+  "logical_output_add_verified": true,
+  "logical_output_reorder_verified": true,
+  "logical_output_remove_verified": true,
+  "surface_migration_source_contract_verified": true,
+  "hardware_verified": false,
+  "drm_hotplug_verified": false,
+  "physical_multi_monitor_verified": false,
+  "compositor_log": "116f52dcca70ba485ccadd0611876eb8ed9070b7-compositor.log",
+  "two_output_log": "116f52dcca70ba485ccadd0611876eb8ed9070b7-two-outputs.log",
+  "one_output_log": "116f52dcca70ba485ccadd0611876eb8ed9070b7-one-output.log"
+}

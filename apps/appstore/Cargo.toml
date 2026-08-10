@@ -2,13 +2,21 @@
 name = "appstore"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 
 [[bin]]
 name = "appstore"
 path = "src/main.rs"
 
 [dependencies]
-retro-sdk = { path = "../../crates/retro-sdk" }
-retro-kit = { path = "../../crates/retro-kit" }
+slopos-sdk = { path = "../../crates/slopos-sdk" }
+slopos-kit = { path = "../../crates/slopos-kit" }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+sha2 = "0.10"
+tar = "0.4"
+flate2 = "1"
+serde = { workspace = true }
+serde_json = { workspace = true }
+ed25519-dalek = "2"
+hex = { workspace = true }

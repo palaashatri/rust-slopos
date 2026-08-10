@@ -1,0 +1,7 @@
+   Compiling terminal v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/apps/terminal)
+   Compiling appstore v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/apps/appstore)
+   Compiling settings v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/apps/settings)
+   Compiling finder v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/apps/finder)
+   Compiling textedit v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/apps/textedit)
+   Compiling preview v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/apps/preview)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 32.43s

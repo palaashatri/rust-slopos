@@ -1,0 +1,293 @@
+[slopos-compositor] backend: Headless (explicit)
+[2m2026-08-08T07:23:17.162757Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m display policy applied: hdr_requested=false hdr_supported=false vrr_adaptive=false refresh=60hz color_space=srgb color_applied=true
+[slopos-compositor] display policy: hdr_requested=false hdr_supported=false vrr_adaptive=false refresh=60hz color_space=srgb
+[slopos-compositor] text_input=im+text-input-v3
+[slopos-compositor] input_method=zwp_input_method_v2
+[2m2026-08-08T07:23:17.165274Z[0m [32m INFO[0m [1minput_seat[0m[1m{[0m[3mname[0m[2m=[0m"seat0"[1m}[0m[2m:[0m[1madd_keyboard[0m[1m{[0m[3mxkb_config[0m[2m=[0mXkbConfig { rules: "", model: "", layout: "", variant: "", options: None } [3mrepeat_delay[0m[2m=[0m200 [3mrepeat_rate[0m[2m=[0m25[1m}[0m[2m:[0m[1minput_keyboard[0m[2m:[0m [2msmithay::input::keyboard[0m[2m:[0m Initializing a xkbcommon handler with keymap query
+[2m2026-08-08T07:23:17.168277Z[0m [32m INFO[0m [1minput_seat[0m[1m{[0m[3mname[0m[2m=[0m"seat0"[1m}[0m[2m:[0m[1madd_keyboard[0m[1m{[0m[3mxkb_config[0m[2m=[0mXkbConfig { rules: "", model: "", layout: "", variant: "", options: None } [3mrepeat_delay[0m[2m=[0m200 [3mrepeat_rate[0m[2m=[0m25[1m}[0m[2m:[0m[1minput_keyboard[0m[2m:[0m [2msmithay::input::keyboard[0m[2m:[0m Loaded Keymap [3mname[0m[2m=[0m"English (US)"
+[slopos-compositor] session_mode=headless (no host display transport); output_scale=1/1 (1.00x)
+[slopos-compositor] outputs source=default 1 head(s): X11-1 1024x768@(0,0)
+[2m2026-08-08T07:23:17.171378Z[0m [32m INFO[0m [1mnew[0m[1m{[0m[3mname[0m[2m=[0m"X11-1" [3mphysical[0m[2m=[0mPhysicalProperties { size: Size<smithay::utils::geometry::Raw> { w: 0, h: 0 }, subpixel: Unknown, make: "SLOPOS-I", model: "Logical Output 1" }[1m}[0m[2m:[0m [2msmithay::output[0m[2m:[0m Creating new Output [3mname[0m[2m=[0m"X11-1"
+[2m2026-08-08T07:23:17.171660Z[0m [32m INFO[0m [2msmithay::wayland::output[0m[2m:[0m Creating new wl_output [3moutput[0m[2m=[0m"X11-1"
+[2m2026-08-08T07:23:17.171709Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m wl_output 1 (X11-1) 1024x768 at (0,0) refresh=60000 mHz output_scale=1/1 (1.00x)
+[2m2026-08-08T07:23:17.171919Z[0m [32m INFO[0m [2msmithay::wayland::socket[0m[2m:[0m Created new socket [3mname[0m[2m=[0mSome("wayland-1")
+[2m2026-08-08T07:23:17.171986Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m Listening on WAYLAND_DISPLAY=wayland-1
+[slopos-compositor] WAYLAND_DISPLAY=wayland-1
+WAYLAND_DISPLAY=wayland-1
+[2m2026-08-08T07:23:17.172931Z[0m [32m INFO[0m [2msmithay::xwayland::xserver[0m[2m:[0m spawning XWayland instance
+[2m2026-08-08T07:23:17.174335Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m XWayland spawning (will claim DISPLAY=:0 when ready)
+[2m2026-08-08T07:23:17.174377Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m slopos-compositor event loop starting
+[2m2026-08-08T07:23:17.262237Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m XWayland ready on DISPLAY=:0 — starting X11 WM
+[slopos-compositor] XWayland ready DISPLAY=:0
+[slopos-compositor] client connected
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=RjfJfHwPafRS5tTCq79pdhM3RY2kt42o workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=PJdjk0OQzZFrw5rc5VfWYqv823BRaDFU workspace active=0/8 windows=2 visible=2 dist=[0:2,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=WJHFocCJTVQKtdTvhYqEGzVBjFmANfpZ workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=e4iVYtieQhH8TgFVUO9ITi7jNYQlZ7GN workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=1K6CtyDbnPefqE6oyUh71E2jXDeXwlfL workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=LJ5MmRRDf6aJfE8F2I2eVT1pUVntp1g4 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=QEwyUQEiq5wvBuxCWOhUxc439vYBpWtF workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=7BJI1apJgfEu7oEYND4ZgGBtQnXryMX0 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=Jav5068gD9jCrQ91utDlqCyBEv6kvTxc workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=RNz6D2YlrGddt8oICp0r0ra59LxpdGoM workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=fUbsUOMHCcqj9S2PXyNpaN8NM4Y5CMvX workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=DF58eEagjexhDrYLdgbJlMeLuMXzn18e workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=W62lXC5JHTDBsYnyMwxRniHJX3TaSSn2 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=M4o4ote9IgvEOKywscpcOLsxBjjr9AH4 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=ByT96A6KGmttPdUULrkkvJ6pFWoRBl2m workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=9Ot9VOxxj8f9NtssKXm4inYzWJ5vuc94 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=Yhi5Gcd8qrghHgFgMH1TAjiyBksh2Zmo workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=143x0IesXN3gvpSIqs6cLrpENyNJx2v0 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=ISuYTvTh4LWPimfFQbv4F4Q84IjRm0Ad workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=KZZ2kLDIxrzbnUXK8Ac7lkmJpTNObdw9 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=rjHiZ8Huv8i63ZUpeoRq9P6j4jZu17N6 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=eGx9Nf016oV7w6wK1dLFg2XFkchTk38T workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=K9zTQM1LJ4m6UJW57gEf5C30Bo2V4lGE workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=pHb5Gerr6qAawIsDq1gW70LCiu8oKtJq workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=pRr4a8XC2guBEfn7x038BTzRmLPY8nrl workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=mgVsYaYunSxCPBWdU2eWtT7lHmfQy5Fy workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=x8HDb74NyzI0EjOZ0fxulCZsDUjp5Q6v workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=qcwbCdsNAPInpGMwLEKg9WjNHZpQiI5F workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=3VGAzzgPe7Kr23v2VvUkil9PdtCKvRDZ workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=wjIvTrjcSeDWRG742EIlJ0bZhKeOsI9Q workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=mqSxuGF3HqEErDIJWjtkwlEGrUiWyMqp workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=q8LPr1kZkkbh5UJ9fL8VxCaxhmNFR2Z7 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=Wyf1yLKTRu3T6maEZGmrqKCIvlApPpfM workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=vmIu300wwK5qSkeZs5pTaxf4hbO2LSWH workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=OFUqzBmCmsHh6D4DslSd3Qj1hIoqgVqN workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=uNGvfOl4UcPDUJxWe2VOFRMaw7q0JQsc workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=5b4kUuw1274IVyV2lItLOYSDhWrfOjCP workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=1RBFgkhAk0BNOowlDnwXvUijUaeC8TD9 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=BXbcjuzAFHhRU80WW0AMt3ipFM2xETkL workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=DgW1xgtNzdVkDjRTex3jrry5A5CtvY9e workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=hsqzRIYQ0pKL3y9k4UvkI0sZzmXgl8pN workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=XNshqnnSAtpwe3IlYuYjxOdgRx4c5BYr workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=0VcJk7IIxeYmwi0tYDVvN1BAOJlAhWa8 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=q01d875JVOjfHIOKQYMlypm5SwLFoMFx workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=vGYafrRAS81OxgNTqIRCSgko8nrrL4tz workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=MRR1oCZK9jBsfgOdMRAdIywVDWLb5jcF workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=u2np1NUigwb7QmV8oPMfWYzvp2TOpVJ3 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=KXCsi1VWQsQO1hu97LfbFWkYbgckwuon workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=SRiDByXXabUg0LeCEV7uwCRzB3fGIAlC workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=gwXgOvsXrszfvA4CcSsHO73YtUiOg8oX workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=of8xINM2FKUh37wvIuoZe9OeOtjAtcvw workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=tvoTe2rdw59JGG5ymtaDrrHwi65Fhtd3 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=azPro55ZsCXgYorJgEkC6Yy1PNu8KfrS workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=90KVPiodEOFeuW4aoKdQLe3eRR3NwKvL workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=gvUtJAhXq84P6QQXHet3kobw65OpZgij workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=xzZVSKpAD1OkTx7DwGsz8FiLIZ21SL9m workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=a2mGRfx8aVoimKizzqnHObx5ggxoj3aC workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=gUVFIihX9mKo9h5xYdNCi9Gwoh32XKQK workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=sKuEsBaSNKdOZWBdHmUYpPJOD3Knyosv workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (160,160) title=Untitled
+[slopos-compositor] assign window_id=P0XCFj8Wv7ehLjdjfl5ewgFumU70Xw0f workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (192,192) title=Untitled
+[slopos-compositor] assign window_id=gi86c8cbQZO0NW9056yjhvnAOA4LDFIJ workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (224,224) title=Untitled
+[slopos-compositor] assign window_id=ZFYX1LcgTnLYBgHy2ehvWr53uX6K4eWt workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (256,256) title=Untitled
+[slopos-compositor] assign window_id=qGRwEJxOKaR62sGRxpqpkv5eGzB3T0mx workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (288,288) title=Untitled
+[slopos-compositor] assign window_id=uKRZgQqiuonV0AHbLsgvSlOL8iEzkj79 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (64,64) title=Untitled
+[slopos-compositor] assign window_id=0L2Ws1U0fLDAwFsqt4Jtz7dQy96TBqH4 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (96,96) title=Untitled
+[slopos-compositor] assign window_id=pgPi90X5hLFsK9iLjhU2cXOxa98K4wOj workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected
+[slopos-compositor] client connected
+[slopos-compositor] surface mapped at (128,128) title=Untitled
+[slopos-compositor] assign window_id=wxLAJOfna6VPxtGNSVXmMY3pXxPNLK34 workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0]
+[slopos-compositor] client disconnected

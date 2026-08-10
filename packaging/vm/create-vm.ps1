@@ -1,14 +1,14 @@
-# Create the RetroShell verification VM in VirtualBox.
+# Create the SLOPOS-I verification VM in VirtualBox.
 #
 # Why VirtualBox + VMSVGA: the guest gets a real vmwgfx DRM device with
-# KMS *and* a render node, so retro-compositor's DRM/KMS session path and
+# KMS *and* a render node, so slopos-compositor's DRM/KMS session path and
 # its nested-X11 path (DRI3 via glamor) can both actually run. Xvfb, WSLg
 # and Docker-on-mac provide none of that, which is why the compositor has
 # never been exercised anywhere.
 #
 # Usage:  pwsh -File create-vm.ps1 [-IsoPath <path>] [-Recreate]
 param(
-    [string]$VmName  = "retroshell-arch",
+    [string]$VmName  = "slopos-i-arch",
     [string]$IsoPath = "",
     [int]$MemoryMB   = 8192,
     [int]$Cpus       = 4,

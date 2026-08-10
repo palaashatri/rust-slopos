@@ -1,0 +1,639 @@
+[slopos-compositor] backend: SessionDrm (explicit)
+[2m2026-08-01T02:44:00.517050Z[0m [32m INFO[0m [2mslopos_compositor::session_drm[0m[2m:[0m session_mode=session_drm (DRM/KMS seat path)
+[slopos-compositor] starting DRM/KMS session path (session_mode=session_drm (DRM/KMS seat path))
+[slopos-compositor] display policy: hdr_requested=false hdr_supported=false vrr_adaptive=false refresh=60hz color_space=srgb
+[slopos-compositor] libseat seat=seat0
+[2m2026-08-01T02:44:00.527869Z[0m [32m INFO[0m [1minput_seat[0m[1m{[0m[3mname[0m[2m=[0m"seat0"[1m}[0m[2m:[0m[1madd_keyboard[0m[1m{[0m[3mxkb_config[0m[2m=[0mXkbConfig { rules: "", model: "", layout: "", variant: "", options: None } [3mrepeat_delay[0m[2m=[0m200 [3mrepeat_rate[0m[2m=[0m25[1m}[0m[2m:[0m[1minput_keyboard[0m[2m:[0m [2msmithay::input::keyboard[0m[2m:[0m Initializing a xkbcommon handler with keymap query
+[2m2026-08-01T02:44:00.537639Z[0m [32m INFO[0m [1minput_seat[0m[1m{[0m[3mname[0m[2m=[0m"seat0"[1m}[0m[2m:[0m[1madd_keyboard[0m[1m{[0m[3mxkb_config[0m[2m=[0mXkbConfig { rules: "", model: "", layout: "", variant: "", options: None } [3mrepeat_delay[0m[2m=[0m200 [3mrepeat_rate[0m[2m=[0m25[1m}[0m[2m:[0m[1minput_keyboard[0m[2m:[0m [2msmithay::input::keyboard[0m[2m:[0m Loaded Keymap [3mname[0m[2m=[0m"English (US)"
+[slopos-compositor] opening DRM node /dev/dri/card0
+[2m2026-08-01T02:44:00.540851Z[0m [33m WARN[0m [2msmithay::backend::drm::device::fd[0m[2m:[0m Unable to become drm master, assuming unprivileged mode
+[2m2026-08-01T02:44:00.540865Z[0m [32m INFO[0m [2msmithay::backend::drm::device[0m[2m:[0m DrmDevice initializing
+[2m2026-08-01T02:44:00.786411Z[0m [32m INFO[0m [2msmithay::backend::egl::display[0m[2m:[0m Successfully selected EGL platform: PLATFORM_GBM_KHR
+[2m2026-08-01T02:44:00.787208Z[0m [32m INFO[0m [2msmithay::backend::egl::display[0m[2m:[0m EGL Initialized
+[2m2026-08-01T02:44:00.787223Z[0m [32m INFO[0m [2msmithay::backend::egl::display[0m[2m:[0m EGL Version: (1, 5)
+[2m2026-08-01T02:44:00.787275Z[0m [32m INFO[0m [2msmithay::backend::egl::display[0m[2m:[0m Supported EGL display extensions: ["EGL_ANDROID_blob_cache", "EGL_ANDROID_native_fence_sync", "EGL_EXT_buffer_age", "EGL_EXT_config_select_group", "EGL_EXT_image_dma_buf_import", "EGL_EXT_image_dma_buf_import_modifiers", "EGL_EXT_surface_compression", "EGL_KHR_cl_event2", "EGL_KHR_config_attribs", "EGL_KHR_context_flush_control", "EGL_KHR_create_context", "EGL_KHR_create_context_no_error", "EGL_KHR_fence_sync", "EGL_KHR_get_all_proc_addresses", "EGL_KHR_gl_colorspace", "EGL_KHR_gl_renderbuffer_image", "EGL_KHR_gl_texture_2D_image", "EGL_KHR_gl_texture_3D_image", "EGL_KHR_gl_texture_cubemap_image", "EGL_KHR_image", "EGL_KHR_image_base", "EGL_KHR_image_pixmap", "EGL_KHR_no_config_context", "EGL_KHR_reusable_sync", "EGL_KHR_surfaceless_context", "EGL_EXT_pixel_format_float", "EGL_KHR_wait_sync", "EGL_MESA_configless_context", "EGL_MESA_gl_interop", "EGL_MESA_image_dma_buf_export", "EGL_MESA_query_driver", "EGL_MESA_x11_native_visual_id", ""]
+[2m2026-08-01T02:44:00.789088Z[0m [32m INFO[0m [1megl[0m[1m{[0m[3mnative[0m[2m=[0m"/dev/dri/card0" [3mplatform[0m[2m=[0m"PLATFORM_GBM_KHR" [3mversion[0m[2m=[0m(1, 5)[1m}[0m[2m:[0m[1megl_context[0m[1m{[0m[3mptr[0m[2m=[0m194311153815728[1m}[0m[2m:[0m [2msmithay::backend::egl::context[0m[2m:[0m EGL context created [3mpriority[0m[2m=[0mNone
+[2m2026-08-01T02:44:00.790119Z[0m [32m INFO[0m [1megl[0m[1m{[0m[3mnative[0m[2m=[0m"/dev/dri/card0" [3mplatform[0m[2m=[0m"PLATFORM_GBM_KHR" [3mversion[0m[2m=[0m(1, 5)[1m}[0m[2m:[0m[1megl_context[0m[1m{[0m[3mptr[0m[2m=[0m194311153815728[1m}[0m[2m:[0m[1mrenderer_gles2[0m[2m:[0m [2msmithay::backend::renderer::gles[0m[2m:[0m Initializing OpenGL ES Renderer
+[2m2026-08-01T02:44:00.790142Z[0m [32m INFO[0m [1megl[0m[1m{[0m[3mnative[0m[2m=[0m"/dev/dri/card0" [3mplatform[0m[2m=[0m"PLATFORM_GBM_KHR" [3mversion[0m[2m=[0m(1, 5)[1m}[0m[2m:[0m[1megl_context[0m[1m{[0m[3mptr[0m[2m=[0m194311153815728[1m}[0m[2m:[0m[1mrenderer_gles2[0m[2m:[0m [2msmithay::backend::renderer::gles[0m[2m:[0m GL Version: "OpenGL ES 2.0 Mesa 26.0.3-1ubuntu1"
+[2m2026-08-01T02:44:00.790176Z[0m [32m INFO[0m [1megl[0m[1m{[0m[3mnative[0m[2m=[0m"/dev/dri/card0" [3mplatform[0m[2m=[0m"PLATFORM_GBM_KHR" [3mversion[0m[2m=[0m(1, 5)[1m}[0m[2m:[0m[1megl_context[0m[1m{[0m[3mptr[0m[2m=[0m194311153815728[1m}[0m[2m:[0m[1mrenderer_gles2[0m[2m:[0m [2msmithay::backend::renderer::gles[0m[2m:[0m GL Vendor: "Mesa"
+[2m2026-08-01T02:44:00.790188Z[0m [32m INFO[0m [1megl[0m[1m{[0m[3mnative[0m[2m=[0m"/dev/dri/card0" [3mplatform[0m[2m=[0m"PLATFORM_GBM_KHR" [3mversion[0m[2m=[0m(1, 5)[1m}[0m[2m:[0m[1megl_context[0m[1m{[0m[3mptr[0m[2m=[0m194311153815728[1m}[0m[2m:[0m[1mrenderer_gles2[0m[2m:[0m [2msmithay::backend::renderer::gles[0m[2m:[0m GL Renderer: "virgl (ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Pro, Ve...)"
+[2m2026-08-01T02:44:00.790201Z[0m [32m INFO[0m [1megl[0m[1m{[0m[3mnative[0m[2m=[0m"/dev/dri/card0" [3mplatform[0m[2m=[0m"PLATFORM_GBM_KHR" [3mversion[0m[2m=[0m(1, 5)[1m}[0m[2m:[0m[1megl_context[0m[1m{[0m[3mptr[0m[2m=[0m194311153815728[1m}[0m[2m:[0m[1mrenderer_gles2[0m[2m:[0m [2msmithay::backend::renderer::gles[0m[2m:[0m Supported GL Extensions: ["GL_EXT_blend_minmax", "GL_EXT_multi_draw_arrays", "GL_EXT_texture_filter_anisotropic", "GL_EXT_texture_compression_s3tc", "GL_EXT_texture_compression_dxt1", "GL_EXT_texture_format_BGRA8888", "GL_OES_compressed_ETC1_RGB8_texture", "GL_OES_depth24", "GL_OES_element_index_uint", "GL_OES_fbo_render_mipmap", "GL_OES_mapbuffer", "GL_OES_rgb8_rgba8", "GL_OES_standard_derivatives", "GL_OES_stencil8", "GL_OES_texture_3D", "GL_OES_texture_float", "GL_OES_texture_float_linear", "GL_OES_texture_half_float", "GL_OES_texture_half_float_linear", "GL_OES_texture_npot", "GL_OES_vertex_half_float", "GL_EXT_draw_instanced", "GL_OES_EGL_image", "GL_OES_depth_texture", "GL_OES_packed_depth_stencil", "GL_EXT_texture_type_2_10_10_10_REV", "GL_OES_get_program_binary", "GL_APPLE_texture_max_level", "GL_EXT_discard_framebuffer", "GL_EXT_read_format_bgra", "GL_EXT_texture_storage", "GL_NV_pack_subimage", "GL_EXT_frag_depth", "GL_NV_fbo_color_attachments", "GL_OES_EGL_image_external", "GL_OES_EGL_sync", "GL_OES_vertex_array_object", "GL_ANGLE_pack_reverse_row_order", "GL_ANGLE_texture_compression_dxt3", "GL_ANGLE_texture_compression_dxt5", "GL_EXT_occlusion_query_boolean", "GL_EXT_sRGB", "GL_EXT_texture_rg", "GL_EXT_unpack_subimage", "GL_NV_draw_buffers", "GL_NV_read_buffer", "GL_NV_read_depth", "GL_NV_read_depth_stencil", "GL_NV_read_stencil", "GL_APPLE_sync", "GL_EXT_draw_buffers", "GL_EXT_instanced_arrays", "GL_EXT_map_buffer_range", "GL_EXT_shadow_samplers", "GL_KHR_debug", "GL_KHR_texture_compression_astc_ldr", "GL_NV_pixel_buffer_object", "GL_OES_depth_texture_cube_map", "GL_OES_required_internalformat", "GL_OES_surfaceless_context", "GL_EXT_debug_label", "GL_EXT_separate_shader_objects", "GL_EXT_compressed_ETC1_RGB8_sub_texture", "GL_EXT_draw_elements_base_vertex", "GL_EXT_polygon_offset_clamp", "GL_EXT_texture_border_clamp", "GL_KHR_context_flush_control", "GL_OES_draw_elements_base_vertex", "GL_OES_texture_border_clamp", "GL_EXT_blend_func_extended", "GL_KHR_no_error", "GL_KHR_texture_compression_astc_sliced_3d", "GL_EXT_texture_compression_s3tc_srgb", "GL_EXT_clip_control", "GL_EXT_color_buffer_half_float", "GL_KHR_parallel_shader_compile", "GL_EXT_depth_clamp", "GL_MESA_sampler_objects", "GL_MESA_bgra", ""]
+[slopos-compositor] DRM modeset plan: connector=Virtual-1 1280x800@75000mhz crtcs=1 connectors=1
+[slopos-compositor] connector HDR: hdr_metadata=false bt2020_colorspace=false max_bpc=n/a => hdr10_capable=false
+[2m2026-08-01T02:44:00.803140Z[0m [32m INFO[0m [2mslopos_compositor::session_drm[0m[2m:[0m connector HDR capability probed from DRM properties [3mhdr_metadata[0m[2m=[0mfalse [3mbt2020[0m[2m=[0mfalse [3mmax_bpc[0m[2m=[0mNone [3mhdr10_capable[0m[2m=[0mfalse
+[slopos-compositor] connector VRR: capable=false controllable=true enabled=false
+[2m2026-08-01T02:44:00.804762Z[0m [32m INFO[0m [1mdrm_atomic[0m[2m:[0m[1mcreate_surface[0m[1m{[0m[3mcrtc[0m[2m=[0mcrtc::Handle(38) [3mmode[0m[2m=[0mMode { name: "1280x800", clock: 107300, size: (1280, 800), hsync: (1600, 1638, 1728), vsync: (804, 808, 828), hskew: 0, vscan: 0, vrefresh: 75, mode_type: ModeTypeFlags(PREFERRED | DRIVER) } [3mconnectors[0m[2m=[0m[connector::Handle(39)][1m}[0m[2m:[0m[1mdrm_atomic[0m[1m{[0m[3mcrtc[0m[2m=[0mcrtc::Handle(38)[1m}[0m[2m:[0m [2msmithay::backend::drm::surface::atomic[0m[2m:[0m Initializing drm surface (crtc::Handle(38):plane::Handle(34)) with mode Mode { name: "1280x800", clock: 107300, size: (1280, 800), hsync: (1600, 1638, 1728), vsync: (804, 808, 828), hskew: 0, vscan: 0, vrefresh: 75, mode_type: ModeTypeFlags(PREFERRED | DRIVER) } and connectors [connector::Handle(39)]
+[slopos-compositor] DRM scanout surface created (crtc+connector modeset)
+[2m2026-08-01T02:44:00.805513Z[0m [32m INFO[0m [2mslopos_compositor::session_drm[0m[2m:[0m DrmSurface ready for pageflip presentation [3mstage[0m[2m=[0m"create_drm_surface"
+[2m2026-08-01T02:44:00.805556Z[0m [32m INFO[0m [1mnew[0m[1m{[0m[3mname[0m[2m=[0m"Virtual-1" [3mphysical[0m[2m=[0mPhysicalProperties { size: Size<smithay::utils::geometry::Raw> { w: 0, h: 0 }, subpixel: Unknown, make: "SLOPOS-I", model: "DRM" }[1m}[0m[2m:[0m [2msmithay::output[0m[2m:[0m Creating new Output [3mname[0m[2m=[0m"Virtual-1"
+[slopos-compositor] DRM GL compositor ready (1280x800) — client surfaces will be composited
+[2m2026-08-01T02:44:00.809534Z[0m [32m INFO[0m [2mslopos_compositor::session_drm[0m[2m:[0m DrmCompositor initialized; GL composition active [3mstage[0m[2m=[0m"pageflip_or_present"
+[2m2026-08-01T02:44:00.810078Z[0m [32m INFO[0m [2msmithay::wayland::socket[0m[2m:[0m Created new socket [3mname[0m[2m=[0mSome("wayland-1")
+[slopos-compositor] WAYLAND_DISPLAY=wayland-1 (DRM session)
+WAYLAND_DISPLAY=wayland-1
+[2m2026-08-01T02:44:00.811353Z[0m [32m INFO[0m [1mnew[0m[1m{[0m[3mname[0m[2m=[0m"Virtual-1" [3mphysical[0m[2m=[0mPhysicalProperties { size: Size<smithay::utils::geometry::Raw> { w: 0, h: 0 }, subpixel: Unknown, make: "SLOPOS-I", model: "DRM Output" }[1m}[0m[2m:[0m [2msmithay::output[0m[2m:[0m Creating new Output [3mname[0m[2m=[0m"Virtual-1"
+[2m2026-08-01T02:44:00.811544Z[0m [32m INFO[0m [2msmithay::wayland::output[0m[2m:[0m Creating new wl_output [3moutput[0m[2m=[0m"Virtual-1"
+[slopos-session] compositor pid=26010 backend=drm client_socket=wayland-1
+[slopos-session] shell pid=26012
+[2m2026-08-01T02:44:00.886203Z[0m [32m INFO[0m [2mslopos_shell[0m[2m:[0m Starting SLOPOS-I...
+[2m2026-08-01T02:44:00.892842Z[0m [32m INFO[0m [2mslopos_kit::accessibility[0m[2m:[0m AT-SPI2 a11y bus unavailable; exporting on session bus [3mapp[0m[2m=[0m"SLOPOS-I" [3merror[0m[2m=[0morg.freedesktop.DBus.Error.ServiceUnknown: The name org.a11y.Bus was not provided by any .service files
+[2m2026-08-01T02:44:00.896209Z[0m [33m WARN[0m [2mslopos_kit::accessibility[0m[2m:[0m AT-SPI2 objects exported but registry Embed failed (registry may be absent) [3mapp[0m[2m=[0m"SLOPOS-I" [3mbus[0m[2m=[0m:1.9 [3mbus_kind[0m[2m=[0m"session" [3mchildren[0m[2m=[0m5 [3merror[0m[2m=[0morg.freedesktop.DBus.Error.ServiceUnknown: The name org.a11y.atspi.Registry was not provided by any .service files
+[2m2026-08-01T02:44:00.896309Z[0m [32m INFO[0m [2mslopos_kit::accessibility[0m[2m:[0m AT-SPI2 Accessible tree exported (Action on actionable roles; still Orca-incomplete) [3mapp[0m[2m=[0m"SLOPOS-I" [3mbus[0m[2m=[0m:1.9 [3mbus_kind[0m[2m=[0m"session" [3mroot[0m[2m=[0m"/org/a11y/atspi/accessible/root" [3mchildren[0m[2m=[0m5 [3membedded[0m[2m=[0mfalse
+[2m2026-08-01T02:44:00.896340Z[0m [32m INFO[0m [2mslopos_shell[0m[2m:[0m AT-SPI2 accessibility registration active (shell chrome tree; event emit best-effort)
+[2m2026-08-01T02:44:00.911088Z[0m [32m INFO[0m [2mslopos_shell[0m[2m:[0m shell menu locale applied [3mlocale[0m[2m=[0men-US
+[2m2026-08-01T02:44:00.911440Z[0m [32m INFO[0m [2mslopos_shell[0m[2m:[0m display arrange plan applied (EmitLayoutEnv) [3mmode[0m[2m=[0mextend_right [3mscale[0m[2m=[0m100 [3menv[0m[2m=[0m[("SLOPOS_OUTPUTS_LAYOUT", "eDP-1:1920x1080@0,0:s100")]
+[2m2026-08-01T02:44:00.914519Z[0m [32m INFO[0m [2mslopos_shell::fdo_notifications[0m[2m:[0m FreeDesktop Notifications daemon registered on session bus [3mbus[0m[2m=[0m"org.freedesktop.Notifications" [3mpath[0m[2m=[0m"/org/freedesktop/Notifications"
+[2m2026-08-01T02:44:00.914575Z[0m [33m WARN[0m [2mslopos_shell::portal_dbus[0m[2m:[0m SLOPOS-I portal registration skipped [3merror[0m[2m=[0minvalid value: character `-`, expected an alphanumeric character, `_` or `/`
+[2m2026-08-01T02:44:00.914597Z[0m [32m INFO[0m [2mslopos_shell[0m[2m:[0m SLOPOS-I initialized successfully
+[2m2026-08-01T02:44:00.914604Z[0m [32m INFO[0m [2mslopos_shell[0m[2m:[0m Theme: platinum
+[2m2026-08-01T02:44:00.914616Z[0m [32m INFO[0m [2mslopos_shell[0m[2m:[0m Applications found: 5
+[2m2026-08-01T02:44:00.914620Z[0m [32m INFO[0m [2mslopos_shell[0m[2m:[0m Workspaces: 8
+[2m2026-08-01T02:44:01.127980Z[0m [32m INFO[0m [2msmithay::backend::libinput[0m[2m:[0m Initializing a libinput backend
+[2m2026-08-01T02:44:01.128054Z[0m [32m INFO[0m [2mslopos_compositor::session_drm[0m[2m:[0m DRM session entering protocol + seat event loop [3mstage[0m[2m=[0m"protocol_loop"
+[slopos-compositor] DRM session loop running (Wayland + seat + udev + libinput + layer-shell + foreign-toplevel; scanout_armed=false)
+[2m2026-08-01T02:44:01.129387Z[0m [33m WARN[0m [2mslopos_compositor::client_spawn[0m[2m:[0m spawn_client failed [3merror[0m[2m=[0mNo such file or directory (os error 2) [3mbin[0m[2m=[0m"slopos-shell" [3mpath[0m[2m=[0mslopos-shell
+[2m2026-08-01T02:44:01.130675Z[0m [32m INFO[0m [2msmithay::backend::drm::surface::atomic[0m[2m:[0m Adding connector: Virtual
+[2m2026-08-01T02:44:01.130689Z[0m [32m INFO[0m [2msmithay::backend::drm::surface::atomic[0m[2m:[0m Setting new mode: "1280x800"
+[2m2026-08-01T02:44:01.130755Z[0m [33m WARN[0m [2msmithay::backend::drm::surface::atomic[0m[2m:[0m Failed to destroy old mode property blob: No such file or directory (os error 2)
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:01.642865Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m0
+[2m2026-08-01T02:44:01.642963Z[0m [32m INFO[0m [2mslopos_shell[0m[2m:[0m shell synced foreign-toplevel-list [3mtoplevels[0m[2m=[0m0
+[2m2026-08-01T02:44:01.644148Z[0m [32m INFO[0m [2mslopos_sdk[0m[2m:[0m Application 'SLOPOS-I' started
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] toplevel mapped at (64,64) size=640x480 title=Untitled app_id=slopos-i.app shell=false
+[slopos-compositor/drm] workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0] window_id=L8cC6ill68Uk0gCsKocHCbdLQxTVbL6a present=["L8cC6ill68Uk0gCsKocHCbdLQxTVbL6a"]
+[2m2026-08-01T02:44:01.697728Z[0m [31mERROR[0m [2msctk_adwaita::config[0m[2m:[0m XDG Settings Portal did not return response in time: timeout: 100ms, key: color-scheme
+[2m2026-08-01T02:44:01.915824Z[0m [33m WARN[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m InstanceFlags::VALIDATION requested, but unable to find layer: VK_LAYER_KHRONOS_validation
+[2m2026-08-01T02:44:01.915916Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	No valid vk_loader_settings.json file found, no loader settings will be active
+[2m2026-08-01T02:44:01.915943Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.915990Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Searching for implicit layer manifest files
+[2m2026-08-01T02:44:01.916000Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916006Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   In following locations:
+[2m2026-08-01T02:44:01.916012Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916022Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /home/ubuntu/.config/vulkan/implicit_layer.d
+[2m2026-08-01T02:44:01.916036Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916043Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /etc/xdg/vulkan/implicit_layer.d
+[2m2026-08-01T02:44:01.916050Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916056Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /etc/vulkan/implicit_layer.d
+[2m2026-08-01T02:44:01.916067Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916077Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /home/ubuntu/.local/share/vulkan/implicit_layer.d
+[2m2026-08-01T02:44:01.916084Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916089Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/local/share/vulkan/implicit_layer.d
+[2m2026-08-01T02:44:01.916096Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916101Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/implicit_layer.d
+[2m2026-08-01T02:44:01.916108Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916130Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   Found the following files:
+[2m2026-08-01T02:44:01.916139Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916150Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json
+[2m2026-08-01T02:44:01.916157Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916163Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
+[2m2026-08-01T02:44:01.916173Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916191Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found manifest file /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json (file version 1.2.1)
+[2m2026-08-01T02:44:01.916202Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916222Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found manifest file /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json (file version 1.0.0)
+[2m2026-08-01T02:44:01.916373Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916412Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Searching for explicit layer manifest files
+[2m2026-08-01T02:44:01.916424Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916435Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   In following locations:
+[2m2026-08-01T02:44:01.916443Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916449Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /home/ubuntu/.config/vulkan/explicit_layer.d
+[2m2026-08-01T02:44:01.916462Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916473Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /etc/xdg/vulkan/explicit_layer.d
+[2m2026-08-01T02:44:01.916480Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916491Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /etc/vulkan/explicit_layer.d
+[2m2026-08-01T02:44:01.916505Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916512Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /home/ubuntu/.local/share/vulkan/explicit_layer.d
+[2m2026-08-01T02:44:01.916518Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916529Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/local/share/vulkan/explicit_layer.d
+[2m2026-08-01T02:44:01.916542Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916549Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/explicit_layer.d
+[2m2026-08-01T02:44:01.916554Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916660Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   Found the following files:
+[2m2026-08-01T02:44:01.916696Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916707Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/explicit_layer.d/VkLayer_MESA_screenshot.json
+[2m2026-08-01T02:44:01.916723Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916736Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/explicit_layer.d/VkLayer_MESA_overlay.json
+[2m2026-08-01T02:44:01.916749Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916756Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/explicit_layer.d/VkLayer_INTEL_nullhw.json
+[2m2026-08-01T02:44:01.916769Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916844Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found manifest file /usr/share/vulkan/explicit_layer.d/VkLayer_MESA_screenshot.json (file version 1.0.0)
+[2m2026-08-01T02:44:01.916854Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916868Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found manifest file /usr/share/vulkan/explicit_layer.d/VkLayer_MESA_overlay.json (file version 1.0.0)
+[2m2026-08-01T02:44:01.916876Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916887Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found manifest file /usr/share/vulkan/explicit_layer.d/VkLayer_INTEL_nullhw.json (file version 1.0.0)
+[2m2026-08-01T02:44:01.916913Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916924Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Searching for driver manifest files
+[2m2026-08-01T02:44:01.916931Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916937Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   In following locations:
+[2m2026-08-01T02:44:01.916943Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916949Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /home/ubuntu/.config/vulkan/icd.d
+[2m2026-08-01T02:44:01.916954Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916960Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /etc/xdg/vulkan/icd.d
+[2m2026-08-01T02:44:01.916965Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916971Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /etc/vulkan/icd.d
+[2m2026-08-01T02:44:01.916977Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916982Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /home/ubuntu/.local/share/vulkan/icd.d
+[2m2026-08-01T02:44:01.916988Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.916993Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/local/share/vulkan/icd.d
+[2m2026-08-01T02:44:01.916999Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917004Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d
+[2m2026-08-01T02:44:01.917010Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917036Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   Found the following files:
+[2m2026-08-01T02:44:01.917043Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917052Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/nouveau_icd.json
+[2m2026-08-01T02:44:01.917058Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917064Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/broadcom_icd.json
+[2m2026-08-01T02:44:01.917070Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917077Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/panfrost_icd.json
+[2m2026-08-01T02:44:01.917084Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917091Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/freedreno_icd.json
+[2m2026-08-01T02:44:01.917097Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917102Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/gfxstream_vk_icd.json
+[2m2026-08-01T02:44:01.917108Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917114Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/virtio_icd.json
+[2m2026-08-01T02:44:01.917120Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917125Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/asahi_icd.json
+[2m2026-08-01T02:44:01.917132Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917137Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/lvp_icd.json
+[2m2026-08-01T02:44:01.917143Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917149Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/intel_icd.json
+[2m2026-08-01T02:44:01.917155Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917160Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/powervr_mesa_icd.json
+[2m2026-08-01T02:44:01.917167Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917173Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	      /usr/share/vulkan/icd.d/radeon_icd.json
+[2m2026-08-01T02:44:01.917179Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917188Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/nouveau_icd.json, version 1.0.1
+[2m2026-08-01T02:44:01.917195Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917271Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/broadcom_icd.json, version 1.0.1
+[2m2026-08-01T02:44:01.917284Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917299Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/panfrost_icd.json, version 1.0.1
+[2m2026-08-01T02:44:01.917307Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917320Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/freedreno_icd.json, version 1.0.1
+[2m2026-08-01T02:44:01.917328Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917341Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/gfxstream_vk_icd.json, version 1.0.1
+[2m2026-08-01T02:44:01.917349Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917362Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/virtio_icd.json, version 1.0.1
+[2m2026-08-01T02:44:01.917369Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917382Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/asahi_icd.json, version 1.0.1
+[2m2026-08-01T02:44:01.917389Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917404Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/lvp_icd.json, version 1.0.1
+[2m2026-08-01T02:44:01.917411Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917426Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/intel_icd.json, version 1.0.1
+[2m2026-08-01T02:44:01.917433Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917447Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/powervr_mesa_icd.json, version 1.0.1
+[2m2026-08-01T02:44:01.917454Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.917467Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Found ICD manifest file /usr/share/vulkan/icd.d/radeon_icd.json, version 1.0.1
+[2m2026-08-01T02:44:01.917474Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.918920Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Insert instance layer "VK_LAYER_MESA_device_select" (/usr/lib/aarch64-linux-gnu/libVkLayer_MESA_device_select.so)
+[2m2026-08-01T02:44:01.918939Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.918946Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	vkCreateInstance layer callstack setup to:
+[2m2026-08-01T02:44:01.918953Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.918986Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Application>
+[2m2026-08-01T02:44:01.918993Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.918999Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T02:44:01.919005Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.919011Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Loader>
+[2m2026-08-01T02:44:01.919017Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.919023Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T02:44:01.919028Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.919035Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   VK_LAYER_MESA_device_select
+[2m2026-08-01T02:44:01.919041Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.919046Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           Type: Implicit
+[2m2026-08-01T02:44:01.919052Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.919058Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           Enabled By: Implicit Layer
+[2m2026-08-01T02:44:01.919064Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.919070Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	               Disable Env Var:  NODEVICE_SELECT
+[2m2026-08-01T02:44:01.919076Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.919082Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           Manifest: /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
+[2m2026-08-01T02:44:01.919089Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.919095Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           Library:  /usr/lib/aarch64-linux-gnu/libVkLayer_MESA_device_select.so
+[2m2026-08-01T02:44:01.919102Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.919108Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T02:44:01.919113Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.919119Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Drivers>
+[2m2026-08-01T02:44:01.919124Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:01.926159Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m Enabling debug utils
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T02:44:01.929260Z[0m [32m INFO[0m [2mwgpu_hal::gles::egl[0m[2m:[0m Using Wayland platform
+[slopos-compositor/drm] client connected
+libEGL warning: failed to get driver name for fd -1
+
+libEGL warning: MESA-LOADER: failed to retrieve device information
+
+libEGL warning: failed to get driver name for fd -1
+
+[2m2026-08-01T02:44:01.947856Z[0m [31mERROR[0m [2mwgpu_hal::gles::egl[0m[2m:[0m EGL 'eglInitialize' code 0x3003: DRI2: failed to get driver name
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+MESA: error: ZINK: failed to choose pdev
+libEGL warning: egl: failed to create dri2 screen
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T02:44:02.079576Z[0m [33m WARN[0m [2mwgpu_hal::gles::egl[0m[2m:[0m Re-initializing Gles context due to Wayland window
+libEGL warning: failed to get driver name for fd -1
+
+libEGL warning: MESA-LOADER: failed to retrieve device information
+
+libEGL warning: failed to get driver name for fd -1
+
+[2m2026-08-01T02:44:02.106065Z[0m [31mERROR[0m [2mwgpu_hal::gles::egl[0m[2m:[0m EGL 'eglInitialize' code 0x3003: DRI2: failed to get driver name
+[slopos-compositor/drm] client connected
+MESA: error: ZINK: failed to choose pdev
+libEGL warning: egl: failed to create dri2 screen
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T02:44:02.279015Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	linux_read_sorted_physical_devices:
+[2m2026-08-01T02:44:02.279057Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.279066Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Original order:
+[2m2026-08-01T02:44:02.279072Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.279085Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)
+[2m2026-08-01T02:44:02.279092Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.279098Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Sorted order:
+[2m2026-08-01T02:44:02.279104Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.279110Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)  
+[2m2026-08-01T02:44:02.279116Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.279129Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	linux_read_sorted_physical_devices:
+[2m2026-08-01T02:44:02.279135Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.279141Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Original order:
+[2m2026-08-01T02:44:02.279147Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.279155Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)
+[2m2026-08-01T02:44:02.279161Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.279167Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Sorted order:
+[2m2026-08-01T02:44:02.279173Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.279186Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)  
+[2m2026-08-01T02:44:02.279193Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T02:44:02.296643Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	linux_read_sorted_physical_devices:
+[2m2026-08-01T02:44:02.296688Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.296696Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Original order:
+[2m2026-08-01T02:44:02.296703Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.296717Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)
+[2m2026-08-01T02:44:02.296724Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.296731Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Sorted order:
+[2m2026-08-01T02:44:02.296737Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.296743Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)  
+[2m2026-08-01T02:44:02.296749Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.296759Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	linux_read_sorted_physical_devices:
+[2m2026-08-01T02:44:02.296765Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.296771Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Original order:
+[2m2026-08-01T02:44:02.296777Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.296785Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)
+[2m2026-08-01T02:44:02.296792Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.296797Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     Sorted order:
+[2m2026-08-01T02:44:02.296803Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.296809Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)  
+[2m2026-08-01T02:44:02.296815Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T02:44:02.315074Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_radeon.so due to not having any physical devices
+[2m2026-08-01T02:44:02.315126Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.315453Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_powervr_mesa.so due to not having any physical devices
+[2m2026-08-01T02:44:02.315486Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.315615Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_intel.so due to not having any physical devices
+[2m2026-08-01T02:44:02.315628Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.315742Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_asahi.so due to not having any physical devices
+[2m2026-08-01T02:44:02.315753Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.315856Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_virtio.so due to not having any physical devices
+[2m2026-08-01T02:44:02.315864Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.315924Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_gfxstream.so due to not having any physical devices
+[2m2026-08-01T02:44:02.315933Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.316011Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_freedreno.so due to not having any physical devices
+[2m2026-08-01T02:44:02.316021Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.316087Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_panfrost.so due to not having any physical devices
+[2m2026-08-01T02:44:02.316095Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.316218Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_broadcom.so due to not having any physical devices
+[2m2026-08-01T02:44:02.316297Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.316466Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Removing driver /usr/lib/aarch64-linux-gnu/libvulkan_nouveau.so due to not having any physical devices
+[2m2026-08-01T02:44:02.316479Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T02:44:02.500357Z[0m [32m INFO[0m [2mwgpu_core::instance[0m[2m:[0m Adapter Vulkan AdapterInfo { name: "llvmpipe (LLVM 21.1.8, 128 bits)", vendor: 65541, device: 0, device_type: Cpu, driver: "llvmpipe", driver_info: "Mesa 26.0.3-1ubuntu1 (LLVM 21.1.8)", backend: Vulkan }
+[2m2026-08-01T02:44:02.501010Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	Failed to find vkGetDeviceProcAddr in layer "/usr/lib/aarch64-linux-gnu/libVkLayer_MESA_device_select.so"
+[2m2026-08-01T02:44:02.501067Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.501088Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	vkCreateDevice layer callstack setup to:
+[2m2026-08-01T02:44:02.501107Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.501124Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Application>
+[2m2026-08-01T02:44:02.501140Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.501156Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T02:44:02.501173Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.501189Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Loader>
+[2m2026-08-01T02:44:02.501205Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.501220Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T02:44:02.501287Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.501304Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Device>
+[2m2026-08-01T02:44:02.501319Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.501482Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	       Using "llvmpipe (LLVM 21.1.8, 128 bits)" with driver: "/usr/lib/aarch64-linux-gnu/libvulkan_lvp.so"
+[2m2026-08-01T02:44:02.501501Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb3888c9eda80, name: ?)
+[2m2026-08-01T02:44:02.865079Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T02:44:03.055098Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T02:44:03.239529Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:03.699983Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:05.691750Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:07.701660Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:09.706108Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:11.693622Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:13.693875Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T02:44:15.354029Z[0m [31mERROR[0m [1megl[0m[1m{[0m[3mnative[0m[2m=[0m"/dev/dri/card0" [3mplatform[0m[2m=[0m"PLATFORM_GBM_KHR" [3mversion[0m[2m=[0m(1, 5)[1m}[0m[2m:[0m[1megl_context[0m[1m{[0m[3mptr[0m[2m=[0m194311153815728[1m}[0m[2m:[0m[1mrenderer_gles2[0m[2m:[0m [2msmithay::backend::renderer::gles[0m[2m:[0m [GL] GL_INVALID_ENUM in glBufferData(invalid usage: GL_STREAM_READ)
+[2m2026-08-01T02:44:15.367641Z[0m [31mERROR[0m [1megl[0m[1m{[0m[3mnative[0m[2m=[0m"/dev/dri/card0" [3mplatform[0m[2m=[0m"PLATFORM_GBM_KHR" [3mversion[0m[2m=[0m(1, 5)[1m}[0m[2m:[0m[1megl_context[0m[1m{[0m[3mptr[0m[2m=[0m194311153815728[1m}[0m[2m:[0m[1mrenderer_gles2[0m[2m:[0m [2msmithay::backend::renderer::gles[0m[2m:[0m [GL] GL_INVALID_OPERATION in glReadPixels(out of bounds PBO access)
+[2m2026-08-01T02:44:15.367961Z[0m [33m WARN[0m [2mslopos_compositor::screenshot[0m[2m:[0m screenshot failed [3merror[0m[2m=[0mcopy_framebuffer: Unsupported pixel format: DrmFourcc(AB24)
+[slopos-compositor] screenshot failed: copy_framebuffer: Unsupported pixel format: DrmFourcc(AB24)
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:15.688218Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:17.695504Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:19.704847Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:21.683067Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:23.703715Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:25.708993Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:27.704531Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:29.699566Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:31.716642Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:33.699794Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:35.703797Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:37.694854Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:39.699708Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:41.708724Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:43.707121Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:45.700146Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:47.700200Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:49.709544Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:51.701828Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:53.693037Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:55.688799Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:57.696529Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:44:59.693124Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:01.696576Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:03.704799Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:05.695871Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:07.695926Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:09.691984Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:11.683634Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:13.705195Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:15.715761Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:17.712344Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:19.702042Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:21.695065Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:23.705778Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:25.701468Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:27.700681Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:29.704656Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:31.690777Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:33.702957Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:35.697889Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:37.696570Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:39.696171Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:41.729840Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:43.723171Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:45.743307Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:47.728209Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:49.716703Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:51.725539Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:53.729726Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:55.770970Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:57.726773Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:45:59.726999Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:46:01.725066Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:46:03.724171Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:46:05.727904Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:46:07.725386Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client disconnected
+[slopos-session] shutdown signal received; stopping session
+[slopos-compositor/drm] client disconnected

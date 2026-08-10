@@ -1,0 +1,3 @@
+SLOPOS_BACKEND=headless
+repo=/home/ubuntu/rust-slopos-qa-d1ea823
+command=bash scripts/verify-spaces-application-policy-runtime.sh /home/ubuntu/rust-slopos-qa-d1ea823 <remote-log-dir>

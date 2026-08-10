@@ -1,0 +1,3 @@
+[2m2026-08-01T02:59:23.662492Z[0m [32m INFO[0m [2mslopos_sdk[0m[2m:[0m Application 'Finder' started
+[2m2026-08-01T02:59:23.664442Z[0m [31mERROR[0m [2mslopos_sdk[0m[2m:[0m cannot start: no display server connection: os error at /home/ubuntu/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winit-0.30.13/src/platform_impl/linux/wayland/event_loop/mod.rs:89: Could not find wayland compositor [3mapp[0m[2m=[0mFinder [3mwayland_display[0m[2m=[0mSome("wayland-1") [3mdisplay[0m[2m=[0mNone
+[Finder] cannot start: no Wayland/X11 display server reachable (os error at /home/ubuntu/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winit-0.30.13/src/platform_impl/linux/wayland/event_loop/mod.rs:89: Could not find wayland compositor)

@@ -1,0 +1,13 @@
+    Checking slopos-bus v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/crates/slopos-bus)
+    Checking slopos-render v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/crates/slopos-render)
+    Checking slopos-kit v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/crates/slopos-kit)
+    Checking slopos-sdk v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/crates/slopos-sdk)
+    Checking slopos-shell v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/crates/slopos-shell)
+    Checking slopos-compositor v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/crates/slopos-compositor)
+    Checking terminal v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/apps/terminal)
+    Checking appstore v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/apps/appstore)
+    Checking settings v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/apps/settings)
+    Checking preview v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/apps/preview)
+    Checking textedit v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/apps/textedit)
+    Checking finder v0.1.0 (/home/ubuntu/qa/2026-08-01-native-kit-r9/apps/finder)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.13s

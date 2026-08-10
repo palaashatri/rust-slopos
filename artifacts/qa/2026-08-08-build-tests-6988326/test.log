@@ -1,0 +1,1277 @@
+$ cargo test --workspace --locked
+   Compiling slopos-kit v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/crates/slopos-kit)
+   Compiling slopos-sdk v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/crates/slopos-sdk)
+   Compiling slopos-shell v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/crates/slopos-shell)
+   Compiling preview v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/preview)
+   Compiling settings v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/settings)
+   Compiling appstore v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/appstore)
+   Compiling terminal v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/terminal)
+   Compiling textedit v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/textedit)
+   Compiling finder v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/finder)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 14s
+     Running unittests src/main.rs (target/debug/deps/appstore-9518616f734ba15b)
+
+running 23 tests
+test bundle_install::tests::parse_catalog_reads_entries ... ok
+test bundle_install::tests::install_from_archive_roundtrip ... ok
+test bundle_install::tests::install_from_archive_checksum_mismatch ... ok
+test bundle_install::tests::replacement_failure_restores_previous_bundle ... ok
+test bundle_install::tests::extraction_rejects_absolute_and_parent_paths ... ok
+test bundle_install::tests::extraction_rejects_symlink_hardlink_and_device_entries ... ok
+test bundle_install::tests::staged_bundle_requires_manifest_and_entrypoint ... ok
+test bundle_install::tests::staged_bundle_rejects_unsafe_app_name ... ok
+test bundle_install::tests::staged_bundle_rejects_nested_bundle_layout ... ok
+test bundle_install::tests::staged_bundle_requires_declared_entrypoint_file ... ok
+test bundle_install::tests::replacement_installs_new_version_after_validation ... ok
+test tests::appstore_does_not_advertise_unimplemented_transaction_controls ... ok
+test tests::appstore_results_click_selects_app_and_fills_detail ... ok
+test tests::appstore_query_click_focuses_field_and_typing_lands_there ... ok
+test tests::appstore_install_requires_catalog_entry ... ok
+test tests::appstore_search_reports_featured_on_startup ... ok
+test tests::appstore_search_button_click_dispatches_search ... ok
+test tests::catalog_store_search_filters_fallback_featured_apps ... ok
+test tests::category_filter_all_returns_all_items ... ok
+test tests::category_filter_keywords_match_subset ... ok
+test tests::category_index_switches_apply_filter ... ok
+test tests::package_name_extracts_common_result_formats ... ok
+test tests::featured_list_returns_expected_count ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (target/debug/deps/finder-848533c661e9e142)
+
+running 21 tests
+test file_ops::tests::test_is_cross_device_error_matches_exdev_and_error_kind ... ok
+test file_ops::tests::test_copy_then_remove_moves_file_and_deletes_source ... ok
+test file_ops::tests::test_copy_then_remove_leaves_source_untouched_when_file_copy_fails ... ok
+test file_ops::tests::test_copy_then_remove_moves_directory_recursively ... ok
+test file_ops::tests::test_file_operations ... ok
+test file_ops::tests::test_copy_then_remove_leaves_source_untouched_when_dir_copy_fails ... ok
+test tests::finder_get_info_reports_selected_file_metadata ... ok
+test tests::finder_double_click_enters_folder_through_dispatch ... ok
+test tests::finder_enters_folder_and_returns_to_parent ... ok
+test tests::finder_click_selects_item_through_generic_dispatch ... ok
+test tests::finder_dragging_file_onto_folder_moves_it ... ok
+test tests::finder_navigation_history_tracks_back_and_forward ... ok
+test tests::finder_keyboard_shortcuts_drive_navigation_history ... ok
+test tests::finder_status_bar_sits_below_content ... ok
+test tests::finder_dragging_to_non_folder_cancels_move ... ok
+test tests::finder_tab_then_enter_activates_focused_toolbar_button ... ok
+test tests::finder_toolbar_info_uses_same_metadata_status ... ok
+test tests::finder_toolbar_new_folder_creates_directory ... ok
+test tests::finder_toolbar_buttons_drive_navigation_history ... ok
+test tests::reload_directory_sorts_folders_first_and_updates_status ... ok
+test tests::finder_toolbar_duplicate_copies_selected_file ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (target/debug/deps/preview-beac15e1b1388cf9)
+
+running 22 tests
+test tests::cli_accepts_no_path_or_one_path ... ok
+test tests::cli_rejects_multiple_paths ... ok
+test tests::preview_menus_expose_fill_and_rotation_actions ... ok
+test tests::preview_menus_do_not_advertise_unavailable_open_action ... ok
+test viewer::tests::fill_zoom_uses_the_covering_ratio ... ok
+test viewer::tests::fit_zoom_preserves_aspect_ratio_and_bounds_extremes ... ok
+test viewer::tests::image_canvas_rejects_inconsistent_rgba_source ... ok
+test viewer::tests::atomic_output_is_bounded_collision_free_and_complete ... ok
+test viewer::tests::preview_children_do_not_include_unavailable_open_button ... ok
+test viewer::tests::path_validation_rejects_directories_and_large_encoded_files ... ok
+test viewer::tests::preview_output_names_are_flat_and_rooted ... ok
+test viewer::tests::rotation_normalization_and_display_dimensions_are_shared_by_preview ... ok
+test viewer::tests::preview_keyboard_actions_reach_fill_and_rotation ... ok
+test viewer::tests::decoded_rgba_pixels_preserve_alpha_for_gpu_compositing ... ok
+test viewer::tests::vision_poll_state_recognizes_terminal_success_failure_and_cancellation ... ok
+test viewer::tests::vision_poll_state_keeps_nonterminal_jobs_pending ... ok
+test viewer::tests::vision_poll_state_times_out_nonterminal_jobs_at_the_bound ... ok
+test viewer::tests::valid_image_keeps_full_rgba_pixels_for_gpu_upload ... ok
+test viewer::tests::preview_rotation_and_fill_actions_update_state_and_status ... ok
+test viewer::tests::lifted_subject_validates_png_metadata_and_dimensions_before_write ... ok
+test viewer::tests::zoom_is_finite_and_bounded ... ok
+test viewer::tests::fill_layout_covers_rotated_viewport_and_clamps_scroll ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/main.rs (target/debug/deps/settings-66491efdcc2fbac4)
+
+running 14 tests
+test tests::settings_category_click_rebuilds_visible_options ... ok
+test tests::settings_click_outside_every_widget_is_ignored ... ok
+test tests::settings_press_and_release_on_different_buttons_activates_neither ... ok
+test tests::settings_save_preserves_lock_password_and_unknown_keys ... ok
+test tests::settings_display_arrange_applies_env_on_save ... ok
+test tests::settings_option_click_updates_and_saves_state ... ok
+test tests::settings_loads_all_eight_theme_names ... ok
+test tests::settings_save_is_atomic_leaves_only_destination_file ... ok
+test tests::settings_tab_then_space_activates_category_via_keyboard ... ok
+test tests::volume_cli_args_match_shipped_backends ... ok
+test tests::settings_store_persists_all_supported_values ... ok
+test tests::settings_save_survives_concurrent_writers_without_corruption ... ok
+test tests::settings_sound_slider_updates_and_saves_volume ... ok
+test tests::settings_slider_drag_keeps_tracking_outside_its_rect ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/slopos_bus-7edf33bf4c2a9ca5)
+
+running 7 tests
+test session_control::tests::headless_test_input_request_round_trips_through_json ... ok
+test session_control::tests::request_round_trips_through_json ... ok
+test session_control::tests::output_reconfiguration_request_round_trips_through_json ... ok
+test session_control::tests::listener_drains_typed_requests ... ok
+test session_control::tests::application_listener_drains_typed_menu_requests ... ok
+test session_control::tests::activate_application_request_round_trips_through_json ... ok
+test tests::test_slopos_bus_queue_and_dispatch ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bus_tests.rs (target/debug/deps/bus_tests-4b371bd0bf5a148d)
+
+running 3 tests
+test test_message_creation ... ok
+test test_service_registry ... ok
+test test_local_transport ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/slopos_compositor-84efb9df05cf40b3)
+
+running 158 tests
+test client_spawn::tests::binary_names_cannot_escape_the_first_party_search_roots ... ok
+test client_spawn::tests::resolver_prefers_executable_release_binary ... ok
+test cursor_theme::tests::buffer_length_matches_width_times_height_times_4 ... ok
+test cursor_theme::tests::dimensions_are_24x24_with_zero_hotspot ... ok
+test client_spawn::tests::resolver_returns_none_when_no_candidate_exists ... ok
+test client_spawn::tests::private_directory_permissions_are_repaired ... ok
+test cursor_theme::tests::hotspot_pixel_is_opaque ... ok
+test cursor_theme::tests::image_contains_both_black_and_white_pixels ... ok
+test cursor_theme::tests::named_theme_lookup_loads_cursor_from_explicit_search_path ... ok
+test client_spawn::tests::resolver_skips_non_executable_candidates ... ok
+test cursor_theme::tests::missing_or_invalid_asset_returns_safe_scaled_arrow ... ok
+test cursor_theme::tests::missing_scaled_asset_resizes_nearest_image_and_hotspot ... ok
+test cursor_theme::tests::no_pixel_is_both_black_and_white ... ok
+test drm_props::tests::absent_properties_never_report_hdr_or_vrr ... ok
+test drm_props::tests::bpc_target_clamps_inside_kernel_range ... ok
+test drm_props::tests::chromaticity_encoding_is_bounded_and_nan_safe ... ok
+test cursor_theme::tests::shape_is_non_trivial_and_bounded ... ok
+test drm_props::tests::hdr10_uses_pq_bt2020_and_sanitized_luminance ... ok
+test cursor_theme::tests::named_theme_lookup_selects_exact_scaled_image_and_hotspot ... ok
+test drm_props::tests::hdr10_capability_requires_every_property_condition ... ok
+test drm_props::tests::hdr_output_metadata_matches_kernel_layout ... ok
+test drm_props::tests::vrr_policy_requires_control_and_capability_for_enable ... ok
+test drm_props::tests::sdr_metadata_uses_traditional_gamma ... ok
+test frame_timing::tests::adaptive_mode_never_requests_fixed_rate_waiting ... ok
+test frame_timing::tests::rate_change_resets_deadline_and_diagnostic_history ... ok
+test frame_timing::tests::non_monotonic_sample_does_not_poison_history ... ok
+test frame_timing::tests::refresh_rate_duration_is_exactly_policy_driven ... ok
+test hdr::tests::capability_loss_returns_current_output_to_srgb ... ok
+test frame_timing::tests::fixed_rate_deadline_is_deterministic_without_sleeping ... ok
+test frame_timing::tests::refresh_rate_serialization_and_flexible_parsing_match ... ok
+test hdr::tests::color_space_serialization_and_parsing_are_stable ... ok
+test hdr::tests::disabling_hdr_forces_safe_srgb ... ok
+test frame_timing::tests::history_is_bounded_and_fps_uses_only_retained_samples ... ok
+test hdr::tests::tone_mappers_are_finite_bounded_and_monotonic_for_sdr_input ... ok
+test hdr::tests::conservative_detection_is_sdr_only ... ok
+test hdr::tests::tone_mapper_sanitizes_invalid_inputs_and_peak_luminance ... ok
+test hdr::tests::hardware_capabilities_are_deduplicated_without_invention ... ok
+test hdr::tests::unavailable_hdr_encoding_uses_a_verified_fallback ... ok
+test hdr::tests::unsupported_hdr_request_does_not_fabricate_capabilities ... ok
+test output_assignment::tests::equal_overlap_prefers_the_output_containing_the_window_centre ... ok
+test output_assignment::tests::intersection_is_half_open_and_overflow_safe ... ok
+test output_assignment::tests::greatest_window_overlap_selects_the_owning_output ... ok
+test output_assignment::tests::layout_gaps_and_offscreen_windows_choose_the_nearest_output ... ok
+test output_assignment::tests::negative_and_offset_layouts_are_normalized_without_losing_relationships ... ok
+test output_assignment::tests::surface_membership_reports_every_real_intersection_without_nearest_fallback ... ok
+test output_assignment::tests::topology_remap_preserves_relative_placement_and_visibility ... ok
+test output_assignment::tests::runtime_layout_validation_is_transactional_and_scale_honest ... ok
+test perf_budget::tests::over_budget_scores_down ... ok
+test perf_budget::tests::all_ok_aggregate ... ok
+test perf_budget::tests::twice_budget_is_zero ... ok
+test perf_budget::tests::frame_budget_16ms_ok ... ok
+test pointer_policy::tests::confined_pointer_keeps_allowed_axes_independently ... ok
+test pointer_policy::tests::confined_pointer_stops_when_neither_axis_is_valid ... ok
+test pointer_policy::tests::locked_pointer_discards_motion ... ok
+test pointer_policy::tests::free_pointer_keeps_both_axes ... ok
+test screenshot::tests::row_flip_is_exact_and_in_place ... ok
+test screenshot::tests::malformed_row_buffer_is_rejected ... ok
+test screenshot::tests::capture_dimensions_are_bounded_before_allocation ... ok
+test session_drm::tests::axis_frame_preserves_libinput_scroll_metadata ... ok
+test session_drm::tests::finger_zero_amount_emits_axis_stop_without_v120 ... ok
+test session_drm::tests::layer_surface_hit_origin_is_translated_to_compositor_space ... ok
+test session_drm::tests::relative_motion_time_millis_is_nonzero_and_saturating ... ok
+test session_drm::tests::drm_session_available_is_bool ... ok
+test session_drm::tests::resolve_primary_prefers_discover_or_default ... ok
+test spaces::tests::independent_overview_filters_assigned_output_in_model_order ... ok
+test spaces::tests::independent_restore_and_output_migration_are_deterministic ... ok
+test spaces::tests::independent_space_removal_prefers_same_output_fallback ... ok
+test spaces::tests::lifecycle_keeps_stable_nonzero_ids_and_unique_names ... ok
+test spaces::tests::membership_targets_current_named_and_all ... ok
+test spaces::tests::ordering_and_active_space_are_independent ... ok
+test spaces::tests::output_assignment_defaults_for_legacy_state_and_round_trips ... ok
+test spaces::tests::overview_commands_mutate_safely_and_keep_window_membership ... ok
+test spaces::tests::overview_selection_marks_exactly_one_active_space ... ok
+test spaces::tests::overview_projection_preserves_order_and_only_exposes_window_counts ... ok
+test spaces::tests::policy_controls_output_visibility_and_clears_shared_assignments ... ok
+test spaces::tests::removing_active_or_last_space_has_safe_fallback ... ok
+test spaces::tests::policy_and_per_space_presentation_metadata_round_trip ... ok
+test spaces::tests::serde_rejects_zero_or_duplicate_ids_and_duplicate_names ... ok
+test tests::accumulate_damage_and_full_redraw_heuristic ... ok
+test tests::client_window_stack_map_focus_z_order ... ok
+test tests::chrome_layer_specs_sort_and_parse ... ok
+test tests::damage_region_and_window_move_accumulate ... ok
+test tests::decoration_preference_first_party_csd_external_ssd ... ok
+test tests::apply_scale_to_output_config_physical_size ... ok
+test tests::detect_dri3_from_env_value_parses_0_1 ... ok
+test tests::client_window_stack_independent_of_shell_paint_rects ... ok
+test tests::discover_drm_nodes_from_names_orders_primary_first ... ok
+test tests::display_policy_accepts_hdr_request_alias ... ok
+test tests::drm_presentation_pipeline_includes_scanout_stages ... ok
+test tests::interactive_move_clamps_to_output ... ok
+test tests::interactive_resize_clamps_every_edge_and_corner_to_minimum ... ok
+test tests::interactive_move_uses_the_pointer_delta ... ok
+test tests::interactive_resize_honours_each_edge_and_corner ... ok
+test tests::interactive_resize_honours_edges_and_minimum ... ok
+test tests::interactive_resize_preserves_fixed_edges_at_output_boundaries ... ok
+test tests::layout_grid_origins_and_sizes ... ok
+test tests::layout_outputs_dispatches_to_mode ... ok
+test tests::layout_side_by_side_and_total_size ... ok
+test tests::layout_stacked_origins_and_sizes ... ok
+test tests::normal_window_is_clamped_to_scaled_work_area ... ok
+test tests::normal_window_keeps_cascade_geometry_when_it_fits ... ok
+test tests::display_policy_settings_and_env ... ok
+test tests::output_scale_as_f64_and_from_env_value ... ok
+test tests::normal_window_respects_minimums_in_tiny_work_area ... ok
+test tests::output_scale_summary_and_session_mode_note ... ok
+test tests::outputs_from_env_values_prefers_outputs_spec ... ok
+test tests::parse_output_scale_rejects_invalid ... ok
+test tests::parse_layout_mode_side_stack_grid_and_default ... ok
+test tests::parse_outputs_layout_spec_dual_and_positions ... ok
+test tests::parse_outputs_layout_spec_skips_garbage_tolerates_missing_scale ... ok
+test tests::parse_outputs_layout_spec_stacked_negative_and_scale ... ok
+test tests::parse_outputs_spec_rejects_garbage ... ok
+test tests::parse_outputs_spec_single_and_multi ... ok
+test tests::placeholder_present_stats_logs_once ... ok
+test tests::plan_compose_order_puts_overlay_after_under ... ok
+test tests::plan_drm_modeset_fallback_when_none ... ok
+test tests::plan_drm_modeset_prefers_connected ... ok
+test tests::plan_scanout_paint_order_and_clip ... ok
+test tests::parse_output_scale_integer_fraction_decimal ... ok
+test tests::pointer_grab_accepts_only_the_normalized_requesting_window_owner ... ok
+test tests::pointer_grab_requires_live_same_surface_press_and_owned_seat ... ok
+test spaces::tests::atomic_persistence_round_trips_and_leaves_no_temp_file ... ok
+test tests::resolve_laid_out_falls_back_to_outputs_spec_and_default ... ok
+test tests::releasing_interactive_grab_clears_grab_press_and_button_state ... ok
+test tests::scale_logical_to_physical_and_back ... ok
+test tests::scale_zero_and_negative_dims_do_not_inflate ... ok
+test tests::select_backend_kind_headless_wins ... ok
+test tests::resolve_laid_out_prefers_layout_spec_over_outputs ... ok
+test tests::select_backend_kind_nested_x11_otherwise ... ok
+test tests::select_backend_kind_session_drm_when_prefer_and_dri3 ... ok
+test tests::selection_mime_lookup_and_fallback ... ok
+test tests::selection_store_from_utf8_offers_and_satisfies ... ok
+test tests::text_input_capability_env_parses ... ok
+test tests::session_mode_summary_is_honest ... ok
+test tests::wayland_display_source_dispatches_client_requests_when_fd_is_ready ... ok
+test tests::workspace_activate_and_cycle ... ok
+test tests::workspace_assign_move_and_visibility ... ok
+test tests::workspace_composition_filter ... ok
+test tests::workspace_id_cycle_wrapping ... ok
+test tests::workspace_id_new_validates_range ... ok
+test tests::workspace_summary_line_and_counts ... ok
+test tests::workspace_state_default_and_display ... ok
+test window_state::tests::first_restore_record_survives_every_non_normal_transition ... ok
+test window_state::tests::odd_sized_tiling_is_gapless ... ok
+test window_state::tests::every_target_is_contained_after_sanitization ... ok
+test window_state::tests::minimize_never_rewrites_current_geometry ... ok
+test window_state::tests::one_pixel_axes_overlap_instead_of_escaping_or_becoming_zero ... ok
+test window_state::tests::restore_after_output_removal_is_clamped_to_current_work_area ... ok
+test work_area::tests::resolves_each_unique_edge_and_rejects_ambiguous_corners ... ok
+test work_area::tests::oversized_and_invalid_requests_leave_a_positive_work_area ... ok
+test window_state::tests::zoom_action_and_boolean_policy_parsing_are_stable ... ok
+test work_area::tests::all_four_edges_and_margins_reduce_the_output ... ok
+test work_area::tests::same_edge_reservations_accumulate_in_arrangement_order ... ok
+test workspace_focus::tests::focus_none_when_no_visible_windows ... ok
+test workspace_focus::tests::focus_picks_topmost_visible ... ok
+test workspace_focus::tests::paint_source_prefers_surface_tree ... ok
+test workspace_focus::tests::move_and_hit_test ... ok
+test workspace_focus::tests::visible_paint_order_filters_inactive ... ok
+
+test result: ok. 158 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (target/debug/deps/slopos_compositor-e139c13de521f5a2)
+
+running 8 tests
+test tests::explicit_nested_backend_fails_without_x11_display ... ok
+test linux::axis_frame_tests::axis_frame_keeps_timestamp_directions_and_both_value_forms ... ok
+test tests::automatic_backend_requires_x11_display_for_nested ... ok
+test tests::nested_control_binds_before_readiness_and_delivers_request ... ok
+test tests::x11_resize_edges_use_shared_interactive_mapping ... ok
+test tests::nested_layer_surface_hit_origin_is_translated_to_compositor_space ... ok
+test tests::test_parse_bool_env ... ok
+test tests::nested_control_source_wakes_calloop_and_drains_request ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/compositor_completion_contract.rs (target/debug/deps/compositor_completion_contract-28482986f12985a7)
+
+running 22 tests
+test dnd_runtime_evidence_preserves_bare_and_invalid_serial_markers ... ok
+test dynamic_spaces_keep_window_membership_valid_during_removal ... ok
+test fixed_and_adaptive_frame_pacing_do_not_share_deadlines_or_samples ... ok
+test headless_dnd_motion_points_leave_the_raised_source_buffer ... ok
+test headless_dnd_source_stays_alive_for_all_requested_mimes ... ok
+test headless_runtime_gate_builds_the_binary_it_executes ... ok
+test headless_dnd_target_allows_the_protocol_leave_after_drop ... ok
+test headless_runtime_gate_exercises_clipboard_cancellation_and_target_death ... ok
+test headless_runtime_gate_exercises_native_clipboard_transfer ... ok
+test headless_runtime_gate_exercises_native_primary_selection_transfer ... ok
+test headless_runtime_gate_exercises_only_safe_dnd_serial_rejection ... ok
+test independent_display_spaces_migrate_without_changing_identity_or_order ... ok
+test headless_runtime_gate_requires_cross_client_dnd_lifecycle_evidence ... ok
+test invalid_serial_dnd_smoke_does_not_advance_window_cascade ... ok
+test odd_sized_tiling_partitions_the_work_area_without_gaps ... ok
+test minimize_does_not_destroy_a_preexisting_restore_frame ... ok
+test overview_projection_tracks_reorder_and_active_state ... ok
+test repeated_space_removal_never_strands_exclusive_or_all_space_windows ... ok
+test restore_after_output_change_clamps_the_saved_frame_into_the_new_work_area ... ok
+test presentation_round_trip_preserves_the_original_normal_frame ... ok
+test tiling_stays_positive_and_inside_many_small_and_odd_work_areas ... ok
+test headless_runtime_gate_exercises_native_text_input_and_ime ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/compositor_tests.rs (target/debug/deps/compositor_tests-1f502bdc17e91450)
+
+running 17 tests
+test cascade_position_uses_classic_offset_and_wraps ... ok
+test defaults_match_runtime_contract ... ok
+test output_config_uses_defaults_for_missing_or_invalid_values ... ok
+test output_config_accepts_positive_env_values ... ok
+test outputs_from_env_values_multi_ignores_width_height ... ok
+test outputs_from_env_values_single_fallback ... ok
+test selection_store_lookup_eof_when_missing ... ok
+test move_to_top_moves_target_to_end_and_preserves_other_order ... ok
+test display_policy_from_settings_text ... ok
+test display_policy_env_overrides_and_vrr ... ok
+test topmost_window_at_prefers_later_z_order ... ok
+test parse_outputs_spec_multi_and_layout ... ok
+test window_contains_top_left_corner ... ok
+test parse_key_value_conf_skips_comments ... ok
+test window_contains_point_inside ... ok
+test window_rejects_bottom_right_exclusive_boundary ... ok
+test zero_sized_window_contains_nothing ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (target/debug/deps/slopos_fonts-24ac7ead04ae97fc)
+
+running 24 tests
+test tests::fallback_chain_keeps_requested_recovery_family_unique_and_last ... ok
+test tests::family_validation_rejects_whitespace_and_control_only_names ... ok
+test tests::checked_font_inputs_reject_invalid_sizes_weights_and_scales ... ok
+test tests::custom_overrides_keep_complete_safe_defaults_and_apply_scale ... ok
+test tests::font_discovery_preserves_root_precedence_and_deduplicates_overlapping_roots ... ok
+test tests::font_discovery_skips_symlinked_fonts_and_directories ... ok
+test tests::font_profile_defaults_use_nonproprietary_preferences_for_every_role ... ok
+test tests::font_manager_rejects_unsafe_or_non_font_sources ... ok
+test tests::font_manager_installs_deduplicates_toggles_and_removes_atomically ... ok
+test tests::font_profile_resolver_rejects_malformed_profile_values ... ok
+test tests::profile_spec_accessors_reject_stored_malformed_specs ... ok
+test tests::recovery_boundary_identifies_logical_name_and_bitmap_provider ... ok
+test tests::fallback_chain_is_deterministic_and_always_ends_in_recovery ... ok
+test tests::resolved_font_role_deserializes_payloads_without_new_provenance_field ... ok
+test tests::font_profile_resolver_has_stable_fallback_order_and_matching ... ok
+test tests::test_font_discovery_search_paths ... ok
+test tests::test_font_discovery_skips_unreadable_nested_directories ... ok
+test tests::test_font_roles_and_defaults ... ok
+test tests::test_font_discovery_recurses_into_nested_directories ... ok
+test tests::test_font_profile_config ... ok
+test tests::legacy_infallible_calls_keep_their_original_return_types ... ok
+test tests::font_profile_resolver_uses_safe_fallbacks_for_unavailable_families ... ok
+test tests::user_family_precedence_is_explicit_and_stable ... ok
+test tests::font_profile_resolver_resolves_classic_modern_accessible_and_custom_profiles ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/slopos_kit-c7179b8946831f48)
+
+running 166 tests
+test accessibility::tests::accessible_component_contains_and_extents ... ok
+test accessibility::tests::accessible_action_names_are_stable ... ok
+test accessibility::tests::accessible_event_kind_tags_are_stable ... ok
+test accessibility::tests::accessible_selection_single_and_multi ... ok
+test accessibility::tests::action_invoke_handler_registry ... ok
+test accessibility::tests::accessible_text_state_caret_and_selection ... ok
+test accessibility::tests::actions_for_list_item_include_activate_and_focus ... ok
+test accessibility::tests::actions_for_chrome_regions_include_focus ... ok
+test accessibility::tests::actions_for_static_roles_are_empty ... ok
+test accessibility::tests::actions_for_text_field_include_focus ... ok
+test accessibility::tests::atspi_object_path_generation ... ok
+test accessibility::tests::actions_for_button_include_activate_press_focus ... ok
+test accessibility::tests::atspi_object_path_with_label_sanitizes ... ok
+test accessibility::tests::bus_focus_changed_emits_on_focus_path_helper ... ok
+test accessibility::tests::chrome_focus_indices_follow_cycle_order ... ok
+test accessibility::tests::chrome_focus_region_order_is_menu_desktop_dock ... ok
+test accessibility::tests::chrome_focus_path_emits_focus_events_for_cycle ... ok
+test accessibility::tests::chrome_region_primary_roles ... ok
+test accessibility::tests::default_tree_is_non_empty ... ok
+test accessibility::tests::event_bus_push_pop_drain_fifo ... ok
+test accessibility::tests::flat_index_from_atspi_path_parses_canonical_and_nested ... ok
+test accessibility::tests::focusable_indices_includes_chrome_and_interactive ... ok
+test accessibility::tests::free_focus_changed_helper_pushes_focus_event ... ok
+test accessibility::tests::next_chrome_focus_index_empty_tree ... ok
+test accessibility::tests::next_chrome_focus_index_cycles ... ok
+test accessibility::tests::interfaces_for_role_advertise_action_when_present ... ok
+test accessibility::tests::next_chrome_focus_region_starts_at_menu_bar ... ok
+test accessibility::tests::node_actions_delegate_to_role ... ok
+test accessibility::tests::other_event_helpers_push_expected_kinds ... ok
+test accessibility::tests::pending_action_queue_push_drain ... ok
+test accessibility::tests::role_names_for_chrome_and_core_widgets ... ok
+test accessibility::tests::role_to_atspi_role_covers_all_roles ... ok
+test accessibility::tests::role_to_atspi_role_known_values ... ok
+test accessibility::tests::serialize_focus_event_for_dbus ... ok
+test accessibility::tests::serialize_object_lifecycle_as_children_changed ... ok
+test accessibility::tests::serialize_bounds_and_active_descendant ... ok
+test accessibility::tests::sanitize_path_segment_edges ... ok
+test accessibility::tests::shell_chrome_includes_session_menu_items ... ok
+test accessibility::tests::shell_chrome_tree_has_menu_desktop_dock_window ... ok
+test accessibility::tests::serialize_state_changed_puts_state_name_in_detail ... ok
+test accessibility::tests::state_bitset_sets_enabled_visible ... ok
+test button::tests::button_is_focusable_unless_hidden_or_disabled ... ok
+test accessibility::tests::state_bitset_chrome_targets_are_focusable ... ok
+test accessibility::tests::tree_to_atspi_paths_matches_indices ... ok
+test accessibility::tests::tree_focus_changed_index_uses_canonical_path ... ok
+test accessibility::tests::try_emit_without_registration_returns_false ... ok
+test accessibility::tests::tree_focus_changed_pushes_focus_and_updates_state ... ok
+test button::tests::click_outside_rect_is_ignored_and_does_not_press ... ok
+test button::tests::enter_and_space_activate_only_when_focused ... ok
+test button::tests::mouse_leave_cancels_press ... ok
+test button::tests::mouse_move_gates_hover_on_rect ... ok
+test button::tests::press_then_release_inside_fires_on_click_and_sets_clicked ... ok
+test button::tests::release_outside_cancels_press_so_a_later_inside_release_cannot_fire ... ok
+test button::tests::release_outside_rect_is_ignored_and_does_not_fire ... ok
+test design_tokens::tests::legacy_constants_are_backed_by_classic_metrics ... ok
+test design_tokens::tests::classic_palette_resolves_semantic_tokens ... ok
+test dialog::tests::click_on_button_sets_take_result_on_release ... ok
+test dialog::tests::click_outside_every_button_is_ignored ... ok
+test dialog::tests::dialog_with_no_buttons_does_not_panic_on_enter_or_escape ... ok
+test dialog::tests::enter_activates_default_button_and_escape_activates_cancel_button ... ok
+test design_tokens::tests::classic_reference_rhythm_is_compact ... ok
+test dialog::tests::layout_computes_button_rects_right_aligned_like_the_painter ... ok
+test dialog::tests::events_with_no_position_are_ignored ... ok
+test dialog::tests::single_button_dialog_is_both_default_and_cancel ... ok
+test dispatch::tests::capture_routes_motion_and_release_to_the_pressed_widget ... ok
+test dispatch::tests::dispatch_pointer_bubbles_all_the_way_to_root ... ok
+test dispatch::tests::dispatch_pointer_bubbles_to_immediate_parent_when_child_ignores ... ok
+test dispatch::tests::dispatch_pointer_deepest_hit_wins_and_ancestors_are_untouched ... ok
+test dispatch::tests::dispatch_pointer_skips_hidden_child_entirely_and_bubbles_to_root ... ok
+test dispatch::tests::dispatch_pointer_ignores_point_outside_root_and_touches_nothing ... ok
+test dispatch::tests::dispatch_positional_falls_through_to_earlier_sibling_when_topmost_ignores ... ok
+test dispatch::tests::dispatch_positional_delivers_only_to_the_child_under_the_point ... ok
+test dispatch::tests::dispatch_positional_returns_ignored_when_no_child_matches ... ok
+test dispatch::tests::widget_at_falls_back_to_parent_when_no_child_matches ... ok
+test dispatch::tests::hover_synthesizes_enter_and_leave_between_widgets ... ok
+test clipboard::tests::clipboard_persists_to_runtime_path ... ok
+test dispatch::tests::press_ignored_by_everything_captures_nothing ... ok
+test dispatch::tests::widget_at_finds_deepest_child ... ok
+test dispatch::tests::widget_at_returns_none_outside_root ... ok
+test dispatch::tests::widget_at_prefers_topmost_overlapping_child ... ok
+test dispatch::tests::widget_at_skips_hidden_and_disabled_subtrees ... ok
+test dispatch::tests::window_mouse_leave_notifies_hovered_widget_and_clears_capture ... ok
+test dock_view::tests::click_between_items_is_swallowed_without_recording ... ok
+test dock_view::tests::click_on_item_records_it_and_drains_once ... ok
+test dock_view::tests::click_outside_the_dock_is_ignored ... ok
+test dock_view::tests::item_at_matches_item_rect ... ok
+test clipboard::tests::file_based_round_trip ... ok
+test dock_view::tests::item_rects_are_centered_and_spaced ... ok
+test clipboard::tests::available_backends_returns_vec ... ok
+test focus::tests::clear_unsets_focus_everywhere ... ok
+test focus::tests::dispatch_key_returns_ignored_when_focused_widget_declines_it ... ok
+test focus::tests::dispatch_key_routes_only_to_the_focused_widget ... ok
+test focus::tests::focus_sets_exactly_one_widget_and_clears_the_rest ... ok
+test focus::tests::focus_prev_visits_backward_and_wraps ... ok
+test focus::tests::focus_next_on_tree_with_no_focusable_widgets_stays_unfocused ... ok
+test focus::tests::focus_next_visits_focusable_widgets_in_tree_order_and_wraps ... ok
+test focus::tests::focus_with_id_outside_the_tree_focuses_nothing ... ok
+test icon_view::tests::desktop_layout_uses_right_aligned_column_with_bottom_trash ... ok
+test icon_view::tests::desktop_nameplate_edges_share_the_icon_hit_target ... ok
+test icon_view::tests::default_layout_stays_grid_for_desktop_named_items ... ok
+test image_view::tests::rejects_invalid_rgba8_storage ... ok
+test image_view::tests::retains_exact_source_dimensions_and_bytes ... ok
+test image_view::tests::rotation_is_normalized_to_clockwise_quarter_turns ... ok
+test image_view::tests::rotation_swaps_display_dimensions_without_touching_source_storage ... ok
+test list_view::tests::list_view_selects_clicked_row ... ok
+test menu_bar::tests::menu_bar_opens_switches_and_closes ... ok
+test menu_bar::tests::menu_bar_records_action_from_dropdown_click ... ok
+test menu_bar::tests::open_first_menu_opens_index_zero ... ok
+test popup_button::tests::click_elsewhere_while_closed_is_ignored ... ok
+test popup_button::tests::click_inside_button_rect_toggles_open ... ok
+test menu_bar::tests::open_menu_at_opens_by_index_and_rejects_oob ... ok
+test popup_button::tests::click_outside_while_open_closes_without_selecting ... ok
+test popup_button::tests::click_on_item_selects_it_and_closes ... ok
+test scroll_view::tests::dragging_the_thumb_moves_the_scroll_offset ... ok
+test popup_button::tests::on_select_callback_fires_with_the_chosen_index ... ok
+test popup_button::tests::layout_computes_dropdown_and_item_rects ... ok
+test scroll_view::tests::layout_pulls_a_stale_offset_back_in_range_when_content_shrinks ... ok
+test scroll_view::tests::mouse_down_off_the_thumb_still_reaches_content ... ok
+test scroll_view::tests::scroll_moves_and_clamps_to_content_minus_viewport_when_cursor_is_over_it ... ok
+test scroll_view::tests::scroll_is_ignored_when_the_cursor_has_moved_outside_the_rect ... ok
+test scroll_view::tests::scroll_is_ignored_when_the_cursor_was_never_over_the_view ... ok
+test scroll_view::tests::scroll_offset_reports_the_current_position ... ok
+test scroll_view::tests::scrollbar_rect_is_none_when_content_fits_the_viewport ... ok
+test scroll_view::tests::scrollbar_rect_tracks_the_scroll_position ... ok
+test slider::tests::slider_snaps_and_clamps_values ... ok
+test slider::tests::slider_updates_while_dragging ... ok
+test split_view::tests::divider_rect_matches_direction_and_position ... ok
+test split_view::tests::dragging_the_divider_updates_position_and_clamps_to_sane_bounds ... ok
+test split_view::tests::hovering_the_divider_sets_the_resize_cursor_and_moving_off_resets_it ... ok
+test split_view::tests::mouse_leave_while_dragging_cancels_the_drag_and_resets_the_cursor ... ok
+test tab_view::tests::arrow_keys_change_selection_only_when_focused ... ok
+test tab_view::tests::children_mut_yields_working_mutable_references_without_unsafe ... ok
+test split_view::tests::split_view_only_dispatches_a_click_to_the_pane_under_the_point ... ok
+test tab_view::tests::layout_computes_header_rects_matching_the_painter_formula ... ok
+test tab_view::tests::is_focusable ... ok
+test tab_view::tests::mouse_down_on_a_header_selects_that_tab ... ok
+test tab_view::tests::pointer_event_inside_content_rect_reaches_selected_content ... ok
+test tab_view::tests::pointer_event_over_the_header_does_not_reach_content ... ok
+test text_field::tests::arrow_keys_move_by_whole_characters_not_bytes ... ok
+test text_field::tests::arrow_keys_are_ignored_when_not_focused ... ok
+test text_field::tests::backspace_and_delete_remove_selection_as_one_edit ... ok
+test text_field::tests::click_far_past_the_text_clamps_cursor_to_the_end ... ok
+test text_field::tests::char_and_backspace_are_ignored_when_not_focused ... ok
+test text_field::tests::click_inside_rect_focuses_and_places_cursor_near_the_click ... ok
+test text_field::tests::focusable_is_true ... ok
+test text_field::tests::home_and_end_move_cursor_to_bounds ... ok
+test text_field::tests::click_outside_rect_is_ignored_and_does_not_focus ... ok
+test text_field::tests::multibyte_insert_and_backspace_does_not_panic_and_tracks_byte_cursor ... ok
+test text_field::tests::replacing_selection_preserves_unicode_boundaries_and_calls_on_change ... ok
+test text_field::tests::shift_navigation_selects_unicode_without_splitting_bytes ... ok
+test toolbar::tests::toolbar_ignores_a_click_outside_every_item ... ok
+test toolbar::tests::toolbar_ignores_events_with_no_position ... ok
+test tree_view::tests::click_outside_rect_is_ignored ... ok
+test toolbar::tests::toolbar_only_delivers_click_to_the_item_under_the_point ... ok
+test tree_view::tests::clicking_disclosure_area_toggles_expansion_without_selecting ... ok
+test tree_view::tests::clicking_a_row_selects_its_real_path_not_a_hardcoded_band ... ok
+test tree_view::tests::collapsed_node_hides_its_children_from_rows ... ok
+test tree_view::tests::clicking_favorites_row_selects_favorites_not_desktop ... ok
+test tree_view::tests::layout_builds_one_row_per_visible_node_in_tree_order ... ok
+test window::tests::chrome_hit_test_uses_half_open_edges_and_custom_metrics ... ok
+test tree_view::tests::clicking_a_leaf_row_selects_even_inside_the_leading_strip ... ok
+test window::tests::classic_chrome_hit_test_prioritizes_controls_and_grow_box ... ok
+test workspace_grid_view::tests::cells_tile_row_major ... ok
+test workspace_grid_view::tests::each_cell_center_activates_that_cell ... ok
+test workspace_grid_view::tests::press_in_the_margin_is_ignored ... ok
+test workspace_grid_view::tests::press_outside_the_widget_is_ignored ... ok
+
+test result: ok. 166 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/kit_tests.rs (target/debug/deps/kit_tests-340646a0ab8a751d)
+
+running 18 tests
+test accessibility_node_is_focusable_delegates_to_role ... ok
+test accessibility_node_role_name_delegates_to_role ... ok
+test accessibility_role_name_returns_expected_strings ... ok
+test accessibility_role_is_focusable_for_interactive_roles ... ok
+test accessibility_tree_add_and_clear ... ok
+test accessibility_tree_to_atspi_objects_format ... ok
+test test_dnd ... ok
+test test_layout_arrange_reflows_nested_layout_view_children ... ok
+test test_grid_edge_cases_do_not_panic_or_underflow ... ok
+test test_layout_padding_is_applied_once ... ok
+test test_scroll_view_forwards_child_events ... ok
+test test_popup_button ... ok
+test test_tab_view ... ok
+test test_widget_creation ... ok
+test test_text_field_set_text_places_cursor_at_end ... ok
+test test_status_bar ... ok
+test accessibility_node_new_sets_role_and_label ... ok
+test test_clipboard ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/slopos_render-67bd5d96f812c017)
+
+running 19 tests
+test font::tests::cache_key_is_stable_and_scale_sensitive ... ok
+test font::tests::cache_reuses_hits_and_preserves_missing_glyphs ... ok
+test font::tests::invalid_font_sizes_are_rejected_before_font_lookup ... ok
+test font::tests::cache_capacity_is_bounded ... ok
+test font::tests::bitmap_recovery_reports_the_font_service_contract_family ... ok
+test font::tests::rasterize_char_populates_each_exact_scale_entry ... ok
+test font::tests::bitmap_recovery_is_used_when_the_shaping_font_system_is_empty ... ok
+test renderer::tests::adaptive_does_not_prefer_mailbox ... ok
+test renderer::tests::adaptive_vrr_prefers_auto_vsync_then_fifo_relaxed ... ok
+test renderer::tests::default_policy_is_sdr_stable ... ok
+test renderer::tests::hdr_falls_back_to_rgb10a2_then_sdr ... ok
+test renderer::tests::hdr_prefers_rgba16_float_when_available ... ok
+test renderer::tests::sdr_prefers_bgra8_srgb_over_hdr_formats ... ok
+test renderer::tests::sdr_never_picks_float16_when_srgb_exists ... ok
+test renderer::tests::stable_vrr_prefers_fifo ... ok
+test font::tests::advanced_shaping_keeps_combining_marks_in_one_cluster ... ok
+test font::tests::shaped_layout_preserves_unicode_cluster_boundaries ... ok
+test font::tests::shaped_layout_wraps_and_reports_the_measured_line_width ... ok
+test font::tests::layout_cache_key_includes_fractional_scale ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/render_tests.rs (target/debug/deps/render_tests-a7b8295dcf5cf1ea)
+
+running 1 test
+test test_render_tree ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/slopos_sdk-813283d1f8e6cc29)
+
+running 18 tests
+test tests::formats_menu_clock_with_minute_precision ... ok
+test tests::ignores_non_dark_appearance_preferences ... ok
+test tests::image_commands_only_emit_tiles_intersecting_the_clip ... ok
+test tests::image_commands_tile_the_full_source_without_panel_expansion ... ok
+test tests::inactive_title_palette_is_readable_in_light_and_dark_modes ... ok
+test tests::parses_dark_appearance_preference ... ok
+test tests::parses_named_theme_grape ... ok
+test tests::parses_named_theme_strawberry ... ok
+test tests::publishes_menu_manifest_bytes_as_one_complete_file ... ok
+test tests::recognizes_sdk_owned_hide_and_quit_menu_actions ... ok
+test tests::rotated_image_clip_selects_only_intersecting_source_tiles ... ok
+test tests::rotated_image_vertices_keep_source_dimensions_and_use_clockwise_uvs ... ok
+test tests::theme_key_overrides_appearance_key ... ok
+test tests::canvas_keeps_glyphs_in_order_with_colored_primitives ... ok
+test tests::desktop_nameplate_fits_applications_at_one_x ... ok
+test tests::canvas_measurement_uses_the_shared_shaped_layout ... ok
+test tests::canvas_reuses_atlas_entries_and_batches_adjacent_glyphs ... ok
+test tests::canvas_text_does_not_expand_raster_coverage_into_colored_primitives ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/sdk_tests.rs (target/debug/deps/sdk_tests-ec46a2c3f05b293b)
+
+running 7 tests
+test test_app_initial_size_can_be_configured ... ok
+test test_app_creation ... ok
+test test_app_menu_manifest_generates_missing_action_ids ... ok
+test test_global_menu_mode_env_flag ... ok
+test test_scroll_delta_mapping ... ok
+test test_mouse_button_mapping ... ok
+test test_app_publishes_menu_manifest ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/slopos_session-5293e0639c21b39c)
+
+running 13 tests
+test tests::cleanup_skips_a_directory_replaced_after_creation ... ok
+test tests::lifecycle_transitions_keep_timeout_and_compositor_death_failed ... ok
+test tests::distinct_runtime_allocations_have_distinct_nonce_paths_and_tokens ... ok
+test tests::automatic_backend_requires_x11_display_for_nested ... ok
+test tests::dropping_an_unowned_runtime_path_does_not_remove_it ... ok
+test tests::readiness_binds_socket_to_compositor_pid_token_and_client_display ... ok
+test tests::readiness_parser_rejects_unsafe_or_ambiguous_payloads ... ok
+test tests::explicit_nested_backend_fails_without_x11_display ... ok
+test tests::owned_process_group_can_only_target_a_valid_child_group ... ok
+test tests::runtime_directory_must_be_private_owned_and_not_a_symlink ... ok
+test tests::vision_models_directory_requires_a_manifest ... ok
+test tests::runtime_is_nonce_scoped_private_and_cleans_its_owned_directory ... ok
+test tests::missing_process_group_falls_back_to_direct_child_kill ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/slopos_shell-a2c0db8b5d6d7ccb)
+
+running 327 tests
+test a11y_actions::tests::classify_daily_driver_dispatch_paths ... ok
+test a11y_actions::tests::resolve_pending_lock_by_name ... ok
+test a11y_actions::tests::session_root_includes_workspace_cycle ... ok
+test a11y_actions::tests::chrome_and_session_actions ... ok
+test a11y_actions::tests::primary_window_chrome_is_activate_next ... ok
+test a11y_actions::tests::invoke_plan_bounds ... ok
+test a11y_prefs::tests::effective_animation_ms_respects_reduced_motion ... ok
+test a11y_actions::tests::resolve_chrome_path_primary ... ok
+test a11y_prefs::tests::high_contrast_forces_high_contrast_theme ... ok
+test a11y_prefs::tests::defaults_are_full_motion_normal_contrast ... ok
+test a11y_prefs::tests::normal_contrast_keeps_current_theme ... ok
+test a11y_prefs::tests::empty_conf_is_default ... ok
+test a11y_prefs::tests::parse_false_keeps_defaults ... ok
+test a11y_prefs::tests::parse_ignores_comments_blanks_and_unknown ... ok
+test atspi_bus::tests::chrome_focus_paths_match_shell_tree_indices ... ok
+test atspi_bus::tests::emit_chrome_focus_queues_focus_and_state ... ok
+test atspi_bus::tests::try_emit_always_queues_in_process ... ok
+test atspi_bus::tests::serialize_chrome_focus_is_focus_interface ... ok
+test a11y_prefs::tests::parse_bool_variants ... ok
+test a11y_prefs::tests::parse_legacy_aliases ... ok
+test audio::tests::parse_pactl_empty ... ok
+test audio::tests::parse_pactl_100 ... ok
+test a11y_prefs::tests::parse_reduced_motion_and_high_contrast ... ok
+test audio::tests::parse_wpctl_invalid ... ok
+test audio::tests::parse_pactl_zero ... ok
+test audio::tests::parse_pactl_typical ... ok
+test audio::tests::volume_get_plans_are_stable ... ok
+test audio::tests::parse_wpctl_typical ... ok
+test audio::tests::volume_set_plans_match_shipped_backends ... ok
+test audio::tests::volume_status_label_pure ... ok
+test bundle::tests::rejects_non_bundle_dir ... ok
+test capture::tests::not_recording_stop_errors ... ok
+test capture::tests::output_dir_is_absolute ... ok
+test chrome_protocol::tests::chrome_focus_cycles ... ok
+test chrome_protocol::tests::bootstrap_default_creates_mapped_menu_and_dock ... ok
+test capture::tests::filenames ... ok
+test chrome_protocol::tests::layer_assignment_menu_top_dock_bottom_overlay_for_notifications ... ok
+test chrome_protocol::tests::layout_rects_menu_top_dock_bottom_full_width ... ok
+test chrome_protocol::tests::should_paint_kit_chrome_off_when_layer_shell_bound ... ok
+test chrome_protocol::tests::map_unmap_toggles_mapped_and_layout_rects ... ok
+test display_arrange::tests::extend_right_places_side_by_side ... ok
+test display_arrange::tests::mirror_all_at_origin ... ok
+test bundle::tests::parses_a_minimal_bundle ... ok
+test display_arrange::tests::parse_modes ... ok
+test display_arrange::tests::normalize_picks_primary ... ok
+test display_arrange::tests::scale_affects_logical_extent ... ok
+test display_arrange::tests::primary_only_disables_secondary ... ok
+test display_settings::tests::merge_flat_rejects_invalid_arrange_mode ... ok
+test display_arrange::tests::apply_display_plan_env_sets_layout ... ok
+test display_settings::tests::test_display_config_default ... ok
+test display_settings::tests::settings_conf_round_trips_arrange_mode_and_scale ... ok
+test display_settings::tests::test_display_config_validate ... ok
+test fdo_notifications::tests::daemon_replace_dismisses_prior_center_banner ... ok
+test fdo_notifications::tests::close_removes_notification ... ok
+test fdo_notifications::tests::daemon_mirrors_notify_and_close_to_center ... ok
+test display_settings::tests::test_display_config_roundtrip ... ok
+test fdo_notifications::tests::get_capabilities_and_server_info ... ok
+test fdo_notifications::tests::id_allocation_is_monotonic_nonzero ... ok
+test fdo_notifications::tests::notify_replaces_existing_id ... ok
+test fdo_notifications::tests::payload_builder_sets_fields ... ok
+test fdo_notifications::tests::notify_assigns_ids_and_stores_payload ... ok
+test fdo_notifications::tests::urgency_from_hint_bytes_defaults ... ok
+test fdo_notifications::tests::urgency_parse_and_byte_roundtrip ... ok
+test fdo_notifications::tests::notify_unknown_replaces_id_allocates_new ... ok
+test fdo_notifications::tests::notify_send_style_parses_urgency_and_text ... ok
+test fdo_notifications::tests::notify_send_style_app_name_and_icon_skip ... ok
+test foreign_toplevel::tests::add_update_close_registry ... ok
+test foreign_toplevel::tests::force_quit_labels_format_with_and_without_pid ... ok
+test foreign_toplevel::tests::parse_toplevel_force_quit_pid_and_app_id ... ok
+test foreign_toplevel::tests::force_quit_skips_skip_taskbar_rules ... ok
+test foreign_toplevel::tests::terminal_app_id_gets_workspace_from_rules ... ok
+test foreign_toplevel_client::tests::apply_update_existing ... ok
+test foreign_toplevel_client::tests::apply_toplevel_and_closed ... ok
+test foreign_toplevel_client::tests::try_sync_without_wayland_is_safe ... ok
+test i18n::tests::a11y_and_portal_catalog_keys ... ok
+test i18n::tests::format_workspace ... ok
+test i18n::tests::conf_parse_force_rtl ... ok
+test i18n::tests::catalog_fallback ... ok
+test i18n::tests::parse_locale_and_rtl ... ok
+test idle_policy::tests::conf_parse ... ok
+test idle_policy::tests::inhibit_blocks ... ok
+test idle_policy::tests::phases_progress ... ok
+test idle_policy::tests::recommended_and_countdown ... ok
+test keyboard_nav::tests::apply_chrome_nav_cycles_both_ways ... ok
+test keyboard_nav::tests::dismissable_titles ... ok
+test keyboard_nav::tests::escape_and_activate ... ok
+test keyboard_nav::tests::tab_and_shift_tab_intents ... ok
+test keyboard_nav::tests::lock_logout_workspace_intents ... ok
+test layer_desktop::tests::wayland_key_release_uses_the_same_normalized_key ... ok
+test layer_desktop::tests::wayland_key_mapping_rejects_overflow ... ok
+test layer_desktop::tests::wayland_key_uses_xkb_offset_before_evdev_lookup ... ok
+test launch_services::tests::new_includes_home_applications_path ... ok
+test layer_desktop::tests::xkb_modifier_mask_maps_standard_depressed_bits ... ok
+test layer_shell_client::tests::bind_summary_records_namespaces ... ok
+test layer_shell_client::tests::chrome_to_layer_requests_menu_and_dock ... ok
+test layer_shell_client::tests::try_map_is_retired_noop ... ok
+test launch_services::tests::scan_applications_reads_app_dirs_from_disk ... ok
+test layer_shell_client::tests::unmapped_surfaces_omitted ... ok
+test mime_open::tests::find_handlers_empty_when_unregistered ... ok
+test menu_server::tests::status_labels_are_pure ... ok
+test mime_open::tests::mime_map_directory_is_inode_directory ... ok
+test mime_open::tests::mime_map_pdf_is_application_pdf ... ok
+test mime_open::tests::mime_map_png_is_image_png ... ok
+test mime_open::tests::mime_map_unknown_is_octet_stream ... ok
+test mime_open::tests::open_plan_directory_uses_finder ... ok
+test mime_open::tests::mime_map_txt_is_text_plain ... ok
+test mime_open::tests::open_plan_errors_without_handler ... ok
+test mime_open::tests::open_plan_for_file_uri_text_uses_textedit_spawn_argv ... ok
+test mime_open::tests::open_plan_spawn_argv_directory_is_finder ... ok
+test mime_open::tests::open_plan_text_file_uses_textedit_argv ... ok
+test audio::tests::get_volume_without_tools_is_err ... ok
+test mime_open::tests::parse_exec_appends_path_when_no_file_code ... ok
+test mime_open::tests::open_plan_spawn_argv_text_file_is_first_party_binary ... ok
+test mime_open::tests::parse_exec_bare_double_percent_token ... ok
+test mime_open::tests::parse_exec_double_percent_is_literal_percent ... ok
+test mime_open::tests::parse_exec_embedded_percent_u ... ok
+test mime_open::tests::parse_exec_embedded_percent_f ... ok
+test mime_open::tests::parse_exec_empty_path_no_append ... ok
+test mime_open::tests::parse_exec_percent_f_list_replaces_with_path ... ok
+test mime_open::tests::parse_exec_percent_f_replaces_with_path ... ok
+test mime_open::tests::parse_exec_percent_f_with_quoted_binary ... ok
+test mime_open::tests::parse_exec_percent_i_and_c_dropped ... ok
+test mime_open::tests::parse_exec_percent_u_file_path_becomes_file_uri ... ok
+test mime_open::tests::parse_exec_percent_percent_with_file_code ... ok
+test mime_open::tests::parse_exec_percent_u_list_same_as_single_uri ... ok
+test mime_open::tests::parse_exec_percent_u_preserves_existing_uri ... ok
+test mime_open::tests::path_from_file_uri_localhost_and_percent ... ok
+kill: (4242): No such process
+test mime_open::tests::path_from_file_uri_rejects_non_file ... ok
+test mime_open::tests::path_from_file_uri_triple_slash ... ok
+test foreign_toplevel::tests::apply_toplevel_force_quit_removes_entry ... ok
+test mime_open::tests::register_sets_first_default ... ok
+test mime_open::tests::seed_defaults_finder_handles_directory ... ok
+test mime_open::tests::seed_defaults_textedit_handles_text ... ok
+test network_connect::tests::connect_wifi_rejects_bad_ssid_before_spawn ... ok
+test network_connect::tests::describe_redacts_password ... ok
+test network_connect::tests::execute_empty_plan_is_err ... ok
+test network_connect::tests::nm_connect_plan_empty_password_is_open ... ok
+test network_connect::tests::execute_missing_binary_is_err_not_panic ... ok
+test network_connect::tests::nm_connect_plan_open_network ... ok
+test network_connect::tests::nm_connect_plan_with_password ... ok
+test network_connect::tests::validate_accepts_normal_ssid ... ok
+test network_connect::tests::connect_wifi_missing_nmcli_is_err_not_panic ... ok
+test network_connect::tests::validate_accepts_ssid_exactly_32_bytes ... ok
+test network_connect::tests::validate_rejects_empty_ssid ... ok
+test network_connect::tests::nm_connect_plan_validated_ok ... ok
+test network_connect::tests::validate_rejects_null_in_password ... ok
+test network_connect::tests::validate_rejects_null_in_ssid ... ok
+test network_connect::tests::validate_rejects_ssid_over_32_bytes ... ok
+test network_manager::tests::full_status_summary_with_name ... ok
+test network_manager::tests::unavailable_status_summary ... ok
+test network_manager::tests::nm_connectivity_mapping ... ok
+test polkit_agent::tests::agent_state_begin_complete ... ok
+test polkit_agent::tests::handle_auth_password_and_cancel ... ok
+test polkit_agent::tests::try_register_polkit_is_safe_off_linux ... ok
+test polkit_agent::tests::validate_rejects_empty_action ... ok
+test network_connect::tests::nm_connect_plan_validated_fails_on_bad_ssid ... ok
+test portal::tests::bus_constants_match_documented_names ... ok
+test portal::tests::handle_file_chooser_open_single ... ok
+test portal::tests::create_screencast_session_assigns_id_and_monitor_stream ... ok
+test portal::tests::handle_file_chooser_save_confirm ... ok
+test portal::tests::handle_open_uri_rejects_other_schemes ... ok
+test portal::tests::handle_portal_screenshot_request_records_options_and_path ... ok
+test portal::tests::handle_open_uri_allows_http_https_file ... ok
+test portal::tests::plan_open_uri_http_is_validated_remote ... ok
+test portal::tests::plan_open_uri_file_text_is_mime_open_textedit_spawn_argv ... ok
+test portal::tests::plan_open_uri_file_unknown_mime_errors ... ok
+test portal::tests::portal_screenshot_filename_pure ... ok
+test portal::tests::portal_screenshots_dir_pure ... ok
+test portal::tests::portal_screenshot_uri_for_absolute ... ok
+test portal::tests::portal_settings_namespace_parse ... ok
+test portal::tests::read_portal_setting_appearance_color_scheme ... ok
+test portal::tests::read_all_portal_settings_appearance ... ok
+test portal::tests::request_fields_round_trip ... ok
+test portal::tests::request_defaults_are_non_interactive ... ok
+test portal::tests::screencast_backend_note_honesty ... ok
+test portal::tests::screencast_capability_does_not_promote_socket_to_live ... ok
+test portal::tests::select_screencast_sources_rejects_invalid_ids_without_mutating ... ok
+test portal::tests::select_screencast_sources_rejects_multiple_when_not_allowed ... ok
+test portal::tests::screencast_lifecycle_exposes_create_select_start_transitions ... ok
+test portal::tests::screencast_create_start_note_on_real_pure_path ... ok
+test portal::tests::select_screencast_sources_updates_streams ... ok
+test portal::tests::validate_file_chooser_rejects_empty_title ... ok
+test portal::tests::start_screencast_requires_non_empty_streams ... ok
+test portal_dbus::tests::constants_align_with_portal_module ... ok
+test portal_extra::tests::inhibit_cookie_and_idle ... ok
+test portal_extra::tests::inhibit_store_register_release_and_idle_merge ... ok
+test portal_dbus::tests::try_register_returns_bool_on_host ... ok
+test portal_extra::tests::print_lp_plan ... ok
+test portal_extra::tests::secret_lookup_and_reject ... ok
+test power::tests::sysfs_status_parser ... ok
+test power::tests::sysfs_capacity_parser ... ok
+test power::tests::unavailable_summary ... ok
+test power::tests::upower_state_mapping ... ok
+test network_manager::tests::get_network_status_is_safe_on_host ... ok
+test screencast_pw::tests::pipewire_when_socket ... ok
+test screencast_pw::tests::sources_from_outputs_and_plan ... ok
+test screencast_pw::tests::stub_when_no_socket ... ok
+test session_actions::tests::logind_backend ... ok
+test session_actions::tests::parse_and_plan_lock_logout ... ok
+test session_actions::tests::power_actions_use_systemctl ... ok
+test session_actions::tests::shell_delta ... ok
+test session_clients::tests::binary_name_mapping_covers_first_party_suite ... ok
+test session_clients::tests::bundle_entrypoint_path_joins_path_and_entrypoint ... ok
+test session_clients::tests::binary_candidates_prefer_exe_dir_then_targets ... ok
+test session_clients::tests::parse_force_quit_entry_window_and_client ... ok
+test session_clients::tests::registry_tracks_two_clients_as_multi_client_session ... ok
+kill: (999001): No such process
+test session_clients::tests::spawn_open_plan_argv_matches_mime_spawn_argv_pure ... ok
+test session_clients::tests::resolve_or_fail_is_real_path_logic ... ok
+test session_packaging::tests::greeter_session_readiness_repo ... ok
+test menu_server::tests::menu_server_loads_sdk_menu_manifest ... ok
+test session_packaging::tests::packaging_slopos_i_wayland_desktop_validates ... ok
+test session_packaging::tests::parse_desktop_keys_extracts_name_exec_type ... ok
+test session_packaging::tests::parse_desktop_keys_first_occurrence_wins ... ok
+test session_packaging::tests::repo_packaging_layout_is_complete ... ok
+test session_packaging::tests::repo_packaging_files_validate_via_layout ... ok
+test session_packaging::tests::packaging_slopos_i_desktop_validates ... ok
+test session_packaging::tests::session_entry_smoke_report_repo_honest ... ok
+test session_packaging::tests::under_prefix_paths_are_fhs ... ok
+test session_packaging::tests::validate_session_desktop_accepts_absolute_exec ... ok
+kill: (999001): No such process
+test session_packaging::tests::validate_session_desktop_accepts_valid ... ok
+test session_packaging::tests::validate_session_desktop_rejects_bad_type ... ok
+test session_packaging::tests::validate_session_desktop_rejects_missing_and_empty ... ok
+test session_clients::tests::force_quit_pid_removes_registry_entry ... ok
+test session_packaging::tests::validate_session_desktop_rejects_wrong_exec ... ok
+test session_recovery::tests::json_roundtrip ... ok
+test session_packaging::tests::validate_session_desktop_requires_desktop_names ... ok
+test power::tests::battery_info_safe_on_host ... ok
+test session_recovery::tests::recovery_plan_order ... ok
+test session_recovery::tests::text_rejects_missing_fields ... ok
+test session_recovery::tests::text_ignores_comments_and_blanks ... ok
+test session_recovery::tests::should_attempt_recovery_rules ... ok
+test session_recovery::tests::text_roundtrip ... ok
+test session_recovery::tests::recovery_plan_empty_clients ... ok
+test shell_scale::tests::fractional_scale_quantizes_until_fractional_protocol_exists ... ok
+test shell_scale::tests::parse_integer_fraction_decimal ... ok
+test shell_scale::tests::chrome_insets_never_below_logical ... ok
+test spotlight::tests::search_apps_by_name ... ok
+test shell_scale::tests::scale_layout_ceil ... ok
+test spotlight::tests::spotlight_query_input ... ok
+test spotlight::tests::spotlight_visibility ... ok
+test spotlight_ui::tests::keyboard_navigation ... ok
+test spotlight_ui::tests::layout_places_card_on_screen ... ok
+test spotlight::tests::search_settings_by_name ... ok
+test spotlight_ui::tests::spotlight_ui_visibility ... ok
+test startup_budget::tests::default_budget_values ... ok
+test startup_budget::tests::overall_ok_empty_is_false ... ok
+test startup_budget::tests::overall_ok_false_on_any_overrun ... ok
+test startup_budget::tests::overall_ok_requires_all_phases ... ok
+test startup_budget::tests::phase_all_covers_five ... ok
+test startup_budget::tests::record_phase_exact_boundary_is_ok ... ok
+test startup_budget::tests::record_phase_over_budget ... ok
+test startup_budget::tests::record_phase_within_budget ... ok
+test menu_server::tests::refresh_status_items_populates_battery_volume_network ... ok
+test tests::a11y_dispatch_chrome_desktop_menu_opens_status_window ... ok
+test tests::a11y_dispatch_chrome_window_close_and_activate_next ... ok
+test tests::a11y_chrome_activate_enter_dispatches_primary_invoke ... ok
+test tests::a11y_dispatch_chrome_menu_activate_opens_system_menu ... ok
+test tests::clamp_window_rect_keeps_window_visible ... ok
+test tests::classic_titlebar_controls_match_drawn_chrome ... ok
+test tests::a11y_dispatch_chrome_dock_menu_opens_status_window ... ok
+test tests::default_finder_rect_stays_inside_shell ... ok
+test tests::a11y_dispatch_shell_session_actions_are_live ... ok
+test tests::a11y_dispatch_workspace_next_previous ... ok
+test tests::default_shell_menus_have_routable_action_ids ... ok
+test tests::close_box_closes_the_clicked_window ... ok
+test tests::desktop_home_icon_opens_managed_folder_window ... ok
+test tests::about_menu_opens_real_message_window ... ok
+test tests::folder_items_sort_directories_first_and_hide_dotfiles ... ok
+test tests::about_ok_closes_via_generic_dispatch ... ok
+test tests::focusing_window_raises_it_to_front ... ok
+test tests::dock_item_press_launches_through_dispatch ... ok
+test tests::dialog_buttons_sit_inside_their_window_frame ... ok
+test tests::foreign_toplevel_matching_accepts_only_known_or_exact_bundle_ids ... ok
+test tests::force_quit_apply_closes_listed_shell_window ... ok
+test tests::force_quit_cancel_closes_via_generic_dispatch ... ok
+kill: (424242): No such process
+test tests::force_quit_apply_kills_registered_client_pid ... ok
+test tests::force_quit_menu_opens_running_window_list ... ok
+test tests::force_quit_release_outside_button_cancels_the_press ... ok
+test tests::fullscreen_menu_toggles_active_window_state ... ok
+test tests::idle_config_parses_from_settings_conf_keys ... ok
+test tests::get_info_menu_opens_folder_metadata_window ... ok
+test tests::lock_accepts_correct_password ... ok
+test tests::lock_password_env_is_source_for_expected_secret ... ok
+test tests::lock_rejects_wrong_password ... ok
+test tests::global_menu_shortcut_opens_new_finder_window ... ok
+test tests::global_menu_go_home_action_opens_home_window ... ok
+test tests::global_menu_shortcut_closes_active_window ... ok
+test tests::help_search_menu_opens_status_window ... ok
+test tests::loaded_sdk_menu_action_opens_visible_dispatch_status ... ok
+test tests::mutable_pointer_routing_uses_active_layer_input_filter ... ok
+test tests::minimize_box_collapses_and_restores_managed_window ... ok
+test tests::portal_idle_inhibit_merges_into_phase ... ok
+test tests::pure_status_and_volume_plans_exported ... ok
+test tests::resize_handle_tracks_bottom_right_corner ... ok
+test tests::lock_screen_typed_password_unlocks_and_wrong_one_does_not ... ok
+test tests::network_connect_api_records_validated_plan_without_spawn ... ok
+test tests::notification_center_lists_and_clears_active_notifications ... ok
+test tests::shell_folder_window_double_click_file_plans_mime_open_textedit ... ok
+test tests::shell_folder_window_double_click_opens_child_folder ... ok
+test tests::shell_folder_window_double_click_file_does_not_open_window ... ok
+test tests::shell_folder_window_double_click_unknown_file_records_no_handler ... ok
+test tests::network_connect_menu_action_wired ... ok
+test tests::shell_global_menu_resets_when_last_window_closes ... ok
+test tests::shell_global_menu_switches_to_launched_sdk_app ... ok
+test tests::shell_global_menu_switches_to_focused_finder_window ... ok
+test tests::spotlight_arrow_keys_navigate_results ... ok
+test tests::shell_menu_actions_create_and_close_managed_windows ... ok
+test tests::spotlight_char_input_updates_search_results ... ok
+test tests::shell_global_menu_uses_loaded_sdk_manifest_for_active_app ... ok
+test tests::spotlight_overlay_toggles_with_super_space ... ok
+test tests::spotlight_escape_hides_overlay ... ok
+test tests::spotlight_enter_launches_selected_app ... ok
+test tests::window_body_click_is_opaque_to_whatever_is_underneath ... ok
+test theme_manager::tests::test_all_themes_round_trip ... ok
+test theme_manager::tests::test_dark_mode_variants ... ok
+test theme_manager::tests::test_theme_string_parsing ... ok
+test window_rules::tests::force_quit_skips_taskbar ... ok
+test window_rules::tests::glob_and_priority ... ok
+test window_rules::tests::require_all_fails_partial ... ok
+test window_rules::tests::terminal_rule_assigns_workspace ... ok
+test workspace_manager::tests::cycle_wraps_eight ... ok
+test workspace_manager::tests::eight_desktops_align_with_compositor ... ok
+test tests::workspace_shortcut_actions_cycle_active_workspace ... ok
+test tests::workspace_grid_cell_press_switches_and_closes_overview ... ok
+test tests::workspace_switch_hides_windows_from_other_workspaces ... ok
+test tests::zoom_box_toggles_managed_window_between_zoomed_and_restored ... ok
+test tests::status_refresh_on_update_and_volume_api ... ok
+
+test result: ok. 327 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+     Running unittests src/bin/slopos-lock.rs (target/debug/deps/slopos_lock-2bb0d3fafd72e571)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/slopos_shell-59586c22961a0fb0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/shell_tests.rs (target/debug/deps/shell_tests-4791496e16c619ed)
+
+running 6 tests
+test daily_driver_checklist_does_not_require_ripgrep ... ok
+test session_entry_documents_output_layout_and_backend_selection ... ok
+test test_notification_center ... ok
+test test_session_manager ... ok
+test test_menu_server ... ok
+test test_shell_startup ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running unittests src/lib.rs (target/debug/deps/slopos_vision-7a535bb9819702b5)
+
+running 63 tests
+test composite::tests::composite_sets_alpha_channel ... ok
+test decode::tests::rejects_encoded_file_before_full_read ... ok
+test composite::tests::composite_rejects_mismatched_dims ... ok
+test decode::tests::rejects_oversized_dimensions_before_decode ... ok
+test decode::tests::rejects_unknown_format ... ok
+test engine::tests::default_config_points_at_models_dir ... ok
+test decode::tests::decodes_valid_png ... ok
+test decode::tests::rejects_garbage_bytes ... ok
+test engine::tests::decode_image_rejects_encoded_input_before_reading_it ... ok
+test engine::tests::invalid_ocr_confidence_is_rejected_before_model_load ... ok
+test engine::tests::invalid_segmentation_threshold_is_rejected_before_model_load ... ok
+test engine::tests::capabilities_reflect_manifest ... ok
+test geometry::tests::convex_hull_of_rectangle ... ok
+test engine::tests::missing_manifest_errors_on_load ... ok
+test geometry::tests::expand_polygon_grows ... ok
+test geometry::tests::min_area_rect_of_axis_aligned_rectangle ... ok
+test geometry::tests::min_area_rect_of_rotated_rectangle ... ok
+test geometry::tests::get_mini_boxes_orders_corners ... ok
+test geometry::tests::homography_identity ... ok
+test geometry::tests::quad_contains ... ok
+test geometry::tests::polygon_area_and_perimeter ... ok
+test engine::tests::model_status_preserves_verification_errors ... ok
+test geometry::tests::rotate90_ccw_swaps_dims ... ok
+test manifest::tests::hash_verification_reports_missing ... ok
+test manifest::tests::file_sha256_matches_reference ... ok
+test geometry::tests::warp_perspective_output_size ... ok
+test manifest::tests::hash_verification_succeeds ... ok
+test mask::tests::dimension_mismatch_is_error ... ok
+test manifest::tests::hash_verification_detects_corruption ... ok
+test manifest::tests::missing_manifest_is_manifest_error ... ok
+test manifest::tests::manifest_rejects_duplicate_model_ids ... ok
+test mask::tests::fills_enclosed_holes ... ok
+test mask::tests::feather_softens_but_keeps_interior ... ok
+test mask::tests::keeps_largest_component ... ok
+test manifest::tests::manifest_round_trip ... ok
+test mask::tests::removes_small_components ... ok
+test ocr::ctc::tests::decode_empty_returns_zero_score ... ok
+test ocr::ctc::tests::decode_collapses_repeats ... ok
+test mask::tests::threshold_produces_binary_alpha ... ok
+test manifest::tests::manifest_rejects_model_path_escape ... ok
+test ocr::ctc::tests::decode_simple_word ... ok
+test ocr::ctc::tests::decode_keeps_spaces ... ok
+test ocr::db_postprocess::tests::db_postprocess_ignores_noise ... ok
+test ocr::db_postprocess::tests::box_score_averages_inside ... ok
+test ocr::ctc::tests::labels_match_paddleocr_layout ... ok
+test ocr::db_postprocess::tests::sorted_boxes_orders_by_row_then_column ... ok
+test ocr::preprocess::tests::det_bgr_channel_order ... ok
+test ocr::db_postprocess::tests::db_postprocess_scales_to_source ... ok
+test ocr::db_postprocess::tests::db_postprocess_finds_solid_box ... ok
+test ocr::preprocess::tests::rec_bgr_channel_order ... ok
+test ocr::tests::check_cancel_flags ... ok
+test ocr::tests::group_lines_joins_same_row ... ok
+test ocr::tests::group_lines_splits_far_rows ... ok
+test ocr::tests::vertical_overlap_counts ... ok
+test segment::tests::missing_segmentation_output_is_structured_error ... ok
+test segment::tests::resize_map_downsample_matches ... ok
+test segment::tests::resize_map_upsamples_exactly ... ok
+test segment::tests::resize_map_upsample_corner ... ok
+test segment::tests::zero_sized_segmentation_output_is_structured_error ... ok
+test ocr::preprocess::tests::rec_normalization_range ... ok
+test ocr::preprocess::tests::det_resize_small_image_keeps_size ... ok
+test ocr::preprocess::tests::rec_dynamic_width_scales_with_ratio ... ok
+test ocr::preprocess::tests::det_large_image_is_downscaled_to_960 ... ok
+
+test result: ok. 63 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.64s
+
+     Running unittests src/lib.rs (target/debug/deps/slopos_vision_client-5c6efc018580e80f)
+
+running 9 tests
+test tests::client_rejects_zero_and_unbounded_limits ... ok
+test tests::daemon_error_becomes_a_typed_client_error_for_convenience_methods ... ok
+test tests::explicit_socket_path_takes_precedence ... ok
+test tests::malformed_response_is_reported_as_decode_error ... ok
+test tests::oversized_response_is_rejected_before_json_decode ... ok
+test tests::request_envelope_round_trips_as_line_delimited_json ... ok
+test tests::runtime_directory_derives_default_socket_path ... ok
+test tests::temporary_fallback_is_only_available_when_enabled_for_tests ... ok
+test tests::response_envelope_round_trips_and_validates_version ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/slopos_vision_protocol-6e29f36141e99931)
+
+running 8 tests
+test tests::asset_lookup_round_trips_through_json ... ok
+test tests::capabilities_report_local_only_no_download_semantics ... ok
+test tests::inline_image_validation_rejects_mismatched_length ... ok
+test tests::file_label_rejects_path_separators ... ok
+test tests::pixel_size_rejects_oversized_images ... ok
+test tests::invalid_confidence_is_rejected_by_job_validation ... ok
+test tests::stored_image_validation_checks_asset_id ... ok
+test tests::submit_request_round_trips_through_json ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/slopos_visiond-d77d35b534af6386)
+
+running 9 tests
+test tests::socket_and_artifact_paths_reject_unsafe_components ... ok
+test tests::shutdown_state_is_idempotent_and_wakes_waiters ... ok
+test tests::server_failure_shuts_down_tracked_tasks_and_preserves_non_socket ... ok
+test tests::socket_cleanup_is_exact_and_does_not_touch_siblings ... ok
+test tests::vision_errors_map_without_exposing_sensitive_paths ... ok
+test tests::tracked_tasks_are_reaped_without_waiting_for_shutdown ... ok
+test tests::shutdown_closes_connections_and_cleans_the_exact_socket ... ok
+test tests::sigterm_is_observed_as_a_shutdown_signal ... ok
+test tests::in_process_request_flow_queues_and_finishes_without_models ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (target/debug/deps/terminal-1f62f09fcbef07de)
+
+running 24 tests
+test tabs::tests::child_shutdown_requests_sighup_and_reaps_immediately ... ok
+test tabs::tests::child_shutdown_treats_missing_child_as_already_gone ... ok
+test tabs::tests::child_shutdown_escalates_to_sigterm_when_child_stays_alive ... ok
+test terminal::tests::terminal_meta_a_selects_visible_buffer ... ok
+test tabs::tests::pty_reader_wakes_for_output_and_exit_without_polling ... ok
+test tabs::tests::pty_reader_wakes_for_read_error ... ok
+test terminal::tests::terminal_mouse_drag_highlights_selected_cells ... ok
+test terminal::tests::terminal_scrollback_changes_visible_text ... ok
+test terminal::tests::terminal_update_consumes_pty_events_and_exposes_window_role ... ok
+test terminal::tests::terminal_update_retains_pty_error ... ok
+test vt_parser::tests::cha_and_vpa_move_to_absolute_position_and_clamp ... ok
+test vt_parser::tests::cup_moves_cursor_to_row_and_column_and_clamps ... ok
+test vt_parser::tests::cuu_cud_cuf_cub_move_and_clamp ... ok
+test terminal::tests::test_terminal_emulator ... ok
+test vt_parser::tests::decstbm_scroll_region_scrolls_at_its_own_bottom_margin ... ok
+test terminal::tests::test_pty_creation_and_resize ... ok
+test vt_parser::tests::decstbm_with_inverted_or_out_of_range_margins_is_safe ... ok
+test vt_parser::tests::ed_1_clears_from_start_of_screen_to_cursor_inclusive ... ok
+test terminal::tests::terminal_meta_copy_copies_visible_text ... ok
+test vt_parser::tests::ht_advances_to_next_eight_column_tab_stop ... ok
+test vt_parser::tests::ed_0_clears_from_cursor_to_end_of_screen_and_leaves_cursor ... ok
+test terminal::tests::test_tab_manager ... ok
+test vt_parser::tests::lf_below_scroll_region_moves_cursor_without_scrolling ... ok
+test terminal::tests::terminal_selected_text_copies_only_selection ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (target/debug/deps/textedit-88358eb0c7954cda)
+
+running 25 tests
+test tests::textedit_cmd_s_without_path_saves_to_default ... ok
+test save::tests::failed_save_keeps_recovery_snapshot_for_next_open ... ok
+test save::tests::atomic_write_retries_after_temp_file_collision ... ok
+test save::tests::atomic_write_removes_temp_file_when_rename_fails ... ok
+test tests::textedit_find_wraps_around_from_end_of_document ... ok
+test tests::textedit_find_moves_cursor_to_first_match ... ok
+test tests::textedit_find_not_found_sets_error ... ok
+test tests::textedit_hidden_find_field_is_skipped_by_tab_and_clicks ... ok
+test tests::textedit_line_number_tracks_newlines_before_cursor ... ok
+test tests::textedit_cmd_o_without_path_field_uses_default ... ok
+test tests::textedit_new_document_clears_text_and_path ... ok
+test tests::textedit_open_toolbar_loads_path_field_document ... ok
+test tests::textedit_opens_existing_document_and_tracks_dirty_state ... ok
+test tests::textedit_path_field_accepts_typed_path_when_focused ... ok
+test tests::textedit_save_as_toolbar_writes_path_field_document ... ok
+test tests::textedit_status_bar_shows_word_count_and_line ... ok
+test tests::textedit_save_writes_document_and_clears_dirty_state ... ok
+test tests::textedit_shift_cmd_s_runs_save_as ... ok
+test tests::textedit_toolbar_click_does_not_steal_editor_focus ... ok
+test tests::textedit_undo_and_redo_restore_editor_text ... ok
+test tests::textedit_word_count_counts_whitespace_separated_tokens ... ok
+test tests::textedit_undo_stack_capped_at_50 ... ok
+test tests::textedit_cmd_a_selects_without_overwriting_clipboard ... ok
+test tests::textedit_selection_clipboard_replaces_only_selected_unicode_range ... ok
+test tests::textedit_copy_cut_and_paste_use_clipboard ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+   Doc-tests slopos_bus
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests slopos_compositor
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests slopos_fonts
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests slopos_kit
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests slopos_render
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests slopos_sdk
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests slopos_shell
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests slopos_vision
+
+running 1 test
+test crates/slopos-vision/src/lib.rs - (line 28) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+   Doc-tests slopos_vision_client
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests slopos_vision_protocol
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit=0

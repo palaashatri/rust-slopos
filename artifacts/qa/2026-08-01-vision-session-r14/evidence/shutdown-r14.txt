@@ -1,0 +1,78 @@
+Sat Aug  1 14:26:54 UTC 2026
+processes_after_sigterm
+runtime_after_sigterm
+-rw-rw-r-- ubuntu ubuntu 4 /run/user/1000/slopos-i/clipboard.txt
+-rw-rw-r-- ubuntu ubuntu 4008 /run/user/1000/slopos-i/menus/com_slopos_preview.json
+drwxrwxr-x ubuntu ubuntu 60 /run/user/1000/slopos-i/menus
+session_tail
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T14:26:39.898884Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m3
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T14:26:40.921472Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m3
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T14:26:41.934032Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m3
+[slopos-compositor/drm] client connected
+[2m2026-08-01T14:26:42.973112Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m3
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T14:26:43.988504Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m3
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T14:26:45.000610Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m3
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T14:26:46.021978Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m3
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T14:26:47.038352Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m3
+[slopos-compositor/drm] client connected
+[2m2026-08-01T14:26:48.093809Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m3
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T14:26:49.107125Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m3
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T14:26:50.126186Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m3
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client disconnected
+[2m2026-08-01T14:26:51.141141Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m3
+[slopos-compositor/drm] client disconnected
+[slopos-session] shutdown signal received; stopping session
+[slopos-compositor/drm] client disconnected
+[slopos-compositor/drm] client disconnected
+preview_tail
+	Failed to find vkGetDeviceProcAddr in layer "/usr/lib/aarch64-linux-gnu/libVkLayer_MESA_device_select.so"
+[2m2026-08-01T14:16:35.545700Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0cfa5666a00, name: ?)
+[2m2026-08-01T14:16:35.545707Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	vkCreateDevice layer callstack setup to:
+[2m2026-08-01T14:16:35.545714Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0cfa5666a00, name: ?)
+[2m2026-08-01T14:16:35.545720Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Application>
+[2m2026-08-01T14:16:35.545726Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0cfa5666a00, name: ?)
+[2m2026-08-01T14:16:35.545731Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T14:16:35.545737Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0cfa5666a00, name: ?)
+[2m2026-08-01T14:16:35.545743Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Loader>
+[2m2026-08-01T14:16:35.545748Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0cfa5666a00, name: ?)
+[2m2026-08-01T14:16:35.545754Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	     ||
+[2m2026-08-01T14:16:35.545759Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0cfa5666a00, name: ?)
+[2m2026-08-01T14:16:35.545780Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	   <Device>
+[2m2026-08-01T14:16:35.545787Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0cfa5666a00, name: ?)
+[2m2026-08-01T14:16:35.545860Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m GENERAL [Loader Message (0x0)]
+	       Using "llvmpipe (LLVM 21.1.8, 128 bits)" with driver: "/usr/lib/aarch64-linux-gnu/libvulkan_lvp.so"
+[2m2026-08-01T14:16:35.545867Z[0m [32m INFO[0m [2mwgpu_hal::vulkan::instance[0m[2m:[0m 	objects: (type: INSTANCE, hndl: 0xb0cfa5666a00, name: ?)
+[2m2026-08-01T14:16:35.558959Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T14:16:35.562409Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T14:16:35.607876Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 0
+[2m2026-08-01T14:17:03.521201Z[0m [32m INFO[0m [2mslopos_sdk[0m[2m:[0m application handled global menu action [3mbundle_id[0m[2m=[0mcom.slopos.preview [3maction_id[0m[2m=[0mcom.slopos.preview.zoom.in
+[2m2026-08-01T14:17:03.549937Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 1
+[2m2026-08-01T14:17:26.640700Z[0m [32m INFO[0m [2mslopos_sdk[0m[2m:[0m application handled global menu action [3mbundle_id[0m[2m=[0mcom.slopos.preview [3maction_id[0m[2m=[0mcom.slopos.preview.vision.extract_text
+[2m2026-08-01T14:17:26.666747Z[0m [32m INFO[0m [2mwgpu_core::device::resource[0m[2m:[0m Device::maintain: waiting for submission index 2

@@ -1,0 +1,11 @@
+   Compiling slopos-session v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-session)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.58s
+     Running unittests src/main.rs (target/debug/deps/slopos_session-1d02a4675be72d71)
+
+running 3 tests
+test tests::explicit_nested_backend_fails_without_x11_display ... ok
+test tests::vision_models_directory_requires_a_manifest ... ok
+test tests::automatic_backend_requires_x11_display_for_nested ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

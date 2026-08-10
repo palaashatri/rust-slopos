@@ -1,0 +1,10 @@
+7c4126e51f3e391421339e22a455f16f7f0cf8844d9c746fd0239dfc404af037  /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/slopos-session
+9cacca8a9ad605be8c734949a9f7ad7d8c0f6a46f7acb60b37b8dec44fcee945  /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/slopos-compositor
+610db9c0b9b74e26c7887e11e11d6131841808ddc2b32ae03f1408cb4e0f7f8c  /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/slopos-shell
+362be5ce7a342eb0f683d57dc8b7fc8366952fc0a6551cbf5df2166c82050bd3  /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/slopos-visiond
+0ce4d2ea94f04e96d256df98ff1db2ac80eb85ad13f3019476720a2bb51f3623  /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/finder
+17229ebf604dee7784313ed745f3f0593cf8a46bb934a86afaff4e68321be547  /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/settings
+761c2b7dc5e31303abdff8df47d9c08bca0ee96c2fcb7b3ff6cd048097e22db1  /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/terminal
+03d308a1d5b0bba1e465f05dad697daab2909c8c4cfe65154bf4f762f85b23c2  /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/textedit
+92242f7099f0497cac260a03839944c432a8399b95b5e21704704c4e9e9275fd  /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/appstore
+a25077c796273dceb52e0420a0e55b8d52635ce0b583706f795b6b7f4ed1e47e  /home/ubuntu/qa/2026-08-02-luna-max-r19-src/target/debug/preview

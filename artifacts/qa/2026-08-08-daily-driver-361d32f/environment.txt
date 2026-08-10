@@ -1,0 +1,7 @@
+commit=361d32f15f439c84a9ce8b49decf362173f67309
+branch=docs/program-design
+host=ubuntu
+kernel=Linux 7.0.0-29-generic #29-Ubuntu SMP PREEMPT_DYNAMIC Sat Jul 18 01:12:25 UTC 2026 aarch64
+cargo=cargo 1.93.1 (083ac5135 2025-12-15) (built from a source tarball)
+rustc=rustc 1.93.1 (01f6ddf75 2026-02-11) (built from a source tarball)
+command=daily-driver + mandatory cargo gates

@@ -1,0 +1,23 @@
+   Compiling slopos-kit v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-kit)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 15.55s
+     Running unittests src/lib.rs (target/debug/deps/slopos_kit-bbb243235dc3ee8f)
+
+running 9 tests
+test workspace_grid_view::tests::empty_grid_has_no_hit_targets ... ok
+test workspace_grid_view::tests::each_cell_center_activates_that_cell ... ok
+test workspace_grid_view::tests::enter_and_space_activate_the_focused_cell_once ... ok
+test workspace_grid_view::tests::focus_is_clamped_when_items_shrink_or_empty ... ok
+test workspace_grid_view::tests::cells_tile_row_major ... ok
+test workspace_grid_view::tests::keyboard_navigation_is_focus_gated_and_bounds_safe ... ok
+test workspace_grid_view::tests::dynamic_items_add_rows_and_only_their_cells_hit ... ok
+test workspace_grid_view::tests::press_in_the_margin_is_ignored ... ok
+test workspace_grid_view::tests::press_outside_the_widget_is_ignored ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 162 filtered out; finished in 0.00s
+
+     Running tests/kit_tests.rs (target/debug/deps/kit_tests-2d71356f47fc45aa)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+

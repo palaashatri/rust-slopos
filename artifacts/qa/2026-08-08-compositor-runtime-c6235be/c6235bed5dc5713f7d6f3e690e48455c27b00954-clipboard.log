@@ -1,0 +1,9 @@
+SLOPOS_CLIPBOARD_SOURCE_READY offers=text/plain;charset=utf-8,text/plain,application/x-slopos-large
+SLOPOS_CLIPBOARD_SOURCE_SENT mime=text/plain;charset=utf-8 bytes=47
+SLOPOS_CLIPBOARD_SOURCE_SENT mime=application/x-slopos-large bytes=1048576
+SLOPOS_CLIPBOARD_SOURCE_READY offers=text/plain;charset=utf-8,text/plain,application/x-slopos-large
+SLOPOS_CLIPBOARD_OFFER_VERIFIED mimes=text/plain;charset=utf-8,text/plain,application/x-slopos-large
+SLOPOS_CLIPBOARD_TRANSFER_VERIFIED bytes=47
+SLOPOS_CLIPBOARD_LARGE_TRANSFER_VERIFIED bytes=1048576
+SLOPOS_CLIPBOARD_MISSING_MIME_EOF_VERIFIED mime=application/x-slopos-missing
+SLOPOS_CLIPBOARD_SOURCE_DEATH_CLEARED observed=true

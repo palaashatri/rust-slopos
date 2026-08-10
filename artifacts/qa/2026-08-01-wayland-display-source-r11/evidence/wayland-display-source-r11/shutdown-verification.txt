@@ -1,0 +1,4 @@
+processes_after_shutdown:
+runtime_exists=no
+session_root_entries:
+clipboard.txt

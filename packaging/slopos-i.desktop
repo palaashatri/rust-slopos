@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=SLOPOS-I
+Comment=SLOPOS-I Wayland desktop environment session
+Exec=start-slopos-i
+TryExec=start-slopos-i
+Type=Application
+DesktopNames=SLOPOS-I
+Keywords=SLOPOS-I;Wayland;Desktop;

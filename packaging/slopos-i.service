@@ -1,0 +1,17 @@
+[Unit]
+Description=SLOPOS-I desktop session (user)
+Documentation=file:///usr/share/doc/slopos-i/README.md
+After=graphical-session-pre.target
+Wants=graphical-session-pre.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/start-slopos-i
+Restart=on-failure
+RestartSec=2
+# slopos-session and slopos-compositor fail closed; no third-party compositor fallback.
+Environment=XDG_SESSION_TYPE=wayland
+Environment=XDG_CURRENT_DESKTOP=SLOPOS-I
+
+[Install]
+WantedBy=default.target

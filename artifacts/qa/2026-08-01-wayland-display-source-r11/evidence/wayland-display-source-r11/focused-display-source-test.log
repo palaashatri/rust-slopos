@@ -1,0 +1,8 @@
+   Compiling slopos-compositor v0.1.0 (/home/ubuntu/qa/2026-08-01-backend-transport-r10/crates/slopos-compositor)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.72s
+     Running unittests src/lib.rs (target/debug/deps/slopos_compositor-3581fa849a02157f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 97 filtered out; finished in 0.00s
+

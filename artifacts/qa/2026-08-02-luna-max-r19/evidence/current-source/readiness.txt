@@ -1,0 +1,5 @@
+wayland-1
+pid=31165
+token=18c7ed5bfaf88b9a-79b9-0-18c7ed5bfb0ef1bb-79b9-1
+width=1280
+height=800

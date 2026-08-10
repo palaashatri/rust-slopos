@@ -1,0 +1,11 @@
+    Checking slopos-bus v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-bus)
+    Checking slopos-sdk v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-sdk)
+    Checking slopos-compositor v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-compositor)
+    Checking slopos-shell v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-shell)
+    Checking finder v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/finder)
+    Checking textedit v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/textedit)
+    Checking appstore v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/appstore)
+    Checking preview v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/preview)
+    Checking terminal v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/terminal)
+    Checking settings v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/settings)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.32s

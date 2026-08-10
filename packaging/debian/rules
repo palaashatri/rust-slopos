@@ -1,0 +1,27 @@
+#!/usr/bin/make -f
+%:
+	dh $@
+
+override_dh_auto_build:
+	cargo build --release --workspace --locked
+
+override_dh_auto_install:
+	# Install binaries
+	dh_auto_install -- --release
+	install -Dm755 target/release/slopos-session debian/slopos-i/usr/bin/slopos-session
+	install -Dm755 target/release/slopos-compositor debian/slopos-i/usr/bin/slopos-compositor
+	install -Dm755 target/release/slopos-shell debian/slopos-i/usr/bin/slopos-shell
+	install -Dm755 target/release/finder debian/slopos-i/usr/bin/finder
+	install -Dm755 target/release/settings debian/slopos-i/usr/bin/settings
+	install -Dm755 target/release/textedit debian/slopos-i/usr/bin/textedit
+	install -Dm755 target/release/terminal debian/slopos-i/usr/bin/terminal
+	install -Dm755 target/release/appstore debian/slopos-i/usr/bin/appstore
+	install -Dm755 scripts/start-slopos-i debian/slopos-i/usr/bin/start-slopos-i
+
+	# Install session files
+	install -Dm644 packaging/slopos-i.desktop debian/slopos-i/usr/share/xsessions/slopos-i.desktop
+	install -Dm644 packaging/slopos-i-wayland.desktop debian/slopos-i/usr/share/wayland-sessions/slopos-i.desktop
+	install -Dm644 packaging/slopos-i.service debian/slopos-i/usr/lib/systemd/user/slopos-i.service
+
+override_dh_shlibdeps:
+	# Skip automatic library dependency detection; Cargo handles it

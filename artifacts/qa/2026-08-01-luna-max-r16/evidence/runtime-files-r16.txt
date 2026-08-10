@@ -1,0 +1,18 @@
+Readable listing captured from the active r16 runtime before SIGTERM:
+drwx------ ubuntu ubuntu 320 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116
+drwxrwxr-x ubuntu ubuntu 60 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/app-control
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/app-control/com.slopos.preview.sock
+drwxrwxr-x ubuntu ubuntu 60 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/slopos-i
+drwxrwxr-x ubuntu ubuntu 60 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/slopos-i/menus
+-rw-rw-r-- ubuntu ubuntu 4008 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/slopos-i/menus/com_slopos_preview.json
+-rw-rw-r-- ubuntu ubuntu 10 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/slopos-client-wayland-display
+-rw-rw-r-- ubuntu ubuntu 10 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/wayland-display
+-rw-rw-r-- ubuntu ubuntu 10 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/client-wayland-display
+-rw-rw-r-- ubuntu ubuntu 80 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/readiness
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/control.sock
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/wayland-1
+-rw-rw---- ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/wayland-1.lock
+srw------- ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/vision.sock
+drwx------ ubuntu ubuntu 40 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/vision-artifacts
+-rw------- ubuntu ubuntu 30 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/token
+drwx------ ubuntu ubuntu 40 /run/user/1000/slopos-i/session-18c7ba93b4abbca5-337116/logs

@@ -1,0 +1,8 @@
+command=start r19 drm session
+backend=drm
+requested_app=finder
+action=Fill
+action=Minimize
+action=Restore
+action=ActivateApplication bundle=com.slopos.settings
+action=ActivateApplication bundle=com.slopos.terminal

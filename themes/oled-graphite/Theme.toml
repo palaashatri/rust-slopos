@@ -1,7 +1,7 @@
 name = "OLED Graphite"
-identifier = "com.retro.theme.oled-graphite"
+identifier = "com.slopos.theme.oled-graphite"
 version = "1.0"
-author = "RetroShell"
+author = "SLOPOS-I"
 description = "True black OLED-optimized dark theme"
 is_dark = true
 accent = "#4D4D4D"

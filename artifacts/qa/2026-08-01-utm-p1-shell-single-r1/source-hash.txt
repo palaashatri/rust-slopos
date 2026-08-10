@@ -1,0 +1,4 @@
+The modified session_drm.rs was copied to the Ubuntu VM before the post-fix
+build. Host and guest sha256sum output matched exactly:
+
+a0323a28b9168204876ea279218013e8fb7b7312993e45db2d0792603b1b89b2

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# RetroShell — Raspberry Pi / native Linux verification
+# SLOPOS-I — Raspberry Pi / native Linux verification
 # Run on the Pi (or any Linux host with GPU/Wayland deps).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-REPORT="/tmp/retroshell-pi-verify-$(date +%Y%m%d-%H%M%S).txt"
+REPORT="/tmp/slopos-i-pi-verify-$(date +%Y%m%d-%H%M%S).txt"
 exec > >(tee "$REPORT") 2>&1
 
-echo "=== RetroShell Pi/Linux verification ==="
+echo "=== SLOPOS-I Pi/Linux verification ==="
 echo "date: $(date -Iseconds)"
 echo "host: $(hostname) $(uname -a)"
 echo "pwd:  $ROOT"
@@ -48,7 +48,7 @@ echo
 echo "=== Phase 3: release build ==="
 cargo build --release --workspace 2>&1 | tail -30
 echo
-ls -la target/release/retro-shell target/release/retro-compositor \
+ls -la target/release/slopos-shell target/release/slopos-compositor \
   target/release/finder target/release/settings target/release/terminal \
   target/release/textedit target/release/appstore 2>&1 || true
 echo
@@ -80,24 +80,24 @@ export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/runtime-$USER}"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 
-if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
-  timeout 15 ./target/release/retro-compositor > /tmp/retro-compositor-pi.log 2>&1 &
+if [ -n "${DISPLAY:-}" ]; then
+  timeout 15 ./target/release/slopos-compositor --backend nested > /tmp/slopos-compositor-pi.log 2>&1 &
   CPID=$!
   sleep 3
   if kill -0 "$CPID" 2>/dev/null; then
-    echo "retro-compositor still running after 3s (good)"
+    echo "slopos-compositor still running after 3s (good)"
     kill "$CPID" 2>/dev/null || true
   else
-    echo "retro-compositor exited early; log:"
-    tail -40 /tmp/retro-compositor-pi.log || true
+    echo "slopos-compositor exited early; log:"
+    tail -40 /tmp/slopos-compositor-pi.log || true
   fi
 else
-  echo "No DISPLAY/WAYLAND_DISPLAY; skip live compositor (start a session first)"
+  echo "No X11 DISPLAY; skip nested smoke (run --backend drm from a DRM/TTY session)"
 fi
 
 echo
 echo "=== Report written to $REPORT ==="
 echo "Next: run under a real session:"
-echo "  export RETROSHELL_LOCK_PASSWORD=test"
-echo "  ./target/release/retro-compositor &"
-echo "  sleep 1; ./target/release/retro-shell"
+echo "  export SLOPOS_LOCK_PASSWORD=test"
+echo "  ./target/release/slopos-compositor &"
+echo "  sleep 1; ./target/release/slopos-shell"

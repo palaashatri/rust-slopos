@@ -1,0 +1,66 @@
+   Compiling libc v0.2.189
+   Compiling zmij v1.0.23
+   Compiling syn v2.0.119
+   Compiling syn v3.0.3
+   Compiling serde_json v1.0.151
+   Compiling serde_derive v1.0.229
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.3
+   Compiling serde v1.0.229
+   Compiling thiserror-impl v1.0.69
+   Compiling once_cell v1.21.4
+   Compiling tracing-core v0.1.36
+   Compiling thiserror v1.0.69
+   Compiling cpufeatures v0.2.17
+   Compiling tracing-attributes v0.1.31
+   Compiling pin-project-lite v0.2.17
+   Compiling tracing v0.1.44
+   Compiling sha2 v0.10.9
+   Compiling slopos-vision-protocol v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-vision-protocol)
+   Compiling socket2 v0.6.5
+   Compiling log v0.4.33
+   Compiling slopos-vision-client v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-vision-client)
+   Compiling slopos-fonts v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-fonts)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.95s
+     Running unittests src/lib.rs (target/debug/deps/slopos_fonts-bbb55af0d7d0e514)
+
+running 7 tests
+test tests::test_font_discovery_search_paths ... ok
+test tests::test_font_discovery_recurses_into_nested_directories ... ok
+test tests::test_font_profile_config ... ok
+test tests::font_manager_rejects_unsafe_or_non_font_sources ... ok
+test tests::test_font_roles_and_defaults ... ok
+test tests::test_font_discovery_skips_unreadable_nested_directories ... ok
+test tests::font_manager_installs_deduplicates_toggles_and_removes_atomically ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/slopos_vision_client-286086c41d2d1f94)
+
+running 9 tests
+test tests::client_rejects_zero_and_unbounded_limits ... ok
+test tests::oversized_response_is_rejected_before_json_decode ... ok
+test tests::malformed_response_is_reported_as_decode_error ... ok
+test tests::temporary_fallback_is_only_available_when_enabled_for_tests ... ok
+test tests::request_envelope_round_trips_as_line_delimited_json ... ok
+test tests::runtime_directory_derives_default_socket_path ... ok
+test tests::explicit_socket_path_takes_precedence ... ok
+test tests::response_envelope_round_trips_and_validates_version ... ok
+test tests::daemon_error_becomes_a_typed_client_error_for_convenience_methods ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/slopos_vision_protocol-28360ec80d812dd4)
+
+running 8 tests
+test tests::file_label_rejects_path_separators ... ok
+test tests::inline_image_validation_rejects_mismatched_length ... ok
+test tests::invalid_confidence_is_rejected_by_job_validation ... ok
+test tests::pixel_size_rejects_oversized_images ... ok
+test tests::capabilities_report_local_only_no_download_semantics ... ok
+test tests::stored_image_validation_checks_asset_id ... ok
+test tests::asset_lookup_round_trips_through_json ... ok
+test tests::submit_request_round_trips_through_json ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

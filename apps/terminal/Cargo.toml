@@ -2,14 +2,15 @@
 name = "terminal"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 
 [[bin]]
 name = "terminal"
 path = "src/main.rs"
 
 [dependencies]
-retro-sdk = { path = "../../crates/retro-sdk" }
-retro-kit = { path = "../../crates/retro-kit" }
+slopos-sdk = { path = "../../crates/slopos-sdk" }
+slopos-kit = { path = "../../crates/slopos-kit" }
 nix = { version = "0.27", features = ["term", "ioctl", "process", "fs", "signal"] }
 vte = "0.11"
 libc = "0.2"

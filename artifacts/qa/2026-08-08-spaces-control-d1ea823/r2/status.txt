@@ -1,0 +1,11 @@
+compositor_ready=true
+mapped_windows=2
+preview_a_exit=124
+preview_b_exit=124
+compositor_exit=143
+workspace_switch_observed=true
+workspace_two_windows_observed=true
+invalid_workspace_rejected=true
+preview_a_adapter=true
+preview_b_adapter=true
+status=passed

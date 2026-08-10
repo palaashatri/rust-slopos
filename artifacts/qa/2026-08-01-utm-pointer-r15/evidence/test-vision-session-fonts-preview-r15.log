@@ -1,0 +1,77 @@
+   Compiling rustix v1.1.4
+   Compiling scopeguard v1.2.0
+   Compiling wayland-sys v0.31.11
+   Compiling rustix v0.38.44
+   Compiling tracing v0.1.44
+   Compiling getrandom v0.3.4
+   Compiling x11rb-protocol v0.13.2
+   Compiling lock_api v0.4.14
+   Compiling slopos-fonts v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-fonts)
+   Compiling parking_lot v0.12.5
+   Compiling wgpu-hal v22.0.0
+   Compiling slopos-vision v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-vision)
+   Compiling ahash v0.8.12
+   Compiling tokio v1.53.1
+   Compiling wgpu-core v22.1.0
+   Compiling wayland-backend v0.3.16
+   Compiling polling v3.11.0
+   Compiling calloop v0.13.0
+   Compiling tempfile v3.27.0
+   Compiling wayland-client v0.31.15
+   Compiling wayland-csd-frame v0.3.0
+   Compiling gethostname v1.1.0
+   Compiling async-io v2.6.0
+   Compiling zbus v4.4.0
+   Compiling wayland-protocols v0.32.13
+   Compiling calloop-wayland-source v0.3.0
+   Compiling wayland-cursor v0.31.14
+   Compiling wgpu v22.1.0
+   Compiling slopos-visiond v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-visiond)
+   Compiling slopos-bus v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-bus)
+   Compiling wayland-protocols-wlr v0.3.12
+   Compiling smithay-client-toolkit v0.19.2
+   Compiling wayland-protocols-plasma v0.3.12
+   Compiling sctk-adwaita v0.10.1
+   Compiling x11rb v0.13.2
+   Compiling winit v0.30.13
+   Compiling slopos-render v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-render)
+   Compiling slopos-kit v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-kit)
+   Compiling slopos-sdk v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-sdk)
+rustc-LLVM ERROR: IO failure on output stream: No space left on device
+error: could not compile `slopos-kit` (lib)
+
+Caused by:
+  No space left on device (os error 28)
+
+Caused by:
+  failed to parse process output: `/home/ubuntu/.rustup/toolchains/stable-aarch64-unknown-linux-gnu/bin/rustc --crate-name slopos_kit --edition=2021 crates/slopos-kit/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a1616738eeac8e81 -C extra-filename=-2ec3c9b0c85a859e --out-dir /home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps -C incremental=/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/incremental -L dependency=/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps --extern log=/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/liblog-6ac4bcfef02b96a4.rmeta --extern parking_lot=/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/libparking_lot-57f746900ea2bf37.rmeta --extern serde=/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/libserde-b09a3b329cdac0ac.rmeta --extern slopos_render=/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/libslopos_render-14f195cad18c53af.rmeta --extern thiserror=/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/libthiserror-ae80b80c10bd9480.rmeta --extern tracing=/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/libtracing-de76fbf6282d221c.rmeta --extern zbus=/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/libzbus-3ef0d522125038a5.rmeta` (exit status: 101)
+warning: build failed, waiting for other jobs to finish...
+error: couldn't create a temp dir: No space left on device (os error 28) at path "/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/rmetakRhgmB"
+
+error: could not compile `slopos-sdk` (lib) due to 1 previous error
+rustc-LLVM ERROR: IO failure on output stream: No space left on device
+error: could not compile `winit` (lib)
+
+Caused by:
+  No space left on device (os error 28)
+
+Caused by:
+  failed to parse process output: `/home/ubuntu/.rustup/toolchains/stable-aarch64-unknown-linux-gnu/bin/rustc --crate-name winit --edition=2021 /home/ubuntu/.cargo/rerror: could not compile `slopos-vision` (example "extract_text") due to 1 previous error
+error: linking with `cc` failed: exit status: 1
+  |
+  = note:  "cc" "/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/rustcbLZ3iZ/symbols.o" "<190 object files omitted>" "-Wl,--as-needed" "-Wl,-Bstatic" "/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/{libtoml-32b749383a9c87d8,libtoml_edit-fef81c1063f2e5b0,libserde_spanned-ed38cf46a6b66704,libindexmap-206d8d13c2a9bf8e,libequivalent-b585ce897fbfbf17,libhashbrown-47ca8841eb03dcbd,libwinnow-494a4be85693fa93,libtoml_write-63d3c0f54ec9e33d,libtoml_datetime-7bb67cb9c61fcbc0,libhex-d5de0e34a7786cd3,libthiserror-ae80b80c10bd9480,libserde-b09a3b329cdac0ac,libserde_core-37334a9a151263ee}.rlib" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib/{libtest-*,libgetopts-*,librustc_std_workspace_std-*}.rlib" "/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/{librten-3c3a336402731b5c,libnum_cpus-02b87d4f3a88182a,librten_vecmath-39502dccdfc35e90,librten_model_file-d7b9487866d55b22,libflatbuffers-b3d0484b4324d4d0,libbitflags-c409cbec9fd042f4,librten_onnx-1ed26e4ce4fbf403,librten_shape_inference-9e62f3bbeb8b9310,librustc_hash-f763d141dfecd6d4,librten_gemm-d0e9be1456047399,librten_simd-e7d173d13944d944,librten_tensor-408059bccce09e74,libtypeid-355e1f5128a21575,librten_base-1467cd5063efc3f3,libsha2-1b25c7575b06743b,libdigest-7099a1007f7ad3e0,libblock_buffer-69a4597c033e331c,libcrypto_common-e6eef4c6a0d987ad,libgeneric_array-ee4597da6e7e663f,libtypenum-caa370bd422cc15b,libparking_lot-57f746900ea2bf37,libparking_lot_core-5b53297a16efe4d6,liblock_api-d11b5546ed8e2a68,libscopeguard-5b02d099b28b0e74,libtempfile-8587a455e6d473d1,libgetrandom-4e742d706fd776e6,liblibc-94960a9c0ce66040,libfastrand-ae5e98965575752e,libonce_cell-0144e7ae395b93f7,librustix-312f8752491bf8b0,liblinux_raw_sys-bcc5b4b61f8c3376,libimage-e898e4d6e6f86015,libqoi-9fe4d2518b24e1da,libmoxcms-2ddd6b106478d6ff,libpxfm-ef1b4df97fc9cd90,libimage_webp-572e145ee09ac8e9,libtiff-2d4544f9fe9419ed,libfax-f3bc2f236b72b7e5,libpng-17a77866bf476d16,libbitflags-a0d079266f33db96,libflate2-dbade63455406019,libfdeflate-27817886208d4df9,libcrc32fast-5c5648e98086db87,libexr-b92bed447c4bd95f,libminiz_oxide-3a338dbe32e45004,libzune_inflate-a7acbcdb82bd1ed8,libsimd_adler32-5a45322273d57879,libbit_field-25ee2050f13eca60,liblebe-7150f5c2cfdfde20,libhalf-7c29526fd4d1c663,libzerocopy-2b457fa6364b8f84,libsmallvec-d8839215ef0a68e4,libzune_jpeg-f0ae3353c94fe639,libzune_core-fd9d7b6001616996,libgif-e456e9c73093a50b,libcolor_quant-be18a622471bddf4,libweezl-d6d7b275df1f4035,libbyteorder_lite-23ecccb96b468f85,libravif-1d1c949011c7f8a6,libloop9-91a25a38fa790eb3,libavif_serialize-2920fb2b3616309d,libquick_error-0fc3ab5f4a03c089,librgb-f2c4ec1a47cde8b1,librav1e-b03cf4a0acb8450b,libprofiling-9b67774545f0a954,libav_scenechange-d7e2964fdde3c813,liby4m-4f6c6771c996b3f7,libaligned-5bc943364bb3a7d1,libas_slice-b90d52d155c15a6c,libstable_deref_trait-e49e676622fd2763,libav1_grain-a86282f6aedb5556,liblog-6ac4bcfef02b96a4,libnom-3093367e53072329,libmemchr-ce45c5fe59c99a8d,libnum_rational-1a8aafcf8d33f175,libnum_bigint-6bcc45adc97e2c36,libnum_integer-fd5e62131aa3fabd,libanyhow-b6513ee85ab32c8f,libmaybe_rayon-26eb0c3c21e3e8ba,librayon-5c69ed82e6243484,librayon_core-61c9531cfbad188b,libcrossbeam_deque-922c95b391abfb5b,libcrossbeam_epoch-648fc7f2c581a907,libcrossbeam_utils-5570b168d7d6cfff,libcfg_if-28d40cf9c6b31a32,libv_frame-c547bc0157a5b56a,libarrayvec-36ca5cf65cce2630,libaligned_vec-fb5835d47509495b,libequator-eea3957c4c6e6c2c,libthiserror-16a084c8d3cd4fdb,libbitstream_io-9962cd3ed9870002,libitertools-6f5343e4fe4ea1d9,libeither-c4bbdf03215b7b6a,libimgref-82166a0a83681c85,libbytemuck-c1c4e80992e4ec6f,libnum_traits-47b4036e77a43be8}.rlib" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-Wl,-Bdynamic" "-lgcc_s" "-lutil" "-lrt" "-lpthread" "-lm" "-ldl" "-lc" "-L" "/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/rustcbLZ3iZ/raw-dylibs" "-Wl,--eh-frame-hdr" "-Wl,-z,noexecstack" "-L" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib" "-o" "/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/slopos_vision-c312d60b8da657fc" "-Wl,--gc-sections" "-pie" "-Wl,-z,relro,-z,now" "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: /usr/bin/aarch64-linux-gnu-ld.bfd: final link failed: No space left on device
+          collect2: error: ld returned 1 exit status
+          
+
+error: linking with `cc` failed: exit status: 1
+  |
+  = note:  "cc" "/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/examples/rustc0UKfIB/symbols.o" "<246 object files omitted>" "-Wl,--as-needed" "-Wl,-Bstatic" "/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/deps/{libslopos_vision-ed6b4c5e283804f0,libtoml-32b749383a9c87d8,libtoml_edit-fef81c1063f2e5b0,libserde_spanned-ed38cf46a6b66704,libindexmap-206d8d13c2a9bf8e,libequivalent-b585ce897fbfbf17,libhashbrown-47ca8841eb03dcbd,libwinnow-494a4be85693fa93,libtoml_write-63d3c0f54ec9e33d,libtoml_datetime-7bb67cb9c61fcbc0,libhex-d5de0e34a7786cd3,libthiserror-ae80b80c10bd9480,libserde-b09a3b329cdac0ac,libserde_core-37334a9a151263ee,librten-3c3a336402731b5c,libnum_cpus-02b87d4f3a88182a,librten_vecmath-39502dccdfc35e90,librten_model_file-d7b9487866d55b22,libflatbuffers-b3d0484b4324d4d0,libbitflags-c409cbec9fd042f4,librten_onnx-1ed26e4ce4fbf403,librten_shape_inference-9e62f3bbeb8b9310,librustc_hash-f763d141dfecd6d4,librten_gemm-d0e9be1456047399,librten_simd-e7d173d13944d944,librten_tensor-408059bccce09e74,libtypeid-355e1f5128a21575,librten_base-1467cd5063efc3f3,libsha2-1b25c7575b06743b,libdigest-7099a1007f7ad3e0,libblock_buffer-69a4597c033e331c,libcrypto_common-e6eef4c6a0d987ad,libgeneric_array-ee4597da6e7e663f,libtypenum-caa370bd422cc15b,libparking_lot-57f746900ea2bf37,libparking_lot_core-5b53297a16efe4d6,liblibc-94960a9c0ce66040,liblock_api-d11b5546ed8e2a68,libscopeguard-5b02d099b28b0e74,libimage-e898e4d6e6f86015,libqoi-9fe4d2518b24e1da,libmoxcms-2ddd6b106478d6ff,libpxfm-ef1b4df97fc9cd90,libimage_webp-572e145ee09ac8e9,libtiff-2d4544f9fe9419ed,libfax-f3bc2f236b72b7e5,libpng-17a77866bf476d16,libbitflags-a0d079266f33db96,libflate2-dbade63455406019,libfdeflate-27817886208d4df9,libcrc32fast-5c5648e98086db87,libexr-b92bed447c4bd95f,libminiz_oxide-3a338dbe32e45004,libzune_inflate-a7acbcdb82bd1ed8,libsimd_adler32-5a45322273d57879,libbit_field-25ee2050f13eca60,liblebe-7150f5c2cfdfde20,libhalf-7c29526fd4d1c663,libzerocopy-2b457fa6364b8f84,libsmallvec-d8839215ef0a68e4,libzune_jpeg-f0ae3353c94fe639,libzune_core-fd9d7b6001616996,libgif-e456e9c73093a50b,libcolor_quant-be18a622471bddf4,libweezl-d6d7b275df1f4035,libbyteorder_lite-23ecccb96b468f85,libravif-1d1c949011c7f8a6,libloop9-91a25a38fa790eb3,libavif_serialize-2920fb2b3616309d,libquick_error-0fc3ab5f4a03c089,librgb-f2c4ec1a47cde8b1,librav1e-b03cf4a0acb8450b,libprofiling-9b67774545f0a954,libav_scenechange-d7e2964fdde3c813,liby4m-4f6c6771c996b3f7,libaligned-5bc943364bb3a7d1,libas_slice-b90d52d155c15a6c,libstable_deref_trait-e49e676622fd2763,libav1_grain-a86282f6aedb5556,liblog-6ac4bcfef02b96a4,libnom-3093367e53072329,libmemchr-ce45c5fe59c99a8d,libnum_rational-1a8aafcf8d33f175,libnum_bigint-6bcc45adc97e2c36,libnum_integer-fd5e62131aa3fabd,libanyhow-b6513ee85ab32c8f,libmaybe_rayon-26eb0c3c21e3e8ba,librayon-5c69ed82e6243484,librayon_core-61c9531cfbad188b,libcrossbeam_deque-922c95b391abfb5b,libcrossbeam_epoch-648fc7f2c581a907,libcrossbeam_utils-5570b168d7d6cfff,libcfg_if-28d40cf9c6b31a32,libv_frame-c547bc0157a5b56a,libarrayvec-36ca5cf65cce2630,libaligned_vec-fb5835d47509495b,libequator-eea3957c4c6e6c2c,libthiserror-16a084c8d3cd4fdb,libbitstream_io-9962cd3ed9870002,libitertools-6f5343e4fe4ea1d9,libeither-c4bbdf03215b7b6a,libimgref-82166a0a83681c85,libbytemuck-c1c4e80992e4ec6f,libnum_traits-47b4036e77a43be8}.rlib" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-Wl,-Bdynamic" "-lgcc_s" "-lutil" "-lrt" "-lpthread" "-lm" "-ldl" "-lc" "-L" "/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/examples/rustc0UKfIB/raw-dylibs" "-Wl,--eh-frame-hdr" "-Wl,-z,noexecstack" "-L" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib" "-o" "/home/ubuntu/qa/2026-08-01-vision-session-r14/target/debug/examples/lift_subject-479f18705b253f64" "-Wl,--gc-sections" "-pie" "-Wl,-z,relro,-z,now" "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: /usr/bin/aarch64-linux-gnu-ld.bfd: final link failed: No space left on device
+          collect2: error: ld returned 1 exit status
+          
+
+error: could not compile `slopos-vision` (lib test) due to 1 previous error
+error: could not compile `slopos-vision` (example "lift_subject") due to 1 previous error

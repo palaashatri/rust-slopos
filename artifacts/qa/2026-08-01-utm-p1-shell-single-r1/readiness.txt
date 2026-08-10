@@ -1,0 +1,6 @@
+runtime=/run/user/1000/slopos-i/session-18c794608db8b11b-71907/readiness
+wayland-1
+pid=71909
+token=18c794608dbdaa3c-71907-71907
+width=1280
+height=800

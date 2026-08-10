@@ -1,16 +1,16 @@
-use retro_kit::button::Button;
-use retro_kit::event::{KeyCode, Modifiers, MouseButton};
-use retro_kit::icon_view::{IconItem, IconView};
-use retro_kit::layout::Layout;
-use retro_kit::status_bar::{StatusBar, StatusBarAlignment};
-use retro_kit::toolbar::Toolbar;
-use retro_kit::tree_view::{TreeNode, TreeView};
-use retro_kit::window::Window;
-use retro_kit::{
-    AccessibilityNode, Event, EventResult, FocusManager, LayoutConstraint, PointerDispatcher,
-    Rect, Size, ThemeContext, Widget, WidgetState,
+use slopos_kit::button::Button;
+use slopos_kit::event::{KeyCode, Modifiers, MouseButton};
+use slopos_kit::icon_view::{IconItem, IconView};
+use slopos_kit::layout::Layout;
+use slopos_kit::status_bar::{StatusBar, StatusBarAlignment};
+use slopos_kit::toolbar::Toolbar;
+use slopos_kit::tree_view::{TreeNode, TreeView};
+use slopos_kit::window::Window;
+use slopos_kit::{
+    AccessibilityNode, AccessibilityRole, Event, EventResult, FocusManager, LayoutConstraint,
+    PointerDispatcher, Rect, Size, ThemeContext, Widget, WidgetState,
 };
-use retro_sdk::{build_menu, Application};
+use slopos_sdk::{build_menu, Application};
 use std::path::PathBuf;
 
 mod file_ops;
@@ -18,7 +18,7 @@ mod file_ops;
 fn main() {
     let _ = tracing_subscriber::fmt::try_init();
 
-    let mut app = Application::new("Finder", "com.retro.finder");
+    let mut app = Application::new("Finder", "com.slopos.finder");
 
     let mut file_menu = build_menu("File");
     file_menu.add_action("New Finder Window").with_shortcut(
@@ -136,6 +136,56 @@ fn main() {
         help_menu,
     ]);
 
+    // The global menu is rendered by slopos-shell, but application commands
+    // stay in Finder. The SDK delivers the namespaced action over the
+    // session-private application endpoint; this closure is the application
+    // boundary, not a second shell window model.
+    app.on_menu_action(|action, window| {
+        let Some(content) = window.content.as_mut() else {
+            return;
+        };
+        let Some(view) = content.as_any_mut().downcast_mut::<FinderView>() else {
+            return;
+        };
+        let action = action.strip_prefix("com.slopos.finder.").unwrap_or(action);
+        match action {
+            "file.new_folder" => {
+                view.create_new_folder();
+            }
+            "file.get_info" => {
+                view.show_selected_info();
+            }
+            "file.move_to_trash" => {
+                view.move_selected_to_trash();
+            }
+            "go.back" => {
+                view.go_back();
+            }
+            "go.forward" => {
+                view.go_forward();
+            }
+            "go.enclosing_folder" => {
+                view.go_to_parent();
+            }
+            "go.home" => {
+                if let Some(home) = std::env::var_os("HOME") {
+                    view.navigate_to_path(PathBuf::from(home));
+                }
+            }
+            "go.desktop" | "go.documents" | "go.downloads" => {
+                if let Some(home) = std::env::var_os("HOME") {
+                    let folder = match action {
+                        "go.desktop" => "Desktop",
+                        "go.documents" => "Documents",
+                        _ => "Downloads",
+                    };
+                    view.navigate_to_path(PathBuf::from(home).join(folder));
+                }
+            }
+            _ => {}
+        }
+    });
+
     let finderview = FinderView::new();
     let mut window = Window::new("Finder");
     window.layout = Layout::vertical(0.0);
@@ -173,7 +223,7 @@ impl FinderView {
 
         let mut sidebar = TreeView::new();
         let mut favorites = TreeNode::new("Favorites");
-        favorites.children.push(TreeNode::new("AirDrop"));
+        favorites.children.push(TreeNode::new("SLOPOS Share"));
         favorites.children.push(TreeNode::new("Recents"));
         favorites.children.push(TreeNode::new("Applications"));
         favorites.children.push(TreeNode::new("Desktop"));
@@ -182,7 +232,7 @@ impl FinderView {
         favorites.expanded = true;
 
         let mut locations = TreeNode::new("Locations");
-        locations.children.push(TreeNode::new("Retro HD"));
+        locations.children.push(TreeNode::new("SLOPOS-I"));
         locations.children.push(TreeNode::new("Network"));
         locations.expanded = true;
 
@@ -280,7 +330,7 @@ impl FinderView {
             .map(|item| self.current_path.join(item.label))
     }
 
-    fn item_at_point(&self, point: retro_kit::Point) -> Option<IconItem> {
+    fn item_at_point(&self, point: slopos_kit::Point) -> Option<IconItem> {
         self.file_grid
             .items
             .iter()
@@ -288,7 +338,7 @@ impl FinderView {
             .cloned()
     }
 
-    fn start_drag_at(&mut self, point: retro_kit::Point) -> bool {
+    fn start_drag_at(&mut self, point: slopos_kit::Point) -> bool {
         let Some(item) = self.item_at_point(point) else {
             self.drag_source_path = None;
             return false;
@@ -306,7 +356,7 @@ impl FinderView {
         true
     }
 
-    fn finish_drag_at(&mut self, point: retro_kit::Point) -> bool {
+    fn finish_drag_at(&mut self, point: slopos_kit::Point) -> bool {
         let Some(source) = self.drag_source_path.take() else {
             return false;
         };
@@ -768,7 +818,7 @@ impl Widget for FinderView {
     }
 
     fn accessibility(&self) -> Option<AccessibilityNode> {
-        None
+        Some(AccessibilityNode::new(AccessibilityRole::Window, "Finder"))
     }
 
     fn children(&self) -> Vec<&dyn Widget> {
@@ -813,13 +863,13 @@ mod tests {
             .unwrap()
             .as_nanos();
         let sequence = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!("retroshell_finder_view_{unique}_{sequence}"));
+        let root = std::env::temp_dir().join(format!("slopos-i_finder_view_{unique}_{sequence}"));
         let _ = fs::remove_dir_all(&root);
         root
     }
 
-    fn rect_center(rect: Rect) -> retro_kit::Point {
-        retro_kit::Point::new(rect.x + rect.width * 0.5, rect.y + rect.height * 0.5)
+    fn rect_center(rect: Rect) -> slopos_kit::Point {
+        slopos_kit::Point::new(rect.x + rect.width * 0.5, rect.y + rect.height * 0.5)
     }
 
     #[test]
@@ -917,13 +967,16 @@ mod tests {
 
     fn click_toolbar_button(view: &mut FinderView, index: usize) -> EventResult {
         let rect = view.toolbar.items[index].rect();
-        let point = retro_kit::Point::new(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0);
+        let point = slopos_kit::Point::new(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0);
         let down = view.handle_event(&Event::MouseDown {
             button: MouseButton::Left,
             point,
             modifiers: Modifiers::NONE,
         });
-        assert!(matches!(down, EventResult::Handled), "press must land on the button");
+        assert!(
+            matches!(down, EventResult::Handled),
+            "press must land on the button"
+        );
         view.handle_event(&Event::MouseUp {
             button: MouseButton::Left,
             point,
@@ -1195,7 +1248,9 @@ mod tests {
         });
 
         assert!(matches!(handled, EventResult::Handled));
-        assert!(view.selected_item().is_some_and(|item| item.label == "note.txt"));
+        assert!(view
+            .selected_item()
+            .is_some_and(|item| item.label == "note.txt"));
         assert_eq!(view.status_bar.items[0].text, "1 of 1 selected");
 
         fs::remove_dir_all(root).unwrap();

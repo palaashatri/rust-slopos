@@ -1,14 +1,26 @@
-use retro_kit::button::Button;
-use retro_kit::event::{KeyCode, Modifiers};
-use retro_kit::label::Label;
-use retro_kit::slider::Slider;
-use retro_kit::window::Window;
-use retro_kit::{
-    AccessibilityNode, Event, EventResult, FocusManager, LayoutConstraint, PointerDispatcher,
-    Rect, Size, ThemeContext, Widget, WidgetState,
+#![allow(
+    dead_code,
+    unused_imports,
+    clippy::manual_div_ceil,
+    clippy::field_reassign_with_default
+)]
+
+use slopos_bus::{
+    read_spaces_snapshot, send_session_control, SessionControlRequest, SpaceClassification,
+    SpaceTargetWire, SpacesControlCommand, SpacesDisplayPolicy, SpacesSnapshot,
 };
-use retro_sdk::{build_menu, Application};
-use retro_shell::DisplayConfig;
+use slopos_kit::button::Button;
+use slopos_kit::event::{KeyCode, Modifiers};
+use slopos_kit::label::Label;
+use slopos_kit::slider::Slider;
+use slopos_kit::text_field::TextField;
+use slopos_kit::window::Window;
+use slopos_kit::{
+    AccessibilityNode, AccessibilityRole, Event, EventResult, FocusManager, LayoutConstraint,
+    PointerDispatcher, Rect, Size, ThemeContext, Widget, WidgetState,
+};
+use slopos_sdk::{build_menu, Application};
+use slopos_shell::DisplayConfig;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -16,7 +28,7 @@ use std::path::{Path, PathBuf};
 fn main() {
     let _ = tracing_subscriber::fmt::try_init();
 
-    let mut app = Application::new("Settings", "com.retro.settings");
+    let mut app = Application::new("Settings", "com.slopos.settings");
 
     let mut file_menu = build_menu("File");
     file_menu.add_action("Close").with_shortcut(
@@ -51,6 +63,21 @@ fn main() {
         window_menu,
         help_menu,
     ]);
+
+    app.on_menu_action(|action, window| {
+        let Some(content) = window.content.as_mut() else {
+            return;
+        };
+        let Some(view) = content.as_any_mut().downcast_mut::<SettingsView>() else {
+            return;
+        };
+        let action = action
+            .strip_prefix("com.slopos.settings.")
+            .unwrap_or(action);
+        if action == "file.show_all_settings" {
+            view.select_category(Category::General);
+        }
+    });
 
     let store = SettingsStore::default();
     let view = SettingsView::load(store);
@@ -107,6 +134,40 @@ enum Choice {
     PrivacyStrict,
     NotificationsOff,
     NotificationsOn,
+    SpacesSharedSpan,
+    SpacesIndependentPerDisplay,
+    SpacesNormal,
+    SpacesFullscreen,
+}
+
+impl Choice {
+    fn is_display_policy(self) -> bool {
+        matches!(
+            self,
+            Self::HdrOff
+                | Self::HdrOn
+                | Self::VrrOff
+                | Self::VrrAdaptive
+                | Self::Refresh60
+                | Self::Refresh120
+                | Self::RefreshAdaptive
+                | Self::ColorSrgb
+                | Self::ColorRec2020
+        )
+    }
+
+    fn is_display_topology(self) -> bool {
+        matches!(
+            self,
+            Self::ArrangeExtendRight
+                | Self::ArrangeExtendDown
+                | Self::ArrangeMirror
+                | Self::ArrangePrimaryOnly
+                | Self::Scale100
+                | Self::Scale150
+                | Self::Scale200
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -122,10 +183,11 @@ enum Category {
     Accessibility,
     Privacy,
     Notifications,
+    Spaces,
 }
 
 impl Category {
-    const ALL: [Category; 11] = [
+    const ALL: [Category; 12] = [
         Category::General,
         Category::Appearance,
         Category::DesktopDock,
@@ -137,6 +199,7 @@ impl Category {
         Category::Accessibility,
         Category::Privacy,
         Category::Notifications,
+        Category::Spaces,
     ];
 
     fn label(self) -> &'static str {
@@ -152,6 +215,7 @@ impl Category {
             Category::Accessibility => "Accessibility",
             Category::Privacy => "Privacy & Security",
             Category::Notifications => "Notifications",
+            Category::Spaces => "SLOPOS Spaces",
         }
     }
 
@@ -165,17 +229,20 @@ impl Category {
 
     fn description(self) -> &'static str {
         match self {
-            Category::General => "Choose system defaults used by first-party RetroShell apps.",
-            Category::Appearance => "Choose how RetroShell draws native windows and apps.",
+            Category::General => "Choose system defaults used by first-party SLOPOS-I apps.",
+            Category::Appearance => "Choose how SLOPOS-I draws native windows and apps.",
             Category::DesktopDock => "Control desktop icons and the shell launcher position.",
             Category::Display => "Configure advertised display capabilities for the shell session.",
-            Category::Sound => "Control desktop sound effects for native RetroShell apps.",
+            Category::Sound => "Control desktop sound effects for native SLOPOS-I apps.",
             Category::Network => "Set the network profile exposed to shell status surfaces.",
             Category::Keyboard => "Tune keyboard repeat behavior for native controls.",
             Category::Mouse => "Tune pointer and scrolling behavior.",
             Category::Accessibility => "Enable high-visibility affordances across native apps.",
             Category::Privacy => "Control privacy defaults used by app services.",
             Category::Notifications => "Control notification delivery for native apps.",
+            Category::Spaces => {
+                "Manage compositor-owned Spaces, membership policy and per-Space metadata."
+            }
         }
     }
 
@@ -251,6 +318,7 @@ impl Category {
                 (Choice::NotificationsOff, "Notifications Off"),
                 (Choice::NotificationsOn, "Notifications On"),
             ],
+            Category::Spaces => &[],
         }
     }
 }
@@ -398,6 +466,10 @@ impl SettingsState {
             Choice::PrivacyStrict => self.privacy_mode == "strict",
             Choice::NotificationsOff => !self.notifications,
             Choice::NotificationsOn => self.notifications,
+            Choice::SpacesSharedSpan
+            | Choice::SpacesIndependentPerDisplay
+            | Choice::SpacesNormal
+            | Choice::SpacesFullscreen => false,
         }
     }
 
@@ -448,6 +520,10 @@ impl SettingsState {
             Choice::PrivacyStrict => self.privacy_mode = "strict".to_string(),
             Choice::NotificationsOff => self.notifications = false,
             Choice::NotificationsOn => self.notifications = true,
+            Choice::SpacesSharedSpan
+            | Choice::SpacesIndependentPerDisplay
+            | Choice::SpacesNormal
+            | Choice::SpacesFullscreen => {}
         }
     }
 
@@ -525,6 +601,7 @@ impl SettingsState {
                 "NOTIFICATIONS - {}",
                 if self.notifications { "ON" } else { "OFF" }
             ),
+            Category::Spaces => "SPACES - compositor state is authoritative".to_string(),
         }
     }
 }
@@ -536,14 +613,14 @@ struct SettingsStore {
 
 impl Default for SettingsStore {
     fn default() -> Self {
-        let config_dir = std::env::var_os("RETROSHELL_CONFIG_DIR")
+        let config_dir = std::env::var_os("SLOPOS_CONFIG_DIR")
             .map(PathBuf::from)
             .or_else(|| {
                 std::env::var_os("HOME")
                     .map(PathBuf::from)
-                    .map(|home| home.join(".config/retroshell"))
+                    .map(|home| home.join(".config/slopos-i"))
             })
-            .unwrap_or_else(|| PathBuf::from("/tmp/retroshell"));
+            .unwrap_or_else(|| PathBuf::from("/tmp/slopos-i"));
         Self {
             path: config_dir.join("settings.conf"),
         }
@@ -605,8 +682,14 @@ impl SettingsStore {
                 "arrange_mode"
                     if matches!(
                         value,
-                        "extend_right" | "extend_down" | "mirror" | "primary_only"
-                            | "extend" | "stack" | "clone" | "primary"
+                        "extend_right"
+                            | "extend_down"
+                            | "mirror"
+                            | "primary_only"
+                            | "extend"
+                            | "stack"
+                            | "clone"
+                            | "primary"
                     ) =>
                 {
                     // Normalize aliases to canonical snake_case used by DisplayConfig.
@@ -677,10 +760,7 @@ impl SettingsStore {
         map.insert("refresh_rate".into(), state.refresh_rate.clone());
         map.insert("color_space".into(), state.color_space.clone());
         map.insert("arrange_mode".into(), state.arrange_mode.clone());
-        map.insert(
-            "scale_percent".into(),
-            state.scale_percent.to_string(),
-        );
+        map.insert("scale_percent".into(), state.scale_percent.to_string());
         map.insert("sound_effects".into(), state.sound_effects.to_string());
         map.insert("volume_percent".into(), state.volume_percent.to_string());
         map.insert("network_profile".into(), state.network_profile.clone());
@@ -832,6 +912,133 @@ fn parse_percent(value: &str, fallback: u8) -> u8 {
         .unwrap_or(fallback)
 }
 
+fn optional_metadata(value: &str) -> Option<String> {
+    let value = value.trim();
+    (!value.is_empty()).then(|| value.to_string())
+}
+
+/// Normalize and validate the application ID entered in Settings before a
+/// request reaches the compositor. The compositor remains the final
+/// authority, but rejecting malformed input here avoids sending requests that
+/// cannot possibly succeed and keeps the UI state non-optimistic.
+fn parse_application_id_input(value: &str) -> Result<String, &'static str> {
+    if value.chars().any(char::is_control) {
+        return Err("INVALID APPLICATION ID");
+    }
+    let value = value.trim();
+    if value.is_empty() {
+        return Err("ENTER AN APPLICATION ID FIRST");
+    }
+    Ok(value.to_string())
+}
+
+/// Parse a Settings target against the latest compositor snapshot. Numeric
+/// targets are stable Space IDs, while `all` and `current` map directly to the
+/// wire protocol. Unknown or zero IDs are rejected before any IPC request is
+/// sent.
+fn parse_application_target_input(
+    value: &str,
+    snapshot: &SpacesSnapshot,
+) -> Result<SpaceTargetWire, &'static str> {
+    if value.chars().any(char::is_control) {
+        return Err("INVALID SPACE TARGET");
+    }
+    let value = value.trim();
+    if value.is_empty() {
+        return Err("ENTER A SPACE ID, ALL, OR CURRENT");
+    }
+    if value.eq_ignore_ascii_case("all") {
+        return Ok(SpaceTargetWire::All);
+    }
+    if value.eq_ignore_ascii_case("current") {
+        return Ok(SpaceTargetWire::Current);
+    }
+
+    let id = value.parse::<u64>().map_err(|_| "INVALID SPACE ID")?;
+    if id == 0 {
+        return Err("INVALID SPACE ID");
+    }
+    if !snapshot.spaces.iter().any(|space| space.id == id) {
+        return Err("UNKNOWN SPACE ID");
+    }
+    Ok(SpaceTargetWire::Id { id })
+}
+
+fn valid_spaces_snapshot(snapshot: &SpacesSnapshot) -> bool {
+    if snapshot.spaces.is_empty() || snapshot.active_space == 0 {
+        return false;
+    }
+    let mut rows = snapshot.spaces.iter().collect::<Vec<_>>();
+    rows.sort_by_key(|space| space.order);
+    if !rows
+        .iter()
+        .enumerate()
+        .all(|(index, space)| space.order == index && space.id != 0)
+    {
+        return false;
+    }
+    if rows.iter().filter(|space| space.active).count() != 1 {
+        return false;
+    }
+    if rows
+        .iter()
+        .filter(|space| space.id == snapshot.active_space)
+        .count()
+        != 1
+        || !rows
+            .iter()
+            .any(|space| space.id == snapshot.active_space && space.active)
+    {
+        return false;
+    }
+    let mut ids = std::collections::HashSet::new();
+    let mut names = std::collections::HashSet::new();
+    for space in rows {
+        if space.name.is_empty()
+            || space.name.trim() != space.name
+            || space.name.chars().any(char::is_control)
+            || !ids.insert(space.id)
+            || !names.insert(space.name.to_lowercase())
+        {
+            return false;
+        }
+        for value in [space.wallpaper.as_deref(), space.appearance.as_deref()]
+            .into_iter()
+            .flatten()
+        {
+            if value.is_empty() || value.trim() != value || value.chars().any(char::is_control) {
+                return false;
+            }
+        }
+        if let Some(output_id) = space.output_id.as_deref() {
+            if output_id.is_empty()
+                || output_id.trim() != output_id
+                || output_id.chars().any(char::is_control)
+            {
+                return false;
+            }
+        }
+    }
+    let outputs_valid = snapshot.multi_monitor_policy != SpacesDisplayPolicy::SharedSpan
+        || snapshot
+            .spaces
+            .iter()
+            .all(|space| space.output_id.is_none());
+    let mut application_ids = std::collections::HashSet::new();
+    let policies_valid = snapshot.application_policies.iter().all(|policy| {
+        !policy.app_id.is_empty()
+            && policy.app_id.trim() == policy.app_id
+            && !policy.app_id.chars().any(char::is_control)
+            && application_ids.insert(policy.app_id.as_str())
+            && match policy.target {
+                SpaceTargetWire::Id { id } => ids.contains(&id),
+                SpaceTargetWire::All => true,
+                SpaceTargetWire::Current => false,
+            }
+    });
+    outputs_valid && policies_valid
+}
+
 struct SettingsView {
     state: WidgetState,
     category_buttons: Vec<Button>,
@@ -843,6 +1050,22 @@ struct SettingsView {
     volume_slider: Slider,
     pointer_speed_label: Label,
     pointer_speed_slider: Slider,
+    spaces_snapshot: Option<SpacesSnapshot>,
+    spaces_rows: Vec<(u64, Button)>,
+    spaces_action_buttons: Vec<Button>,
+    spaces_policy_buttons: Vec<Button>,
+    spaces_classification_button: Button,
+    spaces_name_field: TextField,
+    spaces_wallpaper_field: TextField,
+    spaces_appearance_field: TextField,
+    spaces_output_field: TextField,
+    /// Application-ID policy editor. The compositor remains authoritative;
+    /// these controls only send typed requests and render snapshot readback.
+    spaces_application_id_field: TextField,
+    spaces_application_target_field: TextField,
+    spaces_application_apply_button: Button,
+    spaces_application_policy_rows: Vec<Button>,
+    spaces_feedback: Option<String>,
     selected_category: Category,
     settings: SettingsState,
     store: SettingsStore,
@@ -861,13 +1084,42 @@ impl SettingsView {
                 .map(|category| Button::new(category.label()))
                 .collect(),
             heading: Label::new("APPEARANCE"),
-            description: Label::new("Choose how RetroShell draws native windows and apps."),
+            description: Label::new("Choose how SLOPOS-I draws native windows and apps."),
             status: Label::new(""),
             option_buttons: Vec::new(),
             volume_label: Label::new("VOLUME"),
             volume_slider: Slider::new(),
             pointer_speed_label: Label::new("POINTER SPEED"),
             pointer_speed_slider: Slider::new(),
+            spaces_snapshot: None,
+            spaces_rows: Vec::new(),
+            spaces_action_buttons: vec![
+                Button::new("Create"),
+                Button::new("Rename Active"),
+                Button::new("Move Up"),
+                Button::new("Move Down"),
+                Button::new("Remove Active"),
+                Button::new("Apply Metadata"),
+                Button::new("Assign Output"),
+                Button::new("Clear Output"),
+                Button::new("Move Active Window to Output"),
+            ],
+            spaces_policy_buttons: vec![
+                Button::new("Shared Across Displays"),
+                Button::new("Independent Per Display"),
+            ],
+            spaces_classification_button: Button::new("Toggle Fullscreen Policy"),
+            spaces_name_field: TextField::new().with_placeholder("Space name"),
+            spaces_wallpaper_field: TextField::new().with_placeholder("Wallpaper path (optional)"),
+            spaces_appearance_field: TextField::new().with_placeholder("Appearance (optional)"),
+            spaces_output_field: TextField::new().with_placeholder("Output ID (e.g. DP-1)"),
+            spaces_application_id_field: TextField::new()
+                .with_placeholder("Application ID (e.g. org.example.Editor)"),
+            spaces_application_target_field: TextField::new()
+                .with_placeholder("Space ID, all, or current"),
+            spaces_application_apply_button: Button::new("Apply"),
+            spaces_application_policy_rows: Vec::new(),
+            spaces_feedback: None,
             selected_category: Category::Appearance,
             settings,
             store,
@@ -875,6 +1127,7 @@ impl SettingsView {
             focus: FocusManager::new(),
             pointer: PointerDispatcher::new(),
         };
+        view.refresh_spaces_snapshot();
         view.refresh_labels();
         view
     }
@@ -933,56 +1186,421 @@ impl SettingsView {
         self.status.text = format!(
             "{}{}",
             self.settings.status_line(self.selected_category),
-            error
+            if self.selected_category == Category::Spaces {
+                self.spaces_feedback
+                    .as_deref()
+                    .map(|feedback| format!(" - {feedback}"))
+                    .unwrap_or_default()
+            } else {
+                error
+            }
         );
+        if self.selected_category == Category::Spaces {
+            self.refresh_spaces_controls();
+            self.relayout_if_visible();
+        }
+    }
+
+    fn refresh_spaces_snapshot(&mut self) {
+        let Ok(snapshot) = read_spaces_snapshot() else {
+            if self.selected_category != Category::Spaces {
+                return;
+            }
+            let changed = self.spaces_snapshot.take().is_some()
+                || self.spaces_feedback.as_deref() != Some("NO LIVE COMPOSITOR SESSION");
+            self.spaces_feedback = Some("NO LIVE COMPOSITOR SESSION".to_string());
+            if changed {
+                self.refresh_spaces_controls();
+                self.refresh_labels();
+            }
+            return;
+        };
+        if !valid_spaces_snapshot(&snapshot) {
+            let changed = self.spaces_snapshot.take().is_some()
+                || self.spaces_feedback.as_deref() != Some("INVALID COMPOSITOR SNAPSHOT");
+            self.spaces_feedback = Some("INVALID COMPOSITOR SNAPSHOT".to_string());
+            if changed {
+                self.refresh_spaces_controls();
+                self.refresh_labels();
+            }
+            return;
+        }
+        let changed = self.spaces_snapshot.as_ref() != Some(&snapshot);
+        self.spaces_snapshot = Some(snapshot);
+        if changed {
+            self.spaces_feedback = None;
+            self.refresh_spaces_controls();
+            self.refresh_labels();
+        }
+    }
+
+    fn refresh_spaces_controls(&mut self) {
+        let Some(snapshot) = self.spaces_snapshot.as_ref() else {
+            self.spaces_rows.clear();
+            self.spaces_application_policy_rows.clear();
+            self.spaces_classification_button.set_enabled(false);
+            for button in &mut self.spaces_action_buttons {
+                button.set_enabled(false);
+            }
+            for button in &mut self.spaces_policy_buttons {
+                button.set_enabled(false);
+            }
+            self.spaces_application_apply_button.set_enabled(false);
+            return;
+        };
+
+        self.spaces_rows = snapshot
+            .spaces
+            .iter()
+            .map(|space| {
+                let active = if space.active { " *" } else { "" };
+                let output = space
+                    .output_id
+                    .as_deref()
+                    .map(|output| format!(" @ {output}"))
+                    .unwrap_or_default();
+                (
+                    space.id,
+                    Button::new(format!(
+                        "{}  {}{}{}  ({} windows)",
+                        space.order + 1,
+                        space.name,
+                        active,
+                        output,
+                        space.window_count
+                    )),
+                )
+            })
+            .collect();
+
+        let active = snapshot.spaces.iter().find(|space| space.active);
+        let has_active = active.is_some();
+        for button in &mut self.spaces_action_buttons {
+            button.set_enabled(has_active);
+        }
+        self.spaces_action_buttons[4].set_enabled(snapshot.spaces.len() > 1 && has_active);
+        self.spaces_action_buttons[6].set_enabled(
+            has_active
+                && snapshot.multi_monitor_policy == SpacesDisplayPolicy::IndependentPerDisplay,
+        );
+        self.spaces_action_buttons[7].set_enabled(has_active);
+        self.spaces_action_buttons[8].set_enabled(has_active);
+        self.spaces_classification_button.set_enabled(has_active);
+        self.spaces_classification_button
+            .set_label(match active.map(|s| s.classification) {
+                Some(SpaceClassification::Fullscreen) => "Use Normal Space Policy",
+                _ => "Use Fullscreen Space Policy",
+            });
+        for (button, policy) in self.spaces_policy_buttons.iter_mut().zip([
+            SpacesDisplayPolicy::SharedSpan,
+            SpacesDisplayPolicy::IndependentPerDisplay,
+        ]) {
+            button.set_enabled(true);
+            button.checked = snapshot.multi_monitor_policy == policy;
+            button.set_label(match policy {
+                SpacesDisplayPolicy::SharedSpan => {
+                    if button.checked {
+                        "Shared Across Displays *"
+                    } else {
+                        "Shared Across Displays"
+                    }
+                }
+                SpacesDisplayPolicy::IndependentPerDisplay => {
+                    if button.checked {
+                        "Independent Per Display *"
+                    } else {
+                        "Independent Per Display"
+                    }
+                }
+            });
+        }
+
+        // Application policies are authoritative readback. Keep the editor
+        // enabled only when a valid active Space exists; all input is parsed
+        // against this snapshot before a typed request is sent.
+        self.spaces_application_apply_button.set_enabled(has_active);
+        self.spaces_application_policy_rows = snapshot
+            .application_policies
+            .iter()
+            .map(|policy| {
+                let target = match policy.target {
+                    SpaceTargetWire::Id { id } => format!("Space {id}"),
+                    SpaceTargetWire::All => "All Spaces".to_string(),
+                    // valid_spaces_snapshot rejects Current in readback, but
+                    // retain a safe label if an older producer sends it.
+                    SpaceTargetWire::Current => "Active Space (clear)".to_string(),
+                };
+                let mut button = Button::new(format!("{}  →  {}", policy.app_id, target));
+                // Readback rows are informational, not mutation controls.
+                button.set_enabled(false);
+                button
+            })
+            .collect();
+    }
+
+    fn send_spaces_command(&mut self, command: SpacesControlCommand) -> bool {
+        let request = SessionControlRequest::Spaces { command };
+        match send_session_control(&request) {
+            Ok(()) => {
+                self.spaces_feedback = Some("REQUEST SENT — waiting for compositor".to_string());
+                self.refresh_labels();
+                true
+            }
+            Err(error) => {
+                self.spaces_feedback = Some(format!("REQUEST FAILED: {error}"));
+                self.refresh_labels();
+                false
+            }
+        }
+    }
+
+    fn process_spaces_action(&mut self, index: usize) {
+        let Some(snapshot) = self.spaces_snapshot.clone() else {
+            self.spaces_feedback = Some("NO LIVE COMPOSITOR SESSION".to_string());
+            self.refresh_labels();
+            return;
+        };
+        let Some(active) = snapshot.spaces.iter().find(|space| space.active) else {
+            self.spaces_feedback = Some("SNAPSHOT HAS NO ACTIVE SPACE".to_string());
+            self.refresh_labels();
+            return;
+        };
+        if index == 5 {
+            let wallpaper = optional_metadata(self.spaces_wallpaper_field.text());
+            let appearance = optional_metadata(self.spaces_appearance_field.text());
+            if wallpaper.is_none() && appearance.is_none() {
+                self.spaces_feedback = Some("ENTER WALLPAPER OR APPEARANCE FIRST".to_string());
+                self.refresh_labels();
+                return;
+            }
+            let mut sent = true;
+            if wallpaper.is_some() {
+                sent &= self.send_spaces_command(SpacesControlCommand::SetWallpaper {
+                    id: active.id,
+                    wallpaper,
+                });
+            }
+            if let Some(appearance) = appearance {
+                sent &= self.send_spaces_command(SpacesControlCommand::SetAppearance {
+                    id: active.id,
+                    appearance: Some(appearance),
+                });
+            }
+            if sent {
+                self.spaces_feedback = Some("METADATA REQUESTED".to_string());
+                self.refresh_labels();
+            }
+            return;
+        }
+        if index == 6 {
+            let output_id = self.spaces_output_field.text().trim();
+            if output_id.is_empty() {
+                self.spaces_feedback = Some("ENTER AN OUTPUT ID FIRST".to_string());
+                self.refresh_labels();
+                return;
+            }
+            let _ = self.send_spaces_command(SpacesControlCommand::AssignOutput {
+                id: active.id,
+                output_id: Some(output_id.to_string()),
+            });
+            return;
+        }
+        if index == 7 {
+            let _ = self.send_spaces_command(SpacesControlCommand::AssignOutput {
+                id: active.id,
+                output_id: None,
+            });
+            return;
+        }
+        if index == 8 {
+            let output_id = self.spaces_output_field.text().trim();
+            if output_id.is_empty() {
+                self.spaces_feedback = Some("ENTER AN OUTPUT ID FIRST".to_string());
+                self.refresh_labels();
+                return;
+            }
+            if output_id.chars().any(char::is_control) {
+                self.spaces_feedback = Some("INVALID OUTPUT ID".to_string());
+                self.refresh_labels();
+                return;
+            }
+            let _ = self.send_spaces_command(SpacesControlCommand::MoveActiveWindowToOutput {
+                output_id: output_id.to_string(),
+            });
+            return;
+        }
+        let command = match index {
+            0 => {
+                let name = self.spaces_name_field.text().trim();
+                if name.is_empty() {
+                    self.spaces_feedback = Some("ENTER A SPACE NAME FIRST".to_string());
+                    self.refresh_labels();
+                    return;
+                }
+                SpacesControlCommand::Create {
+                    name: name.to_string(),
+                }
+            }
+            1 => {
+                let name = self.spaces_name_field.text().trim();
+                if name.is_empty() {
+                    self.spaces_feedback = Some("ENTER A SPACE NAME FIRST".to_string());
+                    self.refresh_labels();
+                    return;
+                }
+                SpacesControlCommand::Rename {
+                    id: active.id,
+                    name: name.to_string(),
+                }
+            }
+            2 if active.order > 0 => SpacesControlCommand::Reorder {
+                id: active.id,
+                order: active.order - 1,
+            },
+            3 if active.order + 1 < snapshot.spaces.len() => SpacesControlCommand::Reorder {
+                id: active.id,
+                order: active.order + 1,
+            },
+            4 if snapshot.spaces.len() > 1 => SpacesControlCommand::Remove { id: active.id },
+            _ => return,
+        };
+        let _ = self.send_spaces_command(command);
+    }
+
+    fn process_spaces_classification(&mut self) {
+        let Some(snapshot) = self.spaces_snapshot.as_ref() else {
+            return;
+        };
+        let Some(active) = snapshot.spaces.iter().find(|space| space.active) else {
+            return;
+        };
+        let classification = match active.classification {
+            SpaceClassification::Normal => SpaceClassification::Fullscreen,
+            SpaceClassification::Fullscreen => SpaceClassification::Normal,
+        };
+        let _ = self.send_spaces_command(SpacesControlCommand::SetClassification {
+            id: active.id,
+            classification,
+        });
+    }
+
+    fn process_spaces_application_policy(&mut self) {
+        let Some(snapshot) = self.spaces_snapshot.clone() else {
+            self.spaces_feedback = Some("NO LIVE COMPOSITOR SESSION".to_string());
+            self.refresh_labels();
+            return;
+        };
+        let app_id = match parse_application_id_input(self.spaces_application_id_field.text()) {
+            Ok(app_id) => app_id,
+            Err(feedback) => {
+                self.spaces_feedback = Some(feedback.to_string());
+                self.refresh_labels();
+                return;
+            }
+        };
+        let target = match parse_application_target_input(
+            self.spaces_application_target_field.text(),
+            &snapshot,
+        ) {
+            Ok(target) => target,
+            Err(feedback) => {
+                self.spaces_feedback = Some(feedback.to_string());
+                self.refresh_labels();
+                return;
+            }
+        };
+        let _ =
+            self.send_spaces_command(SpacesControlCommand::SetApplicationPolicy { app_id, target });
+    }
+
+    fn process_spaces_policy(&mut self, index: usize) {
+        let policy = match index {
+            0 => SpacesDisplayPolicy::SharedSpan,
+            1 => SpacesDisplayPolicy::IndependentPerDisplay,
+            _ => return,
+        };
+        let _ = self.send_spaces_command(SpacesControlCommand::SetMultiMonitorPolicy { policy });
+    }
+
+    fn select_space_from_settings(&mut self, index: usize) {
+        let Some((id, _)) = self.spaces_rows.get(index) else {
+            return;
+        };
+        let _ = self.send_spaces_command(SpacesControlCommand::Select { id: *id });
     }
 
     fn select_category(&mut self, category: Category) {
         self.selected_category = category;
         self.last_error = None;
+        if category == Category::Spaces {
+            self.refresh_spaces_snapshot();
+        }
         self.refresh_labels();
         self.relayout_if_visible();
     }
 
     fn apply_choice(&mut self, choice: Choice) -> bool {
-        self.settings.apply_choice(choice);
-        match self.store.save(&self.settings) {
+        let previous = self.settings.clone();
+        let mut candidate = previous.clone();
+        candidate.apply_choice(choice);
+
+        // Topology changes are an end-to-end compositor operation.  Do not
+        // mutate the UI mirror or persist the preference until the typed
+        // request has at least reached the exact session socket.
+        if choice.is_display_topology() {
+            if let Err(error) = candidate.display_config().apply_arrangement_session(&[]) {
+                self.last_error = Some(format!("DISPLAY APPLY {error}"));
+                self.refresh_labels();
+                self.relayout_if_visible();
+                return false;
+            }
+        }
+
+        // Runtime display policy is compositor-authoritative too. Send the
+        // typed request before persistence, and refuse to save when the live
+        // session is unavailable or its published capabilities reject it.
+        if choice.is_display_policy() {
+            if let Err(error) = candidate.display_config().apply_policy_session() {
+                self.last_error = Some(format!("DISPLAY POLICY APPLY {error}"));
+                self.refresh_labels();
+                self.relayout_if_visible();
+                return false;
+            }
+        }
+
+        match self.store.save(&candidate) {
             Ok(()) => {
-                // Display pane: plan arrangement + apply RETROSHELL_OUTPUTS_LAYOUT env.
-                if matches!(
-                    choice,
-                    Choice::HdrOff
-                        | Choice::HdrOn
-                        | Choice::VrrOff
-                        | Choice::VrrAdaptive
-                        | Choice::Refresh60
-                        | Choice::Refresh120
-                        | Choice::RefreshAdaptive
-                        | Choice::ColorSrgb
-                        | Choice::ColorRec2020
-                        | Choice::ArrangeExtendRight
-                        | Choice::ArrangeExtendDown
-                        | Choice::ArrangeMirror
-                        | Choice::ArrangePrimaryOnly
-                        | Choice::Scale100
-                        | Choice::Scale150
-                        | Choice::Scale200
-                ) {
-                    match self.settings.display_config().apply_arrangement_env(&[]) {
-                        Ok(_) => self.last_error = None,
-                        Err(err) => {
-                            self.last_error = Some(format!("DISPLAY APPLY {err}"));
-                        }
-                    }
-                } else {
-                    self.last_error = None;
-                }
+                self.settings = candidate;
+                self.last_error = None;
                 self.refresh_labels();
                 self.relayout_if_visible();
                 true
             }
-            Err(err) => {
-                self.last_error = Some(format!("SAVE FAILED {err}"));
+            Err(error) => {
+                // The compositor may already have accepted the topology.  Try
+                // to restore the previous plan before exposing the save error
+                // to the user; either way, keep the in-memory/config state at
+                // the last known persisted value.
+                if choice.is_display_topology() {
+                    let rollback = previous.display_config().apply_arrangement_session(&[]);
+                    if let Err(rollback_error) = rollback {
+                        self.last_error = Some(format!(
+                            "SAVE FAILED {error}; DISPLAY ROLLBACK FAILED {rollback_error}"
+                        ));
+                    } else {
+                        self.last_error = Some(format!("SAVE FAILED {error}"));
+                    }
+                } else if choice.is_display_policy() {
+                    if let Err(rollback_error) = previous.display_config().apply_policy_session() {
+                        self.last_error = Some(format!(
+                            "SAVE FAILED {error}; DISPLAY POLICY ROLLBACK FAILED {rollback_error}"
+                        ));
+                    } else {
+                        self.last_error = Some(format!("SAVE FAILED {error}"));
+                    }
+                } else {
+                    self.last_error = Some(format!("SAVE FAILED {error}"));
+                }
                 self.refresh_labels();
                 self.relayout_if_visible();
                 false
@@ -1008,7 +1626,11 @@ impl SettingsView {
 
         match self.store.save(&self.settings) {
             Ok(()) => {
-                if self.last_error.as_deref().is_none_or(|e| !e.starts_with("VOLUME APPLY")) {
+                if self
+                    .last_error
+                    .as_deref()
+                    .is_none_or(|e| !e.starts_with("VOLUME APPLY"))
+                {
                     self.last_error = None;
                 }
                 self.refresh_labels();
@@ -1043,6 +1665,41 @@ impl SettingsView {
             self.select_category(Category::ALL[index]);
             return;
         }
+        if self.selected_category == Category::Spaces {
+            if let Some(index) = self
+                .spaces_rows
+                .iter_mut()
+                .position(|(_, button)| button.take_clicked())
+            {
+                self.select_space_from_settings(index);
+                return;
+            }
+            if let Some(index) = self
+                .spaces_action_buttons
+                .iter_mut()
+                .position(|button| button.take_clicked())
+            {
+                self.process_spaces_action(index);
+                return;
+            }
+            if let Some(index) = self
+                .spaces_policy_buttons
+                .iter_mut()
+                .position(|button| button.take_clicked())
+            {
+                self.process_spaces_policy(index);
+                return;
+            }
+            if self.spaces_classification_button.take_clicked() {
+                self.process_spaces_classification();
+                return;
+            }
+            if self.spaces_application_apply_button.take_clicked() {
+                self.process_spaces_application_policy();
+                return;
+            }
+            return;
+        }
         if let Some(index) = self
             .option_buttons
             .iter_mut()
@@ -1067,6 +1724,81 @@ impl SettingsView {
         };
         if changed {
             self.save_slider_value();
+        }
+    }
+
+    fn layout_spaces_controls(&mut self, content_x: f32, content_w: f32, mut y: f32, bottom: f32) {
+        let field_w = (content_w - 12.0).clamp(220.0, 520.0);
+        for field in [
+            &mut self.spaces_name_field,
+            &mut self.spaces_wallpaper_field,
+            &mut self.spaces_appearance_field,
+            &mut self.spaces_output_field,
+            &mut self.spaces_application_id_field,
+            &mut self.spaces_application_target_field,
+        ] {
+            field.set_expands_horizontally(true);
+            field.set_rect(Rect::new(content_x, y, field_w, 28.0));
+            let _ = field.layout(LayoutConstraint::tight(Size::new(field_w, 28.0)));
+            y += 34.0;
+        }
+
+        let button_w = ((content_w - 12.0) / 2.0).clamp(132.0, 240.0);
+        for (index, button) in self.spaces_action_buttons.iter_mut().enumerate() {
+            let col = index % 2;
+            let row = index / 2;
+            let x = content_x + col as f32 * (button_w + 12.0);
+            let button_y = y + row as f32 * 34.0;
+            button.set_rect(Rect::new(x, button_y, button_w, 28.0));
+            let _ = button.layout(LayoutConstraint::tight(Size::new(button_w, 28.0)));
+        }
+        y += self.spaces_action_buttons.len().div_ceil(2) as f32 * 34.0 + 4.0;
+
+        for (index, button) in self.spaces_policy_buttons.iter_mut().enumerate() {
+            let x = content_x + index as f32 * (button_w + 12.0);
+            button.set_rect(Rect::new(x, y, button_w, 28.0));
+            let _ = button.layout(LayoutConstraint::tight(Size::new(button_w, 28.0)));
+        }
+        y += 34.0;
+
+        self.spaces_classification_button
+            .set_rect(Rect::new(content_x, y, button_w, 28.0));
+        let _ = self
+            .spaces_classification_button
+            .layout(LayoutConstraint::tight(Size::new(button_w, 28.0)));
+        y += 34.0;
+
+        self.spaces_application_apply_button
+            .set_rect(Rect::new(content_x, y, button_w, 28.0));
+        let _ = self
+            .spaces_application_apply_button
+            .layout(LayoutConstraint::tight(Size::new(button_w, 28.0)));
+        y += 34.0;
+
+        for (_, button) in &mut self.spaces_rows {
+            button.set_rect(Rect::new(content_x, y, content_w.min(520.0), 28.0));
+            let _ = button.layout(LayoutConstraint::tight(Size::new(
+                content_w.min(520.0),
+                28.0,
+            )));
+            y += 32.0;
+            if y > bottom - 48.0 {
+                button.set_enabled(false);
+            }
+        }
+
+        // These rows are a read-only projection of the compositor's stored
+        // application policies. Give them real geometry so the authoritative
+        // readback is visible instead of merely being present in the widget
+        // tree with the default zero-sized rectangle.
+        for button in &mut self.spaces_application_policy_rows {
+            button.set_enabled(false);
+            button.set_rect(Rect::new(content_x, y, content_w.min(520.0), 28.0));
+            let _ = button.layout(LayoutConstraint::tight(Size::new(
+                content_w.min(520.0),
+                28.0,
+            )));
+            y += 32.0;
         }
     }
 }
@@ -1110,6 +1842,20 @@ impl Widget for SettingsView {
             .description
             .layout(LayoutConstraint::tight(Size::new(content_w, 44.0)));
         content_y += 56.0;
+
+        if self.selected_category == Category::Spaces {
+            self.layout_spaces_controls(content_x, content_w, content_y, rect.y + rect.height);
+            self.status.set_rect(Rect::new(
+                content_x,
+                rect.y + rect.height - 36.0,
+                content_w,
+                24.0,
+            ));
+            let _ = self
+                .status
+                .layout(LayoutConstraint::tight(Size::new(content_w, 24.0)));
+            return size;
+        }
 
         let button_w = (content_w / 2.0 - 8.0).clamp(132.0, 220.0);
         for (index, button) in self.option_buttons.iter_mut().enumerate() {
@@ -1173,6 +1919,30 @@ impl Widget for SettingsView {
         }
         self.heading.draw(theme);
         self.description.draw(theme);
+        if self.selected_category == Category::Spaces {
+            self.spaces_name_field.draw(theme);
+            self.spaces_wallpaper_field.draw(theme);
+            self.spaces_appearance_field.draw(theme);
+            self.spaces_output_field.draw(theme);
+            self.spaces_application_id_field.draw(theme);
+            self.spaces_application_target_field.draw(theme);
+            for button in &self.spaces_action_buttons {
+                button.draw(theme);
+            }
+            for button in &self.spaces_policy_buttons {
+                button.draw(theme);
+            }
+            self.spaces_classification_button.draw(theme);
+            self.spaces_application_apply_button.draw(theme);
+            for (_, button) in &self.spaces_rows {
+                button.draw(theme);
+            }
+            for button in &self.spaces_application_policy_rows {
+                button.draw(theme);
+            }
+            self.status.draw(theme);
+            return;
+        }
         for button in &self.option_buttons {
             button.draw(theme);
         }
@@ -1237,6 +2007,9 @@ impl Widget for SettingsView {
     }
 
     fn update(&mut self) {
+        if self.selected_category == Category::Spaces {
+            self.refresh_spaces_snapshot();
+        }
         for button in &mut self.category_buttons {
             button.update();
         }
@@ -1249,11 +2022,36 @@ impl Widget for SettingsView {
         self.volume_slider.update();
         self.pointer_speed_label.update();
         self.pointer_speed_slider.update();
+        self.spaces_name_field.update();
+        self.spaces_wallpaper_field.update();
+        self.spaces_appearance_field.update();
+        self.spaces_output_field.update();
+        self.spaces_application_id_field.update();
+        self.spaces_application_target_field.update();
+        for (_, button) in &mut self.spaces_rows {
+            button.update();
+        }
+        for button in &mut self.spaces_action_buttons {
+            button.update();
+        }
+        for button in &mut self.spaces_policy_buttons {
+            button.update();
+        }
+        self.spaces_classification_button.update();
+        self.spaces_application_apply_button.update();
         self.status.update();
     }
 
     fn accessibility(&self) -> Option<AccessibilityNode> {
-        None
+        // The SDK recursively projects this root through the live widget
+        // children below. Keeping the root semantic (rather than returning
+        // None) means Settings is discoverable before a category-specific
+        // control tree is selected and lets the sync path publish live
+        // focus, bounds and text changes for every visible control.
+        Some(AccessibilityNode::new(
+            AccessibilityRole::Window,
+            "Settings",
+        ))
     }
 
     fn children(&self) -> Vec<&dyn Widget> {
@@ -1274,6 +2072,28 @@ impl Widget for SettingsView {
             Category::Mouse => {
                 children.push(&self.pointer_speed_label);
                 children.push(&self.pointer_speed_slider);
+            }
+            Category::Spaces => {
+                children.push(&self.spaces_name_field);
+                children.push(&self.spaces_wallpaper_field);
+                children.push(&self.spaces_appearance_field);
+                children.push(&self.spaces_output_field);
+                children.push(&self.spaces_application_id_field);
+                children.push(&self.spaces_application_target_field);
+                for button in &self.spaces_action_buttons {
+                    children.push(button);
+                }
+                for button in &self.spaces_policy_buttons {
+                    children.push(button);
+                }
+                children.push(&self.spaces_classification_button);
+                children.push(&self.spaces_application_apply_button);
+                for (_, button) in &self.spaces_rows {
+                    children.push(button);
+                }
+                for button in &self.spaces_application_policy_rows {
+                    children.push(button);
+                }
             }
             _ => {}
         }
@@ -1300,6 +2120,28 @@ impl Widget for SettingsView {
                 children.push(&mut self.pointer_speed_label);
                 children.push(&mut self.pointer_speed_slider);
             }
+            Category::Spaces => {
+                children.push(&mut self.spaces_name_field);
+                children.push(&mut self.spaces_wallpaper_field);
+                children.push(&mut self.spaces_appearance_field);
+                children.push(&mut self.spaces_output_field);
+                children.push(&mut self.spaces_application_id_field);
+                children.push(&mut self.spaces_application_target_field);
+                for button in &mut self.spaces_action_buttons {
+                    children.push(button);
+                }
+                for button in &mut self.spaces_policy_buttons {
+                    children.push(button);
+                }
+                children.push(&mut self.spaces_classification_button);
+                children.push(&mut self.spaces_application_apply_button);
+                for (_, button) in &mut self.spaces_rows {
+                    children.push(button);
+                }
+                for button in &mut self.spaces_application_policy_rows {
+                    children.push(button);
+                }
+            }
             _ => {}
         }
         children.push(&mut self.status);
@@ -1318,12 +2160,15 @@ impl Widget for SettingsView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use retro_kit::event::MouseButton;
-    use retro_kit::Point;
+    use slopos_bus::SessionControlListener;
+    use slopos_kit::event::MouseButton;
+    use slopos_kit::Point;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Mutex;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
+    static SESSION_RUNTIME_ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn temp_settings_path() -> PathBuf {
         let unique = SystemTime::now()
@@ -1332,12 +2177,12 @@ mod tests {
             .as_nanos();
         let sequence = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir()
-            .join(format!("retroshell_settings_{unique}_{sequence}"))
+            .join(format!("slopos-i_settings_{unique}_{sequence}"))
             .join("settings.conf")
     }
 
     fn assert_handled(result: EventResult) {
-        assert!(matches!(result, EventResult::Handled));
+        assert!(matches!(result, EventResult::Handled), "result={result:?}");
     }
 
     fn mouse_down(point: Point) -> Event {
@@ -1360,8 +2205,22 @@ mod tests {
     /// happens on the release.
     fn click(view: &mut SettingsView, rect: Rect) {
         let point = Point::new(rect.x + 2.0, rect.y + 2.0);
-        assert_handled(view.handle_event(&mouse_down(point)));
-        assert_handled(view.handle_event(&mouse_up(point)));
+        let down = view.handle_event(&mouse_down(point));
+        assert!(
+            matches!(down, EventResult::Handled),
+            "down={down:?} rect={rect:?}"
+        );
+        let up = view.handle_event(&mouse_up(point));
+        assert!(
+            matches!(up, EventResult::Handled),
+            "up={up:?} rect={rect:?}"
+        );
+    }
+
+    fn click_and_report(view: &mut SettingsView, rect: Rect) -> bool {
+        let before = view.settings.clone();
+        click(view, rect);
+        view.settings != before
     }
 
     fn key_down(key: KeyCode, modifiers: Modifiers) -> Event {
@@ -1401,32 +2260,111 @@ mod tests {
         assert!(content.contains("scale_percent=200"));
     }
 
+    #[cfg(unix)]
     #[test]
-    fn settings_display_arrange_applies_env_on_save() {
+    fn settings_display_arrange_sends_typed_request_before_persisting() {
+        with_control_runtime(|_runtime, listener| {
+            let path = temp_settings_path();
+            let store = SettingsStore::new(path.clone());
+            let mut view = SettingsView::load(store);
+            view.select_category(Category::Display);
+            view.set_rect(Rect::new(0.0, 0.0, 640.0, 520.0));
+            view.layout(LayoutConstraint::tight(Size::new(640.0, 520.0)));
+
+            let mirror_rect = view
+                .option_buttons
+                .iter()
+                .find(|b| b.label.contains("Arrange Mirror"))
+                .expect("Arrange Mirror button")
+                .rect();
+            click(&mut view, mirror_rect);
+
+            let loaded = SettingsStore::new(path).load();
+            assert_eq!(loaded.arrange_mode, "mirror");
+            assert_eq!(view.settings.arrange_mode, "mirror");
+            assert!(view.status.text.contains("ARRANGE MIRROR"));
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::ReconfigureOutputs {
+                    layout: "eDP-1:1920x1080@0,0:s100".to_string()
+                }]
+            );
+
+            let layout = std::env::var("SLOPOS_OUTPUTS_LAYOUT")
+                .expect("successful typed apply mirrors the accepted layout");
+            assert!(layout.contains("eDP-1"), "layout={layout}");
+            std::env::remove_var("SLOPOS_OUTPUTS_LAYOUT");
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn settings_display_arrange_rolls_back_when_session_is_unavailable() {
+        let _environment_guard = SESSION_RUNTIME_ENV_LOCK.lock().unwrap();
+        let previous_runtime = std::env::var_os("SLOPOS_SESSION_RUNTIME_DIR");
+        std::env::remove_var("SLOPOS_SESSION_RUNTIME_DIR");
+        std::env::remove_var("SLOPOS_OUTPUTS_LAYOUT");
+
         let path = temp_settings_path();
-        let store = SettingsStore::new(path.clone());
-        let mut view = SettingsView::load(store);
+        let mut view = SettingsView::load(SettingsStore::new(path.clone()));
         view.select_category(Category::Display);
         view.set_rect(Rect::new(0.0, 0.0, 640.0, 520.0));
         view.layout(LayoutConstraint::tight(Size::new(640.0, 520.0)));
-
-        // Arrange Mirror is index 11 in Display choices (0-based after HDR/VRR/refresh/color).
         let mirror_rect = view
             .option_buttons
             .iter()
             .find(|b| b.label.contains("Arrange Mirror"))
             .expect("Arrange Mirror button")
             .rect();
-        click(&mut view, mirror_rect);
+        assert!(!view.settings.arrange_mode.eq("mirror"));
+        assert!(!click_and_report(&mut view, mirror_rect));
 
-        let loaded = SettingsStore::new(path).load();
-        assert_eq!(loaded.arrange_mode, "mirror");
-        assert!(view.status.text.contains("ARRANGE MIRROR"));
+        assert_eq!(view.settings.arrange_mode, "extend_right");
+        assert_eq!(SettingsStore::new(path).load().arrange_mode, "extend_right");
+        assert!(view.status.text.contains("DISPLAY APPLY"));
+        assert!(view.status.text.contains("session compositor unavailable"));
+        assert!(std::env::var_os("SLOPOS_OUTPUTS_LAYOUT").is_none());
 
-        let layout = std::env::var("RETROSHELL_OUTPUTS_LAYOUT")
-            .expect("apply_arrangement_env should set RETROSHELL_OUTPUTS_LAYOUT");
-        assert!(layout.contains("eDP-1"), "layout={layout}");
-        std::env::remove_var("RETROSHELL_OUTPUTS_LAYOUT");
+        if let Some(previous_runtime) = previous_runtime {
+            std::env::set_var("SLOPOS_SESSION_RUNTIME_DIR", previous_runtime);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn settings_display_arrange_rolls_back_compositor_when_persistence_fails() {
+        with_control_runtime(|_runtime, listener| {
+            let parent = temp_settings_path().with_extension("parent");
+            fs::create_dir_all(parent.parent().unwrap()).unwrap();
+            fs::write(&parent, "not a directory").unwrap();
+            let path = parent.join("settings.conf");
+            let mut view = SettingsView::load(SettingsStore::new(path));
+            view.select_category(Category::Display);
+            view.set_rect(Rect::new(0.0, 0.0, 640.0, 520.0));
+            view.layout(LayoutConstraint::tight(Size::new(640.0, 520.0)));
+            let mirror_rect = view
+                .option_buttons
+                .iter()
+                .find(|b| b.label.contains("Arrange Mirror"))
+                .expect("Arrange Mirror button")
+                .rect();
+
+            assert!(!click_and_report(&mut view, mirror_rect));
+            assert_eq!(view.settings.arrange_mode, "extend_right");
+            assert!(view.status.text.contains("SAVE FAILED"));
+            assert_eq!(
+                listener.drain(),
+                vec![
+                    SessionControlRequest::ReconfigureOutputs {
+                        layout: "eDP-1:1920x1080@0,0:s100".to_string()
+                    },
+                    SessionControlRequest::ReconfigureOutputs {
+                        layout: "eDP-1:1920x1080@0,0:s100".to_string()
+                    }
+                ]
+            );
+            let _ = fs::remove_file(parent);
+        });
     }
 
     #[test]
@@ -1521,7 +2459,10 @@ mod tests {
             .unwrap()
             .filter_map(|entry| entry.ok())
             .any(|entry| entry.file_name().to_string_lossy().contains(".tmp."));
-        assert!(!leftover_tmp, "atomic save must not leave temp files behind");
+        assert!(
+            !leftover_tmp,
+            "atomic save must not leave temp files behind"
+        );
     }
 
     #[test]
@@ -1588,19 +2529,21 @@ mod tests {
 
     #[test]
     fn settings_option_click_updates_and_saves_state() {
-        let path = temp_settings_path();
-        let store = SettingsStore::new(path.clone());
-        let mut view = SettingsView::load(store);
-        view.select_category(Category::Display);
-        view.set_rect(Rect::new(0.0, 0.0, 640.0, 420.0));
-        view.layout(LayoutConstraint::tight(Size::new(640.0, 420.0)));
+        with_control_runtime(|_runtime, _listener| {
+            let path = temp_settings_path();
+            let store = SettingsStore::new(path.clone());
+            let mut view = SettingsView::load(store);
+            view.select_category(Category::Display);
+            view.set_rect(Rect::new(0.0, 0.0, 640.0, 420.0));
+            view.layout(LayoutConstraint::tight(Size::new(640.0, 420.0)));
 
-        let hdr_rect = view.option_buttons[1].rect();
-        click(&mut view, hdr_rect);
+            let hdr_rect = view.option_buttons[1].rect();
+            click(&mut view, hdr_rect);
 
-        let loaded = SettingsStore::new(path).load();
-        assert!(loaded.hdr_requested);
-        assert!(view.status.text.contains("HDR REQUESTED"));
+            let loaded = SettingsStore::new(path).load();
+            assert!(loaded.hdr_requested);
+            assert!(view.status.text.contains("HDR REQUESTED"));
+        });
     }
 
     #[test]
@@ -1638,7 +2581,9 @@ mod tests {
         // Press on General, drag to Display, release: pointer capture sends
         // the release to General (outside its rect -> press cancelled), so
         // neither category activates.
-        assert_handled(view.handle_event(&mouse_down(Point::new(general.x + 2.0, general.y + 2.0))));
+        assert_handled(
+            view.handle_event(&mouse_down(Point::new(general.x + 2.0, general.y + 2.0))),
+        );
         let _ = view.handle_event(&mouse_up(Point::new(display.x + 2.0, display.y + 2.0)));
         assert_eq!(view.selected_category, Category::Appearance);
     }
@@ -1691,10 +2636,9 @@ mod tests {
             point: Point::new(slider.x - 200.0, slider.y + 150.0),
             modifiers: Modifiers::NONE,
         }));
-        assert_handled(view.handle_event(&mouse_up(Point::new(
-            slider.x - 200.0,
-            slider.y + 150.0,
-        ))));
+        assert_handled(
+            view.handle_event(&mouse_up(Point::new(slider.x - 200.0, slider.y + 150.0))),
+        );
 
         // Dragged all the way left of the track -> clamped to 0 and saved.
         let loaded = SettingsStore::new(path).load();
@@ -1721,5 +2665,440 @@ mod tests {
         let loaded = SettingsStore::new(path).load();
         assert_eq!(loaded.volume_percent, 100);
         assert!(view.status.text.contains("VOLUME 100%"));
+    }
+
+    #[cfg(unix)]
+    fn spaces_snapshot_for_settings() -> SpacesSnapshot {
+        SpacesSnapshot {
+            session_epoch: 7,
+            revision: 3,
+            active_space: 11,
+            multi_monitor_policy: SpacesDisplayPolicy::SharedSpan,
+            application_policies: Vec::new(),
+            spaces: vec![
+                slopos_bus::SpaceSnapshot {
+                    id: 11,
+                    order: 0,
+                    name: "Personal".to_string(),
+                    active: true,
+                    window_count: 1,
+                    wallpaper: None,
+                    appearance: None,
+                    classification: SpaceClassification::Normal,
+                    output_id: None,
+                },
+                slopos_bus::SpaceSnapshot {
+                    id: 22,
+                    order: 1,
+                    name: "Projects".to_string(),
+                    active: false,
+                    window_count: 2,
+                    wallpaper: None,
+                    appearance: None,
+                    classification: SpaceClassification::Normal,
+                    output_id: None,
+                },
+            ],
+        }
+    }
+
+    #[cfg(unix)]
+    fn with_control_runtime(test: impl FnOnce(&Path, &SessionControlListener)) {
+        let _environment_guard = SESSION_RUNTIME_ENV_LOCK.lock().unwrap();
+        let runtime = PathBuf::from("/tmp").join(format!(
+            "slo-s-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&runtime).unwrap();
+        let listener = SessionControlListener::bind(&runtime).unwrap();
+        let previous_runtime = std::env::var_os("SLOPOS_SESSION_RUNTIME_DIR");
+        std::env::set_var("SLOPOS_SESSION_RUNTIME_DIR", &runtime);
+        test(&runtime, &listener);
+        if let Some(previous_runtime) = previous_runtime {
+            std::env::set_var("SLOPOS_SESSION_RUNTIME_DIR", previous_runtime);
+        } else {
+            std::env::remove_var("SLOPOS_SESSION_RUNTIME_DIR");
+        }
+        drop(listener);
+        fs::remove_dir_all(runtime).unwrap();
+    }
+
+    #[cfg(unix)]
+    fn with_spaces_runtime(test: impl FnOnce(&Path, &SessionControlListener)) {
+        with_control_runtime(|runtime, listener| {
+            slopos_bus::write_spaces_snapshot(&spaces_snapshot_for_settings()).unwrap();
+            test(runtime, listener);
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn settings_spaces_sends_authoritative_mutations() {
+        with_spaces_runtime(|_runtime, listener| {
+            let mut view = SettingsView::load(SettingsStore::new(temp_settings_path()));
+            view.select_category(Category::Spaces);
+            view.set_rect(Rect::new(0.0, 0.0, 720.0, 720.0));
+            view.layout(LayoutConstraint::tight(Size::new(720.0, 720.0)));
+
+            view.spaces_name_field.set_text("Writing");
+            let rect = view.spaces_action_buttons[0].rect();
+            click(&mut view, rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::Create {
+                        name: "Writing".to_string()
+                    }
+                }]
+            );
+
+            let rect = view.spaces_action_buttons[1].rect();
+            click(&mut view, rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::Rename {
+                        id: 11,
+                        name: "Writing".to_string()
+                    }
+                }]
+            );
+
+            let rect = view.spaces_action_buttons[3].rect();
+            click(&mut view, rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::Reorder { id: 11, order: 1 }
+                }]
+            );
+
+            let rect = view.spaces_action_buttons[4].rect();
+            click(&mut view, rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::Remove { id: 11 }
+                }]
+            );
+
+            view.spaces_wallpaper_field.set_text("wallpaper.png");
+            view.spaces_appearance_field.set_text("graphite");
+            let rect = view.spaces_action_buttons[5].rect();
+            click(&mut view, rect);
+            assert_eq!(
+                listener.drain(),
+                vec![
+                    SessionControlRequest::Spaces {
+                        command: SpacesControlCommand::SetWallpaper {
+                            id: 11,
+                            wallpaper: Some("wallpaper.png".to_string())
+                        }
+                    },
+                    SessionControlRequest::Spaces {
+                        command: SpacesControlCommand::SetAppearance {
+                            id: 11,
+                            appearance: Some("graphite".to_string())
+                        }
+                    }
+                ]
+            );
+
+            let rect = view.spaces_policy_buttons[1].rect();
+            click(&mut view, rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::SetMultiMonitorPolicy {
+                        policy: SpacesDisplayPolicy::IndependentPerDisplay
+                    }
+                }]
+            );
+
+            let mut independent = spaces_snapshot_for_settings();
+            independent.multi_monitor_policy = SpacesDisplayPolicy::IndependentPerDisplay;
+            independent.revision = 4;
+            slopos_bus::write_spaces_snapshot(&independent).unwrap();
+            view.update();
+            view.spaces_output_field.set_text("DP-1");
+            let rect = view.spaces_action_buttons[6].rect();
+            click(&mut view, rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::AssignOutput {
+                        id: 11,
+                        output_id: Some("DP-1".to_string())
+                    }
+                }]
+            );
+
+            let rect = view.spaces_action_buttons[7].rect();
+            click(&mut view, rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::AssignOutput {
+                        id: 11,
+                        output_id: None
+                    }
+                }]
+            );
+
+            let rect = view.spaces_classification_button.rect();
+            click(&mut view, rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::SetClassification {
+                        id: 11,
+                        classification: SpaceClassification::Fullscreen
+                    }
+                }]
+            );
+
+            let rect = view.spaces_rows[1].1.rect();
+            click(&mut view, rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::Select { id: 22 }
+                }]
+            );
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn settings_spaces_moves_active_window_to_selected_output() {
+        with_spaces_runtime(|_runtime, listener| {
+            let mut snapshot = spaces_snapshot_for_settings();
+            snapshot.multi_monitor_policy = SpacesDisplayPolicy::IndependentPerDisplay;
+            snapshot.revision = 4;
+            slopos_bus::write_spaces_snapshot(&snapshot).unwrap();
+
+            let mut view = SettingsView::load(SettingsStore::new(temp_settings_path()));
+            view.select_category(Category::Spaces);
+            view.set_rect(Rect::new(0.0, 0.0, 720.0, 720.0));
+            view.layout(LayoutConstraint::tight(Size::new(720.0, 720.0)));
+
+            view.spaces_output_field.set_text("HDMI-A-1");
+            let move_rect = view.spaces_action_buttons[8].rect();
+            click(&mut view, move_rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::MoveActiveWindowToOutput {
+                        output_id: "HDMI-A-1".to_string(),
+                    },
+                }]
+            );
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn settings_spaces_rejects_empty_active_window_output_target() {
+        with_spaces_runtime(|_runtime, listener| {
+            let mut view = SettingsView::load(SettingsStore::new(temp_settings_path()));
+            view.select_category(Category::Spaces);
+            view.set_rect(Rect::new(0.0, 0.0, 720.0, 720.0));
+            view.layout(LayoutConstraint::tight(Size::new(720.0, 720.0)));
+
+            let move_rect = view.spaces_action_buttons[8].rect();
+            click(&mut view, move_rect);
+            assert!(listener.drain().is_empty());
+            assert!(view.status.text.contains("ENTER AN OUTPUT ID FIRST"));
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn settings_spaces_reconciles_new_compositor_snapshot() {
+        with_spaces_runtime(|runtime, _listener| {
+            let mut view = SettingsView::load(SettingsStore::new(temp_settings_path()));
+            view.select_category(Category::Spaces);
+            view.set_rect(Rect::new(0.0, 0.0, 720.0, 720.0));
+            view.layout(LayoutConstraint::tight(Size::new(720.0, 720.0)));
+            assert!(view.spaces_rows[0].1.label.contains("Personal"));
+
+            let mut next = spaces_snapshot_for_settings();
+            next.revision = 4;
+            next.active_space = 22;
+            next.spaces[0].active = false;
+            next.spaces[1].active = true;
+            next.spaces[1].name = "Renamed Projects".to_string();
+            next.application_policies = vec![slopos_bus::ApplicationSpacePolicySnapshot {
+                app_id: "org.example.Editor".to_string(),
+                target: SpaceTargetWire::Id { id: 22 },
+            }];
+            slopos_bus::write_spaces_snapshot(&next).unwrap();
+            view.update();
+
+            assert!(view.spaces_rows[1].1.label.contains("Renamed Projects"));
+            assert!(view.spaces_rows[1].1.label.contains(" *"));
+            assert_eq!(view.spaces_application_policy_rows.len(), 1);
+            assert!(view.spaces_application_policy_rows[0]
+                .label
+                .contains("org.example.Editor  →  Space 22"));
+            assert!(view.spaces_application_policy_rows[0].rect().width > 0.0);
+            assert!(view.status.text.contains("SPACES"));
+            assert!(runtime.join(slopos_bus::SPACES_STATE_FILE).exists());
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn settings_spaces_rejects_invalid_application_policy_projection() {
+        let mut snapshot = spaces_snapshot_for_settings();
+        snapshot.application_policies = vec![slopos_bus::ApplicationSpacePolicySnapshot {
+            app_id: "org.example.Editor".to_string(),
+            target: SpaceTargetWire::Id { id: 22 },
+        }];
+        assert!(valid_spaces_snapshot(&snapshot));
+
+        snapshot.application_policies[0].target = SpaceTargetWire::Current;
+        assert!(!valid_spaces_snapshot(&snapshot));
+        snapshot.application_policies[0].target = SpaceTargetWire::Id { id: 99 };
+        assert!(!valid_spaces_snapshot(&snapshot));
+        snapshot.application_policies[0].app_id = "org.example.\nEditor".to_string();
+        assert!(!valid_spaces_snapshot(&snapshot));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn settings_spaces_renders_application_policy_readback_rows() {
+        with_spaces_runtime(|_runtime, _listener| {
+            let mut snapshot = spaces_snapshot_for_settings();
+            snapshot.application_policies = vec![
+                slopos_bus::ApplicationSpacePolicySnapshot {
+                    app_id: "org.example.Editor".to_string(),
+                    target: SpaceTargetWire::Id { id: 22 },
+                },
+                slopos_bus::ApplicationSpacePolicySnapshot {
+                    app_id: "org.example.Terminal".to_string(),
+                    target: SpaceTargetWire::All,
+                },
+            ];
+            slopos_bus::write_spaces_snapshot(&snapshot).unwrap();
+
+            let mut view = SettingsView::load(SettingsStore::new(temp_settings_path()));
+            view.select_category(Category::Spaces);
+            view.set_rect(Rect::new(0.0, 0.0, 720.0, 720.0));
+            view.layout(LayoutConstraint::tight(Size::new(720.0, 720.0)));
+
+            assert_eq!(view.spaces_application_policy_rows.len(), 2);
+            assert!(view.spaces_application_policy_rows[0]
+                .label
+                .contains("org.example.Editor"));
+            assert!(view.spaces_application_policy_rows[0].rect().width > 0.0);
+            assert!(view.spaces_application_policy_rows[1]
+                .label
+                .contains("All Spaces"));
+            assert!(
+                view.spaces_application_policy_rows[1].rect().y
+                    > view.spaces_application_policy_rows[0].rect().y
+            );
+            assert!(
+                !view.spaces_application_policy_rows[0]
+                    .widget_state()
+                    .enabled
+            );
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn settings_spaces_application_policy_targets_id_all_and_current() {
+        with_spaces_runtime(|_runtime, listener| {
+            let mut view = SettingsView::load(SettingsStore::new(temp_settings_path()));
+            view.select_category(Category::Spaces);
+            view.set_rect(Rect::new(0.0, 0.0, 720.0, 720.0));
+            view.layout(LayoutConstraint::tight(Size::new(720.0, 720.0)));
+            view.spaces_application_id_field
+                .set_text("org.example.Editor");
+
+            view.spaces_application_target_field.set_text("22");
+            let apply_rect = view.spaces_application_apply_button.rect();
+            click(&mut view, apply_rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::SetApplicationPolicy {
+                        app_id: "org.example.Editor".to_string(),
+                        target: SpaceTargetWire::Id { id: 22 },
+                    }
+                }]
+            );
+
+            view.spaces_application_target_field.set_text("all");
+            let apply_rect = view.spaces_application_apply_button.rect();
+            click(&mut view, apply_rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::SetApplicationPolicy {
+                        app_id: "org.example.Editor".to_string(),
+                        target: SpaceTargetWire::All,
+                    }
+                }]
+            );
+
+            view.spaces_application_target_field.set_text(" current ");
+            let apply_rect = view.spaces_application_apply_button.rect();
+            click(&mut view, apply_rect);
+            assert_eq!(
+                listener.drain(),
+                vec![SessionControlRequest::Spaces {
+                    command: SpacesControlCommand::SetApplicationPolicy {
+                        app_id: "org.example.Editor".to_string(),
+                        target: SpaceTargetWire::Current,
+                    }
+                }]
+            );
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn settings_spaces_application_policy_rejects_invalid_input_without_request() {
+        with_spaces_runtime(|_runtime, listener| {
+            let mut view = SettingsView::load(SettingsStore::new(temp_settings_path()));
+            view.select_category(Category::Spaces);
+            view.set_rect(Rect::new(0.0, 0.0, 720.0, 720.0));
+            view.layout(LayoutConstraint::tight(Size::new(720.0, 720.0)));
+
+            view.spaces_application_id_field
+                .set_text("org.example.\nEditor");
+            view.spaces_application_target_field.set_text("all");
+            let apply_rect = view.spaces_application_apply_button.rect();
+            click(&mut view, apply_rect);
+            assert!(listener.drain().is_empty());
+            assert!(view.status.text.contains("INVALID APPLICATION ID"));
+
+            view.spaces_application_id_field.set_text("");
+            let apply_rect = view.spaces_application_apply_button.rect();
+            click(&mut view, apply_rect);
+            assert!(listener.drain().is_empty());
+            assert!(view.status.text.contains("ENTER AN APPLICATION ID"));
+
+            view.spaces_application_id_field
+                .set_text("org.example.Editor");
+            view.spaces_application_target_field.set_text("999");
+            let apply_rect = view.spaces_application_apply_button.rect();
+            click(&mut view, apply_rect);
+            assert!(listener.drain().is_empty());
+            assert!(view.status.text.contains("UNKNOWN SPACE ID"));
+
+            view.spaces_application_target_field.set_text(" ");
+            let apply_rect = view.spaces_application_apply_button.rect();
+            click(&mut view, apply_rect);
+            assert!(listener.drain().is_empty());
+            assert!(view.status.text.contains("ENTER A SPACE ID"));
+        });
     }
 }

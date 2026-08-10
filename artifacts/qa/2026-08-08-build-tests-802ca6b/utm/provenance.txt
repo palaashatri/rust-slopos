@@ -1,0 +1,10 @@
+commit=802ca6b4a0067d086a6cbf062e6ff1d6fe923ac1
+branch=
+vm=Ubuntu UTM
+ip=192.168.64.17
+user=ubuntu
+repo=/home/ubuntu/rust-slopos-qa-d1ea823
+started_utc=2026-08-08T17:17:05Z
+Filesystem                         Size  Used Avail Use% Mounted on
+/dev/mapper/ubuntu--vg-ubuntu--lv   48G   31G   15G  68% /
+completed_utc=2026-08-08T17:22:26Z

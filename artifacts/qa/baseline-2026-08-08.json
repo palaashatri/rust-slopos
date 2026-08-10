@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "product": "SLOPOS-I",
+  "branch": "docs/program-design",
+  "commit": "a688ba527495da2fd2172ab8ccc1effd9d631eed",
+  "captured_at": "2026-08-08",
+  "environment": {
+    "os": "Ubuntu 26.04 LTS",
+    "kernel": "Linux 7.0.0-29-generic",
+    "architecture": "aarch64",
+    "cargo": "1.93.1 (083ac5135 2025-12-15)",
+    "rustc": "1.93.1 (01f6ddf75 2026-02-11)",
+    "execution": "Ubuntu UTM guest"
+  },
+  "gates": [
+    {
+      "command": "cargo fmt --all -- --check",
+      "status": "passed",
+      "evidence_level": "build"
+    },
+    {
+      "command": "cargo check --workspace --all-targets --locked",
+      "status": "passed",
+      "evidence_level": "build"
+    },
+    {
+      "command": "cargo test --workspace --locked",
+      "status": "passed",
+      "evidence_level": "automated_test"
+    },
+    {
+      "command": "cargo clippy --workspace --all-targets --all-features --locked -- -D warnings",
+      "status": "passed",
+      "evidence_level": "automated_test"
+    },
+    {
+      "command": "cargo build --release --workspace --locked",
+      "status": "passed",
+      "evidence_level": "build"
+    },
+    {
+      "command": "bash scripts/verify-compositor-headless-runtime.sh",
+      "status": "passed",
+      "evidence_level": "runtime_observed",
+      "artifact": "2026-08-08-compositor-runtime-a688ba5/headless/a688ba527495da2fd2172ab8ccc1effd9d631eed.json"
+    },
+    {
+      "command": "bash scripts/verify-compositor-output-topology-runtime.sh",
+      "status": "passed",
+      "evidence_level": "runtime_observed",
+      "artifact": "2026-08-08-compositor-runtime-a688ba5/topology/a688ba527495da2fd2172ab8ccc1effd9d631eed.json"
+    }
+  ],
+  "limitations": [
+    "The Ubuntu UTM guest uses virtual/software-rendered output; no physical DRM/KMS hardware evidence is implied.",
+    "No physical input, display, GTK, Qt, Electron, XWayland compatibility, accessibility, packaging or long-soak evidence is implied by these gates.",
+    "The untracked task graph is part of this current work wave and is not product completion evidence."
+  ]
+}

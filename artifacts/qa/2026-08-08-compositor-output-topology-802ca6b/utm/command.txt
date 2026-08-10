@@ -1,0 +1,1 @@
+bash scripts/verify-compositor-output-topology-runtime.sh

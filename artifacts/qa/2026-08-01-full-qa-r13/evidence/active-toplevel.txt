@@ -1,0 +1,2 @@
+active-toplevel
+app_id=com.slopos.appstore

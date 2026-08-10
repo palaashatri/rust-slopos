@@ -1,0 +1,3 @@
+{"protocol_version":1,"payload":{"type":"capabilities","execution_mode":"local_only","model_provisioning":"imported_model_pack_only","supported_operations":["extract_text","lift_subject"]}}
+
+nc_exit=124

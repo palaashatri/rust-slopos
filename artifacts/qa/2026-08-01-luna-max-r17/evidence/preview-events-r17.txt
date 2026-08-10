@@ -1,0 +1,8 @@
+371:2026-08-01T17:51:12.643915Z  INFO wgpu_core::device::resource: Device::maintain: waiting for submission index 0
+372:2026-08-01T17:51:12.677607Z  INFO wgpu_core::device::resource: Device::maintain: waiting for submission index 0
+373:2026-08-01T17:51:13.067666Z  INFO wgpu_core::device::resource: Device::maintain: waiting for submission index 0
+374:2026-08-01T17:51:19.265599Z  INFO slopos_sdk: application handled global menu action bundle_id=com.slopos.preview...
+375:2026-08-01T17:51:19.478597Z  INFO wgpu_core::device::resource: Device::maintain: waiting for submission index 1
+376:2026-08-01T17:51:19.903342Z  INFO wgpu_core::device::resource: Device::maintain: waiting for submission index 2
+377:2026-08-01T17:53:14.916265Z  INFO wgpu_core::device::resource: Device::maintain: waiting for submission index 3
+[full output: ~/Library/Application Support/rtk/tee/1785606873_ssh_-i__Users_palaashatri__ssh_retroshel.log]

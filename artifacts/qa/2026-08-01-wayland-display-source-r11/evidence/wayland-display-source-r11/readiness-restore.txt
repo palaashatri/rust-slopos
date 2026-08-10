@@ -1,0 +1,7 @@
+/run/user/1000/slopos-i/session-18c7a75457923d78-238248/readiness
+---/run/user/1000/slopos-i/session-18c7a75457923d78-238248/readiness
+wayland-1
+pid=238250
+token=18c7a7545792c949-238248-238248
+width=1280
+height=800

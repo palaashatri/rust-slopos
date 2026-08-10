@@ -1,0 +1,1 @@
+readiness=/tmp/slopos-spaces-runtime.IBIXxt/readiness pid=384318 socket=wayland-1

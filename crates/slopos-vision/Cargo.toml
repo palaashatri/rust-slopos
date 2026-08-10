@@ -1,0 +1,20 @@
+[package]
+name = "slopos-vision"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Vision — local-first, on-device vision and image-processing library"
+
+[dependencies]
+image = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+rten = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+parking_lot = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

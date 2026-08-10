@@ -1,0 +1,1 @@
+readiness=/tmp/slopos-spaces-active-move.4goOjg/readiness pid=506366 socket=wayland-1

@@ -1,0 +1,21 @@
+runtime=/run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979
+drwx------ ubuntu ubuntu 280 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979
+-rw-rw-r-- ubuntu ubuntu 27 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/active-toplevel
+drwxrwxr-x ubuntu ubuntu 140 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/app-control
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/app-control/com.slopos.appstore.sock
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/app-control/com.slopos.settings.sock
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/app-control/com.slopos.terminal.sock
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/app-control/com.slopos.textedit.sock
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/app-control/com.slopos.finder.sock
+drwxrwxr-x ubuntu ubuntu 60 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/slopos-i
+drwxrwxr-x ubuntu ubuntu 140 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/slopos-i/menus
+-rw-rw-r-- ubuntu ubuntu 10 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/slopos-client-wayland-display
+-rw-rw-r-- ubuntu ubuntu 10 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/wayland-display
+-rw-rw-r-- ubuntu ubuntu 10 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/client-wayland-display
+-rw-rw-r-- ubuntu ubuntu 80 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/readiness
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/control.sock
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/wayland-1
+-rw-rw---- ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/wayland-1.lock
+-rw------- ubuntu ubuntu 30 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/token
+drwx------ ubuntu ubuntu 40 /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/logs
+socket=/run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/wayland-1 mode=775 inode=732 owner=ubuntu:ubuntu

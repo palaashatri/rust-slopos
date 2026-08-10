@@ -1,0 +1,4 @@
+runtime_dir=/tmp/slopos-spaces-app-policy-runtime.Mlc66u
+data_dir=/tmp/slopos-spaces-app-policy-data.c6HeA9
+wayland_display=wayland-1
+compositor_pid=426338

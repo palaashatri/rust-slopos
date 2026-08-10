@@ -1,0 +1,5 @@
+ 233918       1 S    bash -c cd /home/ubuntu/qa/2026-08-01-backend-transport-r10 && source /home/ubuntu/.cargo/env && mkdir -p evidence/wayland-display-source-r11 && env SLOPOS_START_APP=finder target/debug/slopos-session --backend drm > evidence/wayland-display-source-r11/session.log 2>&1 & session_pid=$!; echo $session_pid > evidence/wayland-display-source-r11/session.pid; echo session_pid=$session_pid
+ 233920  233918 S    target/debug/slopos-session --backend drm
+ 233921  233920 Sl   /home/ubuntu/qa/2026-08-01-backend-transport-r10/target/debug/slopos-compositor --backend drm
+ 233923  233920 Sl   /home/ubuntu/qa/2026-08-01-backend-transport-r10/target/debug/slopos-shell
+ 233934  233923 Sl   /home/ubuntu/qa/2026-08-01-backend-transport-r10/target/debug/finder

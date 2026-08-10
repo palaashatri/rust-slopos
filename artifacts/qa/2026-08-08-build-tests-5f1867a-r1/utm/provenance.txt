@@ -1,0 +1,8 @@
+remote_repo=/home/ubuntu/rust-slopos-qa-d1ea823
+commit=5f1867a1666e2f524a4146e2382300f013e9ebbe
+status=Linux ubuntu 7.0.0-29-generic #29-Ubuntu SMP PREEMPT_DYNAMIC Sat Jul 18 01:12:25 UTC 2026 aarch64 GNU/Linux
+Filesystem                         Size  Used Avail Use% Mounted on
+/dev/mapper/ubuntu--vg-ubuntu--lv   48G   39G  6.1G  87% /
+cargo=/usr/bin/cargo
+cargo 1.93.1 (083ac5135 2025-12-15) (built from a source tarball)
+rustc=rustc 1.93.1 (01f6ddf75 2026-02-11) (built from a source tarball)

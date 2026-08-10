@@ -1,10 +1,10 @@
-# Drive the unattended Arch install in the RetroShell VM.
+# Drive the unattended Arch install in the SLOPOS-I VM.
 #
 # archiso autologins to root on tty1. We serve arch-install.sh from the host
 # and type a single curl|bash line into the guest via keyboard scancodes;
 # everything after that is scripted inside the guest.
 param(
-    [string]$VmName    = "retroshell-arch",
+    [string]$VmName    = "slopos-i-arch",
     [string]$ScriptDir = "$PSScriptRoot",
     [int]$HttpPort     = 8000,
     [int]$BootWaitSec  = 75,

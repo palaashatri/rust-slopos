@@ -1,0 +1,2 @@
+cargo test -p slopos-kit workspace_grid_view --locked
+cargo test -p slopos-shell live_workspace_overview --locked

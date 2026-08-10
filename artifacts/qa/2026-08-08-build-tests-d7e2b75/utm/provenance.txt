@@ -1,0 +1,5 @@
+commit=d7e2b7533c35844ea2b47c5b0f9abb4d779cbb94
+vm=Ubuntu UTM
+ip=192.168.64.17
+user=ubuntu
+repo=/home/ubuntu/rust-slopos-qa-d1ea823

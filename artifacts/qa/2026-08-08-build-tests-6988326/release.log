@@ -1,0 +1,12 @@
+$ cargo build --release --workspace --locked
+   Compiling slopos-kit v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/crates/slopos-kit)
+   Compiling slopos-sdk v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/crates/slopos-sdk)
+   Compiling slopos-shell v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/crates/slopos-shell)
+   Compiling terminal v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/terminal)
+   Compiling preview v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/preview)
+   Compiling appstore v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/appstore)
+   Compiling textedit v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/textedit)
+   Compiling finder v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/finder)
+   Compiling settings v0.1.0 (/home/ubuntu/rust-slopos-qa-5577f36/apps/settings)
+    Finished `release` profile [optimized] target(s) in 27.16s
+exit=0

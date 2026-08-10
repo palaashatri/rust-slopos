@@ -1,0 +1,53 @@
+Script started on 2026-08-02 10:39:44+00:00 [COMMAND="cargo build -p slopos-session -p slopos-compositor -p slopos-shell -p finder -p settings -p terminal" <not executed on terminal>]
+   Compiling x11rb-protocol v0.13.2
+   Compiling wgpu-hal v22.0.0
+   Compiling toml_edit v0.22.27
+   Compiling cgmath v0.18.0
+   Compiling libseat v0.2.4
+   Compiling rand_chacha v0.9.0
+   Compiling udev v0.9.3
+   Compiling drm v0.14.1
+   Compiling gbm-sys v0.4.0
+   Compiling libseat-sys v0.2.0
+   Compiling input-sys v1.19.0
+   Compiling smithay v0.7.0
+   Compiling approx v0.4.0
+   Compiling input v0.9.1
+   Compiling rand v0.9.5
+   Compiling gbm v0.18.0
+   Compiling calloop v0.14.4
+   Compiling xkbcommon v0.8.0
+   Compiling wayland-protocols-misc v0.3.12
+   Compiling wayland-egl v0.32.11
+   Compiling encoding_rs v0.8.35
+   Compiling appendlist v1.4.0
+   Compiling atomic_float v1.1.0
+   Compiling vte_generate_state_changes v0.1.2
+   Compiling toml v0.8.23
+   Compiling utf8parse v0.2.2
+   Compiling nix v0.27.1
+   Compiling slopos-session v0.1.0 (/home/ubuntu/qa/2026-08-02-luna-max-r20-src/crates/slopos-session)
+   Compiling vte v0.11.1
+   Compiling wgpu-core v22.1.0
+   Compiling wgpu v22.1.0
+   Compiling x11rb v0.13.2
+   Compiling winit v0.30.13
+   Compiling slopos-render v0.1.0 (/home/ubuntu/qa/2026-08-02-luna-max-r20-src/crates/slopos-render)
+   Compiling slopos-kit v0.1.0 (/home/ubuntu/qa/2026-08-02-luna-max-r20-src/crates/slopos-kit)
+   Compiling slopos-sdk v0.1.0 (/home/ubuntu/qa/2026-08-02-luna-max-r20-src/crates/slopos-sdk)
+   Compiling slopos-shell v0.1.0 (/home/ubuntu/qa/2026-08-02-luna-max-r20-src/crates/slopos-shell)
+   Compiling finder v0.1.0 (/home/ubuntu/qa/2026-08-02-luna-max-r20-src/apps/finder)
+   Compiling terminal v0.1.0 (/home/ubuntu/qa/2026-08-02-luna-max-r20-src/apps/terminal)
+   Compiling settings v0.1.0 (/home/ubuntu/qa/2026-08-02-luna-max-r20-src/apps/settings)
+   Compiling slopos-compositor v0.1.0 (/home/ubuntu/qa/2026-08-02-luna-max-r20-src/crates/slopos-compositor)
+error[E0599]: no method named `surface_under` found for struct `smithay::wayland::shell::wlr_layer::LayerSurface` in the current scope
+    --> crates/slopos-compositor/src/session_drm.rs:2213:47
+     |
+2213 |         let (surface, origin) = layer.surface.surface_under(local, WindowSurfaceType::ALL)?;
+     |                                               ^^^^^^^^^^^^^ method not found in `smithay::wayland::shell::wlr_layer::LayerSurface`
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `slopos-compositor` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+
+Script done on 2026-08-02 10:44:33+00:00 [COMMAND_EXIT_CODE="101"]

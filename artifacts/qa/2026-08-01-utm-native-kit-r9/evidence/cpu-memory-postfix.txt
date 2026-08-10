@@ -1,0 +1,155 @@
+top - 09:09:09 up  7:13, 15 users,  load average: 0.12, 0.34, 0.44
+Tasks:   5 total,   0 running,   5 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  1.2 us,  0.0 sy,  0.0 ni, 98.8 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st 
+MiB Mem :   3379.8 total,    314.5 free,   1667.5 used,   2165.2 buff/cache     
+MiB Swap:   3891.0 total,   3799.9 free,     91.1 used.   1712.4 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 200692 ubuntu    20   0  421268  91300  70272 S   0.0   2.6   0:15.46 slopos-+
+ 200694 ubuntu    20   0 5955868 716676 329820 S   0.0  20.7   0:13.66 slopos-+
+ 200705 ubuntu    20   0 3145964 288372 129144 S   0.0   8.3   0:01.63 finder
+ 201075 ubuntu    20   0 3145908 232208 145276 S   0.0   6.7   0:00.90 settings
+ 201706 ubuntu    20   0 3195416 189572 117572 S   0.0   5.5   0:00.48 terminal
+
+top - 09:09:14 up  7:13, 15 users,  load average: 0.11, 0.34, 0.44
+Tasks:   5 total,   0 running,   5 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  0.9 us,  0.8 sy,  0.0 ni, 98.3 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st 
+MiB Mem :   3379.8 total,    312.0 free,   1670.0 used,   2165.2 buff/cache     
+MiB Swap:   3891.0 total,   3799.9 free,     91.1 used.   1709.8 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 200692 ubuntu    20   0  421268  91300  70272 S   7.6   2.6   0:15.84 slopos-+
+ 200694 ubuntu    20   0 5955848 716676 329820 S   0.8  20.7   0:13.70 slopos-+
+ 200705 ubuntu    20   0 3145964 288372 129144 S   0.0   8.3   0:01.63 finder
+ 201075 ubuntu    20   0 3145908 232208 145276 S   0.0   6.7   0:00.90 settings
+ 201706 ubuntu    20   0 3195416 189492 117492 S   0.0   5.5   0:00.48 terminal
+
+top - 09:09:19 up  7:13, 15 users,  load average: 0.10, 0.33, 0.44
+Tasks:   5 total,   0 running,   5 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  1.1 us,  0.1 sy,  0.0 ni, 98.7 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st 
+MiB Mem :   3379.8 total,    312.9 free,   1669.1 used,   2165.3 buff/cache     
+MiB Swap:   3891.0 total,   3799.9 free,     91.1 used.   1710.8 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 200692 ubuntu    20   0  421268  91300  70272 S   8.0   2.6   0:16.24 slopos-+
+ 200694 ubuntu    20   0 5955848 716676 329820 S   1.6  20.7   0:13.78 slopos-+
+ 200705 ubuntu    20   0 3145964 288372 129144 S   0.0   8.3   0:01.63 finder
+ 201075 ubuntu    20   0 3145908 232208 145276 S   0.0   6.7   0:00.90 settings
+ 201706 ubuntu    20   0 3195416 189492 117492 S   0.0   5.5   0:00.48 terminal
+
+top - 09:09:24 up  7:13, 15 users,  load average: 0.09, 0.33, 0.43
+Tasks:   5 total,   1 running,   4 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  1.1 us,  0.1 sy,  0.0 ni, 98.8 id,  0.1 wa,  0.0 hi,  0.0 si,  0.0 st 
+MiB Mem :   3379.8 total,    312.3 free,   1669.7 used,   2165.3 buff/cache     
+MiB Swap:   3891.0 total,   3799.9 free,     91.1 used.   1710.2 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 200692 ubuntu    20   0  421268  91300  70272 R   8.6   2.6   0:16.67 slopos-+
+ 200694 ubuntu    20   0 5955848 716676 329820 S   1.4  20.7   0:13.85 slopos-+
+ 200705 ubuntu    20   0 3145964 288372 129144 S   0.0   8.3   0:01.63 finder
+ 201075 ubuntu    20   0 3145908 232208 145276 S   0.0   6.7   0:00.90 settings
+ 201706 ubuntu    20   0 3195416 189492 117492 S   0.0   5.5   0:00.48 terminal
+
+top - 09:09:29 up  7:13, 15 users,  load average: 0.09, 0.32, 0.43
+Tasks:   5 total,   0 running,   5 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  1.1 us,  0.2 sy,  0.0 ni, 98.7 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st 
+MiB Mem :   3379.8 total,    312.2 free,   1669.8 used,   2165.3 buff/cache     
+MiB Swap:   3891.0 total,   3799.9 free,     91.1 used.   1710.1 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 200692 ubuntu    20   0  421268  91300  70272 S   8.2   2.6   0:17.08 slopos-+
+ 200694 ubuntu    20   0 5955848 716676 329820 S   1.4  20.7   0:13.92 slopos-+
+ 200705 ubuntu    20   0 3145964 288372 129144 S   0.0   8.3   0:01.63 finder
+ 201075 ubuntu    20   0 3145908 232208 145276 S   0.0   6.7   0:00.90 settings
+ 201706 ubuntu    20   0 3195416 189492 117492 S   0.0   5.5   0:00.48 terminal
+
+top - 09:09:34 up  7:13, 15 users,  load average: 0.08, 0.31, 0.43
+Tasks:   5 total,   0 running,   5 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  1.0 us,  0.2 sy,  0.0 ni, 98.8 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st 
+MiB Mem :   3379.8 total,    312.1 free,   1669.9 used,   2165.3 buff/cache     
+MiB Swap:   3891.0 total,   3799.9 free,     91.1 used.   1710.0 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 200692 ubuntu    20   0  421268  91300  70272 S   7.8   2.6   0:17.47 slopos-+
+ 200694 ubuntu    20   0 5955848 716676 329820 S   1.4  20.7   0:13.99 slopos-+
+ 200705 ubuntu    20   0 3145964 288372 129144 S   0.0   8.3   0:01.63 finder
+ 201075 ubuntu    20   0 3145908 232208 145276 S   0.0   6.7   0:00.90 settings
+ 201706 ubuntu    20   0 3195416 189492 117492 S   0.0   5.5   0:00.48 terminal
+
+top - 09:09:39 up  7:14, 15 users,  load average: 0.07, 0.31, 0.43
+Tasks:   5 total,   1 running,   4 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  1.1 us,  0.2 sy,  0.0 ni, 98.8 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st 
+MiB Mem :   3379.8 total,    311.9 free,   1670.1 used,   2165.3 buff/cache     
+MiB Swap:   3891.0 total,   3799.9 free,     91.1 used.   1709.8 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 200692 ubuntu    20   0  421268  91300  70272 R   8.4   2.6   0:17.89 slopos-+
+ 200694 ubuntu    20   0 5955848 716676 329820 S   1.2  20.7   0:14.05 slopos-+
+ 200705 ubuntu    20   0 3145964 288372 129144 S   0.0   8.3   0:01.63 finder
+ 201075 ubuntu    20   0 3145908 232208 145276 S   0.0   6.7   0:00.90 settings
+ 201706 ubuntu    20   0 3195416 189492 117492 S   0.0   5.5   0:00.48 terminal
+
+top - 09:09:44 up  7:14, 15 users,  load average: 0.07, 0.30, 0.42
+Tasks:   5 total,   1 running,   4 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  1.1 us,  0.2 sy,  0.0 ni, 98.7 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st 
+MiB Mem :   3379.8 total,    317.2 free,   1664.7 used,   2165.3 buff/cache     
+MiB Swap:   3891.0 total,   3799.9 free,     91.1 used.   1715.1 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 200692 ubuntu    20   0  421268  91300  70272 R   8.6   2.6   0:18.32 slopos-+
+ 200694 ubuntu    20   0 5955848 716676 329820 S   1.8  20.7   0:14.14 slopos-+
+ 200705 ubuntu    20   0 3145964 288372 129144 S   0.0   8.3   0:01.63 finder
+ 201075 ubuntu    20   0 3145908 232208 145276 S   0.0   6.7   0:00.90 settings
+ 201706 ubuntu    20   0 3195416 189492 117492 S   0.0   5.5   0:00.48 terminal
+
+top - 09:09:49 up  7:14, 15 users,  load average: 0.14, 0.32, 0.43
+Tasks:   5 total,   0 running,   5 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  1.1 us,  0.2 sy,  0.0 ni, 98.7 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st 
+MiB Mem :   3379.8 total,    311.0 free,   1670.9 used,   2165.3 buff/cache     
+MiB Swap:   3891.0 total,   3799.9 free,     91.1 used.   1708.9 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 200692 ubuntu    20   0  421268  91300  70272 S   8.2   2.6   0:18.73 slopos-+
+ 200694 ubuntu    20   0 5955848 716676 329820 S   1.2  20.7   0:14.20 slopos-+
+ 200705 ubuntu    20   0 3145964 288372 129144 S   0.0   8.3   0:01.63 finder
+ 201075 ubuntu    20   0 3145908 232208 145276 S   0.0   6.7   0:00.90 settings
+ 201706 ubuntu    20   0 3195416 189492 117492 S   0.0   5.5   0:00.48 terminal
+
+top - 09:09:54 up  7:14, 15 users,  load average: 0.13, 0.31, 0.42
+Tasks:   5 total,   1 running,   4 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  1.1 us,  0.2 sy,  0.0 ni, 98.7 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st 
+MiB Mem :   3379.8 total,    317.5 free,   1664.4 used,   2165.3 buff/cache     
+MiB Swap:   3891.0 total,   3799.9 free,     91.1 used.   1715.4 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 200692 ubuntu    20   0  421268  91300  70272 R   8.2   2.6   0:19.14 slopos-+
+ 200694 ubuntu    20   0 5955848 716676 329820 S   1.4  20.7   0:14.27 slopos-+
+ 200705 ubuntu    20   0 3145964 288372 129144 S   0.0   8.3   0:01.63 finder
+ 201075 ubuntu    20   0 3145908 232208 145276 S   0.0   6.7   0:00.90 settings
+ 201706 ubuntu    20   0 3195416 189492 117492 S   0.0   5.5   0:00.48 terminal
+
+top - 09:09:59 up  7:14, 15 users,  load average: 0.12, 0.30, 0.42
+Tasks:   5 total,   0 running,   5 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  1.1 us,  0.2 sy,  0.0 ni, 98.8 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st 
+MiB Mem :   3379.8 total,    316.1 free,   1665.8 used,   2165.3 buff/cache     
+MiB Swap:   3891.0 total,   3799.9 free,     91.1 used.   1714.1 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 200692 ubuntu    20   0  421268  91300  70272 S   8.6   2.6   0:19.57 slopos-+
+ 200694 ubuntu    20   0 5955848 716676 329820 S   1.6  20.7   0:14.35 slopos-+
+ 200705 ubuntu    20   0 3145964 288372 129144 S   0.0   8.3   0:01.63 finder
+ 201075 ubuntu    20   0 3145908 232208 145276 S   0.0   6.7   0:00.90 settings
+ 201706 ubuntu    20   0 3195416 189492 117492 S   0.0   5.5   0:00.48 terminal
+
+top - 09:10:04 up  7:14, 15 users,  load average: 0.19, 0.32, 0.43
+Tasks:   5 total,   0 running,   5 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  3.1 us,  0.8 sy,  0.0 ni, 96.0 id,  0.1 wa,  0.0 hi,  0.0 si,  0.0 st 
+MiB Mem :   3379.8 total,    292.3 free,   1685.9 used,   2169.0 buff/cache     
+MiB Swap:   3891.0 total,   3799.9 free,     91.1 used.   1693.9 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 200694 ubuntu    20   0 5947656 710852 323996 S  23.4  20.5   0:15.52 slopos-+
+ 200692 ubuntu    20   0  421268  91300  70272 S   7.0   2.6   0:19.92 slopos-+
+ 200705 ubuntu    20   0 3145964 288372 129144 S   0.0   8.3   0:01.63 finder
+ 201075 ubuntu    20   0 3145908 232208 145276 S   0.0   6.7   0:00.90 settings
+ 201706 ubuntu    20   0 3195416 189492 117492 S   0.0   5.5   0:00.48 terminal

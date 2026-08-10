@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "component": "slopos-compositor",
+  "commit": "802ca6b4a0067d086a6cbf062e6ff1d6fe923ac1",
+  "branch": "",
+  "started_at_utc": "2026-08-08T17:24:51Z",
+  "duration_seconds": 137,
+  "status": "passed",
+  "failed_step": "",
+  "evidence_level": "build_and_test_only",
+  "runtime_verified": false,
+  "hardware_verified": false,
+  "log": "802ca6b4a0067d086a6cbf062e6ff1d6fe923ac1.log"
+}

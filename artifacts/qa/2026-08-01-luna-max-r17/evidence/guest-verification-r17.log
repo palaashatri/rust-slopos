@@ -1,0 +1,265 @@
+   Compiling bytemuck v1.25.2
+   Compiling xkeysym v0.2.1
+   Compiling smithay-client-toolkit v0.19.2
+   Compiling winit v0.30.13
+   Compiling num-complex v0.4.6
+   Compiling drm v0.14.1
+   Compiling qoi v0.4.1
+   Compiling xkbcommon-dl v0.4.2
+   Compiling xkbcommon v0.8.0
+   Compiling pulp v0.22.3
+   Compiling gbm v0.18.0
+   Compiling exr v1.74.2
+   Compiling smithay v0.7.0
+   Compiling image v0.25.10
+   Compiling slopos-compositor v0.1.0 (/home/ubuntu/qa/2026-08-01-luna-max-r16/crates/slopos-compositor)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 35.75s
+     Running unittests src/lib.rs (target/debug/deps/slopos_compositor-8232e5b2381d1244)
+   Compiling syn v2.0.119
+   Compiling libc v0.2.189
+   Compiling syn v3.0.3
+   Compiling tracing-core v0.1.36
+   Compiling cpufeatures v0.2.17
+   Compiling sha2 v0.10.9
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v1.0.69
+   Compiling tracing-attributes v0.1.31
+   Compiling serde v1.0.229
+   Compiling thiserror v1.0.69
+   Compiling tracing v0.1.44
+   Compiling slopos-fonts v0.1.0 (/home/ubuntu/qa/2026-08-01-luna-max-r16/crates/slopos-fonts)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.89s
+     Running unittests src/lib.rs (target/debug/deps/slopos_fonts-25a103314a4b3a14)
+   Compiling rustix v1.1.4
+   Compiling wayland-sys v0.31.11
+   Compiling rustix v0.38.44
+   Compiling parking_lot v0.12.5
+   Compiling getrandom v0.3.4
+   Compiling tracing v0.1.44
+   Compiling x11rb-protocol v0.13.2
+   Compiling wgpu-hal v22.0.0
+   Compiling tokio v1.53.1
+   Compiling ahash v0.8.12
+   Compiling wgpu-core v22.1.0
+   Compiling wayland-backend v0.3.16
+   Compiling polling v3.11.0
+   Compiling calloop v0.13.0
+   Compiling gethostname v1.1.0
+   Compiling async-io v2.6.0
+   Compiling wayland-client v0.31.15
+   Compiling wayland-csd-frame v0.3.0
+   Compiling zbus v4.4.0
+   Compiling tempfile v3.27.0
+   Compiling wayland-protocols v0.32.13
+   Compiling wayland-cursor v0.31.14
+   Compiling calloop-wayland-source v0.3.0
+   Compiling wgpu v22.1.0
+   Compiling slopos-bus v0.1.0 (/home/ubuntu/qa/2026-08-01-luna-max-r16/crates/slopos-bus)
+   Compiling wayland-protocols-wlr v0.3.12
+   Compiling wayland-protocols-plasma v0.3.12
+   Compiling x11rb v0.13.2
+   Compiling smithay-client-toolkit v0.19.2
+   Compiling sctk-adwaita v0.10.1
+   Compiling winit v0.30.13
+   Compiling slopos-render v0.1.0 (/home/ubuntu/qa/2026-08-01-luna-max-r16/crates/slopos-render)
+   Compiling slopos-kit v0.1.0 (/home/ubuntu/qa/2026-08-01-luna-max-r16/crates/slopos-kit)
+   Compiling slopos-sdk v0.1.0 (/home/ubuntu/qa/2026-08-01-luna-max-r16/crates/slopos-sdk)
+   Compiling preview v0.1.0 (/home/ubuntu/qa/2026-08-01-luna-max-r16/apps/preview)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 49.47s
+     Running unittests src/main.rs (target/debug/deps/preview-5cb12b6e25c96d59)
+   Compiling aho-corasick v1.1.4
+   Compiling num_cpus v1.17.0
+   Compiling slopos-compositor v0.1.0 (/home/ubuntu/qa/2026-08-01-luna-max-r16/crates/slopos-compositor)
+   Compiling preview v0.1.0 (/home/ubuntu/qa/2026-08-01-luna-max-r16/apps/preview)
+   Compiling rten v0.24.0
+   Compiling regex-automata v0.4.16
+   Compiling regex v1.13.1
+   Compiling env_filter v2.0.0
+   Compiling env_logger v0.11.11
+   Compiling slopos-vision v0.1.0 (/home/ubuntu/qa/2026-08-01-luna-max-r16/crates/slopos-vision)
+   Compiling slopos-visiond v0.1.0 (/home/ubuntu/qa/2026-08-01-luna-max-r16/crates/slopos-visiond)
+error: linking with `cc` failed: exit status: 1
+  |
+  = note:  "cc" "/home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/deps/rustclSW4YV/symbols.o" "<257 object files omitted>" "-Wl,--as-needed" "-Wl,-Bstatic" "/home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/deps/{libenv_logger-c66b5e37b1fa8993,libjiff-0bb8a8423f919bf7,libjiff_core-c0b33992ce324fa2,libanstream-e89a8aae124ed821,libanstyle_query-8209a3697b5828ce,libis_terminal_polyfill-1abdd98ac6d106a8,libcolorchoice-b1757d8369e15b22,libanstyle_parse-37349f6de4d5de5c,libutf8parse-3b9049b66ff045a5,libenv_filter-9efad67f1315d0c3,libregex-3512365fe2069a7e,libregex_automata-cd06f133ca1179ea,libaho_corasick-5d18607e63c2b9fa,libregex_syntax-20874372effba517,libanstyle-7fc30ad7cae67b10,libserde_json-26755164ad2038b5,libitoa-fdf64ca86ebb0c1c,libzmij-00d57c0ed002d88f,libuuid-f6c4f1d7fbefb457,libgetrandom-4e742d706fd776e6,libtokio-b5c63f517d3ba638,libsignal_hook_registry-27ee440c4f52968e,liberrno-254e509a678ab127,libsocket2-e713f589a707fad1,libbytes-e381129cd3667d7e,libmio-0caa582137b93bdc,libpin_project_lite-9828d1b383c3a4e8,libslopos_vision_protocol-fac3678eea76b1c6,libslopos_vision-bc37946fbecb96c2,libtoml-32b749383a9c87d8,libtoml_edit-fef81c1063f2e5b0,libserde_spanned-ed38cf46a6b66704,libindexmap-206d8d13c2a9bf8e,libequivalent-b585ce897fbfbf17,libhashbrown-47ca8841eb03dcbd,libwinnow-494a4be85693fa93,libtoml_write-63d3c0f54ec9e33d,libtoml_datetime-7bb67cb9c61fcbc0,libhex-d5de0e34a7786cd3,libthiserror-ae80b80c10bd9480,libserde-b09a3b329cdac0ac,libserde_core-37334a9a151263ee,librten-3c3a336402731b5c,libnum_cpus-02b87d4f3a88182a,librten_vecmath-39502dccdfc35e90,librten_model_file-d7b9487866d55b22,libflatbuffers-b3d0484b4324d4d0,libbitflags-c409cbec9fd042f4,librten_onnx-1ed26e4ce4fbf403,librten_shape_inference-9e62f3bbeb8b9310,librustc_hash-f763d141dfecd6d4,librten_gemm-d0e9be1456047399,librten_simd-e7d173d13944d944,librten_tensor-408059bccce09e74,libtypeid-355e1f5128a21575,librten_base-1467cd5063efc3f3,libsha2-1b25c7575b06743b,libdigest-7099a1007f7ad3e0,libblock_buffer-69a4597c033e331c,libcrypto_common-e6eef4c6a0d987ad,libgeneric_array-ee4597da6e7e663f,libtypenum-caa370bd422cc15b,libparking_lot-89dbb3d78676fec5,libparking_lot_core-5b53297a16efe4d6,liblibc-94960a9c0ce66040,liblock_api-eea333532e9fc951,libscopeguard-743824c1a9acf6ec,libimage-e898e4d6e6f86015,libqoi-9fe4d2518b24e1da,libmoxcms-2ddd6b106478d6ff,libpxfm-ef1b4df97fc9cd90,libimage_webp-572e145ee09ac8e9,libtiff-2d4544f9fe9419ed,libfax-f3bc2f236b72b7e5,libpng-17a77866bf476d16,libbitflags-a0d079266f33db96,libflate2-dbade63455406019,libfdeflate-27817886208d4df9,libcrc32fast-5c5648e98086db87,libexr-b92bed447c4bd95f,libminiz_oxide-3a338dbe32e45004,libzune_inflate-a7acbcdb82bd1ed8,libsimd_adler32-5a45322273d57879,libbit_field-25ee2050f13eca60,liblebe-7150f5c2cfdfde20,libhalf-7c29526fd4d1c663,libzerocopy-2b457fa6364b8f84,libsmallvec-d8839215ef0a68e4,libzune_jpeg-f0ae3353c94fe639,libzune_core-fd9d7b6001616996,libgif-e456e9c73093a50b,libcolor_quant-be18a622471bddf4,libweezl-d6d7b275df1f4035,libbyteorder_lite-23ecccb96b468f85,libravif-1d1c949011c7f8a6,libloop9-91a25a38fa790eb3,libavif_serialize-2920fb2b3616309d,libquick_error-0fc3ab5f4a03c089,librgb-f2c4ec1a47cde8b1,librav1e-b03cf4a0acb8450b,libprofiling-9b67774545f0a954,libav_scenechange-d7e2964fdde3c813,liby4m-4f6c6771c996b3f7,libaligned-5bc943364bb3a7d1,libas_slice-b90d52d155c15a6c,libstable_deref_trait-e49e676622fd2763,libav1_grain-a86282f6aedb5556,liblog-6ac4bcfef02b96a4,libnom-3093367e53072329,libmemchr-ce45c5fe59c99a8d,libnum_rational-1a8aafcf8d33f175,libnum_bigint-6bcc45adc97e2c36,libnum_integer-fd5e62131aa3fabd,libanyhow-b6513ee85ab32c8f,libmaybe_rayon-26eb0c3c21e3e8ba,librayon-5c69ed82e6243484,librayon_core-61c9531cfbad188b,libcrossbeam_deque-922c95b391abfb5b,libcrossbeam_epoch-648fc7f2c581a907,libcrossbeam_utils-5570b168d7d6cfff,libcfg_if-28d40cf9c6b31a32,libv_frame-c547bc0157a5b56a,libarrayvec-36ca5cf65cce2630,libaligned_vec-fb5835d47509495b,libequator-eea3957c4c6e6c2c,libthiserror-16a084c8d3cd4fdb,libbitstream_io-9962cd3ed9870002,libitertools-6f5343e4fe4ea1d9,libeither-c4bbdf03215b7b6a,libimgref-82166a0a83681c85,libbytemuck-c1c4e80992e4ec6f,libnum_traits-47b4036e77a43be8}.rlib" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-Wl,-Bdynamic" "-lgcc_s" "-lutil" "-lrt" "-lpthread" "-lm" "-ldl" "-lc" "-L" "/home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/deps/rustclSW4YV/raw-dylibs" "-Wl,--eh-frame-hdr" "-Wl,-z,noexecstack" "-L" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib" "-o" "/home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/deps/slopos_visiond-57891caea1152f86" "-Wl,--gc-sections" "-pie" "-Wl,-z,relro,-z,now" "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: /usr/bin/aarch64-linux-gnu-ld.bfd: final link failed: No space left on device
+          collect2: error: ld returned 1 exit status
+          
+
+error: could not compile `slopos-visiond` (bin "slopos-visiond") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: linking with `cc` failed: exit status: 1
+  |
+  = note:  "cc" "/home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/deps/rustcvAhdZS/symbols.o" "<257 object files omitted>" "-Wl,--as-needed" "-Wl,-Bstatic" "/home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/deps/{libtracing_subscriber-1ce6387c84f32dce,libthread_local-fa7f0f0bac506009,libnu_ansi_term-69187ffd72e9a9fe,libsharded_slab-de56db2b0f10214e,liblazy_static-7bcb1df3dc800444,libtracing_log-d27a01bec82c70bf,libslopos_compositor-1d8b5cad63841fb1,libimage-e898e4d6e6f86015,libqoi-9fe4d2518b24e1da,libmoxcms-2ddd6b106478d6ff,libpxfm-ef1b4df97fc9cd90,libimage_webp-572e145ee09ac8e9,libtiff-2d4544f9fe9419ed,libfax-f3bc2f236b72b7e5,libpng-17a77866bf476d16,libflate2-dbade63455406019,libfdeflate-27817886208d4df9,libcrc32fast-5c5648e98086db87,libexr-b92bed447c4bd95f,libminiz_oxide-3a338dbe32e45004,libzune_inflate-a7acbcdb82bd1ed8,libsimd_adler32-5a45322273d57879,libbit_field-25ee2050f13eca60,liblebe-7150f5c2cfdfde20,libhalf-7c29526fd4d1c663,libzune_jpeg-f0ae3353c94fe639,libzune_core-fd9d7b6001616996,libgif-e456e9c73093a50b,libcolor_quant-be18a622471bddf4,libweezl-d6d7b275df1f4035,libbyteorder_lite-23ecccb96b468f85,libravif-1d1c949011c7f8a6,libloop9-91a25a38fa790eb3,libavif_serialize-2920fb2b3616309d,libquick_error-0fc3ab5f4a03c089,librgb-f2c4ec1a47cde8b1,librav1e-b03cf4a0acb8450b,libav_scenechange-d7e2964fdde3c813,liby4m-4f6c6771c996b3f7,libaligned-5bc943364bb3a7d1,libas_slice-b90d52d155c15a6c,libstable_deref_trait-e49e676622fd2763,libav1_grain-a86282f6aedb5556,libnom-3093367e53072329,libnum_rational-1a8aafcf8d33f175,libnum_bigint-6bcc45adc97e2c36,libnum_integer-fd5e62131aa3fabd,libmaybe_rayon-26eb0c3c21e3e8ba,librayon-5c69ed82e6243484,librayon_core-61c9531cfbad188b,libcrossbeam_deque-922c95b391abfb5b,libcrossbeam_epoch-648fc7f2c581a907,libcrossbeam_utils-5570b168d7d6cfff,libv_frame-c547bc0157a5b56a,libaligned_vec-fb5835d47509495b,libequator-eea3957c4c6e6c2c,libbitstream_io-9962cd3ed9870002,libitertools-6f5343e4fe4ea1d9,libeither-c4bbdf03215b7b6a,libimgref-82166a0a83681c85,libsmithay-ffcf769577ac6e27,libappendlist-9bfc1e9540f9f208,libtempfile-b45120ef5e7ef784,libgetrandom-4e742d706fd776e6,libfastrand-ae5e98965575752e,libprofiling-9b67774545f0a954,libencoding_rs-08f9608b030c98a8,libwayland_protocols_misc-dbb7680d34b92a05,librand-16e32b436d82cc86,librand_chacha-2e4ca4ba28b39ce3,libppv_lite86-dd291d1596db3189,librand_core-3a6f02300f65c210,libatomic_float-671fbdead0510c8c,libsha2-1b25c7575b06743b,libdigest-7099a1007f7ad3e0,libblock_buffer-69a4597c033e331c,libcrypto_common-e6eef4c6a0d987ad,libgeneric_array-ee4597da6e7e663f,libtypenum-caa370bd422cc15b,liblibseat-36e678c72e06b879,liberrno-254e509a678ab127,liblibseat_sys-4f61bfafa7b6a0d3,libinput-284ea4bff1da7dd1,libudev-5f02b5c46d0ec920,liblibudev_sys-05514c9d72abe698,libio_lifetimes-807e33dc2d83e481,libinput_sys-1347b72442937c53,libwinit-151e79d268ca6da0,libsctk_adwaita-f3f8410d0c813703,libab_glyph-9e19a54088e61376,libowned_ttf_parser-34d50d47f19f5056,libttf_parser-870d73b5e432530e,libab_glyph_rasterizer-00845f265377b399,libtiny_skia-ac67a4818b0d884b,libarrayvec-36ca5cf65cce2630,libtiny_skia_path-d1ff66cb29204ad4,libstrict_num-0490d6d5d98c916e,libarrayref-9c26766638e84de0,libpercent_encoding-b9e18fc9f21f876e,libx11rb-5a5c8cdd433eab97,libgethostname-1d26768a17a8a836,libas_raw_xcb_connection-6904048b97159613,libx11rb_protocol-6bdff5b774bb0ba8,libwayland_protocols_plasma-e5eeef49e8ac8c2c,libahash-eb3a502d24f9db85,libgetrandom-833dbdd8308cbf34,libzerocopy-2b457fa6364b8f84,libsmithay_client_toolkit-9be8efede2c14343,libwayland_cursor-a13d05b06f1a3eff,libxcursor-b81f418b10a7896f,libxkbcommon-fa9ea9d56aca77c0,libmemmap2-ad4156aca13a7888,libwayland_protocols_wlr-4aee2be205dd5d80,libwayland_protocols-9e2f0240232d42ff,libwayland_csd_frame-03ff4ac0d0bd6bd2,libcalloop_wayland_source-e2c086740b2e98a5,libwayland_client-e1dfb20c3e5bb166,libcalloop-3b81e56e3a738237,libx11_dl-76c6631d8496273d,libxkbcommon_dl-d10910f661d8e4ad,libsmol_str-3bf3774134b493c9,libcursor_icon-47d012314ff10666,libdpi-6b4e3f66293bd47d,libraw_window_handle-c68ebc634b7bf2db,libwayland_egl-1d1a1ad0432d33e9,libthiserror-16a084c8d3cd4fdb,libcgmath-7fbe404ab3df2464,libapprox-1090bd856c876637,libnum_traits-47b4036e77a43be8,libwayland_server-f5c3c5998e5f91ee,libwayland_backend-b8c55be84fbc4eee,libdowncast_rs-ff1f0ed087811c09,libscoped_tls-57016d5f7fe1facf,libwayland_sys-e667bac153901850,libdlib-47571e310194caec,liblibloading-305f4acbc88a2f04,libxkbcommon-05fb8137ff134c4f,libxkeysym-aa3bc965de24441d,libmemmap2-7289a1bde1ede9d8,libgbm-8bdb51d38eb045e1,libgbm_sys-5f5778fca205bf56,libindexmap-206d8d13c2a9bf8e,libequivalent-b585ce897fbfbf17,libhashbrown-47ca8841eb03dcbd,libdrm-7b6107cf3d76ff8c,librustix-f124da0cb0db12ca,liblinux_raw_sys-fd891e92998233d3,libbytemuck-c1c4e80992e4ec6f,libdrm_ffi-243794289868a85a,libdrm_sys-a4bc8de2fd11915a,liblinux_raw_sys-3be162f3dc6cf3b1,libdrm_fourcc-34c78e799d3168e7,libcalloop-f6e47d7f1cb5b429,libpolling-5073f01638386b68,librustix-3eef464cb1994826,libbitflags-a0d079266f33db96,liblinux_raw_sys-bcc5b4b61f8c3376,libslopos_bus-8ffd6ca0ce8108c2,libserde_json-26755164ad2038b5,libmemchr-ce45c5fe59c99a8d,libitoa-fdf64ca86ebb0c1c,libzmij-00d57c0ed002d88f,libthiserror-ae80b80c10bd9480,libtracing-c998b8e38f717226,liblog-6ac4bcfef02b96a4,libpin_project_lite-9828d1b383c3a4e8,libtracing_core-bf18729b8d817b5c,libonce_cell-0144e7ae395b93f7,libparking_lot-89dbb3d78676fec5,libparking_lot_core-5b53297a16efe4d6,liblibc-94960a9c0ce66040,libcfg_if-28d40cf9c6b31a32,libsmallvec-d8839215ef0a68e4,liblock_api-eea333532e9fc951,libscopeguard-743824c1a9acf6ec,libserde-b09a3b329cdac0ac,libserde_core-37334a9a151263ee,libanyhow-b6513ee85ab32c8f}.rlib" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-Wl,-Bdynamic" "-lgbm" "-lseat" "-ludev" "-linput" "-lxkbcommon" "-lxkbcommon" "-ldl" "-ldl" "-lxkbcommon" "-lgbm" "-lgcc_s" "-lutil" "-lrt" "-lpthread" "-lm" "-ldl" "-lc" "-L" "/home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/deps/rustcvAhdZS/raw-dylibs" "-Wl,--eh-frame-hdr" "-Wl,-z,noexecstack" "-L" "/usr/lib/aarch64-linux-gnu" "-L" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib" "-o" "/home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/deps/slopos_compositor-3db704e15441ce2c" "-Wl,--gc-sections" "-pie" "-Wl,-z,relro,-z,now" "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: /usr/bin/aarch64-linux-gnu-ld.bfd: final link failed: No space left on device
+          collect2: error: ld returned 1 exit status
+          
+
+error: could not compile `slopos-compositor` (bin "slopos-compositor") due to 1 previous error
+error: linking with `cc` failed: exit status: 1
+  |
+  = note:  "cc" "/home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/deps/rustc1nmHAA/symbols.o" "<94 object files omitted>" "-Wl,--as-needed" "-Wl,-Bstatic" "/home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/deps/{libtracing_subscriber-1ce6387c84f32dce,libthread_local-fa7f0f0bac506009,libnu_ansi_term-69187ffd72e9a9fe,libsharded_slab-de56db2b0f10214e,liblazy_static-7bcb1df3dc800444,libtracing_log-d27a01bec82c70bf,libslopos_sdk-59b2f34991cded7b,libfutures-618b89b584ba69f3,libfutures_executor-e2a66301d9e3ecb7,libslopos_bus-8ffd6ca0ce8108c2,libslopos_vision_client-0ef2cf209721463a,libsocket2-e713f589a707fad1,libslopos_vision_protocol-fac3678eea76b1c6,libserde_json-26755164ad2038b5,libitoa-fdf64ca86ebb0c1c,libzmij-00d57c0ed002d88f,libslopos_kit-4301685315a9bab2,libslopos_render-9cb21d8ab378c948,libwgpu-e01162abfd18c20c,libwgpu_core-00756abeb955098e,libwgpu_hal-63e22a95d7f273d6,librenderdoc_sys-6d643a8bbf97b1b3,libgpu_descriptor-0413117e080e5a17,libhashbrown-9eded6b9aee09589,libfoldhash-5a0103994bae6b8b,libgpu_descriptor_types-6984d30bb8b22a13,libkhronos_egl-ef3ef65bef6058ff,libgpu_alloc-aab05c8c01d2febf,libgpu_alloc_types-a54e8700d7283235,libash-c5c48783040ed6d1,libnaga-4c2d66f49a2b26e3,libhexf_parse-10a31893c0de7101,libunicode_xid-8e77ef3133a7660f,libindexmap-206d8d13c2a9bf8e,libequivalent-b585ce897fbfbf17,libhashbrown-47ca8841eb03dcbd,libbit_set-0d521c6751657720,libbit_vec-1c745c94b3c19793,libcodespan_reporting-ea0829ed7a7f0311,libunicode_width-d0ed14bd22b81eb9,libtermcolor-3684d725625485ac,libspirv-9f881103193320fa,libwgpu_types-820b5e28b53b6f39,libglow-d79fd126c39e11e1,libcosmic_text-1e92cf38e498b4c8,librustc_hash-c9a42fd00f078923,libunicode_linebreak-9fa74d7da2a2eeb6,libsys_locale-a8c9fc74fdd683f5,liblibm-5ef612e602174a4a,libswash-1386666d6119f154,libyazi-fbceec53657d06cd,libskrifa-bdbe63fdba372eb5,libread_fonts-2beb3ebcf0e4e197,libfont_types-632f19c6a98efbf8,libzeno-652cbed482173b7a,libself_cell-615d23a0e99895a6,librustybuzz-4bb738a8c0e72f94,libunicode_bidi_mirroring-c30d4734bbc5fa94,libunicode_properties-75741d130fc33f22,libunicode_ccc-eae701a6b5f3fa17,libunicode_script-1aa8d66b8aa438b4,libunicode_segmentation-1517643023691a76,libunicode_bidi-342813841704046c,libfontdb-9783f252baa3a3d6,libfontconfig_parser-3bd97b9e4e8924b2,libroxmltree-a38a12a6451f75c2,libtinyvec-d2b4764c7eed7d25,libtinyvec_macros-9e5f4911f55d5853,libslotmap-9a38ca5c4e416276,libttf_parser-a0ec6c8c34367237,librangemap-930738f2381bc670,libwinit-151e79d268ca6da0,libsctk_adwaita-f3f8410d0c813703,libab_glyph-9e19a54088e61376,libowned_ttf_parser-34d50d47f19f5056,libttf_parser-870d73b5e432530e,libab_glyph_rasterizer-00845f265377b399,libtiny_skia-ac67a4818b0d884b,libtiny_skia_path-d1ff66cb29204ad4,libstrict_num-0490d6d5d98c916e,libarrayref-9c26766638e84de0,libpercent_encoding-b9e18fc9f21f876e,libx11rb-5a5c8cdd433eab97,libgethostname-1d26768a17a8a836,libas_raw_xcb_connection-6904048b97159613,libx11rb_protocol-6bdff5b774bb0ba8,libwayland_protocols_plasma-e5eeef49e8ac8c2c,libahash-eb3a502d24f9db85,libgetrandom-833dbdd8308cbf34,libsmithay_client_toolkit-9be8efede2c14343,libwayland_cursor-a13d05b06f1a3eff,libxcursor-b81f418b10a7896f,libxkbcommon-fa9ea9d56aca77c0,libmemmap2-ad4156aca13a7888,libwayland_protocols_wlr-4aee2be205dd5d80,libwayland_protocols-9e2f0240232d42ff,libwayland_server-f5c3c5998e5f91ee,libwayland_csd_frame-03ff4ac0d0bd6bd2,libcalloop_wayland_source-e2c086740b2e98a5,libwayland_client-e1dfb20c3e5bb166,libwayland_backend-b8c55be84fbc4eee,libdowncast_rs-ff1f0ed087811c09,libscoped_tls-57016d5f7fe1facf,libwayland_sys-e667bac153901850,libcalloop-3b81e56e3a738237,libthiserror-ae80b80c10bd9480,librustix-f124da0cb0db12ca,liblinux_raw_sys-fd891e92998233d3,libmemmap2-7289a1bde1ede9d8,libx11_dl-76c6631d8496273d,libxkbcommon_dl-d10910f661d8e4ad,libxkeysym-aa3bc965de24441d,libdlib-47571e310194caec,liblibloading-305f4acbc88a2f04,libsmol_str-3bf3774134b493c9,libcursor_icon-47d012314ff10666,libdpi-6b4e3f66293bd47d,libraw_window_handle-c68ebc634b7bf2db,libparking_lot-89dbb3d78676fec5,libparking_lot_core-5b53297a16efe4d6,liblock_api-eea333532e9fc951,libscopeguard-743824c1a9acf6ec,libzbus-ffa0164376f3aa60,libasync_fs-a62b903315836427,libblocking-08bf983182e0982b,libpiper-b75ade8cb0c22725,libatomic_waker-efbf01e06860e0ca,libasync_channel-b1f0a103d5c6c238,libhex-d5de0e34a7786cd3,libasync_lock-84608155a47b095b,libasync_executor-0e0a6055a0455cbe,libasync_task-46b556c01da6cbb6,librand-956ff29e5b5db2ca,librand_chacha-ec61713edc8faa4b,libppv_lite86-dd291d1596db3189,librand_core-3bd5d8b8b2d7151d,libgetrandom-399ea19de2cbf512,libxdg_home-936310c207456ef6,libsha1-44cff82ce36b6200,libdigest-7099a1007f7ad3e0,libblock_buffer-69a4597c033e331c,libcrypto_common-e6eef4c6a0d987ad,libgeneric_array-ee4597da6e7e663f,libtypenum-caa370bd422cc15b,libfutures_util-bbd8647ef7605c43,libfutures_channel-a3c8296619f4ac23,libfutures_sink-5c6301e4f8add0bb,libfutures_task-84850e9f164a9402,libtracing-c998b8e38f717226,libtracing_core-bf18729b8d817b5c,libonce_cell-0144e7ae395b93f7,libordered_stream-1f72acfb15ba3cca,libasync_broadcast-7e903d514cedb228,libevent_listener_strategy-0cf5eb894f91677e,libevent_listener-93c73b52b45f7abc,libnix-463968283fc5c1cd,libmemoffset-ef4d7ebc944e974d,liblibc-94960a9c0ce66040,libasync_io-c94c7fe035471494,libslab-c4b1dae434a82081,libpolling-5073f01638386b68,libconcurrent_queue-05059e8100414f38,librustix-3eef464cb1994826,liblinux_raw_sys-bcc5b4b61f8c3376,libfutures_lite-78d08e0a9b9fd22a,libfutures_core-710e8c21a7b3223d,libparking-8296842365f39896,libpin_project_lite-9828d1b383c3a4e8,libfastrand-ae5e98965575752e,libfutures_io-ba0e3316ec672e4a,libzbus_names-9299b62e76e2318c,libzvariant-f081ee5ff5487af8,libenumflags2-4f540021856d1c57,libendi-b8d41de18c10d778,libserde-b09a3b329cdac0ac,libserde_core-37334a9a151263ee,libstatic_assertions-4f368a1077e30854,libimage-e898e4d6e6f86015,libqoi-9fe4d2518b24e1da,libmoxcms-2ddd6b106478d6ff,libpxfm-ef1b4df97fc9cd90,libimage_webp-572e145ee09ac8e9,libtiff-2d4544f9fe9419ed,libfax-f3bc2f236b72b7e5,libpng-17a77866bf476d16,libbitflags-a0d079266f33db96,libflate2-dbade63455406019,libfdeflate-27817886208d4df9,libcrc32fast-5c5648e98086db87,libexr-b92bed447c4bd95f,libminiz_oxide-3a338dbe32e45004,libzune_inflate-a7acbcdb82bd1ed8,libsimd_adler32-5a45322273d57879,libbit_field-25ee2050f13eca60,liblebe-7150f5c2cfdfde20,libhalf-7c29526fd4d1c663,libzerocopy-2b457fa6364b8f84,libsmallvec-d8839215ef0a68e4,libzune_jpeg-f0ae3353c94fe639,libzune_core-fd9d7b6001616996,libgif-e456e9c73093a50b,libcolor_quant-be18a622471bddf4,libweezl-d6d7b275df1f4035,libbyteorder_lite-23ecccb96b468f85,libravif-1d1c949011c7f8a6,libloop9-91a25a38fa790eb3,libavif_serialize-2920fb2b3616309d,libquick_error-0fc3ab5f4a03c089,librgb-f2c4ec1a47cde8b1,librav1e-b03cf4a0acb8450b,libprofiling-9b67774545f0a954,libav_scenechange-d7e2964fdde3c813,liby4m-4f6c6771c996b3f7,libaligned-5bc943364bb3a7d1,libas_slice-b90d52d155c15a6c,libstable_deref_trait-e49e676622fd2763,libav1_grain-a86282f6aedb5556,liblog-6ac4bcfef02b96a4,libnom-3093367e53072329,libmemchr-ce45c5fe59c99a8d,libnum_rational-1a8aafcf8d33f175,libnum_bigint-6bcc45adc97e2c36,libnum_integer-fd5e62131aa3fabd,libanyhow-b6513ee85ab32c8f,libmaybe_rayon-26eb0c3c21e3e8ba,librayon-5c69ed82e6243484,librayon_core-61c9531cfbad188b,libcrossbeam_deque-922c95b391abfb5b,libcrossbeam_epoch-648fc7f2c581a907,libcrossbeam_utils-5570b168d7d6cfff,libcfg_if-28d40cf9c6b31a32,libv_frame-c547bc0157a5b56a,libarrayvec-36ca5cf65cce2630,libaligned_vec-fb5835d47509495b,libequator-eea3957c4c6e6c2c,libthiserror-16a084c8d3cd4fdb,libbitstream_io-9962cd3ed9870002,libitertools-6f5343e4fe4ea1d9,libeither-c4bbdf03215b7b6a,libimgref-82166a0a83681c85,libbytemuck-c1c4e80992e4ec6f,libnum_traits-47b4036e77a43be8}.rlib" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-Wl,-Bdynamic" "-lxkbcommon" "-lxkbcommon" "-ldl" "-ldl" "-lgcc_s" "-lutil" "-lrt" "-lpthread" "-lm" "-ldl" "-lc" "-L" "/home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/deps/rustc1nmHAA/raw-dylibs" "-Wl,--eh-frame-hdr" "-Wl,-z,noexecstack" "-L" "/usr/lib/aarch64-linux-gnu" "-L" "<sysroot>/lib/rustlib/aarch64-unknown-linux-gnu/lib" "-o" "/home/ubuntu/qa/2026-08-01-luna-max-r16/target/debug/deps/preview-e3f7be3848f9eced" "-Wl,--gc-sections" "-pie" "-Wl,-z,relro,-z,now" "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: /usr/bin/aarch64-linux-gnu-ld.bfd: final link failed: No space left on device
+          collect2: error: ld returned 1 exit status
+          
+
+error: could not compile `preview` (bin "preview") due to 1 previous error
+
+running 116 tests
+test cursor_theme::tests::dimensions_are_24x24_with_zero_hotspot ... ok
+test cursor_theme::tests::image_contains_both_black_and_white_pixels ... ok
+test cursor_theme::tests::no_pixel_is_both_black_and_white ... ok
+test cursor_theme::tests::hotspot_pixel_is_opaque ... ok
+test cursor_theme::tests::buffer_length_matches_width_times_height_times_4 ... ok
+test drm_props::tests::chromaticity_encodes_in_0_00002_units ... ok
+test cursor_theme::tests::shape_is_non_trivial_and_bounded ... ok
+test drm_props::tests::hdr10_uses_pq_and_bt2020_primaries ... ok
+test drm_props::tests::sdr_metadata_uses_traditional_gamma ... ok
+test drm_props::tests::hdr10_capability_requires_all_three_conditions ... ok
+test drm_props::tests::hdr_probe_reports_unsupported_when_properties_absent ... ok
+test frame_timing::tests::test_refresh_rate_duration ... ok
+test drm_props::tests::vrr_probe_reports_unsupported_when_properties_absent ... ok
+test frame_timing::tests::test_refresh_rate_deserialize ... ok
+test drm_props::tests::hdr_output_metadata_matches_kernel_layout ... ok
+test hdr::tests::test_color_space_deserialize ... ok
+test hdr::tests::test_color_space_serialize ... ok
+test hdr::tests::test_hdr_capabilities_default ... ok
+test hdr::tests::test_tone_mapper_none ... ok
+test perf_budget::tests::all_ok_aggregate ... ok
+test hdr::tests::test_tone_mapper_reinhard ... ok
+test perf_budget::tests::twice_budget_is_zero ... ok
+test perf_budget::tests::frame_budget_16ms_ok ... ok
+test frame_timing::tests::test_refresh_rate_serialize ... ok
+test perf_budget::tests::over_budget_scores_down ... ok
+test session_drm::tests::resolve_primary_prefers_discover_or_default ... ok
+test spaces::tests::independent_overview_filters_assigned_output_in_model_order ... ok
+test session_drm::tests::drm_session_available_is_bool ... ok
+test spaces::tests::independent_restore_and_output_migration_are_deterministic ... ok
+test spaces::tests::lifecycle_keeps_stable_nonzero_ids_and_unique_names ... ok
+test spaces::tests::membership_targets_current_named_and_all ... ok
+test spaces::tests::ordering_and_active_space_are_independent ... ok
+test spaces::tests::output_assignment_defaults_for_legacy_state_and_round_trips ... ok
+test spaces::tests::overview_commands_mutate_safely_and_keep_window_membership ... ok
+test spaces::tests::overview_projection_preserves_order_and_only_exposes_window_counts ... ok
+test spaces::tests::policy_and_per_space_presentation_metadata_round_trip ... ok
+test spaces::tests::policy_controls_output_visibility_and_clears_shared_assignments ... ok
+test spaces::tests::overview_selection_marks_exactly_one_active_space ... ok
+test spaces::tests::independent_space_removal_prefers_same_output_fallback ... ok
+test spaces::tests::removing_active_or_last_space_has_safe_fallback ... ok
+test tests::accumulate_damage_and_full_redraw_heuristic ... ok
+test tests::chrome_layer_specs_sort_and_parse ... ok
+test tests::apply_scale_to_output_config_physical_size ... ok
+test tests::client_window_stack_independent_of_shell_paint_rects ... ok
+test spaces::tests::serde_rejects_zero_or_duplicate_ids_and_duplicate_names ... ok
+test tests::client_window_stack_map_focus_z_order ... ok
+test tests::damage_region_and_window_move_accumulate ... ok
+test tests::decoration_preference_first_party_csd_external_ssd ... ok
+test tests::detect_dri3_from_env_value_parses_0_1 ... ok
+test tests::discover_drm_nodes_from_names_orders_primary_first ... ok
+test tests::display_policy_accepts_hdr_request_alias ... ok
+test tests::display_policy_settings_and_env ... ok
+test tests::interactive_resize_honours_edges_and_minimum ... ok
+test tests::interactive_move_clamps_to_output ... ok
+test tests::layout_grid_origins_and_sizes ... ok
+test tests::drm_presentation_pipeline_includes_scanout_stages ... ok
+test tests::layout_outputs_dispatches_to_mode ... ok
+test tests::layout_side_by_side_and_total_size ... ok
+test tests::layout_stacked_origins_and_sizes ... ok
+test tests::normal_window_is_clamped_to_scaled_work_area ... ok
+test tests::normal_window_respects_minimums_in_tiny_work_area ... ok
+test tests::normal_window_keeps_cascade_geometry_when_it_fits ... ok
+test tests::output_scale_as_f64_and_from_env_value ... ok
+test tests::output_scale_summary_and_session_mode_note ... ok
+test tests::outputs_from_env_values_prefers_outputs_spec ... ok
+test tests::parse_layout_mode_side_stack_grid_and_default ... ok
+test tests::parse_output_scale_integer_fraction_decimal ... ok
+test tests::parse_output_scale_rejects_invalid ... ok
+test tests::parse_outputs_layout_spec_skips_garbage_tolerates_missing_scale ... ok
+test tests::parse_outputs_layout_spec_dual_and_positions ... ok
+test tests::parse_outputs_layout_spec_stacked_negative_and_scale ... ok
+test tests::parse_outputs_spec_single_and_multi ... ok
+test tests::parse_outputs_spec_rejects_garbage ... ok
+test tests::plan_compose_order_puts_overlay_after_under ... ok
+test tests::placeholder_present_stats_logs_once ... ok
+test tests::plan_drm_modeset_fallback_when_none ... ok
+test tests::plan_drm_modeset_prefers_connected ... ok
+test tests::plan_scanout_paint_order_and_clip ... ok
+test tests::pointer_grab_requires_live_same_surface_press_and_owned_seat ... ok
+test tests::resolve_laid_out_falls_back_to_outputs_spec_and_default ... ok
+test tests::scale_logical_to_physical_and_back ... ok
+test tests::resolve_laid_out_prefers_layout_spec_over_outputs ... ok
+test tests::select_backend_kind_headless_wins ... ok
+test frame_timing::tests::test_frame_scheduler_timing ... ok
+test tests::scale_zero_and_negative_dims_do_not_inflate ... ok
+test tests::select_backend_kind_nested_x11_otherwise ... ok
+test tests::selection_mime_lookup_and_fallback ... ok
+test tests::select_backend_kind_session_drm_when_prefer_and_dri3 ... ok
+test tests::selection_store_from_utf8_offers_and_satisfies ... ok
+test tests::text_input_capability_env_parses ... ok
+test tests::workspace_assign_move_and_visibility ... ok
+test tests::session_mode_summary_is_honest ... ok
+test tests::workspace_composition_filter ... ok
+test tests::workspace_id_cycle_wrapping ... ok
+test tests::workspace_id_new_validates_range ... ok
+test tests::workspace_activate_and_cycle ... ok
+test window_state::tests::presentation_geometry_sanitizes_invalid_work_areas ... ok
+test window_state::tests::test_calculate_presentation_geometry ... ok
+test tests::workspace_state_default_and_display ... ok
+test window_state::tests::test_zoom_action_parse ... ok
+test tests::workspace_summary_line_and_counts ... ok
+test window_state::tests::test_zoom_policy_from_settings_map ... ok
+test window_state::tests::transition_fill_captures_normal_geometry_and_restores_it ... ok
+test window_state::tests::tiled_geometry_partitions_odd_work_area_without_gaps ... ok
+test tests::wayland_display_source_dispatches_client_requests_when_fd_is_ready ... ok
+test window_state::tests::transition_fullscreen_uses_output_but_restores_same_normal_geometry ... ok
+test window_state::tests::transition_minimize_captures_restore_metadata_and_restores_normal_geometry ... ok
+test window_state::tests::transition_minimize_does_not_change_geometry ... ok
+test window_state::tests::transition_preserves_first_restore_record_through_all_presentation_states ... ok
+test workspace_focus::tests::focus_picks_topmost_visible ... ok
+test workspace_focus::tests::focus_none_when_no_visible_windows ... ok
+test workspace_focus::tests::visible_paint_order_filters_inactive ... ok
+test workspace_focus::tests::move_and_hit_test ... ok
+test workspace_focus::tests::paint_source_prefers_surface_tree ... ok
+test spaces::tests::atomic_persistence_round_trips_and_leaves_no_temp_file ... ok
+test frame_timing::tests::test_frame_scheduler_fps ... ok
+
+test result: ok. 116 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+
+running 13 tests
+test tests::font_discovery_preserves_root_precedence_and_deduplicates_overlapping_roots ... ok
+test tests::font_manager_rejects_unsafe_or_non_font_sources ... ok
+test tests::font_manager_installs_deduplicates_toggles_and_removes_atomically ... ok
+test tests::font_profile_resolver_has_stable_fallback_order_and_matching ... ok
+test tests::font_profile_resolver_resolves_classic_modern_accessible_and_custom_profiles ... ok
+test tests::font_discovery_skips_symlinked_fonts_and_directories ... ok
+test tests::test_font_discovery_skips_unreadable_nested_directories ... ok
+test tests::test_font_profile_config ... ok
+test tests::font_profile_resolver_uses_safe_fallbacks_for_unavailable_families ... ok
+test tests::test_font_discovery_recurses_into_nested_directories ... ok
+test tests::test_font_discovery_search_paths ... ok
+test tests::font_profile_resolver_sanitizes_malformed_profile_values ... ok
+test tests::test_font_roles_and_defaults ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 12 tests
+test tests::cli_accepts_no_path_or_one_path ... ok
+test tests::cli_rejects_multiple_paths ... ok
+test viewer::tests::fit_zoom_preserves_aspect_ratio_and_bounds_extremes ... ok
+test viewer::tests::preview_output_names_are_flat_and_rooted ... ok
+test viewer::tests::path_validation_rejects_directories_and_large_encoded_files ... ok
+test viewer::tests::vision_poll_state_recognizes_terminal_success_failure_and_cancellation ... ok
+test viewer::tests::vision_poll_state_keeps_nonterminal_jobs_pending ... ok
+test viewer::tests::atomic_output_is_bounded_collision_free_and_complete ... ok
+test viewer::tests::zoom_is_finite_and_bounded ... ok
+test viewer::tests::vision_poll_state_times_out_nonterminal_jobs_at_the_bound ... ok
+test viewer::tests::lifted_subject_validates_png_metadata_and_dimensions_before_write ... ok
+test viewer::tests::valid_image_is_dimension_checked_and_downsampled ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+

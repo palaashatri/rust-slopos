@@ -1,0 +1,3 @@
+runtime_exists=yes
+/tmp/slopos-qa-drm-idle-r12
+/tmp/slopos-qa-drm-idle-r12/slopos-i

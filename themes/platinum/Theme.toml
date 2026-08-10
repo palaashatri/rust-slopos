@@ -1,7 +1,7 @@
 name = "Platinum"
-identifier = "com.retro.theme.platinum"
+identifier = "com.slopos.theme.platinum"
 version = "1.0"
-author = "RetroShell"
+author = "SLOPOS-I"
 description = "Classic Platinum theme inspired by Mac OS 8/9"
 is_dark = false
 accent = "#3A6BDD"

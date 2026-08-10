@@ -1,0 +1,4 @@
+# Arch build dependencies (for cargo build --release --workspace)
+base-devel
+pkgconf
+rust

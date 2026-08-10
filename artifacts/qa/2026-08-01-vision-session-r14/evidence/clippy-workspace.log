@@ -1,0 +1,23 @@
+    Checking slopos-bus v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-bus)
+    Checking slopos-render v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-render)
+    Checking slopos-kit v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-kit)
+    Checking slopos-sdk v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-sdk)
+    Checking slopos-shell v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-shell)
+    Checking slopos-vision-protocol v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-vision-protocol)
+    Checking slopos-vision v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-vision)
+    Checking slopos-compositor v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-compositor)
+    Checking slopos-vision-client v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-vision-client)
+    Checking terminal v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/apps/terminal)
+    Checking preview v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/apps/preview)
+error: manual implementation of `.is_multiple_of()`
+   --> apps/preview/src/viewer.rs:155:30
+    |
+155 |             let checker = if (x + y) % 2 == 0 { 0.91 } else { 0.78 };
+    |                              ^^^^^^^^^^^^^^^^ help: replace with: `(x + y).is_multiple_of(2)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#manual_is_multiple_of
+    = note: `-D clippy::manual-is-multiple-of` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::manual_is_multiple_of)]`
+
+error: could not compile `preview` (bin "preview") due to 1 previous error
+exit=101

@@ -1,0 +1,4 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.22s
+Headless runtime output topology gate passed for 698832658d240a3c82497a71f1d73262b974b8bc
+Evidence: /home/ubuntu/rust-slopos-qa-5577f36/artifacts/qa/2026-08-08-compositor-topology-6988326/698832658d240a3c82497a71f1d73262b974b8bc.json
+This does not prove DRM/KMS connector hotplug or physical multi-monitor compatibility.

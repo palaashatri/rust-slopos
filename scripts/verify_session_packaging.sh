@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # verify_session_packaging.sh — check greeter/session packaging artifacts.
 #
-# Confirms packaging/*.desktop, scripts/start-retroshell, and
-# packaging/retroshell.service exist, and that desktop entries carry
+# Confirms packaging/*.desktop, scripts/start-slopos-i, and
+# packaging/slopos-i.service exist, and that desktop entries carry
 # required keys (Name, Exec, Type) with session-valid values.
 set -euo pipefail
 
@@ -25,8 +25,8 @@ require_file() {
 
 # --- required artifacts -------------------------------------------------------
 
-require_file "scripts/start-retroshell"
-require_file "packaging/retroshell.service"
+require_file "scripts/start-slopos-i"
+require_file "packaging/slopos-i.service"
 
 shopt -s nullglob
 DESKTOPS=(packaging/*.desktop)
@@ -74,20 +74,20 @@ check_desktop_keys() {
     err "$file: Type must be Application (got '$type_val')"
     file_fail=1
   fi
-  if [[ "$exec_val" != *start-retroshell* ]]; then
-    err "$file: Exec must contain start-retroshell (got '$exec_val')"
+  if [[ "$exec_val" != *start-slopos-i* ]]; then
+    err "$file: Exec must contain start-slopos-i (got '$exec_val')"
     file_fail=1
   fi
-  if [ "$desktop_names" != "RetroShell" ]; then
-    err "$file: DesktopNames must be RetroShell (got '$desktop_names')"
+  if [ "$desktop_names" != "SLOPOS-I" ]; then
+    err "$file: DesktopNames must be SLOPOS-I (got '$desktop_names')"
     file_fail=1
   fi
-  if [[ "$try_exec" != *start-retroshell* ]]; then
-    err "$file: TryExec must contain start-retroshell (got '$try_exec')"
+  if [[ "$try_exec" != *start-slopos-i* ]]; then
+    err "$file: TryExec must contain start-slopos-i (got '$try_exec')"
     file_fail=1
   fi
-  if [ "$keywords" != "RetroShell;Wayland;Desktop;" ]; then
-    err "$file: Keywords must be RetroShell;Wayland;Desktop; (got '$keywords')"
+  if [ "$keywords" != "SLOPOS-I;Wayland;Desktop;" ]; then
+    err "$file: Keywords must be SLOPOS-I;Wayland;Desktop; (got '$keywords')"
     file_fail=1
   fi
 

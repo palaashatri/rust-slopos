@@ -1,0 +1,55 @@
+strace: Process 27348 attached with 39 threads
+strace: Process 28271 attached
+strace: Process 28272 attached
+strace: Process 28273 attached
+strace: Process 28274 attached
+strace: Process 28275 attached
+strace: Process 28276 attached
+strace: Process 28277 attached
+strace: Process 27348 detached
+strace: Process 27411 detached
+strace: Process 27407 detached
+strace: Process 27406 detached
+strace: Process 27405 detached
+strace: Process 27402 detached
+strace: Process 27398 detached
+strace: Process 27396 detached
+strace: Process 27395 detached
+strace: Process 27393 detached
+strace: Process 27389 detached
+strace: Process 27388 detached
+strace: Process 27384 detached
+strace: Process 27381 detached
+strace: Process 27358 detached
+strace: Process 27351 detached
+strace: Process 27350 detached
+strace: Process 27415 detached
+strace: Process 27414 detached
+strace: Process 27413 detached
+strace: Process 27410 detached
+strace: Process 27409 detached
+strace: Process 27408 detached
+strace: Process 27404 detached
+strace: Process 27403 detached
+strace: Process 27401 detached
+strace: Process 27400 detached
+strace: Process 27399 detached
+strace: Process 27397 detached
+strace: Process 27394 detached
+strace: Process 27392 detached
+strace: Process 27391 detached
+strace: Process 27390 detached
+strace: Process 27387 detached
+strace: Process 27386 detached
+strace: Process 27385 detached
+strace: Process 27383 detached
+strace: Process 27382 detached
+strace: Process 27412 detached
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+ 62.09    0.113191          12      8994      3004 read
+ 34.83    0.063502        1198        53        11 futex
+  2.98    0.005436          77        70           ppoll
+  0.10    0.000174          43         4           write
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.182303          19      9121      3015 total

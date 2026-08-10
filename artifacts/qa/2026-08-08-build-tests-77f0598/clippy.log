@@ -1,0 +1,21 @@
+COMMAND clippy
+    Checking slopos-bus v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/crates/slopos-bus)
+    Checking slopos-fonts v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/crates/slopos-fonts)
+    Checking slopos-vision-protocol v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/crates/slopos-vision-protocol)
+    Checking slopos-vision v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/crates/slopos-vision)
+    Checking slopos-render v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/crates/slopos-render)
+    Checking slopos-compositor v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/crates/slopos-compositor)
+    Checking slopos-vision-client v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/crates/slopos-vision-client)
+    Checking slopos-visiond v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/crates/slopos-visiond)
+    Checking slopos-kit v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/crates/slopos-kit)
+    Checking slopos-session v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/crates/slopos-session)
+    Checking slopos-sdk v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/crates/slopos-sdk)
+    Checking slopos-shell v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/crates/slopos-shell)
+    Checking textedit v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/apps/textedit)
+    Checking terminal v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/apps/terminal)
+    Checking preview v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/apps/preview)
+    Checking finder v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/apps/finder)
+    Checking appstore v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/apps/appstore)
+    Checking settings v0.1.0 (/home/ubuntu/rust-slopos-qa-77f0598/apps/settings)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.76s
+EXIT clippy=0

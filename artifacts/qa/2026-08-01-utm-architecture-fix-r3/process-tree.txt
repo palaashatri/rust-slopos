@@ -1,0 +1,150 @@
+session_pid=60377
+compositor_pid=60380
+shell_pid=60382
+slopos-session,60377 --backend drm
+  |-slopos-composit,60380 --backend drm
+  |   |-{slopos-composit},60381
+  |   `-{slopos-composit},60520
+  `-slopos-shell,60382
+      |-finder,60394
+      |   |-{finder},60433
+      |   |-{finder},60435
+      |   |-{finder},60437
+      |   |-{finder},60438
+      |   |-{finder},60445
+      |   |-{finder},60446
+      |   |-{finder},60447
+      |   |-{finder},60449
+      |   |-{finder},60450
+      |   |-{finder},60451
+      |   |-{finder},60454
+      |   |-{finder},60461
+      |   |-{finder},60462
+      |   |-{finder},60463
+      |   |-{finder},60464
+      |   |-{finder},60465
+      |   |-{finder},60466
+      |   |-{finder},60485
+      |   |-{finder},60486
+      |   |-{finder},60487
+      |   |-{finder},60488
+      |   |-{finder},60489
+      |   |-{finder},60490
+      |   |-{finder},60491
+      |   |-{finder},60492
+      |   |-{finder},60493
+      |   |-{finder},60494
+      |   |-{finder},60495
+      |   |-{finder},60496
+      |   |-{finder},60497
+      |   |-{finder},60498
+      |   |-{finder},60499
+      |   |-{finder},60500
+      |   |-{finder},60501
+      |   `-{finder},60502
+      |-{slopos-shell},60384
+      |-{slopos-shell},60385
+      |-{slopos-shell},60392
+      |-{slopos-shell},60434
+      |-{slopos-shell},60436
+      |-{slopos-shell},60439
+      |-{slopos-shell},60440
+      |-{slopos-shell},60441
+      |-{slopos-shell},60442
+      |-{slopos-shell},60443
+      |-{slopos-shell},60444
+      |-{slopos-shell},60448
+      |-{slopos-shell},60452
+      |-{slopos-shell},60453
+      |-{slopos-shell},60455
+      |-{slopos-shell},60456
+      |-{slopos-shell},60457
+      |-{slopos-shell},60458
+      |-{slopos-shell},60459
+      |-{slopos-shell},60460
+      |-{slopos-shell},60467
+      |-{slopos-shell},60468
+      |-{slopos-shell},60469
+      |-{slopos-shell},60470
+      |-{slopos-shell},60471
+      |-{slopos-shell},60472
+      |-{slopos-shell},60473
+      |-{slopos-shell},60474
+      |-{slopos-shell},60475
+      |-{slopos-shell},60476
+      |-{slopos-shell},60477
+      |-{slopos-shell},60478
+      |-{slopos-shell},60479
+      |-{slopos-shell},60480
+      |-{slopos-shell},60481
+      |-{slopos-shell},60482
+      |-{slopos-shell},60483
+      |-{slopos-shell},60484
+      |-{slopos-shell},60521
+      |-{slopos-shell},60522
+      |-{slopos-shell},60523
+      |-{slopos-shell},60524
+      |-{slopos-shell},60525
+      |-{slopos-shell},60526
+      |-{slopos-shell},60527
+      |-{slopos-shell},60528
+      |-{slopos-shell},60529
+      |-{slopos-shell},60530
+      |-{slopos-shell},60531
+      |-{slopos-shell},60532
+      |-{slopos-shell},60533
+      |-{slopos-shell},60534
+      |-{slopos-shell},60535
+      |-{slopos-shell},60536
+      |-{slopos-shell},60537
+      |-{slopos-shell},60538
+      |-{slopos-shell},60556
+      |-{slopos-shell},60557
+      |-{slopos-shell},60558
+      |-{slopos-shell},60559
+      |-{slopos-shell},60560
+      |-{slopos-shell},60561
+      |-{slopos-shell},60562
+      |-{slopos-shell},60563
+      |-{slopos-shell},60564
+      |-{slopos-shell},60565
+      |-{slopos-shell},60566
+      |-{slopos-shell},60567
+      |-{slopos-shell},60568
+      |-{slopos-shell},60569
+      |-{slopos-shell},60570
+      |-{slopos-shell},60571
+      |-{slopos-shell},60572
+      |-{slopos-shell},60573
+      |-{slopos-shell},60591
+      |-{slopos-shell},60592
+      |-{slopos-shell},60593
+      |-{slopos-shell},60594
+      |-{slopos-shell},60595
+      |-{slopos-shell},60596
+      |-{slopos-shell},60597
+      |-{slopos-shell},60598
+      |-{slopos-shell},60599
+      |-{slopos-shell},60600
+      |-{slopos-shell},60601
+      |-{slopos-shell},60602
+      |-{slopos-shell},60603
+      |-{slopos-shell},60604
+      |-{slopos-shell},60605
+      |-{slopos-shell},60606
+      |-{slopos-shell},60607
+      `-{slopos-shell},60608
+ps:
+    PID    PPID    PGID STAT %CPU   RSS     ELAPSED COMMAND
+  60377       1   60375 S     0.0  1980       05:23 target/debug/slopos-session --backend drm
+  60380   60377   60380 Sl    7.9 118832      05:23 /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/slopos-compositor --backend drm
+  60382   60377   60382 Sl    6.1 808808      05:23 /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/slopos-shell
+60394 /home/ubuntu/qa/2026-08-01-compositor-p1/target/debug/finder
+60804 target/debug/settings
+60805 target/debug/textedit
+60806 target/debug/terminal
+60807 target/debug/appstore
+61345 target/debug/terminal
+61792 target/debug/settings
+61851 target/debug/textedit
+61917 target/debug/terminal

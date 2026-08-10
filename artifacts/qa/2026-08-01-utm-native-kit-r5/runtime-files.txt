@@ -1,0 +1,15 @@
+-rw------- ubuntu ubuntu 28 /run/user/1000/slopos-i/session-18c798852854806d-94749/token
+-rw-rw---- ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c798852854806d-94749/wayland-1.lock
+-rw-rw-r-- ubuntu ubuntu 10 /run/user/1000/slopos-i/session-18c798852854806d-94749/client-wayland-display
+-rw-rw-r-- ubuntu ubuntu 10 /run/user/1000/slopos-i/session-18c798852854806d-94749/slopos-client-wayland-display
+-rw-rw-r-- ubuntu ubuntu 10 /run/user/1000/slopos-i/session-18c798852854806d-94749/wayland-display
+-rw-rw-r-- ubuntu ubuntu 25 /run/user/1000/slopos-i/session-18c798852854806d-94749/active-toplevel
+-rw-rw-r-- ubuntu ubuntu 77 /run/user/1000/slopos-i/session-18c798852854806d-94749/readiness
+drwx------ ubuntu ubuntu 280 /run/user/1000/slopos-i/session-18c798852854806d-94749
+drwx------ ubuntu ubuntu 40 /run/user/1000/slopos-i/session-18c798852854806d-94749/logs
+drwxrwxr-x ubuntu ubuntu 60 /run/user/1000/slopos-i/session-18c798852854806d-94749/app-control
+drwxrwxr-x ubuntu ubuntu 60 /run/user/1000/slopos-i/session-18c798852854806d-94749/slopos-i
+drwxrwxr-x ubuntu ubuntu 60 /run/user/1000/slopos-i/session-18c798852854806d-94749/slopos-i/menus
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c798852854806d-94749/app-control/com.slopos.finder.sock
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c798852854806d-94749/control.sock
+srwxrwxr-x ubuntu ubuntu 0 /run/user/1000/slopos-i/session-18c798852854806d-94749/wayland-1

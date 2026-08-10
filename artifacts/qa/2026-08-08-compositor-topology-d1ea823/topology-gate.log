@@ -1,0 +1,7 @@
+   Compiling wayland-protocols-misc v0.3.12
+   Compiling smithay v0.7.0
+   Compiling slopos-compositor v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-compositor)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 41.26s
+Headless runtime output topology gate passed for d1ea8239621c0c761d0471caea2a1f042e9677b6
+Evidence: /home/ubuntu/qa/2026-08-08-compositor-topology-d1ea823/d1ea8239621c0c761d0471caea2a1f042e9677b6.json
+This does not prove DRM/KMS connector hotplug or physical multi-monitor compatibility.

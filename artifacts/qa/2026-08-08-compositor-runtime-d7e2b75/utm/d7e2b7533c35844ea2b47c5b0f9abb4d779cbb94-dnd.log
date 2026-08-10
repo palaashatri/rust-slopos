@@ -1,0 +1,11 @@
+SLOPOS_DND_INVALID_SERIAL_REJECTED serial=0 events=none compositor_safe=true
+SLOPOS_DND_SOURCE_READY
+SLOPOS_DND_SOURCE_STARTED serial=6 icon=true
+SLOPOS_DND_SOURCE_DROP_PERFORMED
+SLOPOS_DND_SOURCE_SENT mime=text/plain;charset=utf-8 bytes=45
+SLOPOS_DND_SOURCE_SENT mime=text/uri-list bytes=28
+SLOPOS_DND_TARGET_READY
+SLOPOS_DND_ENTER_VERIFIED serial=10 mime=text/plain;charset=utf-8 action=copy
+SLOPOS_DND_OFFER_VERIFIED mimes=text/plain;charset=utf-8,text/uri-list
+SLOPOS_DND_TEXT_TRANSFER_VERIFIED bytes=45
+SLOPOS_DND_URI_TRANSFER_VERIFIED bytes=28

@@ -1,0 +1,39 @@
+   Compiling wayland-protocols v0.32.13
+   Compiling x11rb-protocol v0.13.2
+   Compiling zbus v4.4.0
+   Compiling wgpu v22.1.0
+   Compiling wayland-protocols-wlr v0.3.12
+   Compiling wayland-protocols-plasma v0.3.12
+   Compiling smithay-client-toolkit v0.19.2
+   Compiling slopos-bus v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-bus)
+   Compiling sctk-adwaita v0.10.1
+   Compiling x11rb v0.13.2
+   Compiling winit v0.30.13
+   Compiling slopos-render v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-render)
+   Compiling slopos-kit v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-kit)
+   Compiling slopos-sdk v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-sdk)
+   Compiling slopos-shell v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-shell)
+   Compiling settings v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/settings)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 41.28s
+     Running unittests src/main.rs (target/debug/deps/settings-0c0431fdc1d94f23)
+
+running 16 tests
+test tests::settings_category_click_rebuilds_visible_options ... ok
+test tests::settings_click_outside_every_widget_is_ignored ... ok
+test tests::settings_display_arrange_applies_env_on_save ... ok
+test tests::settings_loads_all_eight_theme_names ... ok
+test tests::settings_option_click_updates_and_saves_state ... ok
+test tests::settings_press_and_release_on_different_buttons_activates_neither ... ok
+test tests::settings_save_is_atomic_leaves_only_destination_file ... ok
+test tests::settings_save_preserves_lock_password_and_unknown_keys ... ok
+test tests::settings_save_survives_concurrent_writers_without_corruption ... ok
+test tests::settings_slider_drag_keeps_tracking_outside_its_rect ... ok
+test tests::settings_sound_slider_updates_and_saves_volume ... ok
+test tests::settings_spaces_reconciles_new_compositor_snapshot ... ok
+test tests::settings_spaces_sends_authoritative_mutations ... ok
+test tests::settings_store_persists_all_supported_values ... ok
+test tests::settings_tab_then_space_activates_category_via_keyboard ... ok
+test tests::volume_cli_args_match_shipped_backends ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

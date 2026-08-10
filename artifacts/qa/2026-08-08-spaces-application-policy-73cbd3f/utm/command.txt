@@ -1,0 +1,1 @@
+bash scripts/verify-spaces-application-policy-runtime.sh /home/ubuntu/rust-slopos-qa-d1ea823 <remote-log-dir>

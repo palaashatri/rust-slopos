@@ -2,7 +2,7 @@
 # Used to bootstrap access before SSH keys are installed.
 #   pwsh -File inject.ps1 -Command "curl -sL http://10.0.2.2:8000/qa-vm.sh | bash"
 param(
-    [string]$VmName = "retroshell-arch",
+    [string]$VmName = "slopos-i-arch",
     [Parameter(Mandatory=$true)][string]$Command,
     [switch]$NoEnter,
     [int]$PreEnter = 1

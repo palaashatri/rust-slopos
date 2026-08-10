@@ -1,0 +1,187 @@
+    PID    PPID STAT ELAPSED COMMAND         COMMAND
+      2       0 S      39706 kthreadd        [kthreadd]
+      3       2 S      39706  \_ pool_workqu  \_ [pool_workqueue_release]
+      4       2 I<     39706  \_ kworker/R-r  \_ [kworker/R-rcu_gp]
+      5       2 I<     39706  \_ kworker/R-s  \_ [kworker/R-sync_wq]
+      6       2 I<     39706  \_ kworker/R-k  \_ [kworker/R-kvfree_rcu_reclaim]
+      7       2 I<     39706  \_ kworker/R-s  \_ [kworker/R-slub_flushwq]
+      8       2 I<     39706  \_ kworker/R-n  \_ [kworker/R-netns]
+     10       2 I<     39706  \_ kworker/0:0  \_ [kworker/0:0H-kblockd]
+     13       2 I<     39706  \_ kworker/R-m  \_ [kworker/R-mm_percpu_wq]
+     14       2 S      39706  \_ ksoftirqd/0  \_ [ksoftirqd/0]
+     15       2 I      39706  \_ rcu_preempt  \_ [rcu_preempt]
+     16       2 S      39706  \_ rcu_exp_par  \_ [rcu_exp_par_gp_kthread_worker/0]
+     17       2 S      39706  \_ rcu_exp_gp_  \_ [rcu_exp_gp_kthread_worker]
+     18       2 S      39706  \_ migration/0  \_ [migration/0]
+     19       2 S      39706  \_ idle_inject  \_ [idle_inject/0]
+     20       2 S      39706  \_ cpuhp/0      \_ [cpuhp/0]
+     21       2 S      39706  \_ cpuhp/1      \_ [cpuhp/1]
+     22       2 S      39706  \_ idle_inject  \_ [idle_inject/1]
+     23       2 S      39706  \_ migration/1  \_ [migration/1]
+     24       2 S      39706  \_ ksoftirqd/1  \_ [ksoftirqd/1]
+     26       2 I<     39706  \_ kworker/1:0  \_ [kworker/1:0H-kblockd]
+     27       2 S      39706  \_ cpuhp/2      \_ [cpuhp/2]
+     28       2 S      39706  \_ idle_inject  \_ [idle_inject/2]
+     29       2 S      39706  \_ migration/2  \_ [migration/2]
+     30       2 S      39706  \_ ksoftirqd/2  \_ [ksoftirqd/2]
+     32       2 I<     39706  \_ kworker/2:0  \_ [kworker/2:0H-kblockd]
+     33       2 S      39706  \_ cpuhp/3      \_ [cpuhp/3]
+     34       2 S      39706  \_ idle_inject  \_ [idle_inject/3]
+     35       2 S      39706  \_ migration/3  \_ [migration/3]
+     36       2 S      39706  \_ ksoftirqd/3  \_ [ksoftirqd/3]
+     38       2 I<     39706  \_ kworker/3:0  \_ [kworker/3:0H-kblockd]
+     39       2 S      39706  \_ cpuhp/4      \_ [cpuhp/4]
+     40       2 S      39706  \_ idle_inject  \_ [idle_inject/4]
+     41       2 S      39706  \_ migration/4  \_ [migration/4]
+     42       2 S      39706  \_ ksoftirqd/4  \_ [ksoftirqd/4]
+     44       2 I<     39706  \_ kworker/4:0  \_ [kworker/4:0H-kblockd]
+     45       2 S      39706  \_ cpuhp/5      \_ [cpuhp/5]
+     46       2 S      39706  \_ idle_inject  \_ [idle_inject/5]
+     47       2 S      39706  \_ migration/5  \_ [migration/5]
+     48       2 S      39706  \_ ksoftirqd/5  \_ [ksoftirqd/5]
+     50       2 I<     39706  \_ kworker/5:0  \_ [kworker/5:0H-kblockd]
+     51       2 S      39706  \_ cpuhp/6      \_ [cpuhp/6]
+     52       2 S      39706  \_ idle_inject  \_ [idle_inject/6]
+     53       2 S      39706  \_ migration/6  \_ [migration/6]
+     54       2 S      39706  \_ ksoftirqd/6  \_ [ksoftirqd/6]
+     56       2 I<     39706  \_ kworker/6:0  \_ [kworker/6:0H-kblockd]
+     57       2 S      39706  \_ cpuhp/7      \_ [cpuhp/7]
+     58       2 S      39706  \_ idle_inject  \_ [idle_inject/7]
+     59       2 S      39706  \_ migration/7  \_ [migration/7]
+     60       2 S      39706  \_ ksoftirqd/7  \_ [ksoftirqd/7]
+     62       2 I<     39706  \_ kworker/7:0  \_ [kworker/7:0H-kblockd]
+     63       2 S      39706  \_ kdevtmpfs    \_ [kdevtmpfs]
+     64       2 I<     39706  \_ kworker/R-i  \_ [kworker/R-inet_frag_wq]
+     65       2 I      39706  \_ rcu_tasks_k  \_ [rcu_tasks_kthread]
+     66       2 I      39706  \_ rcu_tasks_r  \_ [rcu_tasks_rude_kthread]
+     67       2 S      39706  \_ kauditd      \_ [kauditd]
+     68       2 S      39706  \_ khungtaskd   \_ [khungtaskd]
+     69       2 S      39706  \_ oom_reaper   \_ [oom_reaper]
+     71       2 I<     39706  \_ kworker/R-w  \_ [kworker/R-writeback]
+     72       2 S      39706  \_ kcompactd0   \_ [kcompactd0]
+     73       2 SN     39706  \_ ksmd         \_ [ksmd]
+     74       2 SN     39706  \_ khugepaged   \_ [khugepaged]
+     75       2 I<     39706  \_ kworker/R-k  \_ [kworker/R-kblockd]
+     76       2 I<     39706  \_ kworker/R-b  \_ [kworker/R-blkcg_punt_bio]
+     77       2 I<     39706  \_ kworker/R-k  \_ [kworker/R-kintegrityd]
+     80       2 S<     39706  \_ pr/ttyAMA-1  \_ [pr/ttyAMA-1]
+     81       2 I<     39706  \_ kworker/R-t  \_ [kworker/R-tpm_dev_wq]
+     82       2 I<     39706  \_ kworker/R-a  \_ [kworker/R-ata_sff]
+     83       2 I<     39706  \_ kworker/R-m  \_ [kworker/R-md_bitmap]
+     84       2 I<     39706  \_ kworker/R-m  \_ [kworker/R-md_llbitmap_io]
+     85       2 I<     39706  \_ kworker/R-m  \_ [kworker/R-md_llbitmap_unplug]
+     86       2 I<     39706  \_ kworker/R-e  \_ [kworker/R-edac-poller]
+     87       2 I<     39706  \_ kworker/R-d  \_ [kworker/R-devfreq_wq]
+     88       2 S      39706  \_ watchdogd    \_ [watchdogd]
+     89       2 I<     39706  \_ kworker/R-q  \_ [kworker/R-quota_events_unbound]
+     91       2 S      39706  \_ kswapd0      \_ [kswapd0]
+     93       2 S      39706  \_ ecryptfs-kt  \_ [ecryptfs-kthread]
+     94       2 I<     39706  \_ kworker/R-k  \_ [kworker/R-kthrotld]
+     95       2 S      39706  \_ irq/49-ACPI  \_ [irq/49-ACPI:Ged]
+     96       2 I<     39706  \_ kworker/R-a  \_ [kworker/R-acpi_thermal_pm]
+     99       2 I<     39706  \_ kworker/R-m  \_ [kworker/R-mld]
+    100       2 I<     39706  \_ kworker/R-i  \_ [kworker/R-ipv6_addrconf]
+    101       2 I<     39706  \_ kworker/R-k  \_ [kworker/R-kstrp]
+    106       2 I<     39706  \_ kworker/u33  \_ [kworker/u33:0]
+    110       2 I<     39706  \_ kworker/R-c  \_ [kworker/R-charger_manager]
+    112       2 S      39706  \_ hwrng        \_ [hwrng]
+    446       2 S      39705  \_ card0-crtc0  \_ [card0-crtc0]
+    482       2 S      39704  \_ scsi_eh_0    \_ [scsi_eh_0]
+    483       2 I<     39704  \_ kworker/R-s  \_ [kworker/R-scsi_tmf_0]
+    484       2 S      39704  \_ usb-storage  \_ [usb-storage]
+    485       2 I<     39704  \_ kworker/R-u  \_ [kworker/R-uas]
+    513       2 I<     39704  \_ kworker/R-k  \_ [kworker/R-kdmflush/252:0]
+    548       2 I<     39704  \_ kworker/3:1  \_ [kworker/3:1H-kblockd]
+    558       2 I<     39704  \_ kworker/1:1  \_ [kworker/1:1H-kblockd]
+    565       2 S      39704  \_ jbd2/dm-0-8  \_ [jbd2/dm-0-8]
+    566       2 I<     39704  \_ kworker/R-e  \_ [kworker/R-ext4-rsv-conversion]
+    817       2 I<     39703  \_ kworker/6:1  \_ [kworker/6:1H-kblockd]
+    868       2 I<     39703  \_ kworker/R-k  \_ [kworker/R-kmpathd]
+    869       2 I<     39703  \_ kworker/R-k  \_ [kworker/R-kmpath_handlerd]
+    874       2 I<     39703  \_ kworker/4:1  \_ [kworker/4:1H-kblockd]
+    897       2 I<     39703  \_ kworker/0:1  \_ [kworker/0:1H-kblockd]
+    898       2 I<     39703  \_ kworker/5:1  \_ [kworker/5:1H-kblockd]
+    901       2 I<     39703  \_ kworker/7:1  \_ [kworker/7:1H-kblockd]
+    913       2 I<     39703  \_ kworker/2:1  \_ [kworker/2:1H-kblockd]
+   1155       2 S      39702  \_ jbd2/vda2-8  \_ [jbd2/vda2-8]
+   1156       2 I<     39702  \_ kworker/R-e  \_ [kworker/R-ext4-rsv-conversion]
+   1379       2 I<     39702  \_ kworker/R-c  \_ [kworker/R-cfg80211]
+ 104197       2 S      24936  \_ psimon       \_ [psimon]
+ 104283       2 S      24935  \_ psimon       \_ [psimon]
+ 247311       2 I       2802  \_ kworker/u32  \_ [kworker/u32:0-ext4-rsv-conversion]
+ 247335       2 I       1927  \_ kworker/1:1  \_ [kworker/1:1-events]
+ 253447       2 I       1407  \_ kworker/6:2  \_ [kworker/6:2-events]
+ 256211       2 I       1310  \_ kworker/7:1  \_ [kworker/7:1-events]
+ 256943       2 I       1268  \_ kworker/0:0  \_ [kworker/0:0-events]
+ 259693       2 I       1158  \_ kworker/u32  \_ [kworker/u32:4-events_power_efficient]
+ 260010       2 I       1131  \_ kworker/4:0  \_ [kworker/4:0-events]
+ 260092       2 I       1119  \_ kworker/3:0  \_ [kworker/3:0-events]
+ 260991       2 I       1034  \_ kworker/5:2  \_ [kworker/5:2-cgroup_free]
+ 261454       2 I        991  \_ kworker/2:2  \_ [kworker/2:2-events]
+ 265991       2 I        762  \_ kworker/3:2  \_ [kworker/3:2-events]
+ 267137       2 I        700  \_ kworker/5:0  \_ [kworker/5:0-events]
+ 268908       2 I        586  \_ kworker/2:1  \_ [kworker/2:1-events]
+ 268909       2 I        557  \_ kworker/u32  \_ [kworker/u32:1-flush-252:0]
+ 269874       2 I        507  \_ kworker/4:1  \_ [kworker/4:1-cgroup_free]
+ 270467       2 I        491  \_ kworker/0:1  \_ [kworker/0:1-events]
+ 271338       2 I        469  \_ kworker/1:0  \_ [kworker/1:0-events]
+ 273903       2 I        344  \_ kworker/7:2  \_ [kworker/7:2-events]
+ 274116       2 I        323  \_ kworker/u32  \_ [kworker/u32:2-events_unbound]
+ 274293       2 I        305  \_ kworker/5:1  \_ [kworker/5:1]
+ 274294       2 I        305  \_ kworker/6:0  \_ [kworker/6:0]
+ 274536       2 I        153  \_ kworker/4:2  \_ [kworker/4:2-events]
+ 274574       2 I        123  \_ kworker/1:2  \_ [kworker/1:2]
+      1       0 Ss     39706 systemd         /usr/lib/systemd/systemd --system --deserialize=163
+    890       1 SLsl   39703 multipathd      /usr/sbin/multipathd -d -s
+   1383       1 Ss     39702 chronyd-starter /bin/sh /usr/lib/systemd/scripts/chronyd-starter.sh -n -F 1
+   1484    1383 S      39702  \_ chronyd      \_ /usr/sbin/chronyd -n -F 1
+   1518    1484 S      39701      \_ chronyd      \_ /usr/sbin/chronyd -n -F 1
+   1384       1 Ss     39702 dbus-daemon     @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1391       1 Ss     39702 networkd-dispat /usr/bin/python3 /usr/bin/networkd-dispatcher --run-startup-triggers
+   1392       1 Ssl    39702 polkitd         /usr/lib/polkit-1/polkitd --no-debug --log-level=notice
+   1395       1 Ss     39702 seatd           seatd -g video
+   1400       1 Ss     39702 systemd-logind  /usr/lib/systemd/systemd-logind
+   1452       1 Ss     39702 cron            /usr/sbin/cron -f -P
+   1460       1 Ssl    39702 rsyslogd        /usr/sbin/rsyslogd -n -iNONE
+   1500       1 Ssl    39701 unattended-upgr /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-signal
+   1507       1 Ss+    39701 agetty          /usr/sbin/agetty --noreset --noclear --issue-file=/etc/issue:/etc/issue.d:/run/issue.d:/usr/lib/issue.d --keep-baud 115200,57600,38400,9600 - vt220
+   1543       1 Ssl    39701 ModemManager    /usr/sbin/ModemManager
+   1547       1 Ss     39701 login           login -- ubuntu
+   2216    1547 Ss+    39563  \_ bash         \_ -bash
+   2193       1 Ss     39563 systemd         /usr/lib/systemd/systemd --user --deserialize=12
+   2198    2193 S      39563  \_ (sd-pam)     \_ (sd-pam)
+ 163958    2193 Ss     17985  \_ dbus-daemon  \_ /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+  21677       1 S      37374 Xvfb            Xvfb :99 -screen 0 1280x800x24 -nolisten tcp
+  33740       1 Ss+    35876 bash            /bin/bash
+  34005       1 Ss+    35843 bash            /bin/bash
+  34497       1 Ss+    35557 bash            /bin/bash
+  57045       1 Ss+    32444 bash            /bin/bash
+  60813       1 Ss+    32099 bash            /bin/bash
+  61347       1 Ss+    31968 bash            /bin/bash
+  61919       1 Ss+    31862 bash            /bin/bash
+  95579       1 Ss+    25341 bash            /bin/bash
+ 104215       1 S<s    24936 systemd-journal /usr/lib/systemd/systemd-journald
+ 104221       1 Ss     24936 sshd            sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
+ 273920  104221 Ss       325  \_ sshd-sessio  \_ sshd-session: ubuntu [priv]
+ 273976  273920 S        324  |   \_ sshd-se  |   \_ sshd-session: ubuntu@notty
+ 275293  104221 Ss         0  \_ sshd-sessio  \_ sshd-session: ubuntu [priv]
+ 275349  275293 S          0      \_ sshd-se      \_ sshd-session: ubuntu@notty
+ 275350  275349 Ss         0          \_ bas          \_ bash -c ps -eo pid,ppid,stat,etimes,comm,args --forest > /home/ubuntu/qa/2026-08-01-full-qa-r13/evidence/process-tree.txt; ss -lxnp > /home/ubuntu/qa/2026-08-01-full-qa-r13/evidence/sockets.txt; printf "runtime=%s\n" "/run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979" > /home/ubuntu/qa/2026-08-01-full-qa-r13/evidence/runtime-files.txt; find /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979 -maxdepth 2 -printf "%M %u %g %s %p\\n" >> /home/ubuntu/qa/2026-08-01-full-qa-r13/evidence/runtime-files.txt; stat -c "socket=%n mode=%a inode=%i owner=%U:%G" /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/wayland-1 >> /home/ubuntu/qa/2026-08-01-full-qa-r13/evidence/runtime-files.txt 2>&1 || true; printf "active-toplevel\\n" > /home/ubuntu/qa/2026-08-01-full-qa-r13/evidence/active-toplevel.txt; cat /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/active-toplevel >> /home/ubuntu/qa/2026-08-01-full-qa-r13/evidence/active-toplevel.txt 2>/dev/null || true; printf "pid environment\\n" > /home/ubuntu/qa/2026-08-01-full-qa-r13/evidence/client-environments.txt; for pid in 273979 273985 273987 $(pgrep -f "/home/ubuntu/qa/2026-08-01-full-qa-r13/src/target/debug/(finder|settings|textedit|terminal|appstore)$" | tr "\\n" " "); do if [ -r /proc/$pid/environ ]; then printf "--- pid=%s cmd=" "$pid"; tr "\\0" "\\n" < /proc/$pid/environ | grep -E "^(WAYLAND_DISPLAY|XDG_RUNTIME_DIR|SLOPOS_|DISPLAY=)" | sort; fi; done >> /home/ubuntu/qa/2026-08-01-full-qa-r13/evidence/client-environments.txt; tail -40 /home/ubuntu/qa/2026-08-01-full-qa-r13/evidence/session.log > /home/ubuntu/qa/2026-08-01-full-qa-r13/evidence/session-tail.txt; printf "captured\\n"
+ 275351  275350 R          0             ps               \_ ps -eo pid,ppid,stat,etimes,comm,args --forest
+ 104253       1 Ss     24936 systemd-resolve /usr/lib/systemd/systemd-resolved
+ 104262       1 Ssl    24936 fwupd           /usr/libexec/fwupd/fwupd
+ 104265       1 Ss     24936 systemd-udevd   /usr/lib/systemd/systemd-udevd
+ 104266       1 Ssl    24936 udisksd         /usr/libexec/udisks2/udisksd
+ 104284       1 Ss     24935 systemd-network /usr/lib/systemd/systemd-networkd
+ 131946       1 Ss+    23694 bash            /bin/bash
+ 201708       1 Ss+    13742 bash            /bin/bash
+ 273978       1 S        324 bash            bash -c cd /home/ubuntu/qa/2026-08-01-full-qa-r13/src && nohup env XDG_RUNTIME_DIR=/run/user/1000 SLOPOS_BACKEND=drm SLOPOS_START_APP=finder ./scripts/start-slopos-i > /home/ubuntu/qa/2026-08-01-full-qa-r13/evidence/session.log 2>&1 & echo $! > /home/ubuntu/qa/2026-08-01-full-qa-r13/evidence/session.pid
+ 273979  273978 S        324  \_ slopos-sess  \_ /home/ubuntu/qa/2026-08-01-full-qa-r13/src/scripts/../target/debug/slopos-session --backend drm
+ 273985  273979 Sl       324      \_ slopos-      \_ /home/ubuntu/qa/2026-08-01-full-qa-r13/src/target/debug/slopos-compositor --backend drm
+ 273987  273979 Sl       324      \_ slopos-      \_ /home/ubuntu/qa/2026-08-01-full-qa-r13/src/target/debug/slopos-shell
+ 273998  273987 Sl       323          \_ fin          \_ /home/ubuntu/qa/2026-08-01-full-qa-r13/src/target/debug/finder
+ 274965       1 Sl        51 textedit        /home/ubuntu/qa/2026-08-01-full-qa-r13/src/target/debug/textedit
+ 274979       1 Sl        51 appstore        /home/ubuntu/qa/2026-08-01-full-qa-r13/src/target/debug/appstore
+ 274982       1 Sl        51 settings        /home/ubuntu/qa/2026-08-01-full-qa-r13/src/target/debug/settings
+ 274984       1 Sl        51 terminal        /home/ubuntu/qa/2026-08-01-full-qa-r13/src/target/debug/terminal
+ 274989  274984 Ss+       51  \_ bash         \_ /bin/bash

@@ -1,0 +1,7 @@
+ProductName:		macOS
+ProductVersion:		26.5.2
+BuildVersion:		25F84
+Darwin Palaashs-MacBook-Pro.local 25.5.0 Darwin Kernel Version 25.5.0: Tue Jun  9 22:28:24 PDT 2026; root:xnu-12377.121.10~1/RELEASE_ARM64_T6020 arm64
+rustc 1.97.1 (8bab26f4f 2026-07-14) (Homebrew)
+cargo 1.97.1 (c980f4866 2026-06-30) (Homebrew)
+5f761af71d024a64e04b6fd3bba1e986ee2b4ceb feat: establish SLOPOS desktop runtime and Vision baseline

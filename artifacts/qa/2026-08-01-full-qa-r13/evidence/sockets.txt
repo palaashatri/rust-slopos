@@ -1,0 +1,64 @@
+Netid State  Recv-Q Send-Q                                                                                Local Address:Port   Peer Address:PortProcess                                      
+u_dgr UNCONN 0      0                                                                     /run/user/1000/systemd/notify 18264             * 0                                                
+u_str LISTEN 0      4096                                                      /run/user/1000/systemd/io.systemd.Manager 18273             * 0                                                
+u_str LISTEN 0      4096                                                                             /run/user/1000/bus 18282             * 0    users:(("dbus-daemon",pid=163958,fd=3))     
+u_str LISTEN 0      4096                                                                 /run/user/1000/gnupg/S.dirmngr 18283             * 0                                                
+u_str LISTEN 0      4096                                                       /run/user/1000/gnupg/S.gpg-agent.browser 18284             * 0                                                
+u_str LISTEN 0      4096                                                         /run/user/1000/gnupg/S.gpg-agent.extra 18285             * 0                                                
+u_str LISTEN 0      4096                                                           /run/user/1000/gnupg/S.gpg-agent.ssh 18286             * 0                                                
+u_str LISTEN 0      4096                                                                             /tmp/.X11-unix/X99 53505             * 0    users:(("Xvfb",pid=21677,fd=7))             
+u_str LISTEN 0      4096                                                               /run/user/1000/gnupg/S.gpg-agent 18287             * 0                                                
+u_str LISTEN 0      4096                                                                 /run/user/1000/gnupg/S.keyboxd 18288             * 0                                                
+u_str LISTEN 0      4096                                                               /run/user/1000/pk-debconf-socket 18289             * 0                                                
+u_str LISTEN 0      4096                                                      /run/user/1000/snapd-session-agent.socket 18290             * 0                                                
+u_str LISTEN 0      4096                                                                   /run/user/1000/openssh_agent 18291             * 0                                                
+u_str LISTEN 0      4096                                                  /run/user/1000/systemd/io.systemd.AskPassword 18292             * 0                                                
+u_str LISTEN 0      4096                                                     /run/systemd/userdb/io.systemd.DynamicUser 5330              * 0                                                
+u_str LISTEN 0      4096                                                             /run/systemd/io.systemd.ManagedOOM 5331              * 0                                                
+u_str LISTEN 0      4096                                                                    /run/dbus/system_bus_socket 15870             * 0                                                
+u_str LISTEN 0      4096                                                                /run/systemd/io.systemd.Manager 5332              * 0                                                
+u_str LISTEN 0      4096                                                                      /run/lxd-installer.socket 15872             * 0                                                
+u_str LISTEN 0      4096                                                                /run/polkit/agent-helper.socket 15873             * 0                                                
+u_str LISTEN 0      4096                                                                              /run/snapd.socket 15874             * 0                                                
+u_str LISTEN 0      4096                                                                         /run/snapd-snap.socket 15875             * 0                                                
+u_str LISTEN 0      4096                                                                    /run/systemd/journal/stdout 5380              * 0                                                
+u_str LISTEN 0      4096                                                                     /run/ssh-unix-local/socket 16953             * 0                                                
+u_str LISTEN 0      4096                                                               /run/systemd/io.systemd.Hostname 16954             * 0                                                
+u_str LISTEN 0      4096                                                                  /run/systemd/io.systemd.Login 16955             * 0                                                
+u_str LISTEN 0      4096                                                                             /run/uuidd/request 16956             * 0                                                
+u_str LISTEN 0      4096                                                     /run/systemd/userdb/io.systemd.DynamicUser 8863              * 0                                                
+u_str LISTEN 0      4096                                                             /run/systemd/io.systemd.ManagedOOM 8864              * 0                                                
+u_str LISTEN 0      4096                                                                /run/systemd/io.systemd.Manager 8865              * 0                                                
+u_str LISTEN 0      4096                                                                       /run/lvm/lvmpolld.socket 5919              * 0                                                
+u_dgr UNCONN 0      0                                                                       /run/systemd/journal/syslog 5920              * 0                                                
+u_str LISTEN 0      4096                                                            /run/systemd/io.systemd.AskPassword 5921              * 0                                                
+u_str LISTEN 0      4096                                                            /run/systemd/io.systemd.Credentials 5922              * 0                                                
+u_str LISTEN 0      4096                                                           /run/systemd/io.systemd.FactoryReset 5923              * 0                                                
+u_str LISTEN 0      4096                                                            /run/systemd/io.systemd.MuteConsole 5924              * 0                                                
+u_str LISTEN 0      4096                                                   /run/systemd/resolve.hook/io.systemd.Network 5925              * 0                                                
+u_str LISTEN 0      4096                                                          /run/systemd/netif/io.systemd.Network 5926              * 0                                                
+u_str LISTEN 0      4096                                                /run/systemd/resolve/io.systemd.Resolve.Monitor 5928              * 0                                                
+u_str LISTEN 0      4096                                                        /run/systemd/resolve/io.systemd.Resolve 5929              * 0                                                
+u_seq LISTEN 0      4096                                                                              /run/udev/control 5930              * 0                                                
+u_str LISTEN 0      4096                                                                      /run/udev/io.systemd.Udev 5931              * 0                                                
+u_str LISTEN 0      16                                                                                  /run/seatd.sock 16998             * 0                                                
+u_str LISTEN 0      10                                                                           /run/multipathd.socket 12914             * 0                                                
+u_str LISTEN 0      4096                                                                           /run/systemd/private 209289            * 0                                                
+u_str LISTEN 0      4096                                                     /run/systemd/userdb/io.systemd.DynamicUser 209291            * 0                                                
+u_str LISTEN 0      4096                                                             /run/systemd/io.systemd.ManagedOOM 209292            * 0                                                
+u_str LISTEN 0      4096                                                                /run/systemd/io.systemd.Manager 209293            * 0                                                
+u_str LISTEN 0      4096                                                        /run/systemd/journal/io.systemd.journal 210211            * 0                                                
+u_str LISTEN 0      4096                              /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/wayland-1 492230            * 0    users:(("slopos-composit",pid=273985,fd=17))
+u_dgr UNCONN 0      0                              /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/control.sock 492231            * 0    users:(("slopos-composit",pid=273985,fd=18))
+u_dgr UNCONN 0      0        /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/app-control/com.slopos.finder.sock 490019            * 0    users:(("finder",pid=273998,fd=10))         
+u_dgr UNCONN 0      0      /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/app-control/com.slopos.textedit.sock 496938            * 0    users:(("textedit",pid=274965,fd=10))       
+u_str LISTEN 0      4096                                                                 /run/systemd/io.systemd.sysext 12215             * 0                                                
+u_dgr UNCONN 0      0      /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/app-control/com.slopos.terminal.sock 493402            * 0    users:(("terminal",pid=274984,fd=13))       
+u_str LISTEN 0      4096                                                                 /run/user/1000/systemd/private 210228            * 0                                                
+u_str LISTEN 0      4096                                                      /run/user/1000/systemd/io.systemd.Manager 207319            * 0                                                
+u_dgr UNCONN 0      0      /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/app-control/com.slopos.settings.sock 496550            * 0    users:(("settings",pid=274982,fd=10))       
+u_dgr UNCONN 0      0      /run/user/1000/slopos-i/session-18c7af7a92c2e54a-273979/app-control/com.slopos.appstore.sock 494234            * 0    users:(("appstore",pid=274979,fd=10))       
+u_dgr UNCONN 0      0                                                                             @17840992195065575665 205514            * 0                                                
+u_str LISTEN 0      10                                                            @/org/kernel/linux/storage/multipathd 12913             * 0                                                
+u_str LISTEN 0      4096                                                                            @/tmp/.X11-unix/X99 53504             * 0    users:(("Xvfb",pid=21677,fd=6))             
+u_str LISTEN 0      4096                                                                   @ISCSIADM_ABSTRACT_NAMESPACE 15871             * 0                                                

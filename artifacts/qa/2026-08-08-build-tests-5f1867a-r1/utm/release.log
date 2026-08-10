@@ -1,0 +1,11 @@
+   Compiling slopos-bus v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-bus)
+   Compiling slopos-sdk v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-sdk)
+   Compiling slopos-compositor v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-compositor)
+   Compiling slopos-shell v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-shell)
+   Compiling terminal v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/terminal)
+   Compiling preview v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/preview)
+   Compiling appstore v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/appstore)
+   Compiling finder v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/finder)
+   Compiling textedit v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/textedit)
+   Compiling settings v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/settings)
+    Finished `release` profile [optimized] target(s) in 1m 03s

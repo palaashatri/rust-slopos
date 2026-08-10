@@ -1,0 +1,48 @@
+[package]
+name = "slopos-compositor"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[[bin]]
+name = "slopos-compositor"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+slopos-bus = { path = "../slopos-bus" }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+smithay = { version = "0.7", default-features = false, features = [
+    "backend_x11",
+    "backend_winit",
+    # Session DRM/KMS path (bare metal / seat). Docker may not exercise this;
+    # code still ships and is selected when /dev/dri + DRI3 policy say so.
+    "backend_drm",
+    "backend_gbm",
+    "backend_libinput",
+    "backend_udev",
+    "backend_session_libseat",
+    "wayland_frontend",
+    "renderer_gl",
+    "desktop",
+    # XWayland integration (smithay 0.7 feature name is "xwayland").
+    # Nested under X11/Xvfb the path is best-effort: code starts Xwayland when
+    # present, but a full rootless WM under another X server is limited.
+    "xwayland",
+] }
+# libinput context for seat-backed input (smithay backend_libinput wraps this).
+# OFlags for Session::open come from smithay::reexports::rustix.
+input = { version = "0.9", features = ["libinput_1_19", "udev"] }
+# QA screenshot: offscreen GL readback → PNG on SIGUSR1.
+image = { workspace = true }
+libc = "0.2"
+
+[dev-dependencies]
+wayland-client = { workspace = true }
+wayland-protocols = { workspace = true, features = ["client", "unstable"] }
+wayland-protocols-misc = { version = "0.3.12", features = ["client"] }

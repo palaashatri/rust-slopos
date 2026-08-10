@@ -1,0 +1,26 @@
+# SLOPOS-I runtime dependencies for Arch Linux
+wayland
+wayland-protocols
+libxkbcommon
+libinput
+seatd
+libdrm
+mesa
+vulkan-icd-loader
+vulkan-swrast
+vulkan-tools
+libdisplay-info
+pixman
+dbus
+at-spi2-core
+fontconfig
+freetype2
+ttf-dejavu
+ttf-liberation
+pipewire
+pipewire-pulse
+wireplumber
+polkit
+xorg-xwayland
+foot
+wl-clipboard

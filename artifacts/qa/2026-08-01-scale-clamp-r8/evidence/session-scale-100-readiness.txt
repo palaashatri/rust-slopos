@@ -1,0 +1,6 @@
+runtime_dir=/run/user/1000/slopos-i/session-18c79fa668c583bc-165742
+wayland-1
+pid=165746
+token=18c79fa668c7d6cb-165742-165742
+width=1280
+height=800

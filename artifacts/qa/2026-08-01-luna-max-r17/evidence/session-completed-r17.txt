@@ -1,0 +1,7 @@
+1:[slopos-session] visiond pid=365228 socket=/run/user/1000/slopos-i/session-18c7bfb950aa2b32-365227/vision.sock models=/home/ubuntu/qa/2026-08-01-luna-max-r16/models/vision
+31:[slopos-compositor] DRM GL compositor ready (1280x800) — client surfaces will be composited
+34:[slopos-compositor] WAYLAND_DISPLAY=wayland-1 (DRM session)
+35:WAYLAND_DISPLAY=wayland-1
+38:[slopos-session] compositor pid=365229 backend=drm client_socket=wayland-1
+55:[slopos-compositor] DRM session loop running (Wayland + seat + udev + libinput + layer-shell + foreign-toplevel; scanout_armed=false)
+

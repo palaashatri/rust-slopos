@@ -1,0 +1,42 @@
+Post-fix single-shell/session verification
+===========================================
+
+Environment: Ubuntu 26.04 LTS, aarch64, UTM guest, DRM backend, llvmpipe,
+1280x800 output, Rust 1.97.1 / Cargo 1.97.1.
+
+Host and guest source identity:
+  host session_drm.rs:  a0323a28b9168204876ea279218013e8fb7b7312993e45db2d0792603b1b89b2
+  guest session_drm.rs: a0323a28b9168204876ea279218013e8fb7b7312993e45db2d0792603b1b89b2
+  Result: exact digest match.
+
+Post-edit VM commands (all exit 0):
+  cargo fmt --all -- --check
+  CARGO_BUILD_JOBS=1 cargo check --workspace --all-targets
+  CARGO_BUILD_JOBS=1 cargo test --workspace
+  CARGO_BUILD_JOBS=1 cargo build --workspace
+  CARGO_BUILD_JOBS=1 cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+Fresh DRM session:
+  session pid=71907
+  compositor pid=71909
+  shell pid=71911
+  Finder pid=71922
+  readiness=wayland-1, pid=71909, width=1280, height=800
+  compositor-owned layers: desktop Background, menu Top, dock Bottom, menu-popup Overlay
+  duplicate shell warning file: empty
+  process tree showed exactly one slopos-shell child under slopos-session
+
+Failure propagation:
+  SIGTERM to compositor pid=67836: session logged compositor exit; shell/client processes disappeared; unique runtime directory was removed.
+  SIGHUP to session pid=68722: session logged shutdown signal received; shell/client processes disappeared; unique runtime directory was removed.
+  Clean SIGTERM to post-fix session pid=71907: process check empty; only /run/user/1000/slopos-i remained.
+
+Visual QA:
+  utm-finder-post-fix.jpeg is a fresh UTM Computer Use capture. It shows the
+  full desktop canvas, full-width global menu, real Finder client, visible
+  cursor, right-side desktop icons, and separate Dock chrome.
+
+Interaction limitation:
+  UTM Computer Use drag/click returned noWindowsAvailable after Capture Input
+  was enabled. The guest has no ydotool, xdotool, wtype, evemu-event, or
+  libinput-debug-events. Pointer-driven move/resize remains unverified.

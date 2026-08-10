@@ -1,0 +1,28 @@
+==pid 31161==
+XDG_RUNTIME_DIR=/run/user/1000
+==pid 31164==
+SLOPOS_SESSION_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0
+XDG_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0
+==pid 31165==
+SLOPOS_SESSION_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0
+XDG_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0
+==pid 31175==
+SLOPOS_CLIENT_WAYLAND_DISPLAY=wayland-1
+SLOPOS_SESSION_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0
+WAYLAND_DISPLAY=wayland-1
+XDG_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0
+==pid 31713==
+SLOPOS_CLIENT_WAYLAND_DISPLAY=wayland-1
+SLOPOS_SESSION_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0
+WAYLAND_DISPLAY=wayland-1
+XDG_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0
+==pid 31714==
+SLOPOS_CLIENT_WAYLAND_DISPLAY=wayland-1
+SLOPOS_SESSION_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0
+WAYLAND_DISPLAY=wayland-1
+XDG_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0
+==pid 31715==
+SLOPOS_CLIENT_WAYLAND_DISPLAY=wayland-1
+SLOPOS_SESSION_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0
+WAYLAND_DISPLAY=wayland-1
+XDG_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7ed5bfaf88b9a-79b9-0

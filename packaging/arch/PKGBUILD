@@ -1,0 +1,80 @@
+# Maintainer: SLOPOS-I Contributors
+pkgname=slopos-i
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="SLOPOS-I: a classic-Mac-styled Linux desktop environment in Rust"
+arch=('x86_64' 'aarch64')
+url="https://github.com/palaashatri/retroshell"
+license=('MIT')
+depends=(
+  wayland
+  wayland-protocols
+  libxkbcommon
+  libinput
+  seatd
+  libdrm
+  mesa
+  vulkan-icd-loader
+  vulkan-swrast
+  vulkan-tools
+  libdisplay-info
+  pixman
+  dbus
+  at-spi2-core
+  fontconfig
+  freetype2
+  ttf-dejavu
+  ttf-liberation
+  pipewire
+  pipewire-pulse
+  wireplumber
+  polkit
+  xorg-xwayland
+  foot
+  wl-clipboard
+)
+makedepends=(
+  cargo
+  pkgconf
+  rust
+)
+optdepends=(
+  'greetd: for session greeter'
+  'tuigreet: TUI greeter for greetd'
+)
+provides=('slopos-i')
+conflicts=('slopos-i')
+
+source=("$pkgname-$pkgver.tar.gz::https://github.com/slopos-i/slopos-i/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+  cargo build --release --workspace --locked
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  # Install binaries
+  install -Dm755 target/release/slopos-session "$pkgdir/usr/bin/slopos-session"
+  install -Dm755 target/release/slopos-compositor "$pkgdir/usr/bin/slopos-compositor"
+  install -Dm755 target/release/slopos-shell "$pkgdir/usr/bin/slopos-shell"
+  install -Dm755 target/release/finder "$pkgdir/usr/bin/finder"
+  install -Dm755 target/release/settings "$pkgdir/usr/bin/settings"
+  install -Dm755 target/release/textedit "$pkgdir/usr/bin/textedit"
+  install -Dm755 target/release/terminal "$pkgdir/usr/bin/terminal"
+  install -Dm755 target/release/appstore "$pkgdir/usr/bin/appstore"
+  install -Dm755 scripts/start-slopos-i "$pkgdir/usr/bin/start-slopos-i"
+
+  # Install session files
+  install -Dm644 packaging/slopos-i.desktop "$pkgdir/usr/share/xsessions/slopos-i.desktop"
+  install -Dm644 packaging/slopos-i-wayland.desktop "$pkgdir/usr/share/wayland-sessions/slopos-i.desktop"
+  install -Dm644 packaging/slopos-i.service "$pkgdir/usr/lib/systemd/user/slopos-i.service"
+
+  # Install the three canonical project documents and legal notices.
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 AGENTS.md "$pkgdir/usr/share/doc/$pkgname/AGENTS.md"
+  install -Dm644 TRUTH.md "$pkgdir/usr/share/doc/$pkgname/TRUTH.md"
+  install -Dm644 THIRD_PARTY_LICENSES.txt "$pkgdir/usr/share/doc/$pkgname/THIRD_PARTY_LICENSES.txt"
+}

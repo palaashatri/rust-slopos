@@ -1,0 +1,9 @@
+[slopos-compositor] output_scale=5/4 (1.25x) (DRM wl_output buffer scale=1 effective=output_scale=1/1 (1.00x) logical canvas=1280x800)
+[slopos-compositor] WAYLAND_DISPLAY=wayland-1 (DRM session)
+WAYLAND_DISPLAY=wayland-1
+[slopos-compositor/drm] layer-shell surface namespace=slopos-i-desktop layer=Background
+[slopos-compositor/drm] layer-shell surface namespace=slopos-i-menu layer=Top
+[slopos-compositor/drm] layer-shell surface namespace=slopos-i-dock layer=Bottom
+[slopos-compositor/drm] layer-shell surface namespace=slopos-i-menu-popup layer=Overlay
+[slopos-compositor/drm] toplevel mapped at (64,64) size=640x480 title=Untitled app_id=slopos-i.app shell=false
+[slopos-compositor/drm] workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0] window_id=jdrKfnNzDhsLGfnGFe6KOvHqHdmmhi8Y present=["jdrKfnNzDhsLGfnGFe6KOvHqHdmmhi8Y"]

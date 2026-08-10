@@ -1,0 +1,24 @@
+   Compiling settings v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/apps/settings)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.98s
+     Running unittests src/main.rs (target/debug/deps/settings-0c0431fdc1d94f23)
+
+running 16 tests
+test tests::settings_click_outside_every_widget_is_ignored ... ok
+test tests::settings_loads_all_eight_theme_names ... ok
+test tests::settings_category_click_rebuilds_visible_options ... ok
+test tests::settings_press_and_release_on_different_buttons_activates_neither ... ok
+test tests::settings_display_arrange_applies_env_on_save ... ok
+test tests::settings_option_click_updates_and_saves_state ... ok
+test tests::settings_save_preserves_lock_password_and_unknown_keys ... ok
+test tests::settings_save_is_atomic_leaves_only_destination_file ... ok
+test tests::settings_save_survives_concurrent_writers_without_corruption ... ok
+test tests::settings_sound_slider_updates_and_saves_volume ... ok
+test tests::volume_cli_args_match_shipped_backends ... ok
+test tests::settings_store_persists_all_supported_values ... ok
+test tests::settings_tab_then_space_activates_category_via_keyboard ... ok
+test tests::settings_slider_drag_keeps_tracking_outside_its_rect ... ok
+test tests::settings_spaces_reconciles_new_compositor_snapshot ... ok
+test tests::settings_spaces_sends_authoritative_mutations ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

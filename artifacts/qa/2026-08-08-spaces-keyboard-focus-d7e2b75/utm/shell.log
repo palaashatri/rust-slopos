@@ -1,0 +1,37 @@
+   Compiling slopos-bus v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-bus)
+   Compiling slopos-kit v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-kit)
+   Compiling slopos-sdk v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-sdk)
+   Compiling slopos-shell v0.1.0 (/home/ubuntu/rust-slopos-qa-d1ea823/crates/slopos-shell)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 41.19s
+     Running unittests src/lib.rs (target/debug/deps/slopos_shell-ebeab80d45d022b0)
+
+running 2 tests
+test tests::live_workspace_overview_selects_by_stable_space_id ... ok
+test tests::live_workspace_overview_keyboard_selects_dismisses_and_rejects_stale ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 330 filtered out; finished in 0.05s
+
+     Running unittests src/bin/slopos-lock.rs (target/debug/deps/slopos_lock-e9ca0492d0b95042)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/slopos_shell-3a24b2b94c680e0c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/shell_tests.rs (target/debug/deps/shell_tests-76de2c2487b5538b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests/spaces_reconciliation.rs (target/debug/deps/spaces_reconciliation-864909578085a838)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+

@@ -1,0 +1,5 @@
+# Ubuntu build dependencies (for cargo build --release --workspace)
+# Note: Rust installed via rustup (Ubuntu's rustc is often too old)
+build-essential
+pkg-config
+curl

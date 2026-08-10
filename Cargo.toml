@@ -1,17 +1,24 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/retro-render",
-    "crates/retro-kit",
-    "crates/retro-shell",
-    "crates/retro-bus",
-    "crates/retro-sdk",
-    "crates/retro-compositor",
+    "crates/slopos-render",
+    "crates/slopos-kit",
+    "crates/slopos-shell",
+    "crates/slopos-bus",
+    "crates/slopos-sdk",
+    "crates/slopos-compositor",
+    "crates/slopos-session",
+    "crates/slopos-fonts",
+    "crates/slopos-vision",
+    "crates/slopos-vision-protocol",
+    "crates/slopos-vision-client",
+    "crates/slopos-visiond",
     "apps/finder",
     "apps/settings",
     "apps/textedit",
     "apps/terminal",
     "apps/appstore",
+    "apps/preview",
 ]
 
 [workspace.dependencies]
@@ -31,7 +38,12 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 image = "0.25"
 futures = "0.3"
+libc = "0.2"
 parking_lot = "0.12"
 bytemuck = { version = "1", features = ["derive"] }
 bitflags = "2"
 uuid = { version = "1", features = ["v4"] }
+rten = "0.24"
+sha2 = "0.10"
+hex = "0.4"
+tempfile = "3"

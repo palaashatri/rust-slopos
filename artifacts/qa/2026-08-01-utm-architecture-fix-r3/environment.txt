@@ -1,0 +1,15 @@
+Linux ubuntu 7.0.0-28-generic #28-Ubuntu SMP PREEMPT_DYNAMIC Sun Jun 21 00:50:10 UTC 2026 aarch64 GNU/Linux
+ubuntu_release:
+PRETTY_NAME="Ubuntu 26.04 LTS"
+rustc=rustc 1.97.1 (8bab26f4f 2026-07-14)
+cargo=cargo 1.97.1 (c980f4866 2026-06-30)
+renderer:
+[2m2026-08-01T04:01:27.020653Z[0m [32m INFO[0m [2mslopos_compositor::session_drm[0m[2m:[0m DrmCompositor initialized; GL composition active [3mstage[0m[2m=[0m"pageflip_or_present"
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)  
+	           [0] llvmpipe (LLVM 21.1.8, 128 bits)
+backend=drm
+output=1280x800
+session_pid=60377
+compositor_pid=60380
+shell_pid=60382

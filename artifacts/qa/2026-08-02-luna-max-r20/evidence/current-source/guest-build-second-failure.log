@@ -1,0 +1,13 @@
+Script started on 2026-08-02 10:53:17+00:00 [COMMAND="cargo build -p slopos-compositor -p slopos-shell" <not executed on terminal>]
+   Compiling slopos-shell v0.1.0 (/home/ubuntu/qa/2026-08-02-luna-max-r20-src/crates/slopos-shell)
+   Compiling slopos-compositor v0.1.0 (/home/ubuntu/qa/2026-08-02-luna-max-r20-src/crates/slopos-compositor)
+error[E0599]: no method named `surface_under` found for struct `smithay::wayland::shell::wlr_layer::LayerSurface` in the current scope
+   --> crates/slopos-compositor/src/main.rs:648:51
+    |
+648 |             let (surface, origin) = layer.surface.surface_under(local, WindowSurfaceType::ALL)?;
+    |                                                   ^^^^^^^^^^^^^ method not found in `smithay::wayland::shell::wlr_layer::LayerSurface`
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `slopos-compositor` (bin "slopos-compositor") due to 1 previous error
+
+Script done on 2026-08-02 10:53:36+00:00 [COMMAND_EXIT_CODE="101"]

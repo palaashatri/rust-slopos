@@ -1,0 +1,13 @@
+   Compiling slopos-compositor v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-compositor)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.20s
+     Running unittests src/main.rs (target/debug/deps/slopos_compositor-a6c86e7d1e8caed8)
+
+running 5 tests
+test tests::automatic_backend_requires_x11_display_for_nested ... ok
+test tests::explicit_nested_backend_fails_without_x11_display ... ok
+test tests::test_parse_bool_env ... ok
+test tests::x11_resize_edges_use_shared_interactive_mapping ... ok
+test tests::nested_control_binds_before_readiness_and_delivers_request ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

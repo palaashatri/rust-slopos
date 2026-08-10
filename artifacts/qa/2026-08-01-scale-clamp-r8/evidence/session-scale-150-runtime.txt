@@ -1,0 +1,13 @@
+/run/user/1000/slopos-i
+/run/user/1000/slopos-i/clipboard.txt
+/run/user/1000/slopos-i/session-18c79f907273da34-164891
+/run/user/1000/slopos-i/session-18c79f907273da34-164891/active-toplevel
+/run/user/1000/slopos-i/session-18c79f907273da34-164891/app-control
+/run/user/1000/slopos-i/session-18c79f907273da34-164891/client-wayland-display
+/run/user/1000/slopos-i/session-18c79f907273da34-164891/logs
+/run/user/1000/slopos-i/session-18c79f907273da34-164891/readiness
+/run/user/1000/slopos-i/session-18c79f907273da34-164891/slopos-client-wayland-display
+/run/user/1000/slopos-i/session-18c79f907273da34-164891/slopos-i
+/run/user/1000/slopos-i/session-18c79f907273da34-164891/token
+/run/user/1000/slopos-i/session-18c79f907273da34-164891/wayland-1.lock
+/run/user/1000/slopos-i/session-18c79f907273da34-164891/wayland-display

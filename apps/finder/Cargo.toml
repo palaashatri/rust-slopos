@@ -2,14 +2,15 @@
 name = "finder"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 
 [[bin]]
 name = "finder"
 path = "src/main.rs"
 
 [dependencies]
-retro-sdk = { path = "../../crates/retro-sdk" }
-retro-kit = { path = "../../crates/retro-kit" }
+slopos-sdk = { path = "../../crates/slopos-sdk" }
+slopos-kit = { path = "../../crates/slopos-kit" }
 serde = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true }

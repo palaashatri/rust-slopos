@@ -1,0 +1,18 @@
+==pid 16166==
+XDG_RUNTIME_DIR=/run/user/1000
+==pid 16168==
+SLOPOS_SESSION_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7eb69fe80700b-3f26-0
+XDG_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7eb69fe80700b-3f26-0
+==pid 16169==
+SLOPOS_SESSION_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7eb69fe80700b-3f26-0
+XDG_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7eb69fe80700b-3f26-0
+==pid 16179==
+SLOPOS_CLIENT_WAYLAND_DISPLAY=wayland-1
+SLOPOS_SESSION_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7eb69fe80700b-3f26-0
+WAYLAND_DISPLAY=wayland-1
+XDG_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7eb69fe80700b-3f26-0
+==pid 16190==
+SLOPOS_CLIENT_WAYLAND_DISPLAY=wayland-1
+SLOPOS_SESSION_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7eb69fe80700b-3f26-0
+WAYLAND_DISPLAY=wayland-1
+XDG_RUNTIME_DIR=/run/user/1000/slopos-i/session-18c7eb69fe80700b-3f26-0

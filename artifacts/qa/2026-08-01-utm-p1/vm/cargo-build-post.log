@@ -1,0 +1,111 @@
+warning: field `loop_signal` is never read
+    --> crates/slopos-compositor/src/session_drm.rs:1223:5
+     |
+1210 | struct DrmSessionState {
+     |        --------------- field in this struct
+...
+1223 |     loop_signal: LoopSignal,
+     |     ^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `window_at` is never used
+    --> crates/slopos-compositor/src/session_drm.rs:1377:8
+     |
+1263 | impl DrmSessionState {
+     | -------------------- method in this implementation
+...
+1377 |     fn window_at(&self, pos: Point<f64, Logical>) -> Option<usize> {
+     |        ^^^^^^^^^
+
+warning: direct cast of function item into an integer
+  --> crates/slopos-compositor/src/screenshot.rs:31:48
+   |
+31 |         libc::signal(libc::SIGUSR1, on_sigusr1 as usize);
+   |                                                ^^^^^^^^
+   |
+   = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+   |
+31 |         libc::signal(libc::SIGUSR1, on_sigusr1 as *const () as usize);
+   |                                                ++++++++++++
+
+warning: `slopos-compositor` (lib) generated 3 warnings (run `cargo fix --lib -p slopos-compositor` to apply 1 suggestion)
+warning: unused imports: `TilePlacement`, `ZoomAction`, `ZoomPolicyConfig`, `calculate_presentation_geometry`, `detect_dri3_from_env`, and `topmost_window_at`
+  --> crates/slopos-compositor/src/main.rs:37:38
+   |
+37 |         assign_new_window_to_active, calculate_presentation_geometry, cascade_position,
+   |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+38 |         detect_dri3_from_env, detect_output_scale_from_env, focus_window_after_workspace_switch,
+   |         ^^^^^^^^^^^^^^^^^^^^
+...
+42 |         text_input_capability_from_env, text_input_capability_summary, topmost_window_at,
+   |                                                                        ^^^^^^^^^^^^^^^^^
+...
+45 |         ResizeEdges, TextInputCapability, TilePlacement, WindowGeometry, WindowPaintSource,
+   |                                           ^^^^^^^^^^^^^
+46 |         WindowPresentationState, WindowRestoreState, WorkspaceId, WorkspaceState, ZoomAction,
+   |                                                                                   ^^^^^^^^^^
+47 |         ZoomPolicyConfig, DEFAULT_WINDOW_H, DEFAULT_WINDOW_W,
+   |         ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: use of deprecated associated function `smithay::utils::Rectangle::<N, Kind>::from_loc_and_size`: use new or from_size
+    --> crates/slopos-compositor/src/main.rs:1072:47
+     |
+1072 |                         let rect = Rectangle::from_loc_and_size(
+     |                                               ^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated associated function `smithay::utils::Rectangle::<N, Kind>::from_loc_and_size`: use new or from_size
+    --> crates/slopos-compositor/src/main.rs:1158:28
+     |
+1158 |                 Rectangle::from_loc_and_size(Point::<i32, Physical>::from((0, 0)), output_size);
+     |                            ^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated associated function `smithay::utils::Rectangle::<N, Kind>::from_loc_and_size`: use new or from_size
+    --> crates/slopos-compositor/src/main.rs:1240:43
+     |
+1240 |                     let rect = Rectangle::from_loc_and_size(
+     |                                           ^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated associated function `smithay::utils::Rectangle::<N, Kind>::from_loc_and_size`: use new or from_size
+    --> crates/slopos-compositor/src/main.rs:1247:43
+     |
+1247 |                     let rect = Rectangle::from_loc_and_size(
+     |                                           ^^^^^^^^^^^^^^^^^
+
+warning: fields `presentation_state` and `restore_state` are never read
+   --> crates/slopos-compositor/src/main.rs:191:9
+    |
+178 |     struct MappedWindow {
+    |            ------------ fields in this struct
+...
+191 |         presentation_state: WindowPresentationState,
+    |         ^^^^^^^^^^^^^^^^^^
+192 |         /// Saved restore state prior to zoom/fill/fullscreen/tiling.
+193 |         restore_state: Option<WindowRestoreState>,
+    |         ^^^^^^^^^^^^^
+    |
+    = note: `MappedWindow` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `window_at` is never used
+   --> crates/slopos-compositor/src/main.rs:438:12
+    |
+430 |     impl SloposCompositor {
+    |     --------------------- method in this implementation
+...
+438 |         fn window_at(&self, pt: Point<f64, Logical>) -> Option<usize> {
+    |            ^^^^^^^^^
+
+warning: function `parse_bool_env` is never used
+    --> crates/slopos-compositor/src/main.rs:2475:12
+     |
+2475 |     pub fn parse_bool_env(key: &str) -> bool {
+     |            ^^^^^^^^^^^^^^
+
+warning: `slopos-compositor` (bin "slopos-compositor") generated 8 warnings (run `cargo fix --bin "slopos-compositor" -p slopos-compositor` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.62s

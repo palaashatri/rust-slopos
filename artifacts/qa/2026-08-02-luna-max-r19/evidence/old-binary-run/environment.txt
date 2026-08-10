@@ -1,0 +1,7 @@
+Linux ubuntu 7.0.0-28-generic #28-Ubuntu SMP PREEMPT_DYNAMIC Sun Jun 21 00:50:10 UTC 2026 aarch64 GNU/Linux
+Ubuntu 26.04 LTS
+cargo 1.97.1 (c980f4866 2026-06-30)
+rustc 1.97.1 (8bab26f4f 2026-07-14)
+XDG_RUNTIME_DIR=/run/user/1000
+WAYLAND_DISPLAY=
+DISPLAY=

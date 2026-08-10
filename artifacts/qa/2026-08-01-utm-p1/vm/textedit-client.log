@@ -1,0 +1,3 @@
+[2m2026-08-01T02:59:25.640690Z[0m [32m INFO[0m [2mslopos_sdk[0m[2m:[0m Application 'TextEdit' started
+[2m2026-08-01T02:59:25.642579Z[0m [31mERROR[0m [2mslopos_sdk[0m[2m:[0m cannot start: no display server connection: os error at /home/ubuntu/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winit-0.30.13/src/platform_impl/linux/wayland/event_loop/mod.rs:89: Could not find wayland compositor [3mapp[0m[2m=[0mTextEdit [3mwayland_display[0m[2m=[0mSome("wayland-1") [3mdisplay[0m[2m=[0mNone
+[TextEdit] cannot start: no Wayland/X11 display server reachable (os error at /home/ubuntu/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winit-0.30.13/src/platform_impl/linux/wayland/event_loop/mod.rs:89: Could not find wayland compositor)

@@ -1,0 +1,28 @@
+VM verification record
+======================
+
+Environment:
+  Linux ubuntu 7.0.0-28-generic #28-Ubuntu SMP PREEMPT_DYNAMIC Sun Jun 21 00:50:10 UTC 2026 aarch64
+  Ubuntu 26.04 LTS
+  Rust rustc 1.97.1 (8bab26f4f 2026-07-14)
+  Cargo cargo 1.97.1 (c980f4866 2026-06-30)
+  Source /home/ubuntu/qa/2026-08-01-compositor-p1
+  Backend drm; output 1280x800; renderer llvmpipe (LLVM 21.1.8, 128 bits)
+
+Commands and results:
+  cargo fmt --all -- --check
+    exit=0
+  CARGO_BUILD_JOBS=1 cargo check --workspace --all-targets
+    exit=0; Finished dev profile
+  CARGO_BUILD_JOBS=1 cargo test --workspace
+    exit=0; all test binaries and doc-tests completed; result output contained no failed test
+  CARGO_BUILD_JOBS=1 cargo build --workspace
+    exit=0; Finished dev profile
+  CARGO_BUILD_JOBS=1 cargo clippy --workspace --all-targets --all-features -- -D warnings
+    exit=0; Finished dev profile
+  bash -n scripts/start-slopos-i
+    exit=0; bash_syntax_ok
+  python3 -m py_compile scripts/*.py
+    exit=0; python_compile_ok
+  command -v cargo-deny
+    no output; cargo-deny unavailable in the VM and not run

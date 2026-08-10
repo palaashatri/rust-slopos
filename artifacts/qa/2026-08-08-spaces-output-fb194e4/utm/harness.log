@@ -1,0 +1,17 @@
+started count=1 pid=392265 socket=wayland-1
+snapshot revision=1 policy=shared_span active=1 assigned=[]
+shared_assign_rejected revision=1
+snapshot revision=1 policy=shared_span active=1 assigned=[]
+independent_policy_applied revision=2
+snapshot revision=2 policy=independent_per_display active=1 assigned=[]
+assign_some_applied revision=3 output=DP-1
+snapshot revision=3 policy=independent_per_display active=1 assigned=[(1, 'DP-1')]
+invalid_output_rejected revision=3 output=DP-1
+snapshot revision=3 policy=independent_per_display active=1 assigned=[(1, 'DP-1')]
+assign_none_cleared revision=4
+snapshot revision=4 policy=independent_per_display active=1 assigned=[]
+assign_persist_candidate revision=5 output=DP-2
+snapshot revision=5 policy=independent_per_display active=1 assigned=[(1, 'DP-2')]
+started count=2 pid=392332 socket=wayland-1
+restart_restored policy=independent_per_display output=DP-2 revision=1
+snapshot revision=1 policy=independent_per_display active=1 assigned=[(1, 'DP-2')]

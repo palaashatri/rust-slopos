@@ -1,0 +1,10 @@
+   Compiling terminal v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/apps/terminal)
+   Compiling preview v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/apps/preview)
+   Compiling slopos-visiond v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-visiond)
+   Compiling appstore v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/apps/appstore)
+   Compiling settings v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/apps/settings)
+   Compiling finder v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/apps/finder)
+   Compiling textedit v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/apps/textedit)
+   Compiling slopos-session v0.1.0 (/home/ubuntu/qa/2026-08-01-vision-session-r14/crates/slopos-session)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 01s
+exit=0

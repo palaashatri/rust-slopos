@@ -1,0 +1,16 @@
+session
+XDG_SESSION_TYPE=wayland
+XDG_RUNTIME_DIR=/tmp/slopos-qa-2026-08-01-utm-p1-drm-accept
+XDG_CURRENT_DESKTOP=SLOPOS-I
+DESKTOP_SESSION=slopos-i
+compositor
+DESKTOP_SESSION=slopos-i
+XDG_CURRENT_DESKTOP=SLOPOS-I
+XDG_RUNTIME_DIR=/tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i/session-18c78e7318662fe2-27344
+XDG_SESSION_TYPE=wayland
+shell
+DESKTOP_SESSION=slopos-i
+WAYLAND_DISPLAY=wayland-1
+XDG_CURRENT_DESKTOP=SLOPOS-I
+XDG_RUNTIME_DIR=/tmp/slopos-qa-2026-08-01-utm-p1-drm-accept/slopos-i/session-18c78e7318662fe2-27344
+XDG_SESSION_TYPE=wayland

@@ -1,0 +1,4 @@
+socket_mode=600
+same_uid_datagram=sent
+active_space=2
+revision=2

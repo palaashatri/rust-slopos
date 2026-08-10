@@ -1,0 +1,20 @@
+Source identity check for the UTM QA tree
+==========================================
+
+Host command: sha256sum <13 modified source files>
+Guest command: cd /home/ubuntu/qa/2026-08-01-compositor-p1 && sha256sum <same 13 files>
+Result: every host and guest digest matched.
+
+71a0c833932539f58afdf695ac3f9315932e8c7982781de73b9598c681d7ec83  crates/slopos-compositor/src/lib.rs
+ec5b4fd6132833f2d9cd33969b014dd2b1a77fa31fa27eabb2369abe55721835  crates/slopos-compositor/src/main.rs
+01770a29c88ccb4eafba491543a22cf597819f1c1bc0e576b0d51c94fcbb7cbd  crates/slopos-compositor/src/screenshot.rs
+9d3f9cb829b9346da1412530523bf76cb5114cb9c0a515087c2fb3657a7b22b4  crates/slopos-compositor/src/session_drm.rs
+fa70111ca86862e5db562c9e6e94020fea33a65fcc5ef7711885b3025635f072  crates/slopos-render/src/event_loop.rs
+ad4aa228e8981a8044ea8f67c5233906d435af71d29d8d32171b60e959dff713  crates/slopos-sdk/src/lib.rs
+7794cc5c3d2d0c0d7492dc7c3523c88ccba0fc3ffe063d667b7a968a189903cc  crates/slopos-session/src/main.rs
+9a2d340640a69950e7a8067c98a499633fea4be1570fbd29a96740b1f029c76d  crates/slopos-shell/src/bin/slopos-lock.rs
+33650fbac0cacf9905e4dd01b681150a543ffcf4bfda393a0ff2f74f82a4c224  crates/slopos-shell/src/fdo_notifications.rs
+1918ad98f7798381db316b533caea2cebeaa0e01497e49c5625cf9108d93a337  crates/slopos-shell/src/layer_desktop.rs
+337bcee6dba63eb3ac9f7e52bbe2ed5bb4eaf0ef95d5ef7b6dc0d589d06f03b1  crates/slopos-shell/src/lib.rs
+e425dbab0ca64a1afe91e99a08d14f841fee91254349c42dc0b26c35de250996  crates/slopos-shell/src/polkit_agent.rs
+8dd9c6e1cab105b276097954ba16cea2aff301a0175fc8f27c257080c0b39406  crates/slopos-shell/src/portal_dbus.rs

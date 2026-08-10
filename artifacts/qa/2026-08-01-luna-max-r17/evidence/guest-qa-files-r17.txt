@@ -1,0 +1,16 @@
+client-display.txt
+input-small.jpeg
+input.jpeg
+preview-r17-nolock.log
+preview-r17-nolock.pid
+preview-r17.log
+preview-small.log
+preview.log
+preview.pid
+runtime.txt
+session-r17-nolock.log
+session-r17-nolock.pid
+session-r17.log
+session-small.log
+session.log
+session.pid

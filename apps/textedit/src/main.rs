@@ -1,29 +1,30 @@
-use retro_kit::button::Button;
-use retro_kit::clipboard::Clipboard;
-use retro_kit::event::{KeyCode, Modifiers};
-use retro_kit::label::Label;
-use retro_kit::text_field::TextField;
-use retro_kit::toolbar::Toolbar;
-use retro_kit::window::Window;
-use retro_kit::{
-    widget_by_id, AccessibilityNode, Event, EventResult, FocusManager, LayoutConstraint,
-    PointerDispatcher, Rect, Size, ThemeContext, Visibility, Widget, WidgetState,
+use slopos_kit::button::Button;
+use slopos_kit::clipboard::Clipboard;
+use slopos_kit::event::{KeyCode, Modifiers};
+use slopos_kit::label::Label;
+use slopos_kit::text_field::TextField;
+use slopos_kit::toolbar::Toolbar;
+use slopos_kit::window::Window;
+use slopos_kit::{
+    widget_by_id, AccessibilityNode, AccessibilityRole, Event, EventResult, FocusManager,
+    LayoutConstraint, PointerDispatcher, Rect, Size, ThemeContext, Visibility, Widget, WidgetState,
 };
-use retro_sdk::{build_menu, Application};
-use std::fs;
+use slopos_sdk::{build_menu, Application};
 use std::path::{Path, PathBuf};
 
-/// Returns the default file path: $TEXTEDIT_FILE env var or /tmp/retroshell-textedit.txt.
+mod save;
+
+/// Returns the default file path: $TEXTEDIT_FILE env var or /tmp/slopos-i-textedit.txt.
 fn default_file_path() -> PathBuf {
     std::env::var("TEXTEDIT_FILE")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/tmp/retroshell-textedit.txt"))
+        .unwrap_or_else(|_| PathBuf::from("/tmp/slopos-i-textedit.txt"))
 }
 
 fn main() {
     let _ = tracing_subscriber::fmt::try_init();
 
-    let mut app = Application::new("TextEdit", "com.retro.textedit");
+    let mut app = Application::new("TextEdit", "com.slopos.textedit");
 
     let mut file_menu = build_menu("File");
     file_menu.add_action("New").with_shortcut(
@@ -160,6 +161,56 @@ fn main() {
         help_menu,
     ]);
 
+    // Keep document operations in TextEdit while the shell owns only the
+    // global menu presentation and compositor-owned window operations.
+    app.on_menu_action(|action, window| {
+        let Some(content) = window.content.as_mut() else {
+            return;
+        };
+        let Some(view) = content.as_any_mut().downcast_mut::<TextEditView>() else {
+            return;
+        };
+        let action = action
+            .strip_prefix("com.slopos.textedit.")
+            .unwrap_or(action);
+        match action {
+            "file.new" => {
+                view.new_document();
+            }
+            "file.open" => {
+                view.open_document();
+            }
+            "file.save" => {
+                view.save_document();
+            }
+            "file.save_as" => {
+                view.save_as_from_path_field();
+            }
+            "edit.undo" => {
+                view.undo();
+            }
+            "edit.redo" => {
+                view.redo();
+            }
+            "edit.cut" => {
+                view.cut_document();
+            }
+            "edit.copy" => {
+                view.copy_document();
+            }
+            "edit.paste" => {
+                view.paste_document();
+            }
+            "edit.select_all" => {
+                view.select_all_document();
+            }
+            "edit.find" => {
+                view.toggle_find();
+            }
+            _ => {}
+        }
+    });
+
     let document_path = std::env::args_os().nth(1).map(PathBuf::from);
     let view = TextEditView::open(document_path);
     let title = view.window_title();
@@ -198,15 +249,20 @@ struct TextEditView {
 
 impl TextEditView {
     fn open(document_path: Option<PathBuf>) -> Self {
-        let (text, error) = match document_path.as_deref() {
-            Some(path) => match fs::read_to_string(path) {
-                Ok(text) => (text, None),
-                Err(err) => (String::new(), Some(format!("Could not open: {err}"))),
+        let (text, saved_text, error, recovered) = match document_path.as_deref() {
+            Some(path) => match save::open_document(path) {
+                Ok(document) => (document.text, document.saved_text, None, document.recovered),
+                Err(err) => (
+                    String::new(),
+                    String::new(),
+                    Some(format!("Could not open: {err}")),
+                    false,
+                ),
             },
-            None => (
-                "Untitled Document\n\nWelcome to TextEdit. Start typing...".to_string(),
-                None,
-            ),
+            None => {
+                let text = "Untitled Document\n\nWelcome to TextEdit. Start typing...".to_string();
+                (text.clone(), text, None, false)
+            }
         };
 
         let mut toolbar = Toolbar::new();
@@ -242,8 +298,8 @@ impl TextEditView {
             editor,
             status: Label::new(""),
             document_path,
-            saved_text: text,
-            dirty: false,
+            saved_text,
+            dirty: recovered,
             last_error: error,
             notification: None,
             undo_stack: Vec::new(),
@@ -257,12 +313,17 @@ impl TextEditView {
         let editor_id = view.editor.id();
         view.focus_widget(editor_id);
         view.refresh_status();
+        if recovered {
+            if let Some(path) = view.document_path.as_deref() {
+                view.notify(format!("Recovered unsaved changes from {}", path.display()));
+            }
+        }
         view
     }
 
     /// Focus `id` through the real focus system (sets `WidgetState.focused`
     /// on exactly that widget, clears it everywhere else in the tree).
-    fn focus_widget(&mut self, id: retro_kit::WidgetId) {
+    fn focus_widget(&mut self, id: slopos_kit::WidgetId) {
         let mut focus = std::mem::take(&mut self.focus);
         focus.focus(self, id);
         self.focus = focus;
@@ -336,9 +397,7 @@ impl TextEditView {
             .map(|e| format!(" | {e}"))
             .unwrap_or_default();
 
-        self.status.text = format!(
-            "{state} | {path} | Ln {line} | {words}w{error_part}"
-        );
+        self.status.text = format!("{state} | {path} | Ln {line} | {words}w{error_part}");
     }
 
     /// Show a notification in the status bar; it will be displayed once then cleared.
@@ -401,19 +460,35 @@ impl TextEditView {
     }
 
     fn copy_document(&mut self) -> bool {
-        Clipboard::copy(self.editor.text());
+        // Preserve the useful whole-document fallback when there is no active
+        // selection, while making Cmd-C operate on the selected UTF-8 range
+        // when one exists.
+        let text = self
+            .editor
+            .selected_text()
+            .unwrap_or_else(|| self.editor.text());
+        Clipboard::copy(text);
         self.last_error = None;
         self.refresh_status();
         true
     }
 
     fn cut_document(&mut self) -> bool {
+        if let Some(selected) = self.editor.selected_text().map(str::to_owned) {
+            self.push_undo_snapshot();
+            Clipboard::copy(&selected);
+            self.editor.replace_selection("");
+            self.mark_dirty_from_editor();
+            return true;
+        }
+
         if self.editor.text().is_empty() {
             return self.copy_document();
         }
         self.push_undo_snapshot();
         Clipboard::copy(self.editor.text());
-        self.replace_editor_text(String::new());
+        self.editor.set_text("");
+        self.mark_dirty_from_editor();
         true
     }
 
@@ -425,14 +500,18 @@ impl TextEditView {
             return false;
         }
         self.push_undo_snapshot();
-        let mut text = self.editor.text().to_string();
-        text.push_str(&pasted);
-        self.replace_editor_text(text);
+        // TextField replaces a selection or inserts at the current caret;
+        // this avoids the old append-at-end behavior.
+        self.editor.replace_selection(&pasted);
+        self.mark_dirty_from_editor();
         true
     }
 
     fn select_all_document(&mut self) -> bool {
-        self.copy_document()
+        self.editor.select_all();
+        self.last_error = None;
+        self.refresh_status();
+        true
     }
 
     fn new_document(&mut self) -> bool {
@@ -458,17 +537,21 @@ impl TextEditView {
     }
 
     fn open_path(&mut self, path: PathBuf) -> bool {
-        match fs::read_to_string(&path) {
-            Ok(text) => {
+        match save::open_document(&path) {
+            Ok(document) => {
                 self.push_undo_snapshot();
                 self.document_path = Some(path.clone());
                 self.sync_path_field();
-                self.editor.set_text(text.clone());
-                self.saved_text = text;
-                self.dirty = false;
+                self.editor.set_text(document.text);
+                self.saved_text = document.saved_text;
+                self.dirty = document.recovered;
                 self.last_error = None;
                 self.redo_stack.clear();
-                self.notify(format!("Opened {}", path.display()));
+                if document.recovered {
+                    self.notify(format!("Recovered unsaved changes from {}", path.display()));
+                } else {
+                    self.notify(format!("Opened {}", path.display()));
+                }
                 true
             }
             Err(err) => {
@@ -487,16 +570,14 @@ impl TextEditView {
 
     fn save_document(&mut self) -> bool {
         // Use the set document path, or fall back to TEXTEDIT_FILE / /tmp default.
-        let path = self
-            .document_path
-            .clone()
-            .unwrap_or_else(default_file_path);
+        let path = self.document_path.clone().unwrap_or_else(default_file_path);
+        let text = self.editor.text().to_string();
 
-        match fs::write(&path, self.editor.text()) {
+        match save::save_document(&path, &text) {
             Ok(()) => {
                 self.document_path = Some(path.clone());
                 self.sync_path_field();
-                self.saved_text = self.editor.text().to_string();
+                self.saved_text = text;
                 self.dirty = false;
                 self.last_error = None;
                 self.notify(format!("Saved to {}", path.display()));
@@ -512,11 +593,12 @@ impl TextEditView {
 
     fn save_as_from_path_field(&mut self) -> bool {
         let path = self.path_from_field_or_default();
-        match fs::write(&path, self.editor.text()) {
+        let text = self.editor.text().to_string();
+        match save::save_document(&path, &text) {
             Ok(()) => {
                 self.document_path = Some(path.clone());
                 self.sync_path_field();
-                self.saved_text = self.editor.text().to_string();
+                self.saved_text = text;
                 self.dirty = false;
                 self.last_error = None;
                 self.notify(format!("Saved to {}", path.display()));
@@ -569,8 +651,9 @@ impl TextEditView {
 
         match found {
             Some(pos) => {
-                // Move cursor to just after the match.
-                self.editor.set_cursor_position(pos + query.len());
+                // Select the match and leave the caret at its end so the next
+                // edit replaces it rather than silently appending elsewhere.
+                self.editor.set_selection(pos, pos + query.len());
                 self.notify(format!("Found \"{}\" at byte {}", query, pos));
                 true
             }
@@ -683,12 +766,8 @@ impl Widget for TextEditView {
 
         // FIND row (conditionally visible)
         let find_row_y = rect.y + toolbar_h + path_h;
-        self.find_label.set_rect(Rect::new(
-            rect.x + 8.0,
-            find_row_y + 4.0,
-            46.0,
-            22.0,
-        ));
+        self.find_label
+            .set_rect(Rect::new(rect.x + 8.0, find_row_y + 4.0, 46.0, 22.0));
         let _ = self
             .find_label
             .layout(LayoutConstraint::tight(Size::new(46.0, 22.0)));
@@ -894,7 +973,10 @@ impl Widget for TextEditView {
     }
 
     fn accessibility(&self) -> Option<AccessibilityNode> {
-        None
+        Some(AccessibilityNode::new(
+            AccessibilityRole::Window,
+            "TextEdit",
+        ))
     }
 
     fn children(&self) -> Vec<&dyn Widget> {
@@ -933,12 +1015,15 @@ impl Widget for TextEditView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use retro_kit::event::MouseButton;
-    use retro_kit::Point;
+    use slopos_kit::event::MouseButton;
+    use slopos_kit::Point;
+    use std::fs;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Mutex;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
+    static CLIPBOARD_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     fn temp_textedit_path(name: &str) -> PathBuf {
         let unique = SystemTime::now()
@@ -947,7 +1032,7 @@ mod tests {
             .as_nanos();
         let sequence = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir()
-            .join(format!("retroshell_textedit_{unique}_{sequence}"))
+            .join(format!("slopos-i_textedit_{unique}_{sequence}"))
             .join(name)
     }
 
@@ -959,7 +1044,10 @@ mod tests {
             point,
             modifiers: Modifiers::NONE,
         });
-        assert!(matches!(down, EventResult::Handled), "press must land on the button");
+        assert!(
+            matches!(down, EventResult::Handled),
+            "press must land on the button"
+        );
         view.handle_event(&Event::MouseUp {
             button: MouseButton::Left,
             point,
@@ -1162,7 +1250,10 @@ mod tests {
         let mut view = TextEditView::open(None);
         view.layout(LayoutConstraint::tight(Size::new(700.0, 460.0)));
         assert!(!view.find_visible);
-        assert!(!view.find_field.focusable(), "hidden find field must not join tab order");
+        assert!(
+            !view.find_field.focusable(),
+            "hidden find field must not join tab order"
+        );
 
         // Tab through every focusable widget; the find field must never
         // become focused while hidden.
@@ -1180,7 +1271,11 @@ mod tests {
         let typed = view.handle_event(&Event::Char { character: 'q' });
         assert!(matches!(typed, EventResult::Handled));
         assert_eq!(view.find_field.text(), "q");
-        assert_eq!(view.editor.text(), view.saved_text, "editor must not receive the keystroke");
+        assert_eq!(
+            view.editor.text(),
+            view.saved_text,
+            "editor must not receive the keystroke"
+        );
     }
 
     #[test]
@@ -1251,11 +1346,15 @@ mod tests {
         for _ in 0..60 {
             view.handle_event(&Event::Char { character: 'a' });
         }
-        assert!(view.undo_stack.len() <= 50, "undo stack exceeded 50 entries");
+        assert!(
+            view.undo_stack.len() <= 50,
+            "undo stack exceeded 50 entries"
+        );
     }
 
     #[test]
     fn textedit_copy_cut_and_paste_use_clipboard() {
+        let _clipboard = CLIPBOARD_TEST_LOCK.lock().unwrap();
         Clipboard::clear();
         let mut view = TextEditView::open(None);
         view.editor.set_text("clip");
@@ -1298,6 +1397,74 @@ mod tests {
         });
         assert!(matches!(paste, EventResult::Handled));
         assert_eq!(view.editor.text(), "clip");
+    }
+
+    #[test]
+    fn textedit_selection_clipboard_replaces_only_selected_unicode_range() {
+        let _clipboard = CLIPBOARD_TEST_LOCK.lock().unwrap();
+        Clipboard::clear();
+        let mut view = TextEditView::open(None);
+        view.editor.set_text("aé🙂z");
+        view.saved_text = view.editor.text().to_string();
+        view.dirty = false;
+        // Select `é🙂` by UTF-8 byte range (1..7), leaving the surrounding
+        // characters untouched.
+        view.editor.set_selection(1, 7);
+
+        let copy = view.handle_event(&Event::KeyDown {
+            key: KeyCode::C,
+            modifiers: Modifiers {
+                meta: true,
+                ..Modifiers::NONE
+            },
+        });
+        assert!(matches!(copy, EventResult::Handled));
+        assert_eq!(Clipboard::paste(), "é🙂");
+        assert_eq!(view.editor.text(), "aé🙂z");
+
+        let cut = view.handle_event(&Event::KeyDown {
+            key: KeyCode::X,
+            modifiers: Modifiers {
+                meta: true,
+                ..Modifiers::NONE
+            },
+        });
+        assert!(matches!(cut, EventResult::Handled));
+        assert_eq!(Clipboard::paste(), "é🙂");
+        assert_eq!(view.editor.text(), "az");
+        assert_eq!(view.editor.cursor_position(), 1);
+        assert!(view.dirty);
+
+        Clipboard::copy("XY");
+        let paste = view.handle_event(&Event::KeyDown {
+            key: KeyCode::V,
+            modifiers: Modifiers {
+                meta: true,
+                ..Modifiers::NONE
+            },
+        });
+        assert!(matches!(paste, EventResult::Handled));
+        assert_eq!(view.editor.text(), "aXYz");
+        assert_eq!(view.editor.cursor_position(), 3);
+    }
+
+    #[test]
+    fn textedit_cmd_a_selects_without_overwriting_clipboard() {
+        let _clipboard = CLIPBOARD_TEST_LOCK.lock().unwrap();
+        Clipboard::copy("keep me");
+        let mut view = TextEditView::open(None);
+        view.editor.set_text("select me");
+
+        let selected = view.handle_event(&Event::KeyDown {
+            key: KeyCode::A,
+            modifiers: Modifiers {
+                meta: true,
+                ..Modifiers::NONE
+            },
+        });
+        assert!(matches!(selected, EventResult::Handled));
+        assert_eq!(view.editor.selected_text(), Some("select me"));
+        assert_eq!(Clipboard::paste(), "keep me");
     }
 
     #[test]
@@ -1380,8 +1547,16 @@ mod tests {
         view.notification = None;
         view.refresh_status();
 
-        assert!(view.status.text.contains("4w"), "expected '4w' in status: {}", view.status.text);
-        assert!(view.status.text.contains("Ln 2"), "expected 'Ln 2' in status: {}", view.status.text);
+        assert!(
+            view.status.text.contains("4w"),
+            "expected '4w' in status: {}",
+            view.status.text
+        );
+        assert!(
+            view.status.text.contains("Ln 2"),
+            "expected 'Ln 2' in status: {}",
+            view.status.text
+        );
     }
 
     #[test]

@@ -1,0 +1,36 @@
+[slopos-compositor] backend: Headless (explicit)
+[2m2026-08-08T17:51:56.198013Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m display policy applied: hdr_requested=false hdr_supported=false vrr_adaptive=false refresh=60hz color_space=srgb color_applied=true
+[slopos-compositor] display policy: hdr_requested=false hdr_supported=false vrr_adaptive=false refresh=60hz color_space=srgb
+[slopos-compositor] text_input=im+text-input-v3
+[slopos-compositor] input_method=zwp_input_method_v2
+[2m2026-08-08T17:51:56.198810Z[0m [32m INFO[0m [1minput_seat[0m[1m{[0m[3mname[0m[2m=[0m"seat0"[1m}[0m[2m:[0m[1madd_keyboard[0m[1m{[0m[3mxkb_config[0m[2m=[0mXkbConfig { rules: "", model: "", layout: "", variant: "", options: None } [3mrepeat_delay[0m[2m=[0m200 [3mrepeat_rate[0m[2m=[0m25[1m}[0m[2m:[0m[1minput_keyboard[0m[2m:[0m [2msmithay::input::keyboard[0m[2m:[0m Initializing a xkbcommon handler with keymap query
+[2m2026-08-08T17:51:56.210295Z[0m [32m INFO[0m [1minput_seat[0m[1m{[0m[3mname[0m[2m=[0m"seat0"[1m}[0m[2m:[0m[1madd_keyboard[0m[1m{[0m[3mxkb_config[0m[2m=[0mXkbConfig { rules: "", model: "", layout: "", variant: "", options: None } [3mrepeat_delay[0m[2m=[0m200 [3mrepeat_rate[0m[2m=[0m25[1m}[0m[2m:[0m[1minput_keyboard[0m[2m:[0m [2msmithay::input::keyboard[0m[2m:[0m Loaded Keymap [3mname[0m[2m=[0m"English (US)"
+[slopos-compositor] session_mode=headless (no host display transport); output_scale=1/1 (1.00x)
+[slopos-compositor] outputs source=default 1 head(s): X11-1 1024x768@(0,0)
+[2m2026-08-08T17:51:56.212662Z[0m [32m INFO[0m [1mnew[0m[1m{[0m[3mname[0m[2m=[0m"X11-1" [3mphysical[0m[2m=[0mPhysicalProperties { size: Size<smithay::utils::geometry::Raw> { w: 0, h: 0 }, subpixel: Unknown, make: "SLOPOS-I", model: "Logical Output 1" }[1m}[0m[2m:[0m [2msmithay::output[0m[2m:[0m Creating new Output [3mname[0m[2m=[0m"X11-1"
+[2m2026-08-08T17:51:56.212702Z[0m [32m INFO[0m [2msmithay::wayland::output[0m[2m:[0m Creating new wl_output [3moutput[0m[2m=[0m"X11-1"
+[2m2026-08-08T17:51:56.212719Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m wl_output 1 (X11-1) 1024x768 at (0,0) refresh=60000 mHz output_scale=1/1 (1.00x)
+[2m2026-08-08T17:51:56.212849Z[0m [32m INFO[0m [2msmithay::wayland::socket[0m[2m:[0m Created new socket [3mname[0m[2m=[0mSome("wayland-1")
+[2m2026-08-08T17:51:56.212859Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m Listening on WAYLAND_DISPLAY=wayland-1
+[slopos-compositor] WAYLAND_DISPLAY=wayland-1
+WAYLAND_DISPLAY=wayland-1
+[2m2026-08-08T17:51:56.216611Z[0m [32m INFO[0m [2msmithay::xwayland::xserver[0m[2m:[0m spawning XWayland instance
+[2m2026-08-08T17:51:56.219133Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m XWayland spawning (will claim DISPLAY=:0 when ready)
+[2m2026-08-08T17:51:56.219160Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m slopos-compositor event loop starting
+[2m2026-08-08T17:51:56.313925Z[0m [32m INFO[0m [1mnew[0m[1m{[0m[3mname[0m[2m=[0m"LEFT" [3mphysical[0m[2m=[0mPhysicalProperties { size: Size<smithay::utils::geometry::Raw> { w: 0, h: 0 }, subpixel: Unknown, make: "SLOPOS-I", model: "Logical Output 1" }[1m}[0m[2m:[0m [2msmithay::output[0m[2m:[0m Creating new Output [3mname[0m[2m=[0m"LEFT"
+[2m2026-08-08T17:51:56.314024Z[0m [32m INFO[0m [2msmithay::wayland::output[0m[2m:[0m Creating new wl_output [3moutput[0m[2m=[0m"LEFT"
+[2m2026-08-08T17:51:56.314049Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m wl_output 1 (LEFT) 800x600 at (0,0) refresh=60000 mHz output_scale=1/1 (1.00x)
+[2m2026-08-08T17:51:56.314067Z[0m [32m INFO[0m [1mnew[0m[1m{[0m[3mname[0m[2m=[0m"RIGHT" [3mphysical[0m[2m=[0mPhysicalProperties { size: Size<smithay::utils::geometry::Raw> { w: 0, h: 0 }, subpixel: Unknown, make: "SLOPOS-I", model: "Logical Output 2" }[1m}[0m[2m:[0m [2msmithay::output[0m[2m:[0m Creating new Output [3mname[0m[2m=[0m"RIGHT"
+[2m2026-08-08T17:51:56.314086Z[0m [32m INFO[0m [2msmithay::wayland::output[0m[2m:[0m Creating new wl_output [3moutput[0m[2m=[0m"RIGHT"
+[2m2026-08-08T17:51:56.314115Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m wl_output 2 (RIGHT) 1024x768 at (800,0) refresh=60000 mHz output_scale=1/1 (1.00x)
+[2m2026-08-08T17:51:56.314391Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m runtime output topology applied [3moutputs[0m[2m=[0m2 [3mwidth[0m[2m=[0m1824 [3mheight[0m[2m=[0m768
+[slopos-compositor] client connected
+[slopos-compositor] client disconnected
+[2m2026-08-08T17:51:56.541148Z[0m [33m WARN[0m [2mslopos_compositor::linux[0m[2m:[0m runtime output topology rejected [3merror[0m[2m=[0moutput layout contains a malformed token
+[2m2026-08-08T17:51:56.597353Z[0m [33m WARN[0m [2mslopos_compositor::linux[0m[2m:[0m runtime output topology rejected [3merror[0m[2m=[0moutput LEFT requests scale 125 but this session currently uses uniform scale 100
+[2m2026-08-08T17:51:56.793141Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m XWayland ready on DISPLAY=:0 — starting X11 WM
+[slopos-compositor] XWayland ready DISPLAY=:0
+[2m2026-08-08T17:51:56.979042Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m runtime output topology applied [3moutputs[0m[2m=[0m2 [3mwidth[0m[2m=[0m1824 [3mheight[0m[2m=[0m768
+[2m2026-08-08T17:51:57.032442Z[0m [32m INFO[0m [2mslopos_compositor::linux[0m[2m:[0m runtime output topology applied [3moutputs[0m[2m=[0m1 [3mwidth[0m[2m=[0m1024 [3mheight[0m[2m=[0m768
+[slopos-compositor] client connected
+[slopos-compositor] client disconnected

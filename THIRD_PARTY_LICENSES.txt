@@ -1,0 +1,37 @@
+SLOPOS-I third-party notices
+============================
+
+SLOPOS-I first-party code and original assets are MIT-licensed. Third-party
+Rust crates, fonts, model weights, Linux/FreeBSD components, drivers, firmware,
+codecs and services remain owned by their respective authors and retain their
+own licenses. The repository-level LICENSE does not relicense them.
+
+Release procedure
+-----------------
+
+Before publishing binaries, run the locked dependency audit and generate a
+machine-derived attribution bundle from the exact dependency graph:
+
+    cargo deny check licenses advisories bans sources
+
+Use a tool such as cargo-about or cargo-license for the release bundle. Preserve
+all notices required by direct and transitive dependencies. Do not maintain a
+guessed crate inventory in project documentation.
+
+System substrate
+----------------
+
+Externally supplied components may include the Linux or FreeBSD kernel, DRM/KMS
+drivers, Mesa, Vulkan/OpenGL implementations, PipeWire, NetworkManager, BlueZ,
+UDisks2, systemd/logind, XWayland and installed fonts. They are not covered by
+the SLOPOS-I MIT grant.
+
+Vision model/support files
+--------------------------
+
+The canonical machine-readable model metadata, source URLs, hashes,
+attribution and redistribution fields are in models/vision/manifest.toml.
+The audited model pack currently identifies the PP-OCRv4 detector, PP-OCRv4
+recognizer, PaddleOCR character dictionary and U2Netp weights as Apache-2.0.
+Distributors must independently preserve the notices supplied with the exact
+model pack and must not assume a code license automatically covers weights.

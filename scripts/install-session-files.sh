@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # install-session-files.sh — install greeter/session packaging under PREFIX.
 #
-# Copies packaging desktops + start-retroshell (and optional systemd user unit)
+# Copies packaging desktops + start-slopos-i (and optional systemd user unit)
 # into an FHS layout matching SessionPackagingLayout::under_prefix:
 #
-#   $PREFIX/share/wayland-sessions/retroshell.desktop
-#   $PREFIX/share/xsessions/retroshell.desktop
-#   $PREFIX/bin/start-retroshell
-#   $PREFIX/lib/systemd/user/retroshell.service
+#   $PREFIX/share/wayland-sessions/slopos-i.desktop
+#   $PREFIX/share/xsessions/slopos-i.desktop
+#   $PREFIX/bin/start-slopos-i
+#   $PREFIX/lib/systemd/user/slopos-i.service
 #
 # Usage:
 #   ./scripts/install-session-files.sh [--dry-run] [--prefix PREFIX]
@@ -16,7 +16,7 @@
 #   PREFIX=/usr/local
 #
 # Does NOT claim a live display manager was configured or tested. After install,
-# pick RetroShell on the greeter on a real seat to prove §12 criterion 1.
+# pick SLOPOS-I on the greeter on a real seat to prove §12 criterion 1.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -27,19 +27,19 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0") [--dry-run] [--prefix PREFIX] [-h|--help]
 
-Install RetroShell session files for display-manager greeters.
+Install SLOPOS-I session files for display-manager greeters.
 
   --dry-run       Print actions without writing files
   --prefix PATH   Install prefix (default: /usr/local)
   -h, --help      Show this help
 
 Artifacts (from repo):
-  packaging/retroshell-wayland.desktop → \$PREFIX/share/wayland-sessions/retroshell.desktop
-  packaging/retroshell.desktop         → \$PREFIX/share/xsessions/retroshell.desktop
-  scripts/start-retroshell             → \$PREFIX/bin/start-retroshell
-  packaging/retroshell.service         → \$PREFIX/lib/systemd/user/retroshell.service
+  packaging/slopos-i-wayland.desktop → \$PREFIX/share/wayland-sessions/slopos-i.desktop
+  packaging/slopos-i.desktop         → \$PREFIX/share/xsessions/slopos-i.desktop
+  scripts/start-slopos-i             → \$PREFIX/bin/start-slopos-i
+  packaging/slopos-i.service         → \$PREFIX/lib/systemd/user/slopos-i.service
 
-Note: Exec=start-retroshell requires \$PREFIX/bin on PATH for the greeter user.
+Note: Exec=start-slopos-i requires \$PREFIX/bin on PATH for the greeter user.
 EOF
 }
 
@@ -69,15 +69,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-WAYLAND_SRC="$ROOT/packaging/retroshell-wayland.desktop"
-XSESSION_SRC="$ROOT/packaging/retroshell.desktop"
-START_SRC="$ROOT/scripts/start-retroshell"
-SERVICE_SRC="$ROOT/packaging/retroshell.service"
+WAYLAND_SRC="$ROOT/packaging/slopos-i-wayland.desktop"
+XSESSION_SRC="$ROOT/packaging/slopos-i.desktop"
+START_SRC="$ROOT/scripts/start-slopos-i"
+SERVICE_SRC="$ROOT/packaging/slopos-i.service"
 
-WAYLAND_DST="$PREFIX/share/wayland-sessions/retroshell.desktop"
-XSESSION_DST="$PREFIX/share/xsessions/retroshell.desktop"
-START_DST="$PREFIX/bin/start-retroshell"
-SERVICE_DST="$PREFIX/lib/systemd/user/retroshell.service"
+WAYLAND_DST="$PREFIX/share/wayland-sessions/slopos-i.desktop"
+XSESSION_DST="$PREFIX/share/xsessions/slopos-i.desktop"
+START_DST="$PREFIX/bin/start-slopos-i"
+SERVICE_DST="$PREFIX/lib/systemd/user/slopos-i.service"
 
 for src in "$WAYLAND_SRC" "$XSESSION_SRC" "$START_SRC" "$SERVICE_SRC"; do
   if [[ ! -f "$src" ]]; then
@@ -111,6 +111,6 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
 else
   echo "install-session-files: install complete under $PREFIX"
   echo "install-session-files: ensure $PREFIX/bin is on PATH for greeter sessions"
-  echo "install-session-files: log out and select RetroShell on a real DM to prove session start"
+  echo "install-session-files: log out and select SLOPOS-I on a real DM to prove session start"
 fi
 exit 0

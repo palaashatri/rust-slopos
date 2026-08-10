@@ -1,0 +1,14 @@
+QA session shutdown verification
+================================
+
+Exact guest actions:
+  kill -TERM 60804 60805 60806 60807 61345 61792 61851 61917
+  kill -TERM 60377
+
+Guest process check:
+  ps -eo pid,ppid,command | grep -E '[s]lopos|[f]inder|[s]ettings|[t]extedit|[t]erminal|[a]ppstore'
+  output: empty
+
+Runtime cleanup check:
+  /run/user/1000/slopos-i/session-18c792872e4c3301-60377
+  result: runtime_removed

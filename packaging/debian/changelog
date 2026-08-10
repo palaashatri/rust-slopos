@@ -1,0 +1,11 @@
+slopos-i (0.1.0) UNRELEASED; urgency=medium
+
+  * Initial release of SLOPOS-I
+  * Stage 1: Compositor and window painting
+  * Stage 2: Session management and input routing
+  * Stage 3: App bundles and store
+  * Wayland compositor with layer-shell support
+  * Classic Mac-inspired UI aesthetic
+  * First-party apps: Finder, Settings, TextEdit, Terminal, App Store
+
+ -- SLOPOS-I Contributors <team@slopos-i.local>  Thu, 31 Jul 2026 00:00:00 +0000

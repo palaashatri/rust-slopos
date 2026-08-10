@@ -1,7 +1,7 @@
 name = "High Contrast"
-identifier = "com.retro.theme.high-contrast"
+identifier = "com.slopos.theme.high-contrast"
 version = "1.0"
-author = "RetroShell"
+author = "SLOPOS-I"
 description = "High contrast accessibility theme"
 is_dark = false
 accent = "#000000"

@@ -1,0 +1,3 @@
+host=ubuntu
+arch=aarch64
+date=2026-08-01T10:06:40+00:00

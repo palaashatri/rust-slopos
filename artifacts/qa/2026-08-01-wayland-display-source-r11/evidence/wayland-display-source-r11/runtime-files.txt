@@ -1,0 +1,8 @@
+/run/user/1000/slopos-i/session-18c7a6cdbc3b29c5-233920/active-toplevel 25 bytes
+/run/user/1000/slopos-i/session-18c7a6cdbc3b29c5-233920/slopos-client-wayland-display 10 bytes
+/run/user/1000/slopos-i/session-18c7a6cdbc3b29c5-233920/wayland-display 10 bytes
+/run/user/1000/slopos-i/session-18c7a6cdbc3b29c5-233920/client-wayland-display 10 bytes
+/run/user/1000/slopos-i/session-18c7a6cdbc3b29c5-233920/readiness 80 bytes
+/run/user/1000/slopos-i/session-18c7a6cdbc3b29c5-233920/wayland-1.lock 0 bytes
+/run/user/1000/slopos-i/session-18c7a6cdbc3b29c5-233920/token 30 bytes
+/run/user/1000/slopos-i/clipboard.txt 4 bytes

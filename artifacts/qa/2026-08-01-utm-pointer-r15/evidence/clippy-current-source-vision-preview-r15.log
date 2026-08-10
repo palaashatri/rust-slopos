@@ -1,0 +1,19 @@
+    Checking rustix v1.1.4
+    Checking slopos-vision-protocol v0.1.0 (/Users/palaashatri/Code/retroshell/crates/slopos-vision-protocol)
+    Checking slopos-render v0.1.0 (/Users/palaashatri/Code/retroshell/crates/slopos-render)
+    Checking slopos-vision v0.1.0 (/Users/palaashatri/Code/retroshell/crates/slopos-vision)
+    Checking slopos-vision-client v0.1.0 (/Users/palaashatri/Code/retroshell/crates/slopos-vision-client)
+    Checking slopos-visiond v0.1.0 (/Users/palaashatri/Code/retroshell/crates/slopos-visiond)
+    Checking polling v3.11.0
+    Checking tempfile v3.27.0
+    Checking async-io v2.6.0
+    Checking async-signal v0.2.14
+    Checking async-process v2.5.0
+    Checking zbus v4.4.0
+    Checking slopos-kit v0.1.0 (/Users/palaashatri/Code/retroshell/crates/slopos-kit)
+    Checking slopos-bus v0.1.0 (/Users/palaashatri/Code/retroshell/crates/slopos-bus)
+    Checking slopos-sdk v0.1.0 (/Users/palaashatri/Code/retroshell/crates/slopos-sdk)
+    Checking preview v0.1.0 (/Users/palaashatri/Code/retroshell/apps/preview)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.92s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`

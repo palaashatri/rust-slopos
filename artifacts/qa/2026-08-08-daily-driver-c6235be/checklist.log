@@ -1,0 +1,85 @@
+==> packaging / greeter install artifacts
+==> packaging tree
+OK  scripts/start-slopos-i
+OK  packaging/slopos-i.service
+OK  packaging/slopos-i-wayland.desktop
+OK  packaging/slopos-i.desktop
+OK  packaging/slopos-i-wayland.desktop keys: Name='SLOPOS-I' Type='Application' Exec='start-slopos-i' DesktopNames='SLOPOS-I'
+OK  packaging/slopos-i.desktop keys: Name='SLOPOS-I' Type='Application' Exec='start-slopos-i' DesktopNames='SLOPOS-I'
+
+session packaging verification PASSED
+==> start-slopos-i is executable
+==> start-slopos-i documents compositor selection
+==> desktop files point at start-slopos-i
+==> wayland session Type/DesktopNames
+==> systemd user unit ExecStart
+==> DesktopNames=SLOPOS-I on both session desktops
+==> TryExec present on both session desktops (greeter can probe binary)
+==> Keywords consistent on both session desktops
+==> install-session-files.sh dry-run
+==> session_entry_smoke_report source is honest (no live greeter claim)
+
+greeter session packaging smoke PASSED (no live DM required)
+NOTE: live_greeter_verified remains false — packaging evidence only
+OK  greeter packaging smoke
+==> install-session-files.sh present + dry-run
+OK  install-session-files dry-run
+==> desktop keys consistent (DesktopNames, TryExec, Keywords)
+OK  packaging/slopos-i.desktop has DesktopNames
+OK  packaging/slopos-i.desktop has TryExec
+OK  packaging/slopos-i.desktop has Keywords
+OK  packaging/slopos-i-wayland.desktop has DesktopNames
+OK  packaging/slopos-i-wayland.desktop has TryExec
+OK  packaging/slopos-i-wayland.desktop has Keywords
+==> start-slopos-i documents OUTPUTS_LAYOUT + compositor selection
+OK  start-slopos-i documents SLOPOS_OUTPUTS_LAYOUT
+OK  start-slopos-i logs compositor selection honestly
+==> pure module presence (warpath integration targets)
+OK  exists crates/slopos-shell/src/session_actions.rs
+OK  exists crates/slopos-shell/src/display_arrange.rs
+OK  exists crates/slopos-shell/src/window_rules.rs
+OK  exists crates/slopos-shell/src/idle_policy.rs
+OK  exists crates/slopos-shell/src/i18n.rs
+OK  exists crates/slopos-shell/src/portal_extra.rs
+OK  exists crates/slopos-shell/src/a11y_actions.rs
+OK  exists crates/slopos-shell/src/session_packaging.rs
+OK  exists crates/slopos-compositor/src/lib.rs
+==> greeter readiness stays honest (no live DM claim in notes path)
+OK  session_packaging honest greeter note present
+OK  install_ready documented as packaging-only
+OK  session_entry_smoke_report always reports live_greeter_verified: false
+==> compositor workspace filter is referenced from main (live path)
+OK  compositor main references workspace visibility
+==> portal Secret/Print/Inhibit on dbus module
+OK  portal_dbus exports Secret/Print/Inhibit interfaces
+==> i18n used outside catalog module
+OK  tr() used in shell UI paths
+==> host unit tests (exclude full compositor binary if needed)
+
+running 158 tests
+....................................................................................... 87/158
+.......................................................................
+test result: ok. 158 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+
+running 162 tests
+....................................................................................... 87/162
+...........................................................................
+test result: ok. 162 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 327 tests
+..............................................................................kill: .(4242): No such process
+........ 87/327
+....................................................................................... 174/327
+...............................kill: (999001): No such process
+..kill: (999001): No such process
+...................................................... 261/327
+............kill: (424242): No such process
+......................................................
+test result: ok. 327 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+OK  cargo test shell+kit+compositor lib
+
+daily-driver checklist PASSED (packaging + unit evidence only — not Plasma-100)
+§12 greeter criterion: install artifacts ready; live DM login still NOT RUN

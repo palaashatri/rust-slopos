@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=RetroShell
-Comment=RetroShell Wayland session (install under wayland-sessions)
-Exec=start-retroshell
-TryExec=start-retroshell
-Type=Application
-DesktopNames=RetroShell
-Keywords=RetroShell;Wayland;Desktop;

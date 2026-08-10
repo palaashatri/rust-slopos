@@ -1,0 +1,12 @@
+schema_version=1
+feature=display-policy-runtime-committed
+source_commit=78fa7de93aa0456efb467d0486c3936c1b0359b2
+qa_host=Ubuntu UTM guest
+qa_guest_ip=192.168.64.17
+qa_guest_user=ubuntu
+qa_guest_repo=/home/ubuntu/rust-slopos-qa-d1ea823
+qa_guest_head=78fa7de93aa0456efb467d0486c3936c1b0359b2
+valid_refresh_applied=true
+invalid_refresh_hdr_vrr_colour_rejected=true
+hardware_verified=false
+status=passed

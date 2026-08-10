@@ -1,0 +1,33 @@
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/.serena/.gitignore
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/.serena/project.yml
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/AGENTS.md
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/TRUTH.md
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/THIRD_PARTY_LICENSES.txt
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/deny.toml
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/.git/packed-refs
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/.git/description
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/.git/config
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/.git/HEAD
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/.git/shallow
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/.git/index
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/assets/slopos-logo.png
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/.gitignore
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/Cargo.toml
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/LICENSE
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/scripts/de_readiness_harness.py
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/scripts/verify_pi.sh
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/scripts/verify_daily_driver_checklist.sh
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/scripts/verify_greeter_session.sh
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/scripts/install-session-files.sh
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/scripts/start-slopos-i
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/scripts/test_installed_apps.py
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/scripts/verify_session_packaging.sh
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/README.md
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/Cargo.lock
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/install.sh
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/packaging/slopos-i.desktop
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/packaging/slopos-i-wayland.desktop
+/home/ubuntu/qa/2026-08-01-luna-max-r18-src/packaging/slopos-i.service
+114M	/home/ubuntu/qa/2026-08-01-luna-max-r18-src
+356M	/home/ubuntu/.cargo
+548M	/home/ubuntu/.rustup

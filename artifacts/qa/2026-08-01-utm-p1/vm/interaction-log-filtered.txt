@@ -1,0 +1,104 @@
+[slopos-compositor] DRM session loop running (Wayland + seat + udev + libinput + layer-shell + foreign-toplevel; scanout_armed=false)
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:46:43.124810Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m0
+[2m2026-08-01T02:46:43.124903Z[0m [32m INFO[0m [2mslopos_shell[0m[2m:[0m shell synced foreign-toplevel-list [3mtoplevels[0m[2m=[0m0
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] toplevel mapped at (64,64) size=640x480 title=Untitled app_id=slopos-i.app shell=false
+[slopos-compositor/drm] workspace active=0/8 windows=1 visible=1 dist=[0:1,1:0,2:0,3:0,4:0,5:0,6:0,7:0] window_id=rmGWtDgPDcmmQLVeynC44brvk7lie6iC present=["rmGWtDgPDcmmQLVeynC44brvk7lie6iC"]
+	      /usr/share/vulkan/explicit_layer.d/VkLayer_MESA_screenshot.json
+	Found manifest file /usr/share/vulkan/explicit_layer.d/VkLayer_MESA_screenshot.json (file version 1.0.0)
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client connected
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:46:45.175567Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:46:47.189705Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:46:49.184158Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:46:51.184648Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:46:53.174574Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:46:55.187774Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:46:57.185152Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:46:59.192580Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:01.194611Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:03.175887Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:05.192020Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:07.184087Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:09.188499Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:11.181708Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:13.196782Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:15.189658Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:17.192546Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:19.190426Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:21.192773Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:23.368805Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:25.367208Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:27.359069Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:29.372062Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:31.376192Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:33.376056Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:35.370510Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:37.387822Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:39.375837Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:41.373073Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:43.379701Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:45.365451Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:47.383987Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:49.364450Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:51.374772Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:53.377795Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:55.378536Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:57.367966Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:47:59.383767Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:48:01.383468Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:48:03.377962Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:48:05.385545Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:48:07.362917Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected
+[2m2026-08-01T02:48:09.367703Z[0m [32m INFO[0m [2mslopos_shell::foreign_toplevel_client[0m[2m:[0m foreign-toplevel-list synced from compositor [3mtoplevels[0m[2m=[0m1
+[slopos-compositor/drm] client connected

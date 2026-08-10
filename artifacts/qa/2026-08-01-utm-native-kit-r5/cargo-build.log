@@ -1,0 +1,9 @@
+   Compiling terminal v0.1.0 (/home/ubuntu/qa/2026-08-01-utm-native-kit-r5/source/apps/terminal)
+   Compiling slopos-visiond v0.1.0 (/home/ubuntu/qa/2026-08-01-utm-native-kit-r5/source/crates/slopos-visiond)
+   Compiling appstore v0.1.0 (/home/ubuntu/qa/2026-08-01-utm-native-kit-r5/source/apps/appstore)
+   Compiling settings v0.1.0 (/home/ubuntu/qa/2026-08-01-utm-native-kit-r5/source/apps/settings)
+   Compiling textedit v0.1.0 (/home/ubuntu/qa/2026-08-01-utm-native-kit-r5/source/apps/textedit)
+   Compiling preview v0.1.0 (/home/ubuntu/qa/2026-08-01-utm-native-kit-r5/source/apps/preview)
+   Compiling finder v0.1.0 (/home/ubuntu/qa/2026-08-01-utm-native-kit-r5/source/apps/finder)
+   Compiling slopos-session v0.1.0 (/home/ubuntu/qa/2026-08-01-utm-native-kit-r5/source/crates/slopos-session)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 36.24s
