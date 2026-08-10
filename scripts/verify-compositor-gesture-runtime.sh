@@ -15,6 +15,9 @@ fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
+mkdir -p "$CARGO_TARGET_DIR"
 for tool in git python3 mktemp grep; do
     command -v "$tool" >/dev/null 2>&1 || {
         printf 'verify-compositor-gesture-runtime: missing required tool: %s\n' "$tool" >&2
@@ -115,7 +118,7 @@ export XDG_DATA_HOME="$data_dir"
 export SLOPOS_TEST_INPUT=1
 unset DISPLAY WAYLAND_DISPLAY SLOPOS_CLIENT_WAYLAND_DISPLAY
 
-target/release/slopos-compositor --backend headless >"$runtime_dir/compositor.log" 2>&1 &
+"$CARGO_TARGET_DIR/release/slopos-compositor" --backend headless >"$runtime_dir/compositor.log" 2>&1 &
 compositor_pid=$!
 for _ in $(seq 1 200); do
     if [[ -s "$runtime_dir/readiness" ]]; then

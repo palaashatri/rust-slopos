@@ -18,6 +18,9 @@ fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
+mkdir -p "$CARGO_TARGET_DIR"
 
 for tool in cargo git grep awk ps pgrep mktemp; do
     if ! command -v "$tool" >/dev/null 2>&1; then
@@ -116,7 +119,7 @@ export SLOPOS_SESSION_TOKEN="xwayland-recovery-${commit_sha}-$$"
 unset DISPLAY WAYLAND_DISPLAY SLOPOS_CLIENT_WAYLAND_DISPLAY SLOPOS_XWAYLAND_DISPLAY
 
 printf 'Starting SLOPOS-owned headless compositor\n'
-target/release/slopos-compositor --backend headless >"$log" 2>&1 &
+"$CARGO_TARGET_DIR/release/slopos-compositor" --backend headless >"$log" 2>&1 &
 compositor_pid=$!
 
 for _ in $(seq 1 100); do

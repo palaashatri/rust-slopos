@@ -16,6 +16,11 @@ PASSWORD=retro
 REPO_URL="${REPO_URL:-https://github.com/palaashatri/rust-slopos.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 HOST_HTTP="${HOST_HTTP:-http://10.0.2.2:8000}"   # host file server (qa_key.pub)
+GUEST_TARGET_DIR="${CARGO_TARGET_DIR:-/home/$USERNAME/.cache/slopos-i/cargo-target}"
+case "$GUEST_TARGET_DIR" in
+  /*) ;;
+  *) echo "CARGO_TARGET_DIR must be an absolute path: $GUEST_TARGET_DIR" >&2; exit 2 ;;
+esac
 
 echo "=== clock + mirrors ==="
 timedatectl set-ntp true || true
@@ -106,7 +111,10 @@ su - $USERNAME -c '
   set -euxo pipefail
   git clone --branch "$REPO_BRANCH" "$REPO_URL" ~/slopos-i || git clone "$REPO_URL" ~/slopos-i
   cd ~/slopos-i
-  cargo build --release --workspace 2>&1 | tail -40
+  CARGO_TARGET_DIR="$GUEST_TARGET_DIR"
+  export CARGO_TARGET_DIR
+  mkdir -p "$CARGO_TARGET_DIR"
+  cargo build --release --workspace --locked 2>&1 | tee "$CARGO_TARGET_DIR/build.log"
   mkdir -p ~/.config/slopos-i
   cat > ~/.config/slopos-i/settings.conf <<EOF
 theme=classic
@@ -122,11 +130,11 @@ CHROOT
 
 echo "=== install session files ==="
 arch-chroot /mnt /bin/bash -euxo pipefail <<CHROOT
-install -Dm755 /home/$USERNAME/slopos-i/target/release/slopos-compositor /usr/local/bin/slopos-compositor
-install -Dm755 /home/$USERNAME/slopos-i/target/release/slopos-shell      /usr/local/bin/slopos-shell
-install -Dm755 /home/$USERNAME/slopos-i/target/release/slopos-lock       /usr/local/bin/slopos-lock || true
+install -Dm755 $GUEST_TARGET_DIR/release/slopos-compositor /usr/local/bin/slopos-compositor
+install -Dm755 $GUEST_TARGET_DIR/release/slopos-shell      /usr/local/bin/slopos-shell
+install -Dm755 $GUEST_TARGET_DIR/release/slopos-lock       /usr/local/bin/slopos-lock || true
 for a in finder settings textedit terminal appstore; do
-  install -Dm755 /home/$USERNAME/slopos-i/target/release/\$a /usr/local/bin/\$a || true
+  install -Dm755 $GUEST_TARGET_DIR/release/\$a /usr/local/bin/\$a || true
 done
 install -Dm755 /home/$USERNAME/slopos-i/scripts/start-slopos-i /usr/local/bin/start-slopos-i || true
 install -Dm644 /home/$USERNAME/slopos-i/packaging/slopos-i.desktop /usr/share/wayland-sessions/slopos-i.desktop || true

@@ -6,6 +6,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
+mkdir -p "$CARGO_TARGET_DIR"
+case "$CARGO_TARGET_DIR" in
+  /*) ;;
+  *) echo "CARGO_TARGET_DIR must be an absolute path: $CARGO_TARGET_DIR" >&2; exit 2 ;;
+esac
+
 REPORT="/tmp/slopos-i-pi-verify-$(date +%Y%m%d-%H%M%S).txt"
 exec > >(tee "$REPORT") 2>&1
 
@@ -42,15 +50,32 @@ echo "rustc: $(rustc --version)"
 echo
 
 echo "=== Phase 2: unit tests ==="
-cargo test --workspace 2>&1 | tail -60
+TEST_LOG="$REPORT.tests.log"
+if cargo test --workspace --locked >"$TEST_LOG" 2>&1; then
+  tail -60 "$TEST_LOG"
+else
+  status=$?
+  tail -60 "$TEST_LOG"
+  echo "UNIT_TESTS=FAIL"
+  exit "$status"
+fi
 echo
 
 echo "=== Phase 3: release build ==="
-cargo build --release --workspace 2>&1 | tail -30
+BUILD_LOG="$REPORT.build.log"
+if cargo build --release --workspace --locked >"$BUILD_LOG" 2>&1; then
+  tail -30 "$BUILD_LOG"
+else
+  status=$?
+  tail -30 "$BUILD_LOG"
+  echo "RELEASE_BUILD=FAIL"
+  exit "$status"
+fi
 echo
-ls -la target/release/slopos-shell target/release/slopos-compositor \
-  target/release/finder target/release/settings target/release/terminal \
-  target/release/textedit target/release/appstore 2>&1 || true
+ls -la "$CARGO_TARGET_DIR/release/slopos-shell" "$CARGO_TARGET_DIR/release/slopos-compositor" \
+  "$CARGO_TARGET_DIR/release/finder" "$CARGO_TARGET_DIR/release/settings" \
+  "$CARGO_TARGET_DIR/release/terminal" "$CARGO_TARGET_DIR/release/textedit" \
+  "$CARGO_TARGET_DIR/release/appstore"
 echo
 
 echo "=== Phase 4: capability probes ==="
@@ -81,7 +106,7 @@ mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 
 if [ -n "${DISPLAY:-}" ]; then
-  timeout 15 ./target/release/slopos-compositor --backend nested > /tmp/slopos-compositor-pi.log 2>&1 &
+  timeout 15 "$CARGO_TARGET_DIR/release/slopos-compositor" --backend nested > /tmp/slopos-compositor-pi.log 2>&1 &
   CPID=$!
   sleep 3
   if kill -0 "$CPID" 2>/dev/null; then
@@ -99,5 +124,5 @@ echo
 echo "=== Report written to $REPORT ==="
 echo "Next: run under a real session:"
 echo "  export SLOPOS_LOCK_PASSWORD=test"
-echo "  ./target/release/slopos-compositor &"
-echo "  sleep 1; ./target/release/slopos-shell"
+echo "  $CARGO_TARGET_DIR/release/slopos-compositor &"
+echo "  sleep 1; $CARGO_TARGET_DIR/release/slopos-shell"

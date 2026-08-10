@@ -15,6 +15,11 @@ PASSWORD=retro
 REPO_URL="${REPO_URL:-https://github.com/palaashatri/rust-slopos.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 HOST_HTTP="${HOST_HTTP:-http://10.0.2.2:8000}"   # host file server (Task 0.2)
+GUEST_TARGET_DIR="${CARGO_TARGET_DIR:-/home/$USERNAME/.cache/slopos-i/cargo-target}"
+case "$GUEST_TARGET_DIR" in
+  /*) ;;
+  *) echo "CARGO_TARGET_DIR must be an absolute path: $GUEST_TARGET_DIR" >&2; exit 2 ;;
+esac
 
 # CONFIRM AT RUNTIME: which aarch64 kernel package this live env provides.
 #   pacman -Ss '^linux$' ; pacman -Ss '^linux-aarch64$'
@@ -112,6 +117,11 @@ arch-chroot /mnt /bin/bash -euxo pipefail <<CHROOT
 su - $USERNAME -c '
   set -euxo pipefail
   git clone --branch "$REPO_BRANCH" "$REPO_URL" ~/slopos-i || git clone "$REPO_URL" ~/slopos-i
+  cd ~/slopos-i
+  CARGO_TARGET_DIR="$GUEST_TARGET_DIR"
+  export CARGO_TARGET_DIR
+  mkdir -p "$CARGO_TARGET_DIR"
+  cargo build --release --workspace --locked 2>&1 | tee "$CARGO_TARGET_DIR/build.log"
   mkdir -p ~/.config/slopos-i
   cat > ~/.config/slopos-i/settings.conf <<EOF
 theme=classic

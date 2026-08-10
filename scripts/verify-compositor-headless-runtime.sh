@@ -22,7 +22,10 @@ fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
-target_root="${CARGO_TARGET_DIR:-$repo_root/target}"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
+mkdir -p "$CARGO_TARGET_DIR"
+target_root="$CARGO_TARGET_DIR"
 debug_dir="$target_root/debug"
 
 for tool in cargo sed grep stat timeout wayland-info python3; do

@@ -15,6 +15,9 @@ fi
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
+mkdir -p "$CARGO_TARGET_DIR"
 for tool in cargo git grep awk ps xmessage xwininfo xprop Xvfb mktemp; do
     command -v "$tool" >/dev/null 2>&1 || {
         printf 'verify-xwayland-scene: missing required tool: %s\n' "$tool" >&2
@@ -159,7 +162,7 @@ export SLOPOS_SESSION_RUNTIME_DIR="$runtime"
 export SLOPOS_SESSION_TOKEN="xwayland-scene-$commit_sha-$$"
 unset DISPLAY WAYLAND_DISPLAY SLOPOS_CLIENT_WAYLAND_DISPLAY SLOPOS_XWAYLAND_DISPLAY
 
-target/release/slopos-compositor --backend headless >"$log" 2>&1 &
+"$CARGO_TARGET_DIR/release/slopos-compositor" --backend headless >"$log" 2>&1 &
 headless_pid=$!
 wait_for_log 'XWayland ready on DISPLAY=' "$log" || {
     failure=headless_xwayland_ready_timeout
@@ -213,7 +216,7 @@ nested_runtime="$(mktemp -d /tmp/slopos-xwayland-nested.XXXXXX)"
 chmod 700 "$nested_runtime"
 XDG_RUNTIME_DIR="$nested_runtime" SLOPOS_SESSION_RUNTIME_DIR="$nested_runtime" \
     SLOPOS_SESSION_TOKEN="xwayland-nested-$commit_sha-$$" LIBGL_ALWAYS_SOFTWARE=1 \
-    GALLIUM_DRIVER=llvmpipe target/release/slopos-compositor --backend nested \
+    GALLIUM_DRIVER=llvmpipe "$CARGO_TARGET_DIR/release/slopos-compositor" --backend nested \
     >"$nested_log" 2>&1 &
 nested_pid=$!
 sleep 1
@@ -227,7 +230,7 @@ pre_runtime="$(mktemp -d /tmp/slopos-xwayland-pre.XXXXXX)"
 chmod 700 "$pre_runtime"
 XDG_RUNTIME_DIR="$pre_runtime" SLOPOS_SESSION_RUNTIME_DIR="$pre_runtime" \
     SLOPOS_SESSION_TOKEN="xwayland-pre-ready-$commit_sha-$$" \
-    target/release/slopos-compositor --backend headless >"$pre_log" 2>&1 &
+    "$CARGO_TARGET_DIR/release/slopos-compositor" --backend headless >"$pre_log" 2>&1 &
 pre_pid=$!
 pre_child=""
 for _ in $(seq 1 200); do
@@ -255,4 +258,3 @@ else
 fi
 printf 'XWayland scene lifecycle and xwayland-startup-watchdog verified at %s\n' \
     "$commit_sha"
-

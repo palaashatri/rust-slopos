@@ -3,6 +3,8 @@
 set -euo pipefail
 
 QA="${HOME}/qa-stage2-reqa"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
 rm -rf "$QA"
 mkdir -p "$QA"
 exec > >(tee "$QA/run.log") 2>&1
@@ -31,7 +33,7 @@ setsid env \
   SLOPOS_LOCK_PASSWORD=slopos-i \
   RUST_LOG=info \
   LANG=C.UTF-8 LC_ALL=C.UTF-8 \
-  ./target/release/slopos-compositor \
+  "$CARGO_TARGET_DIR/release/slopos-compositor" \
   > "$QA/compositor.log" 2>&1 < /dev/null &
 
 SOCK=""

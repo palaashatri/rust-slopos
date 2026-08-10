@@ -5,6 +5,20 @@ set -u
 QA="${QA_DIR:-$HOME/qa}"; mkdir -p "$QA"
 exec > >(tee "$QA/live.log") 2>&1
 
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
+case "$CARGO_TARGET_DIR" in
+  /*) ;;
+  *) echo "CARGO_TARGET_DIR must be an absolute path"; exit 2 ;;
+esac
+BIN_DIR="$CARGO_TARGET_DIR/release"
+for binary in slopos-compositor slopos-shell finder terminal textedit settings appstore; do
+  if [ ! -x "$BIN_DIR/$binary" ]; then
+    echo "required release binary missing: $BIN_DIR/$binary"
+    exit 1
+  fi
+done
+
 pkill -f slopos-compositor 2>/dev/null
 pkill -f '(slopos-shell|finder|terminal|textedit|settings|appstore)' 2>/dev/null
 sleep 1
@@ -21,7 +35,7 @@ refresh_rate=60hz
 color_space=srgb
 lock_password=slopos-i
 EOF
-export PATH="$HOME/slopos-i/target/debug:$HOME/slopos-i/target/release:$PATH"
+export PATH="$CARGO_TARGET_DIR/debug:$CARGO_TARGET_DIR/release:$PATH"
 export RUST_LOG=info RUST_BACKTRACE=1
 export SLOPOS_COMPOSITOR_WIDTH=1280 SLOPOS_COMPOSITOR_HEIGHT=800
 

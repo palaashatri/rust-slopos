@@ -10,6 +10,8 @@ pkill -9 -f slopos-shell || true
 sleep 2
 
 QA="${HOME}/qa-stage2b"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
 rm -rf "$QA"
 mkdir -p "$QA"
 
@@ -30,7 +32,7 @@ setsid env \
   SLOPOS_LOCK_PASSWORD=slopos-i \
   RUST_LOG=info \
   LANG=C.UTF-8 LC_ALL=C.UTF-8 \
-  ./target/release/slopos-compositor \
+  "$CARGO_TARGET_DIR/release/slopos-compositor" \
   > "$QA/compositor.log" 2>&1 < /dev/null &
 
 SOCK=""

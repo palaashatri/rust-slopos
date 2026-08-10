@@ -10,6 +10,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
+mkdir -p "$CARGO_TARGET_DIR"
 
 fail=0
 pass() { echo "OK  $*"; }
@@ -134,7 +137,7 @@ fi
 
 echo "==> host unit tests (exclude full compositor binary if needed)"
 if command -v cargo >/dev/null; then
-  if cargo test -p slopos-shell -p slopos-kit -p slopos-compositor --lib --quiet; then
+  if cargo test -p slopos-shell -p slopos-kit -p slopos-compositor --lib --quiet --locked; then
     pass "cargo test shell+kit+compositor lib"
   else
     die "cargo test failed"

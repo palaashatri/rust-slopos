@@ -522,6 +522,62 @@ check_static_packaging() {
     log_fail "debian/rules missing locked build or target wiring"
   fi
 
+  header "Release script lockfile and target-dir contract"
+  local script path
+  local release_scripts=(
+    install.sh
+    packaging/apps/build-app-bundle.sh
+    packaging/vm/arch-install.sh
+    packaging/vm/arch-install-arm64.sh
+    packaging/vm/provision-arm64.sh
+    packaging/vm/qa-vm.sh
+    packaging/vm/qa-live.sh
+    packaging/vm/_stage2-start.sh
+    packaging/vm/_stage2b-start.sh
+    packaging/vm/_stage2-verify.sh
+    packaging/vm/_stage2-reqa.sh
+    packaging/vm/task-3.10-dod.sh
+    scripts/verify_pi.sh
+    scripts/verify_daily_driver_checklist.sh
+    scripts/verify-compositor-completion.sh
+    scripts/verify-compositor-gesture-runtime.sh
+    scripts/verify-compositor-headless-runtime.sh
+    scripts/verify-compositor-output-topology-runtime.sh
+    scripts/verify-portal-runtime.sh
+    scripts/verify-spaces-persistence-recovery.sh
+    scripts/verify-spaces-application-policy-runtime.sh
+    scripts/verify-xwayland-recovery.sh
+    scripts/verify-xwayland-scene.sh
+  )
+  for script in "${release_scripts[@]}"; do
+    path="$REPO_ROOT/$script"
+    check_required_file "$script" "$path"
+    log_test "Checking $script shell syntax"
+    if bash -n "$path" 2>/dev/null; then
+      log_pass "$script syntax is valid"
+    else
+      log_fail "$script has syntax errors"
+      continue
+    fi
+    if grep -Eq '(^|[[:space:]])cargo[[:space:]]+(build|check|test|clippy)([[:space:]]|$)' "$path"; then
+      if grep -Eq -- '--locked([^[:alnum:]_]|$)' "$path"; then
+        log_pass "$script uses Cargo.lock for Cargo commands"
+      else
+        log_fail "$script has a Cargo command without --locked"
+      fi
+    fi
+    if grep -Eq 'target/(debug|release)' "$path"; then
+      log_fail "$script contains an unscoped target/{debug,release} path"
+    else
+      log_pass "$script consumes binaries through CARGO_TARGET_DIR or explicit paths"
+    fi
+    if grep -q 'CARGO_TARGET_DIR' "$path"; then
+      log_pass "$script exposes shared CARGO_TARGET_DIR"
+    else
+      log_fail "$script does not expose CARGO_TARGET_DIR"
+    fi
+  done
+
   check_required_file "packaging/iso/packages.x86_64" "$REPO_ROOT/packaging/iso/packages.x86_64"
   check_required_file "packaging/iso/build-iso.sh" "$REPO_ROOT/packaging/iso/build-iso.sh" 1
   check_required_file "packaging/iso/profiledef.sh" "$REPO_ROOT/packaging/iso/profiledef.sh"

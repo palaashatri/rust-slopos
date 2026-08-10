@@ -15,6 +15,8 @@ fi
 
 repo_root="$1"
 log_dir="$2"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
 mkdir -p "$log_dir"
 
 runtime_dir="$(mktemp -d /tmp/slopos-spaces-recovery-runtime.XXXXXX)"
@@ -50,7 +52,7 @@ export SLOPOS_TEST_INPUT=1
 unset DISPLAY WAYLAND_DISPLAY SLOPOS_CLIENT_WAYLAND_DISPLAY
 
 compositor_log="$log_dir/compositor.log"
-compositor_bin="${SLOPOS_COMPOSITOR_BIN:-$repo_root/target/release/slopos-compositor}"
+compositor_bin="${SLOPOS_COMPOSITOR_BIN:-$CARGO_TARGET_DIR/release/slopos-compositor}"
 "$compositor_bin" --backend headless >"$compositor_log" 2>&1 &
 compositor_pid=$!
 

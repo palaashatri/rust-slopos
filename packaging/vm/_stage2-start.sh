@@ -9,6 +9,8 @@ pkill -9 -f slopos-lock || true
 sleep 2
 
 QA="${HOME}/qa-stage2"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
 rm -rf "$QA"
 mkdir -p "$QA"
 
@@ -22,7 +24,7 @@ export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
 
 cd "${HOME}/slopos-i"
-setsid env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" ./target/release/slopos-compositor \
+setsid env XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" "$CARGO_TARGET_DIR/release/slopos-compositor" \
   > "$QA/compositor.log" 2>&1 < /dev/null &
 
 SOCK=""

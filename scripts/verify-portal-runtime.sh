@@ -83,7 +83,7 @@ payload = {
     "status": "passed",
     "commit": commit,
     "branch": os.environ.get("GIT_BRANCH", "unknown"),
-    "command": "dbus-run-session -- target/debug/slopos-portal-smoke",
+    "command": f"dbus-run-session -- {target_dir}/debug/slopos-portal-smoke",
     "target_dir": str(target_dir),
     "probe": result,
 }

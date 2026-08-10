@@ -10,6 +10,8 @@ if (( $# != 2 )); then
 fi
 repo_root="$1"
 log_dir="$2"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
 mkdir -p "$log_dir"
 
 runtime_dir="$(mktemp -d /tmp/slopos-spaces-app-policy-runtime.XXXXXX)"
@@ -151,7 +153,7 @@ PY
 start_compositor() {
     label="$1"
     compositor_log="$log_dir/compositor-$label.log"
-    "$repo_root/target/release/slopos-compositor" --backend headless >"$compositor_log" 2>&1 &
+    "$CARGO_TARGET_DIR/release/slopos-compositor" --backend headless >"$compositor_log" 2>&1 &
     compositor_pid=$!
     readiness="$runtime_dir/readiness"
     for _ in $(seq 1 200); do
@@ -190,7 +192,7 @@ printf 'policy_id_readback=2\n' | tee -a "$log_dir/steps.log"
 
 WAYLAND_DISPLAY="$WAYLAND_DISPLAY" XDG_RUNTIME_DIR="$runtime_dir" \
     SLOPOS_SESSION_RUNTIME_DIR="$runtime_dir" \
-    "$repo_root/target/release/preview" "$repo_root/assets/slopos-logo.png" \
+    "$CARGO_TARGET_DIR/release/preview" "$repo_root/assets/slopos-logo.png" \
     >"$log_dir/preview.log" 2>&1 &
 preview_pid=$!
 window_id="$(wait_for_window)"
@@ -298,7 +300,7 @@ printf 'restart_policy_restored=3\n' | tee -a "$log_dir/steps.log"
 
 WAYLAND_DISPLAY="$WAYLAND_DISPLAY" XDG_RUNTIME_DIR="$runtime_dir" \
     SLOPOS_SESSION_RUNTIME_DIR="$runtime_dir" \
-    "$repo_root/target/release/preview" "$repo_root/assets/slopos-logo.png" \
+    "$CARGO_TARGET_DIR/release/preview" "$repo_root/assets/slopos-logo.png" \
     >"$log_dir/preview-restart.log" 2>&1 &
 preview_pid=$!
 restart_window_id="$(wait_for_window)"

@@ -4,6 +4,8 @@
 # Run this ON THE VM after Stage 3 code is synced
 
 set -euo pipefail
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
 
 # Colors for output
 RED='\033[0;31m'
@@ -72,7 +74,7 @@ echo "           LIBGL_ALWAYS_SOFTWARE=1 \\"
 echo "           GALLIUM_DRIVER=llvmpipe \\"
 echo "           SLOPOS_LAYER_SHELL_CHROME=1"
 echo "    cd ~/slopos-i"
-echo "    ./target/release/slopos-compositor"
+echo "    $CARGO_TARGET_DIR/release/slopos-compositor"
 echo ""
 
 # Step 5: Verification steps (to run in another terminal)

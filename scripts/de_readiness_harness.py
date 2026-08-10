@@ -50,9 +50,15 @@ def parse_args() -> argparse.Namespace:
 
 
 def resolve_native_binary(name: str) -> Path | None:
+    cache_root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    target_root = Path(
+        os.environ.get("CARGO_TARGET_DIR") or cache_root / "slopos-i/cargo-target"
+    )
+    if not target_root.is_absolute():
+        target_root = Path.cwd() / target_root
     candidates = (
-        Path("target/release") / name,
-        Path("target/debug") / name,
+        target_root / "release" / name,
+        target_root / "debug" / name,
         Path.home() / ".local/bin" / name,
         Path("/usr/local/bin") / name,
         Path("/usr/bin") / name,

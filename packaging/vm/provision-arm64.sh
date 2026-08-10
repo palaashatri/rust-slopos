@@ -13,6 +13,12 @@ USERNAME="${SUDO_USER:-$(whoami)}"
 REPO_URL="${REPO_URL:-https://github.com/palaashatri/rust-slopos.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 HOST_HTTP="${HOST_HTTP:-http://10.0.2.2:8000}"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/slopos-i/cargo-target}"
+export CARGO_TARGET_DIR
+case "$CARGO_TARGET_DIR" in
+  /*) ;;
+  *) echo "CARGO_TARGET_DIR must be an absolute path: $CARGO_TARGET_DIR" >&2; exit 2 ;;
+esac
 
 echo "=== refresh keyring + sync ==="
 sudo pacman -Sy --noconfirm archlinux-keyring || true
@@ -71,6 +77,7 @@ appearance=light
 lock_password=slopos-i
 EOF
 cd "$HOME/slopos-i"
-cargo build --release --workspace
+mkdir -p "$CARGO_TARGET_DIR"
+cargo build --release --workspace --locked
 
 echo "=== done; reboot so virtio_gpu + group membership take effect ==="
