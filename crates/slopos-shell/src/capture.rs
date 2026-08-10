@@ -18,6 +18,8 @@ pub enum CaptureError {
     CommandFailed(String),
     #[error("capture request options are unsupported: {0}")]
     UnsupportedOptions(String),
+    #[error("compositor-owned capture backend is unavailable")]
+    CompositorBackendUnavailable,
     #[error("recording already in progress")]
     AlreadyRecording,
     #[error("no active recording")]

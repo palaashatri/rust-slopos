@@ -254,6 +254,36 @@ pub enum InstallError {
     ArchiveSizeMismatch { expected: u64, got: u64 },
 }
 
+const TRANSACTION_JOURNAL_VERSION: u32 = 1;
+const TRANSACTION_JOURNAL_PREFIX: &str = ".slopos-transaction-";
+
+/// A durable install/remove transaction record.  Only relative names are
+/// persisted so recovery cannot be redirected outside the authenticated
+/// install root by a malformed or tampered journal.
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+struct TransactionJournal {
+    version: u32,
+    operation: TransactionOperation,
+    phase: TransactionPhase,
+    final_name: String,
+    backup_name: Option<String>,
+    staged_path: Option<String>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, Eq, PartialEq)]
+enum TransactionOperation {
+    Replace,
+    Remove,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, Eq, PartialEq)]
+enum TransactionPhase {
+    Prepared,
+    BackedUp,
+    Committed,
+}
+
 /// Maximum archive size accepted from a remote catalogue URL before
 /// authentication and extraction. This bounds both disk use and the amount
 /// of untrusted data the installer will process.
@@ -524,9 +554,8 @@ pub fn remove_installed_bundle(name: &str, install_dir: &Path) -> Result<PathBuf
             "unsafe installed bundle name: {name}"
         )));
     }
-    let install_root = install_dir
-        .canonicalize()
-        .map_err(|error| InstallError::Io(error.to_string()))?;
+    let install_root = canonical_install_root(install_dir)?;
+    recover_install_transactions(&install_root)?;
     let target = install_root.join(name);
     let metadata = fs::symlink_metadata(&target).map_err(|error| {
         if error.kind() == io::ErrorKind::NotFound {
@@ -540,8 +569,64 @@ pub fn remove_installed_bundle(name: &str, install_dir: &Path) -> Result<PathBuf
             "installed bundle must be a regular directory".to_string(),
         ));
     }
-    remove_path(&target)?;
+    remove_bundle_transaction(&target, name, &install_root)?;
     Ok(target)
+}
+
+/// Recover interrupted bundle transactions in `install_dir`.
+///
+/// Recovery is deliberately strict: a malformed journal, symlinked journal or
+/// artifact, unsupported path, or impossible phase is an error rather than a
+/// best-effort cleanup.  Callers can therefore surface recovery failure to
+/// the user without claiming that an install or removal completed.
+pub fn recover_install_transactions(install_dir: &Path) -> Result<usize, InstallError> {
+    let metadata = match fs::symlink_metadata(install_dir) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(0),
+        Err(error) => return Err(InstallError::Io(error.to_string())),
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(InstallError::InvalidBundle(
+            "install directory must be a regular non-symlink directory".to_string(),
+        ));
+    }
+
+    let install_root = install_dir
+        .canonicalize()
+        .map_err(|error| InstallError::Io(error.to_string()))?;
+    let mut recovered = 0usize;
+    let entries =
+        fs::read_dir(&install_root).map_err(|error| InstallError::Io(error.to_string()))?;
+    for entry in entries {
+        let entry = entry.map_err(|error| InstallError::Io(error.to_string()))?;
+        let file_name = entry.file_name();
+        let Some(file_name) = file_name.to_str() else {
+            continue;
+        };
+        if !file_name.starts_with(TRANSACTION_JOURNAL_PREFIX) || !file_name.ends_with(".json") {
+            continue;
+        }
+
+        let journal_path = entry.path();
+        let metadata = fs::symlink_metadata(&journal_path)
+            .map_err(|error| InstallError::Io(error.to_string()))?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(InstallError::InvalidBundle(format!(
+                "transaction journal must be a regular non-symlink file: {}",
+                journal_path.display()
+            )));
+        }
+        let bytes = fs::read(&journal_path).map_err(|error| InstallError::Io(error.to_string()))?;
+        let journal: TransactionJournal = serde_json::from_slice(&bytes).map_err(|error| {
+            InstallError::InvalidBundle(format!(
+                "cannot parse transaction journal {}: {error}",
+                journal_path.display()
+            ))
+        })?;
+        recover_one_transaction(&install_root, &journal_path, &journal)?;
+        recovered += 1;
+    }
+    Ok(recovered)
 }
 
 /// Verify `archive`'s sha256 == `expected` (integrity only).
@@ -563,9 +648,8 @@ pub fn install_from_archive(
     }
 
     fs::create_dir_all(install_dir).map_err(|e| InstallError::Io(e.to_string()))?;
-    let install_root = install_dir
-        .canonicalize()
-        .map_err(|e| InstallError::Io(e.to_string()))?;
+    let install_root = canonical_install_root(install_dir)?;
+    recover_install_transactions(&install_root)?;
     let staging = create_unique_directory(&install_root, "staging")?;
 
     let result = (|| {
@@ -641,6 +725,19 @@ fn path_exists(path: &Path) -> bool {
     fs::symlink_metadata(path).is_ok()
 }
 
+fn canonical_install_root(install_dir: &Path) -> Result<PathBuf, InstallError> {
+    let metadata =
+        fs::symlink_metadata(install_dir).map_err(|error| InstallError::Io(error.to_string()))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(InstallError::InvalidBundle(
+            "install directory must be a regular non-symlink directory".to_string(),
+        ));
+    }
+    install_dir
+        .canonicalize()
+        .map_err(|error| InstallError::Io(error.to_string()))
+}
+
 fn remove_path(path: &Path) -> Result<(), InstallError> {
     let metadata = match fs::symlink_metadata(path) {
         Ok(metadata) => metadata,
@@ -665,14 +762,469 @@ fn replace_staged_bundle(
     final_path: &Path,
     install_root: &Path,
 ) -> Result<(), InstallError> {
-    replace_staged_bundle_with(
-        staged_app,
-        final_path,
-        install_root,
-        |source, destination| {
-            fs::rename(source, destination).map_err(|e| InstallError::Io(e.to_string()))
+    let final_name = final_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| {
+            InstallError::InvalidBundle("installed bundle name is not UTF-8".to_string())
+        })?;
+    if !is_safe_bundle_name(final_name) {
+        return Err(InstallError::InvalidBundle(format!(
+            "unsafe installed bundle name: {final_name}"
+        )));
+    }
+    let staged_path = relative_transaction_path(install_root, staged_app, "staged bundle")?;
+    let staged_metadata = fs::symlink_metadata(staged_app).map_err(|error| {
+        InstallError::InvalidBundle(format!("cannot inspect staged bundle: {error}"))
+    })?;
+    if staged_metadata.file_type().is_symlink() || !staged_metadata.is_dir() {
+        return Err(InstallError::InvalidBundle(
+            "staged bundle must be a regular directory".to_string(),
+        ));
+    }
+
+    let final_exists = require_bundle_directory(final_path, "installed bundle")?;
+    let backup_path = final_exists.then(|| unique_child_path(install_root, "backup"));
+    let backup_name = backup_path.as_ref().map(|path| {
+        path.file_name()
+            .expect("unique backup path always has a file name")
+            .to_string_lossy()
+            .into_owned()
+    });
+    let journal_path = unique_transaction_journal_path(install_root)?;
+    let mut journal = TransactionJournal {
+        version: TRANSACTION_JOURNAL_VERSION,
+        operation: TransactionOperation::Replace,
+        phase: TransactionPhase::Prepared,
+        final_name: final_name.to_string(),
+        backup_name,
+        staged_path: Some(staged_path),
+    };
+    write_transaction_journal(install_root, &journal_path, &journal)?;
+
+    if let Some(backup_path) = backup_path.as_ref() {
+        if let Err(error) = fs::rename(final_path, backup_path) {
+            return Err(InstallError::Io(format!(
+                "could not move the installed bundle to backup {}: {error}",
+                backup_path.display()
+            )));
+        }
+        journal.phase = TransactionPhase::BackedUp;
+        write_transaction_journal(install_root, &journal_path, &journal)?;
+    }
+
+    if let Err(error) = fs::rename(staged_app, final_path) {
+        if let Some(backup_path) = backup_path.as_ref() {
+            if let Err(rollback_error) = fs::rename(backup_path, final_path) {
+                return Err(InstallError::Io(format!(
+                    "bundle commit failed ({error}) and rollback failed ({rollback_error}); old bundle remains at {}",
+                    backup_path.display()
+                )));
+            }
+            // The old bundle is restored.  If journal cleanup itself is
+            // interrupted, the Prepared/BackedUp recovery path is safe.
+            let _ = remove_transaction_journal(install_root, &journal_path);
+        }
+        return Err(InstallError::Io(format!("bundle commit failed: {error}")));
+    }
+
+    journal.phase = TransactionPhase::Committed;
+    write_transaction_journal(install_root, &journal_path, &journal)?;
+    if let Some(backup_path) = backup_path.as_ref() {
+        if let Err(error) = remove_path(backup_path) {
+            return Err(InstallError::Io(format!(
+                "bundle committed but backup cleanup is pending at {}: {error:?}",
+                backup_path.display()
+            )));
+        }
+    }
+    remove_transaction_journal(install_root, &journal_path)
+}
+
+fn remove_bundle_transaction(
+    target: &Path,
+    name: &str,
+    install_root: &Path,
+) -> Result<(), InstallError> {
+    let backup_path = unique_child_path(install_root, "backup");
+    let backup_name = backup_path
+        .file_name()
+        .expect("unique backup path always has a file name")
+        .to_string_lossy()
+        .into_owned();
+    let journal_path = unique_transaction_journal_path(install_root)?;
+    let mut journal = TransactionJournal {
+        version: TRANSACTION_JOURNAL_VERSION,
+        operation: TransactionOperation::Remove,
+        phase: TransactionPhase::Prepared,
+        final_name: name.to_string(),
+        backup_name: Some(backup_name),
+        staged_path: None,
+    };
+    write_transaction_journal(install_root, &journal_path, &journal)?;
+
+    if let Err(error) = fs::rename(target, &backup_path) {
+        return Err(InstallError::Io(format!(
+            "could not move the installed bundle to backup {}: {error}",
+            backup_path.display()
+        )));
+    }
+    journal.phase = TransactionPhase::BackedUp;
+    write_transaction_journal(install_root, &journal_path, &journal)?;
+
+    // Deletion is the commit point for a removal.  Before this succeeds,
+    // recovery restores the backup; after it succeeds, recovery preserves the
+    // removed state and only cleans the journal.
+    remove_path(&backup_path)?;
+    journal.phase = TransactionPhase::Committed;
+    write_transaction_journal(install_root, &journal_path, &journal)?;
+    remove_transaction_journal(install_root, &journal_path)
+}
+
+fn require_bundle_directory(path: &Path, label: &str) -> Result<bool, InstallError> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(InstallError::Io(error.to_string())),
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(InstallError::InvalidBundle(format!(
+            "{label} must be a regular non-symlink directory: {}",
+            path.display()
+        )));
+    }
+    Ok(true)
+}
+
+fn unique_transaction_journal_path(install_root: &Path) -> Result<PathBuf, InstallError> {
+    for _ in 0..128 {
+        let mut candidate = unique_child_path(install_root, "transaction");
+        candidate.set_extension("json");
+        if !path_exists(&candidate) {
+            return Ok(candidate);
+        }
+    }
+    Err(InstallError::Io(
+        "could not allocate a unique transaction journal".to_string(),
+    ))
+}
+
+fn write_transaction_journal(
+    install_root: &Path,
+    journal_path: &Path,
+    journal: &TransactionJournal,
+) -> Result<(), InstallError> {
+    let journal_name = journal_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| {
+            InstallError::InvalidBundle("transaction journal name is not UTF-8".to_string())
+        })?;
+    if !journal_name.starts_with(TRANSACTION_JOURNAL_PREFIX)
+        || !journal_name.ends_with(".json")
+        || journal_path.parent() != Some(install_root)
+    {
+        return Err(InstallError::InvalidBundle(
+            "transaction journal must be a direct child of the install directory".to_string(),
+        ));
+    }
+    validate_transaction_journal(journal, install_root, journal_path)?;
+    let bytes = serde_json::to_vec(journal)
+        .map_err(|error| InstallError::Io(format!("encode transaction journal: {error}")))?;
+    let temporary = unique_child_path(install_root, "transaction-tmp");
+    let result = (|| {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)
+            .map_err(|error| InstallError::Io(format!("create transaction journal: {error}")))?;
+        file.write_all(&bytes)
+            .map_err(|error| InstallError::Io(format!("write transaction journal: {error}")))?;
+        file.sync_all()
+            .map_err(|error| InstallError::Io(format!("sync transaction journal: {error}")))?;
+        fs::rename(&temporary, journal_path)
+            .map_err(|error| InstallError::Io(format!("commit transaction journal: {error}")))?;
+        sync_directory(install_root)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+fn remove_transaction_journal(
+    install_root: &Path,
+    journal_path: &Path,
+) -> Result<(), InstallError> {
+    let metadata = match fs::symlink_metadata(journal_path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(InstallError::Io(error.to_string())),
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(InstallError::InvalidBundle(format!(
+            "transaction journal is not a regular file: {}",
+            journal_path.display()
+        )));
+    }
+    fs::remove_file(journal_path).map_err(|error| InstallError::Io(error.to_string()))?;
+    sync_directory(install_root)
+}
+
+fn sync_directory(path: &Path) -> Result<(), InstallError> {
+    #[cfg(unix)]
+    {
+        File::open(path)
+            .map_err(|error| InstallError::Io(format!("open install directory for sync: {error}")))?
+            .sync_all()
+            .map_err(|error| InstallError::Io(format!("sync install directory: {error}")))?;
+    }
+    #[cfg(not(unix))]
+    let _ = path;
+    Ok(())
+}
+
+fn validate_transaction_leaf(name: &str, label: &str) -> Result<(), InstallError> {
+    if name.is_empty()
+        || name == "."
+        || name == ".."
+        || name.contains('/')
+        || name.contains('\\')
+        || name.chars().any(char::is_control)
+        || !matches!(
+            Path::new(name).components().collect::<Vec<_>>().as_slice(),
+            [Component::Normal(_)]
+        )
+    {
+        return Err(InstallError::InvalidBundle(format!(
+            "unsafe {label} transaction name: {name}"
+        )));
+    }
+    Ok(())
+}
+
+fn checked_transaction_path(
+    install_root: &Path,
+    relative: &str,
+    label: &str,
+) -> Result<PathBuf, InstallError> {
+    if relative.is_empty() || relative.contains('\\') || relative.chars().any(char::is_control) {
+        return Err(InstallError::InvalidBundle(format!(
+            "unsafe {label} transaction path: {relative}"
+        )));
+    }
+    let relative_path = Path::new(relative);
+    let mut components = relative_path.components();
+    if components.any(|component| !matches!(component, Component::Normal(_))) {
+        return Err(InstallError::InvalidBundle(format!(
+            "unsafe {label} transaction path: {relative}"
+        )));
+    }
+    let path = install_root.join(relative_path);
+    if path.strip_prefix(install_root).is_err() {
+        return Err(InstallError::InvalidBundle(format!(
+            "{label} transaction path escapes install directory: {relative}"
+        )));
+    }
+    Ok(path)
+}
+
+fn relative_transaction_path(
+    install_root: &Path,
+    path: &Path,
+    label: &str,
+) -> Result<String, InstallError> {
+    let relative = path.strip_prefix(install_root).map_err(|_| {
+        InstallError::InvalidBundle(format!(
+            "{label} is outside install directory: {}",
+            path.display()
+        ))
+    })?;
+    let relative = relative.to_str().ok_or_else(|| {
+        InstallError::InvalidBundle(format!("{label} path is not UTF-8: {}", path.display()))
+    })?;
+    checked_transaction_path(install_root, relative, label)?;
+    Ok(relative.replace('\\', "/"))
+}
+
+fn validate_transaction_journal(
+    journal: &TransactionJournal,
+    install_root: &Path,
+    journal_path: &Path,
+) -> Result<(), InstallError> {
+    if journal.version != TRANSACTION_JOURNAL_VERSION {
+        return Err(InstallError::InvalidBundle(format!(
+            "unsupported transaction journal version {}",
+            journal.version
+        )));
+    }
+    if !is_safe_bundle_name(&journal.final_name) {
+        return Err(InstallError::InvalidBundle(format!(
+            "unsafe transaction bundle name: {}",
+            journal.final_name
+        )));
+    }
+    validate_transaction_leaf(&journal.final_name, "bundle")?;
+    let final_path = checked_transaction_path(install_root, &journal.final_name, "bundle")?;
+    if final_path.parent() != Some(install_root) {
+        return Err(InstallError::InvalidBundle(
+            "transaction bundle must be a direct child of the install directory".to_string(),
+        ));
+    }
+
+    if let Some(name) = journal.backup_name.as_deref() {
+        validate_transaction_leaf(name, "backup")?;
+        let backup_path = checked_transaction_path(install_root, name, "backup")?;
+        if backup_path == final_path {
+            return Err(InstallError::InvalidBundle(
+                "transaction backup must differ from bundle".to_string(),
+            ));
+        }
+    }
+    if let Some(path) = journal.staged_path.as_deref() {
+        let staged_path = checked_transaction_path(install_root, path, "staged bundle")?;
+        if staged_path == final_path
+            || journal
+                .backup_name
+                .as_deref()
+                .map(|name| staged_path == install_root.join(name))
+                .unwrap_or(false)
+        {
+            return Err(InstallError::InvalidBundle(
+                "transaction staging path overlaps another transaction artifact".to_string(),
+            ));
+        }
+    }
+
+    match journal.operation {
+        TransactionOperation::Replace => {
+            if journal.staged_path.is_none() {
+                return Err(InstallError::InvalidBundle(
+                    "replace transaction is missing its staging path".to_string(),
+                ));
+            }
+            if journal.phase == TransactionPhase::BackedUp && journal.backup_name.is_none() {
+                return Err(InstallError::InvalidBundle(
+                    "replace transaction is backed up without a backup path".to_string(),
+                ));
+            }
+        }
+        TransactionOperation::Remove => {
+            if journal.backup_name.is_none() || journal.staged_path.is_some() {
+                return Err(InstallError::InvalidBundle(
+                    "remove transaction has invalid artifact paths".to_string(),
+                ));
+            }
+        }
+    }
+    let journal_name = journal_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| {
+            InstallError::InvalidBundle("transaction journal name is not UTF-8".to_string())
+        })?;
+    if journal_path.parent() != Some(install_root)
+        || !journal_name.starts_with(TRANSACTION_JOURNAL_PREFIX)
+        || !journal_name.ends_with(".json")
+    {
+        return Err(InstallError::InvalidBundle(
+            "transaction journal must be a direct child of the install directory".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn recover_one_transaction(
+    install_root: &Path,
+    journal_path: &Path,
+    journal: &TransactionJournal,
+) -> Result<(), InstallError> {
+    validate_transaction_journal(journal, install_root, journal_path)?;
+    let final_path = install_root.join(&journal.final_name);
+    let backup_path = journal
+        .backup_name
+        .as_deref()
+        .map(|name| install_root.join(name));
+    let staged_path = journal
+        .staged_path
+        .as_deref()
+        .map(|path| install_root.join(path));
+    let final_exists = require_bundle_directory(&final_path, "transaction bundle")?;
+    let backup_exists = backup_path
+        .as_deref()
+        .map(|path| require_bundle_directory(path, "transaction backup"))
+        .transpose()?
+        .unwrap_or(false);
+    let staged_exists = staged_path
+        .as_deref()
+        .map(|path| require_bundle_directory(path, "transaction staging"))
+        .transpose()?
+        .unwrap_or(false);
+
+    match journal.operation {
+        TransactionOperation::Replace => match journal.phase {
+            TransactionPhase::Prepared | TransactionPhase::BackedUp => {
+                if !final_exists && backup_exists {
+                    fs::rename(
+                        backup_path.as_ref().expect("validated backup path"),
+                        &final_path,
+                    )
+                    .map_err(|error| {
+                        InstallError::Io(format!("restore interrupted bundle: {error}"))
+                    })?;
+                } else if final_exists && backup_exists {
+                    remove_path(backup_path.as_ref().expect("validated backup path"))?;
+                }
+                if staged_exists {
+                    remove_path(staged_path.as_ref().expect("validated staging path"))?;
+                }
+            }
+            TransactionPhase::Committed => {
+                if !final_exists && backup_exists {
+                    fs::rename(
+                        backup_path.as_ref().expect("validated backup path"),
+                        &final_path,
+                    )
+                    .map_err(|error| {
+                        InstallError::Io(format!("restore interrupted bundle: {error}"))
+                    })?;
+                } else if final_exists && backup_exists {
+                    remove_path(backup_path.as_ref().expect("validated backup path"))?;
+                }
+                if staged_exists {
+                    remove_path(staged_path.as_ref().expect("validated staging path"))?;
+                }
+            }
         },
-    )
+        TransactionOperation::Remove => match journal.phase {
+            TransactionPhase::Prepared | TransactionPhase::BackedUp => {
+                if !final_exists && backup_exists {
+                    fs::rename(
+                        backup_path.as_ref().expect("validated backup path"),
+                        &final_path,
+                    )
+                    .map_err(|error| {
+                        InstallError::Io(format!("restore interrupted removal: {error}"))
+                    })?;
+                } else if final_exists && backup_exists {
+                    remove_path(backup_path.as_ref().expect("validated backup path"))?;
+                }
+            }
+            TransactionPhase::Committed => {
+                if final_exists {
+                    return Err(InstallError::InvalidBundle(format!(
+                        "removed bundle reappeared during recovery: {}",
+                        final_path.display()
+                    )));
+                }
+                if backup_exists {
+                    remove_path(backup_path.as_ref().expect("validated backup path"))?;
+                }
+            }
+        },
+    }
+
+    remove_transaction_journal(install_root, journal_path)
 }
 
 fn replace_staged_bundle_with<F>(
@@ -1638,6 +2190,33 @@ mod tests {
         fs::remove_dir_all(&work).ok();
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn install_and_remove_reject_symlinked_install_root() {
+        let work = test_work("symlinked-install-root");
+        let real_dir = work.join("Applications");
+        let linked_dir = work.join("Applications-link");
+        fs::create_dir_all(&real_dir).unwrap();
+        std::os::unix::fs::symlink(&real_dir, &linked_dir).unwrap();
+        let (archive, sha) = build_tiny_app_tar_gz(&work);
+
+        assert!(matches!(
+            install_from_archive(&archive, &sha, &linked_dir),
+            Err(InstallError::InvalidBundle(message))
+                if message.contains("non-symlink")
+        ));
+        assert!(!real_dir.join("TinyApp.app").exists());
+
+        install_from_archive(&archive, &sha, &real_dir).unwrap();
+        assert!(matches!(
+            remove_installed_bundle("TinyApp.app", &linked_dir),
+            Err(InstallError::InvalidBundle(message))
+                if message.contains("non-symlink")
+        ));
+        assert!(real_dir.join("TinyApp.app").is_dir());
+        fs::remove_dir_all(&work).ok();
+    }
+
     #[test]
     fn install_from_archive_checksum_mismatch() {
         let work = test_work("checksum");
@@ -1844,6 +2423,189 @@ mod tests {
         let info = fs::read_to_string(installed.join("Resources").join("Info.toml")).unwrap();
         assert!(info.contains("version = \"0.2.0\""));
         assert!(!info.contains("version = \"0.1.0\""));
+        assert!(!fs::read_dir(&install_dir).unwrap().any(|entry| entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with(TRANSACTION_JOURNAL_PREFIX)));
+        fs::remove_dir_all(&work).ok();
+    }
+
+    #[test]
+    fn recovery_restores_replaced_bundle_after_backup_phase() {
+        let work = test_work("recover-replace-backup");
+        let install_dir = work.join("Applications");
+        fs::create_dir_all(&install_dir).unwrap();
+        let final_path = install_dir.join("TinyApp.app");
+        let backup_path = install_dir.join(".slopos-backup-test");
+        let staged_path = install_dir.join(".slopos-staging-test").join("TinyApp.app");
+        fs::create_dir_all(final_path.join("Resources")).unwrap();
+        fs::write(final_path.join("Resources").join("version"), "new").unwrap();
+        fs::create_dir_all(backup_path.join("Resources")).unwrap();
+        fs::write(backup_path.join("Resources").join("version"), "old").unwrap();
+        fs::create_dir_all(&staged_path).unwrap();
+        let journal_path = install_dir.join(".slopos-transaction-test.json");
+        let journal = TransactionJournal {
+            version: TRANSACTION_JOURNAL_VERSION,
+            operation: TransactionOperation::Replace,
+            phase: TransactionPhase::BackedUp,
+            final_name: "TinyApp.app".to_string(),
+            backup_name: Some(".slopos-backup-test".to_string()),
+            staged_path: Some(".slopos-staging-test/TinyApp.app".to_string()),
+        };
+        write_transaction_journal(
+            &install_dir.canonicalize().unwrap(),
+            &journal_path,
+            &journal,
+        )
+        .unwrap();
+
+        assert_eq!(recover_install_transactions(&install_dir).unwrap(), 1);
+        assert_eq!(
+            fs::read_to_string(final_path.join("Resources").join("version")).unwrap(),
+            "new"
+        );
+        assert!(!backup_path.exists());
+        assert!(!staged_path.exists());
+        assert!(!journal_path.exists());
+        fs::remove_dir_all(&work).ok();
+    }
+
+    #[test]
+    fn recovery_restores_missing_bundle_after_replace_backup_phase() {
+        let work = test_work("recover-replace-restore");
+        let install_dir = work.join("Applications");
+        fs::create_dir_all(&install_dir).unwrap();
+        let backup_path = install_dir.join(".slopos-backup-test");
+        fs::create_dir_all(backup_path.join("Resources")).unwrap();
+        fs::write(backup_path.join("Resources").join("version"), "old").unwrap();
+        let journal_path = install_dir.join(".slopos-transaction-test.json");
+        let journal = TransactionJournal {
+            version: TRANSACTION_JOURNAL_VERSION,
+            operation: TransactionOperation::Replace,
+            phase: TransactionPhase::BackedUp,
+            final_name: "TinyApp.app".to_string(),
+            backup_name: Some(".slopos-backup-test".to_string()),
+            staged_path: Some(".slopos-staging-test/TinyApp.app".to_string()),
+        };
+        write_transaction_journal(
+            &install_dir.canonicalize().unwrap(),
+            &journal_path,
+            &journal,
+        )
+        .unwrap();
+
+        assert_eq!(recover_install_transactions(&install_dir).unwrap(), 1);
+        assert_eq!(
+            fs::read_to_string(
+                install_dir
+                    .join("TinyApp.app")
+                    .join("Resources")
+                    .join("version")
+            )
+            .unwrap(),
+            "old"
+        );
+        assert!(!backup_path.exists());
+        assert!(!journal_path.exists());
+        fs::remove_dir_all(&work).ok();
+    }
+
+    #[test]
+    fn recovery_cleans_committed_replace_backup_without_reverting_new_bundle() {
+        let work = test_work("recover-replace-committed");
+        let install_dir = work.join("Applications");
+        fs::create_dir_all(&install_dir).unwrap();
+        let final_path = install_dir.join("TinyApp.app");
+        let backup_path = install_dir.join(".slopos-backup-test");
+        let staged_path = install_dir.join(".slopos-staging-test").join("TinyApp.app");
+        fs::create_dir_all(final_path.join("Resources")).unwrap();
+        fs::write(final_path.join("Resources").join("version"), "new").unwrap();
+        fs::create_dir_all(backup_path.join("Resources")).unwrap();
+        fs::write(backup_path.join("Resources").join("version"), "old").unwrap();
+        fs::create_dir_all(&staged_path).unwrap();
+        let journal_path = install_dir.join(".slopos-transaction-test.json");
+        let journal = TransactionJournal {
+            version: TRANSACTION_JOURNAL_VERSION,
+            operation: TransactionOperation::Replace,
+            phase: TransactionPhase::Committed,
+            final_name: "TinyApp.app".to_string(),
+            backup_name: Some(".slopos-backup-test".to_string()),
+            staged_path: Some(".slopos-staging-test/TinyApp.app".to_string()),
+        };
+        write_transaction_journal(
+            &install_dir.canonicalize().unwrap(),
+            &journal_path,
+            &journal,
+        )
+        .unwrap();
+
+        assert_eq!(recover_install_transactions(&install_dir).unwrap(), 1);
+        assert_eq!(
+            fs::read_to_string(final_path.join("Resources").join("version")).unwrap(),
+            "new"
+        );
+        assert!(!backup_path.exists());
+        assert!(!staged_path.exists());
+        assert!(!journal_path.exists());
+        fs::remove_dir_all(&work).ok();
+    }
+
+    #[test]
+    fn recovery_restores_remove_before_delete_commit() {
+        let work = test_work("recover-remove-backup");
+        let install_dir = work.join("Applications");
+        fs::create_dir_all(&install_dir).unwrap();
+        let backup_path = install_dir.join(".slopos-backup-test");
+        fs::create_dir_all(backup_path.join("Resources")).unwrap();
+        fs::write(backup_path.join("Resources").join("version"), "old").unwrap();
+        let journal_path = install_dir.join(".slopos-transaction-test.json");
+        let journal = TransactionJournal {
+            version: TRANSACTION_JOURNAL_VERSION,
+            operation: TransactionOperation::Remove,
+            phase: TransactionPhase::BackedUp,
+            final_name: "TinyApp.app".to_string(),
+            backup_name: Some(".slopos-backup-test".to_string()),
+            staged_path: None,
+        };
+        write_transaction_journal(
+            &install_dir.canonicalize().unwrap(),
+            &journal_path,
+            &journal,
+        )
+        .unwrap();
+
+        assert_eq!(recover_install_transactions(&install_dir).unwrap(), 1);
+        assert!(install_dir.join("TinyApp.app").is_dir());
+        assert!(!backup_path.exists());
+        assert!(!journal_path.exists());
+        fs::remove_dir_all(&work).ok();
+    }
+
+    #[test]
+    fn recovery_rejects_malformed_journal_without_touching_outside_path() {
+        let work = test_work("recover-malformed");
+        let install_dir = work.join("Applications");
+        fs::create_dir_all(&install_dir).unwrap();
+        let outside = work.join("outside.app");
+        fs::create_dir_all(&outside).unwrap();
+        let journal_path = install_dir.join(".slopos-transaction-malformed.json");
+        let journal = serde_json::json!({
+            "version": TRANSACTION_JOURNAL_VERSION,
+            "operation": "Replace",
+            "phase": "BackedUp",
+            "final_name": "../outside.app",
+            "backup_name": null,
+            "staged_path": null
+        });
+        fs::write(&journal_path, serde_json::to_vec(&journal).unwrap()).unwrap();
+
+        assert!(matches!(
+            recover_install_transactions(&install_dir),
+            Err(InstallError::InvalidBundle(_))
+        ));
+        assert!(outside.is_dir());
+        assert!(journal_path.is_file());
         fs::remove_dir_all(&work).ok();
     }
 

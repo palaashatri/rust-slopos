@@ -49,10 +49,7 @@ pub fn install_signal_handler() {
     }
 }
 
-fn shot_path() -> anyhow::Result<PathBuf> {
-    let path = std::env::var_os("SLOPOS_SHOT_PATH")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/tmp/slopos-i-shot.png"));
+fn validate_shot_path(path: PathBuf) -> anyhow::Result<PathBuf> {
     if !path.is_absolute() {
         anyhow::bail!(
             "SLOPOS_SHOT_PATH must be absolute so runtime evidence cannot be redirected by cwd: {}",
@@ -60,6 +57,13 @@ fn shot_path() -> anyhow::Result<PathBuf> {
         );
     }
     Ok(path)
+}
+
+fn shot_path() -> anyhow::Result<PathBuf> {
+    let path = std::env::var_os("SLOPOS_SHOT_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/tmp/slopos-i-shot.png"));
+    validate_shot_path(path)
 }
 
 /// Capture on the next rendered frame when SIGUSR1 requested it.
@@ -273,6 +277,15 @@ fn monotonic_nonce() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn capture_destination_must_be_absolute() {
+        assert!(validate_shot_path(PathBuf::from("relative.png")).is_err());
+        assert_eq!(
+            validate_shot_path(PathBuf::from("/tmp/slopos-capture.png")).unwrap(),
+            PathBuf::from("/tmp/slopos-capture.png")
+        );
+    }
 
     #[test]
     fn capture_dimensions_are_bounded_before_allocation() {

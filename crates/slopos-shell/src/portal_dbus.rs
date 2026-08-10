@@ -482,8 +482,8 @@ mod linux {
     }
 
     /// Extract a string option without assuming a particular zvariant borrow
-    /// lifetime. This is only used by the explicit synthetic test backend;
-    /// normal portal calls fail closed before selection is attempted.
+    /// lifetime. Portal handle tokens are still accepted for the standard
+    /// Request object path even when the operation itself fails closed.
     fn option_string_loose(options: &HashMap<String, OwnedValue>, key: &str) -> Option<String> {
         let value = options.get(key)?;
         let value = <&str>::try_from(value).ok()?.trim();

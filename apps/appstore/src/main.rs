@@ -19,7 +19,8 @@ use std::process::{Command, Stdio};
 mod bundle_install;
 
 use bundle_install::{
-    install_signed_url, parse_signed_catalog, remove_installed_bundle, CatalogEntry, TrustStore,
+    install_signed_url, parse_signed_catalog, recover_install_transactions,
+    remove_installed_bundle, CatalogEntry, TrustStore,
 };
 
 // Signed-catalog suggestions shown when no search is active. These are never
@@ -568,6 +569,17 @@ impl AppStoreView {
             pointer: PointerDispatcher::new(),
         };
         view.load_featured();
+        match recover_install_transactions(&default_install_dir()) {
+            Ok(0) => {}
+            Ok(recovered) => {
+                view.status.text = format!("RECOVERED {recovered} PENDING TRANSACTION(S)");
+                view.progress_label.text = view.status.text.clone();
+            }
+            Err(error) => {
+                view.status.text = format!("RECOVERY FAILED: {error:?}");
+                view.progress_label.text = view.status.text.clone();
+            }
+        }
         view
     }
 

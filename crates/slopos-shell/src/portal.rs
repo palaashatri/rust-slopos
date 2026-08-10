@@ -36,7 +36,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::capture::{take_screenshot, CaptureError};
+use crate::capture::CaptureError;
 
 // ---------------------------------------------------------------------------
 // D-Bus constants (session-bus portal backend)
@@ -137,11 +137,11 @@ pub fn handle_portal_screenshot_request(
 
 /// Take a screenshot through the portal-facing API surface.
 ///
-/// Local capture via [`crate::capture::take_screenshot`]. Requests that need
-/// interactive selection or cursor compositing fail closed until the capture
-/// backend can honor those options.
+/// The portal path requires a compositor-owned readback. The shell's legacy
+/// capture helpers use host-X11 commands and must never be exposed as a
+/// portal result, so this remains fail-closed until that backend is connected.
 pub fn take_portal_style_screenshot() -> Result<PathBuf, CaptureError> {
-    take_screenshot()
+    Err(CaptureError::CompositorBackendUnavailable)
 }
 
 /// Portal-style capture with explicit request options.
@@ -780,6 +780,13 @@ mod tests {
             let error = take_portal_style_screenshot_with(request).unwrap_err();
             assert!(matches!(error, CaptureError::UnsupportedOptions(_)));
         }
+    }
+
+    #[test]
+    fn screenshot_fails_closed_without_compositor_readback() {
+        let error = take_portal_style_screenshot_with(PortalScreenshotRequest::default())
+            .expect_err("portal screenshot must not use host-X11 capture");
+        assert!(matches!(error, CaptureError::CompositorBackendUnavailable));
     }
 
     #[test]
