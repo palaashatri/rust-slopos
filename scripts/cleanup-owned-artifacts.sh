@@ -10,7 +10,8 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd "$(dirname "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd "$SCRIPT_DIR/.." && pwd)
-TARGET_DIR=${CARGO_TARGET_DIR:-"$REPO_ROOT/target"}
+DEFAULT_TARGET_DIR=${XDG_CACHE_HOME:-"$HOME/.cache"}/slopos-i/cargo-target
+TARGET_DIR=${CARGO_TARGET_DIR:-$DEFAULT_TARGET_DIR}
 SCRATCH_DIR="$REPO_ROOT/artifacts/qa/coordination/scratch"
 APPLY=0
 
@@ -23,7 +24,7 @@ fi
 is_owned_target() {
   case "$1" in
     "$REPO_ROOT"/target|"$REPO_ROOT"/target/*) return 0 ;;
-    "$HOME"/.cache/slopos-i/cargo-target|"$HOME"/.cache/slopos-i/cargo-target/*) return 0 ;;
+    "$DEFAULT_TARGET_DIR"|"$DEFAULT_TARGET_DIR"/*) return 0 ;;
     *) return 1 ;;
   esac
 }
