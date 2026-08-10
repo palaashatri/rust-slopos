@@ -1,7 +1,7 @@
 {
   "branch": "codex-complete-spec",
   "command": "dbus-run-session -- target/debug/slopos-portal-smoke",
-  "commit": "bedaa56538c68f8fb60157f2d6657f905eb1ed7b",
+  "commit": "5f22ffcbdd5ceb58a9d7ad54ba81906ff4e0ecb",
   "probe": {
     "backend_scope": "frontend_registration_only",
     "bus_name": "org.freedesktop.portal.Desktop",

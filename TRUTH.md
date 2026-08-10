@@ -5,10 +5,10 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited branch head:**
-`bedaa56538c68f8fb60157f2d6657f905eb1ed7b` (the ledger update is a
+`5f22ffcbdd5ceb58a9d7ad54ba81906ff4e0ecb9` (the ledger update is a
 documentation-only commit on top of this implementation commit)
 **Audited product implementation:**
-`bedaa56538c68f8fb60157f2d6657f905eb1ed7b`
+`5f22ffcbdd5ceb58a9d7ad54ba81906ff4e0ecb9`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
@@ -65,16 +65,18 @@ self-test passed, and the portal probe passed only at
 `frontend_registration_only` scope (`live_pipewire=false`,
 `permission_backend=false`).
 
-The follow-on compositor capture-wire implementation is
-`bedaa56538c68f8fb60157f2d6657f905eb1ed7b`, with exact VM evidence under
-`artifacts/qa/coordination/current-wave-bedaa565/`. It adds a typed
-same-UID `CaptureScreenshot` session-control request, path validation and
-redraw scheduling in both nested and DRM control loops, and a portal wait for
-the compositor's atomically committed PNG. The VM repeated all locked
-workspace gates, the portal frontend probe, compositor screenshot tests,
-portal tests and viewport validator self-test successfully. No real
-framebuffer capture was observed, so this is a source/build/runtime-probe
-boundary rather than a completed viewport or portal acceptance result.
+The exact follow-on wave at implementation commit
+`5f22ffcbdd5ceb58a9d7ad54ba81906ff4e0ecb9` is recorded under
+`artifacts/qa/coordination/current-wave-5f22ffc/`. Every source hash for the
+capture, portal and shell files was matched between the local checkout and the
+Ubuntu VM before the gates ran. The locked workspace format, check, test,
+clippy, release-build and metadata gates all exited 0; focused compositor
+screenshot tests, compositor check, portal frontend probe, viewport script
+syntax and validator self-test also exited 0. The pure ScreenCast handlers now
+reject protocol-only and socket-ready states without fabricating streams or
+node IDs. No real framebuffer capture was observed, so this remains a
+source/build/runtime-probe boundary rather than completed viewport or portal
+acceptance evidence.
 
 The viewport path now propagates a validated effective rational scale through
 nested and DRM render/readback calls. The compositor rejects logical/physical
@@ -141,6 +143,26 @@ competes with KDE Plasma and GNOME as a daily driver.
   clean-room prefix, but exits 2 while upgrade, rollback and uninstall
   transactions remain explicitly unverified. The Arch package is pinned to the
   audited main archive until a signed release tag is published.
+
+### Current implementation wave — compositor screenshot transport and ScreenCast fail-closed
+
+At audited implementation commit
+`5f22ffcbdd5ceb58a9d7ad54ba81906ff4e0ecb9`, compositor-owned screenshot
+requests travel through the authenticated session-control datagram, are path
+validated by the compositor, schedule a redraw in nested and DRM control loops,
+and are consumed by the portal only after an atomically committed PNG appears.
+The same wave removes the remaining pure ScreenCast placeholder stream and
+placeholder node-ID paths: CreateSession starts empty, source selection requires
+a live graph, and Start returns an error unless a live PipeWire backend supplies
+the stream metadata. The process-wide inhibit-table tests are serialized under
+their test-only guard so the full shell test filter is deterministic.
+
+The exact Ubuntu evidence is
+`artifacts/qa/coordination/current-wave-5f22ffc/summary.json`. It records all
+locked workspace gates at status 0, matching source hashes, the standard portal
+frontend Request/Response/Close probe, and the viewport validator's positive
+self-test plus expected three-pixel edge failure. It does not claim a live
+PipeWire graph, browser consumer, physical DRM output, or real framebuffer PNG.
 
 ### Current implementation wave — bounded service, portal and evidence hardening
 
@@ -1842,7 +1864,7 @@ release-blocking invariant remains broken.
 
 ---
 
-### Current implementation wave — crash-safe App Store transactions and fail-closed portal capture
+### Previous implementation wave — crash-safe App Store transactions and fail-closed portal capture
 
 At implementation commit
 `40f0e087c2fa5c51b82616747aa7e4eb5bc5a0e2`, the App Store install path keeps
@@ -1855,21 +1877,22 @@ prepared, backed-up and committed crash phases. The workspace test log records
 proof of a signed network catalogue or a clean-machine install/upgrade/
 rollback/uninstall lifecycle.
 
-Portal Screenshot no longer calls the legacy host-X11 capture path and returns
-`CompositorBackendUnavailable` until compositor-owned readback is wired. The
-standard portal probe still reports the standard Desktop bus/path and dynamic
-Request lifecycle, but explicitly records `live_pipewire=false` and
-`permission_backend=false`; FileChooser remains fail-closed and ScreenCast
-sources include only actual PipeWire node IDs. The compositor also rejects
-relative screenshot destinations. These changes prevent fabricated success but
-do not provide a real PipeWire stream or browser-consumer proof.
+Portal Screenshot no longer called the legacy host-X11 capture path and returned
+`CompositorBackendUnavailable` while compositor-owned readback was still being
+wired. The subsequent `bedaa565` and current `5f22ffc` waves add the typed
+request and compositor wait path described above. The standard portal probe
+still reports the standard Desktop bus/path and dynamic Request lifecycle, with
+`live_pipewire=false` and `permission_backend=false`; FileChooser remains
+fail-closed and ScreenCast sources include only actual PipeWire node IDs. These
+changes prevent fabricated success but do not provide a real PipeWire stream or
+browser-consumer proof.
 
 The overall score remains **63/100**. Real nested/DRM framebuffer capture,
 layer configure/ack/frame runtime evidence, physical display evidence, live
 PipeWire permissions, complete release lifecycle, third-party compatibility,
 accessibility, security, recovery and soak gates remain open.
 
-### Current implementation wave — compositor-owned Screenshot request wiring
+### Previous implementation wave — compositor-owned Screenshot request wiring
 
 At implementation commit
 `bedaa56538c68f8fb60157f2d6657f905eb1ed7b`, the portal Screenshot path no

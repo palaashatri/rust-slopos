@@ -1,0 +1,127 @@
+   Compiling rustix v1.1.4
+    Checking scopeguard v1.2.0
+   Compiling wayland-sys v0.31.11
+    Checking tracing v0.1.44
+   Compiling rustix v0.38.44
+   Compiling getrandom v0.3.4
+    Checking lock_api v0.4.14
+    Checking x11rb-protocol v0.13.2
+    Checking parking_lot v0.12.5
+    Checking slopos-fonts v0.1.0 (/home/ubuntu/slopos/crates/slopos-fonts)
+    Checking ahash v0.8.12
+    Checking tokio v1.53.1
+    Checking wgpu-hal v22.0.0
+   Compiling semver v1.0.28
+   Compiling rustc_version v0.4.1
+   Compiling khronos_api v3.1.0
+   Compiling drm-sys v0.8.1
+   Compiling libudev-sys v0.1.4
+    Checking linux-raw-sys v0.9.4
+   Compiling io-lifetimes v1.0.11
+   Compiling drm-fourcc v2.2.0
+    Checking wgpu-core v22.1.0
+    Checking wayland-backend v0.3.16
+    Checking polling v3.11.0
+    Checking gethostname v1.1.0
+    Checking calloop v0.13.0
+    Checking async-io v2.6.0
+    Checking tempfile v3.27.0
+   Compiling libseat-sys v0.2.0
+    Checking wayland-client v0.31.15
+    Checking wayland-server v0.31.14
+    Checking wayland-csd-frame v0.3.0
+    Checking zbus v4.4.0
+   Compiling gbm-sys v0.4.0
+   Compiling xml-rs v0.8.29
+   Compiling input-sys v1.19.0
+    Checking wayland-protocols v0.32.13
+    Checking wayland-cursor v0.31.14
+    Checking calloop-wayland-source v0.3.0
+   Compiling log v0.4.33
+   Compiling gl_generator v0.14.0
+    Checking drm-ffi v0.9.1
+    Checking rand_core v0.9.5
+   Compiling cgmath v0.18.0
+   Compiling libseat v0.2.4
+    Checking wgpu v22.1.0
+    Checking rand_chacha v0.9.0
+    Checking drm v0.14.1
+    Checking udev v0.9.3
+   Compiling smithay v0.7.0
+    Checking slopos-bus v0.1.0 (/home/ubuntu/slopos/crates/slopos-bus)
+    Checking approx v0.4.0
+    Checking x11rb v0.13.2
+    Checking input v0.9.1
+    Checking gbm v0.18.0
+    Checking rand v0.9.5
+    Checking wayland-egl v0.32.11
+    Checking calloop v0.14.4
+    Checking xkbcommon v0.8.0
+    Checking rten-base v0.24.0
+    Checking encoding_rs v0.8.35
+    Checking appendlist v1.4.0
+   Compiling typeid v1.0.3
+   Compiling slopos-compositor v0.1.0 (/home/ubuntu/slopos/crates/slopos-compositor)
+    Checking atomic_float v1.1.0
+   Compiling flatbuffers v24.12.23
+    Checking rten-tensor v0.24.0
+    Checking bitflags v1.3.2
+    Checking rten-simd v0.24.0
+    Checking num_cpus v1.17.0
+    Checking rten-onnx v0.24.0
+    Checking rten-vecmath v0.24.0
+    Checking utf8parse v0.2.2
+    Checking rten-model-file v0.24.0
+    Checking rten-shape-inference v0.24.0
+    Checking rten-gemm v0.24.0
+    Checking rustc-hash v2.1.3
+    Checking slopos-vision-protocol v0.1.0 (/home/ubuntu/slopos/crates/slopos-vision-protocol)
+    Checking aho-corasick v1.1.5
+    Checking regex-syntax v0.8.11
+   Compiling curve25519-dalek v4.1.3
+    Checking rten v0.24.0
+    Checking anstyle-parse v1.0.0
+   Compiling curve25519-dalek-derive v0.1.1
+    Checking zeroize v1.9.0
+    Checking signature v2.2.0
+    Checking is_terminal_polyfill v1.70.2
+    Checking regex-automata v0.4.18
+    Checking anstyle-query v1.1.5
+    Checking colorchoice v1.0.5
+    Checking subtle v2.6.1
+    Checking jiff-core v0.1.0
+    Checking anstyle v1.0.14
+    Checking anstream v1.0.0
+    Checking ed25519 v2.2.3
+    Checking wayland-protocols-wlr v0.3.12
+    Checking wayland-protocols-plasma v0.3.12
+    Checking wayland-protocols-misc v0.3.12
+    Checking jiff v0.2.35
+    Checking xattr v1.6.1
+   Compiling vte_generate_state_changes v0.1.2
+    Checking regex v1.13.1
+    Checking smithay-client-toolkit v0.19.2
+    Checking env_filter v2.0.0
+    Checking filetime v0.2.29
+    Checking tar v0.4.46
+    Checking vte v0.11.1
+    Checking ed25519-dalek v2.2.0
+    Checking slopos-vision-client v0.1.0 (/home/ubuntu/slopos/crates/slopos-vision-client)
+    Checking nix v0.27.1
+    Checking sctk-adwaita v0.10.1
+    Checking env_logger v0.11.11
+    Checking winit v0.30.13
+    Checking slopos-vision v0.1.0 (/home/ubuntu/slopos/crates/slopos-vision)
+    Checking slopos-session v0.1.0 (/home/ubuntu/slopos/crates/slopos-session)
+    Checking slopos-visiond v0.1.0 (/home/ubuntu/slopos/crates/slopos-visiond)
+    Checking slopos-render v0.1.0 (/home/ubuntu/slopos/crates/slopos-render)
+    Checking slopos-kit v0.1.0 (/home/ubuntu/slopos/crates/slopos-kit)
+    Checking slopos-sdk v0.1.0 (/home/ubuntu/slopos/crates/slopos-sdk)
+    Checking slopos-shell v0.1.0 (/home/ubuntu/slopos/crates/slopos-shell)
+    Checking terminal v0.1.0 (/home/ubuntu/slopos/apps/terminal)
+    Checking preview v0.1.0 (/home/ubuntu/slopos/apps/preview)
+    Checking textedit v0.1.0 (/home/ubuntu/slopos/apps/textedit)
+    Checking finder v0.1.0 (/home/ubuntu/slopos/apps/finder)
+    Checking appstore v0.1.0 (/home/ubuntu/slopos/apps/appstore)
+    Checking settings v0.1.0 (/home/ubuntu/slopos/apps/settings)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 26.79s
