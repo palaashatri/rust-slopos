@@ -1,0 +1,76 @@
+   Compiling rustix v1.1.4
+   Compiling wayland-sys v0.31.11
+   Compiling rustix v0.38.44
+   Compiling scopeguard v1.2.0
+   Compiling tracing v0.1.44
+   Compiling getrandom v0.3.4
+   Compiling lock_api v0.4.14
+   Compiling x11rb-protocol v0.13.2
+   Compiling parking_lot v0.12.5
+   Compiling ahash v0.8.12
+   Compiling slopos-fonts v0.1.0 (/home/ubuntu/slopos/crates/slopos-fonts)
+   Compiling wgpu-hal v22.0.0
+   Compiling tokio v1.53.1
+   Compiling wgpu-core v22.1.0
+   Compiling wayland-backend v0.3.16
+   Compiling wayland-client v0.31.15
+   Compiling polling v3.11.0
+   Compiling calloop v0.13.0
+   Compiling wayland-protocols v0.32.13
+   Compiling calloop-wayland-source v0.3.0
+   Compiling wayland-cursor v0.31.14
+   Compiling wayland-csd-frame v0.3.0
+   Compiling gethostname v1.1.0
+   Compiling async-io v2.6.0
+   Compiling wgpu v22.1.0
+   Compiling zbus v4.4.0
+   Compiling xattr v1.6.1
+   Compiling x11rb v0.13.2
+   Compiling tar v0.4.46
+   Compiling wayland-protocols-wlr v0.3.12
+   Compiling smithay-client-toolkit v0.19.2
+   Compiling wayland-protocols-plasma v0.3.12
+   Compiling sctk-adwaita v0.10.1
+   Compiling slopos-bus v0.1.0 (/home/ubuntu/slopos/crates/slopos-bus)
+   Compiling winit v0.30.13
+   Compiling slopos-render v0.1.0 (/home/ubuntu/slopos/crates/slopos-render)
+   Compiling slopos-kit v0.1.0 (/home/ubuntu/slopos/crates/slopos-kit)
+   Compiling slopos-sdk v0.1.0 (/home/ubuntu/slopos/crates/slopos-sdk)
+   Compiling appstore v0.1.0 (/home/ubuntu/slopos/apps/appstore)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 23.79s
+     Running unittests src/main.rs (/home/ubuntu/.cache/slopos-i/cargo-target/debug/deps/appstore-e2a844a96b9c4fd0)
+
+running 31 tests
+test bundle_install::tests::replacement_failure_restores_previous_bundle ... ok
+test bundle_install::tests::parse_catalog_reads_entries ... ok
+test bundle_install::tests::extraction_rejects_absolute_and_parent_paths ... ok
+test bundle_install::tests::install_from_archive_roundtrip ... ok
+test bundle_install::tests::install_from_archive_checksum_mismatch ... ok
+test bundle_install::tests::extraction_rejects_symlink_hardlink_and_device_entries ... ok
+test bundle_install::tests::replacement_installs_new_version_after_validation ... ok
+test bundle_install::tests::signed_archive_rejects_publisher_metadata_mismatch_before_checksum_or_extract ... ok
+test bundle_install::tests::staged_bundle_rejects_nested_bundle_layout ... ok
+test bundle_install::tests::staged_bundle_rejects_unsafe_app_name ... ok
+test bundle_install::tests::staged_bundle_requires_declared_entrypoint_file ... ok
+test bundle_install::tests::staged_bundle_requires_manifest_and_entrypoint ... ok
+test bundle_install::tests::trust_store_rejects_symlinked_files ... ok
+test tests::appstore_does_not_advertise_unimplemented_transaction_controls ... ok
+test bundle_install::tests::signed_archive_installs_only_after_signature_and_publisher_verification ... ok
+test bundle_install::tests::signed_archive_rejects_authenticated_size_mismatch_before_extract ... ok
+test bundle_install::tests::signed_catalog_canonical_json_roundtrips_and_verifies ... ok
+test bundle_install::tests::signed_archive_rejects_missing_unknown_revoked_and_tampered_signatures_without_mutation ... ok
+test tests::appstore_search_reports_featured_on_startup ... ok
+test bundle_install::tests::signed_catalog_rejects_metadata_tampering_before_exposing_entries ... ok
+test tests::catalog_store_search_labels_fallback_featured_apps_honestly ... ok
+test tests::category_filter_all_returns_all_items ... ok
+test tests::category_filter_keywords_match_subset ... ok
+test tests::category_index_switches_apply_filter ... ok
+test tests::featured_list_returns_expected_count ... ok
+test tests::missing_catalog_entry_is_not_reported_as_available ... ok
+test tests::package_name_extracts_common_result_formats ... ok
+test tests::appstore_install_requires_catalog_entry ... ok
+test tests::appstore_search_button_click_dispatches_search ... ok
+test tests::appstore_query_click_focuses_field_and_typing_lands_there ... ok
+test tests::appstore_results_click_selects_app_and_fills_detail ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s

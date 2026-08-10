@@ -233,11 +233,12 @@ impl CatalogStore {
             .map(|e| format!("[AVAILABLE] {} - {}", e.name, e.version))
             .collect();
         if results.is_empty() {
-            // Fall back to static featured names for empty/missing catalogs.
+            // Static names are only featured suggestions; they are not signed
+            // catalog entries and must never be labelled as installable.
             let fallback: Vec<String> = FEATURED_APPS
                 .iter()
                 .filter(|app| app.to_ascii_lowercase().contains(&q))
-                .map(|app| format!("[AVAILABLE] {}", app))
+                .map(|app| format!("[FEATURED] {}", app))
                 .collect();
             if fallback.is_empty() {
                 Ok(vec![format!(
@@ -272,9 +273,9 @@ impl CatalogStore {
         }
         AppDetails {
             name: name.to_string(),
-            version: "0.1.0".to_string(),
-            description: "SLOPOS-I application bundle.".to_string(),
-            state: AppInstallState::Available,
+            version: "unknown".to_string(),
+            description: "Not present in the authenticated catalog.".to_string(),
+            state: AppInstallState::Unknown,
         }
     }
 }
@@ -1071,7 +1072,7 @@ mod tests {
     }
 
     #[test]
-    fn catalog_store_search_filters_fallback_featured_apps() {
+    fn catalog_store_search_labels_fallback_featured_apps_honestly() {
         let backend = CatalogStore {
             entries: vec![],
             source: "empty".into(),
@@ -1079,7 +1080,7 @@ mod tests {
             load_error: None,
         };
         let results = backend.search("text").expect("search ok");
-        assert_eq!(results, vec!["[AVAILABLE] TextEdit".to_string()]);
+        assert_eq!(results, vec!["[FEATURED] TextEdit".to_string()]);
     }
 
     #[test]
@@ -1120,6 +1121,19 @@ mod tests {
             "{}",
             view.status.text
         );
+    }
+
+    #[test]
+    fn missing_catalog_entry_is_not_reported_as_available() {
+        let backend = CatalogStore {
+            entries: vec![],
+            source: "empty".into(),
+            trust_store: None,
+            load_error: None,
+        };
+        let details = backend.app_details("Finder");
+        assert_eq!(details.state, AppInstallState::Unknown);
+        assert!(details.description.contains("authenticated catalog"));
     }
 
     #[test]
