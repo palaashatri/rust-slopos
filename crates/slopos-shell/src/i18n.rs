@@ -159,11 +159,11 @@ impl MessageCatalog {
             ("portal.inhibit.active", "Session idle inhibit active"),
             (
                 "portal.screencast.stub",
-                "Screen share uses portal stubs (no live PipeWire stream)",
+                "Screen sharing unavailable until a live PipeWire source is connected",
             ),
             (
                 "portal.screencast.socket",
-                "PipeWire socket present; streams still protocol stubs",
+                "PipeWire service detected; no live screen source is available",
             ),
         ];
         for (k, v) in en {
@@ -375,7 +375,7 @@ mod tests {
         assert_eq!(cat.get("menu.force_quit", &en), "Force Quit…");
         assert!(cat
             .get("portal.screencast.stub", &en)
-            .contains("portal stubs"));
+            .contains("unavailable until a live PipeWire source"));
         assert!(!cat
             .get("portal.screencast.socket", &en)
             .contains("live stream ready"));

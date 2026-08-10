@@ -419,10 +419,14 @@ mod linux {
             options: HashMap<String, OwnedValue>,
         ) -> fdo::Result<OwnedObjectPath> {
             let readiness = crate::screencast_pw::probe_screencast_readiness_host();
+            let graph = crate::screencast_pw::probe_pipewire_graph_host();
             tracing::warn!(
                 backend = readiness.backend.as_str(),
                 socket = readiness.pipewire_socket_present,
-                "standard ScreenCast CreateSession failed closed: no live PipeWire export"
+                graph_query = graph.query_succeeded,
+                video_sources = graph.video_sources.len(),
+                note = %graph.note,
+                "standard ScreenCast CreateSession failed closed: no permission-mediated live PipeWire export"
             );
             complete_request(&header, &options, server, connection, 2, error_response()).await
         }

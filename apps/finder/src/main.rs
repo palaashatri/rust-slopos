@@ -11,7 +11,7 @@ use slopos_kit::{
     PointerDispatcher, Rect, Size, ThemeContext, Visibility, Widget, WidgetState,
 };
 use slopos_sdk::{build_menu, Application};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 mod file_ops;
 
@@ -145,6 +145,58 @@ pub struct FinderView {
     pointer: PointerDispatcher,
 }
 
+/// Build the Finder sidebar from locations that this view can actually open.
+///
+/// Share, Recents, and Network used to be shown as static labels even though
+/// Finder had no backing provider for them; selecting one silently navigated
+/// to `$HOME` (or `/` for Network). Keep unsupported providers hidden until
+/// their real service exists, and only expose user folders that are present.
+fn sidebar_for_home(home: &Path) -> TreeView {
+    let mut sidebar = TreeView::new();
+    let mut favorites = TreeNode::new("Favorites");
+    for (label, relative) in [
+        ("Applications", "Applications"),
+        ("Desktop", "Desktop"),
+        ("Documents", "Documents"),
+        ("Downloads", "Downloads"),
+    ] {
+        if home.join(relative).is_dir() {
+            favorites.children.push(TreeNode::new(label));
+        }
+    }
+    favorites.expanded = true;
+
+    let mut locations = TreeNode::new("Locations");
+    // The local filesystem root is a real, always-openable location. Network
+    // locations remain hidden until a provider can enumerate them.
+    locations.children.push(TreeNode::new("SLOPOS-I"));
+    locations.expanded = true;
+
+    sidebar.roots = vec![favorites, locations];
+    sidebar
+}
+
+fn sidebar_node_label<'a>(nodes: &'a [TreeNode], path: &[usize]) -> Option<&'a str> {
+    let (&index, rest) = path.split_first()?;
+    let node = nodes.get(index)?;
+    if rest.is_empty() {
+        Some(node.label.as_str())
+    } else {
+        sidebar_node_label(&node.children, rest)
+    }
+}
+
+fn sidebar_target(home: &Path, label: &str) -> Option<PathBuf> {
+    match label {
+        "Applications" => Some(home.join("Applications")),
+        "Desktop" => Some(home.join("Desktop")),
+        "Documents" => Some(home.join("Documents")),
+        "Downloads" => Some(home.join("Downloads")),
+        "SLOPOS-I" => Some(PathBuf::from("/")),
+        _ => None,
+    }
+}
+
 impl Default for FinderView {
     fn default() -> Self {
         Self::new()
@@ -154,24 +206,8 @@ impl Default for FinderView {
 impl FinderView {
     pub fn new() -> Self {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        let sidebar = sidebar_for_home(Path::new(&home));
         let current_path = PathBuf::from(home);
-
-        let mut sidebar = TreeView::new();
-        let mut favorites = TreeNode::new("Favorites");
-        favorites.children.push(TreeNode::new("SLOPOS Share"));
-        favorites.children.push(TreeNode::new("Recents"));
-        favorites.children.push(TreeNode::new("Applications"));
-        favorites.children.push(TreeNode::new("Desktop"));
-        favorites.children.push(TreeNode::new("Documents"));
-        favorites.children.push(TreeNode::new("Downloads"));
-        favorites.expanded = true;
-
-        let mut locations = TreeNode::new("Locations");
-        locations.children.push(TreeNode::new("SLOPOS-I"));
-        locations.children.push(TreeNode::new("Network"));
-        locations.expanded = true;
-
-        sidebar.roots = vec![favorites, locations];
 
         let mut file_grid = IconView::new();
         file_grid.icon_size = 64.0;
@@ -612,14 +648,17 @@ impl FinderView {
         };
 
         let home = PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string()));
-        let path = match selected.as_slice() {
-            [0, 3] => home.join("Desktop"),
-            [0, 4] => home.join("Documents"),
-            [0, 5] => home.join("Downloads"),
-            [1, 0] => PathBuf::from("/"),
-            _ => home,
+        let Some(label) = sidebar_node_label(&self.sidebar.roots, &selected).map(str::to_owned)
+        else {
+            return;
         };
-        self.navigate_to_path(path);
+        let Some(path) = sidebar_target(&home, &label) else {
+            return;
+        };
+        if !self.navigate_to_path(path) {
+            self.info_text = Some(format!("LOCATION UNAVAILABLE - {label}"));
+            self.refresh_status_bar();
+        }
     }
 }
 
@@ -837,6 +876,42 @@ mod tests {
 
     fn rect_center(rect: Rect) -> slopos_kit::Point {
         slopos_kit::Point::new(rect.x + rect.width * 0.5, rect.y + rect.height * 0.5)
+    }
+
+    #[test]
+    fn finder_sidebar_only_exposes_existing_user_locations() {
+        let home = temp_finder_root();
+        fs::create_dir_all(home.join("Applications")).unwrap();
+        fs::create_dir_all(home.join("Desktop")).unwrap();
+
+        let sidebar = sidebar_for_home(&home);
+        let favorites = &sidebar.roots[0];
+        let labels: Vec<&str> = favorites
+            .children
+            .iter()
+            .map(|child| child.label.as_str())
+            .collect();
+        assert_eq!(labels, vec!["Applications", "Desktop"]);
+        assert!(!labels.contains(&"SLOPOS Share"));
+        assert!(!labels.contains(&"Recents"));
+        assert!(!sidebar.roots[1]
+            .children
+            .iter()
+            .any(|child| child.label == "Network"));
+
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn finder_sidebar_selection_has_no_unknown_location_fallback() {
+        let home = temp_finder_root();
+        fs::create_dir_all(&home).unwrap();
+        assert_eq!(sidebar_target(&home, "Desktop"), Some(home.join("Desktop")));
+        assert_eq!(sidebar_target(&home, "SLOPOS Share"), None);
+        assert_eq!(sidebar_target(&home, "Recents"), None);
+        assert_eq!(sidebar_target(&home, "Network"), None);
+        assert_eq!(sidebar_target(&home, "Favorites"), None);
+        fs::remove_dir_all(home).unwrap();
     }
 
     #[test]

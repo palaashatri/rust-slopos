@@ -1,0 +1,20 @@
+{
+  "backend": "drm",
+  "revision": 0,
+  "hdr_requested": false,
+  "hdr_supported": false,
+  "hdr_active": false,
+  "vrr_adaptive": false,
+  "vrr_supported": false,
+  "refresh_rate_requested": "60hz",
+  "refresh_rate_applied": "60hz",
+  "color_space_requested": "srgb",
+  "color_space_applied": "srgb",
+  "exact_match": true,
+  "fallback_reason": null,
+  "runtime_mutation_supported": false,
+  "supported_refresh_rates": [],
+  "supported_color_spaces": [
+    "srgb"
+  ]
+}

@@ -138,6 +138,7 @@ fn main() {
         eprintln!("dynamic Request.Close failed: {error}");
         std::process::exit(1);
     }
+    let graph = slopos_shell::screencast_pw::probe_pipewire_graph_host();
 
     println!(
         "{}",
@@ -153,6 +154,9 @@ fn main() {
             "backend_scope": "frontend_registration_only",
             "live_pipewire": false,
             "permission_backend": false,
+            "pipewire_graph_query": graph.query_succeeded,
+            "pipewire_video_sources": graph.video_sources.len(),
+            "pipewire_graph_note": graph.note,
         })
     );
 }

@@ -1,0 +1,15 @@
+{
+  "backend": "drm",
+  "revision": 1,
+  "outputs": [
+    {
+      "name": "Virtual-1",
+      "width": 1280,
+      "height": 800,
+      "x": 0,
+      "y": 0,
+      "scale_percent": 100,
+      "primary": true
+    }
+  ]
+}
