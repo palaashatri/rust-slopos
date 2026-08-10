@@ -300,10 +300,8 @@ impl MenuServer {
 
         let window_menu = workspace_window_menu();
 
-        let help_menu = Menu::new("Help");
-        // Help search is not exposed until an indexed help service exists.
-
-        self.menus = vec![system_menu, file_menu, view_menu, window_menu, help_menu];
+        // Help is hidden until an indexed help service exists.
+        self.menus = vec![system_menu, file_menu, view_menu, window_menu];
     }
 
     pub fn set_app_menus(&mut self, app_id: &str, menus: Vec<Menu>) {
