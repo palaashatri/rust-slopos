@@ -1,0 +1,5 @@
+349457a138fb0e7f912e672e7aa00e30a01cc06281bcc86633fd112bfd677691  crates/slopos-bus/src/services.rs
+562fc07138c12928adf1eae90645e8e63da43a489bae8804f6e1c4bd94a68239  crates/slopos-bus/src/session_control.rs
+06f80a79c1e3ea3fad172742bc711d5e56dc469e2e4caf60b710ea9bc5e3847b  crates/slopos-shell/src/portal.rs
+e42976d49f9bb6e2673aeeaddb5b4cbf7d6359bd7edf23b905fbfd0f253c1f54  crates/slopos-compositor/src/main.rs
+1490f6ce2ccdf40a0fb3589652e837353cbec5859e586fd2d36e754e216e6074  crates/slopos-compositor/src/screenshot.rs

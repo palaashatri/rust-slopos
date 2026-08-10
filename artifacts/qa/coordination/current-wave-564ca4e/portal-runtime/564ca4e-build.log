@@ -1,0 +1,38 @@
+   Compiling rustix v1.1.4
+   Compiling wayland-sys v0.31.11
+   Compiling scopeguard v1.2.0
+   Compiling rustix v0.38.44
+   Compiling tracing v0.1.44
+   Compiling getrandom v0.3.4
+   Compiling lock_api v0.4.14
+   Compiling x11rb-protocol v0.13.2
+   Compiling parking_lot v0.12.5
+   Compiling ahash v0.8.12
+   Compiling wgpu-hal v22.0.0
+   Compiling slopos-fonts v0.1.0 (/home/ubuntu/slopos/crates/slopos-fonts)
+   Compiling tokio v1.53.1
+   Compiling wayland-backend v0.3.16
+   Compiling wayland-client v0.31.15
+   Compiling polling v3.11.0
+   Compiling calloop v0.13.0
+   Compiling wayland-csd-frame v0.3.0
+   Compiling gethostname v1.1.0
+   Compiling async-io v2.6.0
+   Compiling wgpu-core v22.1.0
+   Compiling wayland-protocols v0.32.13
+   Compiling calloop-wayland-source v0.3.0
+   Compiling wayland-cursor v0.31.14
+   Compiling zbus v4.4.0
+   Compiling x11rb v0.13.2
+   Compiling wgpu v22.1.0
+   Compiling wayland-protocols-wlr v0.3.12
+   Compiling smithay-client-toolkit v0.19.2
+   Compiling wayland-protocols-plasma v0.3.12
+   Compiling slopos-bus v0.1.0 (/home/ubuntu/slopos/crates/slopos-bus)
+   Compiling sctk-adwaita v0.10.1
+   Compiling winit v0.30.13
+   Compiling slopos-render v0.1.0 (/home/ubuntu/slopos/crates/slopos-render)
+   Compiling slopos-kit v0.1.0 (/home/ubuntu/slopos/crates/slopos-kit)
+   Compiling slopos-sdk v0.1.0 (/home/ubuntu/slopos/crates/slopos-sdk)
+   Compiling slopos-shell v0.1.0 (/home/ubuntu/slopos/crates/slopos-shell)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 35.03s

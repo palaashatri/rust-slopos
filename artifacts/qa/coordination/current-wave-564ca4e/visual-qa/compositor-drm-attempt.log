@@ -1,0 +1,14 @@
+[slopos-compositor] backend: SessionDrm (explicit)
+[2m2026-08-10T10:42:05.019152Z[0m [32m INFO[0m [2mslopos_compositor::session_drm[0m[2m:[0m session_mode=session_drm (DRM/KMS seat path)
+[slopos-compositor] starting DRM/KMS session path (session_mode=session_drm (DRM/KMS seat path))
+[slopos-compositor] display policy: hdr_requested=false hdr_supported=false vrr_adaptive=false refresh=60hz color_space=srgb
+[slopos-compositor] libseat seat=seat0
+[slopos-compositor/drm] text_input=im+text-input-v3
+[slopos-compositor/drm] input_method=zwp_input_method_v2
+[2m2026-08-10T10:42:05.020048Z[0m [32m INFO[0m [1minput_seat[0m[1m{[0m[3mname[0m[2m=[0m"seat0"[1m}[0m[2m:[0m[1madd_keyboard[0m[1m{[0m[3mxkb_config[0m[2m=[0mXkbConfig { rules: "", model: "", layout: "", variant: "", options: None } [3mrepeat_delay[0m[2m=[0m200 [3mrepeat_rate[0m[2m=[0m25[1m}[0m[2m:[0m[1minput_keyboard[0m[2m:[0m [2msmithay::input::keyboard[0m[2m:[0m Initializing a xkbcommon handler with keymap query
+[2m2026-08-10T10:42:05.033112Z[0m [32m INFO[0m [1minput_seat[0m[1m{[0m[3mname[0m[2m=[0m"seat0"[1m}[0m[2m:[0m[1madd_keyboard[0m[1m{[0m[3mxkb_config[0m[2m=[0mXkbConfig { rules: "", model: "", layout: "", variant: "", options: None } [3mrepeat_delay[0m[2m=[0m200 [3mrepeat_rate[0m[2m=[0m25[1m}[0m[2m:[0m[1minput_keyboard[0m[2m:[0m [2msmithay::input::keyboard[0m[2m:[0m Loaded Keymap [3mname[0m[2m=[0m"English (US)"
+[slopos-compositor] opening DRM node /dev/dri/card0
+Error: session.open(/dev/dri/card0)
+
+Caused by:
+    Failed to open device: Resource temporarily unavailable (os error 11)

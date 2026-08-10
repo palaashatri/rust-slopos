@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "evidence_type": "packaging_release_contract",
+  "implementation_commit": "cbc23f89e3cbb93632ba5bb2596f3b78587fa494",
+  "workspace_head": "564ca4e5573a9180ee3d30cfa234421aba3f1b2b",
+  "branch": "codex-complete-spec",
+  "timestamp_utc": "2026-08-10T10:23:33Z",
+  "environment": {
+    "vm": "VirtualBox ubuntu via SSH 127.0.0.1:2222",
+    "os": "Ubuntu 26.04 LTS",
+    "kernel": "Linux 7.0.0-29-generic x86_64",
+    "cargo_target_dir": "<not supplied for dry-run>"
+  },
+  "commands": [
+    {
+      "command": "bash -n [23 release/VM shell scripts]",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "log": "vm-shell-syntax.log"
+    },
+    {
+      "command": "bash packaging/vm/stage-4-verify.sh --dry-run --results-file /tmp/release-contract.txt",
+      "expected_exit": 2,
+      "actual_exit": 2,
+      "log": "vm-stage4-results.txt",
+      "notes": "Exit 2 is intentional: dry-run does not claim installed state and leaves four lifecycle checks UNVERIFIED."
+    },
+    {
+      "command": "python3 -m py_compile scripts/de_readiness_harness.py",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "log": "vm-python-syntax.log"
+    }
+  ],
+  "stage4_summary": {
+    "mode": "dry-run",
+    "passed": 126,
+    "failed": 0,
+    "unverified": 4,
+    "lifecycle_claim": "UNVERIFIED",
+    "unverified_items": [
+      "session-file install was planned only; no installed state is claimed",
+      "upgrade lifecycle has no package transaction runner",
+      "rollback lifecycle has no package transaction runner",
+      "uninstall lifecycle has no package transaction runner"
+    ]
+  },
+  "artifacts": [
+    "vm-shell-syntax.log",
+    "vm-python-syntax.log",
+    "vm-stage4-results.txt"
+  ]
+}

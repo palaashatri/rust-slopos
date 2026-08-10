@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "status": "blocked",
+  "commit": "564ca4e5573a9180ee3d30cfa234421aba3f1b2b",
+  "branch": "codex-complete-spec",
+  "capture": {
+    "command": "VBoxManage controlvm ubuntu screenshotpng artifacts/qa/coordination/current-wave-564ca4e/vm-console-current.png",
+    "image": "vm-console-current.png",
+    "sha256": "c8fe7e436ff5d05883ffd4275ea850eefe81dbfe934c08c0403ec6004761275a",
+    "dimensions": "1280x800",
+    "vm": "ubuntu [Running]",
+    "topology": "VirtualBox console, not a SLOPOS compositor framebuffer"
+  },
+  "result": {
+    "slopos_desktop_visible": false,
+    "current_session_capture": false,
+    "reason": "The VM console is a provisioning/terminal screen and the available DRM node was not available for a SLOPOS session; the image is retained as negative evidence only.",
+    "drm_attempt": {
+      "command": "CARGO_TARGET_DIR=/home/ubuntu/.cache/slopos-i/cargo-target slopos-compositor --backend drm",
+      "log": "visual-qa/compositor-drm-attempt.log",
+      "status": "blocked",
+      "failure": "session.open(/dev/dri/card0): Failed to open device: Resource temporarily unavailable (os error 11)",
+      "framebuffer_png_created": false
+    }
+  },
+  "historical_reference": {
+    "available": true,
+    "not_used_as_current_evidence": true,
+    "reason": "Existing UI screenshots predate this exact commit and do not prove the current runtime topology."
+  }
+}

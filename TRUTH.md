@@ -4,11 +4,38 @@
 SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
+### Current implementation wave — release reproducibility, service honesty and visual evidence
+
+At audited implementation commit
+`564ca4e5573a9180ee3d30cfa234421aba3f1b2b`, the release scripts consistently
+use the shared `CARGO_TARGET_DIR` and locked workspace builds. The Ubuntu VM
+release evidence records shell and Python syntax passes and the stage-4
+dry-run contract records 126 passes, 0 failures and 4 explicitly unverified
+lifecycle checks, exiting 2 rather than claiming upgrade, rollback or uninstall
+proof. The bus service traits no longer include fabricated mock network, audio
+or power implementations; unavailable concrete services must report real state
+or errors.
+
+The exact VM Rust gates (format, workspace check, workspace tests, Clippy with
+warnings denied, release build and locked metadata) all exited 0. Focused
+compositor screenshot tests, the portal frontend probe, viewport syntax and the
+validator self-test also exited 0. The probe scope remains frontend
+registration-only (`live_pipewire=false`, `permission_backend=false`).
+
+Visual QA was attempted against this exact release binary. The retained
+VirtualBox capture is a provisioning/terminal console, not the SLOPOS desktop,
+and the DRM attempt failed at `/dev/dri/card0` with `Resource temporarily
+unavailable`; no current compositor framebuffer PNG is claimed. This negative
+evidence is recorded in
+`artifacts/qa/coordination/current-wave-564ca4e/visual-qa.json` and the
+adjacent log. Historical UI screenshots therefore remain historical references
+only and do not raise the score.
+
 **Audited branch head:**
-`5f22ffcbdd5ceb58a9d7ad54ba81906ff4e0ecb9` (the ledger update is a
+`564ca4e5573a9180ee3d30cfa234421aba3f1b2b` (the ledger update is a
 documentation-only commit on top of this implementation commit)
 **Audited product implementation:**
-`5f22ffcbdd5ceb58a9d7ad54ba81906ff4e0ecb9`
+`564ca4e5573a9180ee3d30cfa234421aba3f1b2b`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
@@ -19,7 +46,9 @@ x86_64 VM gates retained under
 `artifacts/qa/coordination/current-wave-6013afc/`, and the unchanged Rust gate
 wave under `artifacts/qa/coordination/current-wave-c6e7f6a/`, plus the exact
 current screenshot-option wave under
-`artifacts/qa/coordination/current-wave-c395073/`. The baseline
+`artifacts/qa/coordination/current-wave-c395073/`, and the exact current
+packaging/services/visual wave under
+`artifacts/qa/coordination/current-wave-564ca4e/`. The baseline
 `cargo fmt --all -- --check`,
 `cargo check --workspace --all-targets --locked`,
 `cargo test --workspace --locked`,

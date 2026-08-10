@@ -1,0 +1,137 @@
+Stage 4 Verification Results
+Generated: 2026-08-10T10:23:33Z
+VM: unknown
+Mode: dry-run
+Prefix: <system-installed>
+Cargo target: <not supplied>
+
+PASS: dry-run mode selected; no installed-state claim will be made
+PASS: install.sh present
+PASS: install.sh syntax is valid
+PASS: install.sh has session wiring, locked build and shared target support
+PASS: scripts/install-session-files.sh present
+PASS: install-session-files.sh syntax is valid
+PASS: packaging/arch/PKGBUILD present
+PASS: PKGBUILD defines locked shared-target build
+PASS: packaging/debian/control present
+PASS: packaging/debian/rules present
+PASS: debian/rules defines locked shared-target build
+PASS: install.sh present
+PASS: install.sh syntax is valid
+PASS: install.sh uses Cargo.lock for Cargo commands
+PASS: install.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: install.sh exposes shared CARGO_TARGET_DIR
+PASS: packaging/apps/build-app-bundle.sh present
+PASS: packaging/apps/build-app-bundle.sh syntax is valid
+PASS: packaging/apps/build-app-bundle.sh uses Cargo.lock for Cargo commands
+PASS: packaging/apps/build-app-bundle.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: packaging/apps/build-app-bundle.sh exposes shared CARGO_TARGET_DIR
+PASS: packaging/vm/arch-install.sh present
+PASS: packaging/vm/arch-install.sh syntax is valid
+PASS: packaging/vm/arch-install.sh uses Cargo.lock for Cargo commands
+PASS: packaging/vm/arch-install.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: packaging/vm/arch-install.sh exposes shared CARGO_TARGET_DIR
+PASS: packaging/vm/arch-install-arm64.sh present
+PASS: packaging/vm/arch-install-arm64.sh syntax is valid
+PASS: packaging/vm/arch-install-arm64.sh uses Cargo.lock for Cargo commands
+PASS: packaging/vm/arch-install-arm64.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: packaging/vm/arch-install-arm64.sh exposes shared CARGO_TARGET_DIR
+PASS: packaging/vm/provision-arm64.sh present
+PASS: packaging/vm/provision-arm64.sh syntax is valid
+PASS: packaging/vm/provision-arm64.sh uses Cargo.lock for Cargo commands
+PASS: packaging/vm/provision-arm64.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: packaging/vm/provision-arm64.sh exposes shared CARGO_TARGET_DIR
+PASS: packaging/vm/qa-vm.sh present
+PASS: packaging/vm/qa-vm.sh syntax is valid
+PASS: packaging/vm/qa-vm.sh uses Cargo.lock for Cargo commands
+PASS: packaging/vm/qa-vm.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: packaging/vm/qa-vm.sh exposes shared CARGO_TARGET_DIR
+PASS: packaging/vm/qa-live.sh present
+PASS: packaging/vm/qa-live.sh syntax is valid
+PASS: packaging/vm/qa-live.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: packaging/vm/qa-live.sh exposes shared CARGO_TARGET_DIR
+PASS: packaging/vm/_stage2-start.sh present
+PASS: packaging/vm/_stage2-start.sh syntax is valid
+PASS: packaging/vm/_stage2-start.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: packaging/vm/_stage2-start.sh exposes shared CARGO_TARGET_DIR
+PASS: packaging/vm/_stage2b-start.sh present
+PASS: packaging/vm/_stage2b-start.sh syntax is valid
+PASS: packaging/vm/_stage2b-start.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: packaging/vm/_stage2b-start.sh exposes shared CARGO_TARGET_DIR
+PASS: packaging/vm/_stage2-verify.sh present
+PASS: packaging/vm/_stage2-verify.sh syntax is valid
+PASS: packaging/vm/_stage2-verify.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: packaging/vm/_stage2-verify.sh exposes shared CARGO_TARGET_DIR
+PASS: packaging/vm/_stage2-reqa.sh present
+PASS: packaging/vm/_stage2-reqa.sh syntax is valid
+PASS: packaging/vm/_stage2-reqa.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: packaging/vm/_stage2-reqa.sh exposes shared CARGO_TARGET_DIR
+PASS: packaging/vm/task-3.10-dod.sh present
+PASS: packaging/vm/task-3.10-dod.sh syntax is valid
+PASS: packaging/vm/task-3.10-dod.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: packaging/vm/task-3.10-dod.sh exposes shared CARGO_TARGET_DIR
+PASS: scripts/verify_pi.sh present
+PASS: scripts/verify_pi.sh syntax is valid
+PASS: scripts/verify_pi.sh uses Cargo.lock for Cargo commands
+PASS: scripts/verify_pi.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: scripts/verify_pi.sh exposes shared CARGO_TARGET_DIR
+PASS: scripts/verify_daily_driver_checklist.sh present
+PASS: scripts/verify_daily_driver_checklist.sh syntax is valid
+PASS: scripts/verify_daily_driver_checklist.sh uses Cargo.lock for Cargo commands
+PASS: scripts/verify_daily_driver_checklist.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: scripts/verify_daily_driver_checklist.sh exposes shared CARGO_TARGET_DIR
+PASS: scripts/verify-compositor-completion.sh present
+PASS: scripts/verify-compositor-completion.sh syntax is valid
+PASS: scripts/verify-compositor-completion.sh uses Cargo.lock for Cargo commands
+PASS: scripts/verify-compositor-completion.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: scripts/verify-compositor-completion.sh exposes shared CARGO_TARGET_DIR
+PASS: scripts/verify-compositor-gesture-runtime.sh present
+PASS: scripts/verify-compositor-gesture-runtime.sh syntax is valid
+PASS: scripts/verify-compositor-gesture-runtime.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: scripts/verify-compositor-gesture-runtime.sh exposes shared CARGO_TARGET_DIR
+PASS: scripts/verify-compositor-headless-runtime.sh present
+PASS: scripts/verify-compositor-headless-runtime.sh syntax is valid
+PASS: scripts/verify-compositor-headless-runtime.sh uses Cargo.lock for Cargo commands
+PASS: scripts/verify-compositor-headless-runtime.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: scripts/verify-compositor-headless-runtime.sh exposes shared CARGO_TARGET_DIR
+PASS: scripts/verify-compositor-output-topology-runtime.sh present
+PASS: scripts/verify-compositor-output-topology-runtime.sh syntax is valid
+PASS: scripts/verify-compositor-output-topology-runtime.sh uses Cargo.lock for Cargo commands
+PASS: scripts/verify-compositor-output-topology-runtime.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: scripts/verify-compositor-output-topology-runtime.sh exposes shared CARGO_TARGET_DIR
+PASS: scripts/verify-portal-runtime.sh present
+PASS: scripts/verify-portal-runtime.sh syntax is valid
+PASS: scripts/verify-portal-runtime.sh uses Cargo.lock for Cargo commands
+PASS: scripts/verify-portal-runtime.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: scripts/verify-portal-runtime.sh exposes shared CARGO_TARGET_DIR
+PASS: scripts/verify-spaces-persistence-recovery.sh present
+PASS: scripts/verify-spaces-persistence-recovery.sh syntax is valid
+PASS: scripts/verify-spaces-persistence-recovery.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: scripts/verify-spaces-persistence-recovery.sh exposes shared CARGO_TARGET_DIR
+PASS: scripts/verify-spaces-application-policy-runtime.sh present
+PASS: scripts/verify-spaces-application-policy-runtime.sh syntax is valid
+PASS: scripts/verify-spaces-application-policy-runtime.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: scripts/verify-spaces-application-policy-runtime.sh exposes shared CARGO_TARGET_DIR
+PASS: scripts/verify-xwayland-recovery.sh present
+PASS: scripts/verify-xwayland-recovery.sh syntax is valid
+PASS: scripts/verify-xwayland-recovery.sh uses Cargo.lock for Cargo commands
+PASS: scripts/verify-xwayland-recovery.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: scripts/verify-xwayland-recovery.sh exposes shared CARGO_TARGET_DIR
+PASS: scripts/verify-xwayland-scene.sh present
+PASS: scripts/verify-xwayland-scene.sh syntax is valid
+PASS: scripts/verify-xwayland-scene.sh uses Cargo.lock for Cargo commands
+PASS: scripts/verify-xwayland-scene.sh consumes binaries through CARGO_TARGET_DIR or explicit paths
+PASS: scripts/verify-xwayland-scene.sh exposes shared CARGO_TARGET_DIR
+PASS: packaging/iso/packages.x86_64 present
+PASS: packaging/iso/build-iso.sh present
+PASS: packaging/iso/profiledef.sh present
+PASS: session installer dry-run command succeeded
+PASS: session installer dry-run wrote no files
+PASS: dry-run plan contains share/wayland-sessions/slopos-i.desktop
+PASS: dry-run plan contains share/xsessions/slopos-i.desktop
+PASS: dry-run plan contains bin/start-slopos-i
+PASS: dry-run plan contains lib/systemd/user/slopos-i.service
+UNVERIFIED: session-file install was planned only; no installed state is claimed
+UNVERIFIED: upgrade lifecycle has no package transaction runner
+UNVERIFIED: rollback lifecycle has no package transaction runner
+UNVERIFIED: uninstall lifecycle has no package transaction runner
