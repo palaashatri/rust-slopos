@@ -10,7 +10,7 @@
 set -euxo pipefail
 
 USERNAME="${SUDO_USER:-$(whoami)}"
-REPO_URL="${REPO_URL:-https://github.com/palaashatri/slopos-i.git}"
+REPO_URL="${REPO_URL:-https://github.com/palaashatri/rust-slopos.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 HOST_HTTP="${HOST_HTTP:-http://10.0.2.2:8000}"
 

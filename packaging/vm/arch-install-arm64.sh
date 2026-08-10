@@ -12,7 +12,7 @@ DISK=/dev/vda                       # virtio-blk (NOT /dev/sda)
 HOSTNAME=slopos-i-vm
 USERNAME=retro
 PASSWORD=retro
-REPO_URL="${REPO_URL:-https://github.com/palaashatri/slopos-i.git}"
+REPO_URL="${REPO_URL:-https://github.com/palaashatri/rust-slopos.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 HOST_HTTP="${HOST_HTTP:-http://10.0.2.2:8000}"   # host file server (Task 0.2)
 
