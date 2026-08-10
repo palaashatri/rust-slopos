@@ -375,10 +375,8 @@ impl MenuServer {
 
         let window_menu = workspace_window_menu();
 
-        let mut help_menu = Menu::new("Help");
-        help_menu
-            .add_action("Search")
-            .with_action("shell.help_search");
+        let help_menu = Menu::new("Help");
+        // Help search is not exposed until an indexed help service exists.
 
         self.menus = vec![
             system_menu,
@@ -515,9 +513,6 @@ impl MenuServer {
                     meta: true,
                 },
             );
-        file_menu
-            .add_action("Rename...")
-            .with_action("finder.rename");
         file_menu
             .add_action("Move to Trash")
             .with_action("finder.move_to_trash")
