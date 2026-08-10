@@ -60,11 +60,9 @@ pub fn try_register_portal_session_bus() -> bool {
 mod linux {
     use super::*;
     use crate::portal::{
-        create_screencast_session_with_backend_note, handle_file_chooser_open,
-        handle_file_chooser_save, plan_open_uri, portal_screenshot_uri_for,
-        select_screencast_sources, take_portal_style_screenshot_with, OpenUriAction,
-        PortalFileChooserRequest, PortalScreencastRequest, PortalScreencastSession,
-        PortalScreenshotRequest,
+        handle_file_chooser_open, handle_file_chooser_save, plan_open_uri,
+        portal_screenshot_uri_for, select_screencast_sources, take_portal_style_screenshot_with,
+        OpenUriAction, PortalFileChooserRequest, PortalScreencastSession, PortalScreenshotRequest,
     };
     use std::collections::HashMap;
     use std::sync::Mutex as StdMutex;
@@ -133,10 +131,13 @@ mod linux {
             ))
         }
 
-        /// Settings.ReadAll — pure map for the namespace.
-        fn read_all(&self, namespace: &str) -> HashMap<String, OwnedValue> {
+        /// Settings.ReadAll — refuse until a typed settings service is wired.
+        fn read_all(&self, namespace: &str) -> zbus::fdo::Result<HashMap<String, OwnedValue>> {
             let _ = namespace;
-            HashMap::new()
+            Err(zbus::fdo::Error::Failed(
+                "SLOPOS Settings portal is not connected to an authoritative settings service"
+                    .into(),
+            ))
         }
     }
 
@@ -329,34 +330,18 @@ mod linux {
             _handle: zbus::zvariant::ObjectPath<'_>,
             _app_id: &str,
             _parent_window: &str,
-            options: HashMap<String, OwnedValue>,
+            _options: HashMap<String, OwnedValue>,
         ) -> (u32, HashMap<String, OwnedValue>) {
-            let types = option_u32(&options, "types").unwrap_or(1); // default monitor
-            let multiple = option_bool(&options, "multiple").unwrap_or(false);
-            let cursor_mode = option_u32(&options, "cursor_mode")
-                .or_else(|| option_u32(&options, "cursor-mode"))
-                .unwrap_or(0);
-            let req = PortalScreencastRequest {
-                types,
-                multiple,
-                cursor_mode,
-            };
-            // Host probe for honest backend note only — never starts PipeWire.
+            // A socket/probe is not a live PipeWire graph.  Until the compositor
+            // attaches a real node and the permission decision is wired, fail
+            // CreateSession rather than handing clients a placeholder session.
             let readiness = crate::screencast_pw::probe_screencast_readiness_host();
-            let note = crate::portal::screencast_backend_note(&readiness);
-            let session = create_screencast_session_with_backend_note(req, note.clone());
-            let session_id = session.session_id.clone();
-            with_screencast_sessions(|map| {
-                map.insert(session_id.clone(), session);
-            });
-            let mut results: HashMap<String, OwnedValue> = HashMap::new();
-            if let Ok(v) = OwnedValue::try_from(Value::from(session_id)) {
-                results.insert("session_id".into(), v);
-            }
-            if let Ok(v) = OwnedValue::try_from(Value::from(note)) {
-                results.insert("note".into(), v);
-            }
-            (0u32, results)
+            tracing::warn!(
+                backend = readiness.backend.as_str(),
+                socket = readiness.pipewire_socket_present,
+                "portal ScreenCast CreateSession refused: live PipeWire export is unavailable"
+            );
+            (2u32, HashMap::new())
         }
 
         /// Simplified SelectSources — binds source node_id placeholders on the session.
