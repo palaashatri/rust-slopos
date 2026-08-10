@@ -5,10 +5,10 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited branch head:**
-`7814fcc1b0e3ef38572c7ec7da6c47c30897e08a`
+`40f0e087c2fa5c51b82616747aa7e4eb5bc5a0e2` (the ledger update is a
+documentation-only commit on top of this implementation commit)
 **Audited product implementation:**
-`4b3a55189c26fcee9a842f05b77c958b8cf74778` (the branch-head commit adds
-documentation/evidence only)
+`40f0e087c2fa5c51b82616747aa7e4eb5bc5a0e2`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
@@ -48,6 +48,22 @@ headless protocol smoke and logical output topology gates all passed; their
 machine-readable results explicitly leave DRM/KMS, rendering, hardware and
 physical multi-monitor claims false. Evidence for this exact wave is under
 `artifacts/qa/coordination/current-wave-4b3a551/`.
+
+The current transaction, portal and screenshot wave is recorded under
+`artifacts/qa/coordination/current-wave-40f0e08/`. On Ubuntu 26.04 x86_64,
+`cargo fmt --all -- --check`, `cargo check --workspace --all-targets --locked`,
+`cargo test --workspace --locked`, `cargo clippy --workspace --all-targets
+--all-features --locked -- -D warnings`, `cargo build --workspace --release
+--locked` and `cargo metadata --locked --format-version 1 --no-deps` all
+exited 0. The VM source export had no `.git` directory, so lockfile
+consistency was proven by matching its SHA-256 with the local `Cargo.lock`
+(`dc92aa97f0d1223953f15c797a3f7230c2a70bf0125e10f06635f71e078175fa`), while
+the repository CI workflow performs the read-only metadata plus `git diff`
+check on a real checkout. The focused compositor screenshot tests passed 5/5,
+the compositor check passed, the viewport shell syntax and validator
+self-test passed, and the portal probe passed only at
+`frontend_registration_only` scope (`live_pipewire=false`,
+`permission_backend=false`).
 
 The viewport path now propagates a validated effective rational scale through
 nested and DRM render/readback calls. The compositor rejects logical/physical
@@ -1814,6 +1830,33 @@ Do not divert core effort into decorative features while an earlier
 release-blocking invariant remains broken.
 
 ---
+
+### Current implementation wave — crash-safe App Store transactions and fail-closed portal capture
+
+At implementation commit
+`40f0e087c2fa5c51b82616747aa7e4eb5bc5a0e2`, the App Store install path keeps
+an atomic, schema-validated transaction journal for authenticated bundle
+replacement and removal. It fsyncs journal transitions, rejects symlinked
+install roots and unsafe persisted paths, restores or finalises interrupted
+transactions on startup and before mutation, and has regression coverage for
+prepared, backed-up and committed crash phases. The workspace test log records
+42 App Store tests passing. This is a durable local transaction boundary, not
+proof of a signed network catalogue or a clean-machine install/upgrade/
+rollback/uninstall lifecycle.
+
+Portal Screenshot no longer calls the legacy host-X11 capture path and returns
+`CompositorBackendUnavailable` until compositor-owned readback is wired. The
+standard portal probe still reports the standard Desktop bus/path and dynamic
+Request lifecycle, but explicitly records `live_pipewire=false` and
+`permission_backend=false`; FileChooser remains fail-closed and ScreenCast
+sources include only actual PipeWire node IDs. The compositor also rejects
+relative screenshot destinations. These changes prevent fabricated success but
+do not provide a real PipeWire stream or browser-consumer proof.
+
+The overall score remains **63/100**. Real nested/DRM framebuffer capture,
+layer configure/ack/frame runtime evidence, physical display evidence, live
+PipeWire permissions, complete release lifecycle, third-party compatibility,
+accessibility, security, recovery and soak gates remain open.
 
 ## 16. Bottom line
 
