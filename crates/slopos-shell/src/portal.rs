@@ -137,18 +137,29 @@ pub fn handle_portal_screenshot_request(
 
 /// Take a screenshot through the portal-facing API surface.
 ///
-/// Local capture via [`crate::capture::take_screenshot`]. Interactive/cursor options
-/// are not yet honored by the capture backend.
+/// Local capture via [`crate::capture::take_screenshot`]. Requests that need
+/// interactive selection or cursor compositing fail closed until the capture
+/// backend can honor those options.
 pub fn take_portal_style_screenshot() -> Result<PathBuf, CaptureError> {
     take_screenshot()
 }
 
 /// Portal-style capture with explicit request options.
 ///
-/// Options are recorded on the result; local capture still ignores interactive/cursor.
+/// Unsupported interactive/cursor options are rejected instead of being ignored.
 pub fn take_portal_style_screenshot_with(
     request: PortalScreenshotRequest,
 ) -> Result<PortalScreenshotResult, CaptureError> {
+    if request.interactive || request.include_cursor {
+        let mut options = Vec::new();
+        if request.interactive {
+            options.push("interactive");
+        }
+        if request.include_cursor {
+            options.push("cursor");
+        }
+        return Err(CaptureError::UnsupportedOptions(options.join(", ")));
+    }
     let path = take_portal_style_screenshot()?;
     Ok(PortalScreenshotResult {
         path,
@@ -752,6 +763,23 @@ mod tests {
         };
         assert!(req.interactive);
         assert!(req.include_cursor);
+    }
+
+    #[test]
+    fn screenshot_rejects_options_the_backend_cannot_honor() {
+        for request in [
+            PortalScreenshotRequest {
+                interactive: true,
+                include_cursor: false,
+            },
+            PortalScreenshotRequest {
+                interactive: false,
+                include_cursor: true,
+            },
+        ] {
+            let error = take_portal_style_screenshot_with(request).unwrap_err();
+            assert!(matches!(error, CaptureError::UnsupportedOptions(_)));
+        }
     }
 
     #[test]

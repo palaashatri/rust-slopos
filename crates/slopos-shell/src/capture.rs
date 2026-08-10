@@ -16,6 +16,8 @@ pub enum CaptureError {
     ToolNotFound,
     #[error("capture command failed: {0}")]
     CommandFailed(String),
+    #[error("capture request options are unsupported: {0}")]
+    UnsupportedOptions(String),
     #[error("recording already in progress")]
     AlreadyRecording,
     #[error("no active recording")]
