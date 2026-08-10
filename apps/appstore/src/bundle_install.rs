@@ -315,6 +315,35 @@ pub fn install_signed_archive(
     install_from_archive(archive, &entry.sha256, install_dir)
 }
 
+/// Remove one authenticated catalog bundle from the per-user application
+/// directory. The caller must select the bundle from a verified catalog; this
+/// function only accepts a safe `<name>.app` leaf and never follows a symlink.
+pub fn remove_installed_bundle(name: &str, install_dir: &Path) -> Result<PathBuf, InstallError> {
+    if !is_safe_bundle_name(name) {
+        return Err(InstallError::InvalidBundle(format!(
+            "unsafe installed bundle name: {name}"
+        )));
+    }
+    let install_root = install_dir
+        .canonicalize()
+        .map_err(|error| InstallError::Io(error.to_string()))?;
+    let target = install_root.join(name);
+    let metadata = fs::symlink_metadata(&target).map_err(|error| {
+        if error.kind() == io::ErrorKind::NotFound {
+            InstallError::InvalidBundle(format!("installed bundle is missing: {name}"))
+        } else {
+            InstallError::Io(error.to_string())
+        }
+    })?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(InstallError::InvalidBundle(
+            "installed bundle must be a regular directory".to_string(),
+        ));
+    }
+    remove_path(&target)?;
+    Ok(target)
+}
+
 /// Verify `archive`'s sha256 == `expected` (integrity only).
 ///
 /// Production App Store installs must call [`install_signed_archive`] first;
@@ -1378,6 +1407,33 @@ mod tests {
 
         assert_eq!(installed, install_dir.join("TinyApp.app"));
         assert!(installed.join("Resources").join("Info.toml").is_file());
+
+        fs::remove_dir_all(&work).ok();
+    }
+
+    #[test]
+    fn remove_installed_bundle_is_leaf_scoped_and_safe() {
+        let work = test_work("remove");
+        let install_dir = work.join("Applications");
+        fs::create_dir_all(&install_dir).unwrap();
+
+        let (archive, sha) = build_tiny_app_tar_gz(&work);
+        let installed = install_from_archive(&archive, &sha, &install_dir).unwrap();
+        let removed = remove_installed_bundle("TinyApp.app", &install_dir).unwrap();
+        assert_eq!(
+            removed,
+            install_dir.canonicalize().unwrap().join("TinyApp.app")
+        );
+        assert_eq!(removed, installed);
+        assert!(!removed.exists());
+        assert!(matches!(
+            remove_installed_bundle("../escape.app", &install_dir),
+            Err(InstallError::InvalidBundle(_))
+        ));
+        assert!(matches!(
+            remove_installed_bundle("TinyApp.app", &install_dir),
+            Err(InstallError::InvalidBundle(_))
+        ));
 
         fs::remove_dir_all(&work).ok();
     }

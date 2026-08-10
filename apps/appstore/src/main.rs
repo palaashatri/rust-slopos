@@ -9,16 +9,19 @@ use slopos_kit::text_field::TextField;
 use slopos_kit::window::Window;
 use slopos_kit::{
     widget_by_id, AccessibilityNode, Event, EventResult, FocusManager, LayoutConstraint,
-    PointerDispatcher, Rect, Size, ThemeContext, Widget, WidgetState,
+    PointerDispatcher, Rect, Size, ThemeContext, Visibility, Widget, WidgetState,
 };
 use slopos_sdk::{build_menu, Application};
 use std::path::PathBuf;
 
 mod bundle_install;
 
-use bundle_install::{install_signed_archive, parse_signed_catalog, CatalogEntry, TrustStore};
+use bundle_install::{
+    install_signed_archive, parse_signed_catalog, remove_installed_bundle, CatalogEntry, TrustStore,
+};
 
-// Featured apps shown when no search is active (catalog stub until Task 3.8).
+// Signed-catalog suggestions shown when no search is active. These are never
+// treated as installable entries until an authenticated catalog supplies them.
 const FEATURED_APPS: &[&str] = &["Finder", "TextEdit", "Settings", "Terminal"];
 
 // Category definitions: (display name, search keywords)
@@ -268,7 +271,11 @@ impl CatalogStore {
                     "bundle_id={} publisher={} key_id={}",
                     entry.bundle_id, entry.publisher, entry.key_id
                 ),
-                state: AppInstallState::Available,
+                state: if installed_bundle_path(&entry.name).is_dir() {
+                    AppInstallState::Installed
+                } else {
+                    AppInstallState::Available
+                },
             };
         }
         AppDetails {
@@ -288,6 +295,10 @@ fn home_dir() -> PathBuf {
 
 fn default_install_dir() -> PathBuf {
     home_dir().join("Applications")
+}
+
+fn installed_bundle_path(name: &str) -> PathBuf {
+    default_install_dir().join(format!("{name}.app"))
 }
 
 fn catalog_path() -> PathBuf {
@@ -411,6 +422,7 @@ struct AppStoreView {
     detail_description: Label,
     detail_state: Label,
     install_button: Button,
+    remove_button: Button,
     // Progress bar for async install
     progress_bar: ProgressBar,
     progress_label: Label,
@@ -453,6 +465,11 @@ impl AppStoreView {
             detail_description: Label::new(""),
             detail_state: Label::new(""),
             install_button: Button::new("INSTALL"),
+            remove_button: {
+                let mut button = Button::new("REMOVE");
+                button.set_visibility(Visibility::Hidden);
+                button
+            },
             progress_bar: ProgressBar::new(),
             progress_label: Label::new(""),
             status: Label::new("READY"),
@@ -528,7 +545,11 @@ impl AppStoreView {
         } else {
             self.run_search()
         };
-        if saved_status.starts_with("INSTALLED") || saved_status.starts_with("INSTALL FAILED") {
+        if saved_status.starts_with("INSTALLED")
+            || saved_status.starts_with("UPDATED")
+            || saved_status.starts_with("REMOVED")
+            || saved_status.starts_with("INSTALL FAILED")
+        {
             self.status.text = saved_status;
         }
         ok
@@ -554,6 +575,24 @@ impl AppStoreView {
         d.truncate(120);
         self.detail_description.text = d;
         self.detail_state.text = format!("STATUS: {}", details.state.label());
+        match details.state {
+            AppInstallState::Installed => {
+                self.install_button.set_label("UPDATE");
+                self.install_button.set_enabled(true);
+                self.remove_button.set_visibility(Visibility::Visible);
+                self.remove_button.set_enabled(true);
+            }
+            AppInstallState::Available => {
+                self.install_button.set_label("INSTALL");
+                self.install_button.set_enabled(true);
+                self.remove_button.set_visibility(Visibility::Hidden);
+            }
+            AppInstallState::Unknown => {
+                self.install_button.set_label("INSTALL");
+                self.install_button.set_enabled(true);
+                self.remove_button.set_visibility(Visibility::Hidden);
+            }
+        }
     }
 
     fn clear_detail(&mut self) {
@@ -561,6 +600,8 @@ impl AppStoreView {
         self.detail_version.text = String::new();
         self.detail_description.text = String::new();
         self.detail_state.text = String::new();
+        self.install_button.set_label("INSTALL");
+        self.remove_button.set_visibility(Visibility::Hidden);
     }
 
     fn start_install_async(&mut self) {
@@ -574,11 +615,31 @@ impl AppStoreView {
             return;
         };
 
+        let was_installed = matches!(
+            self.backend.app_details(&entry.name).state,
+            AppInstallState::Installed
+        );
         let archive = resolve_archive_url(&entry.url);
         let install_dir = default_install_dir();
         self.progress_bar.indeterminate = true;
-        self.progress_label.text = format!("Installing {}...", entry.name);
-        self.status.text = format!("INSTALLING {}", entry.name);
+        self.progress_label.text = format!(
+            "{} {}...",
+            if was_installed {
+                "Updating"
+            } else {
+                "Installing"
+            },
+            entry.name
+        );
+        self.status.text = format!(
+            "{} {}",
+            if was_installed {
+                "UPDATING"
+            } else {
+                "INSTALLING"
+            },
+            entry.name
+        );
 
         let Some(trust_store) = self.backend.trust_store.as_ref() else {
             self.progress_bar.indeterminate = false;
@@ -591,13 +652,52 @@ impl AppStoreView {
                 self.progress_bar.indeterminate = false;
                 self.progress_bar.value = 1.0;
                 request_shell_rescan();
-                self.status.text = format!("INSTALLED {}", path.display());
+                self.status.text = format!(
+                    "{} {}",
+                    if was_installed {
+                        "UPDATED"
+                    } else {
+                        "INSTALLED"
+                    },
+                    path.display()
+                );
                 self.progress_label.text = self.status.text.clone();
                 self.refresh_backend();
             }
             Err(err) => {
                 self.progress_bar.indeterminate = false;
                 self.status.text = format!("INSTALL FAILED: {err:?}");
+                self.progress_label.text = self.status.text.clone();
+            }
+        }
+    }
+
+    fn remove_selected(&mut self) {
+        let Some(package) = self.selected_package() else {
+            self.status.text = "SELECT AN APP FIRST".to_string();
+            return;
+        };
+        let Some(entry) = self.backend.entry_for_name(&package).cloned() else {
+            self.status.text = format!("NO CATALOG ENTRY FOR {package}");
+            return;
+        };
+        if !matches!(
+            self.backend.app_details(&entry.name).state,
+            AppInstallState::Installed
+        ) {
+            self.status.text = format!("NOT INSTALLED {}", entry.name);
+            return;
+        }
+        let bundle_name = format!("{}.app", entry.name);
+        match remove_installed_bundle(&bundle_name, &default_install_dir()) {
+            Ok(path) => {
+                request_shell_rescan();
+                self.status.text = format!("REMOVED {}", path.display());
+                self.progress_label.text = self.status.text.clone();
+                self.refresh_backend();
+            }
+            Err(error) => {
+                self.status.text = format!("REMOVE FAILED: {error:?}");
                 self.progress_label.text = self.status.text.clone();
             }
         }
@@ -616,6 +716,10 @@ impl AppStoreView {
         }
         if self.install_button.take_clicked() {
             self.start_install_async();
+            return true;
+        }
+        if self.remove_button.take_clicked() {
+            self.remove_selected();
             return true;
         }
         false
@@ -710,6 +814,11 @@ impl Widget for AppStoreView {
             .set_rect(Rect::new(content_x, y, action_w, 28.0));
         let _ = self
             .install_button
+            .layout(LayoutConstraint::tight(Size::new(action_w, 28.0)));
+        self.remove_button
+            .set_rect(Rect::new(content_x + action_w + 8.0, y, action_w, 28.0));
+        let _ = self
+            .remove_button
             .layout(LayoutConstraint::tight(Size::new(action_w, 28.0)));
         y += 42.0;
 
@@ -812,6 +921,7 @@ impl Widget for AppStoreView {
         self.search_button.draw(theme);
         self.refresh_button.draw(theme);
         self.install_button.draw(theme);
+        self.remove_button.draw(theme);
         self.progress_bar.draw(theme);
         self.progress_label.draw(theme);
         self.category_list.draw(theme);
@@ -909,6 +1019,7 @@ impl Widget for AppStoreView {
         self.search_button.update();
         self.refresh_button.update();
         self.install_button.update();
+        self.remove_button.update();
         self.progress_bar.update();
         self.progress_label.update();
         self.category_list.update();
@@ -932,6 +1043,7 @@ impl Widget for AppStoreView {
             &self.search_button,
             &self.refresh_button,
             &self.install_button,
+            &self.remove_button,
             &self.progress_bar,
             &self.progress_label,
             &self.category_list,
@@ -952,6 +1064,7 @@ impl Widget for AppStoreView {
             &mut self.search_button,
             &mut self.refresh_button,
             &mut self.install_button,
+            &mut self.remove_button,
             &mut self.progress_bar,
             &mut self.progress_label,
             &mut self.category_list,
@@ -1137,11 +1250,12 @@ mod tests {
     }
 
     #[test]
-    fn appstore_does_not_advertise_unimplemented_transaction_controls() {
+    fn appstore_hides_remove_until_an_authenticated_bundle_is_installed() {
         let view = AppStoreView::new();
         let button_labels: Vec<&str> = view
             .children()
             .into_iter()
+            .filter(|child| matches!(child.visibility(), Visibility::Visible))
             .filter_map(|child| child.as_any().downcast_ref::<Button>())
             .map(Button::label)
             .collect();

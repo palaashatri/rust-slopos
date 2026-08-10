@@ -579,6 +579,8 @@ struct ShellDesktop {
     last_network_connect: Option<std::result::Result<String, String>>,
     /// When false, network connect validates/plans only (unit tests; no nmcli spawn).
     network_connect_spawn: bool,
+    /// Destructive session action awaiting a second explicit menu activation.
+    pending_session_confirmation: Option<session_actions::SessionAction>,
     /// Which subset of the desktop to paint (layer-shell Phase 3 multi-surface).
     paint_filter: ShellPaintFilter,
     /// Temporary event-routing target for a layer-shell input surface. This is
@@ -871,6 +873,7 @@ impl ShellDesktop {
             last_status_refresh: std::time::Instant::now(),
             last_network_connect: None,
             network_connect_spawn: true,
+            pending_session_confirmation: None,
             paint_filter: ShellPaintFilter::All,
             input_filter: None,
             spotlight_ui: spotlight_ui::SpotlightUI::new(),
@@ -2913,7 +2916,7 @@ impl ShellDesktop {
         tracing::info!("rescanned Applications after App Store install marker");
     }
 
-    /// Execute a session power/logout action via pure plan + shell side effects.
+    /// Execute a session power/logout action via a typed plan and checked side effect.
     fn handle_session_action(&mut self, action: session_actions::SessionAction) {
         use session_actions::{
             confirm_prompt, describe_plan, plan_requires_privileges, plan_session_action,
@@ -2921,10 +2924,37 @@ impl ShellDesktop {
         };
 
         let plan = plan_session_action(action);
+        if confirm_prompt(action).is_none() {
+            self.pending_session_confirmation = None;
+        }
 
-        // Destructive actions: show confirm UI first (status window). User can
-        // re-trigger from Power menu after reading; shell.quit remains immediate.
+        // Destructive actions: show a confirmation status window first. The
+        // same menu action must be activated again before side effects run.
         if let Some(prompt) = confirm_prompt(action) {
+            if self.pending_session_confirmation != Some(action) {
+                self.pending_session_confirmation = Some(action);
+                self.open_shell_status_window(
+                    match action {
+                        session_actions::SessionAction::Logout => "Log Out",
+                        session_actions::SessionAction::Reboot => "Restart",
+                        session_actions::SessionAction::PowerOff => "Shut Down",
+                        _ => "Session Action",
+                    },
+                    [
+                        prompt.to_string(),
+                        format!("Plan: {}", describe_plan(&plan)),
+                        if plan_requires_privileges(&plan) {
+                            "This will invoke system power management (systemctl/logind)."
+                                .to_string()
+                        } else {
+                            String::new()
+                        },
+                        "Activate the same menu command again to confirm.".to_string(),
+                    ],
+                );
+                return;
+            }
+            self.pending_session_confirmation = None;
             if !matches!(
                 action,
                 session_actions::SessionAction::Logout
@@ -2934,7 +2964,7 @@ impl ShellDesktop {
                 // unreachable for current confirm_prompt set
             } else {
                 // For logout we still proceed (session exit is the product intent).
-                // Reboot/PowerOff stay gated: show plan + require explicit systemctl spawn
+                // Reboot/PowerOff stay gated: show plan + require explicit systemctl execution
                 // only after confirm status — we present the plan and run system commands
                 // when privileges path is available; otherwise notify.
                 if matches!(
@@ -2996,14 +3026,36 @@ impl ShellDesktop {
                 tracing::info!(?argv, "session power action");
                 match std::process::Command::new(&argv[0])
                     .args(&argv[1..])
-                    .spawn()
+                    .status()
                 {
-                    Ok(_) => {
+                    Ok(status) if status.success() => {
                         self.record_notification(
                             "com.slopos.shell",
                             "Session",
-                            &format!("Started: {}", argv.join(" ")),
+                            &format!("Completed: {}", argv.join(" ")),
                             NotificationPriority::Normal,
+                        );
+                    }
+                    Ok(status) => {
+                        let error = format!(
+                            "{} exited with status {status}",
+                            describe_plan(&SessionActionPlan::SystemCommand { argv: argv.clone() })
+                        );
+                        self.record_notification(
+                            "com.slopos.shell",
+                            "Session Action Failed",
+                            &error,
+                            NotificationPriority::High,
+                        );
+                        self.open_shell_status_window(
+                            "Session Action",
+                            [
+                                describe_plan(&SessionActionPlan::SystemCommand {
+                                    argv: argv.clone(),
+                                }),
+                                error,
+                                "Check logind/polkit permissions on the session host.".to_string(),
+                            ],
                         );
                     }
                     Err(err) => {
@@ -3022,7 +3074,7 @@ impl ShellDesktop {
                             "Session Action",
                             [
                                 describe_plan(&SessionActionPlan::SystemCommand { argv }),
-                                format!("Could not spawn: {err}"),
+                                format!("Could not execute: {err}"),
                                 "Install systemd/logind or run on a real session host.".to_string(),
                             ],
                         );
