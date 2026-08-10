@@ -4,8 +4,11 @@
 SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
+**Audited branch head:**
+`7814fcc1b0e3ef38572c7ec7da6c47c30897e08a`
 **Audited product implementation:**
-`4b3a55189c26fcee9a842f05b77c958b8cf74778`
+`4b3a55189c26fcee9a842f05b77c958b8cf74778` (the branch-head commit adds
+documentation/evidence only)
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
@@ -37,7 +40,7 @@ A read-only
 `cargo metadata --locked --format-version 1 --no-deps` check and a clean
 `git diff --exit-code -- Cargo.lock` also exited 0. The earlier baseline
 additionally covered the app-bundle packaging path, session-file dry run, and
-owned-artifact cleanup allow-list checks. The exact current head
+owned-artifact cleanup allow-list checks. The exact implementation commit
 `4b3a55189c26fcee9a842f05b77c958b8cf74778` repeated all six locked workspace
 gates in the Ubuntu VM using the shared
 `/home/ubuntu/.cache/slopos-i/cargo-target` directory. The compositor contract,
