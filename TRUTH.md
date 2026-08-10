@@ -5,7 +5,7 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`2686825f6b114ec87e13144c35b2453a69def407`
+`c3950734efed2528fe9670f6daa269fd986aa5d3`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
@@ -14,7 +14,9 @@ x86_64 VM gates retained under
 `artifacts/qa/coordination/current-wave-f9c8ce5/`, the hygiene wave under
 `artifacts/qa/coordination/current-wave-32d5d94/`, the packaging wave under
 `artifacts/qa/coordination/current-wave-6013afc/`, and the unchanged Rust gate
-wave under `artifacts/qa/coordination/current-wave-c6e7f6a/`. The baseline
+wave under `artifacts/qa/coordination/current-wave-c6e7f6a/`, plus the exact
+current screenshot-option wave under
+`artifacts/qa/coordination/current-wave-c395073/`. The baseline
 `cargo fmt --all -- --check`,
 `cargo check --workspace --all-targets --locked`,
 `cargo test --workspace --locked`,
@@ -23,7 +25,8 @@ and `cargo build --workspace --release --locked` all exited 0 for the Rust
 source tree at `c6e7f6a`; `git diff --quiet c6e7f6a..32d5d94 -- crates Cargo.toml
 Cargo.lock` exited 0, proving the intervening packaging-only waves did not alter
 that tested Rust tree. The packaging VM syntax, canonical repository URL, and
-shared-target cleanup checks at `32d5d94` also exited 0. The exact current head
+shared-target cleanup checks at `32d5d94` also exited 0. The preceding exact
+portal wave
 then passed the workspace locked gates and a `dbus-run-session`
 probe that introspected the standard portal bus/path and five static interfaces;
 the probe records `frontend_registration_only`, `live_pipewire=false` and
@@ -34,7 +37,12 @@ A read-only
 `cargo metadata --locked --format-version 1 --no-deps` check and a clean
 `git diff --exit-code -- Cargo.lock` also exited 0. The earlier baseline
 additionally covered the app-bundle packaging path, session-file dry run, and
-owned-artifact cleanup allow-list checks.
+owned-artifact cleanup allow-list checks. The exact current head
+`c3950734efed2528fe9670f6daa269fd986aa5d3` then repeated all six locked
+workspace gates; its Screenshot helper now rejects unsupported `interactive`
+and `include_cursor` options with an explicit error instead of claiming a
+capture it cannot honor. Evidence for this wave is under
+`artifacts/qa/coordination/current-wave-c395073/`.
 
 The viewport path now propagates a validated effective rational scale through
 nested and DRM render/readback calls. The compositor rejects logical/physical
