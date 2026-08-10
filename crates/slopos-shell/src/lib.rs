@@ -6919,7 +6919,10 @@ mod tests {
             .iter()
             .find(|menu| menu.title == "View")
             .expect("view menu exists");
-        assert_eq!(view.items[3].action_id, "shell.toggle_fullscreen");
+        assert!(view
+            .items
+            .iter()
+            .any(|item| item.action_id == "shell.toggle_fullscreen"));
     }
 
     #[test]

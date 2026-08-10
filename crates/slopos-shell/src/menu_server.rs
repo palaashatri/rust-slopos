@@ -175,9 +175,6 @@ impl MenuServer {
             .with_action("shell.network_connect");
         system_menu.add_separator();
         system_menu
-            .add_action("Recent Items")
-            .with_action("shell.recent_items");
-        system_menu
             .add_action("Notification Center...")
             .with_action("shell.notification_center");
         system_menu
@@ -275,31 +272,6 @@ impl MenuServer {
             .with_action("shell.close_finder_window")
             .with_shortcut(
                 KeyCode::W,
-                Modifiers {
-                    shift: false,
-                    control: false,
-                    alt: false,
-                    meta: true,
-                },
-            );
-        file_menu
-            .add_action("Save")
-            .with_action("shell.save")
-            .with_shortcut(
-                KeyCode::S,
-                Modifiers {
-                    shift: false,
-                    control: false,
-                    alt: false,
-                    meta: true,
-                },
-            );
-        file_menu.add_separator();
-        file_menu
-            .add_action("Print...")
-            .with_action("shell.print")
-            .with_shortcut(
-                KeyCode::P,
                 Modifiers {
                     shift: false,
                     control: false,
@@ -406,13 +378,6 @@ impl MenuServer {
             );
 
         let mut view_menu = Menu::new("View");
-        view_menu
-            .add_action("Show Toolbar")
-            .with_action("shell.show_toolbar");
-        view_menu
-            .add_action("Show Sidebar")
-            .with_action("shell.show_sidebar");
-        view_menu.add_separator();
         view_menu
             .add_action("Enter Fullscreen")
             .with_action("shell.toggle_fullscreen")
@@ -636,9 +601,6 @@ impl MenuServer {
         );
 
         let mut view_menu = Menu::new("View");
-        view_menu.add_action("Show Toolbar");
-        view_menu.add_action("Show Sidebar");
-        view_menu.add_separator();
         view_menu
             .add_action("Enter Fullscreen")
             .with_action("shell.toggle_fullscreen")
