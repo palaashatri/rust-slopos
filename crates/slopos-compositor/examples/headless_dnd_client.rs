@@ -10,6 +10,11 @@
 //! payloads after `wl_data_device.drop`, and finishes the offer. A test-only
 //! headless input control path drives the pointer; this is protocol evidence,
 //! not physical input or third-party compatibility evidence.
+//!
+//! A successful
+//! cross-client DnD transfer is intentionally not claimed by this headless
+//! client; physical input and third-party application coverage remain separate
+//! gates.
 
 use std::{
     env,
