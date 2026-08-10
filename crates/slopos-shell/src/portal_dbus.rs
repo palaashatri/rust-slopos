@@ -519,14 +519,12 @@ mod linux {
             };
             match handle_print_request(&req) {
                 PortalPrintResult::Queued { job_id, argv } => {
-                    let mut results = HashMap::new();
-                    if let Ok(v) = OwnedValue::try_from(Value::from(job_id)) {
-                        results.insert("job_id".into(), v);
-                    }
-                    if let Ok(v) = OwnedValue::try_from(Value::from(argv.join(" "))) {
-                        results.insert("argv".into(), v);
-                    }
-                    (0u32, results)
+                    tracing::warn!(
+                        job_id,
+                        argv = ?argv,
+                        "portal Print plan was not submitted; refusing to claim success"
+                    );
+                    (2u32, HashMap::new())
                 }
                 PortalPrintResult::Rejected { reason } => {
                     tracing::debug!(%reason, "portal Print rejected");
