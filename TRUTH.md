@@ -5,7 +5,7 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`3285801b75f430e51b766c2ee0393d24de7a2d3a`
+`d334a4459b57a2fc7bf4be70f5cdba798cbf2c7e`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
@@ -27,7 +27,9 @@ now return an error response instead of a fabricated URI, but the portal itself
 remains a protocol/PipeWire stub rather than a production xdg-desktop-portal
 implementation. App Store suggestions from an empty or unsigned catalog are
 labelled `FEATURED` and unknown entries are no longer reported as available;
-the signed install/update/remove transaction service is still incomplete.
+the signed install/update/remove transaction service is still incomplete. The
+shell no longer exposes the Recent Items, Print, Sidebar or Toolbar commands
+that previously only opened placeholder status windows.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**
