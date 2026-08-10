@@ -54,6 +54,16 @@
     "clean_room_exit": 2,
     "reason": "Release ELF/session assets are checked in a private prefix, while upgrade, rollback and uninstall transactions remain explicitly unverified."
   },
+  "cleanup": {
+    "status": "passed",
+    "log": "cleanup.log",
+    "target_before": "20G",
+    "target_after": "absent",
+    "qa_before": "absent in VM source copy",
+    "stale_tmp_directories_removed": 40,
+    "processes_after": 0,
+    "wayland_sockets_after": 0
+  },
   "logs": [
     "fmt.log",
     "check.log",
@@ -63,6 +73,7 @@
     "metadata.log",
     "viewport-self-test.log",
     "stage4-dry-run.txt",
-    "stage4-clean-room.txt"
+    "stage4-clean-room.txt",
+    "cleanup.log"
   ]
 }
