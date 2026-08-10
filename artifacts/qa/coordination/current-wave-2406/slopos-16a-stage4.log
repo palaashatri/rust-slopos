@@ -15,7 +15,7 @@
 [0;34m[TEST][0m Checking for mesa
 [1;33m[WARN][0m mesa not found (may be installed under different name)
 [0;34m[TEST][0m Checking for seatd
-[0;32m[PASS][0m seatd installed
+[1;33m[WARN][0m seatd not found (may be installed under different name)
 [0;34m[TEST][0m Checking for libinput
 [0;32m[PASS][0m libinput installed
 
@@ -65,17 +65,17 @@
 
 [0;34m========== Summary ==========[0m
 
-Results written to: /tmp/stage4-results-1786341650.txt
+Results written to: /tmp/stage4-results-1786342151.txt
 
-  [0;32mPassed:[0m  15
+  [0;32mPassed:[0m  14
   [0;31mFailed:[0m  3
-  [1;33mWarnings:[0m 6
+  [1;33mWarnings:[0m 7
   [0;34mTotal:[0m   24
 
 [0;31m✗ Some tests failed[0m
 
 Stage 4 Verification Results
-Generated: Mon Aug 10 06:00:50 AM UTC 2026
+Generated: Mon Aug 10 06:09:11 AM UTC 2026
 VM: unknown
 
 FAIL: slopos-i.desktop not found
@@ -84,7 +84,7 @@ FAIL: slopos-shell not found in PATH
 WARN: wayland not found (may be installed under different name)
 PASS: libdrm installed
 WARN: mesa not found (may be installed under different name)
-PASS: seatd installed
+WARN: seatd not found (may be installed under different name)
 PASS: libinput installed
 PASS: install.sh is executable
 PASS: install.sh syntax is valid
