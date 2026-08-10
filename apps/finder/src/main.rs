@@ -8,7 +8,7 @@ use slopos_kit::tree_view::{TreeNode, TreeView};
 use slopos_kit::window::Window;
 use slopos_kit::{
     AccessibilityNode, AccessibilityRole, Event, EventResult, FocusManager, LayoutConstraint,
-    PointerDispatcher, Rect, Size, ThemeContext, Widget, WidgetState,
+    PointerDispatcher, Rect, Size, ThemeContext, Visibility, Widget, WidgetState,
 };
 use slopos_sdk::{build_menu, Application};
 use std::path::PathBuf;
@@ -90,7 +90,6 @@ fn main() {
     view_menu.add_action("as Columns");
     view_menu.add_action("as Gallery");
     view_menu.add_separator();
-    view_menu.add_action("Show Path Bar");
     view_menu.add_action("Show Status Bar");
     view_menu.add_action("Show Sidebar");
     view_menu.add_separator();
@@ -182,6 +181,8 @@ fn main() {
                     view.navigate_to_path(PathBuf::from(home).join(folder));
                 }
             }
+            "view.show_sidebar" => view.toggle_sidebar(),
+            "view.show_status_bar" => view.toggle_status_bar(),
             _ => {}
         }
     });
@@ -201,6 +202,8 @@ pub struct FinderView {
     sidebar: TreeView,
     file_grid: IconView,
     status_bar: StatusBar,
+    sidebar_visible: bool,
+    status_bar_visible: bool,
     last_selected_path: Option<Vec<usize>>,
     back_stack: Vec<PathBuf>,
     forward_stack: Vec<PathBuf>,
@@ -258,6 +261,8 @@ impl FinderView {
             sidebar,
             file_grid,
             status_bar: StatusBar::new(),
+            sidebar_visible: true,
+            status_bar_visible: true,
             last_selected_path: None,
             back_stack: Vec::new(),
             forward_stack: Vec::new(),
@@ -291,6 +296,32 @@ impl FinderView {
             }
         }
         self.refresh_status_bar();
+    }
+
+    fn toggle_sidebar(&mut self) {
+        self.sidebar_visible = !self.sidebar_visible;
+        self.sidebar.set_visibility(if self.sidebar_visible {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        });
+        let _ = self.layout(LayoutConstraint::tight(Size::new(
+            self.rect().width,
+            self.rect().height,
+        )));
+    }
+
+    fn toggle_status_bar(&mut self) {
+        self.status_bar_visible = !self.status_bar_visible;
+        self.status_bar.set_visibility(if self.status_bar_visible {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        });
+        let _ = self.layout(LayoutConstraint::tight(Size::new(
+            self.rect().width,
+            self.rect().height,
+        )));
     }
 
     fn refresh_status_bar(&mut self) {
@@ -675,10 +706,14 @@ impl Widget for FinderView {
         self.set_rect(r);
 
         let toolbar_h = 32.0;
-        let status_h = 24.0;
+        let status_h = if self.status_bar_visible { 24.0 } else { 0.0 };
         let content_y = r.y + toolbar_h;
         let content_h = (r.height - toolbar_h - status_h).max(0.0);
-        let sidebar_w = (r.width * 0.25).clamp(150.0, 220.0).min(r.width);
+        let sidebar_w = if self.sidebar_visible {
+            (r.width * 0.25).clamp(150.0, 220.0).min(r.width)
+        } else {
+            0.0
+        };
         let grid_w = (r.width - sidebar_w).max(0.0);
 
         self.toolbar
@@ -1322,5 +1357,23 @@ mod tests {
         view.layout(LayoutConstraint::tight(Size::new(960.0, 640.0)));
 
         assert_eq!(view.status_bar.rect().y, 616.0);
+    }
+
+    #[test]
+    fn finder_view_menu_toggles_sidebar_and_status_bar_geometry() {
+        let mut view = FinderView::new();
+        view.layout(LayoutConstraint::tight(Size::new(960.0, 640.0)));
+        assert!(view.sidebar_visible);
+        assert_eq!(view.file_grid.rect().x, 220.0);
+
+        view.toggle_sidebar();
+        assert!(!view.sidebar_visible);
+        assert_eq!(view.sidebar.visibility(), Visibility::Hidden);
+        assert_eq!(view.file_grid.rect().x, 0.0);
+
+        view.toggle_status_bar();
+        assert!(!view.status_bar_visible);
+        assert_eq!(view.status_bar.visibility(), Visibility::Hidden);
+        assert_eq!(view.file_grid.rect().height, 608.0);
     }
 }
