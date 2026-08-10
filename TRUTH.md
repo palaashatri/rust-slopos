@@ -5,8 +5,8 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`efaf2c9814690cb89271a811606fabbb590498b6`
-**Audit date:** 2026-08-09
+`6153e4eb6ec8b4d520e2e35d5b19036c13309a8e`
+**Audit date:** 2026-08-10
 **Audit basis:** current-source review through the audited SHA, commit-delta
 review, exact-commit Ubuntu UTM build/test/lint/release evidence, retained
 native Wayland protocol logs, exact-commit headless Spaces runtime evidence with
@@ -32,10 +32,56 @@ compositor output-migration gates at
 output-migration control gates at
 `9c88d17c8d1a5cf7018cd12e74d4f2e47be53184`, plus the exact-commit live
 widget-tree AT-SPI host/UTM gates and explicit Wayland plus `dbus-run-session`
-TextEdit and Settings export probes recorded below.
+TextEdit and Settings export probes recorded below, plus the current
+full-width layer-shell and shaped-label UTM build gate under
+`artifacts/qa/2026-08-10-utm-6153e4e-final/` and the fresher Classic-theme
+visual capture under
+`artifacts/qa/2026-08-10-utm-label-metrics-6153e4e/`.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**
+
+### Current implementation wave — full-width shell chrome and shaped label geometry
+
+Implementation commits `4676455`, `2edabd0`, `c790465`, `fde021f`, `e137585`,
+`7a01cba` and `6153e4e` remove the two regressions reported in the current UTM
+captures. Anchored background, menu and Dock layer surfaces now request
+compositor-sized width (`0`) instead of pinning themselves to a stale startup
+width. Configure events resize the shell UI runtime and invalidate its pixels.
+Shared `cosmic-text` shaped measurements now drive menu titles, SDK
+status/menu advances, labels, tabs, dialogs, lock-screen text and button
+geometry; UTF-8 byte/character estimates are no longer used for those layout
+decisions. The final commit isolates test-only menu manifests with an RAII
+temporary directory guard; production routing is unchanged. These changes fix
+layout and hit geometry. They do not establish that every font family, script,
+scale or text-editing path is production-complete, and this wave does not claim
+a glyph-rasterizer rewrite.
+
+The exact Ubuntu UTM checkout identified by the source-hash artefacts as
+`6153e4e` is recorded under
+`artifacts/qa/2026-08-10-utm-6153e4e-final/` and
+`/home/ubuntu/rust-slopos-qa-7a01cba` on Ubuntu 26.04 aarch64. The locked UTM
+format, workspace check, Clippy and release workspace build all exited `0`;
+the workspace test log contains zero failing tests, including 347
+`slopos-shell` unit tests and the repaired
+`tests::global_menu_shortcut_opens_new_finder_window`. The DRM session reached
+`Virtual-1` at 1280×800, scale 100%, sRGB 60 Hz; the visual runtime used the
+UTM software-rendered path. Finder and Settings launched with active app IDs
+`com.slopos.finder` and `com.slopos.settings`.
+
+The fresher Classic-theme screenshots under
+`artifacts/qa/2026-08-10-utm-label-metrics-6153e4e/` were manually inspected
+and accepted for the desktop, Finder and Settings. They show the shell filling
+the visible UTM output without the previous right-side gray strip, and show
+toolbar, sidebar, theme-button, status, desktop-icon and Dock labels contained
+by their measured geometry. The earlier menu-dropdown attempt in the build
+gate is not accepted as evidence because UTM coordinate input did not open the
+dropdown. The screenshots are visual runtime evidence only; they do not prove
+all scripts, fractional scales, IME, grapheme editing, assistive-technology
+workflows or hardware rendering.
+
+The overall SLOPOS-I verdict remains **63/100**; no completion or renderer score
+increase is justified from this wave.
 
 ### Current implementation wave — live widget accessibility bridge
 

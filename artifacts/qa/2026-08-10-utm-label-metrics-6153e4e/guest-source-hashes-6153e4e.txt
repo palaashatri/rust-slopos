@@ -1,0 +1,6 @@
+ecd051be8483f8f20d3eff24a2aab0a9386e21c47185ce753268ac7862fe04aa  /home/ubuntu/rust-slopos-qa-7a01cba/Cargo.toml
+40be7b4b56585ba1fc2a0b57ea9469730f0869295266c840b8b9801e71e6a9d1  /home/ubuntu/rust-slopos-qa-7a01cba/Cargo.lock
+df620715678aad3e442acf0e24e93ad998590e90acb455f0541c7c4470213e92  /home/ubuntu/rust-slopos-qa-7a01cba/crates/slopos-shell/src/lib.rs
+08a3f99a5e4632311abdac38cb6aef9c2aadcaf728212d12b0629c4ec9d3c5d0  /home/ubuntu/rust-slopos-qa-7a01cba/crates/slopos-kit/src/text_metrics.rs
+22598e62d85c326f33f4c3d3715b7a77362c57f0f98539107f2aa8f06041a8db  /home/ubuntu/rust-slopos-qa-7a01cba/crates/slopos-kit/src/text_field.rs
+d5f2872d8f15603350aaeaa55ff41c33397c5b5d561890eaac4c2193ed8e47ff  /home/ubuntu/rust-slopos-qa-7a01cba/crates/slopos-shell/src/layer_desktop.rs
