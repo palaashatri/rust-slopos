@@ -5,7 +5,7 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`db03c075634f2f362dc9a64b9745f885860562e5`
+`d7964a6bf125212709947fb87f12bcfe266540ed`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
@@ -59,6 +59,9 @@ reflow the file grid; the path bar remains hidden until a dedicated widget is
 implemented. The default shell menu also no longer exposes unindexed Help
 Search or fallback Rename actions, and their unavailable handlers are no
 longer routed from shell dispatch.
+First-party Finder, Settings, Terminal, TextEdit and App Store menus likewise
+omit actions whose client handlers do not exist; their remaining visible
+actions are backed by the tested application or compositor paths.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**

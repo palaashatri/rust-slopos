@@ -3,7 +3,7 @@
   "objective": "Complete software-completable SLOPOS-I requirements from the supplied zero-regression production programme.",
   "branch": "codex-complete-spec",
   "base_commit": "8d3d3a8da0364e22c4562f568a292bf6a9e502d7",
-  "implementation_commit": "db03c075634f2f362dc9a64b9745f885860562e5",
+  "implementation_commit": "d7964a6bf125212709947fb87f12bcfe266540ed",
   "coordination_policy": "Exclusive file ownership; serial integration; no generated Markdown hand-off files.",
   "tasks": [
     {
@@ -33,7 +33,7 @@
       "owner": "subsystem-review",
       "status": "in_progress",
       "scope": ["stub/no-op audit", "portals", "settings/services", "applications", "accessibility", "security", "packaging"],
-      "completed_slice": "CI lockfile validation, installer/cache paths, package provenance, stage harness counter, honest screenshot/print/App Store results, hidden shell placeholders, checked NetworkManager results, session confirmations, safe installed-bundle update/remove transactions, fail-closed unsupported portal reads/session creation, bounded session Recent Items, live Finder sidebar/status toggles, hidden unindexed shell actions, and removal of their unavailable shell dispatch handlers"
+      "completed_slice": "CI lockfile validation, installer/cache paths, package provenance, stage harness counter, honest screenshot/print/App Store results, hidden shell placeholders, checked NetworkManager results, session confirmations, safe installed-bundle update/remove transactions, fail-closed unsupported portal reads/session creation, bounded session Recent Items, live Finder sidebar/status toggles, hidden unindexed shell actions, removal of their unavailable shell dispatch handlers, and first-party app menu pruning for unhandled actions"
     },
     {
       "id": "verification",
@@ -41,7 +41,7 @@
       "status": "in_progress",
       "scope": ["focused tests", "workspace gates", "Ubuntu VM runtime evidence", "TRUTH update"],
       "evidence": "current-wave-2406/status.json",
-      "truth_audit_commit": "db03c075634f2f362dc9a64b9745f885860562e5"
+      "truth_audit_commit": "d7964a6bf125212709947fb87f12bcfe266540ed"
     }
   ]
 }

@@ -1,6 +1,6 @@
 cd /home/ubuntu/slopos
 export CARGO_TARGET_DIR=/home/ubuntu/.cache/slopos-i/cargo-target
-export SLOPOS_COMMIT=db03c075634f2f362dc9a64b9745f885860562e5
+export SLOPOS_COMMIT=d7964a6bf125212709947fb87f12bcfe266540ed
 export SLOPOS_BRANCH=codex-complete-spec
 cargo fmt --all -- --check
 cargo check --workspace --all-targets --locked
