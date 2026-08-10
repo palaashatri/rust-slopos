@@ -1,0 +1,4 @@
+tmp_slopos=0
+processes=0
+target=1.8G /home/ubuntu/.cache/slopos-i/cargo-target
+Cleanup removed only /tmp/slopos-* logs and the owned cargo-target/debug directory after evidence transfer.

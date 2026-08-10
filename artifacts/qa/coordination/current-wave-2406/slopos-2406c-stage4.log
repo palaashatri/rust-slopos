@@ -1,0 +1,104 @@
+
+[0;34m========== Task 4.0: Re-ground verification ==========[0m
+[0;34m[TEST][0m Checking for slopos-i.desktop
+[0;31m[FAIL][0m slopos-i.desktop not found
+[0;34m[TEST][0m Checking for slopos-compositor binary
+[0;31m[FAIL][0m slopos-compositor not found in PATH
+[0;34m[TEST][0m Checking for slopos-shell binary
+[0;31m[FAIL][0m slopos-shell not found in PATH
+
+[0;34m========== Task 4.1: Dependencies verification ==========[0m
+[0;34m[TEST][0m Checking for wayland
+[1;33m[WARN][0m wayland not found (may be installed under different name)
+[0;34m[TEST][0m Checking for libdrm
+[0;32m[PASS][0m libdrm installed
+[0;34m[TEST][0m Checking for mesa
+[1;33m[WARN][0m mesa not found (may be installed under different name)
+[0;34m[TEST][0m Checking for seatd
+[0;32m[PASS][0m seatd installed
+[0;34m[TEST][0m Checking for libinput
+[0;32m[PASS][0m libinput installed
+
+[0;34m========== Task 4.2: Layered installer verification ==========[0m
+[0;34m[TEST][0m Checking install.sh exists and is executable
+[0;32m[PASS][0m install.sh is executable
+[0;34m[TEST][0m Checking install.sh syntax
+[0;32m[PASS][0m install.sh syntax is valid
+[0;34m[TEST][0m Checking install.sh for required functions
+[0;32m[PASS][0m install.sh has session files wiring
+
+[0;34m========== Task 4.3: PKGBUILD verification ==========[0m
+[0;34m[TEST][0m Checking PKGBUILD exists
+[0;32m[PASS][0m PKGBUILD exists
+[0;34m[TEST][0m Checking PKGBUILD for slopos-i package
+[0;32m[PASS][0m PKGBUILD defines slopos-i package
+[0;34m[TEST][0m Checking PKGBUILD for build function
+[0;32m[PASS][0m PKGBUILD has cargo build command
+
+[0;34m========== Task 4.4: .deb packaging verification ==========[0m
+[0;34m[TEST][0m Checking debian/control exists
+[0;32m[PASS][0m debian/control exists
+[0;34m[TEST][0m Checking debian/rules is executable
+[0;32m[PASS][0m debian/rules is executable
+[0;34m[TEST][0m Checking debian/rules for build command
+[0;32m[PASS][0m debian/rules has cargo build
+
+[0;34m========== Task 4.7: archiso profile verification ==========[0m
+[0;34m[TEST][0m Checking ISO profile exists
+[0;32m[PASS][0m ISO packages.x86_64 exists
+[0;34m[TEST][0m Checking ISO build script
+[0;32m[PASS][0m build-iso.sh is executable
+[0;34m[TEST][0m Checking profiledef.sh
+[0;32m[PASS][0m profiledef.sh exists
+
+[0;34m========== Task 4.5–4.6: Runtime verification (if installed) ==========[0m
+[0;34m[TEST][0m Checking if slopos-compositor can be found
+[1;33m[WARN][0m slopos-compositor not installed (expected if this is pre-install)
+[0;34m[TEST][0m Checking if slopos-shell can be found
+[1;33m[WARN][0m slopos-shell not installed (expected if this is pre-install)
+
+[0;34m========== Session file verification ==========[0m
+[1;33m[WARN][0m No slopos-i.desktop found in standard locations (may be installed)
+
+[0;34m========== Greeter configuration (if enabled) ==========[0m
+[1;33m[WARN][0m greetd not configured (expected if --with-greeter not used)
+
+[0;34m========== Summary ==========[0m
+
+Results written to: /tmp/stage4-results-1786340008.txt
+
+  [0;32mPassed:[0m  15
+  [0;31mFailed:[0m  3
+  [1;33mWarnings:[0m 6
+  [0;34mTotal:[0m   24
+
+[0;31m✗ Some tests failed[0m
+
+Stage 4 Verification Results
+Generated: Mon Aug 10 05:33:28 AM UTC 2026
+VM: unknown
+
+FAIL: slopos-i.desktop not found
+FAIL: slopos-compositor not found in PATH
+FAIL: slopos-shell not found in PATH
+WARN: wayland not found (may be installed under different name)
+PASS: libdrm installed
+WARN: mesa not found (may be installed under different name)
+PASS: seatd installed
+PASS: libinput installed
+PASS: install.sh is executable
+PASS: install.sh syntax is valid
+PASS: install.sh has session files wiring
+PASS: PKGBUILD exists
+PASS: PKGBUILD defines slopos-i package
+PASS: PKGBUILD has cargo build command
+PASS: debian/control exists
+PASS: debian/rules is executable
+PASS: debian/rules has cargo build
+PASS: ISO packages.x86_64 exists
+PASS: build-iso.sh is executable
+PASS: profiledef.sh exists
+WARN: slopos-compositor not installed (expected if this is pre-install)
+WARN: slopos-shell not installed (expected if this is pre-install)
+WARN: No slopos-i.desktop found in standard locations (may be installed)
+WARN: greetd not configured (expected if --with-greeter not used)

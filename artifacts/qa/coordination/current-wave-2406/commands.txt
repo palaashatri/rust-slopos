@@ -1,0 +1,11 @@
+cd /home/ubuntu/slopos
+export CARGO_TARGET_DIR=/home/ubuntu/.cache/slopos-i/cargo-target
+export SLOPOS_COMMIT=1dd99e4258d1b79b11de1ff8dc09fa922a7504d8
+export SLOPOS_BRANCH=codex-complete-spec
+cargo fmt --all -- --check
+cargo check --workspace --all-targets --locked
+timeout 240s cargo test --workspace --locked
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo build --workspace --release --locked
+cargo metadata --locked --format-version 1 --no-deps
+git diff --exit-code -- Cargo.lock

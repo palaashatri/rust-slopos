@@ -1,0 +1,15 @@
+captured_at=2026-08-10T05:30:40Z
+vm=VirtualBox Ubuntu VM
+distribution=Ubuntu 26.04 x86_64
+kernel=7.0.0-29-generic
+workspace=/home/ubuntu/slopos
+target_directory=/home/ubuntu/.cache/slopos-i/cargo-target
+source_commit=1dd99e4258d1b79b11de1ff8dc09fa922a7504d8
+branch=codex-complete-spec
+fmt_exit=0
+check_exit=0
+test_exit=0
+clippy_exit=0
+release_exit=0
+metadata_exit=0
+lockfile_diff_exit=0 (host checkout, git diff --exit-code -- Cargo.lock)

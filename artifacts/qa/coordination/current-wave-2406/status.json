@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "implementation_commit": "1dd99e4258d1b79b11de1ff8dc09fa922a7504d8",
+  "source_commit_under_test": "1dd99e4258d1b79b11de1ff8dc09fa922a7504d8",
+  "branch": "codex-complete-spec",
+  "captured_at": "2026-08-10T05:30:40Z",
+  "environment": {
+    "vm": "VirtualBox Ubuntu VM",
+    "distribution": "Ubuntu 26.04 x86_64",
+    "kernel": "7.0.0-29-generic",
+    "target_directory": "/home/ubuntu/.cache/slopos-i/cargo-target"
+  },
+  "commands": {
+    "fmt": "cargo fmt --all -- --check",
+    "check": "cargo check --workspace --all-targets --locked",
+    "test": "timeout 240s cargo test --workspace --locked",
+    "clippy": "cargo clippy --workspace --all-targets --all-features --locked -- -D warnings",
+    "release": "cargo build --workspace --release --locked",
+    "metadata": "cargo metadata --locked --format-version 1 --no-deps"
+  },
+  "exit_codes": {
+    "fmt": 0,
+    "check": 0,
+    "test": 0,
+    "clippy": 0,
+    "release": 0,
+    "metadata": 0
+  },
+  "lockfile_diff": 0,
+  "logs": [
+    "slopos-2406c-fmt.log",
+    "slopos-2406c-check.log",
+    "slopos-2406c-test.log",
+    "slopos-2406c-clippy.log",
+    "slopos-2406c-release.log",
+    "slopos-2406c-metadata-readonly.log",
+    "slopos-2406c-lockfile.log"
+  ],
+  "runtime_viewport": {
+    "status": "not_observed",
+    "reason": "The Ubuntu VM has no usable nested DRI3 path and its DRM node is busy; source and deterministic validator coverage do not replace a compositor framebuffer capture."
+  },
+  "validator_self_test": {
+    "status": "passed",
+    "log": "viewport-self-test.log",
+    "negative_fixture": "clear/unpainted edge band exceeds 2 pixels: top=3"
+  },
+  "packaging_stage4": {
+    "status": "failed",
+    "exit_code": 1,
+    "log": "slopos-2406c-stage4.log",
+    "reason": "Pre-install VM lacks the installed desktop/session assets; the harness correctly reports three failures and six warnings instead of claiming a release install pass."
+  },
+  "cleanup": {
+    "status": "passed",
+    "log": "cleanup.log",
+    "tmp_slopos": 0,
+    "matching_processes": 0,
+    "target_after_debug_cleanup": "1.8G"
+  }
+}

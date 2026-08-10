@@ -1,0 +1,2 @@
+SCRIPT_STATUS:0
+Command: sh -n scripts/verify-viewport-runtime.sh scripts/capture-viewport-runtime.sh scripts/cleanup-owned-artifacts.sh && python3 -m py_compile scripts/viewport_gate.py

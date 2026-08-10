@@ -1,0 +1,4 @@
+   Compiling slopos-compositor v0.1.0 (/home/ubuntu/slopos/crates/slopos-compositor)
+    Checking slopos-shell v0.1.0 (/home/ubuntu/slopos/crates/slopos-shell)
+    Checking settings v0.1.0 (/home/ubuntu/slopos/apps/settings)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.18s
