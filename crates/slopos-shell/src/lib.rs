@@ -3345,13 +3345,15 @@ impl ShellDesktop {
         let network_line = network_manager::get_network_status().summary_line();
 
         let mut layout = Layout::vertical(12.0);
-        layout.add(Box::new(Label::new("          SLOPOS-I   ")));
+        layout.add(Box::new(Label::new("           SLOPOS-I")));
         layout.add(Box::new(Label::new(
             "----------------------------------------",
         )));
         layout.add(Box::new(Label::new("    Classic Desktop Environment")));
         layout.add(Box::new(Label::new("    Built in Rust with wgpu")));
-        layout.add(Box::new(Label::new("    Version 1.0.0 (Production)")));
+        layout.add(Box::new(Label::new(
+            "    Version 0.1.0 (development preview)",
+        )));
         layout.add(Box::new(Label::new(
             "----------------------------------------",
         )));
