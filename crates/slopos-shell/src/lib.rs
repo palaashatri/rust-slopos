@@ -4857,6 +4857,39 @@ mod tests {
     static LOCK_PASSWORD_ENV_LOCK: Mutex<()> = Mutex::new(());
     static SESSION_RUNTIME_ENV_LOCK: Mutex<()> = Mutex::new(());
 
+    struct MenuManifestEnvGuard {
+        previous: Option<std::ffi::OsString>,
+        directory: std::path::PathBuf,
+    }
+
+    impl MenuManifestEnvGuard {
+        fn new() -> Self {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let directory =
+                std::env::temp_dir().join(format!("slopos-i_menu_manifest_test_{unique}"));
+            fs::create_dir_all(&directory).unwrap();
+            let previous = std::env::var_os("SLOPOS_MENU_MANIFEST_DIR");
+            std::env::set_var("SLOPOS_MENU_MANIFEST_DIR", &directory);
+            Self {
+                previous,
+                directory,
+            }
+        }
+    }
+
+    impl Drop for MenuManifestEnvGuard {
+        fn drop(&mut self) {
+            match self.previous.take() {
+                Some(previous) => std::env::set_var("SLOPOS_MENU_MANIFEST_DIR", previous),
+                None => std::env::remove_var("SLOPOS_MENU_MANIFEST_DIR"),
+            }
+            let _ = fs::remove_dir_all(&self.directory);
+        }
+    }
+
     #[test]
     fn foreign_toplevel_matching_accepts_only_known_or_exact_bundle_ids() {
         assert!(ShellDesktop::foreign_toplevel_matches_bundle(
@@ -6796,6 +6829,14 @@ mod tests {
 
     #[test]
     fn global_menu_shortcut_opens_new_finder_window() {
+        // Keep this in-process policy test independent of a stale manifest
+        // left by a previous session under the ambient XDG runtime directory.
+        // Production clients intentionally share that session directory; the
+        // test must not accidentally import another app's menu while building
+        // its synthetic Finder window.
+        let _guard = MENU_MANIFEST_ENV_LOCK.lock().unwrap();
+        let _manifest_guard = MenuManifestEnvGuard::new();
+
         let (mut desktop, _) = test_desktop();
         let initial_count = desktop.windows.len();
 
