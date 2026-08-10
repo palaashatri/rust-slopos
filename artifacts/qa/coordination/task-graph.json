@@ -3,7 +3,7 @@
   "objective": "Complete software-completable SLOPOS-I requirements from the supplied zero-regression production programme.",
   "branch": "codex-complete-spec",
   "base_commit": "8d3d3a8da0364e22c4562f568a292bf6a9e502d7",
-  "implementation_commit": "86b3da18d09c7f62c12738ec92041f56778ead3c",
+  "implementation_commit": "884039739336c4634620b267d95544251626e2ef",
   "coordination_policy": "Exclusive file ownership; serial integration; no generated Markdown hand-off files.",
   "tasks": [
     {
@@ -19,7 +19,7 @@
       "status": "in_progress",
       "scope": ["authoritative output geometry", "layer-shell configure sizes", "framebuffer dimension checks", "edge-band detection", "JSON evidence"],
       "completed_slice": "compositor-owned nested readback state, strict JSON/PNG validator, SIGUSR1 runtime driver, and deterministic positive/negative fixtures",
-      "evidence": "current-wave-86b3/status.json"
+      "evidence": "current-wave-8840/status.json"
     },
     {
       "id": "artifact-hygiene",
@@ -33,15 +33,15 @@
       "owner": "subsystem-review",
       "status": "in_progress",
       "scope": ["stub/no-op audit", "portals", "settings/services", "applications", "accessibility", "security", "packaging"],
-      "completed_slice": "CI lockfile validation, installer/cache paths, package provenance, stage harness counter, honest screenshot/print/App Store results, hidden shell placeholders, checked NetworkManager results, session confirmations, safe installed-bundle update/remove transactions, fail-closed unsupported portal reads/session creation, and bounded session Recent Items"
+      "completed_slice": "CI lockfile validation, installer/cache paths, package provenance, stage harness counter, honest screenshot/print/App Store results, hidden shell placeholders, checked NetworkManager results, session confirmations, safe installed-bundle update/remove transactions, fail-closed unsupported portal reads/session creation, bounded session Recent Items, and live Finder sidebar/status toggles"
     },
     {
       "id": "verification",
       "owner": "orchestrator",
       "status": "in_progress",
       "scope": ["focused tests", "workspace gates", "Ubuntu VM runtime evidence", "TRUTH update"],
-      "evidence": "current-wave-86b3/status.json",
-      "truth_audit_commit": "86b3da18d09c7f62c12738ec92041f56778ead3c"
+      "evidence": "current-wave-8840/status.json",
+      "truth_audit_commit": "884039739336c4634620b267d95544251626e2ef"
     }
   ]
 }
