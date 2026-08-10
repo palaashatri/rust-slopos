@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "commit": "3d897a934f5f7f4fffd6f2ba1d9e4ffca05f853d",
+  "branch": "codex-complete-spec",
+  "environment": {
+    "os": "Ubuntu 26.04 x86_64",
+    "vm": "VirtualBox headless Ubuntu VM",
+    "rust": "1.97.1",
+    "cargo_target_dir": "/home/ubuntu/.cache/slopos-i/cargo-target"
+  },
+  "commands": [
+    {"command": "cargo fmt --all -- --check", "expected_exit": 0, "actual_exit": 0, "log": "slopos-3d897-fmt.log"},
+    {"command": "cargo check --workspace --all-targets --locked", "expected_exit": 0, "actual_exit": 0, "log": "slopos-3d897-check.log"},
+    {"command": "cargo test --workspace --locked", "expected_exit": 0, "actual_exit": 0, "log": "slopos-3d897-test.log"},
+    {"command": "cargo clippy --workspace --all-targets --all-features --locked -- -D warnings", "expected_exit": 0, "actual_exit": 0, "log": "slopos-3d897-clippy.log"},
+    {"command": "cargo build --workspace --release --locked", "expected_exit": 0, "actual_exit": 0, "log": "slopos-3d897-release.log"},
+    {"command": "cargo metadata --locked --format-version 1 --no-deps", "expected_exit": 0, "actual_exit": 0, "log": "slopos-3d897-metadata-readonly.log"},
+    {"command": "git diff --exit-code -- Cargo.lock", "expected_exit": 0, "actual_exit": 0, "log": "lockfile-diff.log"}
+  ],
+  "build_provenance": {
+    "SLOPOS_COMMIT": "3d897a934f5f7f4fffd6f2ba1d9e4ffca05f853d",
+    "SLOPOS_BRANCH": "codex-complete-spec"
+  },
+  "notes": [
+    "The full workspace test log is retained verbatim; no test filtering was used.",
+    "The lockfile check is read-only and uses the committed Cargo.lock.",
+    "This wave makes unsupported Settings.ReadAll and ScreenCast CreateSession fail closed; it does not implement standard portal registration or a live PipeWire graph."
+  ]
+}
