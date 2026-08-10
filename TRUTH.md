@@ -5,10 +5,10 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited branch head:**
-`40f0e087c2fa5c51b82616747aa7e4eb5bc5a0e2` (the ledger update is a
+`bedaa56538c68f8fb60157f2d6657f905eb1ed7b` (the ledger update is a
 documentation-only commit on top of this implementation commit)
 **Audited product implementation:**
-`40f0e087c2fa5c51b82616747aa7e4eb5bc5a0e2`
+`bedaa56538c68f8fb60157f2d6657f905eb1ed7b`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
@@ -64,6 +64,17 @@ the compositor check passed, the viewport shell syntax and validator
 self-test passed, and the portal probe passed only at
 `frontend_registration_only` scope (`live_pipewire=false`,
 `permission_backend=false`).
+
+The follow-on compositor capture-wire implementation is
+`bedaa56538c68f8fb60157f2d6657f905eb1ed7b`, with exact VM evidence under
+`artifacts/qa/coordination/current-wave-bedaa565/`. It adds a typed
+same-UID `CaptureScreenshot` session-control request, path validation and
+redraw scheduling in both nested and DRM control loops, and a portal wait for
+the compositor's atomically committed PNG. The VM repeated all locked
+workspace gates, the portal frontend probe, compositor screenshot tests,
+portal tests and viewport validator self-test successfully. No real
+framebuffer capture was observed, so this is a source/build/runtime-probe
+boundary rather than a completed viewport or portal acceptance result.
 
 The viewport path now propagates a validated effective rational scale through
 nested and DRM render/readback calls. The compositor rejects logical/physical
@@ -1857,6 +1868,25 @@ The overall score remains **63/100**. Real nested/DRM framebuffer capture,
 layer configure/ack/frame runtime evidence, physical display evidence, live
 PipeWire permissions, complete release lifecycle, third-party compatibility,
 accessibility, security, recovery and soak gates remain open.
+
+### Current implementation wave — compositor-owned Screenshot request wiring
+
+At implementation commit
+`bedaa56538c68f8fb60157f2d6657f905eb1ed7b`, the portal Screenshot path no
+longer stops at a permanently disconnected backend. It sends a typed
+`CaptureScreenshot` request over the session's credential-checked datagram
+socket. Nested and DRM compositor handlers validate the absolute destination,
+arm the existing in-process framebuffer readback and request a redraw; the
+portal waits for a unique, atomically committed PNG and returns an error on
+timeout. The bus request has JSON round-trip coverage and the focused bus,
+compositor and shell tests passed in the exact Ubuntu VM wave.
+
+The standard portal probe still records only frontend registration:
+`live_pipewire=false` and `permission_backend=false`. The available VM could
+not render a nested/DRM frame (the DRM session was resource-busy), so no
+portal-produced framebuffer URI, layer configure/ack/frame cycle, exact PNG
+dimension matrix or browser-consumer evidence is claimed. The overall score
+remains **63/100**.
 
 ## 16. Bottom line
 

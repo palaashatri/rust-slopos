@@ -1,0 +1,30 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running unittests src/lib.rs (/home/ubuntu/.cache/slopos-i/cargo-target/debug/deps/slopos_compositor-3c3024a7653d8977)
+
+running 5 tests
+test screenshot::tests::capture_destination_must_be_absolute ... ok
+test screenshot::tests::capture_dimensions_are_bounded_before_allocation ... ok
+test screenshot::tests::malformed_row_buffer_is_rejected ... ok
+test screenshot::tests::render_scale_accepts_supported_integer_and_fractional_values ... ok
+test screenshot::tests::row_flip_is_exact_and_in_place ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 175 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/ubuntu/.cache/slopos-i/cargo-target/debug/deps/slopos_compositor-377ddced2c375403)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests/compositor_completion_contract.rs (/home/ubuntu/.cache/slopos-i/cargo-target/debug/deps/compositor_completion_contract-0d52ad7ef4b81648)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 37 filtered out; finished in 0.00s
+
+     Running tests/compositor_tests.rs (/home/ubuntu/.cache/slopos-i/cargo-target/debug/deps/compositor_tests-da4cfb73906c3019)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+

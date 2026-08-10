@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "component": "slopos-i-compositor-portal-capture-wire",
+  "commit": "bedaa56538c68f8fb60157f2d6657f905eb1ed7b",
+  "branch": "codex-complete-spec",
+  "timestamp": "2026-08-10",
+  "environment": {
+    "os": "Ubuntu 26.04",
+    "kernel": "7.0.0-29-generic",
+    "arch": "x86_64",
+    "target_dir": "/home/ubuntu/.cache/slopos-i/cargo-target"
+  },
+  "locked_workspace_gates": {
+    "cargo_fmt": "passed",
+    "cargo_check_workspace_all_targets_locked": "passed",
+    "cargo_test_workspace_locked": "passed",
+    "cargo_clippy_workspace_all_targets_all_features_locked_warnings_denied": "passed",
+    "cargo_build_workspace_release_locked": "passed",
+    "cargo_metadata_locked": "passed",
+    "cargo_lockfile": {
+      "status": "passed",
+      "method": "sha256 equality between local checkout and VM source export",
+      "local_sha256": "dc92aa97f0d1223953f15c797a3f7230c2a70bf0125e10f06635f71e078175fa",
+      "vm_sha256": "dc92aa97f0d1223953f15c797a3f7230c2a70bf0125e10f06635f71e078175fa",
+      "note": "The VM source export has no .git directory; repository CI performs metadata plus git diff on a real checkout."
+    }
+  },
+  "focused_gates": {
+    "session_control_tests": "passed",
+    "compositor_screenshot_tests": "passed",
+    "shell_portal_tests": "passed",
+    "component_clippy": "passed",
+    "portal_runtime": {
+      "status": "passed",
+      "scope": "frontend_registration_only",
+      "live_pipewire": false,
+      "permission_backend": false,
+      "request_probe": "FileChooser.OpenFile failed closed and Request.Close succeeded"
+    },
+    "viewport_shell_syntax": "passed",
+    "viewport_validator_self_test": {
+      "positive_fixture": "passed",
+      "negative_three_pixel_edge_fixture": "failed as expected"
+    }
+  },
+  "implementation_scope": [
+    "typed CaptureScreenshot session-control request with same-UID datagram transport",
+    "nested and DRM compositor request handlers validate paths and schedule redraw",
+    "in-process screenshot readback accepts a pending request destination",
+    "portal Screenshot waits for a unique atomically committed compositor PNG"
+  ],
+  "known_unverified": [
+    "real nested or DRM framebuffer capture and layer configure/ack/frame runtime matrix",
+    "physical DRM/HDR/VRR hardware evidence",
+    "live permission-mediated PipeWire graph and Firefox/Chromium/Electron consumers",
+    "complete install/upgrade/rollback/uninstall lifecycle from a clean machine",
+    "full desktop application compatibility, accessibility, security, recovery and soak gates"
+  ],
+  "artifacts": [
+    "check.log",
+    "test.log",
+    "clippy.log",
+    "release.log",
+    "metadata.log",
+    "lockfile-sha256.log",
+    "portal-runtime/bedaa56538c68f8fb60157f2d6657f905eb1ed7b.json",
+    "screenshot-test.log",
+    "screenshot-check.log",
+    "viewport-selftest.log",
+    "summary.json"
+  ]
+}
