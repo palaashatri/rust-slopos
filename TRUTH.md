@@ -5,11 +5,11 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`3d897a934f5f7f4fffd6f2ba1d9e4ffca05f853d`
+`86b3da18d09c7f62c12738ec92041f56778ead3c`
 **Audit date:** 2026-08-10
 **Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
 x86_64 VM gates retained under
-`artifacts/qa/coordination/current-wave-3d897/`. `cargo fmt --all -- --check`,
+`artifacts/qa/coordination/current-wave-86b3/`. `cargo fmt --all -- --check`,
 `cargo check --workspace --all-targets --locked`,
 `cargo test --workspace --locked`,
 `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`,
@@ -51,7 +51,9 @@ distribution catalogue, authentication stack, or clean-machine release path.
 The About dialog now uses the factual development-preview label rather than a
 production/version claim. Unsupported Settings.ReadAll and ScreenCast
 CreateSession calls now fail closed; standard portal registration and the live
-PipeWire graph remain unimplemented.
+PipeWire graph remain unimplemented. Session Recent Items now records the
+bounded, de-duplicated applications and locations opened during the current
+session; durable history remains intentionally unimplemented.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**
