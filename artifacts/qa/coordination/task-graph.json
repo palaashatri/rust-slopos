@@ -3,6 +3,7 @@
   "objective": "Complete software-completable SLOPOS-I requirements from the supplied zero-regression production programme.",
   "branch": "codex-complete-spec",
   "base_commit": "8d3d3a8da0364e22c4562f568a292bf6a9e502d7",
+  "implementation_commit": "3d5cac07a9ed3d132a2705217b187f4bfd7320d1",
   "coordination_policy": "Exclusive file ownership; serial integration; no generated Markdown hand-off files.",
   "tasks": [
     {
@@ -36,9 +37,10 @@
     {
       "id": "verification",
       "owner": "orchestrator",
-      "status": "in_progress",
+      "status": "completed",
       "scope": ["focused tests", "workspace gates", "Ubuntu VM runtime evidence", "TRUTH update"],
-      "evidence": "baseline-8d3d3a8/"
+      "evidence": "baseline-8d3d3a8/",
+      "truth_audit_commit": "3d5cac07a9ed3d132a2705217b187f4bfd7320d1"
     }
   ]
 }

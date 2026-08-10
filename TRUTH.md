@@ -5,43 +5,48 @@ SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
 **Audited product implementation:**
-`6153e4eb6ec8b4d520e2e35d5b19036c13309a8e`
+`3d5cac07a9ed3d132a2705217b187f4bfd7320d1`
 **Audit date:** 2026-08-10
-**Audit basis:** current-source review through the audited SHA, commit-delta
-review, exact-commit Ubuntu UTM build/test/lint/release evidence, retained
-native Wayland protocol logs, exact-commit headless Spaces runtime evidence with
-a real Preview client, exact-commit Settings/IPC/Spaces output-assignment QA,
-exact-commit application-ID Spaces-policy runtime QA, exact-commit
-Settings application-policy control/reconciliation tests in Ubuntu UTM, exact-
-commit display-topology source/contract and headless runtime evidence, and the
-exact-commit keyboard-overview focused suites, display-policy failure-path
-runtime QA, active-window Spaces move runtime QA with a real Preview client,
-and exact-commit compositor contract/headless protocol reruns recorded below.
-The current audit also includes the exact-commit App Store authenticity tests,
-target-disconnect DnD cancellation runtime, Ubuntu UTM Clippy/release
-validation, bounded XWayland crash-recovery runtime and the exact-current-head
-Ubuntu UTM regression gates recorded below, plus the exact-commit rootless
-XWayland scene and malformed-Spaces-persistence recovery gates at
-`3b6323a010138600296b82ff6f0e92c7413c82df`, and the exact-commit
-three-finger gesture policy/build/test gates at
-`b9ab5045107a230817d3814c0a70f680778b4c00`, plus the exact-commit
-headless synthetic gesture runtime gate and full Ubuntu UTM regression gates
-at `7032c7dd1bad2583866d0e1172aa19fed1066a62`, plus the exact-commit
-compositor output-migration gates at
-`a669059be4e6a1f43a8e636a239aa89de356396d` and the exact-commit Settings
-output-migration control gates at
-`9c88d17c8d1a5cf7018cd12e74d4f2e47be53184`, plus the exact-commit live
-widget-tree AT-SPI host/UTM gates and explicit Wayland plus `dbus-run-session`
-TextEdit and Settings export probes recorded below, plus the current
-full-width layer-shell and shaped-label UTM build gate under
-`artifacts/qa/2026-08-10-utm-6153e4e-final/` and the fresher Classic-theme
-visual capture under
-`artifacts/qa/2026-08-10-utm-label-metrics-6153e4e/`.
+**Audit basis:** source review of this branch, plus the exact Ubuntu 26.04
+x86_64 VM gates retained under
+`artifacts/qa/coordination/baseline-8d3d3a8/`. `cargo fmt --all -- --check`,
+`cargo check --workspace --all-targets --locked`,
+`cargo test --workspace --locked`,
+`cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`,
+and `cargo build --workspace --release --locked` all exited 0. The same VM
+ran the locked metadata check without changing `Cargo.lock`, the app-bundle
+packaging path, the session-file dry run, and the owned-artifact cleanup
+allow-list checks.
+
+The viewport gate is a schema-validating QA tool. Its deterministic fixture
+passes, its three-pixel clear-edge fixture fails, and a fixture is rejected by
+the normal runtime mode because it is not compositor provenance. No current
+artifact proves a real compositor framebuffer or a live layer configure/ack
+cycle; those remain release-blocking runtime work.
 **Public target:** a 100/100 production Linux desktop environment that genuinely
 competes with KDE Plasma and GNOME as a daily driver.
 **Current verdict:** **63/100 — functional custom desktop alpha.**
 
-### Current implementation wave — full-width shell chrome and shaped label geometry
+### Open release blockers
+
+- The viewport validator is fixture-tested only; nested compositor readback and
+  compositor-owned output/layer configure/ack/frame telemetry are not yet wired
+  into a runtime evidence producer.
+- The portal implementation still contains private protocol and PipeWire
+  placeholders, and the screenshot/recording path is not a production Wayland
+  screencast implementation. Firefox/Chromium consumer evidence is absent.
+- First-party Settings, shell controls, software management, security/permission
+  services, third-party compatibility, accessibility workflows, recovery and
+  physical DRM/HDR/VRR gates remain incomplete or unverified.
+- The Arch package is pinned to the audited main archive until a signed release
+  tag is published; clean install, upgrade, rollback and uninstall are not
+  proven by the current VM run. The stage-4 harness still reports missing
+  pre-install runtime assets by design.
+
+### Historical implementation wave — full-width shell chrome and shaped label geometry
+
+The following UTM material is retained historical evidence, not evidence for
+the current branch head. Its cited source hash is not present in this checkout.
 
 Implementation commits `4676455`, `2edabd0`, `c790465`, `fde021f`, `e137585`,
 `7a01cba` and `6153e4e` remove the two regressions reported in the current UTM
