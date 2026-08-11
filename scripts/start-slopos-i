@@ -1,16 +1,12 @@
 #!/usr/bin/env bash
-# start-slopos-i — stable XDG session entry for SLOPOS-I.
+# start-slopos-i — XDG session launcher for SLOPOS-I X11 Desktop.
 # Copyright (c) 2026 Palaash Atri
 # SPDX-License-Identifier: MIT
-#
-# This wrapper deliberately does not select or fall back to a third-party
-# compositor.  The Rust slopos-session supervisor owns process lifecycle and
-# slopos-compositor owns every visible SLOPOS window.
 set -euo pipefail
 
-export XDG_SESSION_TYPE="${XDG_SESSION_TYPE:-wayland}"
-export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-SLOPOS-I}"
-export DESKTOP_SESSION="${DESKTOP_SESSION:-slopos-i}"
+export XDG_SESSION_TYPE="x11"
+export XDG_CURRENT_DESKTOP="SLOPOS-I"
+export DESKTOP_SESSION="slopos-i"
 
 if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
   export XDG_RUNTIME_DIR="/run/user/$(id -u)"
@@ -26,10 +22,9 @@ resolve_bin() {
   fi
   local here candidate
   here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  local target_dir="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
   for candidate in \
-    "$target_dir/release/$name" \
-    "$target_dir/debug/$name" \
+    "./target/release/$name" \
+    "./target/debug/$name" \
     "$HOME/.local/bin/$name" \
     "/usr/local/bin/$name" \
     "/usr/bin/$name"
@@ -43,29 +38,9 @@ resolve_bin() {
 }
 
 SESSION_BIN="$(resolve_bin slopos-session)" || {
-  echo "start-slopos-i: slopos-session not found" >&2
+  echo "start-slopos-i: slopos-session binary not found" >&2
   exit 1
 }
 
-# Backend selection is explicit.  Nested development uses SLOPOS' own nested
-# compositor window; it is not a labwc/sway session fallback.
-backend="${SLOPOS_BACKEND:-}"
-if [ -z "$backend" ]; then
-  if [ -n "${DISPLAY:-}" ]; then
-    backend="nested"
-  else
-    backend="drm"
-  fi
-fi
-
-# The shell/settings display service may provide a validated logical layout in
-# `name:WxH@x,y:sNN;...` form.  Keep it in the session environment so the
-# compositor remains the single authority for output topology and geometry.
-outputs_layout="${SLOPOS_OUTPUTS_LAYOUT:-}"
-if [ -n "$outputs_layout" ]; then
-  export SLOPOS_OUTPUTS_LAYOUT="$outputs_layout"
-fi
-printf 'start-slopos-i: compositor selection backend=%s outputs_layout=%s\n' \
-  "$backend" "${outputs_layout:-auto}" >&2
-
-exec "$SESSION_BIN" --backend "$backend" "$@"
+echo "Starting SLOPOS-I X11 Desktop Session..."
+exec "$SESSION_BIN" "$@"

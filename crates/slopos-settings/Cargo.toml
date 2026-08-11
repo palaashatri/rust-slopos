@@ -1,12 +1,12 @@
 [package]
-name = "slopos-shell"
+name = "slopos-settings"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "SLOPOS-I X11 Desktop Shell"
+description = "SLOPOS-I Unified System Settings Utility"
 
 [[bin]]
-name = "slopos-shell"
+name = "slopos-settings"
 path = "src/main.rs"
 
 [dependencies]
@@ -14,14 +14,8 @@ gtk = { workspace = true }
 gdk = { workspace = true }
 glib = { workspace = true }
 gio = { workspace = true }
-gdk-pixbuf = { workspace = true }
-pango = { workspace = true }
-x11rb = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
-zbus = { workspace = true }
-walkdir = { workspace = true }
 libc = { workspace = true }

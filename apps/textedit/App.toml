@@ -1,8 +1,0 @@
-name = "TextEdit"
-bundle_id = "com.slopos.textedit"
-version = "1.0.0"
-author = "SLOPOS-I Project"
-minimum_platform = "1.0"
-entrypoint = "Executable/textedit"
-file_types = ["txt", "md", "rtf"]
-permissions = ["documents"]

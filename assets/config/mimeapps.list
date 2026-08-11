@@ -1,0 +1,22 @@
+[Default Applications]
+text/plain=org.xfce.mousepad.desktop
+text/markdown=org.xfce.mousepad.desktop
+application/x-shellscript=org.xfce.mousepad.desktop
+application/pdf=org.pwmt.zathura.desktop
+image/png=viewnior.desktop
+image/jpeg=viewnior.desktop
+image/gif=viewnior.desktop
+image/svg+xml=viewnior.desktop
+video/mp4=mpv.desktop
+video/x-matroska=mpv.desktop
+video/webm=mpv.desktop
+audio/mpeg=mpv.desktop
+audio/flac=mpv.desktop
+text/html=firefox.desktop
+x-scheme-handler/http=firefox.desktop
+x-scheme-handler/https=firefox.desktop
+application/x-iso9660-image=pcmanfm.desktop
+application/x-compressed-tar=pcmanfm.desktop
+application/zip=pcmanfm.desktop
+application/x-iso=pcmanfm.desktop
+application/x-executable=slopos-appimage-runner.desktop

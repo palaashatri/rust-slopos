@@ -1,12 +1,12 @@
 [package]
-name = "slopos-shell"
+name = "slopos-catalogue"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "SLOPOS-I X11 Desktop Shell"
+description = "SLOPOS-I AppImage Application Catalogue"
 
 [[bin]]
-name = "slopos-shell"
+name = "slopos-catalogue"
 path = "src/main.rs"
 
 [dependencies]
@@ -15,13 +15,13 @@ gdk = { workspace = true }
 glib = { workspace = true }
 gio = { workspace = true }
 gdk-pixbuf = { workspace = true }
-pango = { workspace = true }
-x11rb = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
+reqwest = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+tempfile = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
-zbus = { workspace = true }
-walkdir = { workspace = true }
 libc = { workspace = true }

@@ -1,0 +1,23 @@
+# SLOPOS Macintosh-Inspired Openbox Theme
+
+# Window Title Colors
+window.active.title.bg: flat solid
+window.active.title.bg.color: #E8E8E8
+window.active.label.text.color: #222222
+
+window.inactive.title.bg: flat solid
+window.inactive.title.bg.color: #F4F4F4
+window.inactive.label.text.color: #888888
+
+# Window Borders
+window.active.border.color: #CCCCCC
+window.inactive.border.color: #DDDDDD
+border.width: 1
+
+# Titlebar Height
+padding.width: 4
+padding.height: 4
+
+# Buttons (Close, Iconify, Maximize)
+window.active.button.unpressed.image.color: #555555
+window.inactive.button.unpressed.image.color: #AAAAAA

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://openbox.org/3.4/rc file:///usr/share/openbox/rc.xsd">
+  <resistance>
+    <strength>10</strength>
+    <screen_edge_strength>20</screen_edge_strength>
+  </resistance>
+  <focus>
+    <focusNew>yes</focusNew>
+    <followMouse>no</followMouse>
+    <focusLast>yes</focusLast>
+    <underMouse>no</underMouse>
+    <focusDelay>200</focusDelay>
+    <raiseOnFocus>no</raiseOnFocus>
+  </focus>
+  <placement>
+    <policy>Smart</policy>
+    <center>yes</center>
+  </placement>
+  <theme>
+    <name>slopos-openbox</name>
+    <titleLayout>CLMI</titleLayout>
+    <keepBorder>yes</keepBorder>
+    <animateIconify>yes</animateIconify>
+    <font place="ActiveWindow">
+      <name>Sans</name>
+      <size>10</size>
+      <weight>Bold</weight>
+    </font>
+  </theme>
+  <margins>
+    <top>30</top>
+    <bottom>54</bottom>
+    <left>0</left>
+    <right>0</right>
+  </margins>
+  <desktops>
+    <number>4</number>
+    <firstdefault>1</firstdefault>
+    <name>Space 1</name>
+    <name>Space 2</name>
+    <name>Space 3</name>
+    <name>Space 4</name>
+  </desktops>
+  <keyboard>
+    <keybind key="A-Tab">
+      <action name="NextWindow">
+        <finalactions>
+          <action name="Focus"/>
+          <action name="Raise"/>
+          <action name="Unshade"/>
+        </finalactions>
+      </action>
+    </keybind>
+    <keybind key="W-space">
+      <action name="Execute">
+        <command>pkill -USR1 slopos-shell || slopos-shell</command>
+      </action>
+    </keybind>
+    <keybind key="W-q">
+      <action name="Close"/>
+    </keybind>
+    <keybind key="W-m">
+      <action name="Iconify"/>
+    </keybind>
+    <keybind key="W-f">
+      <action name="ToggleMaximize"/>
+    </keybind>
+  </keyboard>
+</openbox_config>

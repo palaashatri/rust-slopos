@@ -1,47 +1,41 @@
-use slopos_shell::SloposI;
+//! SLOPOS-I X11 Desktop Shell Main Entry Point
+
+mod app_finder;
+mod dock;
+mod launcher;
+mod notifications;
+mod topbar;
+
+use dock::Dock;
+use gtk::prelude::*;
+use launcher::Launcher;
+use notifications::NotificationServer;
+use topbar::TopBar;
 
 fn main() {
-    tracing_subscriber::fmt::init();
-    tracing::info!("Starting SLOPOS-I...");
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    log::info!("Starting SLOPOS-I Desktop Shell (X11)");
 
-    // Best-effort AT-SPI2 registration with structural shell chrome tree
-    // (menu bar → desktop icons → dock + window). Connection is retained for
-    // best-effort Focus/Object event emission from shell Tab chrome focus.
-    // DoAction queues in-process for shell update() to drain into real handlers.
-    // Still Orca-incomplete: no live tree re-export; D-Bus events fail open when
-    // registry/bus absent; in-process AccessibilityEventBus always works.
-    match slopos_kit::register_at_spi_shell_chrome("SLOPOS-I") {
-        Ok(()) => {
-            if slopos_kit::at_spi_registration_info().is_some() {
-                tracing::info!(
-                    "AT-SPI2 accessibility registration active (shell chrome tree; event emit best-effort)"
-                );
-            } else {
-                tracing::info!(
-                    "AT-SPI2 skipped (no session bus or registry); in-process a11y events only"
-                );
-            }
-        }
-        Err(err) => tracing::warn!("AT-SPI2 registration failed: {err}"),
-    }
+    gtk::init().expect("Failed to initialize GTK3");
 
-    let shell = match SloposI::startup() {
-        Ok(shell) => shell,
-        Err(e) => {
-            tracing::error!("Failed to start SLOPOS-I: {}", e);
-            return;
-        }
-    };
+    // Initialize Notification Server
+    NotificationServer::start();
 
-    tracing::info!("SLOPOS-I initialized successfully");
-    tracing::info!("Theme: {}", shell.theme_manager.read().current);
-    tracing::info!(
-        "Applications found: {}",
-        shell.launch_services.read().bundles.len()
+    // Initialize Spotlight Launcher Window
+    let launcher = Launcher::new();
+
+    // Initialize Top System Bar
+    let topbar = TopBar::new(launcher.clone());
+
+    // Initialize Bottom Dock
+    let _dock = Dock::new(launcher.clone());
+
+    // Welcome notification
+    NotificationServer::show_toast(
+        "Welcome to SLOPOS-I",
+        "Press Super+Space or click Search to open Spotlight Launcher.",
+        "emblem-favorite",
     );
-    tracing::info!("Workspaces: {}", shell.workspace_manager.read().total);
 
-    if let Err(e) = shell.run() {
-        tracing::error!("Shell run error: {}", e);
-    }
+    gtk::main();
 }
