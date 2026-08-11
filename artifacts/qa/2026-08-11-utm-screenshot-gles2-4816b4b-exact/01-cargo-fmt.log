@@ -1,1 +1,0 @@
-command: env CARGO_TARGET_DIR=/home/ubuntu/.cache/slopos-i/cargo-target cargo fmt --all -- --check

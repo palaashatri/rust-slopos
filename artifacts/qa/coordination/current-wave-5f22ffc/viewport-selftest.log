@@ -1,5 +1,0 @@
-viewport-gate self-test: passed
-fixture_root=target/viewport-gate-self-test
-positive_status=passed evidence=target/viewport-gate-self-test/positive-evidence.json
-negative_status=failed evidence=target/viewport-gate-self-test/negative-evidence.json
-negative_failure=clear/unpainted edge band exceeds 2 pixels: top=3

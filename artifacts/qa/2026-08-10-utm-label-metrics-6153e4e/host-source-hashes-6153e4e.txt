@@ -1,3 +1,0 @@
-08a3f99a5e4632311abdac38cb6aef9c2aadcaf728212d12b0629c4ec9d3c5d0  crates/slopos-kit/src/text_metrics.rs
-22598e62d85c326f33f4c3d3715b7a77362c57f0f98539107f2aa8f06041a8db  crates/slopos-kit/src/text_field.rs
-d5f2872d8f15603350aaeaa55ff41c33397c5b5d561890eaac4c2193ed8e47ff  crates/slopos-shell/src/layer_desktop.rs

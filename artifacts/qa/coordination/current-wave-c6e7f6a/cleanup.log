@@ -1,8 +1,0 @@
-cleanup audit before apply:
-target=20G /home/ubuntu/.cache/slopos-i/cargo-target
-qa=absent in the VM source copy (du produced no entry)
-repo=7.9M /home/ubuntu/slopos
-cleanup script: sh scripts/cleanup-owned-artifacts.sh --apply
-removed /home/ubuntu/.cache/slopos-i/cargo-target
-removed 40 owned /tmp/slopos-i_* test directories after confirming no SLOPOS processes or Wayland sockets
-final audit: no /tmp/slopos-* directories, no SLOPOS processes, no Wayland sockets, no shared target directory

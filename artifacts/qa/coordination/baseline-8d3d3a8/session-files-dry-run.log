@@ -1,9 +1,0 @@
-install-session-files: PREFIX=/tmp/slopos-install-preview dry_run=1
-install-session-files: source tree=/home/ubuntu/slopos
-install-session-files: note — packaging only; live greeter login not verified by this script
-DRY-RUN install -Dm644 /home/ubuntu/slopos/packaging/slopos-i-wayland.desktop /tmp/slopos-install-preview/share/wayland-sessions/slopos-i.desktop
-DRY-RUN install -Dm644 /home/ubuntu/slopos/packaging/slopos-i.desktop /tmp/slopos-install-preview/share/xsessions/slopos-i.desktop
-DRY-RUN install -Dm755 /home/ubuntu/slopos/scripts/start-slopos-i /tmp/slopos-install-preview/bin/start-slopos-i
-DRY-RUN install -Dm644 /home/ubuntu/slopos/packaging/slopos-i.service /tmp/slopos-install-preview/lib/systemd/user/slopos-i.service
-
-install-session-files: dry-run complete (no files written)

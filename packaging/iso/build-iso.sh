@@ -1,36 +1,133 @@
 #!/usr/bin/env bash
-# SLOPOS-I Live ISO Build Script
+# Build a real SLOPOS-I x86_64 live ISO using Arch Linux's maintained releng profile.
+# This script deliberately fails if archiso cannot produce a real image; it never
+# creates placeholder/touched ISO files.
 set -euo pipefail
 
-echo "=========================================================="
-echo " Building SLOPOS-I Bootable Live ISO Image"
-echo "=========================================================="
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+OUT_DIR="${OUT_DIR:-$ROOT/artifacts/iso}"
+WORK_DIR="${WORK_DIR:-/tmp/slopos-archiso-work}"
+RELENG="${ARCHISO_RELENG:-/usr/share/archiso/configs/releng}"
 
-BUILD_DIR="/tmp/slopos-iso-build"
-ISO_OUTPUT="artifacts/slopos-i-x11-v1.0-x86_64.iso"
-mkdir -p "$BUILD_DIR" artifacts
+need() {
+  command -v "$1" >/dev/null 2>&1 || {
+    echo "ERROR: required command '$1' is not installed" >&2
+    exit 1
+  }
+}
 
-echo "[ISO 1/4] Preparing chroot rootfs structure..."
-mkdir -p "$BUILD_DIR/rootfs"
+need mkarchiso
+need cargo
+need rsync
 
-echo "[ISO 2/4] Copying compiled SLOPOS binaries & configuration assets..."
-mkdir -p "$BUILD_DIR/rootfs/usr/local/bin"
-mkdir -p "$BUILD_DIR/rootfs/etc/slopos-i"
+if [[ ! -d "$RELENG" ]]; then
+  echo "ERROR: Archiso releng profile not found at $RELENG" >&2
+  echo "Install the Arch Linux 'archiso' package and run this on an Arch-compatible build host." >&2
+  exit 1
+fi
 
-cp -f target/release/slopos-session "$BUILD_DIR/rootfs/usr/local/bin/" 2>/dev/null || true
-cp -f target/release/slopos-shell "$BUILD_DIR/rootfs/usr/local/bin/" 2>/dev/null || true
-cp -f target/release/slopos-catalogue "$BUILD_DIR/rootfs/usr/local/bin/" 2>/dev/null || true
-cp -f target/release/slopos-settings "$BUILD_DIR/rootfs/usr/local/bin/" 2>/dev/null || true
-cp -rf assets/config/* "$BUILD_DIR/rootfs/etc/slopos-i/" 2>/dev/null || true
+cd "$ROOT"
+echo "[1/6] Building current SLOPOS-I release binaries"
+cargo build --release --workspace --locked
 
-echo "[ISO 3/4] Packaging SquashFS filesystem..."
-# Mksquashfs simulation / execution
-mkdir -p "$BUILD_DIR/iso/live"
-touch "$BUILD_DIR/iso/live/filesystem.squashfs"
+for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+  test -x "target/release/$binary" || {
+    echo "ERROR: target/release/$binary is missing" >&2
+    exit 1
+  }
+done
 
-echo "[ISO 4/4] Creating bootable ISO image $ISO_OUTPUT..."
-touch "$ISO_OUTPUT"
+PROFILE="$(mktemp -d /tmp/slopos-archiso-profile.XXXXXX)"
+cleanup() {
+  rm -rf "$PROFILE"
+}
+trap cleanup EXIT
 
-echo "=========================================================="
-echo " ✅ ISO Build Complete: $ISO_OUTPUT"
-echo "=========================================================="
+rm -rf "$WORK_DIR"
+mkdir -p "$OUT_DIR" "$WORK_DIR"
+
+echo "[2/6] Cloning the maintained Arch releng profile"
+rsync -a "$RELENG/" "$PROFILE/"
+
+# Append SLOPOS package requirements without introducing duplicate lines.
+cat packaging/iso/packages.x86_64 >> "$PROFILE/packages.x86_64"
+awk 'NF && !seen[$0]++ { print }' "$PROFILE/packages.x86_64" > "$PROFILE/packages.x86_64.tmp"
+mv "$PROFILE/packages.x86_64.tmp" "$PROFILE/packages.x86_64"
+
+ROOTFS="$PROFILE/airootfs"
+
+echo "[3/6] Staging SLOPOS-I X11 session into the live root filesystem"
+for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+  install -Dm755 "target/release/$binary" "$ROOTFS/usr/local/bin/$binary"
+done
+install -Dm755 scripts/start-slopos-i "$ROOTFS/usr/local/bin/start-slopos-i"
+install -Dm644 packaging/slopos-i.desktop "$ROOTFS/usr/share/xsessions/slopos-i.desktop"
+install -Dm644 assets/config/openbox/rc.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc.xml"
+install -Dm644 assets/config/openbox/menu.xml "$ROOTFS/usr/local/share/slopos-i/openbox/menu.xml"
+install -Dm644 themes/slopos-openbox/openbox-3/themerc \
+  "$ROOTFS/usr/local/share/themes/slopos-openbox/openbox-3/themerc"
+install -Dm644 assets/config/gtk-3.0/gtk.css \
+  "$ROOTFS/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css"
+install -Dm644 assets/config/gtk-3.0/settings.ini \
+  "$ROOTFS/usr/local/share/slopos-i/gtk-3.0/settings.ini"
+mkdir -p "$ROOTFS/usr/local/share/slopos-i/themes"
+cp -a themes/platinum "$ROOTFS/usr/local/share/slopos-i/themes/platinum"
+
+# Live-user creation is handled by systemd-sysusers/tmpfiles at boot.
+install -d "$ROOTFS/usr/lib/sysusers.d" "$ROOTFS/usr/lib/tmpfiles.d"
+cat > "$ROOTFS/usr/lib/sysusers.d/slopos-live.conf" <<'EOF'
+g autologin -
+u slopos - "SLOPOS Live User" /home/slopos /bin/bash
+m slopos autologin
+m slopos audio
+m slopos video
+EOF
+cat > "$ROOTFS/usr/lib/tmpfiles.d/slopos-live.conf" <<'EOF'
+d /home/slopos 0755 slopos slopos -
+d /home/slopos/.config 0755 slopos slopos -
+EOF
+
+# LightDM owns Xorg startup; SLOPOS remains an X11 session rather than trying to
+# launch an X server itself.
+install -d "$ROOTFS/etc/lightdm/lightdm.conf.d"
+cat > "$ROOTFS/etc/lightdm/lightdm.conf.d/50-slopos-live.conf" <<'EOF'
+[Seat:*]
+autologin-user=slopos
+autologin-user-timeout=0
+autologin-session=slopos-i
+user-session=slopos-i
+greeter-session=lightdm-gtk-greeter
+EOF
+
+install -d "$ROOTFS/etc/systemd/system/graphical.target.wants"
+ln -sfn /usr/lib/systemd/system/lightdm.service \
+  "$ROOTFS/etc/systemd/system/display-manager.service"
+ln -sfn /usr/lib/systemd/system/lightdm.service \
+  "$ROOTFS/etc/systemd/system/graphical.target.wants/lightdm.service"
+ln -sfn /usr/lib/systemd/system/graphical.target \
+  "$ROOTFS/etc/systemd/system/default.target"
+
+# SLOPOS-specific environment defaults for all live-session processes.
+install -d "$ROOTFS/etc/environment.d"
+cat > "$ROOTFS/etc/environment.d/90-slopos.conf" <<'EOF'
+XDG_CURRENT_DESKTOP=SLOPOS-I
+GTK_THEME=slopos-gtk
+EOF
+
+echo "[4/6] Building real bootable media with mkarchiso"
+mkarchiso -v -w "$WORK_DIR" -o "$OUT_DIR" "$PROFILE"
+
+echo "[5/6] Verifying produced ISO artifact"
+mapfile -t images < <(find "$OUT_DIR" -maxdepth 1 -type f -name '*.iso' -size +100M -print)
+if [[ ${#images[@]} -eq 0 ]]; then
+  echo "ERROR: mkarchiso returned without producing a plausible ISO (>100 MiB)" >&2
+  exit 1
+fi
+
+for image in "${images[@]}"; do
+  printf 'ISO: %s\n' "$image"
+  sha256sum "$image"
+done
+
+echo "[6/6] Build complete"
+echo "NOTE: an ISO build is not an installation/boot acceptance result. Boot it in QEMU or real hardware before updating TRUTH.md."

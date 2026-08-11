@@ -1,4 +1,0 @@
-SLOPOS owned-artifact cleanup (apply=1)
-/tmp/not-allowed-slopos-target	absent
-/home/ubuntu/slopos/artifacts/qa/coordination/scratch	absent
-refusing to remove non-allow-listed CARGO_TARGET_DIR: /tmp/not-allowed-slopos-target

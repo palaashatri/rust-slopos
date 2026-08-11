@@ -1,1 +1,0 @@
-capture-viewport-runtime: cannot resolve compositor executable: [Errno 13] Permission denied: '/proc/1/exe'

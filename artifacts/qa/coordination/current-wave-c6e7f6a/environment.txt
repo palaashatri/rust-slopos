@@ -1,7 +1,0 @@
-captured_at: 2026-08-10T06:46:38Z
-vm: VirtualBox Ubuntu 26.04 x86_64
-kernel: 7.0.0-29-generic
-rustc: 1.97.1 (8bab26f4f 2026-07-14)
-cargo: 1.97.1 (c980f4866 2026-06-30)
-target_directory: /home/ubuntu/.cache/slopos-i/cargo-target
-runtime_viewport: not observed; nested DRI3 unavailable and DRM node busy

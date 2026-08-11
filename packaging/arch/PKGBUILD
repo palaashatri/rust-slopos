@@ -1,88 +1,59 @@
 # Maintainer: SLOPOS-I Contributors
-pkgname=slopos-i
-pkgver=0.1.0
+pkgname=slopos-i-git
+pkgver=0.1.0.r0
 pkgrel=1
-pkgdesc="SLOPOS-I: a classic-Mac-styled Linux desktop environment in Rust"
+pkgdesc="SLOPOS-I X11 Platinum desktop environment"
 arch=('x86_64' 'aarch64')
 url="https://github.com/palaashatri/rust-slopos"
 license=('MIT')
 depends=(
-  wayland
-  wayland-protocols
-  libxkbcommon
-  libinput
-  seatd
-  libdrm
-  mesa
-  vulkan-icd-loader
-  vulkan-swrast
-  vulkan-tools
-  libdisplay-info
-  pixman
-  dbus
-  at-spi2-core
-  fontconfig
-  freetype2
-  ttf-dejavu
-  ttf-liberation
-  pipewire
-  pipewire-pulse
-  wireplumber
-  polkit
-  xorg-xwayland
-  foot
-  wl-clipboard
-  curl
+  xorg-server openbox gtk3 dbus
+  pcmanfm xfce4-terminal mousepad ristretto zathura zathura-pdf-mupdf mpv galculator
+  networkmanager network-manager-applet pavucontrol pipewire pipewire-pulse wireplumber
+  blueman upower xfce4-power-manager lxappearance arandr xorg-xrandr xorg-xsetroot
+  xdotool wmctrl adwaita-icon-theme ttf-liberation ttf-dejavu
 )
-makedepends=(
-  cargo
-  pkgconf
-  rust
-)
-optdepends=(
-  'greetd: for session greeter'
-  'tuigreet: TUI greeter for greetd'
-)
+makedepends=(cargo pkgconf rust git openssl)
+optdepends=('firefox: web browser' 'lightdm: graphical display manager')
 provides=('slopos-i')
 conflicts=('slopos-i')
+source=('rust-slopos::git+https://github.com/palaashatri/rust-slopos.git#branch=pivot')
+sha256sums=('SKIP')
 
-# Until a signed release tag is published, pin the source archive to the exact
-# audited main commit instead of following a mutable branch or skipping the
-# checksum.  Update both values as part of the release process.
-_commit=8d3d3a8da0364e22c4562f568a292bf6a9e502d7
-_source_dir="rust-slopos-${_commit}"
-source=("$pkgname-$pkgver.tar.gz::https://github.com/palaashatri/rust-slopos/archive/${_commit}.tar.gz")
-sha256sums=('0f4a6b0ad408977039dcd78f2d15df675d70b2aeafc29e94e216b06a1a3aa882')
+pkgver() {
+  cd "$srcdir/rust-slopos"
+  printf '0.1.0.r%s.%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
 
 build() {
-  cd "$srcdir/$_source_dir"
-  export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$srcdir/.cargo-target}"
+  cd "$srcdir/rust-slopos"
+  export CARGO_TARGET_DIR="$srcdir/.cargo-target"
   cargo build --release --workspace --locked
 }
 
 package() {
-  cd "$srcdir/$_source_dir"
-  export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$srcdir/.cargo-target}"
+  cd "$srcdir/rust-slopos"
+  export CARGO_TARGET_DIR="$srcdir/.cargo-target"
 
-  # Install binaries
-  install -Dm755 "$CARGO_TARGET_DIR/release/slopos-session" "$pkgdir/usr/bin/slopos-session"
-  install -Dm755 "$CARGO_TARGET_DIR/release/slopos-compositor" "$pkgdir/usr/bin/slopos-compositor"
-  install -Dm755 "$CARGO_TARGET_DIR/release/slopos-shell" "$pkgdir/usr/bin/slopos-shell"
-  install -Dm755 "$CARGO_TARGET_DIR/release/finder" "$pkgdir/usr/bin/finder"
-  install -Dm755 "$CARGO_TARGET_DIR/release/settings" "$pkgdir/usr/bin/settings"
-  install -Dm755 "$CARGO_TARGET_DIR/release/textedit" "$pkgdir/usr/bin/textedit"
-  install -Dm755 "$CARGO_TARGET_DIR/release/terminal" "$pkgdir/usr/bin/terminal"
-  install -Dm755 "$CARGO_TARGET_DIR/release/appstore" "$pkgdir/usr/bin/appstore"
+  for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+    install -Dm755 "$CARGO_TARGET_DIR/release/$binary" "$pkgdir/usr/bin/$binary"
+  done
   install -Dm755 scripts/start-slopos-i "$pkgdir/usr/bin/start-slopos-i"
 
-  # Install session files
   install -Dm644 packaging/slopos-i.desktop "$pkgdir/usr/share/xsessions/slopos-i.desktop"
-  install -Dm644 packaging/slopos-i-wayland.desktop "$pkgdir/usr/share/wayland-sessions/slopos-i.desktop"
-  install -Dm644 packaging/slopos-i.service "$pkgdir/usr/lib/systemd/user/slopos-i.service"
+  install -Dm644 assets/config/openbox/rc.xml "$pkgdir/usr/share/slopos-i/openbox/rc.xml"
+  install -Dm644 assets/config/openbox/menu.xml "$pkgdir/usr/share/slopos-i/openbox/menu.xml"
+  install -Dm644 themes/slopos-openbox/openbox-3/themerc \
+    "$pkgdir/usr/share/themes/slopos-openbox/openbox-3/themerc"
+  install -Dm644 assets/config/gtk-3.0/gtk.css \
+    "$pkgdir/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css"
+  install -Dm644 assets/config/gtk-3.0/settings.ini \
+    "$pkgdir/usr/share/slopos-i/gtk-3.0/settings.ini"
+  install -Dm644 assets/config/mimeapps.list "$pkgdir/usr/share/slopos-i/mimeapps.list"
+  cp -a themes/platinum "$pkgdir/usr/share/slopos-i/themes/"
 
-  # Install the three canonical project documents and legal notices.
-  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
-  install -Dm644 AGENTS.md "$pkgdir/usr/share/doc/$pkgname/AGENTS.md"
-  install -Dm644 TRUTH.md "$pkgdir/usr/share/doc/$pkgname/TRUTH.md"
-  install -Dm644 THIRD_PARTY_LICENSES.txt "$pkgdir/usr/share/doc/$pkgname/THIRD_PARTY_LICENSES.txt"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/slopos-i/README.md"
+  install -Dm644 AGENTS.md "$pkgdir/usr/share/doc/slopos-i/AGENTS.md"
+  install -Dm644 TRUTH.md "$pkgdir/usr/share/doc/slopos-i/TRUTH.md"
+  install -Dm644 THIRD_PARTY_LICENSES.txt "$pkgdir/usr/share/doc/slopos-i/THIRD_PARTY_LICENSES.txt"
 }

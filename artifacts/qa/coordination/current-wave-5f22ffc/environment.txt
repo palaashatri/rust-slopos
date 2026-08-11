@@ -1,3 +1,0 @@
-commit=5f22ffcbdd5ceb58a9d7ad54ba81906ff4e0ecb9
-branch=codex-complete-spec
-source_root=/home/ubuntu/slopos

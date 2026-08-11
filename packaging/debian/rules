@@ -1,32 +1,32 @@
 #!/usr/bin/make -f
+
 %:
 	dh $@
 
-# Honour a caller-provided shared Cargo cache while keeping package builds
-# isolated by default when no cache path is supplied.
 CARGO_TARGET_DIR ?= $(CURDIR)/.cargo-target
 export CARGO_TARGET_DIR
 
 override_dh_auto_build:
 	cargo build --release --workspace --locked
 
+override_dh_auto_test:
+	cargo test --workspace --locked
+
 override_dh_auto_install:
-	# Install binaries
-	dh_auto_install -- --release
-	install -Dm755 $(CARGO_TARGET_DIR)/release/slopos-session debian/slopos-i/usr/bin/slopos-session
-	install -Dm755 $(CARGO_TARGET_DIR)/release/slopos-compositor debian/slopos-i/usr/bin/slopos-compositor
-	install -Dm755 $(CARGO_TARGET_DIR)/release/slopos-shell debian/slopos-i/usr/bin/slopos-shell
-	install -Dm755 $(CARGO_TARGET_DIR)/release/finder debian/slopos-i/usr/bin/finder
-	install -Dm755 $(CARGO_TARGET_DIR)/release/settings debian/slopos-i/usr/bin/settings
-	install -Dm755 $(CARGO_TARGET_DIR)/release/textedit debian/slopos-i/usr/bin/textedit
-	install -Dm755 $(CARGO_TARGET_DIR)/release/terminal debian/slopos-i/usr/bin/terminal
-	install -Dm755 $(CARGO_TARGET_DIR)/release/appstore debian/slopos-i/usr/bin/appstore
+	for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do \
+		install -Dm755 $(CARGO_TARGET_DIR)/release/$$binary debian/slopos-i/usr/bin/$$binary; \
+	done
 	install -Dm755 scripts/start-slopos-i debian/slopos-i/usr/bin/start-slopos-i
-
-	# Install session files
 	install -Dm644 packaging/slopos-i.desktop debian/slopos-i/usr/share/xsessions/slopos-i.desktop
-	install -Dm644 packaging/slopos-i-wayland.desktop debian/slopos-i/usr/share/wayland-sessions/slopos-i.desktop
-	install -Dm644 packaging/slopos-i.service debian/slopos-i/usr/lib/systemd/user/slopos-i.service
-
-override_dh_shlibdeps:
-	# Skip automatic library dependency detection; Cargo handles it
+	install -Dm644 assets/config/openbox/rc.xml debian/slopos-i/usr/share/slopos-i/openbox/rc.xml
+	install -Dm644 assets/config/openbox/menu.xml debian/slopos-i/usr/share/slopos-i/openbox/menu.xml
+	install -Dm644 themes/slopos-openbox/openbox-3/themerc debian/slopos-i/usr/share/themes/slopos-openbox/openbox-3/themerc
+	install -Dm644 assets/config/gtk-3.0/gtk.css debian/slopos-i/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css
+	install -Dm644 assets/config/gtk-3.0/settings.ini debian/slopos-i/usr/share/slopos-i/gtk-3.0/settings.ini
+	install -Dm644 assets/config/mimeapps.list debian/slopos-i/usr/share/slopos-i/mimeapps.list
+	mkdir -p debian/slopos-i/usr/share/slopos-i/themes
+	cp -a themes/platinum debian/slopos-i/usr/share/slopos-i/themes/platinum
+	install -Dm644 README.md debian/slopos-i/usr/share/doc/slopos-i/README.md
+	install -Dm644 AGENTS.md debian/slopos-i/usr/share/doc/slopos-i/AGENTS.md
+	install -Dm644 TRUTH.md debian/slopos-i/usr/share/doc/slopos-i/TRUTH.md
+	install -Dm644 THIRD_PARTY_LICENSES.txt debian/slopos-i/usr/share/doc/slopos-i/THIRD_PARTY_LICENSES.txt

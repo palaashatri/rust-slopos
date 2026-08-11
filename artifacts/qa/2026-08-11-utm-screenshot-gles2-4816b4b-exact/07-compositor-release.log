@@ -1,3 +1,0 @@
-command: env CARGO_TARGET_DIR=/home/ubuntu/.cache/slopos-i/cargo-target cargo build --release --locked -p slopos-compositor
-   Compiling slopos-compositor v0.1.0 (/home/ubuntu/rust-slopos-qa-d42d09e/crates/slopos-compositor)
-    Finished `release` profile [optimized] target(s) in 27.36s

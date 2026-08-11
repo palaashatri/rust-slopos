@@ -7,13 +7,14 @@ Vcs-Git: https://github.com/palaashatri/rust-slopos.git
 Vcs-Browser: https://github.com/palaashatri/rust-slopos
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
-Build-Depends: debhelper-compat (= 13), cargo, pkg-config, curl
+Build-Depends: debhelper-compat (= 13), cargo, pkg-config, libgtk-3-dev, libx11-dev, libxrandr-dev, libssl-dev, libdbus-1-dev
 
 Package: slopos-i
-Architecture: amd64 arm64
-Depends: libwayland-dev, wayland-protocols, libxkbcommon-dev, libinput-dev, seatd, libseat-dev, libdrm-dev, libgbm-dev, libegl-dev, libgles2-mesa-dev, mesa-vulkan-drivers, libvulkan1, libvulkan-dev, vulkan-tools, libdisplay-info-dev, libpixman-1-dev, dbus, at-spi2-core, libfontconfig1-dev, libfreetype-dev, fonts-dejavu, fonts-liberation, pipewire, pipewire-pulse, wireplumber, polkitd | policykit-1, xwayland, foot, wl-clipboard, curl
-Description: Classic-Mac-styled Linux desktop environment
- SLOPOS-I is a Rust desktop environment with a classic visual lineage,
- a Wayland compositor, and an integrated suite of first-party applications.
- .
- This package installs the compositor, shell, and core applications.
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, xorg, openbox, dbus-x11, pcmanfm, xfce4-terminal, mousepad, ristretto, zathura, mpv, galculator, network-manager, network-manager-gnome, pavucontrol, pipewire, pipewire-pulse, wireplumber, blueman, upower, xfce4-power-manager, lxappearance, arandr, x11-xserver-utils, xdotool, wmctrl, fonts-liberation, fonts-dejavu-core
+Recommends: firefox
+Description: SLOPOS-I X11 Platinum desktop environment
+ SLOPOS-I is a lightweight X11 desktop environment inspired by classic
+ Macintosh/System 7 and Platinum interface grammar. It uses Openbox for
+ floating window management, mature Linux applications and a small SLOPOS
+ shell, Settings hub and AppImage Software Catalogue.

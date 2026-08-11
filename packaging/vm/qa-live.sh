@@ -1,66 +1,67 @@
 #!/usr/bin/env bash
-# Leave a live SLOPOS-I session running on the VM's DRM/KMS so the host can
-# capture the real framebuffer with `VBoxManage controlvm ... screenshotpng`.
-set -u
-QA="${QA_DIR:-$HOME/qa}"; mkdir -p "$QA"
-exec > >(tee "$QA/live.log") 2>&1
+# Validate a built SLOPOS-I X11 session inside a VM that already has a working
+# X server on DISPLAY. This is intentionally display-server independent and
+# contains no compositor/Wayland assumptions.
+set -euo pipefail
 
-CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
-export CARGO_TARGET_DIR
-case "$CARGO_TARGET_DIR" in
-  /*) ;;
-  *) echo "CARGO_TARGET_DIR must be an absolute path"; exit 2 ;;
-esac
+QA_DIR="${QA_DIR:-$HOME/qa/slopos-x11-live}"
+DISPLAY="${DISPLAY:-:0}"
+export DISPLAY
+mkdir -p "$QA_DIR"
+exec > >(tee "$QA_DIR/live.log") 2>&1
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$ROOT/target}"
 BIN_DIR="$CARGO_TARGET_DIR/release"
-for binary in slopos-compositor slopos-shell finder terminal textedit settings appstore; do
-  if [ ! -x "$BIN_DIR/$binary" ]; then
-    echo "required release binary missing: $BIN_DIR/$binary"
+
+for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+  test -x "$BIN_DIR/$binary" || {
+    echo "required release binary missing: $BIN_DIR/$binary" >&2
     exit 1
-  fi
+  }
 done
 
-pkill -f slopos-compositor 2>/dev/null
-pkill -f '(slopos-shell|finder|terminal|textedit|settings|appstore)' 2>/dev/null
+command -v xdpyinfo >/dev/null 2>&1 || { echo "xdpyinfo is required" >&2; exit 1; }
+command -v xdotool >/dev/null 2>&1 || { echo "xdotool is required" >&2; exit 1; }
+command -v openbox >/dev/null 2>&1 || { echo "openbox is required" >&2; exit 1; }
+xdpyinfo -display "$DISPLAY" >/dev/null
+
+export PATH="$BIN_DIR:$PATH"
+export SLOPOS_OPENBOX_CONFIG="$ROOT/assets/config/openbox/rc.xml"
+export SLOPOS_QA_NO_WELCOME=1
+
+cleanup() {
+  set +e
+  kill "${SETTINGS_PID:-}" "${CATALOGUE_PID:-}" "${SESSION_PID:-}" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+pkill -TERM -x slopos-session 2>/dev/null || true
+pkill -TERM -x slopos-shell 2>/dev/null || true
 sleep 1
 
-export XDG_RUNTIME_DIR=/run/user/$(id -u)
-mkdir -p "$XDG_RUNTIME_DIR"; chmod 700 "$XDG_RUNTIME_DIR"
-mkdir -p "$HOME/.config/slopos-i"
-cat > "$HOME/.config/slopos-i/settings.conf" <<EOF
-theme=${RS_THEME:-classic}
-appearance=${RS_APPEARANCE:-light}
-hdr_requested=${RS_HDR:-false}
-vrr_adaptive=${RS_VRR:-false}
-refresh_rate=60hz
-color_space=srgb
-lock_password=slopos-i
-EOF
-export PATH="$CARGO_TARGET_DIR/debug:$CARGO_TARGET_DIR/release:$PATH"
-export RUST_LOG=info RUST_BACKTRACE=1
-export SLOPOS_COMPOSITOR_WIDTH=1280 SLOPOS_COMPOSITOR_HEIGHT=800
+"$BIN_DIR/slopos-session" >"$QA_DIR/session.log" 2>&1 &
+SESSION_PID=$!
 
-setsid slopos-compositor > "$QA/compositor.log" 2>&1 < /dev/null &
-sleep 4
-SOCK=$(ls "$XDG_RUNTIME_DIR" | grep -E '^wayland-[0-9]+$' | head -1)
-[ -z "$SOCK" ] && { echo "no socket"; tail -20 "$QA/compositor.log"; exit 1; }
-export WAYLAND_DISPLAY="$SOCK"
-echo "WAYLAND_DISPLAY=$SOCK"
-
-setsid slopos-shell > "$QA/shell.log" 2>&1 < /dev/null &
-sleep 8
-for app in "$@"; do
-  setsid "$app" > "$QA/$app.log" 2>&1 < /dev/null &
-  sleep 6
+for _ in $(seq 1 20); do
+  if pgrep -x openbox >/dev/null && pgrep -x slopos-shell >/dev/null; then break; fi
+  sleep 1
 done
+pgrep -x openbox >/dev/null
+pgrep -x slopos-shell >/dev/null
+xdotool search --name "SLOPOS Top Bar" >/dev/null
+xdotool search --name "SLOPOS Application Strip" >/dev/null
 
-echo "--- live processes ---"
-pgrep -a -f 'slopos-compositor|slopos-shell|finder|terminal|textedit|settings|appstore' | sed 's/ .*release\// /'
-echo "--- frame pump ---"
-N1=$(grep -c "submission index" "$QA/shell.log" 2>/dev/null || echo 0)
-sleep 6
-N2=$(grep -c "submission index" "$QA/shell.log" 2>/dev/null || echo 0)
-echo "shell wgpu submissions: $N1 -> $N2"
-[ "$N2" -gt "$N1" ] && echo "FRAME_PUMP=RUNNING" || echo "FRAME_PUMP=STALLED"
-echo "--- compositor window state ---"
-grep -E "toplevel mapped|workspace active" "$QA/compositor.log" | tail -6
-echo LIVE_SESSION_UP
+"$BIN_DIR/slopos-catalogue" >"$QA_DIR/catalogue.log" 2>&1 & CATALOGUE_PID=$!
+"$BIN_DIR/slopos-settings" >"$QA_DIR/settings.log" 2>&1 & SETTINGS_PID=$!
+sleep 2
+xdotool search --name "Software Catalogue" >/dev/null
+xdotool search --name "System Settings" >/dev/null
+
+if command -v scrot >/dev/null 2>&1; then
+  scrot -z "$QA_DIR/live-session.png"
+  test -s "$QA_DIR/live-session.png"
+fi
+
+echo "SLOPOS_X11_VM_SMOKE=PASS"
+echo "Evidence: $QA_DIR"
