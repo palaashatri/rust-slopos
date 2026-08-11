@@ -1,93 +1,31 @@
-use slopos_shell::notification_center::NotificationPriority;
-use slopos_shell::*;
-
 #[test]
-fn session_entry_documents_output_layout_and_backend_selection() {
-    let script = include_str!("../../../scripts/start-slopos-i");
-    assert!(script.contains("SLOPOS_OUTPUTS_LAYOUT"));
-    assert!(script.contains("compositor selection"));
+fn pivot_workspace_has_only_current_product_crates() {
+    let cargo = include_str!("../../../Cargo.toml");
+    assert!(cargo.contains("crates/slopos-session"));
+    assert!(cargo.contains("crates/slopos-shell"));
+    assert!(cargo.contains("crates/slopos-catalogue"));
+    assert!(cargo.contains("crates/slopos-settings"));
+    assert!(!cargo.contains("slopos-compositor"));
+    assert!(!cargo.contains("smithay"));
 }
 
 #[test]
-fn daily_driver_checklist_does_not_require_ripgrep() {
-    let script = include_str!("../../../scripts/verify_daily_driver_checklist.sh");
-    assert!(!script.contains("rg -q"));
-    assert!(script.contains("grep -Eq") || script.contains("grep -Fq"));
+fn launcher_hotkey_targets_existing_shell() {
+    let openbox = include_str!("../../../assets/config/openbox/rc.xml");
+    assert!(openbox.contains("pkill -USR1 -x slopos-shell"));
+    assert!(!openbox.contains("slopos-shell --toggle-launcher"));
 }
 
 #[test]
-fn test_shell_startup() {
-    let shell = SloposI::startup().unwrap();
-    assert_eq!(shell.workspace_manager.read().total, 8);
-    assert!(server_has_desktop_8());
-}
-
-fn server_has_desktop_8() -> bool {
-    let server = MenuServer::new();
-    server
-        .menus
-        .iter()
-        .flat_map(|m| m.items.iter())
-        .any(|item| item.action_id == "workspace.switch.7")
+fn shell_does_not_ship_apple_logo_glyph() {
+    let topbar = include_str!("../src/topbar.rs");
+    assert!(!topbar.contains(''));
 }
 
 #[test]
-fn test_menu_server() {
-    let server = MenuServer::new();
-    assert_eq!(server.menus.len(), 4);
-    assert!(!server.menus.iter().any(|menu| menu.title == "Edit"));
-    assert!(!server.menus.iter().any(|menu| menu.title == "Help"));
-    let window_menu = server
-        .menus
-        .iter()
-        .find(|menu| menu.title == "Window")
-        .expect("window menu");
-    assert!(window_menu
-        .items
-        .iter()
-        .any(|item| item.action_id == "workspace.next"));
-    assert!(window_menu
-        .items
-        .iter()
-        .any(|item| item.action_id == "workspace.switch.0"));
-}
-
-#[test]
-fn test_notification_center() {
-    let mut nc = NotificationCenter::new();
-    let id = nc.post(
-        "com.test",
-        "Alert",
-        "This is an alert",
-        NotificationPriority::High,
-    );
-    assert_eq!(nc.visible().len(), 1);
-    nc.dismiss(&id);
-    assert_eq!(nc.visible().len(), 0);
-}
-
-#[test]
-fn test_session_manager() {
-    let mut sm = SessionManager::new();
-    sm.login("testuser");
-    assert!(sm.logged_in);
-    assert_eq!(sm.username, "testuser");
-    sm.lock();
-    assert!(sm.locked);
-    sm.unlock();
-    assert!(!sm.locked);
-    sm.session_state
-        .insert("active_app".to_string(), "finder".to_string());
-    sm.save_state();
-
-    let mut sm2 = SessionManager::new();
-    sm2.restore_state();
-    assert_eq!(sm2.username, "testuser");
-    assert!(sm2.logged_in);
-    assert!(!sm2.locked);
-    assert!(sm2.restore_windows);
-    assert_eq!(
-        sm2.session_state.get("active_app").map(|s| s.as_str()),
-        Some("finder")
-    );
+fn appimage_installer_has_no_stub_fallback() {
+    let installer = include_str!("../../slopos-catalogue/src/installer.rs");
+    assert!(!installer.contains("create_stub_appimage"));
+    assert!(installer.contains("metadata_is_installable"));
+    assert!(installer.contains("SHA-256 mismatch"));
 }

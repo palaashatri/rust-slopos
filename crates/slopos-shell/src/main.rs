@@ -1,4 +1,4 @@
-//! SLOPOS-I X11 Desktop Shell Main Entry Point
+//! SLOPOS-I X11 desktop shell entry point.
 
 mod app_finder;
 mod dock;
@@ -12,60 +12,80 @@ use gtk::{CssProvider, StyleContext};
 use launcher::Launcher;
 use notifications::NotificationServer;
 use std::path::Path;
+use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use topbar::TopBar;
+
+static TOGGLE_LAUNCHER: AtomicBool = AtomicBool::new(false);
 
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    log::info!("Starting SLOPOS-I Desktop Shell (X11)");
+    log::info!("Starting SLOPOS-I desktop shell (X11)");
 
     gtk::init().expect("Failed to initialize GTK3");
-
-    // Load GTK CSS stylesheet
     load_css_theme();
 
-    // Initialize Notification Server
     NotificationServer::start();
-
-    // Initialize Spotlight Launcher Window
     let launcher = Launcher::new();
+    install_launcher_signal_bridge(launcher.clone());
 
-    // Initialize Top System Bar with Global Menu
     let _topbar = TopBar::new(launcher.clone());
+    let _dock = Dock::new(launcher);
 
-    // Initialize Bottom Glass Dock
-    let _dock = Dock::new(launcher.clone());
-
-    // Welcome notification
-    NotificationServer::show_toast(
-        "Welcome to SLOPOS-I",
-        "Press Super+Space or click Search to open Spotlight Launcher.",
-        "dialog-information",
-    );
+    if std::env::var_os("SLOPOS_QA_NO_WELCOME").is_none() {
+        NotificationServer::show_toast(
+            "Welcome to SLOPOS-I",
+            "Press Super+Space or choose Search to find applications.",
+            "dialog-information-symbolic",
+        );
+    }
 
     gtk::main();
 }
 
+fn install_launcher_signal_bridge(launcher: Rc<Launcher>) {
+    unsafe {
+        libc::signal(
+            libc::SIGUSR1,
+            launcher_signal_handler as *const () as usize,
+        );
+    }
+
+    glib::timeout_add_seconds_local(1, move || {
+        if TOGGLE_LAUNCHER.swap(false, Ordering::SeqCst) {
+            launcher.toggle();
+        }
+        glib::ControlFlow::Continue
+    });
+}
+
+extern "C" fn launcher_signal_handler(_sig: libc::c_int) {
+    TOGGLE_LAUNCHER.store(true, Ordering::SeqCst);
+}
+
 fn load_css_theme() {
-    let css_paths = vec![
+    let css_paths = [
         "assets/config/gtk-3.0/gtk.css",
         "/etc/slopos-i/gtk-3.0/gtk.css",
+        "/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css",
         "/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css",
     ];
 
     for path in css_paths {
-        if Path::new(path).exists() {
-            let provider = CssProvider::new();
-            if provider.load_from_path(path).is_ok() {
-                if let Some(screen) = gdk::Screen::default() {
-                    StyleContext::add_provider_for_screen(
-                        &screen,
-                        &provider,
-                        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-                    );
-                    log::info!("Loaded SLOPOS GTK CSS theme from {}", path);
-                    return;
-                }
+        if !Path::new(path).exists() { continue; }
+        let provider = CssProvider::new();
+        if provider.load_from_path(path).is_ok() {
+            if let Some(screen) = gdk::Screen::default() {
+                StyleContext::add_provider_for_screen(
+                    &screen,
+                    &provider,
+                    gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+                );
+                log::info!("Loaded SLOPOS GTK CSS from {path}");
+                return;
             }
         }
     }
+
+    log::warn!("SLOPOS GTK CSS was not found; falling back to host GTK theme");
 }

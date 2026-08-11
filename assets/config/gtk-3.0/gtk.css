@@ -1,170 +1,239 @@
-/* SLOPOS-I System 7 / Platinum Design System GTK3 Theme */
+/* SLOPOS-I Platinum GTK3 theme — compact classic Macintosh-inspired grammar. */
 
 * {
-  font-family: Geneva, Cantarell, "Segoe UI", sans-serif;
-  font-size: 12px;
-  -gtk-icon-style: symbolic;
-}
-
-/* System 7 Top Menu Bar */
-.slopos-topbar {
-  background-color: #DDDDDD;
-  border-bottom: 1px solid #707070;
-  color: #000000;
-  min-height: 24px;
-}
-
-.slopos-topbar label {
-  font-size: 12px;
-  font-weight: normal;
-  color: #000000;
-}
-
-.slopos-active-app {
-  font-weight: bold;
+  font-family: "Liberation Sans", "DejaVu Sans", sans-serif;
   font-size: 12px;
   color: #000000;
-  padding: 0 4px;
-}
-
-.slopos-topbar button {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: 1px 6px;
   border-radius: 0;
+  -gtk-icon-style: regular;
+}
+
+window, .background {
+  background-color: #D9D9D9;
   color: #000000;
 }
 
-.slopos-topbar button:hover {
-  background-color: #000080;
-  color: #FFFFFF;
+/* Top menu/system bar */
+.slopos-topbar {
+  background-image: linear-gradient(to bottom, #F4F4F4, #D5D5D5);
+  border-bottom: 1px solid #505050;
+  min-height: 26px;
+}
+
+.slopos-topbar label { color: #000000; }
+.slopos-active-app { font-weight: bold; padding: 0 4px; }
+.slopos-clock { font-variant-numeric: tabular-nums; }
+
+.slopos-topbar button,
+.slopos-menubar-control,
+.slopos-logo-btn {
+  min-height: 20px;
+  padding: 1px 5px;
+  background-image: none;
+  background-color: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .slopos-logo-btn {
+  min-width: 22px;
   font-weight: bold;
-  font-size: 14px;
-  padding: 0 8px;
+  padding: 0 5px;
 }
 
-.slopos-menu-bar {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-}
-
-.slopos-menu-bar menuitem {
-  padding: 2px 8px;
-  font-size: 12px;
-  color: #000000;
-}
-
+.slopos-topbar button:hover,
+.slopos-topbar button:checked,
 .slopos-menu-bar menuitem:hover {
+  background-image: none;
   background-color: #000080;
   color: #FFFFFF;
 }
 
-/* Classic System 7 Menu Popups */
+.slopos-topbar button:hover label,
+.slopos-menu-bar menuitem:hover label { color: #FFFFFF; }
+
+.slopos-menu-bar { background: transparent; border: 0; box-shadow: none; }
+.slopos-menu-bar menuitem { padding: 3px 7px; min-height: 18px; }
+.slopos-status-area { padding: 0; }
+
+/* Menus */
 menu {
   background-color: #FFFFFF;
   border: 2px solid #000000;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4);
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.38);
   padding: 2px;
 }
+menu menuitem { padding: 3px 18px 3px 8px; min-height: 18px; }
+menu menuitem:hover { background-color: #000080; color: #FFFFFF; }
+menu separator { background-color: #808080; min-height: 1px; margin: 3px 4px; }
 
-menu menuitem {
-  padding: 4px 12px;
-  color: #000000;
-}
-
-menu menuitem:hover {
-  background-color: #000080;
-  color: #FFFFFF;
-}
-
-/* System 7 Raised 3D Buttons */
+/* Classic raised controls */
 button {
-  background: linear-gradient(to bottom, #FFFFFF 0%, #D8D8D8 100%);
-  border-top: 1px solid #FFFFFF;
-  border-left: 1px solid #FFFFFF;
-  border-right: 2px solid #606060;
-  border-bottom: 2px solid #606060;
-  border-radius: 3px;
-  color: #000000;
-  font-weight: bold;
-  padding: 4px 12px;
+  min-height: 22px;
+  padding: 3px 9px;
+  background-image: linear-gradient(to bottom, #F8F8F8, #D1D1D1);
+  border-style: solid;
+  border-top-width: 1px;
+  border-left-width: 1px;
+  border-right-width: 2px;
+  border-bottom-width: 2px;
+  border-top-color: #FFFFFF;
+  border-left-color: #FFFFFF;
+  border-right-color: #5E5E5E;
+  border-bottom-color: #5E5E5E;
+  box-shadow: inset -1px -1px #A8A8A8;
 }
-
+button:hover { background-image: linear-gradient(to bottom, #FFFFFF, #DDDDDD); }
 button:active, button:checked {
-  background: #B0B0B0;
-  border-top: 2px solid #606060;
-  border-left: 2px solid #606060;
-  border-right: 1px solid #FFFFFF;
-  border-bottom: 1px solid #FFFFFF;
+  background-image: none;
+  background-color: #B9B9B9;
+  border-top-width: 2px;
+  border-left-width: 2px;
+  border-right-width: 1px;
+  border-bottom-width: 1px;
+  border-top-color: #5E5E5E;
+  border-left-color: #5E5E5E;
+  border-right-color: #FFFFFF;
+  border-bottom-color: #FFFFFF;
+  box-shadow: inset 1px 1px #888888;
 }
+button:disabled { color: #888888; background-image: none; background-color: #D8D8D8; }
+button.default { border: 2px solid #000000; box-shadow: inset 1px 1px #FFFFFF, inset -1px -1px #606060; }
+.slopos-compact-button { min-height: 20px; padding: 2px 8px; }
 
-button.default {
-  border: 2px solid #000000;
-  outline: 2px solid #000000;
-}
-
-/* Sunken 3D Text Entries */
+/* Entries and text controls */
 entry {
+  min-height: 24px;
   background-color: #FFFFFF;
-  border-top: 2px solid #606060;
-  border-left: 2px solid #606060;
-  border-right: 1px solid #FFFFFF;
-  border-bottom: 1px solid #FFFFFF;
-  border-radius: 2px;
-  color: #000000;
-  padding: 3px 6px;
+  border-style: solid;
+  border-top-width: 2px;
+  border-left-width: 2px;
+  border-right-width: 1px;
+  border-bottom-width: 1px;
+  border-top-color: #5E5E5E;
+  border-left-color: #5E5E5E;
+  border-right-color: #FFFFFF;
+  border-bottom-color: #FFFFFF;
+  padding: 2px 5px;
+  box-shadow: none;
+}
+entry:focus { border-color: #000000; }
+
+/* Lists */
+list, listbox, treeview, textview { background-color: #FFFFFF; color: #000000; }
+row { min-height: 26px; }
+row:selected { background-color: #000080; color: #FFFFFF; }
+row:selected label { color: #FFFFFF; }
+.slopos-list-frame {
+  border: 1px solid #000000;
+  background: #FFFFFF;
+}
+.slopos-list-row { border-bottom: 1px solid #E4E4E4; }
+.slopos-result-title { font-weight: bold; }
+.slopos-secondary-text { color: #606060; font-size: 11px; }
+row:selected .slopos-secondary-text { color: #FFFFFF; }
+
+/* Notebook — for upstream apps that still use it */
+notebook > header {
+  background-color: #D9D9D9;
+  border-bottom: 1px solid #808080;
+}
+notebook > header tab {
+  padding: 4px 8px;
+  border: 1px solid transparent;
+}
+notebook > header tab:checked {
+  background-color: #EEEEEE;
+  border-color: #808080;
+  border-bottom-color: #EEEEEE;
 }
 
-/* System 7 Bottom Application Strip */
+/* Scrollbars */
+scrollbar { background-color: #D0D0D0; min-width: 14px; min-height: 14px; }
+scrollbar slider {
+  min-width: 10px;
+  min-height: 24px;
+  background-color: #C6C6C6;
+  border: 1px solid #606060;
+  box-shadow: inset 1px 1px #FFFFFF;
+}
+
+/* Application Strip */
 .slopos-dock-container {
-  background-color: #D6D6D6;
-  border-top: 2px solid #FFFFFF;
-  border-left: 2px solid #FFFFFF;
-  border-right: 2px solid #505050;
-  border-bottom: 2px solid #505050;
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  padding: 3px 6px;
+  background-image: linear-gradient(to bottom, #E8E8E8, #C9C9C9);
+  border-style: solid;
+  border-top-width: 2px;
+  border-left-width: 2px;
+  border-right-width: 2px;
+  border-bottom-width: 2px;
+  border-top-color: #FFFFFF;
+  border-left-color: #FFFFFF;
+  border-right-color: #4A4A4A;
+  border-bottom-color: #4A4A4A;
+  padding: 4px 6px;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.32);
 }
-
 .slopos-dock-btn {
-  background: linear-gradient(to bottom, #FFFFFF 0%, #D0D0D0 100%);
-  border-top: 1px solid #FFFFFF;
-  border-left: 1px solid #FFFFFF;
-  border-right: 2px solid #606060;
-  border-bottom: 2px solid #606060;
-  border-radius: 3px;
-  padding: 4px;
-  margin: 0 2px;
+  min-width: 42px;
+  min-height: 40px;
+  padding: 2px;
+  margin: 0 1px;
+  background-image: linear-gradient(to bottom, #F6F6F6, #D0D0D0);
 }
+.slopos-dock-btn:hover { background-image: none; background-color: #FFFFFF; }
 
-.slopos-dock-btn:hover {
-  background: #E8E8E8;
-}
-
-.slopos-dock-btn:active {
-  background: #A0A0A0;
-}
-
-/* Classic System 7 Alert Box */
-.slopos-alert-box {
-  background-color: #FFFFFF;
+/* Search palette */
+.slopos-launcher-window { background: transparent; }
+.slopos-launcher {
+  background-color: #D9D9D9;
   border: 2px solid #000000;
-  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
-  padding: 12px;
+  padding: 9px;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.38);
+}
+.slopos-dialog-title {
+  font-weight: bold;
+  padding: 2px 4px 5px 4px;
+  border-bottom: 1px solid #808080;
+}
+.slopos-search-entry { margin: 2px 0 4px 0; }
+
+/* Local notifications / alerts */
+.slopos-notification,
+.slopos-alert-box {
+  background-color: #F5F5F5;
+  border: 2px solid #000000;
+  padding: 9px;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.42);
+}
+.slopos-notification-title { font-weight: bold; }
+
+/* Catalogue/settings shells */
+.slopos-window-body { background-color: #D9D9D9; padding: 10px; }
+.slopos-panel-title { font-weight: bold; font-size: 13px; }
+.slopos-panel-subtitle { color: #606060; font-size: 11px; }
+.slopos-section {
+  background-color: #EEEEEE;
+  border: 1px solid #808080;
+  padding: 7px;
+}
+.slopos-catalogue-row { background-color: #F8F8F8; border-bottom: 1px solid #C0C0C0; }
+.slopos-preference-row { background-color: #ECECEC; border-bottom: 1px solid #B8B8B8; padding: 6px; }
+
+.slopos-statusbar {
+  background-color: #E5E5E5;
+  border-top: 1px solid #808080;
+  padding: 3px 6px;
+  font-size: 11px;
 }
 
-/* Cards & Dialog Containers */
-.slopos-card {
-  background-color: #FFFFFF;
-  border-top: 1px solid #808080;
-  border-left: 1px solid #808080;
-  border-right: 1px solid #FFFFFF;
-  border-bottom: 1px solid #FFFFFF;
-  padding: 10px;
+/* Classic tooltip */
+tooltip {
+  background-color: #FFFFCC;
+  color: #000000;
+  border: 1px solid #000000;
+  padding: 3px 5px;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
 }
+tooltip label { color: #000000; }
+
+selection, entry selection, textview selection { background-color: #000080; color: #FFFFFF; }

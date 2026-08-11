@@ -1,8 +1,10 @@
-//! AppImage Catalogue Data Models
+//! AppImage catalogue data model.
 
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+
+const EMPTY_FILE_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CatalogueApp {
@@ -22,6 +24,13 @@ impl CatalogueApp {
     pub fn is_installed(&self) -> bool {
         get_appimage_path(&self.id).exists()
     }
+
+    pub fn metadata_is_installable(&self) -> bool {
+        self.download_url.starts_with("https://")
+            && self.sha256.len() == 64
+            && self.sha256.chars().all(|c| c.is_ascii_hexdigit())
+            && !self.sha256.eq_ignore_ascii_case(EMPTY_FILE_SHA256)
+    }
 }
 
 pub fn get_appimage_dir() -> PathBuf {
@@ -32,78 +41,53 @@ pub fn get_appimage_dir() -> PathBuf {
 }
 
 pub fn get_appimage_path(id: &str) -> PathBuf {
-    get_appimage_dir().join(format!("{}.AppImage", id))
+    get_appimage_dir().join(format!("{id}.AppImage"))
 }
 
 pub fn get_desktop_entry_path(id: &str) -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
     let dir = PathBuf::from(home).join(".local/share/applications");
     let _ = fs::create_dir_all(&dir);
-    dir.join(format!("slopos-appimage-{}.desktop", id))
+    dir.join(format!("slopos-appimage-{id}.desktop"))
 }
 
-/// Returns curated default AppImage catalogue list
+/// Seed catalogue shown while trusted release metadata is being curated.
+/// Entries with an empty digest are intentionally browse-only and the UI must
+/// disable installation rather than bypass integrity verification.
 pub fn get_curated_catalogue() -> Vec<CatalogueApp> {
     vec![
-        CatalogueApp {
-            id: "kdenlive".to_string(),
-            name: "Kdenlive".to_string(),
-            summary: "Non-linear video editor".to_string(),
-            description: "Full-featured open source video editor for creators and video production.".to_string(),
-            version: "24.05.0".to_string(),
-            architecture: "x86_64".to_string(),
-            category: "Media".to_string(),
-            icon_name: "kdenlive".to_string(),
-            download_url: "https://files.kde.org/kdenlive/release/kdenlive-24.05.0-x86_64.AppImage".to_string(),
-            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
-        },
-        CatalogueApp {
-            id: "inkscape".to_string(),
-            name: "Inkscape".to_string(),
-            summary: "Vector graphics editor".to_string(),
-            description: "Professional vector graphics editor for illustration, logo design, and SVG editing.".to_string(),
-            version: "1.3.2".to_string(),
-            architecture: "x86_64".to_string(),
-            category: "Graphics".to_string(),
-            icon_name: "inkscape".to_string(),
-            download_url: "https://inkscape.org/gallery/item/44621/Inkscape-e7c6843-x86_64.AppImage".to_string(),
-            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
-        },
-        CatalogueApp {
-            id: "gimp".to_string(),
-            name: "GIMP".to_string(),
-            summary: "GNU Image Manipulation Program".to_string(),
-            description: "Advanced image editor for photo retouching, image composition, and graphic design.".to_string(),
-            version: "2.10.38".to_string(),
-            architecture: "x86_64".to_string(),
-            category: "Graphics".to_string(),
-            icon_name: "gimp".to_string(),
-            download_url: "https://download.gimp.org/gimp/v2.10/appimage/GIMP_AppImage-git-2.10.38-x86_64.AppImage".to_string(),
-            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
-        },
-        CatalogueApp {
-            id: "obs-studio".to_string(),
-            name: "OBS Studio".to_string(),
-            summary: "Screen recording and live streaming".to_string(),
-            description: "Free and open source software for video recording and live streaming.".to_string(),
-            version: "30.1.2".to_string(),
-            architecture: "x86_64".to_string(),
-            category: "Media".to_string(),
-            icon_name: "com.obsproject.Studio".to_string(),
-            download_url: "https://github.com/obsproject/obs-studio/releases/download/30.1.2/OBS-Studio-30.1.2-x86_64.AppImage".to_string(),
-            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
-        },
-        CatalogueApp {
-            id: "audacity".to_string(),
-            name: "Audacity".to_string(),
-            summary: "Multi-track audio editor".to_string(),
-            description: "Easy-to-use, multi-track audio recorder and editor for Linux.".to_string(),
-            version: "3.5.1".to_string(),
-            architecture: "x86_64".to_string(),
-            category: "Media".to_string(),
-            icon_name: "audacity".to_string(),
-            download_url: "https://github.com/audacity/audacity/releases/download/Audacity-3.5.1/audacity-linux-3.5.1-x86_64.AppImage".to_string(),
-            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
-        },
+        app("kdenlive", "Kdenlive", "Non-linear video editor", "24.05.0", "Media", "kdenlive",
+            "https://files.kde.org/kdenlive/release/kdenlive-24.05.0-x86_64.AppImage"),
+        app("inkscape", "Inkscape", "Vector graphics editor", "1.3.2", "Graphics", "inkscape",
+            "https://inkscape.org/gallery/item/44621/Inkscape-e7c6843-x86_64.AppImage"),
+        app("gimp", "GIMP", "GNU Image Manipulation Program", "2.10.38", "Graphics", "gimp",
+            "https://download.gimp.org/gimp/v2.10/appimage/GIMP_AppImage-git-2.10.38-x86_64.AppImage"),
+        app("obs-studio", "OBS Studio", "Screen recording and live streaming", "30.1.2", "Media", "com.obsproject.Studio",
+            "https://github.com/obsproject/obs-studio/releases/download/30.1.2/OBS-Studio-30.1.2-x86_64.AppImage"),
+        app("audacity", "Audacity", "Multi-track audio editor", "3.5.1", "Media", "audacity",
+            "https://github.com/audacity/audacity/releases/download/Audacity-3.5.1/audacity-linux-3.5.1-x86_64.AppImage"),
     ]
+}
+
+fn app(
+    id: &str,
+    name: &str,
+    summary: &str,
+    version: &str,
+    category: &str,
+    icon_name: &str,
+    download_url: &str,
+) -> CatalogueApp {
+    CatalogueApp {
+        id: id.to_string(),
+        name: name.to_string(),
+        summary: summary.to_string(),
+        description: summary.to_string(),
+        version: version.to_string(),
+        architecture: "x86_64".to_string(),
+        category: category.to_string(),
+        icon_name: icon_name.to_string(),
+        download_url: download_url.to_string(),
+        sha256: String::new(),
+    }
 }

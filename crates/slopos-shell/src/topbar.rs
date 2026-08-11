@@ -1,194 +1,240 @@
-//! Macintosh-inspired Global Top Bar
-//! Features SLOPOS system logo menu, global application menu bar (File, Edit, View, Window, Help),
-//! active window name, Spotlight search trigger, and clean GTK status bar indicators.
+//! SLOPOS-I classic top menu/system bar.
 
 use crate::launcher::Launcher;
+use gdk::prelude::*;
 use gtk::prelude::*;
 use gtk::{
     Align, Box as GtkBox, Button, IconSize, Image, Label, Menu, MenuBar, MenuItem, Orientation,
-    Window, WindowPosition, WindowType,
+    SeparatorMenuItem, Window, WindowPosition, WindowType,
 };
+use std::fs;
 use std::process::Command;
 use std::rc::Rc;
 
 pub struct TopBar {
     _window: Window,
-    active_title_label: Label,
-    clock_label: Label,
+    _active_title_label: Label,
+    _clock_label: Label,
 }
 
 impl TopBar {
     pub fn new(launcher: Rc<Launcher>) -> Rc<Self> {
         let window = Window::new(WindowType::Toplevel);
         window.set_title("SLOPOS Top Bar");
-        window.set_default_size(1280, 30);
+        let screen_width = gdk::Screen::default().map(|s| s.width()).unwrap_or(1280);
+        window.set_default_size(screen_width, 26);
         window.set_position(WindowPosition::None);
         window.move_(0, 0);
         window.set_decorated(false);
         window.set_keep_above(true);
         window.set_skip_taskbar_hint(true);
         window.set_skip_pager_hint(true);
+        window.style_context().add_class("slopos-topbar");
 
-        let style_ctx = window.style_context();
-        style_ctx.add_class("slopos-topbar");
+        let main_box = GtkBox::new(Orientation::Horizontal, 0);
+        main_box.set_margin_start(5);
+        main_box.set_margin_end(8);
 
-        let main_box = GtkBox::new(Orientation::Horizontal, 4);
-        main_box.set_margin_start(6);
-        main_box.set_margin_end(12);
-
-        // --- Left Section: SLOPOS Logo Menu & Global Application Menu Bar ---
-        let left_box = GtkBox::new(Orientation::Horizontal, 4);
-
-        // SLOPOS Logo Button
-        let slopos_btn = Button::with_label("");
-        slopos_btn.style_context().add_class("slopos-logo-btn");
-        let menu = build_slopos_system_menu();
-        let menu_ref = menu.clone();
-        slopos_btn.connect_clicked(move |btn| {
+        let system_button = Button::with_label("S");
+        system_button.style_context().add_class("slopos-logo-btn");
+        system_button.set_tooltip_text(Some("SLOPOS menu"));
+        let system_menu = build_system_menu();
+        let menu_ref = system_menu.clone();
+        system_button.connect_clicked(move |button| {
             menu_ref.popup_at_widget(
-                btn,
+                button,
                 gdk::Gravity::SouthWest,
                 gdk::Gravity::NorthWest,
                 None,
             );
         });
-        left_box.pack_start(&slopos_btn, false, false, 0);
+        main_box.pack_start(&system_button, false, false, 0);
 
-        // Active Application Name Label (Bold)
         let active_title_label = Label::new(Some("SLOPOS Desktop"));
         active_title_label.style_context().add_class("slopos-active-app");
         active_title_label.set_halign(Align::Start);
-        left_box.pack_start(&active_title_label, false, false, 6);
+        main_box.pack_start(&active_title_label, false, false, 7);
 
-        // Global Application Menu Bar (File, Edit, View, Window, Help)
-        let global_menu_bar = build_global_menu_bar();
-        left_box.pack_start(&global_menu_bar, false, false, 4);
+        main_box.pack_start(&build_global_menu_bar(), false, false, 0);
 
-        main_box.pack_start(&left_box, true, true, 0);
+        let status_box = GtkBox::new(Orientation::Horizontal, 7);
+        status_box.style_context().add_class("slopos-status-area");
 
-        // --- Right Section: Search & Status Indicators ---
-        let right_box = GtkBox::new(Orientation::Horizontal, 6);
-
-        // Spotlight Search Launcher Button
-        let search_btn = Button::new();
-        let search_box = GtkBox::new(Orientation::Horizontal, 4);
-        let search_icon = Image::from_icon_name(Some("system-search-symbolic"), IconSize::Menu);
-        search_box.pack_start(&search_icon, false, false, 0);
+        let search_button = Button::new();
+        search_button.style_context().add_class("slopos-menubar-control");
+        let search_box = GtkBox::new(Orientation::Horizontal, 3);
+        search_box.pack_start(
+            &Image::from_icon_name(Some("system-search-symbolic"), IconSize::Menu),
+            false,
+            false,
+            0,
+        );
         search_box.pack_start(&Label::new(Some("Search")), false, false, 0);
-        search_btn.add(&search_box);
+        search_button.add(&search_box);
+        let launcher_ref = launcher.clone();
+        search_button.connect_clicked(move |_| launcher_ref.toggle());
+        status_box.pack_start(&search_button, false, false, 0);
 
-        let l_ref = launcher.clone();
-        search_btn.connect_clicked(move |_| {
-            l_ref.toggle();
-        });
-        right_box.pack_start(&search_btn, false, false, 0);
-
-        // Audio Status Indicator
-        let audio_btn = Button::new();
-        let audio_box = GtkBox::new(Orientation::Horizontal, 4);
-        let audio_icon = Image::from_icon_name(Some("audio-volume-high-symbolic"), IconSize::Menu);
-        audio_box.pack_start(&audio_icon, false, false, 0);
-        audio_box.pack_start(&Label::new(Some("100%")), false, false, 0);
-        audio_btn.add(&audio_box);
-        audio_btn.connect_clicked(|_| {
+        let audio_button = Button::new();
+        audio_button.style_context().add_class("slopos-menubar-control");
+        let audio_box = GtkBox::new(Orientation::Horizontal, 3);
+        audio_box.pack_start(
+            &Image::from_icon_name(Some("audio-volume-high-symbolic"), IconSize::Menu),
+            false,
+            false,
+            0,
+        );
+        let audio_label = Label::new(Some("--"));
+        audio_box.pack_start(&audio_label, false, false, 0);
+        audio_button.add(&audio_box);
+        audio_button.connect_clicked(|_| {
             let _ = Command::new("pavucontrol").spawn();
         });
-        right_box.pack_start(&audio_btn, false, false, 0);
+        status_box.pack_start(&audio_button, false, false, 0);
 
-        // Network Status Indicator
-        let net_box = GtkBox::new(Orientation::Horizontal, 4);
-        let net_icon = Image::from_icon_name(Some("network-wireless-symbolic"), IconSize::Menu);
-        net_box.pack_start(&net_icon, false, false, 0);
-        net_box.pack_start(&Label::new(Some("Online")), false, false, 0);
-        right_box.pack_start(&net_box, false, false, 4);
+        let network_box = GtkBox::new(Orientation::Horizontal, 3);
+        network_box.pack_start(
+            &Image::from_icon_name(Some("network-wireless-symbolic"), IconSize::Menu),
+            false,
+            false,
+            0,
+        );
+        let network_label = Label::new(Some("--"));
+        network_box.pack_start(&network_label, false, false, 0);
+        status_box.pack_start(&network_box, false, false, 0);
 
-        // Battery Status Indicator
-        let battery_icon = Image::from_icon_name(Some("battery-good-symbolic"), IconSize::Menu);
-        right_box.pack_start(&battery_icon, false, false, 2);
+        let battery_label = Label::new(None);
+        status_box.pack_start(&battery_label, false, false, 0);
 
-        // Clock Label
-        let clock_label = Label::new(Some("10:00 AM"));
-        right_box.pack_start(&clock_label, false, false, 6);
+        let clock_label = Label::new(Some("--:--"));
+        clock_label.style_context().add_class("slopos-clock");
+        status_box.pack_start(&clock_label, false, false, 2);
 
-        main_box.pack_end(&right_box, false, false, 0);
-
+        main_box.pack_end(&status_box, false, false, 0);
         window.add(&main_box);
         window.show_all();
 
-        let topbar = Rc::new(Self {
+        install_live_updates(
+            &active_title_label,
+            &clock_label,
+            &audio_label,
+            &network_label,
+            &battery_label,
+        );
+
+        Rc::new(Self {
             _window: window,
-            active_title_label,
-            clock_label,
-        });
-
-        topbar.start_clock_timer();
-        topbar
-    }
-
-    fn start_clock_timer(&self) {
-        let label = self.clock_label.clone();
-        glib::timeout_add_seconds_local(1, move || {
-            let now = chrono_now();
-            label.set_text(&now);
-            glib::ControlFlow::Continue
-        });
-    }
-
-    pub fn set_active_window_title(&self, title: &str) {
-        self.active_title_label.set_text(title);
+            _active_title_label: active_title_label,
+            _clock_label: clock_label,
+        })
     }
 }
 
-fn build_slopos_system_menu() -> Menu {
+fn install_live_updates(
+    active_title: &Label,
+    clock: &Label,
+    audio: &Label,
+    network: &Label,
+    battery: &Label,
+) {
+    let active_title = active_title.clone();
+    let clock = clock.clone();
+    let audio = audio.clone();
+    let network = network.clone();
+    let battery = battery.clone();
+
+    glib::timeout_add_seconds_local(1, move || {
+        if let Some(title) = command_output("xdotool", &["getactivewindow", "getwindowname"]) {
+            if !title.is_empty() && title != "SLOPOS Top Bar" && title != "SLOPOS Application Strip" {
+                active_title.set_text(&compact_title(&title));
+            }
+        }
+
+        if let Some(local_time) = command_output("date", &["+%H:%M"]) {
+            clock.set_text(&local_time);
+        }
+
+        audio.set_text(&current_volume().unwrap_or_else(|| "--".to_string()));
+        network.set_text(&current_network_state());
+        battery.set_text(&current_battery_state().unwrap_or_default());
+        glib::ControlFlow::Continue
+    });
+}
+
+fn compact_title(title: &str) -> String {
+    let title = title.trim();
+    if title.len() <= 28 { return title.to_string(); }
+    let mut value = title.chars().take(27).collect::<String>();
+    value.push('…');
+    value
+}
+
+fn current_volume() -> Option<String> {
+    let text = command_output("wpctl", &["get-volume", "@DEFAULT_AUDIO_SINK@"]) ?;
+    let value = text.split_whitespace().find_map(|part| part.parse::<f64>().ok())?;
+    Some(format!("{}%", (value * 100.0).round() as i32))
+}
+
+fn current_network_state() -> String {
+    match command_output("nmcli", &["-t", "-f", "STATE", "general"]) {
+        Some(value) if value.to_ascii_lowercase().starts_with("connected") => "Online".to_string(),
+        Some(_) => "Offline".to_string(),
+        None => "--".to_string(),
+    }
+}
+
+fn current_battery_state() -> Option<String> {
+    for name in ["BAT0", "BAT1"] {
+        let path = format!("/sys/class/power_supply/{name}/capacity");
+        if let Ok(value) = fs::read_to_string(path) {
+            return Some(format!("{}%", value.trim()));
+        }
+    }
+    None
+}
+
+fn command_output(program: &str, args: &[&str]) -> Option<String> {
+    let output = Command::new(program).args(args).output().ok()?;
+    if !output.status.success() { return None; }
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn build_system_menu() -> Menu {
     let menu = Menu::new();
 
-    let about_item = MenuItem::with_label("About SLOPOS-I");
-    about_item.connect_activate(|_| {
+    let about = MenuItem::with_label("About SLOPOS-I");
+    about.connect_activate(|_| {
         let _ = Command::new("zenity")
-            .args(&["--info", "--title=About SLOPOS-I", "--text=SLOPOS-I Macintosh-inspired Desktop Operating Environment\nVersion 1.0 (X11)"])
+            .args(["--info", "--title=About SLOPOS-I", "--text=SLOPOS-I\nX11 Platinum Desktop"])
             .spawn();
     });
-    menu.append(&about_item);
+    menu.append(&about);
+    menu.append(&SeparatorMenuItem::new());
 
-    menu.append(&MenuItem::new()); // Separator
+    let settings = MenuItem::with_label("System Settings…");
+    settings.connect_activate(|_| { let _ = Command::new("slopos-settings").spawn(); });
+    menu.append(&settings);
 
-    let settings_item = MenuItem::with_label("System Settings...");
-    settings_item.connect_activate(|_| {
-        let _ = Command::new("slopos-settings").spawn();
-    });
-    menu.append(&settings_item);
+    let catalogue = MenuItem::with_label("Software Catalogue…");
+    catalogue.connect_activate(|_| { let _ = Command::new("slopos-catalogue").spawn(); });
+    menu.append(&catalogue);
+    menu.append(&SeparatorMenuItem::new());
 
-    let catalogue_item = MenuItem::with_label("AppImage Catalogue...");
-    catalogue_item.connect_activate(|_| {
-        let _ = Command::new("slopos-catalogue").spawn();
-    });
-    menu.append(&catalogue_item);
+    let lock = MenuItem::with_label("Lock Screen");
+    lock.connect_activate(|_| { let _ = Command::new("xset").args(["s", "activate"]).spawn(); });
+    menu.append(&lock);
 
-    menu.append(&MenuItem::new()); // Separator
+    let logout = MenuItem::with_label("Log Out…");
+    logout.connect_activate(|_| { let _ = Command::new("pkill").args(["-TERM", "-x", "slopos-session"]).spawn(); });
+    menu.append(&logout);
 
-    let lock_item = MenuItem::with_label("Lock Screen");
-    lock_item.connect_activate(|_| {
-        let _ = Command::new("xset").args(&["s", "activate"]).spawn();
-    });
-    menu.append(&lock_item);
+    let restart = MenuItem::with_label("Restart…");
+    restart.connect_activate(|_| { let _ = Command::new("systemctl").arg("reboot").spawn(); });
+    menu.append(&restart);
 
-    let logout_item = MenuItem::with_label("Log Out...");
-    logout_item.connect_activate(|_| {
-        let _ = Command::new("pkill").arg("openbox").spawn();
-    });
-    menu.append(&logout_item);
-
-    let reboot_item = MenuItem::with_label("Restart...");
-    reboot_item.connect_activate(|_| {
-        let _ = Command::new("systemctl").arg("reboot").spawn();
-    });
-    menu.append(&reboot_item);
-
-    let shutdown_item = MenuItem::with_label("Shut Down...");
-    shutdown_item.connect_activate(|_| {
-        let _ = Command::new("systemctl").arg("poweroff").spawn();
-    });
-    menu.append(&shutdown_item);
+    let shutdown = MenuItem::with_label("Shut Down…");
+    shutdown.connect_activate(|_| { let _ = Command::new("systemctl").arg("poweroff").spawn(); });
+    menu.append(&shutdown);
 
     menu.show_all();
     menu
@@ -198,81 +244,48 @@ fn build_global_menu_bar() -> MenuBar {
     let menu_bar = MenuBar::new();
     menu_bar.style_context().add_class("slopos-menu-bar");
 
-    // File Menu
     let file_item = MenuItem::with_label("File");
     let file_menu = Menu::new();
-    let new_window = MenuItem::with_label("New Window");
-    new_window.connect_activate(|_| {
-        let _ = Command::new("pcmanfm").spawn();
-    });
-    file_menu.append(&new_window);
-    let open_file = MenuItem::with_label("Open File...");
-    open_file.connect_activate(|_| {
-        let _ = Command::new("pcmanfm").spawn();
-    });
-    file_menu.append(&open_file);
-    file_menu.append(&MenuItem::new()); // Separator
-    let close_win = MenuItem::with_label("Close Window");
-    close_win.connect_activate(|_| {
-        let _ = Command::new("xdotool").args(&["getactivewindow", "windowclose"]).spawn();
-    });
-    file_menu.append(&close_win);
+    file_menu.append(&command_item("New File Window", || spawn("pcmanfm", &[])));
+    file_menu.append(&command_item("Open…", || spawn("pcmanfm", &[])));
+    file_menu.append(&SeparatorMenuItem::new());
+    file_menu.append(&command_item("Close Window", || spawn("xdotool", &["getactivewindow", "windowclose"])));
     file_item.set_submenu(Some(&file_menu));
     menu_bar.append(&file_item);
 
-    // Edit Menu
     let edit_item = MenuItem::with_label("Edit");
     let edit_menu = Menu::new();
-    let undo = MenuItem::with_label("Undo");
-    let cut = MenuItem::with_label("Cut");
-    let copy = MenuItem::with_label("Copy");
-    let paste = MenuItem::with_label("Paste");
-    let select_all = MenuItem::with_label("Select All");
-    edit_menu.append(&undo);
-    edit_menu.append(&MenuItem::new());
-    edit_menu.append(&cut);
-    edit_menu.append(&copy);
-    edit_menu.append(&paste);
-    edit_menu.append(&select_all);
+    edit_menu.append(&shortcut_item("Undo", "ctrl+z"));
+    edit_menu.append(&SeparatorMenuItem::new());
+    edit_menu.append(&shortcut_item("Cut", "ctrl+x"));
+    edit_menu.append(&shortcut_item("Copy", "ctrl+c"));
+    edit_menu.append(&shortcut_item("Paste", "ctrl+v"));
+    edit_menu.append(&shortcut_item("Select All", "ctrl+a"));
     edit_item.set_submenu(Some(&edit_menu));
     menu_bar.append(&edit_item);
 
-    // View Menu
     let view_item = MenuItem::with_label("View");
     let view_menu = Menu::new();
-    let show_dock = MenuItem::with_label("Show Dock");
-    let zoom_in = MenuItem::with_label("Zoom In");
-    let zoom_out = MenuItem::with_label("Zoom Out");
-    view_menu.append(&show_dock);
-    view_menu.append(&zoom_in);
-    view_menu.append(&zoom_out);
+    view_menu.append(&shortcut_item("Refresh", "F5"));
+    view_menu.append(&SeparatorMenuItem::new());
+    view_menu.append(&shortcut_item("Zoom In", "ctrl+plus"));
+    view_menu.append(&shortcut_item("Zoom Out", "ctrl+minus"));
     view_item.set_submenu(Some(&view_menu));
     menu_bar.append(&view_item);
 
-    // Window Menu
     let window_item = MenuItem::with_label("Window");
     let window_menu = Menu::new();
-    let minimize = MenuItem::with_label("Minimize");
-    minimize.connect_activate(|_| {
-        let _ = Command::new("xdotool").args(&["getactivewindow", "windowminimize"]).spawn();
-    });
-    let zoom = MenuItem::with_label("Zoom / Maximize");
-    zoom.connect_activate(|_| {
-        let _ = Command::new("xdotool").args(&["getactivewindow", "windowsize", "100%", "100%"]).spawn();
-    });
-    window_menu.append(&minimize);
-    window_menu.append(&zoom);
+    window_menu.append(&command_item("Minimize", || spawn("xdotool", &["getactivewindow", "windowminimize"])));
+    window_menu.append(&command_item("Zoom / Maximize", || spawn("wmctrl", &["-r", ":ACTIVE:", "-b", "toggle,maximized_vert,maximized_horz"])));
+    window_menu.append(&command_item("Next Window", || spawn("xdotool", &["key", "alt+Tab"])));
     window_item.set_submenu(Some(&window_menu));
     menu_bar.append(&window_item);
 
-    // Help Menu
     let help_item = MenuItem::with_label("Help");
     let help_menu = Menu::new();
-    let slopos_help = MenuItem::with_label("SLOPOS-I Help");
-    slopos_help.connect_activate(|_| {
-        let _ = Command::new("zenity").args(&["--info", "--title=SLOPOS Help", "--text=Press Super+Space to launch Spotlight Launcher."]).spawn();
-    });
-    help_menu.append(&slopos_help);
+    help_menu.append(&command_item("SLOPOS-I Help", || {
+        spawn("zenity", &["--info", "--title=SLOPOS-I Help", "--text=Super+Space: Search\nSuper+Left/Right: switch desktop\nSuper+Q: close window"])
+    }));
     help_item.set_submenu(Some(&help_menu));
     menu_bar.append(&help_item);
 
@@ -280,13 +293,19 @@ fn build_global_menu_bar() -> MenuBar {
     menu_bar
 }
 
-fn chrono_now() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    let hours = (secs / 3600 + 5) % 24;
-    let mins = (secs / 60) % 60;
-    format!("{:02}:{:02}", hours, mins)
+fn command_item<F>(label: &str, action: F) -> MenuItem
+where
+    F: Fn() + 'static,
+{
+    let item = MenuItem::with_label(label);
+    item.connect_activate(move |_| action());
+    item
+}
+
+fn shortcut_item(label: &str, shortcut: &'static str) -> MenuItem {
+    command_item(label, move || spawn("xdotool", &["key", "--clearmodifiers", shortcut]))
+}
+
+fn spawn(program: &str, args: &[&str]) {
+    let _ = Command::new(program).args(args).spawn();
 }

@@ -1,18 +1,5 @@
 name: CI
 
-# The compositor is Linux-only: on macOS/Windows crates/slopos-compositor
-# compiles down to a stub main() that prints "Linux-only". That is exactly how
-# a borrow-checker error in the real implementation went unnoticed from
-# 2026-07-11 to 2026-07-26 while ~30 commits claimed the compositor was "live".
-# This workflow exists so that cannot happen again: the workspace must build on
-# Linux for every push and pull request.
-#
-# Pull requests in this repository may represent long-lived implementation
-# branches whose base predates workspace-wide renames and lockfile replacement.
-# GitHub's synthetic refs/pull/*/merge snapshot can therefore contain a
-# mechanically merged but internally stale Cargo.lock. Source validation runs
-# against the exact proposed head commit; GitHub reports mergeability separately.
-
 on:
   push:
     branches: ["**"]
@@ -40,162 +27,132 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.SOURCE_SHA }}
-
       - name: Confirm exact source revision
         run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
-
       - uses: dtolnay/rust-toolchain@stable
-
-      - name: Validate committed workspace lockfile without mutation
+      - name: Validate committed lockfile
         run: |
-          # `--locked` makes Cargo reject a stale or missing lockfile instead
-          # of resolving newer compatible transitive versions.  CI must never
-          # regenerate or upload a different lockfile: dependency refresh is
-          # an intentional developer operation reviewed in the source diff.
           cargo metadata --locked --format-version 1 --no-deps > /dev/null
           git diff --exit-code -- Cargo.lock
 
-  linux:
-    name: build + test (linux)
+  x11-contract:
+    name: X11-only product contract
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.SOURCE_SHA }}
+      - name: Enforce pivot workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -d crates/slopos-compositor
+          ! grep -Eq 'slopos-compositor|smithay|wayland-client|wayland-server' Cargo.toml
+          grep -Fq 'crates/slopos-session' Cargo.toml
+          grep -Fq 'crates/slopos-shell' Cargo.toml
+          grep -Fq 'crates/slopos-catalogue' Cargo.toml
+          grep -Fq 'crates/slopos-settings' Cargo.toml
+          ! grep -Eq 'share/wayland-sessions|slopos-compositor' install.sh
 
+  linux:
+    name: build + test + lint (X11 Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
       - name: Confirm exact source revision
         run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
-
-      - name: Install system dependencies
+      - name: Install X11/GTK build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config \
-            libwayland-dev libwayland-egl-backend-dev \
-            libvulkan-dev libegl1-mesa-dev libgles2-mesa-dev \
-            libxkbcommon-dev libdbus-1-dev \
-            libfontconfig-dev libfreetype6-dev \
-            libdrm-dev libgbm-dev \
-            libxcb1-dev libxcb-icccm4-dev libxcb-keysyms1-dev \
-            libxcb-randr0-dev libxcb-util0-dev libxcb-xfixes0-dev \
-            libinput-dev libudev-dev libseat-dev libsystemd-dev \
-            libpipewire-0.3-dev libspa-0.2-dev
-
+            libgtk-3-dev libx11-dev libxrandr-dev libssl-dev libdbus-1-dev
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
-
       - uses: Swatinem/rust-cache@v2
-
       - name: Build workspace
         run: cargo build --workspace --all-targets --locked
-
       - name: Test workspace
         run: cargo test --workspace --locked
-
-      # The tree still carries warning debt outside the compositor. This job
-      # fails on clippy errors while leaving warning promotion for a separate
-      # cleanup milestone.
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked
+      - name: rustfmt
+        run: cargo fmt --all --check
 
-  compositor-contract:
-    name: compositor completion contract
+  x11-runtime-smoke:
+    name: Xvfb + Openbox session smoke
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.SOURCE_SHA }}
-          fetch-depth: 0
-
-      - name: Confirm exact source revision
-        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
-
-      - name: Install compositor dependencies
+      - name: Install runtime/build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config wayland-utils \
-            libwayland-dev libwayland-egl-backend-dev \
-            libvulkan-dev libegl1-mesa-dev libgles2-mesa-dev \
-            libxkbcommon-dev libdbus-1-dev \
-            libfontconfig-dev libfreetype6-dev \
-            libdrm-dev libgbm-dev \
-            libxcb1-dev libxcb-icccm4-dev libxcb-keysyms1-dev \
-            libxcb-randr0-dev libxcb-util0-dev libxcb-xfixes0-dev \
-            libinput-dev libudev-dev libseat-dev libsystemd-dev
-
+            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            libssl-dev libdbus-1-dev xvfb openbox xdotool wmctrl \
+            adwaita-icon-theme dbus-x11
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-
       - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: compositor-contract
+      - name: Build debug binaries
+        run: cargo build --workspace --locked
+      - name: Install Openbox theme for smoke session
+        run: |
+          mkdir -p "$HOME/.themes/slopos-openbox/openbox-3"
+          cp themes/slopos-openbox/openbox-3/themerc "$HOME/.themes/slopos-openbox/openbox-3/themerc"
+      - name: Run X11 session smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DISPLAY=:99
+          export XDG_RUNTIME_DIR="$RUNNER_TEMP/slopos-runtime"
+          export SLOPOS_OPENBOX_CONFIG="$GITHUB_WORKSPACE/assets/config/openbox/rc.xml"
+          export SLOPOS_QA_NO_WELCOME=1
+          mkdir -p "$XDG_RUNTIME_DIR"
+          chmod 700 "$XDG_RUNTIME_DIR"
 
-      - name: Run exact-commit compositor source/build gate
-        run: bash scripts/verify-compositor-completion.sh
+          cleanup() {
+            set +e
+            kill "${SESSION_PID:-}" "${XVFB_PID:-}" 2>/dev/null || true
+          }
+          trap cleanup EXIT
 
-      - name: Run SLOPOS headless Wayland runtime gate
-        run: bash scripts/verify-compositor-headless-runtime.sh
+          Xvfb :99 -screen 0 1280x800x24 >"$RUNNER_TEMP/xvfb.log" 2>&1 &
+          XVFB_PID=$!
+          sleep 2
+          ./target/debug/slopos-session >"$RUNNER_TEMP/slopos-session.log" 2>&1 &
+          SESSION_PID=$!
 
-      - name: Upload compositor evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: compositor-contract-${{ env.SOURCE_SHA }}
-          path: |
-            artifacts/qa/compositor-contract/
-            artifacts/qa/compositor-headless-runtime/
-          if-no-files-found: error
-          retention-days: 30
+          for _ in $(seq 1 20); do
+            if pgrep -x openbox >/dev/null && pgrep -x slopos-shell >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          pgrep -x openbox >/dev/null
+          pgrep -x slopos-shell >/dev/null
+          xdotool search --name "SLOPOS Top Bar" >/dev/null
+          xdotool search --name "SLOPOS Application Strip" >/dev/null
 
   release-build:
-    name: release build (linux)
+    name: release build (X11 Linux)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.SOURCE_SHA }}
-
-      - name: Confirm exact source revision
-        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
-
-      - name: Install system dependencies
+      - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config \
-            libwayland-dev libwayland-egl-backend-dev \
-            libvulkan-dev libegl1-mesa-dev libgles2-mesa-dev \
-            libxkbcommon-dev libdbus-1-dev \
-            libfontconfig-dev libfreetype6-dev \
-            libdrm-dev libgbm-dev \
-            libxcb1-dev libxcb-icccm4-dev libxcb-keysyms1-dev \
-            libxcb-randr0-dev libxcb-util0-dev libxcb-xfixes0-dev \
-            libinput-dev libudev-dev libseat-dev libsystemd-dev \
-            libpipewire-0.3-dev libspa-0.2-dev
-
+            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            libssl-dev libdbus-1-dev
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-
       - name: Build release binaries
         run: cargo build --workspace --release --locked
-
-  formatting:
-    name: rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.SOURCE_SHA }}
-
-      - name: Confirm exact source revision
-        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-
-      - name: Verify formatting
-        run: cargo fmt --all --check

@@ -1,90 +1,82 @@
-//! Bottom Application Dock
-//! Macintosh-inspired bottom task dock displaying pinned launchers and active open window tasks.
+//! Compact SLOPOS Platinum Application Strip.
 
 use crate::launcher::Launcher;
+use gdk::prelude::*;
 use gtk::prelude::*;
-use gtk::{
-    Box as GtkBox, Button, IconSize, Image, Orientation, StyleContext, Window, WindowPosition,
-    WindowType,
-};
+use gtk::{Box as GtkBox, Button, IconSize, Image, Orientation, Window, WindowPosition, WindowType};
+use std::path::Path;
 use std::process::Command;
 use std::rc::Rc;
 
 pub struct Dock {
     _window: Window,
-    _dock_box: GtkBox,
 }
 
 impl Dock {
     pub fn new(launcher: Rc<Launcher>) -> Rc<Self> {
         let window = Window::new(WindowType::Toplevel);
-        window.set_title("SLOPOS Dock");
-        window.set_default_size(480, 56);
-        window.set_position(WindowPosition::Center);
-        window.move_(400, 738);
+        window.set_title("SLOPOS Application Strip");
+        let (screen_width, screen_height) = gdk::Screen::default()
+            .map(|s| (s.width(), s.height()))
+            .unwrap_or((1280, 800));
+        let width = 470;
+        let height = 54;
+        window.set_default_size(width, height);
+        window.set_position(WindowPosition::None);
+        window.move_((screen_width - width).max(0) / 2, (screen_height - height - 6).max(28));
         window.set_decorated(false);
         window.set_keep_above(true);
         window.set_skip_taskbar_hint(true);
         window.set_skip_pager_hint(true);
 
-        let dock_box = GtkBox::new(Orientation::Horizontal, 6);
+        let dock_box = GtkBox::new(Orientation::Horizontal, 3);
         dock_box.style_context().add_class("slopos-dock-container");
-        dock_box.set_margin_start(8);
-        dock_box.set_margin_end(8);
-        dock_box.set_margin_top(2);
-        dock_box.set_margin_bottom(2);
 
-        // Add Pinned Quick Launch Items
-        add_dock_item(&dock_box, "system-search-symbolic", "Spotlight Launcher", {
-            let l = launcher.clone();
-            move || l.toggle()
+        add_item(&dock_box, "search.png", "system-search-symbolic", "Search", {
+            let launcher = launcher.clone();
+            move || launcher.toggle()
         });
-        add_dock_item(&dock_box, "folder-symbolic", "Files (PCManFM)", || {
-            let _ = Command::new("pcmanfm").spawn();
-        });
-        add_dock_item(&dock_box, "utilities-terminal-symbolic", "Terminal", || {
-            let _ = Command::new("xfce4-terminal").spawn();
-        });
-        add_dock_item(&dock_box, "accessories-text-editor-symbolic", "Text Editor (Mousepad)", || {
-            let _ = Command::new("mousepad").spawn();
-        });
-        add_dock_item(&dock_box, "web-browser-symbolic", "Web Browser (Firefox)", || {
-            let _ = Command::new("firefox").spawn();
-        });
-        add_dock_item(&dock_box, "system-software-install-symbolic", "AppImage Catalogue", || {
-            let _ = Command::new("slopos-catalogue").spawn();
-        });
-        add_dock_item(&dock_box, "preferences-system-symbolic", "System Settings", || {
-            let _ = Command::new("slopos-settings").spawn();
-        });
-        add_dock_item(&dock_box, "user-trash-symbolic", "Trash", || {
-            let _ = Command::new("pcmanfm").arg("trash:///").spawn();
-        });
+        add_item(&dock_box, "folder.png", "folder-symbolic", "Files", || spawn("pcmanfm", &[]));
+        add_item(&dock_box, "terminal.png", "utilities-terminal-symbolic", "Terminal", || spawn("xfce4-terminal", &[]));
+        add_item(&dock_box, "textedit.png", "accessories-text-editor-symbolic", "Text Editor", || spawn("mousepad", &[]));
+        add_item(&dock_box, "browser.png", "web-browser-symbolic", "Web Browser", || spawn("firefox", &[]));
+        add_item(&dock_box, "software.png", "system-software-install-symbolic", "Software Catalogue", || spawn("slopos-catalogue", &[]));
+        add_item(&dock_box, "settings.png", "preferences-system-symbolic", "System Settings", || spawn("slopos-settings", &[]));
+        add_item(&dock_box, "trash.png", "user-trash-symbolic", "Trash", || spawn("pcmanfm", &["trash:///"]));
 
         window.add(&dock_box);
         window.show_all();
-
-        Rc::new(Self {
-            _window: window,
-            _dock_box: dock_box,
-        })
+        Rc::new(Self { _window: window })
     }
 }
 
-fn add_dock_item<F>(dock_box: &GtkBox, icon: &str, tooltip: &str, on_click: F)
+fn add_item<F>(dock: &GtkBox, custom_icon: &str, fallback_icon: &str, tooltip: &str, action: F)
 where
     F: Fn() + 'static,
 {
-    let btn = Button::new();
-    btn.style_context().add_class("slopos-dock-btn");
-    let img = Image::from_icon_name(Some(icon), IconSize::Dnd);
-    btn.set_image(Some(&img));
-    btn.set_tooltip_text(Some(tooltip));
-    btn.set_relief(gtk::ReliefStyle::None);
+    let button = Button::new();
+    button.style_context().add_class("slopos-dock-btn");
+    button.set_relief(gtk::ReliefStyle::None);
+    button.set_tooltip_text(Some(tooltip));
+    button.set_image(Some(&load_icon(custom_icon, fallback_icon)));
+    button.connect_clicked(move |_| action());
+    dock.pack_start(&button, false, false, 0);
+}
 
-    btn.connect_clicked(move |_| {
-        on_click();
-    });
+fn load_icon(file_name: &str, fallback: &str) -> Image {
+    let candidates = [
+        format!("themes/platinum/icons/{file_name}"),
+        format!("/usr/local/share/slopos-i/themes/platinum/icons/{file_name}"),
+        format!("/usr/share/slopos-i/themes/platinum/icons/{file_name}"),
+    ];
+    for path in candidates {
+        if Path::new(&path).exists() {
+            return Image::from_file(path);
+        }
+    }
+    Image::from_icon_name(Some(fallback), IconSize::LargeToolbar)
+}
 
-    dock_box.pack_start(&btn, false, false, 0);
+fn spawn(program: &str, args: &[&str]) {
+    let _ = Command::new(program).args(args).spawn();
 }

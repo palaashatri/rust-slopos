@@ -1,18 +1,11 @@
 #!/usr/bin/env bash
-# SLOPOS-I layered installer — primary distribution path
-# Installs SLOPOS-I (DE + apps) onto a running Arch or Ubuntu system
-# Usage: sudo ./install.sh [--prefix /usr/local] [--no-deps] [--no-build] [--with-greeter] [--distro auto|arch|ubuntu]
-
+# SLOPOS-I X11 layered installer
+# Installs the SLOPOS X11 desktop onto a supported Arch/Ubuntu-family system.
 set -euo pipefail
 
-# Keep every invocation on one explicit cache path.  Callers may override it
-# for CI or a shared QA VM, but a fresh checkout must not create a private
-# target tree for each run.
 CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
 export CARGO_TARGET_DIR
 mkdir -p "$CARGO_TARGET_DIR"
-
-# ── Configuration ─────────────────────────────────────────────────────────────
 
 PREFIX="${PREFIX:-/usr/local}"
 NO_DEPS=0
@@ -22,221 +15,143 @@ DISTRO="auto"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --prefix)
-      PREFIX="$2"
-      shift 2
+    --prefix) PREFIX="$2"; shift 2 ;;
+    --no-deps) NO_DEPS=1; shift ;;
+    --no-build) NO_BUILD=1; shift ;;
+    --with-greeter) WITH_GREETER=1; shift ;;
+    --distro) DISTRO="$2"; shift 2 ;;
+    -h|--help)
+      cat <<EOF
+Usage: sudo ./install.sh [--prefix /usr/local] [--no-deps] [--no-build]
+                         [--with-greeter] [--distro auto|arch|ubuntu]
+
+Installs the X11-only SLOPOS-I desktop. No Wayland/compositor components are installed.
+EOF
+      exit 0
       ;;
-    --no-deps)
-      NO_DEPS=1
-      shift
-      ;;
-    --no-build)
-      NO_BUILD=1
-      shift
-      ;;
-    --with-greeter)
-      WITH_GREETER=1
-      shift
-      ;;
-    --distro)
-      DISTRO="$2"
-      shift 2
-      ;;
-    *)
-      echo "Unknown option: $1" >&2
-      exit 1
-      ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
 
-# ── Distro detection ──────────────────────────────────────────────────────────
-
 if [[ "$DISTRO" == "auto" ]]; then
-  if [[ -f /etc/os-release ]]; then
-    # shellcheck source=/dev/null
-    source /etc/os-release
-    if [[ "${ID:-}" == "arch" ]]; then
-      DISTRO="arch"
-    elif [[ "${ID:-}" == "ubuntu" || "${ID_LIKE:-}" =~ debian ]]; then
-      DISTRO="ubuntu"
-    else
-      echo "ERROR: Unsupported distribution. Use --distro arch|ubuntu to override." >&2
-      exit 1
-    fi
+  if [[ ! -f /etc/os-release ]]; then
+    echo "ERROR: /etc/os-release is unavailable; pass --distro arch|ubuntu" >&2
+    exit 1
+  fi
+  # shellcheck source=/dev/null
+  source /etc/os-release
+  if [[ "${ID:-}" == "arch" || "${ID_LIKE:-}" =~ arch ]]; then
+    DISTRO="arch"
+  elif [[ "${ID:-}" == "ubuntu" || "${ID:-}" == "debian" || "${ID_LIKE:-}" =~ debian ]]; then
+    DISTRO="ubuntu"
   else
-    echo "ERROR: Could not detect distribution. Use --distro arch|ubuntu." >&2
+    echo "ERROR: Unsupported distribution '${ID:-unknown}'. Pass --distro arch|ubuntu only when compatible." >&2
     exit 1
   fi
 fi
 
-echo "=== SLOPOS-I Installer ==="
-echo "Distro: $DISTRO"
-echo "Prefix: $PREFIX"
-echo "Install deps: $([[ $NO_DEPS -eq 0 ]] && echo yes || echo no)"
-echo "Build from source: $([[ $NO_BUILD -eq 0 ]] && echo yes || echo no)"
-echo "With greeter: $([[ $WITH_GREETER -eq 0 ]] && echo no || echo yes)"
-echo ""
+if [[ "$DISTRO" != "arch" && "$DISTRO" != "ubuntu" ]]; then
+  echo "ERROR: --distro must be arch or ubuntu" >&2
+  exit 2
+fi
 
-# ── Install dependencies ──────────────────────────────────────────────────────
+echo "=== SLOPOS-I X11 Installer ==="
+echo "Distribution family: $DISTRO"
+echo "Prefix: $PREFIX"
 
 if [[ $NO_DEPS -eq 0 ]]; then
-  echo "Installing dependencies..."
-
+  echo "Installing X11 runtime/build dependencies..."
   if [[ "$DISTRO" == "arch" ]]; then
-    # Install runtime deps
-    RUNTIME_DEPS=$(grep -v '^#' packaging/deps/arch.txt | tr '\n' ' ')
-    # shellcheck disable=SC2086
-    sudo pacman -S --needed --noconfirm $RUNTIME_DEPS
-
-    # Install build deps if building
+    mapfile -t runtime_deps < <(grep -Ev '^\s*(#|$)' packaging/deps/arch.txt)
+    pacman -S --needed --noconfirm "${runtime_deps[@]}"
     if [[ $NO_BUILD -eq 0 ]]; then
-      BUILD_DEPS=$(grep -v '^#' packaging/deps/arch-build.txt | tr '\n' ' ')
-      # shellcheck disable=SC2086
-      sudo pacman -S --needed --noconfirm $BUILD_DEPS
+      mapfile -t build_deps < <(grep -Ev '^\s*(#|$)' packaging/deps/arch-build.txt)
+      pacman -S --needed --noconfirm "${build_deps[@]}"
     fi
-
-  elif [[ "$DISTRO" == "ubuntu" ]]; then
-    # Install runtime deps
-    sudo apt-get update
-    RUNTIME_DEPS=$(grep -v '^#' packaging/deps/ubuntu.txt | tr '\n' ' ')
-    # shellcheck disable=SC2086
-    sudo apt-get install -y $RUNTIME_DEPS
-
-    # Install build deps if building
+  else
+    apt-get update
+    mapfile -t runtime_deps < <(grep -Ev '^\s*(#|$)' packaging/deps/ubuntu.txt)
+    apt-get install -y "${runtime_deps[@]}"
     if [[ $NO_BUILD -eq 0 ]]; then
-      BUILD_DEPS=$(grep -v '^#' packaging/deps/ubuntu-build.txt | tr '\n' ' ')
-      # shellcheck disable=SC2086
-      sudo apt-get install -y $BUILD_DEPS
+      mapfile -t build_deps < <(grep -Ev '^\s*(#|$)' packaging/deps/ubuntu-build.txt)
+      apt-get install -y "${build_deps[@]}"
     fi
   fi
-
-  echo "✓ Dependencies installed"
-else
-  echo "Skipping dependency installation"
 fi
-
-# ── Build from source ─────────────────────────────────────────────────────────
 
 if [[ $NO_BUILD -eq 0 ]]; then
-  echo ""
-  echo "Building SLOPOS-I from source..."
-
-  # Ensure Rust is available
-  if ! command -v cargo &>/dev/null; then
-    if [[ "$DISTRO" == "ubuntu" ]]; then
-      echo "  Installing Rust via rustup..."
-      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      # shellcheck source=/dev/null
-      source "$HOME/.cargo/env"
-    else
-      echo "ERROR: cargo not found. Install Rust first." >&2
-      exit 1
-    fi
-  fi
-
-  cargo build --release --workspace --locked
-  echo "✓ Build complete"
-else
-  echo "Skipping build (assuming binaries already exist)"
-fi
-
-# ── Install binaries ──────────────────────────────────────────────────────────
-
-echo ""
-echo "Installing binaries to $PREFIX/bin..."
-
-BINARIES=(
-  "$CARGO_TARGET_DIR/release/slopos-session"
-  "$CARGO_TARGET_DIR/release/slopos-compositor"
-  "$CARGO_TARGET_DIR/release/slopos-shell"
-  "$CARGO_TARGET_DIR/release/finder"
-  "$CARGO_TARGET_DIR/release/settings"
-  "$CARGO_TARGET_DIR/release/textedit"
-  "$CARGO_TARGET_DIR/release/terminal"
-  "$CARGO_TARGET_DIR/release/appstore"
-)
-
-for bin in "${BINARIES[@]}"; do
-  if [[ ! -f "$bin" ]]; then
-    echo "ERROR: $bin not found. Build may have failed." >&2
+  if ! command -v cargo >/dev/null 2>&1; then
+    echo "ERROR: cargo is required. Install Rust before running this installer." >&2
     exit 1
   fi
-  BINNAME=$(basename "$bin")
-  sudo install -Dm755 "$bin" "$PREFIX/bin/$BINNAME"
+  cargo build --release --workspace --locked
+fi
+
+BINARIES=(slopos-session slopos-shell slopos-catalogue slopos-settings)
+for name in "${BINARIES[@]}"; do
+  src="$CARGO_TARGET_DIR/release/$name"
+  if [[ ! -x "$src" ]]; then
+    echo "ERROR: missing built binary: $src" >&2
+    exit 1
+  fi
+  install -Dm755 "$src" "$PREFIX/bin/$name"
 done
+install -Dm755 scripts/start-slopos-i "$PREFIX/bin/start-slopos-i"
 
-# Install start-slopos-i script
-sudo install -Dm755 scripts/start-slopos-i "$PREFIX/bin/start-slopos-i"
-
-echo "✓ Binaries installed"
-
-# ── Install session files ─────────────────────────────────────────────────────
-
-echo ""
-echo "Installing session files..."
+# X11 session descriptor.
 bash scripts/install-session-files.sh --prefix "$PREFIX"
-echo "✓ Session files installed"
 
-# ── Configure greeter (optional) ──────────────────────────────────────────────
+# SLOPOS-specific Openbox configuration and theme. The session supervisor points
+# Openbox at this config rather than overwriting a user's normal Openbox profile.
+install -Dm644 assets/config/openbox/rc.xml "$PREFIX/share/slopos-i/openbox/rc.xml"
+install -Dm644 assets/config/openbox/menu.xml "$PREFIX/share/slopos-i/openbox/menu.xml"
+install -Dm644 themes/slopos-openbox/openbox-3/themerc \
+  "$PREFIX/share/themes/slopos-openbox/openbox-3/themerc"
+
+# GTK theme and desktop defaults.
+install -Dm644 assets/config/gtk-3.0/gtk.css \
+  "$PREFIX/share/themes/slopos-gtk/gtk-3.0/gtk.css"
+if [[ -f assets/config/gtk-3.0/settings.ini ]]; then
+  install -Dm644 assets/config/gtk-3.0/settings.ini \
+    "$PREFIX/share/slopos-i/gtk-3.0/settings.ini"
+fi
+install -Dm644 assets/config/mimeapps.list "$PREFIX/share/slopos-i/mimeapps.list"
+
+# Original SLOPOS theme resources.
+rm -rf "$PREFIX/share/slopos-i/themes/platinum"
+mkdir -p "$PREFIX/share/slopos-i/themes"
+cp -a themes/platinum "$PREFIX/share/slopos-i/themes/platinum"
+if [[ -f assets/slopos-logo.png ]]; then
+  install -Dm644 assets/slopos-logo.png "$PREFIX/share/slopos-i/slopos-logo.png"
+fi
 
 if [[ $WITH_GREETER -eq 1 ]]; then
-  echo ""
-  echo "Configuring greetd + tuigreet..."
-
-  # Install greeter packages
   if [[ "$DISTRO" == "arch" ]]; then
-    sudo pacman -S --needed --noconfirm greetd tuigreet
-  elif [[ "$DISTRO" == "ubuntu" ]]; then
-    sudo apt-get install -y greetd tuigreet
+    pacman -S --needed --noconfirm greetd tuigreet
+  else
+    apt-get install -y greetd
   fi
-
-  # Write greetd config
-  sudo tee /etc/greetd/config.toml > /dev/null <<EOF
-# greetd configuration
-[general]
-session_wrapper = "bash"
-sessions_dir = "/usr/share/wayland-sessions"
-
+  mkdir -p /etc/greetd
+  cat >/etc/greetd/config.toml <<'EOF'
 [default_session]
 command = "tuigreet --time --cmd start-slopos-i"
 EOF
-
-  # Enable greetd
-  sudo systemctl enable greetd
-
-  echo ""
-  echo "✓ Greeter configured (greetd + tuigreet)"
-  echo "  NOTE: Reboot or restart your display manager to see the SLOPOS-I session."
+  systemctl enable greetd
 fi
 
-# ── Summary ───────────────────────────────────────────────────────────────────
+cat <<EOF
 
-echo ""
-echo "=== Installation Complete ==="
-echo ""
-echo "SLOPOS-I has been installed to: $PREFIX"
-echo ""
-echo "Binaries:"
-echo "  $PREFIX/bin/slopos-session"
-echo "  $PREFIX/bin/slopos-compositor"
-echo "  $PREFIX/bin/slopos-shell"
-echo "  $PREFIX/bin/finder, settings, textedit, terminal, appstore"
-echo "  $PREFIX/bin/start-slopos-i"
-echo ""
-echo "Session files:"
-echo "  $PREFIX/share/wayland-sessions/slopos-i.desktop"
-echo "  $PREFIX/share/xsessions/slopos-i.desktop"
-echo "  $PREFIX/lib/systemd/user/slopos-i.service"
-echo ""
+=== SLOPOS-I installation complete ===
+Binaries:
+  $PREFIX/bin/slopos-session
+  $PREFIX/bin/slopos-shell
+  $PREFIX/bin/slopos-catalogue
+  $PREFIX/bin/slopos-settings
+  $PREFIX/bin/start-slopos-i
 
-if [[ $WITH_GREETER -eq 0 ]]; then
-  echo "To select SLOPOS-I:"
-  echo "  1. Log out and log back in"
-  echo "  2. At the login screen, select SLOPOS-I from the session menu"
-  echo "  3. Or run: start-slopos-i"
-else
-  echo "Greeter is configured. Reboot or restart your DM to see the session selection."
-fi
+X11 session:
+  $PREFIX/share/xsessions/slopos-i.desktop
 
-echo ""
-echo "For a graphical session, ensure a display server is running (Wayland or X11)."
+This release is X11-only. Select “SLOPOS-I” from your display manager's X11 session list,
+or start it from an existing X server with: start-slopos-i
+EOF

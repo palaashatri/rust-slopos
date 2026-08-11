@@ -1,69 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <openbox_config xmlns="http://openbox.org/3.4/rc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://openbox.org/3.4/rc file:///usr/share/openbox/rc.xsd">
-  <resistance>
-    <strength>10</strength>
-    <screen_edge_strength>20</screen_edge_strength>
-  </resistance>
+  <resistance><strength>10</strength><screen_edge_strength>20</screen_edge_strength></resistance>
   <focus>
-    <focusNew>yes</focusNew>
-    <followMouse>no</followMouse>
-    <focusLast>yes</focusLast>
-    <underMouse>no</underMouse>
-    <focusDelay>200</focusDelay>
-    <raiseOnFocus>no</raiseOnFocus>
+    <focusNew>yes</focusNew><followMouse>no</followMouse><focusLast>yes</focusLast>
+    <underMouse>no</underMouse><focusDelay>150</focusDelay><raiseOnFocus>no</raiseOnFocus>
   </focus>
-  <placement>
-    <policy>Smart</policy>
-    <center>yes</center>
-  </placement>
+  <placement><policy>Smart</policy><center>yes</center></placement>
   <theme>
     <name>slopos-openbox</name>
     <titleLayout>CLMI</titleLayout>
     <keepBorder>yes</keepBorder>
     <animateIconify>no</animateIconify>
-    <font place="ActiveWindow">
-      <name>Sans</name>
-      <size>10</size>
-      <weight>Bold</weight>
-    </font>
+    <font place="ActiveWindow"><name>Liberation Sans</name><size>9</size><weight>Bold</weight></font>
+    <font place="InactiveWindow"><name>Liberation Sans</name><size>9</size><weight>Normal</weight></font>
+    <font place="MenuHeader"><name>Liberation Sans</name><size>9</size><weight>Bold</weight></font>
+    <font place="MenuItem"><name>Liberation Sans</name><size>9</size><weight>Normal</weight></font>
   </theme>
-  <margins>
-    <top>24</top>
-    <bottom>64</bottom>
-    <left>0</left>
-    <right>0</right>
-  </margins>
+  <margins><top>26</top><bottom>60</bottom><left>0</left><right>0</right></margins>
   <desktops>
-    <number>4</number>
-    <firstdefault>1</firstdefault>
-    <name>Space 1</name>
-    <name>Space 2</name>
-    <name>Space 3</name>
-    <name>Space 4</name>
+    <number>4</number><firstdefault>1</firstdefault>
+    <name>Desktop 1</name><name>Desktop 2</name><name>Desktop 3</name><name>Desktop 4</name>
   </desktops>
   <keyboard>
-    <keybind key="A-Tab">
-      <action name="NextWindow">
-        <finalactions>
-          <action name="Focus"/>
-          <action name="Raise"/>
-          <action name="Unshade"/>
-        </finalactions>
-      </action>
-    </keybind>
-    <keybind key="W-space">
-      <action name="Execute">
-        <command>slopos-shell --toggle-launcher</command>
-      </action>
-    </keybind>
-    <keybind key="W-q">
-      <action name="Close"/>
-    </keybind>
-    <keybind key="W-m">
-      <action name="Iconify"/>
-    </keybind>
-    <keybind key="W-f">
-      <action name="ToggleMaximize"/>
-    </keybind>
+    <keybind key="A-Tab"><action name="NextWindow"><finalactions><action name="Focus"/><action name="Raise"/><action name="Unshade"/></finalactions></action></keybind>
+    <keybind key="W-space"><action name="Execute"><command>pkill -USR1 -x slopos-shell</command></action></keybind>
+    <keybind key="W-q"><action name="Close"/></keybind>
+    <keybind key="W-m"><action name="Iconify"/></keybind>
+    <keybind key="W-f"><action name="ToggleMaximize"/></keybind>
+    <keybind key="W-Left"><action name="DesktopLeft"><wrap>yes</wrap></action></keybind>
+    <keybind key="W-Right"><action name="DesktopRight"><wrap>yes</wrap></action></keybind>
   </keyboard>
 </openbox_config>
