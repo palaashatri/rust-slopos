@@ -20,7 +20,7 @@
     <name>slopos-openbox</name>
     <titleLayout>CLMI</titleLayout>
     <keepBorder>yes</keepBorder>
-    <animateIconify>yes</animateIconify>
+    <animateIconify>no</animateIconify>
     <font place="ActiveWindow">
       <name>Sans</name>
       <size>10</size>
@@ -28,8 +28,8 @@
     </font>
   </theme>
   <margins>
-    <top>30</top>
-    <bottom>54</bottom>
+    <top>24</top>
+    <bottom>64</bottom>
     <left>0</left>
     <right>0</right>
   </margins>
@@ -53,7 +53,7 @@
     </keybind>
     <keybind key="W-space">
       <action name="Execute">
-        <command>pkill -USR1 slopos-shell || slopos-shell</command>
+        <command>slopos-shell --toggle-launcher</command>
       </action>
     </keybind>
     <keybind key="W-q">

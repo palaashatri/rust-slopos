@@ -2,7 +2,7 @@
 
 use gtk::prelude::*;
 use gtk::{
-    Align, Box as GtkBox, Button, ComboBoxText, HeaderBar, Label, Notebook, Orientation,
+    Box as GtkBox, Button, ComboBoxText, HeaderBar, IconSize, Image, Label, Notebook, Orientation,
     Scale, Switch, Window, WindowPosition, WindowType,
 };
 use std::process::Command;
@@ -15,7 +15,7 @@ fn main() {
 
     let window = Window::new(WindowType::Toplevel);
     window.set_title("System Settings");
-    window.set_default_size(680, 480);
+    window.set_default_size(720, 500);
     window.set_position(WindowPosition::Center);
 
     let header = HeaderBar::new();
@@ -27,35 +27,66 @@ fn main() {
     let notebook = Notebook::new();
 
     // 1. Displays Tab
-    notebook.append_page(&build_displays_panel(), Some(&Label::new(Some("🖥️ Displays"))));
+    notebook.append_page(
+        &build_displays_panel(),
+        Some(&create_tab_header("video-display-symbolic", "Displays")),
+    );
 
     // 2. Audio Tab
-    notebook.append_page(&build_audio_panel(), Some(&Label::new(Some("🔊 Audio"))));
+    notebook.append_page(
+        &build_audio_panel(),
+        Some(&create_tab_header("audio-card-symbolic", "Audio")),
+    );
 
     // 3. Network Tab
-    notebook.append_page(&build_network_panel(), Some(&Label::new(Some("📡 Network"))));
+    notebook.append_page(
+        &build_network_panel(),
+        Some(&create_tab_header("network-workgroup-symbolic", "Network")),
+    );
 
     // 4. Bluetooth Tab
-    notebook.append_page(&build_bluetooth_panel(), Some(&Label::new(Some("📶 Bluetooth"))));
+    notebook.append_page(
+        &build_bluetooth_panel(),
+        Some(&create_tab_header("bluetooth-symbolic", "Bluetooth")),
+    );
 
     // 5. Power Tab
-    notebook.append_page(&build_power_panel(), Some(&Label::new(Some("⚡ Power"))));
+    notebook.append_page(
+        &build_power_panel(),
+        Some(&create_tab_header("battery-good-symbolic", "Power")),
+    );
 
     // 6. Appearance Tab
-    notebook.append_page(&build_appearance_panel(), Some(&Label::new(Some("🎨 Appearance"))));
+    notebook.append_page(
+        &build_appearance_panel(),
+        Some(&create_tab_header("preferences-desktop-theme-symbolic", "Appearance")),
+    );
 
-    // 7. Keyboard & Mouse Tab
-    notebook.append_page(&build_input_panel(), Some(&Label::new(Some("⌨️ Input"))));
+    // 7. Input Tab
+    notebook.append_page(
+        &build_input_panel(),
+        Some(&create_tab_header("input-keyboard-symbolic", "Input")),
+    );
 
     window.add(&notebook);
     window.show_all();
     gtk::main();
 }
 
+fn create_tab_header(icon_name: &str, title: &str) -> GtkBox {
+    let box_widget = GtkBox::new(Orientation::Horizontal, 6);
+    let img = Image::from_icon_name(Some(icon_name), IconSize::Menu);
+    box_widget.pack_start(&img, false, false, 0);
+    let label = Label::new(Some(title));
+    box_widget.pack_start(&label, false, false, 0);
+    box_widget.show_all();
+    box_widget
+}
+
 fn build_displays_panel() -> GtkBox {
     let panel = GtkBox::new(Orientation::Vertical, 16);
-    panel.set_margin_start(20);
-    panel.set_margin_end(20);
+    panel.set_margin_start(24);
+    panel.set_margin_end(24);
     panel.set_margin_top(20);
 
     let title = Label::new(Some("Display Settings (XRandR)"));
@@ -84,8 +115,8 @@ fn build_displays_panel() -> GtkBox {
 
 fn build_audio_panel() -> GtkBox {
     let panel = GtkBox::new(Orientation::Vertical, 16);
-    panel.set_margin_start(20);
-    panel.set_margin_end(20);
+    panel.set_margin_start(24);
+    panel.set_margin_end(24);
     panel.set_margin_top(20);
 
     let title = Label::new(Some("Audio Output & Volume (PipeWire / WirePlumber)"));
@@ -110,8 +141,8 @@ fn build_audio_panel() -> GtkBox {
 
 fn build_network_panel() -> GtkBox {
     let panel = GtkBox::new(Orientation::Vertical, 16);
-    panel.set_margin_start(20);
-    panel.set_margin_end(20);
+    panel.set_margin_start(24);
+    panel.set_margin_end(24);
     panel.set_margin_top(20);
 
     let title = Label::new(Some("Network Connections (NetworkManager)"));
@@ -129,8 +160,8 @@ fn build_network_panel() -> GtkBox {
 
 fn build_bluetooth_panel() -> GtkBox {
     let panel = GtkBox::new(Orientation::Vertical, 16);
-    panel.set_margin_start(20);
-    panel.set_margin_end(20);
+    panel.set_margin_start(24);
+    panel.set_margin_end(24);
     panel.set_margin_top(20);
 
     let title = Label::new(Some("Bluetooth Manager (BlueZ)"));
@@ -148,8 +179,8 @@ fn build_bluetooth_panel() -> GtkBox {
 
 fn build_power_panel() -> GtkBox {
     let panel = GtkBox::new(Orientation::Vertical, 16);
-    panel.set_margin_start(20);
-    panel.set_margin_end(20);
+    panel.set_margin_start(24);
+    panel.set_margin_end(24);
     panel.set_margin_top(20);
 
     let title = Label::new(Some("Power & Battery Settings (UPower)"));
@@ -172,8 +203,8 @@ fn build_power_panel() -> GtkBox {
 
 fn build_appearance_panel() -> GtkBox {
     let panel = GtkBox::new(Orientation::Vertical, 16);
-    panel.set_margin_start(20);
-    panel.set_margin_end(20);
+    panel.set_margin_start(24);
+    panel.set_margin_end(24);
     panel.set_margin_top(20);
 
     let title = Label::new(Some("Theme, Font & Wallpaper Selection"));
@@ -197,8 +228,8 @@ fn build_appearance_panel() -> GtkBox {
 
 fn build_input_panel() -> GtkBox {
     let panel = GtkBox::new(Orientation::Vertical, 16);
-    panel.set_margin_start(20);
-    panel.set_margin_end(20);
+    panel.set_margin_start(24);
+    panel.set_margin_end(24);
     panel.set_margin_top(20);
 
     let title = Label::new(Some("Keyboard & Mouse Configuration"));

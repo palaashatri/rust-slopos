@@ -1,0 +1,170 @@
+/* SLOPOS-I System 7 / Platinum Design System GTK3 Theme */
+
+* {
+  font-family: Geneva, Cantarell, "Segoe UI", sans-serif;
+  font-size: 12px;
+  -gtk-icon-style: symbolic;
+}
+
+/* System 7 Top Menu Bar */
+.slopos-topbar {
+  background-color: #DDDDDD;
+  border-bottom: 1px solid #707070;
+  color: #000000;
+  min-height: 24px;
+}
+
+.slopos-topbar label {
+  font-size: 12px;
+  font-weight: normal;
+  color: #000000;
+}
+
+.slopos-active-app {
+  font-weight: bold;
+  font-size: 12px;
+  color: #000000;
+  padding: 0 4px;
+}
+
+.slopos-topbar button {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 1px 6px;
+  border-radius: 0;
+  color: #000000;
+}
+
+.slopos-topbar button:hover {
+  background-color: #000080;
+  color: #FFFFFF;
+}
+
+.slopos-logo-btn {
+  font-weight: bold;
+  font-size: 14px;
+  padding: 0 8px;
+}
+
+.slopos-menu-bar {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.slopos-menu-bar menuitem {
+  padding: 2px 8px;
+  font-size: 12px;
+  color: #000000;
+}
+
+.slopos-menu-bar menuitem:hover {
+  background-color: #000080;
+  color: #FFFFFF;
+}
+
+/* Classic System 7 Menu Popups */
+menu {
+  background-color: #FFFFFF;
+  border: 2px solid #000000;
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4);
+  padding: 2px;
+}
+
+menu menuitem {
+  padding: 4px 12px;
+  color: #000000;
+}
+
+menu menuitem:hover {
+  background-color: #000080;
+  color: #FFFFFF;
+}
+
+/* System 7 Raised 3D Buttons */
+button {
+  background: linear-gradient(to bottom, #FFFFFF 0%, #D8D8D8 100%);
+  border-top: 1px solid #FFFFFF;
+  border-left: 1px solid #FFFFFF;
+  border-right: 2px solid #606060;
+  border-bottom: 2px solid #606060;
+  border-radius: 3px;
+  color: #000000;
+  font-weight: bold;
+  padding: 4px 12px;
+}
+
+button:active, button:checked {
+  background: #B0B0B0;
+  border-top: 2px solid #606060;
+  border-left: 2px solid #606060;
+  border-right: 1px solid #FFFFFF;
+  border-bottom: 1px solid #FFFFFF;
+}
+
+button.default {
+  border: 2px solid #000000;
+  outline: 2px solid #000000;
+}
+
+/* Sunken 3D Text Entries */
+entry {
+  background-color: #FFFFFF;
+  border-top: 2px solid #606060;
+  border-left: 2px solid #606060;
+  border-right: 1px solid #FFFFFF;
+  border-bottom: 1px solid #FFFFFF;
+  border-radius: 2px;
+  color: #000000;
+  padding: 3px 6px;
+}
+
+/* System 7 Bottom Application Strip */
+.slopos-dock-container {
+  background-color: #D6D6D6;
+  border-top: 2px solid #FFFFFF;
+  border-left: 2px solid #FFFFFF;
+  border-right: 2px solid #505050;
+  border-bottom: 2px solid #505050;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 3px 6px;
+}
+
+.slopos-dock-btn {
+  background: linear-gradient(to bottom, #FFFFFF 0%, #D0D0D0 100%);
+  border-top: 1px solid #FFFFFF;
+  border-left: 1px solid #FFFFFF;
+  border-right: 2px solid #606060;
+  border-bottom: 2px solid #606060;
+  border-radius: 3px;
+  padding: 4px;
+  margin: 0 2px;
+}
+
+.slopos-dock-btn:hover {
+  background: #E8E8E8;
+}
+
+.slopos-dock-btn:active {
+  background: #A0A0A0;
+}
+
+/* Classic System 7 Alert Box */
+.slopos-alert-box {
+  background-color: #FFFFFF;
+  border: 2px solid #000000;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+  padding: 12px;
+}
+
+/* Cards & Dialog Containers */
+.slopos-card {
+  background-color: #FFFFFF;
+  border-top: 1px solid #808080;
+  border-left: 1px solid #808080;
+  border-right: 1px solid #FFFFFF;
+  border-bottom: 1px solid #FFFFFF;
+  padding: 10px;
+}

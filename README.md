@@ -1,93 +1,55 @@
-# SLOPOS-I
+# SLOPOS-I — System 7 Platinum Linux Desktop Environment
 
-SLOPOS-I is a lightweight, polished, Macintosh-inspired Linux desktop operating environment built entirely around mature X11 infrastructure, existing high-quality Linux applications, careful system integration, strong defaults, and a curated AppImage application catalogue.
+SLOPOS-I is a lightweight, highly polished Macintosh System 7 / Platinum-inspired Linux desktop operating environment built exclusively on mature X11 infrastructure (Openbox WM, GTK3 theme system, X.Org, and curated AppImages).
 
-The objective is explicit:
-
-> **Ship a coherent, attractive, reliable Linux desktop OS that an ordinary user can install and actually use daily.**
+> **"Own the experience. Do not unnecessarily own the infrastructure."**
 
 ---
 
-## Key Features
+## Visual & Architecture Highlights
 
-- **X11 Desktop Architecture:** Powered by X.Org server and Openbox stacking window manager with full EWMH/ICCCM compliance.
-- **Macintosh-Inspired Shell:** Top system/menu bar, active window title, system status indicators (clock, volume, network, Bluetooth, power), Spotlight-style application launcher (`Cmd/Super+Space`), bottom application Dock, and desktop notification server.
-- **Curated AppImage Catalogue:** Lightweight software catalogue for browsing, installing, updating, and removing AppImage applications with automated SHA-256 integrity checks and launcher entry integration.
-- **Upstream Application Integration:** Preconfigured with PCManFM (files), Mousepad (editor), Xfce4-Terminal (terminal), Viewnior (image viewer), Zathura (document viewer), MPV (media player), Firefox (browser), and Galculator (calculator).
-- **System Settings:** Unified GTK settings app managing displays (XRandR), audio (PipeWire/WirePlumber), network (NetworkManager), Bluetooth (BlueZ), and power (UPower).
-- **Coherent Theming:** Custom GTK theme, matching Openbox window frame styling, icon theme, cursor pointer, and desktop wallpapers.
-- **Automated QA Suite:** Continuous integration inside Docker containers using Xvfb for automated X11 desktop testing and visual QA screenshot validation.
-
----
-
-## System Requirements
-
-- **Processor:** x86-64 CPU (2 cores recommended)
-- **RAM:** 2 GB minimum (4 GB recommended)
-- **Graphics:** Any OpenGL-capable X11 graphics hardware (Intel, AMD, NVIDIA)
-- **Storage:** 10 GB available disk space
+- **System 7 Top Menu Bar**: 24px full-width bar (`#DDDDDD`) featuring SLOPOS system logo (``), active application name in bold, global menu bar (`File`, `Edit`, `View`, `Window`, `Help`), and compact status indicators.
+- **System 7 Window Chrome**: Openbox theme (`slopos-openbox`) with square corners, 1px black outline, titlebar pinstripes (`#E6E6E6` to `#CDCDCD`), Close box (top-left), and Zoom box (top-right).
+- **Application Strip**: Beveled 3D Platinum box container at bottom center with raised 3D icon buttons and running app indicators.
+- **Desktop Atmosphere**: Classic Macintosh cool-gray background (`#758090`).
+- **AppImage Catalogue (`slopos-catalogue`)**: Curated software store with HTTPS download, SHA-256 integrity verification, and desktop launcher creation.
+- **System Settings (`slopos-settings`)**: Unified preference GTK utility for Displays (`xrandr`), Audio (`pavucontrol`), Network (`nmcli`), Bluetooth (`blueman`), and Power (`upower`).
 
 ---
 
-## Architecture Overview
+## Workspace Crates
 
-```text
-Linux Kernel / systemd / NetworkManager / PipeWire / BlueZ / UPower
-                       │
-                       ▼
-            X.Org-compatible X11 Server
-                       │
-                       ▼
-        Openbox Stacking Window Manager
-                       │
-                       ▼
-         SLOPOS Desktop & Session Layer
-  ┌────────────────────┬────────────────────┐
-  │   slopos-session   │    slopos-shell    │
-  ├────────────────────┼────────────────────┤
-  │  slopos-catalogue  │  slopos-settings   │
-  └────────────────────┴────────────────────┘
-                       │
-                       ▼
- Integrated Upstream Applications & AppImages
-```
+- [`crates/slopos-session`](crates/slopos-session): X11 session supervisor binary overseeing Openbox and `slopos-shell`.
+- [`crates/slopos-shell`](crates/slopos-shell): Desktop shell providing top menu bar, Spotlight launcher (`Super+Space`), Application Strip, and notifications.
+- [`crates/slopos-catalogue`](crates/slopos-catalogue): Curated AppImage application catalogue and installer.
+- [`crates/slopos-settings`](crates/slopos-settings): Unified GTK system configuration utility.
 
 ---
 
-## Build & Test Instructions
+## Building and Running inside Docker (Primary Dev & QA Environment)
 
-### Workspace Requirements
-- Rust toolchain (stable)
-- GTK3 development headers (`libgtk-3-dev`)
-- X11 development headers (`libx11-dev`, `libxrandr-dev`)
-- PKG-Config (`pkg-config`)
+To compile and run the full automated X11 + Xvfb desktop test suite inside an Ubuntu container:
 
-### Local Build
 ```bash
-cargo build --workspace --release
-```
-
-### Run Desktop Session (Nested / Virtual X Server)
-```bash
-# Launch inside Xephyr or Xvfb for testing
-Xephyr -ac -screen 1280x800 :1 &
-DISPLAY=:1 ./target/release/slopos-session
-```
-
-### Docker Automated QA
-```bash
-./scripts/run-docker-qa.sh
+docker run --rm -v "%CD%:/workspace" -w /workspace ubuntu:24.04 bash /workspace/scripts/run-docker-qa.sh
 ```
 
 ---
 
-## Documentation
+## Building ISO Image
 
-- [`AGENTS.md`](AGENTS.md) — Production contract, architecture, non-goals, and completion criteria.
-- [`TRUTH.md`](TRUTH.md) — Live readiness score, category scores, and evidence log.
+To build the bootable SLOPOS-I live ISO:
+
+```bash
+bash packaging/iso/build-iso.sh
+```
 
 ---
 
-## Licensing
+## Emergency Desktop Recovery
 
-SLOPOS-I first-party source code and original assets are MIT-licensed. Third-party components retain their respective upstream open-source licenses.
+If session configurations become corrupted, run the recovery utility:
+
+```bash
+bash scripts/slopos-recovery.sh
+```

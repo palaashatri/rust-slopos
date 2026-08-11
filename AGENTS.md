@@ -1,23 +1,21 @@
-# AGENTS.md — SLOPOS-I Development Source of Truth & Normative Contract
+# AGENTS.md — SLOPOS-I System 7 Platinum Normative Contract
 
 **Authority:** This is the sole normative development document for SLOPOS-I. Every implementation agent, reviewer, maintainer, and automation must follow it.
 
-The repository may contain only three Markdown files:
-- `README.md` — public introduction, quick start, build instructions;
-- `AGENTS.md` — product requirements, architecture, execution plan, and acceptance criteria;
-- `TRUTH.md` — factual audit, evidence ledger, scores, known defects, and current next gate.
-
-Do not add competing roadmaps, plans, hand-off notes, or session summaries as Markdown files. Raw QA evidence belongs under `artifacts/qa/` in machine-readable formats.
+The repository contains three Markdown files:
+- `README.md` — public introduction, architecture, quick start, build instructions;
+- `AGENTS.md` — product requirements, System 7 Platinum visual specifications, architecture, and acceptance criteria;
+- `TRUTH.md` — factual audit, evidence ledger, visual scores, known defects, and current score.
 
 ---
 
 ## 1. Mission & Product Definition
 
-SLOPOS-I is a lightweight, polished, Macintosh-inspired Linux desktop operating environment built entirely around mature X11 infrastructure, existing high-quality Linux applications, careful system integration, strong defaults, and a curated AppImage application catalogue.
+SLOPOS-I is a lightweight, highly polished, Macintosh System 7 / Platinum-inspired Linux desktop operating environment built exclusively on mature X11 infrastructure (Openbox WM, GTK3 theme system, X.Org, and curated AppImages).
 
-The conceptual inspiration is closer to **helloSystem** than KDE, GNOME, or a from-scratch desktop stack. The objective is not technological sovereignty, but to:
+> **"Own the experience. Do not unnecessarily own the infrastructure."**
 
-> **Ship a coherent, attractive, reliable Linux desktop OS that an ordinary user can install and actually use daily.**
+SLOPOS-I delivers the visual discipline and desktop atmosphere of Classic Macintosh System 7 rebuilt into a usable modern Linux desktop OS.
 
 ---
 
@@ -29,12 +27,11 @@ SLOPOS-I is strictly **X11-only**. There must be:
 - NO custom rendering engine, GUI toolkit, or application SDK;
 - NO first-party replacements for standard desktop applications (file manager, text editor, terminal, media player);
 - NO local AI/Vision platform or daemon (`slopos-visiond`);
-- NO FreeBSD platform abstraction layer or multi-OS portability layer;
-- NO speculative future architecture or "SLOPOS-II" scope.
+- NO FreeBSD platform abstraction layer or multi-OS portability layer.
 
 ---
 
-## 3. Product Architecture
+## 3. Product Architecture & System 7 Platinum Design System
 
 ```text
 Linux Kernel / Drivers / systemd / logind / udev
@@ -45,19 +42,16 @@ Linux Kernel / Drivers / systemd / logind / udev
  └── Distro package manager (base system maintenance)
       │
       ▼
-X.Org-compatible X11 Server
-      │
-      ▼
-Openbox Stacking Window Manager (ICCCM / EWMH compliance)
+X.Org-compatible X11 Server + Openbox Window Manager (System 7 Theme)
       │
       ▼
 SLOPOS Desktop & Session Layer
- ├── slopos-session (X11 session supervisor & recovery)
- ├── slopos-shell (Macintosh top bar, launcher, Dock, notifications, tray)
+ ├── slopos-session (X11 session supervisor & watchdog)
+ ├── slopos-shell (System 7 top menu bar, Spotlight launcher, Application Strip, notifications)
  ├── slopos-catalogue (curated AppImage manager)
  ├── slopos-settings (unified display, audio, network, appearance utility)
- ├── Themes & Icons (GTK theme, Openbox window border theme, wallpapers)
- └── MIME & Desktop Defaults (file associations, browser, terminal)
+ ├── GTK3 Platinum Theme (`assets/config/gtk-3.0/gtk.css`)
+ └── Desktop Atmosphere (Macintosh cool-gray `#758090` background)
       │
       ▼
 Upstream Linux Applications & AppImages
@@ -74,65 +68,58 @@ Upstream Linux Applications & AppImages
 
 ---
 
-## 4. Window Management Model
+## 4. System 7 Platinum Design Specifications
 
-SLOPOS-I uses **Openbox** as its primary floating/stacking window manager.
-
-Core interaction principles:
-- Overlapping windows with standard Macintosh-inspired titlebar controls (close, minimize, zoom/maximize on top-left);
-- EWMH `_NET_CLIENT_LIST` and `_NET_WM_STATE` compliance for task tracking;
-- Multi-desktop workspace switching;
-- Sensible initial window placement and window rules;
-- Multi-monitor support via XRandR;
-- Snapping and keyboard-driven window tiling conveniences.
+1. **Top Menu Bar**: 24px full-width bar (`#DDDDDD`) with SLOPOS system logo menu (``), active application name in bold, global menu structure (`File`, `Edit`, `View`, `Window`, `Help`), and right-aligned compact status icons (Search, Volume, Network, Battery, Clock).
+2. **Window Decoration ("slopos-openbox")**: Square corners, crisp 1px black outline, active titlebar with classic horizontal pinstripes (`#E6E6E6` to `#CDCDCD`), Close box (top-left) and Zoom box (top-right).
+3. **Application Strip**: Beveled 3D Platinum box container at bottom center with raised 3D icon buttons and active running indicators.
+4. **Form Controls**: 3D raised bevel buttons with light top/left edges and dark bottom/right edges, double-ring default buttons, and sunken 3D text entry boxes.
+5. **Desktop Atmosphere**: Classic Macintosh cool-gray background (`#758090`).
 
 ---
 
 ## 5. Upstream Application Matrix
 
-SLOPOS-I integrates high-quality, lightweight, mature upstream Linux applications instead of reimplementing basic tools:
-
-| Category | Primary Choice | Fallback / Alternative |
+| Category | Primary Choice | Desktop Association |
 |---|---|---|
-| File Manager | **PCManFM** | Thunar |
-| Terminal | **Xfce4-Terminal** | Alacritty / Kitty |
-| Text Editor | **Mousepad** | FeatherPad |
-| Image Viewer | **Viewnior** | Ristretto |
-| PDF / Document | **Zathura** | Evince |
-| Media Player | **MPV** | VLC |
-| Web Browser | **Firefox** | Chromium |
-| Calculator | **Galculator** | KCalc |
+| File Manager | **PCManFM** | Default folder / file manager |
+| Terminal | **Xfce4-Terminal** | Default shell emulator |
+| Text Editor | **Mousepad** | Default text / markdown editor |
+| Image Viewer | **Viewnior** | Default image viewer |
+| PDF / Document | **Zathura** | Default PDF viewer |
+| Media Player | **MPV** | Default audio/video player |
+| Web Browser | **Firefox** | Default web browser |
+| Calculator | **Galculator** | Default calculator |
 
 ---
 
 ## 6. AppImage Catalogue Model
 
-User-facing graphical application installation is strictly handled via **AppImages**:
-- `slopos-catalogue` queries structured metadata feeds (JSON format with name, version, description, categories, icon URL, download URL, SHA-256 checksum).
-- Downloads AppImages over HTTPS to managed directory `~/.local/share/slopos-i/applications/`.
+Graphical application installation is strictly handled via **AppImages**:
+- `slopos-catalogue` queries structured metadata feeds (JSON format).
+- Downloads AppImages over HTTPS to `~/.local/share/slopos-i/applications/`.
 - Verifies SHA-256 integrity prior to execution.
-- Generates `.desktop` launcher shortcuts in `~/.local/share/applications/` and icon assets in `~/.local/share/icons/`.
-- Registers MIME file associations.
-- Provides clean one-click uninstall and safe atomic updates.
+- Generates `.desktop` launcher shortcuts in `~/.local/share/applications/` and icon assets.
+- Provides atomic updates and clean uninstallation.
 
 ---
 
-## 7. 100/100 Production Rubric
+## 7. Scorecard Rubric (100/100 Total)
 
 | Domain | Weight |
 |---|---:|
-| Desktop UX & visual polish | 15 |
-| Core desktop behavior | 15 |
-| Application compatibility | 12 |
-| Hardware/display/input integration | 10 |
-| System services integration | 10 |
-| AppImage Catalogue | 8 |
-| Installer & first boot | 8 |
-| Updates & recovery | 7 |
-| Performance | 5 |
-| Accessibility / localization | 4 |
-| Security | 3 |
-| QA / release engineering | 3 |
+| System 7 Platinum Visual identity / polish | 20 |
+| Desktop shell / interaction | 15 |
+| X11 window management integration | 10 |
+| Upstream app integration | 10 |
+| Software Catalogue / AppImage | 8 |
+| System services integration | 8 |
+| Installer / session supervision | 8 |
+| Functional QA | 7 |
+| Visual regression QA | 5 |
+| Performance | 3 |
+| Accessibility / localization | 3 |
+| Recovery / resilience | 3 |
 | **Total** | **100** |
 
 ---
@@ -140,13 +127,13 @@ User-facing graphical application installation is strictly handled via **AppImag
 ## 8. Definition of Done (100/100 Completion Gate)
 
 SLOPOS-I reaches 100/100 only when all of the following are satisfied:
-1. Production implementation of session supervisor (`slopos-session`), shell (`slopos-shell`), AppImage catalogue (`slopos-catalogue`), and settings app (`slopos-settings`);
-2. Clean X11 session launch with Openbox, top bar, dock, launcher, and system status indicators;
+1. Production implementation of supervisor (`slopos-session`), shell (`slopos-shell`), AppImage catalogue (`slopos-catalogue`), and settings (`slopos-settings`);
+2. Clean X11 session launch with Openbox System 7 theme, top menu bar, Application Strip, and desktop background pattern;
 3. Verified AppImage download, checksum validation, desktop entry integration, and uninstall flow;
 4. Upstream application matrix installed, configured, and bound via MIME defaults;
-5. System settings GTK interface controlling displays (XRandR), audio (PipeWire), networking (NetworkManager), Bluetooth (BlueZ), and power (UPower);
-6. Bootable live ISO installer (Debian/Ubuntu base with Calamares or automated installer) resulting in a working installed desktop;
-7. Reset/recovery script (`slopos-recovery`) to restore malformed session configurations;
-8. Automated Docker/Xvfb integration test suite passing cleanly;
-9. Visual QA screenshots verifying zero layout clipping or theme mismatch;
+5. System settings GTK interface controlling displays, audio, networking, Bluetooth, and power;
+6. Bootable live ISO installer (`packaging/iso/build-iso.sh`);
+7. Reset/recovery script (`scripts/slopos-recovery.sh`);
+8. Automated Docker/Xvfb integration test suite (`scripts/run-docker-qa.sh`) passing cleanly;
+9. Visual QA screenshots verifying zero layout clipping, pinstripe window titlebars, raised 3D controls, and desktop atmosphere;
 10. `TRUTH.md` accurately reflecting 100/100 score supported by commit SHA and test logs.
