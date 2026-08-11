@@ -1,0 +1,3 @@
+command: env CARGO_TARGET_DIR=/home/ubuntu/.cache/slopos-i/cargo-target cargo clippy --locked -p slopos-compositor --all-targets --all-features -- -D warnings
+    Checking slopos-compositor v0.1.0 (/home/ubuntu/rust-slopos-qa-d42d09e/crates/slopos-compositor)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.46s

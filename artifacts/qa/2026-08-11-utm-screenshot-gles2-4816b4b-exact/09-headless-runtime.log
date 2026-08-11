@@ -1,0 +1,20 @@
+command: env CARGO_TARGET_DIR=/home/ubuntu/.cache/slopos-i/cargo-target bash scripts/verify-compositor-headless-runtime.sh
+Building exact-commit compositor 4816b4bf15ee2973f1c832f18808b1ea51cd5459
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
+Starting SLOPOS-owned headless compositor
+Connecting registry client to wayland-1
+Exercising pointer-constraint request/destroy lifecycle
+Exercising client DnD invalid-serial rejection (no input grab available headlessly)
+Exercising native cross-client text/URI DnD with synthetic headless input
+Exercising DnD target disconnect cancellation and compositor survival
+Exercising native text-input-v3/input-method-v2 lifecycle
+Exercising native cross-client clipboard offer, transfer and missing-MIME EOF
+Exercising clipboard target death during a large transfer
+Exercising clipboard source cancellation on selection replacement
+Exercising clipboard source-death clearing
+Exercising native cross-client primary-selection offer, transfer and missing-MIME EOF
+Stressing abrupt toplevel and popup disconnect cleanup
+Completing healthy presentation and popup lifecycles after stress
+Headless runtime protocol smoke passed for 4816b4bf15ee2973f1c832f18808b1ea51cd5459
+Evidence: artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459.json
+This does not prove DRM/KMS, rendering, input, popup grabs, XWayland, HDR, VRR, or hardware compatibility.

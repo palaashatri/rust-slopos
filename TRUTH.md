@@ -4,6 +4,31 @@
 SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
+### Current implementation wave — GLES2 screenshot readback and exact-head handoff
+
+At audited branch head and implementation commit
+`4816b4bf15ee2973f1c832f18808b1ea51cd5459` (`4816b4b`),
+`crates/slopos-compositor/src/screenshot.rs` hardens GLES2 screenshot readback
+with bounded GL-error handling, pack-alignment-safe RGBA reads, explicit frame
+finalisation and readback normalisation. The exact Ubuntu UTM evidence under
+`artifacts/qa/2026-08-11-utm-screenshot-gles2-4816b4b-exact/` records exit 0
+for format, focused screenshot tests, the GLES2 sentinel, compositor tests,
+check, Clippy, release build, completion contract and headless runtime.
+
+The exact-head Ubuntu guest checkout also built `slopos-session`,
+`slopos-compositor`, `slopos-shell`, Finder, Settings and TextEdit with exit 0
+using the shared target directory; the retained build evidence is under
+`artifacts/qa/2026-08-11-utm-ui-baseline-4816b4b/`. A hardened current-head
+live launcher was prepared but never executed. Therefore no current-head
+compositor-owned PNG or post-fix visual acceptance is claimed. The
+`f691bcda4d05b6b13a354523a885718649884a32` images are historical defect/context
+evidence only: the Spotlight image did not contain Spotlight, and the Settings
+Spaces viewport remains a candidate P0. UTM software rendering is not physical
+hardware, accessibility, or soak proof. Unrelated user changes in the working
+tree are not included here. The score remains **63/100**; this wave does not
+raise it. Handoff to the personal Windows/Ubuntu VirtualBox environment will
+rerun the exact-head build and visual QA.
+
 ### Current implementation wave — release reproducibility, service honesty and visual evidence
 
 At audited implementation commit

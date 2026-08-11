@@ -1,0 +1,15 @@
+command: env CARGO_TARGET_DIR=/home/ubuntu/.cache/slopos-i/cargo-target cargo test -p slopos-compositor --lib screenshot::tests -- --nocapture
+   Compiling slopos-compositor v0.1.0 (/home/ubuntu/rust-slopos-qa-d42d09e/crates/slopos-compositor)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.74s
+     Running unittests src/lib.rs (/home/ubuntu/.cache/slopos-i/cargo-target/debug/deps/slopos_compositor-1172d2a5000cede9)
+
+running 7 tests
+test screenshot::tests::gles2_readback_odd_width_channel_order_and_finish ... ignored, requires SLOPOS_SCREENSHOT_GLES2_TEST=1 and a surfaceless EGL/GLES2 runtime
+test screenshot::tests::capture_destination_must_be_absolute ... ok
+test screenshot::tests::capture_dimensions_are_bounded_before_allocation ... ok
+test screenshot::tests::pack_alignment_stride_is_checked_for_odd_width ... ok
+test screenshot::tests::render_scale_accepts_supported_integer_and_fractional_values ... ok
+test screenshot::tests::rgba_readback_normalization_rejects_malformed_buffer ... ok
+test screenshot::tests::rgba_readback_normalization_reverses_gl_rows_and_removes_pack_padding ... ok
+
+test result: ok. 6 passed; 0 failed; 1 ignored; 0 measured; 175 filtered out; finished in 0.00s

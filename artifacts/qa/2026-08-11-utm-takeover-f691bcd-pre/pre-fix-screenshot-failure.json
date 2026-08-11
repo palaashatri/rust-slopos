@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-08-11T02:09:38+05:30",
+  "component": "slopos-compositor-screenshot",
+  "status": "failed",
+  "evidence_level": "runtime_observed",
+  "commit": "f691bcda4d05b6b13a354523a885718649884a32",
+  "branch": "codex-complete-spec",
+  "environment": {
+    "vm": "UTM Ubuntu",
+    "os": "Ubuntu 26.04",
+    "architecture": "aarch64",
+    "kernel": "7.0.0-29-generic",
+    "backend": "drm",
+    "connector": "Virtual-1",
+    "renderer": "OpenGL ES 2.0 Mesa 26.0.3-1ubuntu1",
+    "gpu": "virgl via ANGLE Metal"
+  },
+  "request": {
+    "transport": "same-uid credential-checked Unix datagram",
+    "control_socket": "/tmp/slopos-takeover-f691bcd-pre/slopos-i/session-18ca8b676d6e7828-bb8-0/control.sock",
+    "payload": {
+      "CaptureScreenshot": {
+        "destination": "/tmp/slopos-takeover-f691bcd-pre/pre-fix-compositor.png"
+      }
+    },
+    "sender_uid": 0,
+    "compositor_uid": 0
+  },
+  "expected": {
+    "framebuffer": "/tmp/slopos-takeover-f691bcd-pre/pre-fix-compositor.png",
+    "format": "PNG",
+    "dimensions": "1280x800"
+  },
+  "actual": {
+    "framebuffer_exists": false,
+    "session_log": "/tmp/slopos-takeover-f691bcd-pre/session.log",
+    "session_log_lines": [
+      19,
+      20,
+      2824,
+      2825,
+      2826,
+      2827
+    ],
+    "errors": [
+      "GL_INVALID_ENUM in glBufferData(invalid usage: GL_STREAM_READ)",
+      "GL_INVALID_OPERATION in glReadPixels(out of bounds PBO access)",
+      "copy screenshot framebuffer: Unsupported pixel format: DrmFourcc(AR24)"
+    ]
+  },
+  "supplementary_host_window": {
+    "path": "00-current-audit-desktop-utm-window.jpeg",
+    "sha256": "912a5d6639b48396d18dcaa9143519ad37320cde6d390949fa2e665b920df38c",
+    "dimensions": "1174x768",
+    "format": "JPEG",
+    "limitation": "Includes UTM chrome and does not prove compositor framebuffer readback."
+  },
+  "untested": [
+    "post-fix framebuffer readback",
+    "post-fix channel order",
+    "post-fix vertical orientation",
+    "post-fix application interaction matrix",
+    "fractional-scale captures"
+  ]
+}

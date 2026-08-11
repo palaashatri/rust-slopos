@@ -1,0 +1,38 @@
+schema_version=1
+head=4816b4bf15ee2973f1c832f18808b1ea51cd5459
+committed_screenshot_sha256=b7d39231b7dffec11e92e614c4b4f61cb970ba74ea52a21a3d3b5944ee0e8f19  -
+working_screenshot_sha256=b7d39231b7dffec11e92e614c4b4f61cb970ba74ea52a21a3d3b5944ee0e8f19  crates/slopos-compositor/src/screenshot.rs
+tracked_status_start
+tracked_status_end
+untracked_start
+artifacts/qa/compositor-contract/4816b4bf15ee2973f1c832f18808b1ea51cd5459.json
+artifacts/qa/compositor-contract/4816b4bf15ee2973f1c832f18808b1ea51cd5459.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-clipboard.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-clipboard-replacement-source.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-clipboard-sink-abort.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-clipboard-sink.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-clipboard-source.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-compositor.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-disconnect-stress.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-dnd.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-dnd-source.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-dnd-target-disconnect-source.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-dnd-target-disconnect-target.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-dnd-target.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459.json
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-pointer-constraints.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-primary-selection.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-primary-selection-sink.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-primary-selection-source.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-text-input-app.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-text-input-ime.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-text-input.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-wayland-info.log
+artifacts/qa/compositor-headless-runtime/4816b4bf15ee2973f1c832f18808b1ea51cd5459-xdg-protocol.log
+artifacts/qa/compositor-headless-runtime/f691bcda4d05b6b13a354523a885718649884a32-clipboard.log
+artifacts/qa/compositor-headless-runtime/f691bcda4d05b6b13a354523a885718649884a32.json
+untracked_end
+stash_ref=a0e798405d10adf1add965936ea88a52c666c450
+stash_subject=On codex-complete-spec: preserve pre-commit screenshot source before exact 4816b4b gate
+gate_processes_start
+gate_processes_end
