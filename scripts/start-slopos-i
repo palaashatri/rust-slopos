@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# start-slopos-i — XDG session launcher for SLOPOS-I X11 Desktop.
-# Copyright (c) 2026 Palaash Atri
-# SPDX-License-Identifier: MIT
+# start-slopos-i — XDG launcher for the X11-only SLOPOS-I desktop.
 set -euo pipefail
 
 export XDG_SESSION_TYPE="x11"
@@ -14,14 +12,32 @@ fi
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
 
+# Make the installed SLOPOS GTK theme the default for applications launched in
+# this session. Development checkouts can still rely on per-user GTK settings.
+if [ -d /usr/local/share/themes/slopos-gtk/gtk-3.0 ] || [ -d /usr/share/themes/slopos-gtk/gtk-3.0 ]; then
+  export GTK_THEME="slopos-gtk"
+fi
+
+if [ -z "${SLOPOS_OPENBOX_CONFIG:-}" ]; then
+  for candidate in \
+    /usr/local/share/slopos-i/openbox/rc.xml \
+    /usr/share/slopos-i/openbox/rc.xml \
+    "$(pwd)/assets/config/openbox/rc.xml"
+  do
+    if [ -f "$candidate" ]; then
+      export SLOPOS_OPENBOX_CONFIG="$candidate"
+      break
+    fi
+  done
+fi
+
 resolve_bin() {
   local name="$1"
   if command -v "$name" >/dev/null 2>&1; then
     command -v "$name"
     return 0
   fi
-  local here candidate
-  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local candidate
   for candidate in \
     "./target/release/$name" \
     "./target/debug/$name" \
@@ -42,5 +58,5 @@ SESSION_BIN="$(resolve_bin slopos-session)" || {
   exit 1
 }
 
-echo "Starting SLOPOS-I X11 Desktop Session..."
+echo "Starting SLOPOS-I X11 desktop session..."
 exec "$SESSION_BIN" "$@"
