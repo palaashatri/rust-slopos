@@ -1,7 +1,6 @@
 //! SLOPOS-I classic top menu/system bar.
 
 use crate::launcher::Launcher;
-use gdk::prelude::*;
 use gtk::prelude::*;
 use gtk::{
     Align, Box as GtkBox, Button, IconSize, Image, Label, Menu, MenuBar, MenuItem, Orientation,
@@ -21,7 +20,7 @@ impl TopBar {
     pub fn new(launcher: Rc<Launcher>) -> Rc<Self> {
         let window = Window::new(WindowType::Toplevel);
         window.set_title("SLOPOS Top Bar");
-        let screen_width = gdk::Screen::default().map(|s| s.width()).unwrap_or(1280);
+        let (screen_width, _) = screen_geometry();
         window.set_default_size(screen_width, 26);
         window.set_position(WindowPosition::None);
         window.move_(0, 0);
@@ -54,7 +53,6 @@ impl TopBar {
         active_title_label.style_context().add_class("slopos-active-app");
         active_title_label.set_halign(Align::Start);
         main_box.pack_start(&active_title_label, false, false, 7);
-
         main_box.pack_start(&build_global_menu_bar(), false, false, 0);
 
         let status_box = GtkBox::new(Orientation::Horizontal, 7);
@@ -193,6 +191,22 @@ fn current_battery_state() -> Option<String> {
     None
 }
 
+fn screen_geometry() -> (i32, i32) {
+    let Some(output) = command_output("xrandr", &["--current"]) else {
+        return (1280, 800);
+    };
+    for line in output.lines() {
+        let Some(after_current) = line.split("current ").nth(1) else { continue; };
+        let Some(dimensions) = after_current.split(',').next() else { continue; };
+        let mut parts = dimensions.split('x').map(str::trim);
+        let (Some(width), Some(height)) = (parts.next(), parts.next()) else { continue; };
+        if let (Ok(width), Ok(height)) = (width.parse::<i32>(), height.parse::<i32>()) {
+            return (width, height);
+        }
+    }
+    (1280, 800)
+}
+
 fn command_output(program: &str, args: &[&str]) -> Option<String> {
     let output = Command::new(program).args(args).output().ok()?;
     if !output.status.success() { return None; }
@@ -235,7 +249,6 @@ fn build_system_menu() -> Menu {
     let shutdown = MenuItem::with_label("Shut Down…");
     shutdown.connect_activate(|_| { let _ = Command::new("systemctl").arg("poweroff").spawn(); });
     menu.append(&shutdown);
-
     menu.show_all();
     menu
 }

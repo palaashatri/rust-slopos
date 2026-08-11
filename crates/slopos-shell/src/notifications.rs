@@ -4,9 +4,9 @@
 //! It does not claim org.freedesktop.Notifications ownership until the D-Bus
 //! interface is implemented and tested.
 
-use gdk::prelude::*;
 use gtk::prelude::*;
 use gtk::{Align, Box as GtkBox, Button, Image, Label, Orientation, Window, WindowPosition, WindowType};
+use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 static NOTIFICATION_ID: AtomicU32 = AtomicU32::new(1);
@@ -27,9 +27,7 @@ impl NotificationServer {
         glib::idle_add_local(move || {
             let win = Window::new(WindowType::Toplevel);
             win.set_title("SLOPOS Notification");
-            let (screen_width, _) = gdk::Screen::default()
-                .map(|s| (s.width(), s.height()))
-                .unwrap_or((1280, 800));
+            let (screen_width, _) = screen_geometry();
             let width = 330;
             let height = 96;
             win.set_default_size(width, height);
@@ -81,4 +79,24 @@ impl NotificationServer {
             glib::ControlFlow::Break
         });
     }
+}
+
+fn screen_geometry() -> (i32, i32) {
+    let Ok(output) = Command::new("xrandr").arg("--current").output() else {
+        return (1280, 800);
+    };
+    if !output.status.success() {
+        return (1280, 800);
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    for line in text.lines() {
+        let Some(after_current) = line.split("current ").nth(1) else { continue; };
+        let Some(dimensions) = after_current.split(',').next() else { continue; };
+        let mut parts = dimensions.split('x').map(str::trim);
+        let (Some(width), Some(height)) = (parts.next(), parts.next()) else { continue; };
+        if let (Ok(width), Ok(height)) = (width.parse::<i32>(), height.parse::<i32>()) {
+            return (width, height);
+        }
+    }
+    (1280, 800)
 }

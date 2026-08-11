@@ -1,7 +1,6 @@
 //! Compact SLOPOS Platinum Application Strip.
 
 use crate::launcher::Launcher;
-use gdk::prelude::*;
 use gtk::prelude::*;
 use gtk::{Box as GtkBox, Button, IconSize, Image, Orientation, Window, WindowPosition, WindowType};
 use std::path::Path;
@@ -16,9 +15,7 @@ impl Dock {
     pub fn new(launcher: Rc<Launcher>) -> Rc<Self> {
         let window = Window::new(WindowType::Toplevel);
         window.set_title("SLOPOS Application Strip");
-        let (screen_width, screen_height) = gdk::Screen::default()
-            .map(|s| (s.width(), s.height()))
-            .unwrap_or((1280, 800));
+        let (screen_width, screen_height) = screen_geometry();
         let width = 470;
         let height = 54;
         window.set_default_size(width, height);
@@ -75,6 +72,26 @@ fn load_icon(file_name: &str, fallback: &str) -> Image {
         }
     }
     Image::from_icon_name(Some(fallback), IconSize::LargeToolbar)
+}
+
+fn screen_geometry() -> (i32, i32) {
+    let Ok(output) = Command::new("xrandr").arg("--current").output() else {
+        return (1280, 800);
+    };
+    if !output.status.success() {
+        return (1280, 800);
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    for line in text.lines() {
+        let Some(after_current) = line.split("current ").nth(1) else { continue; };
+        let Some(dimensions) = after_current.split(',').next() else { continue; };
+        let mut parts = dimensions.split('x').map(str::trim);
+        let (Some(width), Some(height)) = (parts.next(), parts.next()) else { continue; };
+        if let (Ok(width), Ok(height)) = (width.parse::<i32>(), height.parse::<i32>()) {
+            return (width, height);
+        }
+    }
+    (1280, 800)
 }
 
 fn spawn(program: &str, args: &[&str]) {
