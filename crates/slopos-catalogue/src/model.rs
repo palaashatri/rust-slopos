@@ -92,6 +92,8 @@ pub fn get_curated_catalogue() -> Vec<CatalogueApp> {
             "https://download.kde.org/Attic/stable/kdenlive/24.05/linux/kdenlive-24.05.0-x86_64.AppImage",
         )
         .with_sha256("b2ea1c3cc5af7eda58c5a19bfd35cde9a050fb70c5f2526117c9cc69a46576f0"),
+        // The official Inkscape media asset is pinned to the hash measured
+        // from that exact release download.
         app(
             "inkscape",
             "Inkscape",
@@ -99,17 +101,20 @@ pub fn get_curated_catalogue() -> Vec<CatalogueApp> {
             "1.3.2",
             "Graphics",
             "inkscape",
-            "https://inkscape.org/gallery/item/44621/Inkscape-e7c6843-x86_64.AppImage",
-        ),
+            "https://media.inkscape.org/dl/resources/file/Inkscape-091e20e-x86_64.AppImage",
+        )
+        .with_sha256("351deaea3fa391c56e0c6401dadcf83f7c9c8f82faa47bdb07024e99b92f9b5c"),
+        // GIMP publishes this SHA-256 in the official v3.2 SHA256SUMS file.
         app(
             "gimp",
             "GIMP",
             "GNU Image Manipulation Program",
-            "2.10.38",
+            "3.2.4",
             "Graphics",
             "gimp",
-            "https://download.gimp.org/gimp/v2.10/appimage/GIMP_AppImage-git-2.10.38-x86_64.AppImage",
-        ),
+            "https://download.gimp.org/gimp/v3.2/linux/GIMP-3.2.4-x86_64.AppImage",
+        )
+        .with_sha256("f1ce6dc671ef1c4aad87a0db9d7462e8ca9c0b5f899456337803c6ba32d0babe"),
         app(
             "obs-studio",
             "OBS Studio",
@@ -258,5 +263,33 @@ mod tests {
             "b2ea1c3cc5af7eda58c5a19bfd35cde9a050fb70c5f2526117c9cc69a46576f0"
         );
         assert!(kdenlive.metadata_is_installable());
+    }
+
+    #[test]
+    fn curated_catalogue_includes_verified_inkscape_release() {
+        let inkscape = get_curated_catalogue()
+            .into_iter()
+            .find(|app| app.id == "inkscape")
+            .expect("curated Inkscape entry");
+        assert_eq!(inkscape.version, "1.3.2");
+        assert_eq!(
+            inkscape.sha256,
+            "351deaea3fa391c56e0c6401dadcf83f7c9c8f82faa47bdb07024e99b92f9b5c"
+        );
+        assert!(inkscape.metadata_is_installable());
+    }
+
+    #[test]
+    fn curated_catalogue_includes_verified_gimp_release() {
+        let gimp = get_curated_catalogue()
+            .into_iter()
+            .find(|app| app.id == "gimp")
+            .expect("curated GIMP entry");
+        assert_eq!(gimp.version, "3.2.4");
+        assert_eq!(
+            gimp.sha256,
+            "f1ce6dc671ef1c4aad87a0db9d7462e8ca9c0b5f899456337803c6ba32d0babe"
+        );
+        assert!(gimp.metadata_is_installable());
     }
 }
