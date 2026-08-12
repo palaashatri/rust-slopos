@@ -62,6 +62,7 @@ fn acquire_instance_guard() -> Result<File, String> {
     let lock_path = runtime_dir.join("slopos-shell.lock");
     let file = OpenOptions::new()
         .create(true)
+        .truncate(false)
         .read(true)
         .write(true)
         .open(&lock_path)
@@ -107,14 +108,22 @@ fn load_css_theme() {
             continue;
         }
         let provider = CssProvider::new();
-        if provider.load_from_path(path).is_ok() {
-            if let Some(screen) = gdk::Screen::default() {
-                StyleContext::add_provider_for_screen(
-                    &screen,
-                    &provider,
-                    gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-                );
-                log::info!("Loaded SLOPOS GTK CSS from {path}");
+        match provider.load_from_path(path) {
+            Ok(()) => {
+                if let Some(screen) = gdk::Screen::default() {
+                    StyleContext::add_provider_for_screen(
+                        &screen,
+                        &provider,
+                        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+                    );
+                    log::info!("Loaded SLOPOS GTK CSS from {path}");
+                    return;
+                }
+                log::error!("GTK has no default screen while loading {path}");
+                return;
+            }
+            Err(error) => {
+                log::error!("Failed to parse SLOPOS GTK CSS at {path}: {error}");
                 return;
             }
         }
