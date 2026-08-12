@@ -11,7 +11,9 @@ HOSTNAME="${HOSTNAME:-slopos-i-vm}"
 USERNAME="${USERNAME:-retro}"
 PASSWORD="${PASSWORD:-retro}"
 REPO_URL="${REPO_URL:-https://github.com/palaashatri/rust-slopos.git}"
-REPO_BRANCH="${REPO_BRANCH:-pivot}"
+# A branch name is mutable and is not sufficient evidence for an installed
+# release. The host provisioning harness supplies this full commit SHA.
+REPO_COMMIT="${REPO_COMMIT:-}"
 HOST_HTTP="${HOST_HTTP:-http://10.0.2.2:8000}"
 GUEST_TARGET_DIR="${CARGO_TARGET_DIR:-/home/$USERNAME/.cache/slopos-i/cargo-target}"
 
@@ -27,6 +29,14 @@ fi
 if [[ ! -b "$DISK" ]]; then
   echo "Target disk does not exist: $DISK" >&2
   exit 1
+fi
+if [[ ! "$REPO_URL" =~ ^https:// ]]; then
+  echo "REPO_URL must use HTTPS: $REPO_URL" >&2
+  exit 2
+fi
+if [[ ! "$REPO_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  echo "REPO_COMMIT must be a full 40-character commit SHA" >&2
+  exit 2
 fi
 
 echo "=== enable clock and current keyring ==="
@@ -103,11 +113,16 @@ if curl -fsS "$HOST_HTTP/qa_key.pub" -o /tmp/slopos-qa-key 2>/dev/null; then
   chown -R 1000:1000 "/mnt/home/$USERNAME/.ssh"
 fi
 
-echo "=== clone, build and install current X11 product ==="
+echo "=== clone, pin, build and install current X11 product ==="
 arch-chroot /mnt /bin/bash -euo pipefail <<CHROOT
 runuser -u '$USERNAME' -- bash -lc '
   set -euo pipefail
-  git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" ~/slopos-i
+  rm -rf ~/slopos-i
+  git init ~/slopos-i
+  git -C ~/slopos-i remote add origin "$REPO_URL"
+  git -C ~/slopos-i fetch --depth 1 origin "$REPO_COMMIT"
+  git -C ~/slopos-i checkout --detach "$REPO_COMMIT"
+  test "\$(git -C ~/slopos-i rev-parse HEAD)" = "$REPO_COMMIT"
   cd ~/slopos-i
   export CARGO_TARGET_DIR="$GUEST_TARGET_DIR"
   mkdir -p "\$CARGO_TARGET_DIR"
@@ -131,6 +146,7 @@ chown '$USERNAME:$USERNAME' "/home/$USERNAME/.xinitrc" "/home/$USERNAME/.bash_pr
 CHROOT
 
 echo "=== installation complete ==="
+echo "Pinned source commit: $REPO_COMMIT"
 echo "The VM will boot to tty1, start Xorg, Openbox and the SLOPOS shell automatically."
 echo "QA login: $USERNAME / $PASSWORD"
 umount -R /mnt

@@ -8,7 +8,9 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_PREFIX="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 SLOPOS_SHARE_DIR="${SLOPOS_SHARE_DIR:-$INSTALL_PREFIX/share}"
 
-export XDG_SESSION_TYPE="${XDG_SESSION_TYPE:-x11}"
+# SLOPOS is an X11-only session. Do not inherit a caller's Wayland value and
+# accidentally let an upstream browser select a different display backend.
+export XDG_SESSION_TYPE="x11"
 export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-SLOPOS}"
 export XDG_SESSION_DESKTOP="${XDG_SESSION_DESKTOP:-slopos-i}"
 export DESKTOP_SESSION="${DESKTOP_SESSION:-slopos-i}"

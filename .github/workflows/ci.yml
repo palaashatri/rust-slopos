@@ -47,6 +47,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/benchmark-x11-session.sh
+          bash -n packaging/vm/qa-vm.sh packaging/vm/arch-install.sh
           test ! -d crates/slopos-compositor
           ! grep -Eq 'slopos-compositor|smithay|wayland-client|wayland-server' Cargo.toml
           grep -Fq 'crates/slopos-session' Cargo.toml
@@ -88,6 +89,11 @@ jobs:
             grep -Fq 'assets/slopos-logo.png' "$path"
           done
           grep -Fq 'assets/config/mimeapps.list' packaging/iso/build-iso.sh
+          test -f packaging/vm/qa-installed.ps1
+          grep -Fq 'shipping_files=(' packaging/vm/qa-vm.sh
+          grep -Fq 'REPO_COMMIT="${REPO_COMMIT:-}"' packaging/vm/arch-install.sh
+          grep -Fq 'git -C ~/slopos-i checkout --detach' packaging/vm/arch-install.sh
+          grep -Fq 'INSTALLED_VM_QA_STATUS_0' packaging/vm/qa-installed.ps1
 
   format-evidence:
     name: rustfmt remediation evidence

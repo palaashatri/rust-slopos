@@ -18,6 +18,10 @@ export LIBGL_ALWAYS_SOFTWARE=1
 export GALLIUM_DRIVER=llvmpipe
 export SDL_AUDIODRIVER=pulse
 
+BROWSER_FIXTURE=/tmp/slopos-browser-qa.html
+BROWSER_DOM_PROFILE=/tmp/slopos-browser-qa-dom
+BROWSER_URL="file://$BROWSER_FIXTURE"
+
 mkdir -p "$XDG_RUNTIME_DIR" artifacts/qa/app-matrix
 chmod 700 "$XDG_RUNTIME_DIR"
 # Keep this evidence directory deterministic.  Stale scrot files otherwise
@@ -29,6 +33,8 @@ cleanup() {
   for process in supertux supertux2 chromium pcmanfm xfce4-terminal mousepad ristretto slopos-session slopos-shell openbox Xvfb pulseaudio; do
     pkill -TERM -x "$process" 2>/dev/null || true
   done
+  rm -f "$BROWSER_FIXTURE"
+  rm -rf "$BROWSER_DOM_PROFILE" /tmp/slopos-chromium
 }
 trap cleanup EXIT
 
@@ -113,7 +119,8 @@ wait_window_for_pid() {
 run_window_app() {
   local label="$1"
   local screenshot="$2"
-  shift 2
+  local expected_title="$3"
+  shift 3
   echo "  app: $label"
   "$@" >"artifacts/qa/app-matrix/$label.log" 2>&1 &
   local app_pid=$!
@@ -124,6 +131,21 @@ run_window_app() {
   local window_pid
   window_pid="$(xdotool getwindowpid "$window")"
   test -n "$window_pid"
+  if [[ -n "$expected_title" ]]; then
+    xdotool windowactivate --sync "$window"
+    local window_title=""
+    for _ in $(seq 1 40); do
+      window_title="$(xdotool getwindowname "$window" 2>/dev/null || true)"
+      if [[ "$window_title" == *"$expected_title"* ]]; then
+        break
+      fi
+      sleep 0.25
+    done
+    if [[ "$window_title" != *"$expected_title"* ]]; then
+      echo "ERROR: window title did not contain '$expected_title': $window_title" >&2
+      return 1
+    fi
+  fi
   scrot "artifacts/qa/app-matrix/$screenshot"
   echo "    pid=$app_pid window_pid=$window_pid"
   kill "$app_pid" 2>/dev/null || true
@@ -132,15 +154,40 @@ run_window_app() {
 }
 
 echo "[5/7] Launching five distinct upstream application roles"
-run_window_app file-manager file-manager.png pcmanfm /workspace
-run_window_app terminal terminal.png xfce4-terminal --disable-server --title=SLOPOS\ Terminal
-run_window_app text-editor text-editor.png mousepad /workspace/README.md
-run_window_app image-viewer image-viewer.png ristretto /workspace/assets/slopos-logo.png
+cat >"$BROWSER_FIXTURE" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SLOPOS Browser QA</title>
+  <style>
+    body { background: #758090; color: #fff; font: 20px sans-serif; margin: 3rem; }
+    main { background: #d9d9d9; border: 2px solid #000; color: #000; padding: 2rem; }
+  </style>
+</head>
+<body>
+  <main id="slopos-browser-qa-marker">SLOPOS_BROWSER_QA_MARKER</main>
+</body>
+</html>
+EOF
+# Check the browser engine's DOM separately from the visible X11 run. The
+# visible run below remains the evidence-bearing path for frame/theme capture.
+SLOPOS_BROWSER_THEME=0 ./scripts/start-slopos-browser --no-sandbox --headless=new --disable-gpu \
+  --user-data-dir="$BROWSER_DOM_PROFILE" --dump-dom "$BROWSER_URL" \
+  >artifacts/qa/app-matrix/browser-dom.html 2>artifacts/qa/app-matrix/browser-dom.log
+grep -Fq 'SLOPOS_BROWSER_QA_MARKER' artifacts/qa/app-matrix/browser-dom.html
+
+run_window_app file-manager file-manager.png "" pcmanfm /workspace
+run_window_app terminal terminal.png "" xfce4-terminal --disable-server --title=SLOPOS\ Terminal
+run_window_app text-editor text-editor.png "" mousepad /workspace/README.md
+run_window_app image-viewer image-viewer.png "" ristretto /workspace/assets/slopos-logo.png
 # The container runs as root, so Chromium needs --no-sandbox; --test-type
 # suppresses its test-only infobar without changing the upstream binary.
-run_window_app browser browser.png ./scripts/start-slopos-browser --no-sandbox --test-type --disable-gpu --user-data-dir=/tmp/slopos-chromium about:blank
+rm -rf /tmp/slopos-chromium
+run_window_app browser browser.png "SLOPOS Browser QA" ./scripts/start-slopos-browser \
+  --no-sandbox --test-type --disable-gpu --user-data-dir=/tmp/slopos-chromium "$BROWSER_URL"
 
-echo "[6/7] Launching SuperTux and proving its audio stream reaches PulseAudio"
+echo "[6/7] Launching a SuperTux level, exercising input and proving audio reaches PulseAudio"
 rm -rf /tmp/slopos-supertux-qa
 mkdir -p /tmp/slopos-supertux-qa
 # The QA container is intentionally offline.  Seed SuperTux's own config so
@@ -148,7 +195,20 @@ mkdir -p /tmp/slopos-supertux-qa
 # to inspect; sound and music remain enabled.
 printf '%s\n' '(supertux-config' '  (disable_network #t)' ')' \
   >/tmp/slopos-supertux-qa/config
+GAME_LEVEL="$(pacman -Ql supertux 2>/dev/null \
+  | awk '$2 ~ /\/levels\/world1\/intro\.stl$/ { print $2; exit }')"
+if [[ -z "$GAME_LEVEL" || ! -f "$GAME_LEVEL" ]]; then
+  GAME_LEVEL="$(find /usr/share /usr/local/share -type f \
+    \( -path '*/supertux*/levels/world1/intro.stl' \
+       -o -path '*/supertux*/data/levels/world1/intro.stl' \) \
+    -print -quit 2>/dev/null || true)"
+fi
+if [[ -z "$GAME_LEVEL" || ! -f "$GAME_LEVEL" ]]; then
+  echo "ERROR: packaged SuperTux world1/intro.stl was not found" >&2
+  exit 1
+fi
 supertux2 --window --geometry 960x540 --renderer sdl --userdir /tmp/slopos-supertux-qa \
+  "$GAME_LEVEL" \
   >artifacts/qa/app-matrix/game.log 2>&1 &
 GAME_PID=$!
 wait_window_for_pid "$GAME_PID"
@@ -156,9 +216,9 @@ GAME_WINDOW="$(window_for_pid "$GAME_PID")"
 test -n "$GAME_WINDOW"
 GAME_WINDOW_PID="$(xdotool getwindowpid "$GAME_WINDOW")"
 test -n "$GAME_WINDOW_PID"
-# Ensure the captured frame contains the game surface, not merely a mapped
-# but inactive X11 window.  The offline config above keeps the evidence at
-# the real title menu instead of opening an online add-on consent dialog.
+# Ensure the captured frame contains a live level surface, not merely a mapped
+# but inactive X11 window. A direct packaged .stl entrypoint avoids depending
+# on version-sensitive title-menu labels while exercising the upstream game.
 xdotool windowmap "$GAME_WINDOW"
 xdotool windowactivate --sync "$GAME_WINDOW"
 xdotool windowfocus "$GAME_WINDOW"
@@ -166,8 +226,16 @@ eval "$(xdotool getwindowgeometry --shell "$GAME_WINDOW")"
 test "${WIDTH:-0}" -ge 400
 test "${HEIGHT:-0}" -ge 300
 sleep 2
+kill -0 "$GAME_PID" 2>/dev/null
+xdotool keydown Right
+sleep 2
+xdotool keyup Right
+xdotool key space
+sleep 1
+kill -0 "$GAME_PID" 2>/dev/null
 scrot artifacts/qa/app-matrix/game.png
 sleep 3
+kill -0 "$GAME_PID" 2>/dev/null
 pactl list sink-inputs >artifacts/qa/app-matrix/sink-inputs.txt
 test -s artifacts/qa/app-matrix/sink-inputs.txt
 grep -Eq "${GAME_PID}|supertux|SuperTux" artifacts/qa/app-matrix/sink-inputs.txt || {
@@ -177,10 +245,47 @@ grep -Eq "${GAME_PID}|supertux|SuperTux" artifacts/qa/app-matrix/sink-inputs.txt
 }
 echo "    game_pid=$GAME_PID window_pid=$GAME_WINDOW_PID"
 
+# Close the game before Xvfb is torn down. This avoids turning normal display
+# shutdown into an SDL/X11 crash that the old gate accidentally ignored.
+xdotool windowclose "$GAME_WINDOW" 2>/dev/null || true
+for _ in $(seq 1 40); do
+  if ! kill -0 "$GAME_PID" 2>/dev/null; then
+    break
+  fi
+  sleep 0.25
+done
+if kill -0 "$GAME_PID" 2>/dev/null; then
+  kill -TERM "$GAME_PID" 2>/dev/null || true
+  for _ in $(seq 1 20); do
+    if ! kill -0 "$GAME_PID" 2>/dev/null; then
+      break
+    fi
+    sleep 0.25
+  done
+fi
+if kill -0 "$GAME_PID" 2>/dev/null; then
+  echo "ERROR: SuperTux did not exit after its window was closed" >&2
+  kill -KILL "$GAME_PID" 2>/dev/null || true
+fi
+GAME_EXIT=0
+wait "$GAME_PID" || GAME_EXIT=$?
+if [[ "$GAME_EXIT" -ne 0 ]]; then
+  echo "ERROR: SuperTux exited with status $GAME_EXIT" >&2
+  cat artifacts/qa/app-matrix/game.log >&2
+  exit 1
+fi
+if grep -Eiq 'signal [0-9]+:|unrecoverable error|segmentation fault|fatal error' \
+  artifacts/qa/app-matrix/game.log; then
+  echo "ERROR: SuperTux logged a fatal runtime failure" >&2
+  cat artifacts/qa/app-matrix/game.log >&2
+  exit 1
+fi
+
 echo "[7/7] Validating screenshot and process evidence"
 for image in artifacts/qa/app-matrix/*.png; do
   test -s "$image"
   identify -format '%f %wx%h\n' "$image"
 done
 test -s artifacts/qa/app-matrix/sink-inputs.txt
+test -s artifacts/qa/app-matrix/browser-dom.html
 echo "SLOPOS-I Arch upstream application/browser/game evidence PASS"

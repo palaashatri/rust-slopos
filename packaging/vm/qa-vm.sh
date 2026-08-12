@@ -98,9 +98,34 @@ test -s "$QA/installed-session-${screen_width}x${screen_height}.png" || fail "VM
 step "source/install contract"
 if [[ -d "$HOME/slopos-i/.git" ]]; then
   cd "$HOME/slopos-i"
-  ! grep -RIEq 'slopos-compositor|share/wayland-sessions|wayland-client|wayland-server|smithay|wlroots|xwayland|xorg-xwayland' \
-    Cargo.toml install.sh scripts packaging/vm packaging/iso \
-    --exclude='qa-vm.sh' || fail "obsolete display-stack reference remains"
+  # Scan only files that can ship the product. QA helpers intentionally carry
+  # negative assertions containing the forbidden terms; recursively scanning
+  # scripts/ would therefore make a healthy installed VM fail its own check.
+  shipping_files=(
+    Cargo.toml
+    install.sh
+    scripts/start-slopos-i
+    scripts/install-session-files.sh
+    packaging/slopos-i.desktop
+    packaging/arch/PKGBUILD
+    packaging/debian/changelog
+    packaging/debian/control
+    packaging/debian/rules
+    packaging/iso/build-iso.sh
+    packaging/iso/packages.x86_64
+    packaging/deps/arch.txt
+    packaging/deps/ubuntu.txt
+    packaging/deps/arch-build.txt
+    packaging/deps/ubuntu-build.txt
+    packaging/vm/arch-install.sh
+  )
+  for path in "${shipping_files[@]}"; do
+    test -f "$path" || fail "missing source-contract file: $path"
+    if grep -Eiq '(^|[^[:alnum:]])(wayland|smithay|wlroots|xwayland|slopos-compositor)([^[:alnum:]]|$)' "$path"; then
+      fail "obsolete display-stack reference remains in shipping file: $path"
+    fi
+  done
+  echo "shipping source contract clean (${#shipping_files[@]} files)"
 fi
 
 echo "SLOPOS_X11_INSTALLED_VM_QA=PASS"

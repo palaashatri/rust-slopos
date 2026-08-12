@@ -8,11 +8,27 @@ param(
     [string]$ScriptDir = "$PSScriptRoot",
     [int]$HttpPort     = 8000,
     [int]$BootWaitSec  = 75,
+    [int]$SshPort      = 2222,
+    [string]$RepoCommit = "",
     [switch]$SkipStart
 )
 
 $ErrorActionPreference = "Stop"
 $VBox = "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe"
+$http = $null
+
+if ([string]::IsNullOrWhiteSpace($RepoCommit)) {
+    $git = Get-Command git.exe -ErrorAction SilentlyContinue
+    if (-not $git) { throw "git.exe is required to derive the exact source commit" }
+    $repoRoot = (Resolve-Path (Join-Path $ScriptDir "..\..")).Path
+    $RepoCommit = (& $git.Source -C $repoRoot rev-parse HEAD).Trim()
+}
+if ($RepoCommit -notmatch '^[0-9a-fA-F]{40}$') {
+    throw "RepoCommit must be a full 40-character commit SHA"
+}
+if ($SshPort -lt 1 -or $SshPort -gt 65535) {
+    throw "SshPort must be between 1 and 65535"
+}
 
 # --- PS/2 set-1 scancodes for the ASCII we need ------------------------------
 $Map = @{
@@ -61,6 +77,7 @@ $http = Start-Process -FilePath "python" `
     -ArgumentList "-m", "http.server", "$HttpPort", "--bind", "0.0.0.0", "--directory", "`"$ScriptDir`"" `
     -PassThru -WindowStyle Hidden
 Start-Sleep -Seconds 2
+if ($http.HasExited) { throw "Host HTTP server exited before provisioning started" }
 
 try {
     if (-not $SkipStart) {
@@ -75,17 +92,24 @@ try {
     # Wake the console, then type the one bootstrap line.
     Send-Enter
     Start-Sleep -Seconds 2
-    $cmd = "curl -sL http://10.0.2.2:$HttpPort/arch-install.sh -o /root/i.sh && bash /root/i.sh 2>&1 | tee /root/install.log"
+    $cmd = "curl -sL http://10.0.2.2:$HttpPort/arch-install.sh -o /root/i.sh && REPO_COMMIT=$RepoCommit bash /root/i.sh 2>&1 | tee /root/install.log"
     Write-Host "Typing bootstrap: $cmd"
     Send-Text $cmd
     Send-Enter
 
     Write-Host ""
+    Write-Host "Pinned source commit: $RepoCommit"
     Write-Host "Install is running inside the guest (pacstrap + cargo build; expect 20-40 min)."
     Write-Host "Watch it with:"
     Write-Host "  & '$VBox' controlvm $VmName screenshotpng shot.png"
-    Write-Host "When it reboots, SSH becomes available:  ssh -p 2222 retro@127.0.0.1  (password: retro)"
+    Write-Host "When it reboots, SSH becomes available:  ssh -p $SshPort retro@127.0.0.1  (password: retro)"
+    $qaScript = Join-Path $ScriptDir "qa-installed.ps1"
+    Write-Host "Deterministic post-reboot QA (requires packaging/vm/qa_key):"
+    Write-Host "  pwsh -File '$qaScript' -VmName '$VmName' -SshPort $SshPort -ExpectedCommit $RepoCommit -SshKeyPath '$ScriptDir\qa_key'"
 }
 finally {
-    Write-Host "(host HTTP server pid $($http.Id) still running; stop it with: Stop-Process -Id $($http.Id))"
+    if ($http -and -not $http.HasExited) {
+        Stop-Process -Id $http.Id -Force
+        Write-Host "Stopped host HTTP server pid $($http.Id)"
+    }
 }

@@ -13,3 +13,4 @@ packaging/vm/qa_key
 packaging/vm/qa_key.pub
 packaging/vm/known_hosts
 packaging/vm/*.png
+packaging/vm/installed-vm-evidence/

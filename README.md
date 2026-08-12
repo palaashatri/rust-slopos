@@ -55,7 +55,7 @@ From PowerShell/CMD at the repository root:
 docker run --rm -v "%CD%:/workspace" -w /workspace ubuntu:24.04 bash /workspace/scripts/run-docker-qa.sh
 ```
 
-The QA script builds the workspace, starts a D-Bus-backed Xvfb/Openbox X11 session, asserts required processes and fresh visible windows, exercises representative upstream apps, checks launched PIDs and records five non-empty 1280x800 canonical screenshots. The separate Arch application gate runs PCManFM, Xfce Terminal, Mousepad, Ristretto, Chromium through the SLOPOS wrapper, and SuperTux with a PulseAudio sink assertion; its audio result is container/null-sink evidence, not proof of physical speaker output.
+The QA script builds the workspace, starts a D-Bus-backed Xvfb/Openbox X11 session, asserts required processes and fresh visible windows, exercises representative upstream apps, checks launched PIDs and records five non-empty 1280x800 canonical screenshots. The separate Arch application gate runs PCManFM, Xfce Terminal, Mousepad, Ristretto, Chromium through the SLOPOS wrapper against a deterministic local browser fixture, and a packaged SuperTux world1 level with movement/jump input plus a PulseAudio sink assertion; its browser/game and null-sink results remain bounded container evidence, not proof of physical speaker or GPU behavior.
 
 A passing Docker run is **development evidence**, not proof of hardware/installer/visual production readiness.
 
@@ -84,6 +84,23 @@ bash packaging/iso/build-iso.sh
 ```
 
 Boot/install validation in QEMU or physical hardware remains a separate release gate from container QA.
+
+For a reproducible installed-to-disk VirtualBox run, create a fresh VM with
+the ISO, generate the ignored QA key beside the VM scripts, and pass the exact
+checkout commit to the installer harness:
+
+```powershell
+ssh-keygen -t ed25519 -f packaging/vm/qa_key -N ""
+$sha = (git rev-parse HEAD).Trim()
+pwsh -File packaging/vm/create-vm.ps1 -IsoPath artifacts/iso/<image>.iso -Recreate
+pwsh -File packaging/vm/provision.ps1 -RepoCommit $sha
+pwsh -File packaging/vm/qa-installed.ps1 -ExpectedCommit $sha -SshKeyPath packaging/vm/qa_key
+```
+
+The final command waits for the post-reboot SSH service, verifies the guest
+checkout SHA, runs `qa-vm.sh`, captures a VirtualBox screenshot, and writes
+`packaging/vm/installed-vm-evidence/status.json`. This is installation evidence;
+Xvfb, live-ISO and QEMU checks do not replace it.
 
 ## Recovery
 

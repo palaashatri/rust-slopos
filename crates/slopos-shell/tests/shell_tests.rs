@@ -177,6 +177,46 @@ fn vm_qa_requires_screenshot_evidence() {
 }
 
 #[test]
+fn installed_vm_source_scan_only_checks_shipping_files() {
+    let qa = include_str!("../../../packaging/vm/qa-vm.sh");
+    assert!(qa.contains("shipping_files=("));
+    assert!(qa.contains("scripts/start-slopos-i"));
+    assert!(qa.contains("packaging/vm/arch-install.sh"));
+    assert!(qa.contains("obsolete display-stack reference remains in shipping file"));
+    assert!(!qa.contains("grep -RIEq"));
+    assert!(!qa.contains("--exclude='qa-vm.sh'"));
+}
+
+#[test]
+fn installed_vm_harness_pins_source_and_collects_status() {
+    let installer = include_str!("../../../packaging/vm/arch-install.sh");
+    assert!(installer.contains("REPO_COMMIT=\"${REPO_COMMIT:-}\""));
+    assert!(installer.contains("REPO_COMMIT must be a full 40-character commit SHA"));
+    assert!(installer.contains("git -C ~/slopos-i fetch --depth 1 origin"));
+    assert!(installer.contains("git -C ~/slopos-i checkout --detach"));
+    assert!(installer.contains("Pinned source commit: $REPO_COMMIT"));
+
+    let provision = include_str!("../../../packaging/vm/provision.ps1");
+    assert!(provision.contains("[string]$RepoCommit = \"\""));
+    assert!(provision.contains("REPO_COMMIT=$RepoCommit"));
+    assert!(provision.contains("qa-installed.ps1"));
+    assert!(provision.contains("-ExpectedCommit $RepoCommit"));
+    assert!(provision.contains("Stop-Process -Id $http.Id -Force"));
+
+    let qa = include_str!("../../../packaging/vm/qa-installed.ps1");
+    assert!(qa.contains("[string]$ExpectedCommit = \"\""));
+    assert!(qa.contains("does not match expected"));
+    assert!(qa.contains("function Invoke-SshCapture"));
+    assert!(qa.contains("$ErrorActionPreference = \"Continue\""));
+    assert!(qa.contains("LogLevel=ERROR"));
+    assert!(qa.contains("git -C /home/$SshUser/slopos-i rev-parse HEAD"));
+    assert!(qa.contains("packaging/vm/qa-vm.sh"));
+    assert!(qa.contains("screenshotpng"));
+    assert!(qa.contains("INSTALLED_VM_QA_STATUS_0"));
+    assert!(qa.contains("status.json"));
+}
+
+#[test]
 fn docker_qa_uses_fresh_visible_windows() {
     let qa = include_str!("../../../scripts/run-docker-qa.sh");
     assert!(qa.contains("dbus-run-session -- ./target/release/slopos-session"));
@@ -226,6 +266,7 @@ fn browser_integration_is_upstream_and_no_fork() {
     let browser_docs = include_str!("../../../packaging/browser/README.md");
 
     assert!(launcher.contains("GTK_THEME"));
+    assert!(launcher.contains("export XDG_SESSION_TYPE=\"x11\""));
     assert!(launcher.contains("firefox"));
     assert!(launcher.contains("chromium"));
     assert!(launcher.contains("--load-extension"));
@@ -262,6 +303,16 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
         assert!(qa.contains(role), "missing upstream role {role}");
     }
     assert!(qa.contains("supertux"));
+    assert!(qa.contains("SLOPOS_BROWSER_QA_MARKER"));
+    assert!(qa.contains("SLOPOS Browser QA"));
+    assert!(qa.contains("browser-dom.html"));
+    assert!(qa.contains("getwindowname"));
+    assert!(qa.contains("world1/intro.stl"));
+    assert!(qa.contains("xdotool keydown Right"));
+    assert!(qa.contains("xdotool key space"));
+    assert!(qa.contains("kill -0 \"$GAME_PID\""));
+    assert!(qa.contains("xdotool windowclose"));
+    assert!(qa.contains("unrecoverable error"));
     assert!(qa.contains("pactl list sink-inputs"));
     assert!(qa.contains("test -s artifacts/qa/app-matrix/sink-inputs.txt"));
     assert!(qa.contains("SLOPOS-I Arch upstream application/browser/game evidence PASS"));
