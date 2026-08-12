@@ -80,6 +80,8 @@ pub fn get_desktop_entry_path(id: &str) -> PathBuf {
 /// must disable installation rather than bypass integrity verification.
 pub fn get_curated_catalogue() -> Vec<CatalogueApp> {
     vec![
+        // KDE's archived mirrorlist publishes this SHA-256 for the exact
+        // AppImage asset below.
         app(
             "kdenlive",
             "Kdenlive",
@@ -237,7 +239,10 @@ mod tests {
             .find(|app| app.id == "audacity")
             .expect("curated Audacity entry");
         assert_eq!(audacity.version, "3.7.7");
-        assert_eq!(audacity.sha256.len(), 64);
+        assert_eq!(
+            audacity.sha256,
+            "45c4445fb6670cc5fe40d31c7cea979724d2605bca53b554c32520acbf901ef0"
+        );
         assert!(audacity.metadata_is_installable());
     }
 
@@ -248,7 +253,10 @@ mod tests {
             .find(|app| app.id == "kdenlive")
             .expect("curated Kdenlive entry");
         assert_eq!(kdenlive.version, "24.05.0");
-        assert_eq!(kdenlive.sha256.len(), 64);
+        assert_eq!(
+            kdenlive.sha256,
+            "b2ea1c3cc5af7eda58c5a19bfd35cde9a050fb70c5f2526117c9cc69a46576f0"
+        );
         assert!(kdenlive.metadata_is_installable());
     }
 }
