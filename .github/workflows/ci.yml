@@ -54,6 +54,34 @@ jobs:
           grep -Fq 'crates/slopos-settings' Cargo.toml
           ! grep -Eq 'share/wayland-sessions|slopos-compositor' install.sh
 
+  format-evidence:
+    name: rustfmt remediation evidence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Generate canonical rustfmt patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --all
+          git diff --binary -- '*.rs' > "$RUNNER_TEMP/rustfmt.patch"
+          if [ -s "$RUNNER_TEMP/rustfmt.patch" ]; then
+            cat "$RUNNER_TEMP/rustfmt.patch"
+          else
+            echo "Repository is already rustfmt-clean." > "$RUNNER_TEMP/rustfmt.patch"
+          fi
+      - name: Upload rustfmt evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustfmt-${{ env.SOURCE_SHA }}
+          retention-days: 2
+          path: ${{ runner.temp }}/rustfmt.patch
+
   linux:
     name: build + test + lint (X11 Linux)
     runs-on: ubuntu-latest
