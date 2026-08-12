@@ -46,6 +46,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          bash -n scripts/benchmark-x11-session.sh
           test ! -d crates/slopos-compositor
           ! grep -Eq 'slopos-compositor|smithay|wayland-client|wayland-server' Cargo.toml
           grep -Fq 'crates/slopos-session' Cargo.toml
