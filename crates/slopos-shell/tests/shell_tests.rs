@@ -227,7 +227,9 @@ fn vm_recreate_checks_state_before_poweroff() {
 #[test]
 fn docker_qa_uses_fresh_visible_windows() {
     let qa = include_str!("../../../scripts/run-docker-qa.sh");
-    assert!(qa.contains("dbus-run-session -- ./target/release/slopos-session"));
+    assert!(qa.contains("dbus-run-session -- bash -c"));
+    assert!(qa.contains("DBUS_SESSION_BUS_ADDRESS"));
+    assert!(qa.contains("notify-send"));
     assert!(qa.contains("wait_visible_window '^SLOPOS Top Bar$'"));
     assert!(qa.contains("wait_visible_window '^SLOPOS Application Strip$'"));
     assert!(qa.contains("xdotool search --onlyvisible --name \"$pattern\""));
@@ -237,7 +239,18 @@ fn docker_qa_uses_fresh_visible_windows() {
     assert!(qa.contains("Verify session recovery after child failure"));
     assert!(qa.contains("shell_before"));
     assert!(qa.contains("wm_before"));
+    assert!(qa.contains("close_visible_windows_by_class"));
     assert!(qa.contains("clean_desktop_1280x800.png"));
+    for scene in [
+        "menu_open_1280x800.png",
+        "search_open_1280x800.png",
+        "notification_1280x800.png",
+        "modal_about_1280x800.png",
+        "file_manager_1280x800.png",
+        "terminal_1280x800.png",
+    ] {
+        assert!(qa.contains(scene), "missing canonical scene {scene}");
+    }
 }
 
 #[test]

@@ -55,7 +55,7 @@ From PowerShell/CMD at the repository root:
 docker run --rm -v "%CD%:/workspace" -w /workspace ubuntu:24.04 bash /workspace/scripts/run-docker-qa.sh
 ```
 
-The QA script builds the workspace, starts a D-Bus-backed Xvfb/Openbox X11 session, asserts required processes and fresh visible windows, exercises representative upstream apps, checks launched PIDs and records five non-empty 1280x800 canonical screenshots. The separate Arch application gate runs PCManFM, Xfce Terminal, Mousepad, Ristretto, Chromium through the SLOPOS wrapper against a deterministic local browser fixture, and a packaged SuperTux world1 level with movement/jump input plus a PulseAudio sink assertion; its browser/game and null-sink results remain bounded container evidence, not proof of physical speaker or GPU behavior.
+The QA script builds the workspace, starts a D-Bus-backed Xvfb/Openbox X11 session, asserts required processes and fresh visible windows, exercises representative upstream apps, checks launched PIDs and records eleven non-empty 1280x800 canonical screenshots covering the desktop, menu, Search, notification, modal, application, overlap, file manager, terminal, Catalogue and Settings states. The separate Arch application gate runs PCManFM, Xfce Terminal, Mousepad, Ristretto, Chromium through the SLOPOS wrapper against a deterministic local browser fixture, and a packaged SuperTux world1 level with movement/jump input plus a PulseAudio sink assertion; its browser/game and null-sink results remain bounded container evidence, not proof of physical speaker or GPU behavior.
 
 A passing Docker run is **development evidence**, not proof of hardware/installer/visual production readiness.
 
