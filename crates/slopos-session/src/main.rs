@@ -151,9 +151,11 @@ fn configure_session_environment() {
     env::set_var("XDG_CURRENT_DESKTOP", "SLOPOS");
     env::set_var("XDG_SESSION_DESKTOP", "slopos");
     env::set_var("DESKTOP_SESSION", "slopos");
+    env::set_var("SLOPOS_SESSION_MANAGED", "1");
 
-    // Export the session identity to D-Bus/systemd activation when the host
-    // provides the standard helper. Failure is non-fatal in minimal sessions.
+    // Export only the interoperable desktop/session identity to activation
+    // services. SLOPOS_SESSION_MANAGED is intentionally private to SLOPOS
+    // child processes and must not leak into unrelated D-Bus activations.
     let _ = Command::new("dbus-update-activation-environment")
         .args([
             "--systemd",
