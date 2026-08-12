@@ -9,7 +9,7 @@ use gtk::{
     WindowPosition, WindowType,
 };
 use std::env;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 struct ControlPanel<'a> {
@@ -199,16 +199,24 @@ fn command_exists(program: &str) -> bool {
 }
 
 fn load_css_theme() {
-    for path in [
-        "assets/config/gtk-3.0/gtk.css",
-        "/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css",
-        "/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css",
-    ] {
-        if !Path::new(path).exists() {
+    let mut css_paths = Vec::new();
+    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+        css_paths.push(PathBuf::from(share_dir).join("themes/slopos-gtk/gtk-3.0/gtk.css"));
+    }
+    css_paths.extend([
+        PathBuf::from("assets/config/gtk-3.0/gtk.css"),
+        PathBuf::from("/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css"),
+        PathBuf::from("/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css"),
+    ]);
+    for path in css_paths {
+        if !path.exists() {
             continue;
         }
         let provider = gtk::CssProvider::new();
-        if provider.load_from_path(path).is_ok() {
+        let Some(path_text) = path.to_str() else {
+            continue;
+        };
+        if provider.load_from_path(path_text).is_ok() {
             if let Some(screen) = gdk::Screen::default() {
                 gtk::StyleContext::add_provider_for_screen(
                     &screen,

@@ -6,7 +6,7 @@ SLOPOS-I is a lightweight Linux desktop environment inspired by the clarity and 
 
 ## Current status
 
-The `pivot` branch is an active product reboot. It is **not production-ready**. The August 11, 2026 deep audit reset an invalid 100/100 claim after visual and code review found unfinished UI, stale Wayland-era packaging/CI, fake Settings controls and fail-open AppImage installation behavior. See `TRUTH.md` for the evidence-backed score and blockers.
+The `pivot` branch is an active product reboot. The 2026-08-12 remediation audit records **62/100** in [`TRUTH.md`](TRUTH.md): the X11 packaging, catalogue validation, shell contracts and Docker/Xvfb evidence are materially stronger, but the project is **not production-ready**. VM/boot, trusted catalogue release metadata, independent visual acceptance, hardware-service, accessibility/localization, performance and full recovery evidence remain open.
 
 ## Architecture
 
@@ -53,7 +53,7 @@ From PowerShell/CMD at the repository root:
 docker run --rm -v "%CD%:/workspace" -w /workspace ubuntu:24.04 bash /workspace/scripts/run-docker-qa.sh
 ```
 
-The QA script builds the workspace, starts Xvfb, runs the SLOPOS X11 session, asserts required processes/windows, exercises representative upstream apps and records canonical screenshots.
+The QA script builds the workspace, starts a D-Bus-backed Xvfb/Openbox X11 session, asserts required processes and fresh visible windows, exercises representative upstream apps, checks launched PIDs and records five non-empty 1280x800 canonical screenshots.
 
 A passing Docker run is **development evidence**, not proof of hardware/installer/visual production readiness.
 

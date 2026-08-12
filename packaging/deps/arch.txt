@@ -27,5 +27,6 @@ xorg-xsetroot
 xdotool
 wmctrl
 adwaita-icon-theme
+librsvg
 ttf-liberation
 ttf-dejavu

@@ -15,9 +15,19 @@ step "installed release assets"
 for binary in slopos-session slopos-shell slopos-catalogue slopos-settings start-slopos-i; do
   command -v "$binary" >/dev/null 2>&1 || fail "$binary is not installed"
 done
+session_asset=""
+for candidate in /usr/share/xsessions/slopos-i.desktop /usr/local/share/xsessions/slopos-i.desktop; do
+  if [[ -s "$candidate" ]]; then
+    session_asset="$candidate"
+    break
+  fi
+done
+test -n "$session_asset" || fail "missing installed X11 session descriptor"
 for asset in \
-  /usr/local/share/xsessions/slopos-i.desktop \
+  "$session_asset" \
   /usr/local/share/slopos-i/openbox/rc.xml \
+  /usr/local/share/slopos-i/mimeapps.list \
+  /usr/local/share/slopos-i/slopos-logo.png \
   /usr/local/share/themes/slopos-openbox/openbox-3/themerc \
   /usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css; do
   test -s "$asset" || fail "missing installed asset: $asset"
@@ -81,15 +91,14 @@ done
 xdotool search --onlyvisible --name '^Software Catalogue$' >/dev/null || fail "Catalogue window missing"
 
 step "capture VM evidence"
-if command -v scrot >/dev/null 2>&1; then
-  scrot -z "$QA/installed-session-${screen_width}x${screen_height}.png"
-  test -s "$QA/installed-session-${screen_width}x${screen_height}.png"
-fi
+command -v scrot >/dev/null 2>&1 || fail "scrot is required for VM evidence"
+scrot -z "$QA/installed-session-${screen_width}x${screen_height}.png"
+test -s "$QA/installed-session-${screen_width}x${screen_height}.png" || fail "VM screenshot is missing or empty"
 
 step "source/install contract"
 if [[ -d "$HOME/slopos-i/.git" ]]; then
   cd "$HOME/slopos-i"
-  ! grep -RIEq 'slopos-compositor|share/wayland-sessions|smithay|xorg-xwayland' \
+  ! grep -RIEq 'slopos-compositor|share/wayland-sessions|wayland-client|wayland-server|smithay|wlroots|xwayland|xorg-xwayland' \
     Cargo.toml install.sh scripts packaging/vm packaging/iso \
     --exclude='qa-vm.sh' || fail "obsolete display-stack reference remains"
 fi

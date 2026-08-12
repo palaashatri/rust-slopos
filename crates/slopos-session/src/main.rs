@@ -106,6 +106,10 @@ fn main() {
     // Give the WM a small head start so shell windows are managed from their
     // first map rather than racing Openbox startup.
     thread::sleep(Duration::from_millis(150));
+    // Openbox may reset the root window while it starts. Re-apply the
+    // canonical SLOPOS desktop colour after the WM owns the display so the
+    // shipping desktop never falls back to a black root background.
+    apply_desktop_fallback();
     let mut shell = ManagedChild::new("SLOPOS shell", spawn_path(&shell_exe, &[]));
 
     while RUNNING.load(Ordering::SeqCst) {
@@ -230,11 +234,20 @@ fn resolve_openbox_config() -> Option<PathBuf> {
         }
     }
 
-    let candidates = [
+    let mut candidates = Vec::new();
+    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+        candidates.push(PathBuf::from(share_dir).join("slopos-i/openbox/rc.xml"));
+    }
+    if let Ok(executable) = env::current_exe() {
+        if let Some(prefix) = executable.parent().and_then(Path::parent) {
+            candidates.push(prefix.join("share/slopos-i/openbox/rc.xml"));
+        }
+    }
+    candidates.extend([
         PathBuf::from("assets/config/openbox/rc.xml"),
         PathBuf::from("/usr/local/share/slopos-i/openbox/rc.xml"),
         PathBuf::from("/usr/share/slopos-i/openbox/rc.xml"),
-    ];
+    ]);
     candidates.into_iter().find(|path| path.exists())
 }
 

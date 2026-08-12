@@ -6,21 +6,28 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PREFIX="/usr/local"
+SESSION_DIR=""
 DRY_RUN=0
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--dry-run] [--prefix PREFIX] [-h|--help]
+Usage: $(basename "$0") [--dry-run] [--prefix PREFIX] [--session-dir DIR] [-h|--help]
 
 Install SLOPOS-I X11 session files for display-manager greeters.
 
   --dry-run       Print actions without writing files
   --prefix PATH   Install prefix (default: /usr/local)
+  --session-dir DIR
+                  X11 session descriptor directory (default: PREFIX/share/xsessions)
   -h, --help      Show this help
 
 Artifacts:
-  packaging/slopos-i.desktop → \$PREFIX/share/xsessions/slopos-i.desktop
+  packaging/slopos-i.desktop → \$SESSION_DIR/slopos-i.desktop
   scripts/start-slopos-i     → \$PREFIX/bin/start-slopos-i
+
+The installed session descriptor uses \$PREFIX/bin/slopos-session for both
+Exec and TryExec so custom-prefix installs remain discoverable by display
+managers whose environment does not include that prefix.
 EOF
 }
 
@@ -32,6 +39,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --prefix)
       PREFIX="${2:?--prefix requires a path}"
+      shift 2
+      ;;
+    --session-dir)
+      SESSION_DIR="${2:?--session-dir requires a path}"
       shift 2
       ;;
     -h|--help)
@@ -49,7 +60,10 @@ done
 XSESSION_SRC="$ROOT/packaging/slopos-i.desktop"
 START_SRC="$ROOT/scripts/start-slopos-i"
 
-XSESSION_DST="$PREFIX/share/xsessions/slopos-i.desktop"
+if [[ -z "$SESSION_DIR" ]]; then
+  SESSION_DIR="$PREFIX/share/xsessions"
+fi
+XSESSION_DST="$SESSION_DIR/slopos-i.desktop"
 START_DST="$PREFIX/bin/start-slopos-i"
 
 run_install() {
@@ -63,8 +77,29 @@ run_install() {
   fi
 }
 
+install_session_descriptor() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo "DRY-RUN install -Dm644 $XSESSION_SRC $XSESSION_DST (Exec=$PREFIX/bin/slopos-session)"
+    return
+  fi
+
+  mkdir -p "$(dirname "$XSESSION_DST")"
+  local temporary
+  temporary="$(mktemp "${XSESSION_DST}.XXXXXX")"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      Exec=*) printf 'Exec=%s\n' "$PREFIX/bin/slopos-session" ;;
+      TryExec=*) printf 'TryExec=%s\n' "$PREFIX/bin/slopos-session" ;;
+      *) printf '%s\n' "$line" ;;
+    esac
+  done < "$XSESSION_SRC" > "$temporary"
+  chmod 644 "$temporary"
+  mv -f "$temporary" "$XSESSION_DST"
+  echo "installed $XSESSION_DST"
+}
+
 echo "install-session-files: PREFIX=$PREFIX dry_run=$DRY_RUN"
-run_install 644 "$XSESSION_SRC" "$XSESSION_DST"
+install_session_descriptor
 run_install 755 "$START_SRC" "$START_DST"
 
 echo "install-session-files: install complete under $PREFIX"

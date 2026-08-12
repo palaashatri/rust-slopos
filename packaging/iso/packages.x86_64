@@ -45,6 +45,7 @@ polkit
 ttf-liberation
 ttf-dejavu
 adwaita-icon-theme
+librsvg
 
 # QA / recovery helpers
 scrot

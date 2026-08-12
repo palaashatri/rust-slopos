@@ -70,6 +70,10 @@ install -Dm644 assets/config/gtk-3.0/gtk.css \
   "$ROOTFS/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css"
 install -Dm644 assets/config/gtk-3.0/settings.ini \
   "$ROOTFS/usr/local/share/slopos-i/gtk-3.0/settings.ini"
+install -Dm644 assets/config/mimeapps.list \
+  "$ROOTFS/usr/local/share/slopos-i/mimeapps.list"
+install -Dm644 assets/slopos-logo.png \
+  "$ROOTFS/usr/local/share/slopos-i/slopos-logo.png"
 mkdir -p "$ROOTFS/usr/local/share/slopos-i/themes"
 cp -a themes/platinum "$ROOTFS/usr/local/share/slopos-i/themes/platinum"
 

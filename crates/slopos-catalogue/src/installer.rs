@@ -35,6 +35,7 @@ pub fn install_appimage(app: &CatalogueApp) -> Result<(), String> {
                 app.name, app.sha256, actual
             ));
         }
+        validate_appimage_header(&part)?;
 
         let mut permissions = fs::metadata(&part)
             .map_err(|error| format!("read partial AppImage metadata: {error}"))?
@@ -74,6 +75,13 @@ fn download_and_hash(url: &str, part: &Path) -> Result<String, String> {
     let client = reqwest::blocking::Client::builder()
         .connect_timeout(Duration::from_secs(15))
         .timeout(Duration::from_secs(180))
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if redirect_is_allowed(attempt.url(), attempt.previous().len()) {
+                attempt.follow()
+            } else {
+                attempt.stop()
+            }
+        }))
         .user_agent("SLOPOS-I-Catalogue/0.1")
         .build()
         .map_err(|error| format!("create HTTP client: {error}"))?;
@@ -116,6 +124,22 @@ fn download_and_hash(url: &str, part: &Path) -> Result<String, String> {
     file.sync_all()
         .map_err(|error| format!("sync AppImage: {error}"))?;
     Ok(hasher.finalize().encode_hex())
+}
+
+fn redirect_is_allowed(url: &reqwest::Url, previous_count: usize) -> bool {
+    url.scheme() == "https" && previous_count < 10
+}
+
+fn validate_appimage_header(path: &Path) -> Result<(), String> {
+    let mut file =
+        File::open(path).map_err(|error| format!("open downloaded AppImage: {error}"))?;
+    let mut header = [0_u8; 4];
+    file.read_exact(&mut header)
+        .map_err(|error| format!("read downloaded AppImage header: {error}"))?;
+    if header != *b"\x7fELF" {
+        return Err("downloaded file is not an ELF AppImage".to_string());
+    }
+    Ok(())
 }
 
 fn temporary_path(target: &Path) -> PathBuf {
@@ -198,5 +222,27 @@ mod tests {
             quote_exec_path(Path::new("/tmp/My App.AppImage")),
             "\"/tmp/My App.AppImage\""
         );
+    }
+
+    #[test]
+    fn appimage_header_requires_elf_magic() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let valid = directory.path().join("valid.AppImage");
+        let invalid = directory.path().join("invalid.AppImage");
+        fs::write(&valid, b"\x7fELFpayload").expect("write valid fixture");
+        fs::write(&invalid, b"#!/bin/sh\n").expect("write invalid fixture");
+        assert!(validate_appimage_header(&valid).is_ok());
+        assert!(validate_appimage_header(&invalid).is_err());
+    }
+
+    #[test]
+    fn redirects_must_stay_https_and_bounded() {
+        let secure =
+            reqwest::Url::parse("https://example.invalid/app.AppImage").expect("secure URL");
+        let insecure =
+            reqwest::Url::parse("http://example.invalid/app.AppImage").expect("insecure URL");
+        assert!(redirect_is_allowed(&secure, 0));
+        assert!(!redirect_is_allowed(&insecure, 0));
+        assert!(!redirect_is_allowed(&secure, 10));
     }
 }

@@ -54,6 +54,7 @@ impl FreedesktopNotifications {
         vec!["body".to_string()]
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn notify(
         &self,
         _app_name: &str,
@@ -275,11 +276,7 @@ fn show_window(
     dismiss.connect_clicked(move |_| {
         dismiss_windows.borrow_mut().remove(&id);
         close_target.close();
-        emit_closed(
-            dismiss_connection.borrow().as_ref(),
-            id,
-            REASON_DISMISSED,
-        );
+        emit_closed(dismiss_connection.borrow().as_ref(), id, REASON_DISMISSED);
     });
     main_box.pack_start(&dismiss, false, false, 0);
 
@@ -294,11 +291,7 @@ fn show_window(
         glib::timeout_add_local(Duration::from_millis(timeout_ms), move || {
             if let Some(active) = timeout_windows.borrow_mut().remove(&id) {
                 active.close();
-                emit_closed(
-                    timeout_connection.borrow().as_ref(),
-                    id,
-                    REASON_EXPIRED,
-                );
+                emit_closed(timeout_connection.borrow().as_ref(), id, REASON_EXPIRED);
             }
             glib::ControlFlow::Break
         });

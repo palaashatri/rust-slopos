@@ -11,7 +11,7 @@ depends=(
   pcmanfm xfce4-terminal mousepad ristretto zathura zathura-pdf-mupdf mpv galculator
   networkmanager network-manager-applet pavucontrol pipewire pipewire-pulse wireplumber
   blueman upower xfce4-power-manager lxappearance arandr xorg-xrandr xorg-xsetroot
-  xdotool wmctrl adwaita-icon-theme ttf-liberation ttf-dejavu
+  xdotool wmctrl adwaita-icon-theme librsvg ttf-liberation ttf-dejavu
 )
 makedepends=(cargo pkgconf rust git openssl)
 optdepends=('firefox: web browser' 'lightdm: graphical display manager')
@@ -50,6 +50,7 @@ package() {
   install -Dm644 assets/config/gtk-3.0/settings.ini \
     "$pkgdir/usr/share/slopos-i/gtk-3.0/settings.ini"
   install -Dm644 assets/config/mimeapps.list "$pkgdir/usr/share/slopos-i/mimeapps.list"
+  install -Dm644 assets/slopos-logo.png "$pkgdir/usr/share/slopos-i/slopos-logo.png"
   cp -a themes/platinum "$pkgdir/usr/share/slopos-i/themes/"
 
   install -Dm644 README.md "$pkgdir/usr/share/doc/slopos-i/README.md"

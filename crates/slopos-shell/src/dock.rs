@@ -1,6 +1,7 @@
 //! Compact SLOPOS Platinum Application Strip.
 
 use crate::launcher::Launcher;
+use gdk_pixbuf::Pixbuf;
 use gtk::prelude::*;
 use gtk::{
     Box as GtkBox, Button, IconSize, Image, Orientation, Separator, Window, WindowPosition,
@@ -41,6 +42,8 @@ impl Dock {
 
         let dock_box = GtkBox::new(Orientation::Horizontal, 3);
         dock_box.style_context().add_class("slopos-dock-container");
+        dock_box.set_hexpand(true);
+        dock_box.set_vexpand(true);
 
         add_action_item(
             &dock_box,
@@ -220,14 +223,22 @@ fn dock_button(custom_icon: &str, fallback_icon: &str, tooltip: &str) -> Button 
 }
 
 fn load_icon(file_name: &str, fallback: &str) -> Image {
-    let candidates = [
+    let mut candidates = Vec::new();
+    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+        candidates.push(format!(
+            "{share_dir}/slopos-i/themes/platinum/icons/{file_name}"
+        ));
+    }
+    candidates.extend([
         format!("themes/platinum/icons/{file_name}"),
         format!("/usr/local/share/slopos-i/themes/platinum/icons/{file_name}"),
         format!("/usr/share/slopos-i/themes/platinum/icons/{file_name}"),
-    ];
+    ]);
     for path in candidates {
         if Path::new(&path).exists() {
-            return Image::from_file(path);
+            if let Ok(pixbuf) = Pixbuf::from_file_at_scale(&path, 32, 32, true) {
+                return Image::from_pixbuf(Some(&pixbuf));
+            }
         }
     }
     Image::from_icon_name(Some(fallback), IconSize::LargeToolbar)

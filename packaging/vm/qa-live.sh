@@ -24,6 +24,7 @@ done
 command -v xdpyinfo >/dev/null 2>&1 || { echo "xdpyinfo is required" >&2; exit 1; }
 command -v xdotool >/dev/null 2>&1 || { echo "xdotool is required" >&2; exit 1; }
 command -v openbox >/dev/null 2>&1 || { echo "openbox is required" >&2; exit 1; }
+command -v dbus-run-session >/dev/null 2>&1 || { echo "dbus-run-session is required" >&2; exit 1; }
 xdpyinfo -display "$DISPLAY" >/dev/null
 
 export PATH="$BIN_DIR:$PATH"
@@ -38,9 +39,11 @@ trap cleanup EXIT
 
 pkill -TERM -x slopos-session 2>/dev/null || true
 pkill -TERM -x slopos-shell 2>/dev/null || true
+pkill -TERM -x slopos-settings 2>/dev/null || true
+pkill -TERM -x slopos-catalogue 2>/dev/null || true
 sleep 1
 
-"$BIN_DIR/slopos-session" >"$QA_DIR/session.log" 2>&1 &
+dbus-run-session -- "$BIN_DIR/slopos-session" >"$QA_DIR/session.log" 2>&1 &
 SESSION_PID=$!
 
 for _ in $(seq 1 20); do
@@ -49,19 +52,32 @@ for _ in $(seq 1 20); do
 done
 pgrep -x openbox >/dev/null
 pgrep -x slopos-shell >/dev/null
-xdotool search --name "SLOPOS Top Bar" >/dev/null
-xdotool search --name "SLOPOS Application Strip" >/dev/null
+test "$(pgrep -xc slopos-shell)" -eq 1
+xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null
+xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null
 
 "$BIN_DIR/slopos-catalogue" >"$QA_DIR/catalogue.log" 2>&1 & CATALOGUE_PID=$!
 "$BIN_DIR/slopos-settings" >"$QA_DIR/settings.log" 2>&1 & SETTINGS_PID=$!
-sleep 2
-xdotool search --name "Software Catalogue" >/dev/null
-xdotool search --name "System Settings" >/dev/null
+for _ in $(seq 1 40); do
+  CATALOGUE_WINDOW="$(xdotool search --onlyvisible --name '^Software Catalogue$' 2>/dev/null | head -1 || true)"
+  SETTINGS_WINDOW="$(xdotool search --onlyvisible --name '^System Settings$' 2>/dev/null | head -1 || true)"
+  if [[ -n "$CATALOGUE_WINDOW" && -n "$SETTINGS_WINDOW" ]]; then break; fi
+  sleep 0.1
+done
+test -n "${CATALOGUE_WINDOW:-}"
+test -n "${SETTINGS_WINDOW:-}"
+test "$(xdotool getwindowpid "$CATALOGUE_WINDOW")" = "$CATALOGUE_PID"
+test "$(xdotool getwindowpid "$SETTINGS_WINDOW")" = "$SETTINGS_PID"
 
-if command -v scrot >/dev/null 2>&1; then
-  scrot -z "$QA_DIR/live-session.png"
-  test -s "$QA_DIR/live-session.png"
-fi
+command -v scrot >/dev/null 2>&1 || {
+  echo "scrot is required for VM evidence" >&2
+  exit 1
+}
+scrot -z "$QA_DIR/live-session.png"
+test -s "$QA_DIR/live-session.png" || {
+  echo "VM screenshot is missing or empty" >&2
+  exit 1
+}
 
 echo "SLOPOS_X11_VM_SMOKE=PASS"
 echo "Evidence: $QA_DIR"

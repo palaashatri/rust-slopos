@@ -52,7 +52,41 @@ jobs:
           grep -Fq 'crates/slopos-shell' Cargo.toml
           grep -Fq 'crates/slopos-catalogue' Cargo.toml
           grep -Fq 'crates/slopos-settings' Cargo.toml
-          ! grep -Eq 'share/wayland-sessions|slopos-compositor' install.sh
+          shipping_files=(
+            install.sh
+            scripts/start-slopos-i
+            scripts/install-session-files.sh
+            packaging/slopos-i.desktop
+            packaging/arch/PKGBUILD
+            packaging/debian/changelog
+            packaging/debian/control
+            packaging/debian/rules
+            packaging/iso/build-iso.sh
+            packaging/iso/packages.x86_64
+            packaging/deps/arch.txt
+            packaging/deps/ubuntu.txt
+            packaging/deps/arch-build.txt
+            packaging/deps/ubuntu-build.txt
+            packaging/vm/arch-install.sh
+          )
+          for path in "${shipping_files[@]}"; do
+            test -f "$path"
+            ! grep -Eiq '(^|[^[:alnum:]])(wayland|smithay|wlroots|xwayland|slopos-compositor)([^[:alnum:]]|$)' "$path"
+          done
+          for path in install.sh packaging/arch/PKGBUILD packaging/debian/rules packaging/iso/build-iso.sh; do
+            for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+              grep -Fq "$binary" "$path"
+            done
+          done
+          grep -Fq 'assets/slopos-logo.png' install.sh
+          for path in packaging/arch/PKGBUILD packaging/debian/rules packaging/iso/build-iso.sh; do
+            grep -Fq 'share/xsessions/slopos-i.desktop' "$path"
+            grep -Fq 'assets/config/openbox/rc.xml' "$path"
+            grep -Fq 'themes/slopos-openbox/openbox-3/themerc' "$path"
+            grep -Fq 'assets/config/gtk-3.0/gtk.css' "$path"
+            grep -Fq 'assets/slopos-logo.png' "$path"
+          done
+          grep -Fq 'assets/config/mimeapps.list' packaging/iso/build-iso.sh
 
   format-evidence:
     name: rustfmt remediation evidence
@@ -223,6 +257,30 @@ jobs:
           test "$shell_count_after" -eq 1
           scrot "$RUNNER_TEMP/slopos-qa/02-search.png"
           xdotool key Escape
+
+          shell_pid_before=$(pgrep -xo slopos-shell)
+          kill "$shell_pid_before"
+          shell_pid_after=""
+          for _ in $(seq 1 40); do
+            shell_pid_after=$(pgrep -xo slopos-shell 2>/dev/null || true)
+            if [ -n "$shell_pid_after" ] && [ "$shell_pid_after" != "$shell_pid_before" ]; then break; fi
+            sleep 0.25
+          done
+          test -n "$shell_pid_after"
+          test "$shell_pid_after" != "$shell_pid_before"
+          xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null
+
+          wm_pid_before=$(pgrep -xo openbox)
+          kill "$wm_pid_before"
+          wm_pid_after=""
+          for _ in $(seq 1 40); do
+            wm_pid_after=$(pgrep -xo openbox 2>/dev/null || true)
+            if [ -n "$wm_pid_after" ] && [ "$wm_pid_after" != "$wm_pid_before" ]; then break; fi
+            sleep 0.25
+          done
+          test -n "$wm_pid_after"
+          test "$wm_pid_after" != "$wm_pid_before"
+          xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null
 
           ./target/debug/slopos-settings >"$RUNNER_TEMP/slopos-settings.log" 2>&1 &
           SETTINGS_PID=$!

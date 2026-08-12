@@ -1,42 +1,38 @@
 # TRUTH.md — SLOPOS-I Factual Audit & Readiness Ledger
 
-**Audit date:** 2026-08-11  
-**Branch:** `pivot`  
-**Pre-remediation audited commit:** `78578e6e5c3fb709f8f12c4154973f7d2e7a8c5a`  
-**Current evidence-backed readiness:** **40/100**
+**Audit date:** 2026-08-12
+**Branch:** `pivot`
+**Audit scope:** remediation working tree after the X11 packaging, catalogue, shell and QA tranche
+**Current evidence-backed readiness:** **62/100**
 
-The previous `100/100` claim was invalid. A Docker/Xvfb script completing and producing screenshots does not establish production readiness or visual fidelity. The canonical screenshots supplied on 2026-08-11 visibly fail the System 7 / Platinum product-quality bar, and code review found several functional and security defects that invalidate full-credit claims.
+The previous `100/100` claim was invalid. This audit credits the fixes that have objective source, test and Docker/Xvfb evidence, while withholding credit for VM/boot, hardware, independent visual, performance, accessibility, localization and recovery evidence that has not been produced.
 
 ## Scorecard
 
 | Domain | Weight | Score | Evidence-based status |
 |---|---:|---:|---|
-| System 7 / Platinum visual identity | 20 | **8/20** | Basic gray palette, Openbox theme and shell framing exist, but the desktop still reads as a GTK/Openbox prototype. Icon language, title chrome, notifications, settings/catalogue composition and control vocabulary are inconsistent. |
-| Desktop shell / interaction | 15 | **8/15** | Top bar, launcher, application strip and local notification UI exist. Active-app integration/status state and global menu semantics are incomplete; several menu actions were inert or misleading. |
-| X11 window-management integration | 10 | **6/10** | Openbox stacking foundation and X11 session path exist. Hotkey/session integration and geometry handling need hardening and real multi-resolution validation. |
-| Upstream application integration | 10 | **6/10** | PCManFM/Xfce Terminal/etc. are used in QA, but theming and behavioral integration remain visibly inconsistent. |
-| Software Catalogue / AppImage | 8 | **2/8** | Browse UI exists, but audited catalogue metadata used placeholder empty-file hashes and installer code could create a fake shell-script “AppImage” after download failure. Production installation is not accepted until it fails closed with verified metadata. |
-| System services integration | 8 | **2/8** | Settings UI launches some upstream tools, but audited controls for display, audio, power, appearance and input were partly hard-coded or unwired. |
-| Installer / boot / session | 8 | **2/8** | X11 session launcher exists, but the audited root installer still referenced the removed compositor, removed first-party apps and Wayland session paths. |
-| Functional QA | 7 | **2/7** | Xvfb screenshot harness exists but asserted very little and tolerated screenshot failures. Old shell tests reference deleted compositor-era APIs. |
-| Visual regression QA | 5 | **1/5** | Canonical scenes are captured, but no independent visual acceptance gate justified the previous full score. |
+| System 7 / Platinum visual identity | 20 | **12/20** | Fresh 1280x800 captures now show the slate desktop, Platinum bar, framed Application Strip and coherent shell windows. The visual gate is still below the contract because icon fallback, upstream-window leakage and several canonical states lack independent review. |
+| Desktop shell / interaction | 15 | **10/15** | Top bar, live focus/time/status updates, singleton Search, keyboard navigation, explicit unavailable menu feedback and local notifications are covered by source/tests and Xvfb interaction. Multi-resolution and full accessibility interaction are unverified. |
+| X11 window-management integration | 10 | **7/10** | Openbox, X11 margins, four desktops, launcher hotkey and visible window geometry pass the Docker smoke path. No installed VM or multi-resolution runtime evidence is available. |
+| Upstream application integration | 10 | **7/10** | PCManFM and Xfce Terminal launch in the Docker scene; Settings and Catalogue windows are visible and tied to their launched PIDs. Broader upstream-app behavior and theming remain unreviewed. |
+| Software Catalogue / AppImage | 8 | **4/8** | Metadata now requires complete control-free fields, HTTPS host URLs, trusted SHA-256 and a valid ELF payload; redirects are HTTPS-only and bounded. All seeded entries remain browse-only until trusted release digests are curated, so no installable catalogue path is credited yet. |
+| System services integration | 8 | **4/8** | Settings is an honest upstream-tool hub and shell status reads available NetworkManager/PipeWire/battery state. Hardware mutation, suspend, Bluetooth and absence/error behavior are not VM-tested. |
+| Installer / boot / session | 8 | **5/8** | Arch/Debian/ISO/root manifests now contain only the four binaries and required assets; the root installer supports standard `/usr/share/xsessions` discovery plus custom-prefix resource forwarding. No real install, DM login, ISO boot or VM evidence is recorded. |
+| Functional QA | 7 | **6/7** | The fresh Docker/Xvfb gate passes release build, 8 catalogue tests, 5 shell unit tests, 11 shell integration tests, 3 spaces tests, launcher singleton behavior, visible window/PID checks and five non-empty 1280x800 captures. VM functional evidence is still absent. |
+| Visual regression QA | 5 | **3/5** | Canonical desktop, application, multi-window, Catalogue and Settings scenes are captured and manually inspected at 1280x800. The contract's independent 95/100-per-scene visual review and additional resolutions are not complete. |
 | Performance | 3 | **1/3** | Lightweight architecture is plausible; no current reproducible benchmark ledger supports full credit. |
 | Accessibility / localization | 3 | **1/3** | Keyboard basics exist; no complete AT-SPI, focus-order, scaling, locale or international-input acceptance evidence. |
-| Recovery / resilience | 3 | **1/3** | Recovery script exists, but failure-injection evidence is incomplete. |
-| **Total** | **100** | **40/100** | **Prototype / integration alpha. Not production-ready.** |
+| Recovery / resilience | 3 | **2/3** | The Docker gate kills and observes replacement Openbox and shell processes, proving the session supervisor's bounded child-restart path. Broader failure injection and recovery-script validation remain open. |
+| **Total** | **100** | **62/100** | **Verified development milestone; not production-ready.** |
 
-## Release-blocking findings from the 2026-08-11 audit
+## Current release-blocking findings
 
 1. **False completion accounting:** `TRUTH.md` awarded 100/100 despite visibly unfinished canonical screenshots and unverified claims.
-2. **Catalogue fail-open behavior:** download failure created and installed an executable shell-script stub instead of failing; checksum verification was bypassed for the placeholder SHA-256 used by every catalogue entry.
-3. **Decorative Settings controls:** several UI controls displayed values but did not apply the selected value or change the corresponding system state.
-4. **Broken launcher hotkey contract:** Openbox executed `slopos-shell --toggle-launcher`, while the shell had no such command mode; this can start a second shell instead of toggling the existing launcher.
-5. **Misleading global menu:** multiple menu items had no action or launched unrelated generic commands.
-6. **Stale installer:** `install.sh` still required `slopos-compositor`, removed first-party binaries, Wayland session directories and Wayland/X11 dual-stack language.
-7. **Stale runtime dependency manifests:** distro manifests still installed Wayland, DRM/GBM, XWayland and Wayland terminal/clipboard packages instead of the X11/Openbox product stack.
-8. **Stale CI:** compositor/Wayland contract jobs remained after the X11 pivot.
-9. **Stale tests:** shell integration tests referenced removed `slopos_bus`, workspace-manager and compositor-era APIs.
-10. **Visual-system drift:** `themes/platinum/*.toml`, GTK CSS, Openbox theme and screenshots used different colors, metrics and font assumptions; typography referenced Apple SF fonts that are not redistributable project assets.
+2. **Catalogue availability:** every seeded catalogue entry is intentionally browse-only until a trusted, release-specific digest is supplied; fabricating hashes would violate the fail-closed contract.
+3. **Release evidence:** no bootable ISO, installed display-manager login, or VM screenshot has been captured in this tranche.
+4. **Visual acceptance:** only 1280x800 Docker scenes have been reviewed; the independent 95/100 scene gate, 1366x768/1920x1080/HiDPI scenes and notification/modal states remain open.
+5. **System and quality evidence:** hardware-backed service mutation, AT-SPI/focus-order/scaling/localization checks, reproducible performance measurements and failure-injection recovery runs remain open.
+6. **Packaging policy:** the root installer now defaults the session descriptor to `/usr/share/xsessions`; an actual privileged install and display-manager discovery run is still required.
 
 ## Canonical visual findings
 
@@ -61,17 +57,24 @@ The 2026-08-11 screenshots are retained as evidence of the baseline, not proof o
 - No domain receives full credit while its canonical scene or functional scenario has a known release-blocking defect.
 - `100/100` requires a bootable/installable release candidate plus independent functional and visual evidence.
 
-## Current remediation tranche
+## Verified remediation tranche
 
 The 2026-08-11 deep audit initiates a corrective tranche that:
 
-- makes the catalogue installer fail closed;
-- converts Settings from fake controls to an honest upstream-tool hub;
-- fixes the existing-shell launcher hotkey path;
-- removes stale Wayland/compositor installer and CI assumptions;
-- replaces obsolete shell tests with current X11 contract tests;
-- consolidates the Platinum palette/typography around redistributable fonts;
-- reworks shell geometry, menu actions, notifications, launcher and Application Strip styling;
-- strengthens Docker/Xvfb QA so evidence capture failures fail the run.
+- makes catalogue metadata, redirects and AppImage payload validation fail closed;
+- converts Settings to an honest upstream-tool hub and reports unavailable global commands;
+- keeps the existing shell instance for the launcher hotkey;
+- removes stale Wayland/compositor assumptions from shipping manifests, CI and notices;
+- adds current X11 package/asset/prefix contract tests;
+- bounds the packaged identity mark and restores the canonical slate desktop after Openbox starts;
+- strengthens Docker/VM QA with fresh visible windows, launched-PID checks and mandatory non-empty screenshots;
+- adds the SVG loader dependency required for packaged Platinum icons.
 
-**Score remains 40/100 until the remediation commit is built and its new screenshots/flows are independently reviewed.**
+## Evidence ledger
+
+- `docker run --rm -v <repo>:/workspace -w /workspace ubuntu:24.04 bash /workspace/scripts/run-docker-qa.sh` completed all eight stages, including shell/Openbox child-restart checks, with `SLOPOS-I Docker/Xvfb functional evidence PASS` and exit 0 in a fresh Ubuntu 24.04 snapshot.
+- In a fresh Rust 1.97 Linux container, `cargo metadata --locked`, `cargo fmt --all -- --check`, `cargo check --workspace --locked`, `cargo test --workspace --locked` and `cargo clippy --workspace --all-targets --locked -- -D warnings` all exited 0. The test run reports 8 catalogue, 5 shell unit, 11 shell integration and 3 spaces tests, with 0 failures.
+- A disposable Ubuntu smoke install of `scripts/install-session-files.sh --prefix /workspace/artifacts/qa/prefix-test --session-dir /workspace/artifacts/qa/xsessions-test` produced an X11 descriptor whose `Exec` and `TryExec` both point to the prefix's `bin/slopos-session`.
+- `cargo fmt --all -- --check` passes in the Rust 1.97 container after the remediation formatting pass.
+- `git diff --check` and `bash -n` for the changed installer, session, Docker, ISO and VM scripts pass.
+- The Docker gate intentionally prints that visual acceptance remains a separate human/vision review gate; this ledger does not turn generated screenshots into a 100/100 claim.

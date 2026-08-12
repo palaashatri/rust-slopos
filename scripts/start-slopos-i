@@ -2,6 +2,10 @@
 # start-slopos-i — XDG launcher for the X11-only SLOPOS-I desktop.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_PREFIX="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+export SLOPOS_INSTALL_PREFIX="$INSTALL_PREFIX"
+
 export XDG_SESSION_TYPE="x11"
 export XDG_CURRENT_DESKTOP="SLOPOS"
 export XDG_SESSION_DESKTOP="slopos-i"
@@ -13,17 +17,29 @@ fi
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
 
-# Make the installed SLOPOS GTK theme the default for applications launched in
-# this session. Development checkouts still receive the application CSS layer
-# directly from the SLOPOS binaries.
-if [ -d /usr/local/share/themes/slopos-gtk/gtk-3.0 ] || [ -d /usr/share/themes/slopos-gtk/gtk-3.0 ]; then
+# Make resources under the installation prefix visible to GTK and SLOPOS
+# binaries. This keeps custom `--prefix` installs functional while retaining
+# the historical /usr/local and /usr layouts.
+SLOPOS_SHARE_DIR="$INSTALL_PREFIX/share"
+if [ -d "$SLOPOS_SHARE_DIR" ]; then
+  export SLOPOS_SHARE_DIR
+  case ":${XDG_DATA_DIRS:-}:" in
+    *":$SLOPOS_SHARE_DIR:"*) ;;
+    *) export XDG_DATA_DIRS="$SLOPOS_SHARE_DIR:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" ;;
+  esac
+fi
+if [ -d "$SLOPOS_SHARE_DIR/themes/slopos-gtk/gtk-3.0" ] || \
+   [ -d /usr/local/share/themes/slopos-gtk/gtk-3.0 ] || \
+   [ -d /usr/share/themes/slopos-gtk/gtk-3.0 ]; then
   export GTK_THEME="slopos-gtk"
 fi
 
 if [ -z "${SLOPOS_OPENBOX_CONFIG:-}" ]; then
   for candidate in \
+    "$SLOPOS_SHARE_DIR/slopos-i/openbox/rc.xml" \
     /usr/local/share/slopos-i/openbox/rc.xml \
     /usr/share/slopos-i/openbox/rc.xml \
+    "$INSTALL_PREFIX/assets/config/openbox/rc.xml" \
     "$(pwd)/assets/config/openbox/rc.xml"
   do
     if [ -f "$candidate" ]; then
@@ -35,12 +51,10 @@ fi
 
 resolve_bin() {
   local name="$1"
-  if command -v "$name" >/dev/null 2>&1; then
-    command -v "$name"
-    return 0
-  fi
   local candidate
   for candidate in \
+    "$SCRIPT_DIR/$name" \
+    "$INSTALL_PREFIX/bin/$name" \
     "./target/release/$name" \
     "./target/debug/$name" \
     "$HOME/.local/bin/$name" \
@@ -52,6 +66,10 @@ resolve_bin() {
       return 0
     fi
   done
+  if command -v "$name" >/dev/null 2>&1; then
+    command -v "$name"
+    return 0
+  fi
   return 1
 }
 

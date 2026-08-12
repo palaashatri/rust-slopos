@@ -1,6 +1,7 @@
 //! SLOPOS-I classic top menu/system bar.
 
 use crate::launcher::Launcher;
+use gdk_pixbuf::{InterpType, Pixbuf};
 use gtk::prelude::*;
 use gtk::{
     Align, Box as GtkBox, Button, ButtonsType, DialogFlags, IconSize, Image, Label, Menu, MenuBar,
@@ -43,12 +44,27 @@ impl TopBar {
 
         let target_window = Rc::new(Cell::new(0_u64));
         let main_box = GtkBox::new(Orientation::Horizontal, 0);
+        // Paint the bar on the child that owns the full allocation as well as
+        // on the borderless window. GTK themes do not consistently paint a
+        // GtkWindow background under Xvfb/Openbox, which otherwise leaves a
+        // black/transparent strip behind the menu widgets.
+        main_box.style_context().add_class("slopos-topbar");
+        main_box.set_hexpand(true);
+        main_box.set_vexpand(true);
         main_box.set_margin_start(5);
         main_box.set_margin_end(8);
 
-        let system_button = Button::with_label("S");
+        let system_button = Button::new();
         system_button.style_context().add_class("slopos-logo-btn");
         system_button.set_tooltip_text(Some("SLOPOS menu"));
+        if let Some(mark) = load_slopos_mark() {
+            system_button.set_image(Some(&mark));
+            system_button.set_always_show_image(true);
+        } else {
+            // Keep a recognizable, text-only fallback if the optional packaged
+            // mark is unavailable during development or recovery.
+            system_button.set_label("S");
+        }
         let system_menu = build_system_menu();
         let menu_ref = system_menu.clone();
         system_button.connect_clicked(move |button| {
@@ -391,15 +407,17 @@ fn build_global_menu_bar(target_window: Rc<Cell<u64>>) -> MenuBar {
     let file_item = MenuItem::with_label("File");
     let file_menu = Menu::new();
     file_menu.append(&command_item("New File Window", || {
-        spawn_first(&["pcmanfm", "thunar"], &[])
+        spawn_first_or_message(&["pcmanfm", "thunar"], &[])
     }));
     file_menu.append(&command_item("Home Folder", || {
-        spawn_first(&["pcmanfm", "thunar"], &[])
+        spawn_first_or_message(&["pcmanfm", "thunar"], &[])
     }));
     file_menu.append(&SeparatorMenuItem::new());
     let close_target = target_window.clone();
     file_menu.append(&command_item("Close Window", move || {
-        target_xdotool(&close_target, "windowclose")
+        if !target_xdotool(&close_target, "windowclose") {
+            show_target_unavailable();
+        }
     }));
     file_item.set_submenu(Some(&file_menu));
     menu_bar.append(&file_item);
@@ -460,11 +478,15 @@ fn build_global_menu_bar(target_window: Rc<Cell<u64>>) -> MenuBar {
     let window_menu = Menu::new();
     let minimize_target = target_window.clone();
     window_menu.append(&command_item("Minimize", move || {
-        target_xdotool(&minimize_target, "windowminimize")
+        if !target_xdotool(&minimize_target, "windowminimize") {
+            show_target_unavailable();
+        }
     }));
     let maximize_target = target_window.clone();
     window_menu.append(&command_item("Zoom / Maximize", move || {
-        target_maximize(&maximize_target)
+        if !target_maximize(&maximize_target) {
+            show_target_unavailable();
+        }
     }));
     window_menu.append(&command_item("Next Window", || {
         spawn_resolved("xdotool", &["key", "alt+Tab"])
@@ -488,16 +510,20 @@ fn build_global_menu_bar(target_window: Rc<Cell<u64>>) -> MenuBar {
 }
 
 fn target_shortcut_item(label: &str, shortcut: &'static str, target: Rc<Cell<u64>>) -> MenuItem {
-    command_item(label, move || target_shortcut(&target, shortcut))
+    command_item(label, move || {
+        if !target_shortcut(&target, shortcut) {
+            show_target_unavailable();
+        }
+    })
 }
 
-fn target_shortcut(target: &Cell<u64>, shortcut: &str) {
+fn target_shortcut(target: &Cell<u64>, shortcut: &str) -> bool {
     let id = target.get();
     if id == 0 {
-        return;
+        return false;
     }
     let id = id.to_string();
-    let _ = Command::new("xdotool")
+    Command::new("xdotool")
         .args([
             "windowactivate",
             "--sync",
@@ -506,27 +532,31 @@ fn target_shortcut(target: &Cell<u64>, shortcut: &str) {
             "--clearmodifiers",
             shortcut,
         ])
-        .spawn();
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
 }
 
-fn target_xdotool(target: &Cell<u64>, action: &str) {
+fn target_xdotool(target: &Cell<u64>, action: &str) -> bool {
     let id = target.get();
     if id == 0 {
-        return;
+        return false;
     }
-    let _ = Command::new("xdotool")
+    Command::new("xdotool")
         .arg(action)
         .arg(id.to_string())
-        .spawn();
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
 }
 
-fn target_maximize(target: &Cell<u64>) {
+fn target_maximize(target: &Cell<u64>) -> bool {
     let id = target.get();
     if id == 0 {
-        return;
+        return false;
     }
     let window = format!("0x{id:x}");
-    let _ = Command::new("wmctrl")
+    Command::new("wmctrl")
         .args([
             "-i",
             "-r",
@@ -534,7 +564,16 @@ fn target_maximize(target: &Cell<u64>) {
             "-b",
             "toggle,maximized_vert,maximized_horz",
         ])
-        .spawn();
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+fn show_target_unavailable() {
+    show_message(
+        "SLOPOS-I",
+        "This command needs a focused application window.",
+    );
 }
 
 fn command_item<F>(label: &str, action: F) -> MenuItem
@@ -629,5 +668,58 @@ fn resolve_program(program: &str) -> Option<PathBuf> {
         env::split_paths(&paths)
             .map(|directory| directory.join(program))
             .find(|candidate| candidate.is_file())
+    })
+}
+
+fn spawn_first_or_message(programs: &[&str], args: &[&str]) {
+    if programs
+        .iter()
+        .any(|program| resolve_program(program).is_some())
+    {
+        spawn_first(programs, args);
+    } else {
+        show_message(
+            "SLOPOS-I",
+            "No compatible file manager is installed for this command.",
+        );
+    }
+}
+
+fn load_slopos_mark() -> Option<Image> {
+    let mut candidates = Vec::new();
+    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+        candidates.push(format!("{share_dir}/slopos-i/slopos-logo.png"));
+    }
+    candidates.extend([
+        "assets/slopos-logo.png".to_string(),
+        "/usr/local/share/slopos-i/slopos-logo.png".to_string(),
+        "/usr/share/slopos-i/slopos-logo.png".to_string(),
+    ]);
+    candidates.into_iter().find_map(|path| {
+        if !Path::new(&path).is_file() {
+            return None;
+        }
+        match Pixbuf::from_file(&path) {
+            Ok(pixbuf) => {
+                // The shipped identity image is a square poster. Use its
+                // central S mark for the 20px menu button instead of shrinking
+                // the entire poster into an unreadable thumbnail. Smaller
+                // replacement assets are scaled as-is.
+                let mark = if pixbuf.width() >= 512 && pixbuf.height() >= 512 {
+                    let crop = (pixbuf.width().min(pixbuf.height()) / 4).max(1);
+                    let x = (pixbuf.width() - crop) / 2;
+                    let y = ((pixbuf.height() * 3) / 10).min(pixbuf.height() - crop);
+                    pixbuf.new_subpixbuf(x, y, crop, crop)
+                } else {
+                    pixbuf
+                };
+                let scaled = mark.scale_simple(20, 20, InterpType::Bilinear)?;
+                Some(Image::from_pixbuf(Some(&scaled)))
+            }
+            Err(error) => {
+                log::warn!("Failed to load SLOPOS mark from {path}: {error}");
+                None
+            }
+        }
     })
 }

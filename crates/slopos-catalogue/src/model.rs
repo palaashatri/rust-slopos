@@ -27,7 +27,13 @@ impl CatalogueApp {
 
     pub fn metadata_is_installable(&self) -> bool {
         valid_id(&self.id)
-            && self.download_url.starts_with("https://")
+            && non_empty_metadata(&self.name)
+            && non_empty_metadata(&self.summary)
+            && non_empty_metadata(&self.version)
+            && non_empty_metadata(&self.architecture)
+            && non_empty_metadata(&self.category)
+            && non_empty_metadata(&self.icon_name)
+            && secure_download_url(&self.download_url)
             && self.sha256.len() == 64
             && self
                 .sha256
@@ -35,6 +41,20 @@ impl CatalogueApp {
                 .all(|character| character.is_ascii_hexdigit())
             && !self.sha256.eq_ignore_ascii_case(EMPTY_FILE_SHA256)
     }
+}
+
+fn non_empty_metadata(value: &str) -> bool {
+    !value.trim().is_empty() && value.chars().all(|character| !character.is_control())
+}
+
+fn secure_download_url(value: &str) -> bool {
+    let Ok(url) = reqwest::Url::parse(value) else {
+        return false;
+    };
+    url.scheme() == "https"
+        && url.host_str().is_some()
+        && url.username().is_empty()
+        && url.password().is_none()
 }
 
 pub fn get_appimage_dir() -> PathBuf {
@@ -171,5 +191,31 @@ mod tests {
         assert!(!candidate("safe", "").metadata_is_installable());
         assert!(!candidate("safe", EMPTY_FILE_SHA256).metadata_is_installable());
         assert!(candidate("safe", &"a".repeat(64)).metadata_is_installable());
+    }
+
+    #[test]
+    fn requires_complete_metadata_and_secure_url() {
+        let digest = "a".repeat(64);
+        let mut app = candidate("safe", &digest);
+        assert!(app.metadata_is_installable());
+
+        app.architecture.clear();
+        assert!(!app.metadata_is_installable());
+        app.architecture = "x86_64".into();
+
+        app.version.clear();
+        assert!(!app.metadata_is_installable());
+        app.version = "1".into();
+
+        app.name = "Unsafe\nName".into();
+        assert!(!app.metadata_is_installable());
+        app.name = "Test".into();
+
+        app.download_url = "http://example.invalid/app.AppImage".into();
+        assert!(!app.metadata_is_installable());
+        app.download_url = "https://user:password@example.invalid/app.AppImage".into();
+        assert!(!app.metadata_is_installable());
+        app.download_url = "https://example.invalid/app.AppImage".into();
+        assert!(app.metadata_is_installable());
     }
 }

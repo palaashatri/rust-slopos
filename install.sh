@@ -8,6 +8,7 @@ export CARGO_TARGET_DIR
 mkdir -p "$CARGO_TARGET_DIR"
 
 PREFIX="${PREFIX:-/usr/local}"
+XSESSION_DIR="${XSESSION_DIR:-/usr/share/xsessions}"
 NO_DEPS=0
 NO_BUILD=0
 WITH_GREETER=0
@@ -25,7 +26,9 @@ while [[ $# -gt 0 ]]; do
 Usage: sudo ./install.sh [--prefix /usr/local] [--no-deps] [--no-build]
                          [--with-greeter] [--distro auto|arch|ubuntu]
 
-Installs the X11-only SLOPOS-I desktop. No Wayland/compositor components are installed.
+Installs the X11-only SLOPOS-I desktop.
+The XSESSION_DIR environment variable overrides the display-manager session
+directory (default: /usr/share/xsessions).
 EOF
       exit 0
       ;;
@@ -98,8 +101,9 @@ for name in "${BINARIES[@]}"; do
 done
 install -Dm755 scripts/start-slopos-i "$PREFIX/bin/start-slopos-i"
 
-# X11 session descriptor.
-bash scripts/install-session-files.sh --prefix "$PREFIX"
+# X11 session descriptor. Display managers conventionally scan /usr/share;
+# override XSESSION_DIR for a deliberately self-contained custom prefix.
+bash scripts/install-session-files.sh --prefix "$PREFIX" --session-dir "$XSESSION_DIR"
 
 # SLOPOS-specific Openbox configuration and theme. The session supervisor points
 # Openbox at this config rather than overwriting a user's normal Openbox profile.
@@ -121,9 +125,7 @@ install -Dm644 assets/config/mimeapps.list "$PREFIX/share/slopos-i/mimeapps.list
 rm -rf "$PREFIX/share/slopos-i/themes/platinum"
 mkdir -p "$PREFIX/share/slopos-i/themes"
 cp -a themes/platinum "$PREFIX/share/slopos-i/themes/platinum"
-if [[ -f assets/slopos-logo.png ]]; then
-  install -Dm644 assets/slopos-logo.png "$PREFIX/share/slopos-i/slopos-logo.png"
-fi
+install -Dm644 assets/slopos-logo.png "$PREFIX/share/slopos-i/slopos-logo.png"
 
 if [[ $WITH_GREETER -eq 1 ]]; then
   if [[ "$DISTRO" == "arch" ]]; then
@@ -150,7 +152,7 @@ Binaries:
   $PREFIX/bin/start-slopos-i
 
 X11 session:
-  $PREFIX/share/xsessions/slopos-i.desktop
+  $XSESSION_DIR/slopos-i.desktop
 
 This release is X11-only. Select “SLOPOS-I” from your display manager's X11 session list,
 or start it from an existing X server with: start-slopos-i

@@ -13,7 +13,7 @@ use launcher::Launcher;
 use notifications::NotificationServer;
 use std::fs::{File, OpenOptions};
 use std::os::fd::AsRawFd;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -93,19 +93,27 @@ extern "C" fn launcher_signal_handler(_sig: libc::c_int) {
 }
 
 fn load_css_theme() {
-    let css_paths = [
-        "assets/config/gtk-3.0/gtk.css",
-        "/etc/slopos-i/gtk-3.0/gtk.css",
-        "/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css",
-        "/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css",
-    ];
+    let mut css_paths = Vec::new();
+    if let Ok(share_dir) = std::env::var("SLOPOS_SHARE_DIR") {
+        css_paths.push(PathBuf::from(share_dir).join("themes/slopos-gtk/gtk-3.0/gtk.css"));
+    }
+    css_paths.extend([
+        PathBuf::from("assets/config/gtk-3.0/gtk.css"),
+        PathBuf::from("/etc/slopos-i/gtk-3.0/gtk.css"),
+        PathBuf::from("/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css"),
+        PathBuf::from("/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css"),
+    ]);
 
     for path in css_paths {
-        if !Path::new(path).exists() {
+        if !path.exists() {
             continue;
         }
         let provider = CssProvider::new();
-        match provider.load_from_path(path) {
+        let Some(path_text) = path.to_str() else {
+            log::error!("SLOPOS GTK CSS path is not valid UTF-8: {}", path.display());
+            return;
+        };
+        match provider.load_from_path(path_text) {
             Ok(()) => {
                 if let Some(screen) = gdk::Screen::default() {
                     StyleContext::add_provider_for_screen(
@@ -113,14 +121,17 @@ fn load_css_theme() {
                         &provider,
                         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
                     );
-                    log::info!("Loaded SLOPOS GTK CSS from {path}");
+                    log::info!("Loaded SLOPOS GTK CSS from {}", path.display());
                     return;
                 }
-                log::error!("GTK has no default screen while loading {path}");
+                log::error!("GTK has no default screen while loading {}", path.display());
                 return;
             }
             Err(error) => {
-                log::error!("Failed to parse SLOPOS GTK CSS at {path}: {error}");
+                log::error!(
+                    "Failed to parse SLOPOS GTK CSS at {}: {error}",
+                    path.display()
+                );
                 return;
             }
         }
