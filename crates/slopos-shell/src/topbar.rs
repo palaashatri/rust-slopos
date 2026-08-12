@@ -15,6 +15,12 @@ use std::process::Command;
 use std::rc::Rc;
 use std::time::Duration;
 
+const LOCK_COMMANDS: &[(&str, &[&str])] = &[
+    ("xdg-screensaver", &["lock"]),
+    ("light-locker-command", &["-l"]),
+    ("dm-tool", &["lock"]),
+];
+
 pub struct TopBar {
     _window: Window,
     _active_title_label: Label,
@@ -333,7 +339,7 @@ fn build_system_menu() -> Menu {
 
     let lock = MenuItem::with_label("Lock Screen");
     if let Some((program, args)) = lock_command() {
-        lock.connect_activate(move |_| spawn_resolved(&program, &args));
+        lock.connect_activate(move |_| spawn_resolved(program, args));
     } else {
         lock.set_sensitive(false);
     }
@@ -397,7 +403,7 @@ fn build_global_menu_bar(target_window: Rc<Cell<u64>>) -> MenuBar {
     file_menu.append(&SeparatorMenuItem::new());
     let close_target = target_window.clone();
     file_menu.append(&command_item("Close Window", move || {
-        target_xdotool(&close_target, "windowclose", None)
+        target_xdotool(&close_target, "windowclose")
     }));
     file_item.set_submenu(Some(&file_menu));
     menu_bar.append(&file_item);
@@ -438,7 +444,7 @@ fn build_global_menu_bar(target_window: Rc<Cell<u64>>) -> MenuBar {
     let window_menu = Menu::new();
     let minimize_target = target_window.clone();
     window_menu.append(&command_item("Minimize", move || {
-        target_xdotool(&minimize_target, "windowminimize", None)
+        target_xdotool(&minimize_target, "windowminimize")
     }));
     let maximize_target = target_window.clone();
     window_menu.append(&command_item("Zoom / Maximize", move || {
@@ -474,30 +480,18 @@ fn target_shortcut(target: &Cell<u64>, shortcut: &str) {
     if id == 0 {
         return;
     }
+    let id = id.to_string();
     let _ = Command::new("xdotool")
-        .args([
-            "windowactivate",
-            "--sync",
-            &id.to_string(),
-            "key",
-            "--clearmodifiers",
-            shortcut,
-        ])
+        .args(["windowactivate", "--sync", &id, "key", "--clearmodifiers", shortcut])
         .spawn();
 }
 
-fn target_xdotool(target: &Cell<u64>, action: &str, trailing: Option<&str>) {
+fn target_xdotool(target: &Cell<u64>, action: &str) {
     let id = target.get();
     if id == 0 {
         return;
     }
-    let id = id.to_string();
-    let mut command = Command::new("xdotool");
-    command.arg(action).arg(id);
-    if let Some(value) = trailing {
-        command.arg(value);
-    }
-    let _ = command.spawn();
+    let _ = Command::new("xdotool").arg(action).arg(id.to_string()).spawn();
 }
 
 fn target_maximize(target: &Cell<u64>) {
@@ -560,20 +554,13 @@ where
     dialog.show_all();
 }
 
-fn lock_command() -> Option<(String, Vec<String>)> {
-    let candidates: &[(&str, &[&str])] = &[
-        ("xdg-screensaver", &["lock"]),
-        ("light-locker-command", &["-l"]),
-        ("dm-tool", &["lock"]),
-    ];
-    candidates.iter().find_map(|(program, args)| {
-        resolve_program(program).map(|_| {
-            (
-                (*program).to_string(),
-                args.iter().map(|value| (*value).to_string()).collect(),
-            )
-        })
-    })
+fn lock_command() -> Option<(&'static str, &'static [&'static str])> {
+    for &(program, args) in LOCK_COMMANDS {
+        if resolve_program(program).is_some() {
+            return Some((program, args));
+        }
+    }
+    None
 }
 
 fn spawn_first(programs: &[&str], args: &[&str]) {
@@ -585,7 +572,7 @@ fn spawn_first(programs: &[&str], args: &[&str]) {
     }
 }
 
-fn spawn_resolved(program: &str, args: &[impl AsRef<std::ffi::OsStr>]) {
+fn spawn_resolved(program: &str, args: &[&str]) {
     let Some(path) = resolve_program(program) else {
         log::warn!("Cannot launch {program}: command not found");
         return;
