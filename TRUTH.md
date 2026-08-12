@@ -29,10 +29,11 @@ The previous `100/100` claim was invalid. This audit credits the fixes that have
 
 1. **False completion accounting:** `TRUTH.md` awarded 100/100 despite visibly unfinished canonical screenshots and unverified claims.
 2. **Catalogue availability:** the OBS entry remains intentionally browse-only because its official release does not provide a Linux AppImage; fabricating a third-party binary or hash would violate the fail-closed contract.
-3. **Release evidence:** no bootable ISO, installed display-manager login, or VM screenshot has been captured in this tranche.
-4. **Visual acceptance:** only 1280x800 Docker scenes have been reviewed; the independent 95/100 scene gate, 1366x768/1920x1080/HiDPI scenes and notification/modal states remain open.
-5. **System and quality evidence:** hardware-backed service mutation, AT-SPI/focus-order/scaling/localization checks, reproducible performance measurements and failure-injection recovery runs remain open.
-6. **Packaging policy:** the root installer now defaults the session descriptor to `/usr/share/xsessions`; an actual privileged install and display-manager discovery run is still required.
+3. **Catalogue live install evidence:** no successful remote AppImage download/desktop-integration smoke run is credited; the fail-closed installer is source/unit-tested but still needs a controlled live-download fixture or release run.
+4. **Release evidence:** no bootable ISO, installed display-manager login, or VM screenshot has been captured in this tranche.
+5. **Visual acceptance:** only 1280x800 Docker scenes have been reviewed; the independent 95/100 scene gate, 1366x768/1920x1080/HiDPI scenes and notification/modal states remain open.
+6. **System and quality evidence:** hardware-backed service mutation, AT-SPI/focus-order/scaling/localization checks, reproducible performance measurements and failure-injection recovery runs remain open.
+7. **Packaging policy:** the root installer now defaults the session descriptor to `/usr/share/xsessions`; an actual privileged install and display-manager discovery run is still required.
 
 ## Canonical visual findings
 
