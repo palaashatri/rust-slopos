@@ -148,8 +148,12 @@ fn spawn_dbus_service(sender: Sender<UiCommand>) {
         };
 
         log::info!("SLOPOS owns {NOTIFICATION_BUS_NAME}");
-        let _ = sender.send(UiCommand::DbusConnection(connection.clone()));
-        connection.closed();
+        let _ = sender.send(UiCommand::DbusConnection(connection));
+        // zbus runs its internal executor for the lifetime of the connection.
+        // Keep this dedicated server thread parked until the process exits.
+        loop {
+            thread::park();
+        }
     });
 }
 
