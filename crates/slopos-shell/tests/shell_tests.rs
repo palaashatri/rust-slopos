@@ -203,3 +203,15 @@ fn target_menu_commands_report_missing_focus() {
     assert!(topbar.contains("spawn_first_or_message"));
     assert!(topbar.contains("No compatible file manager is installed"));
 }
+
+#[test]
+fn image_controls_have_accessible_names_and_focus_feedback() {
+    let dock = include_str!("../src/dock.rs");
+    let topbar = include_str!("../src/topbar.rs");
+    let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
+    assert!(dock.contains("set_accessible_name(&button, tooltip)"));
+    assert!(topbar.contains("set_accessible_name(&system_button, \"SLOPOS menu\")"));
+    assert!(topbar.contains("set_accessible_name(&search_button"));
+    assert!(css.contains("button:focus"));
+    assert!(css.contains("@slopos_highlight"));
+}

@@ -2,6 +2,7 @@
 
 use crate::launcher::Launcher;
 use gdk_pixbuf::{InterpType, Pixbuf};
+use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
     Align, Box as GtkBox, Button, ButtonsType, DialogFlags, IconSize, Image, Label, Menu, MenuBar,
@@ -60,6 +61,7 @@ impl TopBar {
         let system_button = Button::new();
         system_button.style_context().add_class("slopos-logo-btn");
         system_button.set_tooltip_text(Some("SLOPOS menu"));
+        set_accessible_name(&system_button, "SLOPOS menu");
         if let Some(mark) = load_slopos_mark() {
             system_button.set_image(Some(&mark));
             system_button.set_always_show_image(true);
@@ -103,6 +105,7 @@ impl TopBar {
             .style_context()
             .add_class("slopos-menubar-control");
         search_button.set_tooltip_text(Some("Search applications (Super+Space)"));
+        set_accessible_name(&search_button, "Search applications (Super+Space)");
         let search_box = GtkBox::new(Orientation::Horizontal, 3);
         search_box.pack_start(
             &Image::from_icon_name(Some("system-search-symbolic"), IconSize::Menu),
@@ -120,6 +123,7 @@ impl TopBar {
         audio_button
             .style_context()
             .add_class("slopos-menubar-control");
+        set_accessible_name(&audio_button, "Sound controls");
         let audio_box = GtkBox::new(Orientation::Horizontal, 3);
         audio_box.pack_start(
             &Image::from_icon_name(Some("audio-volume-high-symbolic"), IconSize::Menu),
@@ -143,6 +147,7 @@ impl TopBar {
         network_button
             .style_context()
             .add_class("slopos-menubar-control");
+        set_accessible_name(&network_button, "Network connections");
         let network_box = GtkBox::new(Orientation::Horizontal, 3);
         network_box.pack_start(
             &Image::from_icon_name(Some("network-wireless-symbolic"), IconSize::Menu),
@@ -751,6 +756,21 @@ fn spawn_first_or_message(programs: &[&str], args: &[&str]) {
             "No compatible file manager is installed for this command.",
         );
     }
+}
+
+/// Keep image-led top-bar controls discoverable to ATK clients even when the
+/// host GTK theme does not expose their tooltip text as the accessible name.
+fn set_accessible_name<W>(widget: &W, name: &str)
+where
+    W: IsA<gtk::Widget>,
+{
+    let Some(accessible) = widget.accessible() else {
+        return;
+    };
+    let Ok(accessible) = accessible.downcast::<gtk::atk::Object>() else {
+        return;
+    };
+    accessible.set_name(name);
 }
 
 fn load_slopos_mark() -> Option<Image> {

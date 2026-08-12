@@ -188,6 +188,16 @@ button:disabled label {
   color: @slopos_disabled;
 }
 
+/* Keep keyboard focus visible without introducing a second visual language. */
+button:focus,
+check:focus,
+radio:focus,
+scale:focus,
+switch:focus,
+row:focus {
+  box-shadow: inset 0 0 0 1px @slopos_highlight;
+}
+
 button.default {
   border: 2px solid @slopos_text;
   box-shadow: inset 1px 1px @slopos_light, inset -1px -1px #606060;

@@ -2,6 +2,7 @@
 
 use crate::launcher::Launcher;
 use gdk_pixbuf::Pixbuf;
+use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
     Box as GtkBox, Button, IconSize, Image, Orientation, Separator, Window, WindowPosition,
@@ -218,8 +219,24 @@ fn dock_button(custom_icon: &str, fallback_icon: &str, tooltip: &str) -> Button 
     button.style_context().add_class("slopos-dock-btn");
     button.set_relief(gtk::ReliefStyle::None);
     button.set_tooltip_text(Some(tooltip));
+    set_accessible_name(&button, tooltip);
     button.set_image(Some(&load_icon(custom_icon, fallback_icon)));
     button
+}
+
+/// Icon-only launchers need an explicit ATK name; a tooltip is useful for
+/// pointer users but is not a reliable accessible label for screen readers.
+fn set_accessible_name<W>(widget: &W, name: &str)
+where
+    W: IsA<gtk::Widget>,
+{
+    let Some(accessible) = widget.accessible() else {
+        return;
+    };
+    let Ok(accessible) = accessible.downcast::<gtk::atk::Object>() else {
+        return;
+    };
+    accessible.set_name(name);
 }
 
 fn load_icon(file_name: &str, fallback: &str) -> Image {
