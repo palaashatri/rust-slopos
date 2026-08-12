@@ -75,9 +75,9 @@ pub fn get_desktop_entry_path(id: &str) -> PathBuf {
     dir.join(format!("slopos-appimage-{id}.desktop"))
 }
 
-/// Seed catalogue shown while trusted release metadata is being curated.
-/// Entries with an empty digest are intentionally browse-only and the UI must
-/// disable installation rather than bypass integrity verification.
+/// Curated catalogue shown while trusted release metadata is being curated.
+/// Entries without a trusted digest are intentionally browse-only and the UI
+/// must disable installation rather than bypass integrity verification.
 pub fn get_curated_catalogue() -> Vec<CatalogueApp> {
     vec![
         app(
@@ -87,8 +87,9 @@ pub fn get_curated_catalogue() -> Vec<CatalogueApp> {
             "24.05.0",
             "Media",
             "kdenlive",
-            "https://files.kde.org/kdenlive/release/kdenlive-24.05.0-x86_64.AppImage",
-        ),
+            "https://download.kde.org/Attic/stable/kdenlive/24.05/linux/kdenlive-24.05.0-x86_64.AppImage",
+        )
+        .with_sha256("b2ea1c3cc5af7eda58c5a19bfd35cde9a050fb70c5f2526117c9cc69a46576f0"),
         app(
             "inkscape",
             "Inkscape",
@@ -116,15 +117,18 @@ pub fn get_curated_catalogue() -> Vec<CatalogueApp> {
             "com.obsproject.Studio",
             "https://github.com/obsproject/obs-studio/releases/download/30.1.2/OBS-Studio-30.1.2-x86_64.AppImage",
         ),
+        // The Audacity release page publishes this SHA-256 alongside the
+        // exact Ubuntu 22.04 AppImage asset.
         app(
             "audacity",
             "Audacity",
             "Multi-track audio editor",
-            "3.5.1",
+            "3.7.7",
             "Media",
             "audacity",
-            "https://github.com/audacity/audacity/releases/download/Audacity-3.5.1/audacity-linux-3.5.1-x86_64.AppImage",
-        ),
+            "https://github.com/audacity/audacity/releases/download/Audacity-3.7.7/audacity-linux-3.7.7-x64-22.04.AppImage",
+        )
+        .with_sha256("45c4445fb6670cc5fe40d31c7cea979724d2605bca53b554c32520acbf901ef0"),
     ]
 }
 
@@ -148,6 +152,13 @@ fn app(
         icon_name: icon_name.to_string(),
         download_url: download_url.to_string(),
         sha256: String::new(),
+    }
+}
+
+impl CatalogueApp {
+    fn with_sha256(mut self, sha256: &str) -> Self {
+        self.sha256 = sha256.to_string();
+        self
     }
 }
 
@@ -217,5 +228,27 @@ mod tests {
         assert!(!app.metadata_is_installable());
         app.download_url = "https://example.invalid/app.AppImage".into();
         assert!(app.metadata_is_installable());
+    }
+
+    #[test]
+    fn curated_catalogue_includes_verified_audacity_release() {
+        let audacity = get_curated_catalogue()
+            .into_iter()
+            .find(|app| app.id == "audacity")
+            .expect("curated Audacity entry");
+        assert_eq!(audacity.version, "3.7.7");
+        assert_eq!(audacity.sha256.len(), 64);
+        assert!(audacity.metadata_is_installable());
+    }
+
+    #[test]
+    fn curated_catalogue_includes_verified_kdenlive_release() {
+        let kdenlive = get_curated_catalogue()
+            .into_iter()
+            .find(|app| app.id == "kdenlive")
+            .expect("curated Kdenlive entry");
+        assert_eq!(kdenlive.version, "24.05.0");
+        assert_eq!(kdenlive.sha256.len(), 64);
+        assert!(kdenlive.metadata_is_installable());
     }
 }
