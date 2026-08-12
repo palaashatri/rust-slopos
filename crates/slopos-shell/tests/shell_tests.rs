@@ -32,6 +32,15 @@ fn topbar_uses_packaged_slopos_mark_with_fallback() {
 }
 
 #[test]
+fn catalogue_uses_packaged_fallback_icon() {
+    let catalogue = include_str!("../../slopos-catalogue/src/main.rs");
+    assert!(catalogue.contains("load_catalogue_icon"));
+    assert!(catalogue.contains("software.svg"));
+    assert!(catalogue.contains("from_file_at_scale"));
+    assert!(catalogue.contains("application-x-executable"));
+}
+
+#[test]
 fn appimage_installer_has_no_stub_fallback() {
     let installer = include_str!("../../slopos-catalogue/src/installer.rs");
     let model = include_str!("../../slopos-catalogue/src/model.rs");
@@ -87,6 +96,7 @@ fn shipping_manifests_are_x11_only_and_complete() {
 
     let iso = include_str!("../../../packaging/iso/build-iso.sh");
     assert!(iso.contains("assets/config/mimeapps.list"));
+    assert!(iso.contains("sub(/\\r$/, \"\")"));
     assert!(include_str!("../../../install.sh").contains("assets/slopos-logo.png"));
 }
 
@@ -105,6 +115,21 @@ fn dependency_manifests_do_not_reintroduce_removed_display_stack() {
         assert!(!manifest.contains("wlroots"));
         assert!(!manifest.contains("xwayland"));
         assert!(!manifest.contains("slopos-compositor"));
+    }
+}
+
+#[test]
+fn arch_build_manifest_has_native_gui_dependencies() {
+    let manifest = include_str!("../../../packaging/deps/arch-build.txt");
+    for package in [
+        "gtk3",
+        "gdk-pixbuf2",
+        "libx11",
+        "libxrandr",
+        "openssl",
+        "dbus",
+    ] {
+        assert!(manifest.lines().any(|line| line.trim() == package));
     }
 }
 

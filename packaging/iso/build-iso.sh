@@ -51,7 +51,10 @@ rsync -a "$RELENG/" "$PROFILE/"
 
 # Append SLOPOS package requirements without introducing duplicate lines.
 cat packaging/iso/packages.x86_64 >> "$PROFILE/packages.x86_64"
-awk 'NF && !seen[$0]++ { print }' "$PROFILE/packages.x86_64" > "$PROFILE/packages.x86_64.tmp"
+# Repository files may have CRLF endings when the ISO is built from a Windows
+# checkout. Strip the carriage return before de-duplicating package names so
+# pacman never receives a literal `\r` suffix.
+awk '{ sub(/\r$/, ""); if (NF && !seen[$0]++) print }' "$PROFILE/packages.x86_64" > "$PROFILE/packages.x86_64.tmp"
 mv "$PROFILE/packages.x86_64.tmp" "$PROFILE/packages.x86_64"
 
 ROOTFS="$PROFILE/airootfs"

@@ -3,6 +3,7 @@
 mod installer;
 mod model;
 
+use gdk_pixbuf::Pixbuf;
 use gtk::prelude::*;
 use gtk::{
     Align, Box as GtkBox, Button, Entry, IconSize, Image, Label, ListBox, ListBoxRow, Orientation,
@@ -11,7 +12,8 @@ use gtk::{
 use installer::{install_appimage, uninstall_appimage};
 use model::{get_curated_catalogue, CatalogueApp};
 use std::cell::RefCell;
-use std::path::PathBuf;
+use std::env;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 fn main() {
@@ -111,12 +113,7 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
         content.set_margin_top(6);
         content.set_margin_bottom(6);
 
-        content.pack_start(
-            &Image::from_icon_name(Some(&app.icon_name), IconSize::Dnd),
-            false,
-            false,
-            0,
-        );
+        content.pack_start(&load_catalogue_icon(&app.icon_name), false, false, 0);
 
         let text = GtkBox::new(Orientation::Vertical, 1);
         let name = Label::new(Some(&format!("{}  {}", app.name, app.version)));
@@ -182,6 +179,64 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
 
     status.set_text(&format!("{shown} catalogue entries shown"));
     list.show_all();
+}
+
+fn load_catalogue_icon(icon_name: &str) -> Image {
+    let mut candidates = Vec::new();
+    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+        candidates
+            .push(PathBuf::from(&share_dir).join(format!("themes/platinum/icons/{icon_name}.svg")));
+        candidates
+            .push(PathBuf::from(&share_dir).join(format!("themes/platinum/icons/{icon_name}.png")));
+    }
+    candidates.extend([
+        PathBuf::from(format!("themes/platinum/icons/{icon_name}.svg")),
+        PathBuf::from(format!("themes/platinum/icons/{icon_name}.png")),
+        PathBuf::from(format!(
+            "/usr/local/share/slopos-i/themes/platinum/icons/{icon_name}.svg"
+        )),
+        PathBuf::from(format!(
+            "/usr/local/share/slopos-i/themes/platinum/icons/{icon_name}.png"
+        )),
+        PathBuf::from(format!(
+            "/usr/share/slopos-i/themes/platinum/icons/{icon_name}.svg"
+        )),
+        PathBuf::from(format!(
+            "/usr/share/slopos-i/themes/platinum/icons/{icon_name}.png"
+        )),
+    ]);
+
+    // Curated upstream application names are not guaranteed to be present in
+    // the host icon theme. Use the original Platinum software mark instead of
+    // rendering GTK's missing-icon placeholder when an app-specific asset is
+    // unavailable.
+    let fallback_names = ["software.svg", "software.png"];
+    for fallback_name in fallback_names {
+        if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+            candidates.push(
+                PathBuf::from(share_dir).join(format!("themes/platinum/icons/{fallback_name}")),
+            );
+        }
+        candidates.extend([
+            PathBuf::from(format!("themes/platinum/icons/{fallback_name}")),
+            PathBuf::from(format!(
+                "/usr/local/share/slopos-i/themes/platinum/icons/{fallback_name}"
+            )),
+            PathBuf::from(format!(
+                "/usr/share/slopos-i/themes/platinum/icons/{fallback_name}"
+            )),
+        ]);
+    }
+
+    for path in candidates {
+        if Path::new(&path).exists() {
+            if let Ok(pixbuf) = Pixbuf::from_file_at_scale(&path, 32, 32, true) {
+                return Image::from_pixbuf(Some(&pixbuf));
+            }
+        }
+    }
+
+    Image::from_icon_name(Some("application-x-executable"), IconSize::Dnd)
 }
 
 fn load_css_theme() {
