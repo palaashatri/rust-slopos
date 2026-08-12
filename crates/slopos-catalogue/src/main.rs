@@ -23,6 +23,10 @@ fn main() {
     window.set_title("Software Catalogue");
     window.set_default_size(700, 510);
     window.set_position(WindowPosition::Center);
+    window.connect_delete_event(|_, _| {
+        gtk::main_quit();
+        glib::Propagation::Proceed
+    });
 
     let body = GtkBox::new(Orientation::Vertical, 7);
     body.style_context().add_class("slopos-window-body");
@@ -32,14 +36,22 @@ fn main() {
     title.style_context().add_class("slopos-panel-title");
     body.pack_start(&title, false, false, 0);
 
-    let subtitle = Label::new(Some("Curated AppImages — installation is enabled only for integrity-verified metadata."));
+    let subtitle = Label::new(Some(
+        "Curated AppImages — installation is enabled only for integrity-verified metadata.",
+    ));
     subtitle.set_xalign(0.0);
-    subtitle.style_context().add_class("slopos-panel-subtitle");
+    subtitle
+        .style_context()
+        .add_class("slopos-panel-subtitle");
     body.pack_start(&subtitle, false, false, 0);
 
     let search = Entry::new();
     search.set_placeholder_text(Some("Search applications…"));
-    search.set_icon_from_icon_name(gtk::EntryIconPosition::Primary, Some("system-search-symbolic"));
+    search.set_icon_from_icon_name(
+        gtk::EntryIconPosition::Primary,
+        Some("system-search-symbolic"),
+    );
+    search.set_tooltip_text(Some("Filter the curated software catalogue"));
     body.pack_start(&search, false, false, 2);
 
     let scroll = ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
@@ -49,7 +61,9 @@ fn main() {
     scroll.add(&list);
     body.pack_start(&scroll, true, true, 0);
 
-    let status = Label::new(Some("Browse the curated catalogue. Unverified entries remain unavailable."));
+    let status = Label::new(Some(
+        "Browse the curated catalogue. Unverified entries remain unavailable.",
+    ));
     status.set_xalign(0.0);
     status.style_context().add_class("slopos-statusbar");
     body.pack_end(&status, false, false, 0);
@@ -63,7 +77,12 @@ fn main() {
     let list_ref = list.clone();
     let status_ref = status.clone();
     search.connect_changed(move |entry| {
-        render_apps(&list_ref, &apps_ref.borrow(), &entry.text().to_lowercase(), &status_ref);
+        render_apps(
+            &list_ref,
+            &apps_ref.borrow(),
+            &entry.text().to_lowercase(),
+            &status_ref,
+        );
     });
 
     window.show_all();
@@ -71,7 +90,9 @@ fn main() {
 }
 
 fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Label) {
-    for child in list.children() { list.remove(&child); }
+    for child in list.children() {
+        list.remove(&child);
+    }
 
     let mut shown = 0usize;
     for app in apps {
@@ -92,7 +113,12 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
         content.set_margin_top(6);
         content.set_margin_bottom(6);
 
-        content.pack_start(&Image::from_icon_name(Some(&app.icon_name), IconSize::Dnd), false, false, 0);
+        content.pack_start(
+            &Image::from_icon_name(Some(&app.icon_name), IconSize::Dnd),
+            false,
+            false,
+            0,
+        );
 
         let text = GtkBox::new(Orientation::Vertical, 1);
         let name = Label::new(Some(&format!("{}  {}", app.name, app.version)));
@@ -102,13 +128,15 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
 
         let summary = Label::new(Some(&app.summary));
         summary.set_xalign(0.0);
-        summary.style_context().add_class("slopos-secondary-text");
+        summary
+            .style_context()
+            .add_class("slopos-secondary-text");
         text.pack_start(&summary, false, false, 0);
 
         if !app.metadata_is_installable() && !app.is_installed() {
             let warning = Label::new(Some("Trusted checksum metadata pending"));
             warning.set_xalign(0.0);
-            warning.style_context().add_class("slopos-secondary-text");
+            warning.style_context().add_class("slopos-warning-text");
             text.pack_start(&warning, false, false, 0);
         }
         content.pack_start(&text, true, true, 0);
@@ -127,16 +155,27 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
         if app.is_installed() || app.metadata_is_installable() {
             let app = app.clone();
             let status = status.clone();
+            let state_button = button.clone();
             button.connect_clicked(move |_| {
+                state_button.set_sensitive(false);
                 let operation = if app.is_installed() {
                     uninstall_appimage(&app).map(|_| format!("Removed {}", app.name))
                 } else {
                     install_appimage(&app).map(|_| format!("Installed {}", app.name))
                 };
+
                 match operation {
-                    Ok(message) => status.set_text(&message),
+                    Ok(message) => {
+                        status.set_text(&message);
+                        if app.is_installed() {
+                            state_button.set_label("Remove");
+                        } else {
+                            state_button.set_label("Install");
+                        }
+                    }
                     Err(error) => status.set_text(&format!("Error: {error}")),
                 }
+                state_button.set_sensitive(true);
             });
         }
 
@@ -155,11 +194,17 @@ fn load_css_theme() {
         "/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css",
         "/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css",
     ] {
-        if !Path::new(path).exists() { continue; }
+        if !Path::new(path).exists() {
+            continue;
+        }
         let provider = gtk::CssProvider::new();
         if provider.load_from_path(path).is_ok() {
             if let Some(screen) = gdk::Screen::default() {
-                gtk::StyleContext::add_provider_for_screen(&screen, &provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+                gtk::StyleContext::add_provider_for_screen(
+                    &screen,
+                    &provider,
+                    gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+                );
             }
             break;
         }
