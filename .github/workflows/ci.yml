@@ -78,24 +78,26 @@ jobs:
       - name: Test workspace
         run: cargo test --workspace --locked
       - name: Clippy
-        run: cargo clippy --workspace --all-targets --locked
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: rustfmt
         run: cargo fmt --all --check
 
   x11-runtime-smoke:
-    name: Xvfb + Openbox session smoke
+    name: Xvfb + Openbox behavior and visual smoke
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.SOURCE_SHA }}
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
       - name: Install runtime/build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
             libssl-dev libdbus-1-dev xvfb openbox xdotool wmctrl \
-            adwaita-icon-theme dbus-x11
+            adwaita-icon-theme dbus-x11 x11-utils scrot
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build debug binaries
@@ -104,7 +106,8 @@ jobs:
         run: |
           mkdir -p "$HOME/.themes/slopos-openbox/openbox-3"
           cp themes/slopos-openbox/openbox-3/themerc "$HOME/.themes/slopos-openbox/openbox-3/themerc"
-      - name: Run X11 session smoke test
+      - name: Run X11 behavior and screenshot smoke
+        id: runtime-smoke
         shell: bash
         run: |
           set -euo pipefail
@@ -112,32 +115,102 @@ jobs:
           export XDG_RUNTIME_DIR="$RUNNER_TEMP/slopos-runtime"
           export SLOPOS_OPENBOX_CONFIG="$GITHUB_WORKSPACE/assets/config/openbox/rc.xml"
           export SLOPOS_QA_NO_WELCOME=1
-          mkdir -p "$XDG_RUNTIME_DIR"
+          mkdir -p "$XDG_RUNTIME_DIR" "$RUNNER_TEMP/slopos-qa"
           chmod 700 "$XDG_RUNTIME_DIR"
 
           cleanup() {
             set +e
+            pkill -TERM -x slopos-settings 2>/dev/null || true
+            pkill -TERM -x slopos-catalogue 2>/dev/null || true
             kill "${SESSION_PID:-}" "${XVFB_PID:-}" 2>/dev/null || true
+            pkill -TERM -x slopos-shell 2>/dev/null || true
+            pkill -TERM -x openbox 2>/dev/null || true
           }
-          trap cleanup EXIT
 
-          Xvfb :99 -screen 0 1280x800x24 >"$RUNNER_TEMP/xvfb.log" 2>&1 &
-          XVFB_PID=$!
-          sleep 2
-          ./target/debug/slopos-session >"$RUNNER_TEMP/slopos-session.log" 2>&1 &
-          SESSION_PID=$!
-
-          for _ in $(seq 1 20); do
-            if pgrep -x openbox >/dev/null && pgrep -x slopos-shell >/dev/null; then
-              break
+          diagnostics() {
+            status=$?
+            if [ "$status" -ne 0 ]; then
+              echo "===== process table ====="
+              ps -ef | grep -E 'Xvfb|openbox|slopos' || true
+              echo "===== session log ====="
+              cat "$RUNNER_TEMP/slopos-session.log" 2>/dev/null || true
+              echo "===== xvfb log ====="
+              cat "$RUNNER_TEMP/xvfb.log" 2>/dev/null || true
+              echo "===== windows ====="
+              wmctrl -l 2>/dev/null || true
+              xwininfo -root -tree 2>/dev/null || true
             fi
-            sleep 1
-          done
+            cleanup
+            exit "$status"
+          }
+          trap diagnostics EXIT
 
-          pgrep -x openbox >/dev/null
-          pgrep -x slopos-shell >/dev/null
-          xdotool search --name "SLOPOS Top Bar" >/dev/null
-          xdotool search --name "SLOPOS Application Strip" >/dev/null
+          wait_for() {
+            description=$1
+            shift
+            for _ in $(seq 1 60); do
+              if "$@" >/dev/null 2>&1; then
+                echo "ready: $description"
+                return 0
+              fi
+              sleep 0.25
+            done
+            echo "timed out: $description" >&2
+            return 1
+          }
+
+          Xvfb :99 -screen 0 1280x800x24 -nolisten tcp >"$RUNNER_TEMP/xvfb.log" 2>&1 &
+          XVFB_PID=$!
+          wait_for "X server" xdpyinfo -display :99
+
+          dbus-run-session -- ./target/debug/slopos-session >"$RUNNER_TEMP/slopos-session.log" 2>&1 &
+          SESSION_PID=$!
+          wait_for "Openbox" pgrep -x openbox
+          wait_for "SLOPOS shell" pgrep -x slopos-shell
+          wait_for "top bar" xdotool search --onlyvisible --name '^SLOPOS Top Bar$'
+          wait_for "application strip" xdotool search --onlyvisible --name '^SLOPOS Application Strip$'
+          scrot "$RUNNER_TEMP/slopos-qa/01-desktop.png"
+
+          # The global shortcut must signal the existing shell rather than
+          # create a duplicate process.
+          shell_count_before=$(pgrep -x slopos-shell | wc -l)
+          pkill -USR1 -x slopos-shell
+          wait_for "Search palette" xdotool search --onlyvisible --name '^SLOPOS Search$'
+          shell_count_after=$(pgrep -x slopos-shell | wc -l)
+          test "$shell_count_before" -eq 1
+          test "$shell_count_after" -eq 1
+          scrot "$RUNNER_TEMP/slopos-qa/02-search.png"
+          xdotool key Escape
+
+          ./target/debug/slopos-settings >"$RUNNER_TEMP/slopos-settings.log" 2>&1 &
+          wait_for "System Settings" xdotool search --onlyvisible --name '^System Settings$'
+          scrot "$RUNNER_TEMP/slopos-qa/03-settings.png"
+          pkill -TERM -x slopos-settings
+
+          ./target/debug/slopos-catalogue >"$RUNNER_TEMP/slopos-catalogue.log" 2>&1 &
+          wait_for "Software Catalogue" xdotool search --onlyvisible --name '^Software Catalogue$'
+          scrot "$RUNNER_TEMP/slopos-qa/04-catalogue.png"
+          pkill -TERM -x slopos-catalogue
+
+          test -s "$RUNNER_TEMP/slopos-qa/01-desktop.png"
+          test -s "$RUNNER_TEMP/slopos-qa/02-search.png"
+          test -s "$RUNNER_TEMP/slopos-qa/03-settings.png"
+          test -s "$RUNNER_TEMP/slopos-qa/04-catalogue.png"
+          trap - EXIT
+          cleanup
+      - name: Upload runtime visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slopos-x11-runtime-${{ env.SOURCE_SHA }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/slopos-qa/*.png
+            ${{ runner.temp }}/slopos-session.log
+            ${{ runner.temp }}/slopos-settings.log
+            ${{ runner.temp }}/slopos-catalogue.log
+            ${{ runner.temp }}/xvfb.log
 
   release-build:
     name: release build (X11 Linux)
@@ -146,6 +219,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.SOURCE_SHA }}
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
       - name: Install build dependencies
         run: |
           sudo apt-get update
