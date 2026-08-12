@@ -1,12 +1,15 @@
-//! AppImage installer — fail closed, verify before placement.
+//! AppImage installer — fail closed, stream to disk, verify before placement.
 
 use crate::model::{get_appimage_dir, get_appimage_path, get_desktop_entry_path, CatalogueApp};
 use hex::ToHex;
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
+
+const MAX_APPIMAGE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 
 pub fn install_appimage(app: &CatalogueApp) -> Result<(), String> {
     if !app.metadata_is_installable() {
@@ -16,41 +19,35 @@ pub fn install_appimage(app: &CatalogueApp) -> Result<(), String> {
         ));
     }
 
-    log::info!("Downloading verified AppImage metadata target: {}", app.name);
-    let bytes = fetch_url_bytes(&app.download_url)?;
-
-    let mut hasher = Sha256::new();
-    hasher.update(&bytes);
-    let actual: String = hasher.finalize().encode_hex();
-    if !actual.eq_ignore_ascii_case(&app.sha256) {
-        return Err(format!(
-            "SHA-256 mismatch for {}: expected {}, got {}",
-            app.name, app.sha256, actual
-        ));
-    }
-
     let target = get_appimage_path(&app.id);
     let part = temporary_path(&target);
-    if part.exists() {
-        fs::remove_file(&part).map_err(|e| format!("remove stale partial file: {e}"))?;
-    }
+    remove_if_present(&part)?;
 
+    log::info!("Downloading integrity-verified AppImage target: {}", app.name);
     let install_result = (|| -> Result<(), String> {
-        let mut file = File::create(&part).map_err(|e| format!("create partial AppImage: {e}"))?;
-        file.write_all(&bytes).map_err(|e| format!("write AppImage: {e}"))?;
-        file.sync_all().map_err(|e| format!("sync AppImage: {e}"))?;
+        let actual = download_and_hash(&app.download_url, &part)?;
+        if !actual.eq_ignore_ascii_case(&app.sha256) {
+            return Err(format!(
+                "SHA-256 mismatch for {}: expected {}, got {}",
+                app.name, app.sha256, actual
+            ));
+        }
 
         let mut permissions = fs::metadata(&part)
-            .map_err(|e| format!("read partial AppImage metadata: {e}"))?
+            .map_err(|error| format!("read partial AppImage metadata: {error}"))?
             .permissions();
         permissions.set_mode(0o755);
-        fs::set_permissions(&part, permissions).map_err(|e| format!("chmod AppImage: {e}"))?;
+        fs::set_permissions(&part, permissions)
+            .map_err(|error| format!("chmod AppImage: {error}"))?;
 
-        if target.exists() {
-            fs::remove_file(&target).map_err(|e| format!("replace existing AppImage: {e}"))?;
+        // POSIX rename on the same filesystem atomically replaces an existing
+        // target, so an upgrade never needs a remove-then-create window.
+        fs::rename(&part, &target)
+            .map_err(|error| format!("atomically place AppImage: {error}"))?;
+        if let Err(error) = create_desktop_entry(app, &target) {
+            log::error!("AppImage placed but desktop entry creation failed: {error}");
+            return Err(error);
         }
-        fs::rename(&part, &target).map_err(|e| format!("atomically place AppImage: {e}"))?;
-        create_desktop_entry(app, &target)?;
         Ok(())
     })();
 
@@ -61,36 +58,60 @@ pub fn install_appimage(app: &CatalogueApp) -> Result<(), String> {
 }
 
 pub fn uninstall_appimage(app: &CatalogueApp) -> Result<(), String> {
-    let appimage_path = get_appimage_path(&app.id);
-    if appimage_path.exists() {
-        fs::remove_file(&appimage_path).map_err(|e| format!("remove AppImage: {e}"))?;
-    }
-    let desktop_path = get_desktop_entry_path(&app.id);
-    if desktop_path.exists() {
-        fs::remove_file(&desktop_path).map_err(|e| format!("remove desktop entry: {e}"))?;
-    }
+    remove_if_present(&get_appimage_path(&app.id))?;
+    remove_if_present(&get_desktop_entry_path(&app.id))?;
     Ok(())
 }
 
-fn fetch_url_bytes(url: &str) -> Result<Vec<u8>, String> {
+fn download_and_hash(url: &str, part: &Path) -> Result<String, String> {
     if !url.starts_with("https://") {
         return Err("catalogue downloads must use HTTPS".to_string());
     }
 
     let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(90))
+        .connect_timeout(Duration::from_secs(15))
+        .timeout(Duration::from_secs(180))
         .user_agent("SLOPOS-I-Catalogue/0.1")
         .build()
-        .map_err(|e| format!("create HTTP client: {e}"))?;
+        .map_err(|error| format!("create HTTP client: {error}"))?;
 
-    let response = client
+    let mut response = client
         .get(url)
         .send()
-        .map_err(|e| format!("download failed: {e}"))?
+        .map_err(|error| format!("download failed: {error}"))?
         .error_for_status()
-        .map_err(|e| format!("download failed: {e}"))?;
+        .map_err(|error| format!("download failed: {error}"))?;
 
-    response.bytes().map(|b| b.to_vec()).map_err(|e| format!("read download: {e}"))
+    if let Some(length) = response.content_length() {
+        if length > MAX_APPIMAGE_BYTES {
+            return Err(format!("download is unexpectedly large: {length} bytes"));
+        }
+    }
+
+    let mut file = File::create(part).map_err(|error| format!("create partial AppImage: {error}"))?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 128 * 1024];
+    let mut total = 0_u64;
+
+    loop {
+        let read = response
+            .read(&mut buffer)
+            .map_err(|error| format!("read download: {error}"))?;
+        if read == 0 {
+            break;
+        }
+        total = total.saturating_add(read as u64);
+        if total > MAX_APPIMAGE_BYTES {
+            return Err(format!("download exceeded {MAX_APPIMAGE_BYTES} bytes"));
+        }
+        hasher.update(&buffer[..read]);
+        file.write_all(&buffer[..read])
+            .map_err(|error| format!("write AppImage: {error}"))?;
+    }
+
+    file.sync_all()
+        .map_err(|error| format!("sync AppImage: {error}"))?;
+    Ok(hasher.finalize().encode_hex())
 }
 
 fn temporary_path(target: &Path) -> PathBuf {
@@ -99,19 +120,76 @@ fn temporary_path(target: &Path) -> PathBuf {
     PathBuf::from(value)
 }
 
+fn remove_if_present(path: &Path) -> Result<(), String> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!("remove {}: {error}", path.display())),
+    }
+}
+
 fn create_desktop_entry(app: &CatalogueApp, appimage_path: &Path) -> Result<(), String> {
     let desktop_path = get_desktop_entry_path(&app.id);
-    let escaped_path = appimage_path.to_string_lossy().replace('"', "\\\"");
+    let part = temporary_path(&desktop_path);
+    remove_if_present(&part)?;
+
     let content = format!(
-        "[Desktop Entry]\nType=Application\nName={}\nComment={}\nExec=\"{}\"\nIcon={}\nCategories={};\nTerminal=false\nX-SLOPOS-AppImage=true\n",
-        app.name, app.summary, escaped_path, app.icon_name, app.category
+        "[Desktop Entry]\nType=Application\nName={}\nComment={}\nExec={}\nIcon={}\nCategories={};\nTerminal=false\nX-SLOPOS-AppImage=true\n",
+        escape_desktop_value(&app.name),
+        escape_desktop_value(&app.summary),
+        quote_exec_path(appimage_path),
+        escape_desktop_value(&app.icon_name),
+        escape_desktop_value(&app.category)
     );
 
-    let mut file = File::create(&desktop_path).map_err(|e| format!("create desktop entry: {e}"))?;
-    file.write_all(content.as_bytes()).map_err(|e| format!("write desktop entry: {e}"))?;
-    file.sync_all().map_err(|e| format!("sync desktop entry: {e}"))?;
+    let mut file = File::create(&part).map_err(|error| format!("create desktop entry: {error}"))?;
+    file.write_all(content.as_bytes())
+        .map_err(|error| format!("write desktop entry: {error}"))?;
+    file.sync_all()
+        .map_err(|error| format!("sync desktop entry: {error}"))?;
+    fs::rename(&part, &desktop_path)
+        .map_err(|error| format!("atomically place desktop entry: {error}"))?;
 
-    // Ensure parent path was created by model helper before returning success.
+    // Ensure the AppImage directory exists before returning success. The model
+    // helper is idempotent and also centralises the directory convention.
     let _ = get_appimage_dir();
     Ok(())
+}
+
+fn escape_desktop_value(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('\n', "\\n")
+        .replace('\r', "")
+}
+
+fn quote_exec_path(path: &Path) -> String {
+    let value = path.to_string_lossy();
+    format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn temporary_file_stays_next_to_target() {
+        assert_eq!(
+            temporary_path(Path::new("/tmp/app.AppImage")),
+            PathBuf::from("/tmp/app.AppImage.part")
+        );
+    }
+
+    #[test]
+    fn desktop_values_cannot_inject_new_lines() {
+        assert_eq!(escape_desktop_value("hello\nExec=evil"), "hello\\nExec=evil");
+    }
+
+    #[test]
+    fn exec_path_is_quoted_and_escaped() {
+        assert_eq!(
+            quote_exec_path(Path::new("/tmp/My App.AppImage")),
+            "\"/tmp/My App.AppImage\""
+        );
+    }
 }
