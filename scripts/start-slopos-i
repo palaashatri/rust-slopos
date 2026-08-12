@@ -3,7 +3,8 @@
 set -euo pipefail
 
 export XDG_SESSION_TYPE="x11"
-export XDG_CURRENT_DESKTOP="SLOPOS-I"
+export XDG_CURRENT_DESKTOP="SLOPOS"
+export XDG_SESSION_DESKTOP="slopos-i"
 export DESKTOP_SESSION="slopos-i"
 
 if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
@@ -13,7 +14,8 @@ mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
 
 # Make the installed SLOPOS GTK theme the default for applications launched in
-# this session. Development checkouts can still rely on per-user GTK settings.
+# this session. Development checkouts still receive the application CSS layer
+# directly from the SLOPOS binaries.
 if [ -d /usr/local/share/themes/slopos-gtk/gtk-3.0 ] || [ -d /usr/share/themes/slopos-gtk/gtk-3.0 ]; then
   export GTK_THEME="slopos-gtk"
 fi
