@@ -97,7 +97,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
             libssl-dev libdbus-1-dev xvfb openbox xdotool wmctrl \
-            adwaita-icon-theme dbus-x11 x11-utils scrot
+            adwaita-icon-theme dbus-x11 x11-utils x11-xserver-utils scrot \
+            librsvg2-common fonts-liberation fonts-dejavu-core
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build debug binaries
@@ -120,11 +121,22 @@ jobs:
 
           cleanup() {
             set +e
-            pkill -TERM -x slopos-settings 2>/dev/null || true
-            pkill -TERM -x slopos-catalogue 2>/dev/null || true
-            kill "${SESSION_PID:-}" "${XVFB_PID:-}" 2>/dev/null || true
+            for pid in "${SETTINGS_PID:-}" "${CATALOGUE_PID:-}"; do
+              if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; fi
+            done
+            for pid in "${SETTINGS_PID:-}" "${CATALOGUE_PID:-}"; do
+              if [ -n "$pid" ]; then wait "$pid" 2>/dev/null || true; fi
+            done
+            if [ -n "${SESSION_PID:-}" ]; then
+              kill -TERM "$SESSION_PID" 2>/dev/null || true
+              wait "$SESSION_PID" 2>/dev/null || true
+            fi
             pkill -TERM -x slopos-shell 2>/dev/null || true
             pkill -TERM -x openbox 2>/dev/null || true
+            if [ -n "${XVFB_PID:-}" ]; then
+              kill -TERM "$XVFB_PID" 2>/dev/null || true
+              wait "$XVFB_PID" 2>/dev/null || true
+            fi
           }
 
           diagnostics() {
@@ -134,6 +146,10 @@ jobs:
               ps -ef | grep -E 'Xvfb|openbox|slopos' || true
               echo "===== session log ====="
               cat "$RUNNER_TEMP/slopos-session.log" 2>/dev/null || true
+              echo "===== settings log ====="
+              cat "$RUNNER_TEMP/slopos-settings.log" 2>/dev/null || true
+              echo "===== catalogue log ====="
+              cat "$RUNNER_TEMP/slopos-catalogue.log" 2>/dev/null || true
               echo "===== xvfb log ====="
               cat "$RUNNER_TEMP/xvfb.log" 2>/dev/null || true
               echo "===== windows ====="
@@ -171,8 +187,6 @@ jobs:
           wait_for "application strip" xdotool search --onlyvisible --name '^SLOPOS Application Strip$'
           scrot "$RUNNER_TEMP/slopos-qa/01-desktop.png"
 
-          # The global shortcut must signal the existing shell rather than
-          # create a duplicate process.
           shell_count_before=$(pgrep -x slopos-shell | wc -l)
           pkill -USR1 -x slopos-shell
           wait_for "Search palette" xdotool search --onlyvisible --name '^SLOPOS Search$'
@@ -183,19 +197,29 @@ jobs:
           xdotool key Escape
 
           ./target/debug/slopos-settings >"$RUNNER_TEMP/slopos-settings.log" 2>&1 &
+          SETTINGS_PID=$!
           wait_for "System Settings" xdotool search --onlyvisible --name '^System Settings$'
           scrot "$RUNNER_TEMP/slopos-qa/03-settings.png"
-          pkill -TERM -x slopos-settings
+          kill -TERM "$SETTINGS_PID" 2>/dev/null || true
+          wait "$SETTINGS_PID" 2>/dev/null || true
+          SETTINGS_PID=""
 
           ./target/debug/slopos-catalogue >"$RUNNER_TEMP/slopos-catalogue.log" 2>&1 &
+          CATALOGUE_PID=$!
           wait_for "Software Catalogue" xdotool search --onlyvisible --name '^Software Catalogue$'
           scrot "$RUNNER_TEMP/slopos-qa/04-catalogue.png"
-          pkill -TERM -x slopos-catalogue
+          kill -TERM "$CATALOGUE_PID" 2>/dev/null || true
+          wait "$CATALOGUE_PID" 2>/dev/null || true
+          CATALOGUE_PID=""
 
-          test -s "$RUNNER_TEMP/slopos-qa/01-desktop.png"
-          test -s "$RUNNER_TEMP/slopos-qa/02-search.png"
-          test -s "$RUNNER_TEMP/slopos-qa/03-settings.png"
-          test -s "$RUNNER_TEMP/slopos-qa/04-catalogue.png"
+          for image in "$RUNNER_TEMP"/slopos-qa/*.png; do
+            test -s "$image"
+          done
+          if grep -q 'falling back to host GTK theme' "$RUNNER_TEMP/slopos-session.log"; then
+            echo "SLOPOS GTK theme did not load" >&2
+            exit 1
+          fi
+
           trap - EXIT
           cleanup
       - name: Upload runtime visual evidence
