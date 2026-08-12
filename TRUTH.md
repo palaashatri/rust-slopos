@@ -3,7 +3,7 @@
 **Audit date:** 2026-08-12
 **Branch:** `pivot`
 **Audit scope:** remediation working tree after the X11 packaging, catalogue, shell and QA tranche
-**Current evidence-backed readiness:** **66/100**
+**Current evidence-backed readiness:** **68/100**
 
 The previous `100/100` claim was invalid. This audit credits the fixes that have objective source, test and Docker/Xvfb evidence, while withholding credit for VM/boot, hardware, independent visual, performance, accessibility, localization and recovery evidence that has not been produced.
 
@@ -12,8 +12,8 @@ The previous `100/100` claim was invalid. This audit credits the fixes that have
 | Domain | Weight | Score | Evidence-based status |
 |---|---:|---:|---|
 | System 7 / Platinum visual identity | 20 | **12/20** | Fresh 1280x800 captures now show the slate desktop, Platinum bar, framed Application Strip and coherent shell windows. The visual gate is still below the contract because icon fallback, upstream-window leakage and several canonical states lack independent review. |
-| Desktop shell / interaction | 15 | **10/15** | Top bar, live focus/time/status updates, singleton Search, keyboard navigation, explicit unavailable menu feedback and local notifications are covered by source/tests and Xvfb interaction. Multi-resolution and full accessibility interaction are unverified. |
-| X11 window-management integration | 10 | **7/10** | Openbox, X11 margins, four desktops, launcher hotkey and visible window geometry pass the Docker smoke path. No installed VM or multi-resolution runtime evidence is available. |
+| Desktop shell / interaction | 15 | **11/15** | Top bar, live focus/time/status updates, singleton Search, keyboard navigation, explicit unavailable menu feedback and local notifications are covered by source/tests and Xvfb interaction. Topbar/dock geometry now passes 1366x768 and 1920x1080 checks; full accessibility interaction remains unverified. |
+| X11 window-management integration | 10 | **8/10** | Openbox, X11 margins, four desktops, launcher hotkey and visible window geometry pass the Docker smoke path; disposable Xvfb checks also pass at 1366x768 and 1920x1080. No installed VM evidence is available. |
 | Upstream application integration | 10 | **7/10** | PCManFM and Xfce Terminal launch in the Docker scene; Settings and Catalogue windows are visible and tied to their launched PIDs. Broader upstream-app behavior and theming remain unreviewed. |
 | Software Catalogue / AppImage | 8 | **8/8** | Metadata now requires complete control-free fields, HTTPS host URLs, trusted SHA-256 and a valid ELF payload; redirects are HTTPS-only and bounded. The four curated entries (Kdenlive 24.05.0, Inkscape 1.3.2, GIMP 3.2.4 and Audacity 3.7.7) are installable only with pinned official assets/digests; OBS is omitted because its official release has no Linux AppImage. |
 | System services integration | 8 | **4/8** | Settings is an honest upstream-tool hub and shell status reads available NetworkManager/PipeWire/battery state. Hardware mutation, suspend, Bluetooth and absence/error behavior are not VM-tested. |
@@ -23,13 +23,13 @@ The previous `100/100` claim was invalid. This audit credits the fixes that have
 | Performance | 3 | **1/3** | Lightweight architecture is plausible; no current reproducible benchmark ledger supports full credit. |
 | Accessibility / localization | 3 | **1/3** | Keyboard basics exist; no complete AT-SPI, focus-order, scaling, locale or international-input acceptance evidence. |
 | Recovery / resilience | 3 | **2/3** | The Docker gate kills and observes replacement Openbox and shell processes, proving the session supervisor's bounded child-restart path. Broader failure injection and recovery-script validation remain open. |
-| **Total** | **100** | **66/100** | **Verified development milestone; not production-ready.** |
+| **Total** | **100** | **68/100** | **Verified development milestone; not production-ready.** |
 
 ## Current release-blocking findings
 
 1. **False completion accounting:** `TRUTH.md` awarded 100/100 despite visibly unfinished canonical screenshots and unverified claims.
 2. **Release evidence:** no bootable ISO, installed display-manager login, or VM screenshot has been captured in this tranche.
-3. **Visual acceptance:** only 1280x800 Docker scenes have been reviewed; the independent 95/100 scene gate, 1366x768/1920x1080/HiDPI scenes and notification/modal states remain open.
+3. **Visual acceptance:** canonical application scenes have been reviewed at 1280x800; the independent 95/100 scene gate, retained 1366x768/1920x1080/HiDPI visual scenes and notification/modal states remain open.
 4. **System and quality evidence:** hardware-backed service mutation, AT-SPI/focus-order/scaling/localization checks, reproducible performance measurements and failure-injection recovery runs remain open.
 5. **Packaging policy:** the root installer now defaults the session descriptor to `/usr/share/xsessions`; an actual privileged install and display-manager discovery run is still required.
 
@@ -78,6 +78,7 @@ The 2026-08-11 deep audit initiates a corrective tranche that:
 - The official GIMP v3.2 archive serves `https://download.gimp.org/gimp/v3.2/linux/GIMP-3.2.4-x86_64.AppImage` and publishes SHA-256 `f1ce6dc671ef1c4aad87a0db9d7462e8ca9c0b5f899456337803c6ba32d0babe` in `SHA256SUMS`; the official Inkscape 1.3.2 media asset was downloaded as 125,195,456 bytes and independently rehashed to `351deaea3fa391c56e0c6401dadcf83f7c9c8f82faa47bdb07024e99b92f9b5c`.
 - OBS is not seeded because the official 30.1.2 release does not provide a Linux AppImage; no third-party substitute is used.
 - A disposable Ubuntu/Xvfb click-through installed Kdenlive from the Catalogue: the resulting executable was 204,903,616 bytes, its SHA-256 matched `b2ea1c3cc5af7eda58c5a19bfd35cde9a050fb70c5f2526117c9cc69a46576f0`, and `slopos-appimage-kdenlive.desktop` was created.
+- Disposable Xvfb geometry checks passed at 1366x768 and 1920x1080: the topbar reported full screen width, the Application Strip remained centered, and `scrot`/ImageMagick reported exact matching screenshot dimensions.
 - A disposable Ubuntu smoke install of `scripts/install-session-files.sh --prefix /workspace/artifacts/qa/prefix-test --session-dir /workspace/artifacts/qa/xsessions-test` produced an X11 descriptor whose `Exec` and `TryExec` both point to the prefix's `bin/slopos-session`.
 - `cargo fmt --all -- --check` passes in the Rust 1.97 container after the remediation formatting pass.
 - `git diff --check` and `bash -n` for the changed installer, session, Docker, ISO and VM scripts pass.
