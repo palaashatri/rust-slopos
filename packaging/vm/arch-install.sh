@@ -1,35 +1,42 @@
 #!/usr/bin/env bash
-# Unattended Arch Linux install for the SLOPOS-I verification VM.
+# Unattended Arch Linux installer for the SLOPOS-I X11 verification VM.
 #
-# Fetched and run from the archiso live environment:
-#   curl -sL http://10.0.2.2:8000/arch-install.sh | bash
-#
-# Produces a machine that boots straight into slopos-compositor on real
-# DRM/KMS (VirtualBox VMSVGA -> vmwgfx), which is the environment the
-# project has never actually been tested on.
-set -euxo pipefail
+# This is intentionally a QA image builder, not an end-user OS installer. It
+# creates a small UEFI VM that auto-logs in on tty1 and starts Xorg + SLOPOS so
+# boot/session evidence can be collected reproducibly.
+set -euo pipefail
 
-DISK=/dev/sda
-HOSTNAME=slopos-i-vm
-USERNAME=retro
-PASSWORD=retro
+DISK="${DISK:-/dev/sda}"
+HOSTNAME="${HOSTNAME:-slopos-i-vm}"
+USERNAME="${USERNAME:-retro}"
+PASSWORD="${PASSWORD:-retro}"
 REPO_URL="${REPO_URL:-https://github.com/palaashatri/rust-slopos.git}"
-REPO_BRANCH="${REPO_BRANCH:-main}"
-HOST_HTTP="${HOST_HTTP:-http://10.0.2.2:8000}"   # host file server (qa_key.pub)
+REPO_BRANCH="${REPO_BRANCH:-pivot}"
+HOST_HTTP="${HOST_HTTP:-http://10.0.2.2:8000}"
 GUEST_TARGET_DIR="${CARGO_TARGET_DIR:-/home/$USERNAME/.cache/slopos-i/cargo-target}"
+
 case "$GUEST_TARGET_DIR" in
   /*) ;;
-  *) echo "CARGO_TARGET_DIR must be an absolute path: $GUEST_TARGET_DIR" >&2; exit 2 ;;
+  *) echo "CARGO_TARGET_DIR must be absolute: $GUEST_TARGET_DIR" >&2; exit 2 ;;
 esac
 
-echo "=== clock + mirrors ==="
-timedatectl set-ntp true || true
-pacman -Sy --noconfirm archlinux-keyring || true
+if [[ $EUID -ne 0 ]]; then
+  echo "Run this script as root from the Arch ISO." >&2
+  exit 1
+fi
+if [[ ! -b "$DISK" ]]; then
+  echo "Target disk does not exist: $DISK" >&2
+  exit 1
+fi
 
-echo "=== partition $DISK (GPT: 512M ESP + rest root) ==="
+echo "=== enable clock and current keyring ==="
+timedatectl set-ntp true || true
+pacman -Sy --noconfirm archlinux-keyring
+
+echo "=== partition $DISK: 512 MiB ESP + root ==="
 sgdisk --zap-all "$DISK"
 sgdisk -n 1:0:+512M -t 1:ef00 -c 1:EFI "$DISK"
-sgdisk -n 2:0:0     -t 2:8300 -c 2:ROOT "$DISK"
+sgdisk -n 2:0:0 -t 2:8300 -c 2:ROOT "$DISK"
 partprobe "$DISK"
 sleep 2
 mkfs.fat -F32 "${DISK}1"
@@ -38,108 +45,93 @@ mount "${DISK}2" /mnt
 mkdir -p /mnt/boot
 mount "${DISK}1" /mnt/boot
 
-echo "=== pacstrap base system + SLOPOS-I build/runtime deps ==="
+echo "=== install base system, X11 and representative desktop applications ==="
 pacstrap -K /mnt \
-  base linux linux-firmware \
-  networkmanager sudo vim nano git curl wget \
-  base-devel pkgconf \
-  rust \
-  wayland wayland-protocols libxkbcommon libinput seatd libdrm mesa \
-  vulkan-icd-loader vulkan-swrast vulkan-tools \
-  libdisplay-info pixman \
-  dbus at-spi2-core \
-  fontconfig freetype2 ttf-dejavu ttf-liberation \
-  pipewire pipewire-pulse wireplumber libpipewire \
-  polkit \
-  xorg-xwayland \
-  labwc foot \
-  imagemagick xdotool wl-clipboard \
-  networkmanager nm-connection-editor \
-  upower \
-  openssh htop \
-  grub efibootmgr
+  base linux linux-firmware networkmanager sudo git curl base-devel rust pkgconf \
+  xorg-server xorg-xinit xorg-xsetroot xorg-xdpyinfo openbox \
+  gtk3 libx11 libxrandr openssl dbus librsvg \
+  ttf-dejavu ttf-liberation \
+  pcmanfm xfce4-terminal mousepad ristretto zathura mpv galculator \
+  pavucontrol nm-connection-editor blueman xfce4-power-manager lxappearance \
+  xdotool wmctrl scrot imagemagick \
+  pipewire pipewire-pulse wireplumber upower bluez \
+  openssh grub efibootmgr
 
-genfstab -U /mnt >> /mnt/etc/fstab
+genfstab -U /mnt >>/mnt/etc/fstab
 
-echo "=== configure system inside chroot ==="
-arch-chroot /mnt /bin/bash -euxo pipefail <<CHROOT
+echo "=== configure installed system ==="
+arch-chroot /mnt /bin/bash -euo pipefail <<CHROOT
 ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 hwclock --systohc
-echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen
 locale-gen
-echo "LANG=en_US.UTF-8" > /etc/locale.conf
-echo "$HOSTNAME" > /etc/hostname
-cat > /etc/hosts <<EOF
-127.0.0.1   localhost
-::1         localhost
-127.0.1.1   $HOSTNAME.localdomain $HOSTNAME
+echo 'LANG=en_US.UTF-8' >/etc/locale.conf
+echo '$HOSTNAME' >/etc/hostname
+cat >/etc/hosts <<EOF
+127.0.0.1 localhost
+::1 localhost
+127.0.1.1 $HOSTNAME.localdomain $HOSTNAME
 EOF
 
-echo "root:$PASSWORD" | chpasswd
-useradd -m -G wheel,video,input,seat -s /bin/bash $USERNAME
-echo "$USERNAME:$PASSWORD" | chpasswd
-echo "%wheel ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/wheel
-chmod 440 /etc/sudoers.d/wheel
+echo 'root:$PASSWORD' | chpasswd
+useradd -m -G wheel,video,input -s /bin/bash '$USERNAME'
+echo '$USERNAME:$PASSWORD' | chpasswd
+install -Dm440 /dev/stdin /etc/sudoers.d/10-wheel <<'EOF'
+%wheel ALL=(ALL:ALL) NOPASSWD: ALL
+EOF
 
 systemctl enable NetworkManager
-systemctl enable seatd
 systemctl enable sshd
+systemctl enable bluetooth || true
 
-# Bootloader (UEFI)
-grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB --removable
+grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=SLOPOS-QA --removable
 sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=1/' /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
 
-# Autologin on tty1 so the VM lands in a shell we can drive
 mkdir -p /etc/systemd/system/getty@tty1.service.d
-cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf <<EOF
+cat >/etc/systemd/system/getty@tty1.service.d/autologin.conf <<EOF
 [Service]
 ExecStart=
-ExecStart=-/sbin/agetty -o '-p -f -- \\\\u' --noclear --autologin $USERNAME %I \$TERM
+ExecStart=-/sbin/agetty --noclear --autologin $USERNAME %I \$TERM
 EOF
-
-# Install the host's SSH public key for the retro user (served by Task 0.2).
-install -d -m 700 -o $USERNAME -g $USERNAME /home/$USERNAME/.ssh
-curl -sL $HOST_HTTP/qa_key.pub -o /home/$USERNAME/.ssh/authorized_keys
-chown $USERNAME:$USERNAME /home/$USERNAME/.ssh/authorized_keys
-chmod 600 /home/$USERNAME/.ssh/authorized_keys
 CHROOT
 
-echo "=== clone + build SLOPOS-I as $USERNAME ==="
-arch-chroot /mnt /bin/bash -euxo pipefail <<CHROOT
-su - $USERNAME -c '
-  set -euxo pipefail
-  git clone --branch "$REPO_BRANCH" "$REPO_URL" ~/slopos-i || git clone "$REPO_URL" ~/slopos-i
+# Optional host-served SSH key. Password access remains available for this QA VM.
+if curl -fsS "$HOST_HTTP/qa_key.pub" -o /tmp/slopos-qa-key 2>/dev/null; then
+  install -d -m700 "/mnt/home/$USERNAME/.ssh"
+  install -m600 /tmp/slopos-qa-key "/mnt/home/$USERNAME/.ssh/authorized_keys"
+  chown -R 1000:1000 "/mnt/home/$USERNAME/.ssh"
+fi
+
+echo "=== clone, build and install current X11 product ==="
+arch-chroot /mnt /bin/bash -euo pipefail <<CHROOT
+runuser -u '$USERNAME' -- bash -lc '
+  set -euo pipefail
+  git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" ~/slopos-i
   cd ~/slopos-i
-  CARGO_TARGET_DIR="$GUEST_TARGET_DIR"
-  export CARGO_TARGET_DIR
-  mkdir -p "$CARGO_TARGET_DIR"
-  cargo build --release --workspace --locked 2>&1 | tee "$CARGO_TARGET_DIR/build.log"
-  mkdir -p ~/.config/slopos-i
-  cat > ~/.config/slopos-i/settings.conf <<EOF
-theme=classic
-appearance=light
-hdr_requested=false
-vrr_adaptive=false
-refresh_rate=60hz
-color_space=srgb
-lock_password=slopos-i
-EOF
+  export CARGO_TARGET_DIR="$GUEST_TARGET_DIR"
+  mkdir -p "\$CARGO_TARGET_DIR"
+  cargo build --release --workspace --locked
+  cargo test --release --workspace --locked
 '
+cd "/home/$USERNAME/slopos-i"
+CARGO_TARGET_DIR="$GUEST_TARGET_DIR" ./install.sh --no-deps --no-build --distro arch
+
+cat >"/home/$USERNAME/.xinitrc" <<'EOF'
+#!/bin/sh
+exec /usr/local/bin/start-slopos-i
+EOF
+chmod +x "/home/$USERNAME/.xinitrc"
+cat >"/home/$USERNAME/.bash_profile" <<'EOF'
+if [ -z "${DISPLAY:-}" ] && [ "$(tty 2>/dev/null)" = /dev/tty1 ]; then
+  exec startx -- :0 vt1 -nolisten tcp
+fi
+EOF
+chown '$USERNAME:$USERNAME' "/home/$USERNAME/.xinitrc" "/home/$USERNAME/.bash_profile"
 CHROOT
 
-echo "=== install session files ==="
-arch-chroot /mnt /bin/bash -euxo pipefail <<CHROOT
-install -Dm755 $GUEST_TARGET_DIR/release/slopos-compositor /usr/local/bin/slopos-compositor
-install -Dm755 $GUEST_TARGET_DIR/release/slopos-shell      /usr/local/bin/slopos-shell
-install -Dm755 $GUEST_TARGET_DIR/release/slopos-lock       /usr/local/bin/slopos-lock || true
-for a in finder settings textedit terminal appstore; do
-  install -Dm755 $GUEST_TARGET_DIR/release/\$a /usr/local/bin/\$a || true
-done
-install -Dm755 /home/$USERNAME/slopos-i/scripts/start-slopos-i /usr/local/bin/start-slopos-i || true
-install -Dm644 /home/$USERNAME/slopos-i/packaging/slopos-i.desktop /usr/share/wayland-sessions/slopos-i.desktop || true
-CHROOT
-
-echo "=== done; rebooting into the installed system ==="
+echo "=== installation complete ==="
+echo "The VM will boot to tty1, start Xorg, Openbox and the SLOPOS shell automatically."
+echo "QA login: $USERNAME / $PASSWORD"
 umount -R /mnt
 systemctl reboot
