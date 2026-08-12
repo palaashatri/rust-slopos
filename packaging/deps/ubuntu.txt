@@ -28,3 +28,4 @@ adwaita-icon-theme
 librsvg2-common
 fonts-liberation
 fonts-dejavu-core
+supertux

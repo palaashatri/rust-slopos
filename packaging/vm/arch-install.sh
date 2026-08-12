@@ -51,7 +51,7 @@ pacstrap -K /mnt \
   xorg-server xorg-xinit xorg-xsetroot xorg-xdpyinfo openbox \
   gtk3 libx11 libxrandr openssl dbus librsvg \
   ttf-dejavu ttf-liberation \
-  pcmanfm xfce4-terminal mousepad ristretto zathura mpv galculator \
+  pcmanfm xfce4-terminal mousepad ristretto zathura mpv galculator supertux \
   pavucontrol nm-connection-editor blueman xfce4-power-manager lxappearance \
   xdotool wmctrl scrot imagemagick \
   pipewire pipewire-pulse wireplumber upower bluez \

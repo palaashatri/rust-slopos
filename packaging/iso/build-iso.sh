@@ -67,6 +67,7 @@ for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
   install -Dm755 "target/release/$binary" "$ROOTFS/usr/local/bin/$binary"
 done
 install -Dm755 scripts/start-slopos-i "$ROOTFS/usr/local/bin/start-slopos-i"
+install -Dm755 scripts/start-slopos-browser "$ROOTFS/usr/local/bin/start-slopos-browser"
 install -Dm644 packaging/slopos-i.desktop "$ROOTFS/usr/share/xsessions/slopos-i.desktop"
 install -Dm644 assets/config/openbox/rc.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc.xml"
 install -Dm644 assets/config/openbox/menu.xml "$ROOTFS/usr/local/share/slopos-i/openbox/menu.xml"
@@ -82,6 +83,9 @@ install -Dm644 assets/slopos-logo.png \
   "$ROOTFS/usr/local/share/slopos-i/slopos-logo.png"
 mkdir -p "$ROOTFS/usr/local/share/slopos-i/themes"
 cp -a themes/platinum "$ROOTFS/usr/local/share/slopos-i/themes/platinum"
+mkdir -p "$ROOTFS/usr/local/share/slopos-i/browser"
+cp -a packaging/browser/chromium "$ROOTFS/usr/local/share/slopos-i/browser/chromium"
+cp -a packaging/browser/firefox "$ROOTFS/usr/local/share/slopos-i/browser/firefox"
 
 # Archiso deliberately copies profile files without preserving their source
 # mode. Register the shipped executables in the profile permission map so the
@@ -92,6 +96,7 @@ file_permissions["/usr/local/bin/slopos-shell"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-catalogue"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-settings"]="0:0:755"
 file_permissions["/usr/local/bin/start-slopos-i"]="0:0:755"
+file_permissions["/usr/local/bin/start-slopos-browser"]="0:0:755"
 EOF
 
 # Materialize the live account during image construction as well as at boot.
@@ -144,7 +149,8 @@ chmod 0755 \
   /usr/local/bin/slopos-shell \
   /usr/local/bin/slopos-catalogue \
   /usr/local/bin/slopos-settings \
-  /usr/local/bin/start-slopos-i
+  /usr/local/bin/start-slopos-i \
+  /usr/local/bin/start-slopos-browser
 if [[ -f /etc/lightdm/lightdm.conf ]]; then
   sed -i \
     -e 's|^#greeter-session=.*|greeter-session=lightdm-gtk-greeter|' \

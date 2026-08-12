@@ -100,6 +100,7 @@ for name in "${BINARIES[@]}"; do
   install -Dm755 "$src" "$PREFIX/bin/$name"
 done
 install -Dm755 scripts/start-slopos-i "$PREFIX/bin/start-slopos-i"
+install -Dm755 scripts/start-slopos-browser "$PREFIX/bin/start-slopos-browser"
 
 # X11 session descriptor. Display managers conventionally scan /usr/share;
 # override XSESSION_DIR for a deliberately self-contained custom prefix.
@@ -125,6 +126,9 @@ install -Dm644 assets/config/mimeapps.list "$PREFIX/share/slopos-i/mimeapps.list
 rm -rf "$PREFIX/share/slopos-i/themes/platinum"
 mkdir -p "$PREFIX/share/slopos-i/themes"
 cp -a themes/platinum "$PREFIX/share/slopos-i/themes/platinum"
+mkdir -p "$PREFIX/share/slopos-i/browser"
+cp -a packaging/browser/chromium "$PREFIX/share/slopos-i/browser/chromium"
+cp -a packaging/browser/firefox "$PREFIX/share/slopos-i/browser/firefox"
 install -Dm644 assets/slopos-logo.png "$PREFIX/share/slopos-i/slopos-logo.png"
 
 if [[ $WITH_GREETER -eq 1 ]]; then

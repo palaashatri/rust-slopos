@@ -215,3 +215,65 @@ fn image_controls_have_accessible_names_and_focus_feedback() {
     assert!(css.contains("button:focus"));
     assert!(css.contains("@slopos_highlight"));
 }
+
+#[test]
+fn browser_integration_is_upstream_and_no_fork() {
+    let launcher = include_str!("../../../scripts/start-slopos-browser");
+    let installer = include_str!("../../../scripts/install-browser-theme.sh");
+    let dock = include_str!("../src/dock.rs");
+    let chromium = include_str!("../../../packaging/browser/chromium/manifest.json");
+    let firefox = include_str!("../../../packaging/browser/firefox/manifest.json");
+    let browser_docs = include_str!("../../../packaging/browser/README.md");
+
+    assert!(launcher.contains("GTK_THEME"));
+    assert!(launcher.contains("firefox"));
+    assert!(launcher.contains("chromium"));
+    assert!(launcher.contains("--load-extension"));
+    assert!(installer.contains("PROFILE_DIR must be an absolute path"));
+    assert!(installer.contains("slopos-backup"));
+    assert!(dock.contains("program: \"start-slopos-browser\""));
+    assert!(chromium.contains("\"manifest_version\": 3"));
+    assert!(chromium.contains("\"frame\": [117, 128, 144]"));
+    assert!(firefox.contains("\"theme\""));
+    assert!(firefox.contains("\"toolbar_field_border_focus\": \"#000080\""));
+    assert!(browser_docs.contains("does not fork or patch Firefox, Chromium or Chrome"));
+
+    for manifest in [
+        include_str!("../../../install.sh"),
+        include_str!("../../../packaging/arch/PKGBUILD"),
+        include_str!("../../../packaging/debian/rules"),
+        include_str!("../../../packaging/iso/build-iso.sh"),
+    ] {
+        assert!(manifest.contains("start-slopos-browser"));
+        assert!(manifest.contains("packaging/browser") || manifest.contains("browser/chromium"));
+    }
+}
+
+#[test]
+fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
+    let qa = include_str!("../../../scripts/run-arch-app-qa.sh");
+    for role in [
+        "file-manager",
+        "terminal",
+        "text-editor",
+        "image-viewer",
+        "browser",
+    ] {
+        assert!(qa.contains(role), "missing upstream role {role}");
+    }
+    assert!(qa.contains("supertux"));
+    assert!(qa.contains("pactl list sink-inputs"));
+    assert!(qa.contains("test -s artifacts/qa/app-matrix/sink-inputs.txt"));
+    assert!(qa.contains("SLOPOS-I Arch upstream application/browser/game evidence PASS"));
+
+    for manifest in [
+        include_str!("../../../packaging/deps/arch.txt"),
+        include_str!("../../../packaging/deps/ubuntu.txt"),
+        include_str!("../../../packaging/iso/packages.x86_64"),
+        include_str!("../../../packaging/vm/arch-install.sh"),
+    ] {
+        assert!(manifest
+            .split_whitespace()
+            .any(|token| token.trim_matches('\\') == "supertux"));
+    }
+}

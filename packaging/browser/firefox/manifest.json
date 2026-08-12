@@ -1,0 +1,37 @@
+{
+  "manifest_version": 2,
+  "name": "SLOPOS Platinum",
+  "version": "1.0.0",
+  "description": "An optional no-fork browser-frame theme for SLOPOS-I.",
+  "theme": {
+    "colors": {
+      "frame": "#758090",
+      "frame_inactive": "#969ca6",
+      "toolbar": "#d9d9d9",
+      "toolbar_field": "#ffffff",
+      "toolbar_field_text": "#000000",
+      "toolbar_field_border": "#606060",
+      "toolbar_field_border_focus": "#000080",
+      "toolbar_field_focus": "#ffffff",
+      "tab_text": "#000000",
+      "tab_background_text": "#707070",
+      "bookmark_text": "#000000",
+      "icons": "#000000",
+      "popup": "#ffffff",
+      "popup_text": "#000000",
+      "popup_border": "#000000",
+      "popup_highlight": "#000080",
+      "popup_highlight_text": "#ffffff",
+      "toolbar_bottom_separator": "#606060",
+      "ntp_background": "#758090",
+      "ntp_text": "#ffffff",
+      "ntp_link": "#ffffff",
+      "ntp_card_background": "#d9d9d9"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "slopos-platinum-theme@slopos-i"
+    }
+  }
+}

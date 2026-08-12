@@ -1,0 +1,56 @@
+/*
+ * Optional Firefox chrome integration for SLOPOS-I.
+ *
+ * Firefox owns its browser chrome, so this is intentionally a small,
+ * version-sensitive enhancement rather than a replacement UI. Web content is
+ * never restyled. The installer backs up an existing userChrome.css before
+ * adding this import.
+ */
+
+:root {
+  --slopos-face: #d9d9d9;
+  --slopos-light: #ffffff;
+  --slopos-shadow: #606060;
+  --slopos-highlight: #000080;
+  --slopos-slate: #758090;
+}
+
+#navigator-toolbox,
+#TabsToolbar,
+#nav-bar,
+#PersonalToolbar {
+  background: var(--slopos-face) !important;
+  color: #000000 !important;
+  border-bottom: 1px solid var(--slopos-shadow) !important;
+  box-shadow: inset 0 1px var(--slopos-light) !important;
+}
+
+#TabsToolbar .tab-background {
+  border-radius: 0 !important;
+  background: var(--slopos-face) !important;
+  border: 1px solid var(--slopos-shadow) !important;
+}
+
+#TabsToolbar .tabbrowser-tab[selected="true"] .tab-background {
+  background: var(--slopos-light) !important;
+  border-bottom-color: var(--slopos-highlight) !important;
+}
+
+#urlbar,
+#searchbar,
+#urlbar-background {
+  border-radius: 0 !important;
+  background: var(--slopos-light) !important;
+  border: 1px solid var(--slopos-shadow) !important;
+  box-shadow: inset 1px 1px var(--slopos-shadow) !important;
+}
+
+#urlbar[focused="true"],
+#searchbar:focus-within {
+  border-color: var(--slopos-highlight) !important;
+}
+
+.toolbarbutton-1,
+.toolbarbutton-1 > .toolbarbutton-icon {
+  border-radius: 0 !important;
+}

@@ -115,6 +115,10 @@ impl Dock {
             "Web Browser",
             &[
                 LaunchSpec {
+                    program: "start-slopos-browser",
+                    args: &[],
+                },
+                LaunchSpec {
                     program: "firefox",
                     args: &[],
                 },

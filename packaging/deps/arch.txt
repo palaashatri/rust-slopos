@@ -11,6 +11,7 @@ zathura
 zathura-pdf-mupdf
 mpv
 firefox
+supertux
 galculator
 networkmanager
 network-manager-applet

@@ -17,6 +17,7 @@ override_dh_auto_install:
 		install -Dm755 $(CARGO_TARGET_DIR)/release/$$binary debian/slopos-i/usr/bin/$$binary; \
 	done
 	install -Dm755 scripts/start-slopos-i debian/slopos-i/usr/bin/start-slopos-i
+	install -Dm755 scripts/start-slopos-browser debian/slopos-i/usr/bin/start-slopos-browser
 	install -Dm644 packaging/slopos-i.desktop debian/slopos-i/usr/share/xsessions/slopos-i.desktop
 	install -Dm644 assets/config/openbox/rc.xml debian/slopos-i/usr/share/slopos-i/openbox/rc.xml
 	install -Dm644 assets/config/openbox/menu.xml debian/slopos-i/usr/share/slopos-i/openbox/menu.xml
@@ -27,6 +28,9 @@ override_dh_auto_install:
 	install -Dm644 assets/slopos-logo.png debian/slopos-i/usr/share/slopos-i/slopos-logo.png
 	mkdir -p debian/slopos-i/usr/share/slopos-i/themes
 	cp -a themes/platinum debian/slopos-i/usr/share/slopos-i/themes/platinum
+	mkdir -p debian/slopos-i/usr/share/slopos-i/browser
+	cp -a packaging/browser/chromium debian/slopos-i/usr/share/slopos-i/browser/chromium
+	cp -a packaging/browser/firefox debian/slopos-i/usr/share/slopos-i/browser/firefox
 	install -Dm644 README.md debian/slopos-i/usr/share/doc/slopos-i/README.md
 	install -Dm644 AGENTS.md debian/slopos-i/usr/share/doc/slopos-i/AGENTS.md
 	install -Dm644 TRUTH.md debian/slopos-i/usr/share/doc/slopos-i/TRUTH.md

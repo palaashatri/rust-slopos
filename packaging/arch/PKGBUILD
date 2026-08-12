@@ -8,13 +8,13 @@ url="https://github.com/palaashatri/rust-slopos"
 license=('MIT')
 depends=(
   xorg-server openbox gtk3 dbus
-  pcmanfm xfce4-terminal mousepad ristretto zathura zathura-pdf-mupdf mpv galculator
+  pcmanfm xfce4-terminal mousepad ristretto zathura zathura-pdf-mupdf mpv galculator supertux
   networkmanager network-manager-applet pavucontrol pipewire pipewire-pulse wireplumber
   blueman upower xfce4-power-manager lxappearance arandr xorg-xrandr xorg-xsetroot
   xdotool wmctrl adwaita-icon-theme librsvg ttf-liberation ttf-dejavu
 )
 makedepends=(cargo pkgconf rust git openssl)
-optdepends=('firefox: web browser' 'lightdm: graphical display manager')
+optdepends=('firefox: web browser' 'supertux: upstream game used for the SLOPOS audio/game smoke' 'lightdm: graphical display manager')
 provides=('slopos-i')
 conflicts=('slopos-i')
 source=('rust-slopos::git+https://github.com/palaashatri/rust-slopos.git#branch=pivot')
@@ -39,6 +39,7 @@ package() {
     install -Dm755 "$CARGO_TARGET_DIR/release/$binary" "$pkgdir/usr/bin/$binary"
   done
   install -Dm755 scripts/start-slopos-i "$pkgdir/usr/bin/start-slopos-i"
+  install -Dm755 scripts/start-slopos-browser "$pkgdir/usr/bin/start-slopos-browser"
 
   install -Dm644 packaging/slopos-i.desktop "$pkgdir/usr/share/xsessions/slopos-i.desktop"
   install -Dm644 assets/config/openbox/rc.xml "$pkgdir/usr/share/slopos-i/openbox/rc.xml"
@@ -52,6 +53,9 @@ package() {
   install -Dm644 assets/config/mimeapps.list "$pkgdir/usr/share/slopos-i/mimeapps.list"
   install -Dm644 assets/slopos-logo.png "$pkgdir/usr/share/slopos-i/slopos-logo.png"
   cp -a themes/platinum "$pkgdir/usr/share/slopos-i/themes/"
+  mkdir -p "$pkgdir/usr/share/slopos-i/browser"
+  cp -a packaging/browser/chromium "$pkgdir/usr/share/slopos-i/browser/chromium"
+  cp -a packaging/browser/firefox "$pkgdir/usr/share/slopos-i/browser/firefox"
 
   install -Dm644 README.md "$pkgdir/usr/share/doc/slopos-i/README.md"
   install -Dm644 AGENTS.md "$pkgdir/usr/share/doc/slopos-i/AGENTS.md"

@@ -6,7 +6,7 @@ SLOPOS-I is a lightweight Linux desktop environment inspired by the clarity and 
 
 ## Current status
 
-The `pivot` branch is an active product reboot. The 2026-08-13 remediation audit records **75/100** in [`TRUTH.md`](TRUTH.md): the X11 packaging, catalogue validation, shell contracts, Docker/Xvfb evidence and QEMU-booted LightDM session are materially stronger, but the project is **not production-ready**. Installed-VM, independent visual acceptance, hardware-service, accessibility/localization and long-run performance evidence remain open.
+The `pivot` branch is an active product reboot. The 2026-08-13 remediation audit records **77/100** in [`TRUTH.md`](TRUTH.md): the X11 packaging, catalogue validation, shell contracts, Docker/Xvfb evidence, upstream application matrix and QEMU-booted LightDM session are materially stronger, but the project is **not production-ready**. Installed-VM, independent visual acceptance, hardware-service, accessibility/localization and long-run performance evidence remain open.
 
 ## Architecture
 
@@ -37,6 +37,8 @@ SLOPOS-I is X11-only. There is no custom compositor, custom window manager, Wayl
 - `crates/slopos-catalogue` — curated AppImage catalogue/installer. Installation is accepted only when trusted integrity metadata is available.
 - `crates/slopos-settings` — small SLOPOS-styled hub that delegates to mature system utilities rather than duplicating their engines.
 
+The optional browser integration keeps Firefox/Chromium/Chrome upstream. `scripts/start-slopos-browser` exports the SLOPOS X11/GTK identity and loads the Chromium theme when available; `scripts/install-browser-theme.sh` can add a backed-up Firefox profile stylesheet or an explicit Chromium profile theme. Browser content and engine UI remain upstream-owned, so this is a best-effort Platinum frame/GTK integration rather than a browser fork. The Figma reference used for the visual audit is the supplied [Classic Macintosh UI Kit](https://www.figma.com/design/LGMlwNCoVdakZxDBvPKg1W/Classic-Macintosh-UI-Kit--Community-?node-id=0-1&p=f).
+
 ## SLOPOS Platinum
 
 The canonical appearance is an original System-7/Platinum-inspired light theme with compact controls, crisp borders, restrained 3D bevels, classic blue selection, a cool slate desktop and a distinctive SLOPOS identity.
@@ -53,7 +55,7 @@ From PowerShell/CMD at the repository root:
 docker run --rm -v "%CD%:/workspace" -w /workspace ubuntu:24.04 bash /workspace/scripts/run-docker-qa.sh
 ```
 
-The QA script builds the workspace, starts a D-Bus-backed Xvfb/Openbox X11 session, asserts required processes and fresh visible windows, exercises representative upstream apps, checks launched PIDs and records five non-empty 1280x800 canonical screenshots.
+The QA script builds the workspace, starts a D-Bus-backed Xvfb/Openbox X11 session, asserts required processes and fresh visible windows, exercises representative upstream apps, checks launched PIDs and records five non-empty 1280x800 canonical screenshots. The separate Arch application gate runs PCManFM, Xfce Terminal, Mousepad, Ristretto, Chromium through the SLOPOS wrapper, and SuperTux with a PulseAudio sink assertion; its audio result is container/null-sink evidence, not proof of physical speaker output.
 
 A passing Docker run is **development evidence**, not proof of hardware/installer/visual production readiness.
 
