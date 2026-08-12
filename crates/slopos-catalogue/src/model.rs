@@ -115,15 +115,6 @@ pub fn get_curated_catalogue() -> Vec<CatalogueApp> {
             "https://download.gimp.org/gimp/v3.2/linux/GIMP-3.2.4-x86_64.AppImage",
         )
         .with_sha256("f1ce6dc671ef1c4aad87a0db9d7462e8ca9c0b5f899456337803c6ba32d0babe"),
-        app(
-            "obs-studio",
-            "OBS Studio",
-            "Screen recording and live streaming",
-            "30.1.2",
-            "Media",
-            "com.obsproject.Studio",
-            "https://github.com/obsproject/obs-studio/releases/download/30.1.2/OBS-Studio-30.1.2-x86_64.AppImage",
-        ),
         // The Audacity release page publishes this SHA-256 alongside the
         // exact Ubuntu 22.04 AppImage asset.
         app(
@@ -291,5 +282,12 @@ mod tests {
             "f1ce6dc671ef1c4aad87a0db9d7462e8ca9c0b5f899456337803c6ba32d0babe"
         );
         assert!(gimp.metadata_is_installable());
+    }
+
+    #[test]
+    fn curated_catalogue_contains_only_installable_entries() {
+        let catalogue = get_curated_catalogue();
+        assert_eq!(catalogue.len(), 4);
+        assert!(catalogue.iter().all(CatalogueApp::metadata_is_installable));
     }
 }

@@ -6,7 +6,7 @@ SLOPOS-I is a lightweight Linux desktop environment inspired by the clarity and 
 
 ## Current status
 
-The `pivot` branch is an active product reboot. The 2026-08-12 remediation audit records **65/100** in [`TRUTH.md`](TRUTH.md): the X11 packaging, catalogue validation, shell contracts and Docker/Xvfb evidence are materially stronger, but the project is **not production-ready**. VM/boot, trusted metadata for the OBS entry, independent visual acceptance, hardware-service, accessibility/localization, performance and full recovery evidence remain open.
+The `pivot` branch is an active product reboot. The 2026-08-12 remediation audit records **66/100** in [`TRUTH.md`](TRUTH.md): the X11 packaging, catalogue validation, shell contracts and Docker/Xvfb evidence are materially stronger, but the project is **not production-ready**. VM/boot, independent visual acceptance, hardware-service, accessibility/localization, performance and full recovery evidence remain open.
 
 ## Architecture
 
