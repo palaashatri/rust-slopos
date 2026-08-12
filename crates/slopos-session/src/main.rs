@@ -2,71 +2,202 @@
 
 use std::env;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
+use std::process::{Child, Command, ExitStatus};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 static RUNNING: AtomicBool = AtomicBool::new(true);
+const HEALTHY_RUNTIME: Duration = Duration::from_secs(30);
+const MAX_FAST_FAILURES: u32 = 5;
+
+struct ManagedChild {
+    name: &'static str,
+    child: Option<Child>,
+    launched_at: Instant,
+    fast_failures: u32,
+    restart_after: Instant,
+}
+
+impl ManagedChild {
+    fn new(name: &'static str, child: Option<Child>) -> Self {
+        Self {
+            name,
+            child,
+            launched_at: Instant::now(),
+            fast_failures: 0,
+            restart_after: Instant::now(),
+        }
+    }
+
+    fn poll(&mut self) -> Result<bool, String> {
+        if let Some(child) = self.child.as_mut() {
+            match child.try_wait() {
+                Ok(None) => return Ok(false),
+                Ok(Some(status)) => self.record_exit(status)?,
+                Err(error) => {
+                    self.child = None;
+                    self.record_failure(format!("wait failed: {error}"))?;
+                }
+            }
+        }
+        Ok(Instant::now() >= self.restart_after)
+    }
+
+    fn replace(&mut self, child: Option<Child>) -> Result<(), String> {
+        self.launched_at = Instant::now();
+        self.child = child;
+        if self.child.is_none() {
+            self.record_failure("spawn failed".to_string())?;
+        }
+        Ok(())
+    }
+
+    fn record_exit(&mut self, status: ExitStatus) -> Result<(), String> {
+        self.child = None;
+        self.record_failure(format!("exited with {status}"))
+    }
+
+    fn record_failure(&mut self, reason: String) -> Result<(), String> {
+        if self.launched_at.elapsed() >= HEALTHY_RUNTIME {
+            self.fast_failures = 0;
+        }
+        self.fast_failures = self.fast_failures.saturating_add(1);
+        if self.fast_failures >= MAX_FAST_FAILURES {
+            return Err(format!(
+                "{} failed {} times in quick succession ({reason})",
+                self.name, self.fast_failures
+            ));
+        }
+
+        let delay_ms = 250_u64.saturating_mul(1_u64 << self.fast_failures.min(4));
+        self.restart_after = Instant::now() + Duration::from_millis(delay_ms);
+        log::warn!(
+            "{} {reason}; restart {} of {} in {}ms",
+            self.name,
+            self.fast_failures,
+            MAX_FAST_FAILURES,
+            delay_ms
+        );
+        Ok(())
+    }
+
+    fn stop(&mut self) {
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
 
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     log::info!("Starting SLOPOS-I X11 session supervisor");
 
-    let display = env::var("DISPLAY").unwrap_or_else(|_| ":0".to_string());
-    env::set_var("DISPLAY", &display);
-
-    unsafe {
-        libc::signal(libc::SIGINT, sig_handler as *const () as usize);
-        libc::signal(libc::SIGTERM, sig_handler as *const () as usize);
-    }
+    configure_session_environment();
+    install_signal_handlers();
+    apply_desktop_fallback();
 
     let openbox_config = resolve_openbox_config();
     let shell_exe = resolve_sibling("slopos-shell").unwrap_or_else(|| PathBuf::from("slopos-shell"));
 
-    let mut wm_child = spawn_openbox(openbox_config.as_deref());
-    let mut shell_child = spawn_path(&shell_exe, &[]);
+    let mut wm = ManagedChild::new("Openbox", spawn_openbox(openbox_config.as_deref()));
+    // Give the WM a small head start so shell windows are managed from their
+    // first map rather than racing Openbox startup.
+    thread::sleep(Duration::from_millis(150));
+    let mut shell = ManagedChild::new("SLOPOS shell", spawn_path(&shell_exe, &[]));
 
     while RUNNING.load(Ordering::SeqCst) {
-        thread::sleep(Duration::from_millis(750));
+        thread::sleep(Duration::from_millis(250));
 
-        let restart_wm = match wm_child.as_mut() {
-            Some(child) => matches!(child.try_wait(), Ok(Some(_))),
-            None => true,
-        };
-        if restart_wm {
-            log::warn!("Openbox is not running; restarting");
-            wm_child = spawn_openbox(openbox_config.as_deref());
+        match wm.poll() {
+            Ok(true) => {
+                if let Err(error) = wm.replace(spawn_openbox(openbox_config.as_deref())) {
+                    log::error!("{error}");
+                    break;
+                }
+            }
+            Ok(false) => {}
+            Err(error) => {
+                log::error!("{error}");
+                break;
+            }
         }
 
-        let restart_shell = match shell_child.as_mut() {
-            Some(child) => matches!(child.try_wait(), Ok(Some(_))),
-            None => true,
-        };
-        if restart_shell {
-            log::warn!("SLOPOS shell is not running; restarting");
-            shell_child = spawn_path(&shell_exe, &[]);
+        match shell.poll() {
+            Ok(true) => {
+                if let Err(error) = shell.replace(spawn_path(&shell_exe, &[])) {
+                    log::error!("{error}");
+                    break;
+                }
+            }
+            Ok(false) => {}
+            Err(error) => {
+                log::error!("{error}");
+                break;
+            }
         }
     }
 
     log::info!("Stopping SLOPOS-I session");
-    if let Some(mut child) = shell_child { let _ = child.kill(); }
-    if let Some(mut child) = wm_child { let _ = child.kill(); }
+    shell.stop();
+    wm.stop();
+}
+
+fn configure_session_environment() {
+    let display = env::var("DISPLAY").unwrap_or_else(|_| ":0".to_string());
+    env::set_var("DISPLAY", display);
+    env::set_var("XDG_SESSION_TYPE", "x11");
+    env::set_var("XDG_CURRENT_DESKTOP", "SLOPOS");
+    env::set_var("XDG_SESSION_DESKTOP", "slopos");
+    env::set_var("DESKTOP_SESSION", "slopos");
+
+    // Export the session identity to D-Bus/systemd activation when the host
+    // provides the standard helper. Failure is non-fatal in minimal sessions.
+    let _ = Command::new("dbus-update-activation-environment")
+        .args([
+            "--systemd",
+            "DISPLAY",
+            "XDG_SESSION_TYPE",
+            "XDG_CURRENT_DESKTOP",
+            "XDG_SESSION_DESKTOP",
+            "DESKTOP_SESSION",
+        ])
+        .status();
+}
+
+fn install_signal_handlers() {
+    unsafe {
+        libc::signal(libc::SIGINT, sig_handler as *const () as usize);
+        libc::signal(libc::SIGTERM, sig_handler as *const () as usize);
+    }
+}
+
+fn apply_desktop_fallback() {
+    if let Err(error) = Command::new("xsetroot")
+        .args(["-solid", "#758090"])
+        .status()
+    {
+        log::debug!("xsetroot is unavailable: {error}");
+    }
 }
 
 fn spawn_openbox(config: Option<&Path>) -> Option<Child> {
-    let mut cmd = Command::new("openbox");
-    cmd.arg("--replace");
+    let mut command = Command::new("openbox");
+    command.arg("--replace");
     if let Some(path) = config {
-        cmd.arg("--config-file").arg(path);
+        command.arg("--config-file").arg(path);
     }
-    match cmd.spawn() {
+    match command.spawn() {
         Ok(child) => {
-            log::info!("Spawned Openbox{}", config.map(|p| format!(" with {}", p.display())).unwrap_or_default());
+            let suffix = config
+                .map(|path| format!(" with {}", path.display()))
+                .unwrap_or_default();
+            log::info!("Spawned Openbox{suffix}");
             Some(child)
         }
-        Err(err) => {
-            log::error!("Failed to spawn Openbox: {err}");
+        Err(error) => {
+            log::error!("Failed to spawn Openbox: {error}");
             None
         }
     }
@@ -75,23 +206,25 @@ fn spawn_openbox(config: Option<&Path>) -> Option<Child> {
 fn spawn_path(path: &Path, args: &[&str]) -> Option<Child> {
     match Command::new(path).args(args).spawn() {
         Ok(child) => Some(child),
-        Err(err) => {
-            log::error!("Failed to spawn {}: {err}", path.display());
+        Err(error) => {
+            log::error!("Failed to spawn {}: {error}", path.display());
             None
         }
     }
 }
 
 fn resolve_sibling(name: &str) -> Option<PathBuf> {
-    let exe = env::current_exe().ok()?;
-    let candidate = exe.parent()?.join(name);
+    let executable = env::current_exe().ok()?;
+    let candidate = executable.parent()?.join(name);
     candidate.exists().then_some(candidate)
 }
 
 fn resolve_openbox_config() -> Option<PathBuf> {
     if let Ok(value) = env::var("SLOPOS_OPENBOX_CONFIG") {
         let path = PathBuf::from(value);
-        if path.exists() { return Some(path); }
+        if path.exists() {
+            return Some(path);
+        }
     }
 
     let candidates = [
