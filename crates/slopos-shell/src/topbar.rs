@@ -8,13 +8,15 @@ use gtk::{
     MenuItem, MessageDialog, MessageType, Orientation, ResponseType, SeparatorMenuItem, Window,
     WindowPosition, WindowType,
 };
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
 use std::time::Duration;
+
+type TargetMenuControls = Rc<RefCell<Vec<(MenuItem, &'static str)>>>;
 
 const LOCK_COMMANDS: &[(&str, &[&str])] = &[
     ("xdg-screensaver", &["lock"]),
@@ -43,6 +45,7 @@ impl TopBar {
         window.style_context().add_class("slopos-topbar");
 
         let target_window = Rc::new(Cell::new(0_u64));
+        let target_menu_controls: TargetMenuControls = Rc::new(RefCell::new(Vec::new()));
         let main_box = GtkBox::new(Orientation::Horizontal, 0);
         // Paint the bar on the child that owns the full allocation as well as
         // on the borderless window. GTK themes do not consistently paint a
@@ -86,7 +89,7 @@ impl TopBar {
         active_title_label.set_max_width_chars(28);
         main_box.pack_start(&active_title_label, false, false, 7);
         main_box.pack_start(
-            &build_global_menu_bar(target_window.clone()),
+            &build_global_menu_bar(target_window.clone(), target_menu_controls.clone()),
             false,
             false,
             0,
@@ -180,6 +183,7 @@ impl TopBar {
 
         install_live_updates(
             target_window,
+            target_menu_controls,
             &active_title_label,
             &clock_label,
             &audio_label,
@@ -197,6 +201,7 @@ impl TopBar {
 
 fn install_live_updates(
     target_window: Rc<Cell<u64>>,
+    target_menu_controls: TargetMenuControls,
     active_title: &Label,
     clock: &Label,
     audio: &Label,
@@ -204,9 +209,10 @@ fn install_live_updates(
     battery: &Label,
 ) {
     let title_target = target_window.clone();
+    let target_menu_controls = target_menu_controls.clone();
     let active_title = active_title.clone();
     glib::timeout_add_local(Duration::from_millis(500), move || {
-        update_active_window(&title_target, &active_title);
+        update_active_window(&title_target, &active_title, &target_menu_controls);
         glib::ControlFlow::Continue
     });
 
@@ -229,18 +235,34 @@ fn install_live_updates(
     });
 }
 
-fn update_active_window(target_window: &Cell<u64>, label: &Label) {
+fn update_active_window(
+    target_window: &Cell<u64>,
+    label: &Label,
+    target_menu_controls: &TargetMenuControls,
+) {
     let Some(id_text) = command_output("xdotool", &["getactivewindow"]) else {
+        target_window.set(0);
+        update_target_menu_controls(target_window, target_menu_controls);
+        label.set_text("SLOPOS Desktop");
         return;
     };
     let Ok(id) = id_text.trim().parse::<u64>() else {
+        target_window.set(0);
+        update_target_menu_controls(target_window, target_menu_controls);
+        label.set_text("SLOPOS Desktop");
         return;
     };
     let Some(title) = command_output("xdotool", &["getwindowname", &id.to_string()]) else {
+        target_window.set(0);
+        update_target_menu_controls(target_window, target_menu_controls);
+        label.set_text("SLOPOS Desktop");
         return;
     };
 
     if is_shell_surface(&title) {
+        target_window.set(0);
+        update_target_menu_controls(target_window, target_menu_controls);
+        label.set_text("SLOPOS Desktop");
         return;
     }
     if title.is_empty() {
@@ -249,6 +271,17 @@ fn update_active_window(target_window: &Cell<u64>, label: &Label) {
     } else {
         target_window.set(id);
         label.set_text(&compact_title(&title));
+    }
+    update_target_menu_controls(target_window, target_menu_controls);
+}
+
+fn update_target_menu_controls(
+    target_window: &Cell<u64>,
+    target_menu_controls: &TargetMenuControls,
+) {
+    let has_target = target_window.get() != 0;
+    for (item, required_command) in target_menu_controls.borrow().iter() {
+        item.set_sensitive(has_target && resolve_program(required_command).is_some());
     }
 }
 
@@ -400,7 +433,10 @@ fn build_system_menu() -> Menu {
     menu
 }
 
-fn build_global_menu_bar(target_window: Rc<Cell<u64>>) -> MenuBar {
+fn build_global_menu_bar(
+    target_window: Rc<Cell<u64>>,
+    target_menu_controls: TargetMenuControls,
+) -> MenuBar {
     let menu_bar = MenuBar::new();
     menu_bar.style_context().add_class("slopos-menu-bar");
 
@@ -414,11 +450,13 @@ fn build_global_menu_bar(target_window: Rc<Cell<u64>>) -> MenuBar {
     }));
     file_menu.append(&SeparatorMenuItem::new());
     let close_target = target_window.clone();
-    file_menu.append(&command_item("Close Window", move || {
+    let close_item = command_item("Close Window", move || {
         if !target_xdotool(&close_target, "windowclose") {
             show_target_unavailable();
         }
-    }));
+    });
+    register_target_menu_control(&target_menu_controls, &close_item, "xdotool");
+    file_menu.append(&close_item);
     file_item.set_submenu(Some(&file_menu));
     menu_bar.append(&file_item);
 
@@ -428,27 +466,32 @@ fn build_global_menu_bar(target_window: Rc<Cell<u64>>) -> MenuBar {
         "Undo",
         "ctrl+z",
         target_window.clone(),
+        target_menu_controls.clone(),
     ));
     edit_menu.append(&SeparatorMenuItem::new());
     edit_menu.append(&target_shortcut_item(
         "Cut",
         "ctrl+x",
         target_window.clone(),
+        target_menu_controls.clone(),
     ));
     edit_menu.append(&target_shortcut_item(
         "Copy",
         "ctrl+c",
         target_window.clone(),
+        target_menu_controls.clone(),
     ));
     edit_menu.append(&target_shortcut_item(
         "Paste",
         "ctrl+v",
         target_window.clone(),
+        target_menu_controls.clone(),
     ));
     edit_menu.append(&target_shortcut_item(
         "Select All",
         "ctrl+a",
         target_window.clone(),
+        target_menu_controls.clone(),
     ));
     edit_item.set_submenu(Some(&edit_menu));
     menu_bar.append(&edit_item);
@@ -459,17 +502,20 @@ fn build_global_menu_bar(target_window: Rc<Cell<u64>>) -> MenuBar {
         "Refresh",
         "F5",
         target_window.clone(),
+        target_menu_controls.clone(),
     ));
     view_menu.append(&SeparatorMenuItem::new());
     view_menu.append(&target_shortcut_item(
         "Zoom In",
         "ctrl+plus",
         target_window.clone(),
+        target_menu_controls.clone(),
     ));
     view_menu.append(&target_shortcut_item(
         "Zoom Out",
         "ctrl+minus",
         target_window.clone(),
+        target_menu_controls.clone(),
     ));
     view_item.set_submenu(Some(&view_menu));
     menu_bar.append(&view_item);
@@ -477,17 +523,21 @@ fn build_global_menu_bar(target_window: Rc<Cell<u64>>) -> MenuBar {
     let window_item = MenuItem::with_label("Window");
     let window_menu = Menu::new();
     let minimize_target = target_window.clone();
-    window_menu.append(&command_item("Minimize", move || {
+    let minimize_item = command_item("Minimize", move || {
         if !target_xdotool(&minimize_target, "windowminimize") {
             show_target_unavailable();
         }
-    }));
+    });
+    register_target_menu_control(&target_menu_controls, &minimize_item, "xdotool");
+    window_menu.append(&minimize_item);
     let maximize_target = target_window.clone();
-    window_menu.append(&command_item("Zoom / Maximize", move || {
+    let maximize_item = command_item("Zoom / Maximize", move || {
         if !target_maximize(&maximize_target) {
             show_target_unavailable();
         }
-    }));
+    });
+    register_target_menu_control(&target_menu_controls, &maximize_item, "wmctrl");
+    window_menu.append(&maximize_item);
     window_menu.append(&command_item("Next Window", || {
         spawn_resolved("xdotool", &["key", "alt+Tab"])
     }));
@@ -509,12 +559,30 @@ fn build_global_menu_bar(target_window: Rc<Cell<u64>>) -> MenuBar {
     menu_bar
 }
 
-fn target_shortcut_item(label: &str, shortcut: &'static str, target: Rc<Cell<u64>>) -> MenuItem {
-    command_item(label, move || {
+fn target_shortcut_item(
+    label: &str,
+    shortcut: &'static str,
+    target: Rc<Cell<u64>>,
+    target_menu_controls: TargetMenuControls,
+) -> MenuItem {
+    let item = command_item(label, move || {
         if !target_shortcut(&target, shortcut) {
             show_target_unavailable();
         }
-    })
+    });
+    register_target_menu_control(&target_menu_controls, &item, "xdotool");
+    item
+}
+
+fn register_target_menu_control(
+    target_menu_controls: &TargetMenuControls,
+    item: &MenuItem,
+    required_command: &'static str,
+) {
+    item.set_sensitive(false);
+    target_menu_controls
+        .borrow_mut()
+        .push((item.clone(), required_command));
 }
 
 fn target_shortcut(target: &Cell<u64>, shortcut: &str) -> bool {

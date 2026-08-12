@@ -29,6 +29,18 @@ cleanup() {
 }
 trap cleanup EXIT
 
+wait_visible_window() {
+  local pattern="$1"
+  for _ in $(seq 1 40); do
+    if xdotool search --onlyvisible --name "$pattern" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  echo "ERROR: visible window not found: $pattern" >&2
+  return 1
+}
+
 echo "[1/8] Installing X11/GTK QA dependencies"
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
@@ -72,8 +84,8 @@ for _ in $(seq 1 20); do
 done
 pgrep -x openbox >/dev/null
 pgrep -x slopos-shell >/dev/null
-xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null
-xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null
+wait_visible_window '^SLOPOS Top Bar$'
+wait_visible_window '^SLOPOS Application Strip$'
 
 echo "[4/8] Verify launcher hotkey toggles existing shell"
 SHELL_COUNT_BEFORE="$(pgrep -xc slopos-shell)"
@@ -95,7 +107,7 @@ for _ in $(seq 1 40); do
 done
 test -n "$shell_after"
 test "$shell_after" != "$shell_before"
-xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null
+wait_visible_window '^SLOPOS Top Bar$'
 
 wm_before="$(pgrep -xo openbox)"
 kill "$wm_before"
@@ -107,7 +119,7 @@ for _ in $(seq 1 40); do
 done
 test -n "$wm_after"
 test "$wm_after" != "$wm_before"
-xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null
+wait_visible_window '^SLOPOS Application Strip$'
 
 echo "[6/8] Capture canonical scenes"
 scrot -z artifacts/qa/screenshots/clean_desktop_1280x800.png

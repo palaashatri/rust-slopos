@@ -97,6 +97,14 @@ fn shipping_manifests_are_x11_only_and_complete() {
     let iso = include_str!("../../../packaging/iso/build-iso.sh");
     assert!(iso.contains("assets/config/mimeapps.list"));
     assert!(iso.contains("sub(/\\r$/, \"\")"));
+    assert!(iso.contains("systemd-sysusers --root=\"$ROOTFS\""));
+    assert!(iso.contains("systemd-tmpfiles --root=\"$ROOTFS\" --create"));
+    assert!(iso.contains("passwd --root \"$ROOTFS\" --delete slopos"));
+    assert!(iso.contains("u slopos 1000"));
+    assert!(iso.contains("file_permissions[\"/usr/local/bin/slopos-session\"]=\"0:0:755\""));
+    assert!(iso.contains("chmod 0755"));
+    assert!(iso.contains("s|^#autologin-user=.*|autologin-user=slopos|"));
+    assert!(iso.contains("s|^#autologin-session=.*|autologin-session=slopos-i|"));
     assert!(include_str!("../../../install.sh").contains("assets/slopos-logo.png"));
 }
 
@@ -172,7 +180,9 @@ fn vm_qa_requires_screenshot_evidence() {
 fn docker_qa_uses_fresh_visible_windows() {
     let qa = include_str!("../../../scripts/run-docker-qa.sh");
     assert!(qa.contains("dbus-run-session -- ./target/release/slopos-session"));
-    assert!(qa.contains("--onlyvisible --name '^SLOPOS Top Bar$'"));
+    assert!(qa.contains("wait_visible_window '^SLOPOS Top Bar$'"));
+    assert!(qa.contains("wait_visible_window '^SLOPOS Application Strip$'"));
+    assert!(qa.contains("xdotool search --onlyvisible --name \"$pattern\""));
     assert!(qa.contains("--onlyvisible --name '^Software Catalogue$'"));
     assert!(qa.contains("--onlyvisible --name '^System Settings$'"));
     assert!(qa.contains("getwindowpid"));
@@ -187,6 +197,9 @@ fn target_menu_commands_report_missing_focus() {
     let topbar = include_str!("../src/topbar.rs");
     assert!(topbar.contains("show_target_unavailable"));
     assert!(topbar.contains("This command needs a focused application window."));
+    assert!(topbar.contains("register_target_menu_control"));
+    assert!(topbar.contains("item.set_sensitive(false)"));
+    assert!(topbar.contains("update_target_menu_controls"));
     assert!(topbar.contains("spawn_first_or_message"));
     assert!(topbar.contains("No compatible file manager is installed"));
 }

@@ -19,6 +19,9 @@ need() {
 need mkarchiso
 need cargo
 need rsync
+need systemd-sysusers
+need systemd-tmpfiles
+need passwd
 
 if [[ ! -d "$RELENG" ]]; then
   echo "ERROR: Archiso releng profile not found at $RELENG" >&2
@@ -80,11 +83,24 @@ install -Dm644 assets/slopos-logo.png \
 mkdir -p "$ROOTFS/usr/local/share/slopos-i/themes"
 cp -a themes/platinum "$ROOTFS/usr/local/share/slopos-i/themes/platinum"
 
-# Live-user creation is handled by systemd-sysusers/tmpfiles at boot.
+# Archiso deliberately copies profile files without preserving their source
+# mode. Register the shipped executables in the profile permission map so the
+# final squashfs keeps them runnable by LightDM and the desktop session.
+cat >> "$PROFILE/profiledef.sh" <<'EOF'
+file_permissions["/usr/local/bin/slopos-session"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-shell"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-catalogue"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-settings"]="0:0:755"
+file_permissions["/usr/local/bin/start-slopos-i"]="0:0:755"
+EOF
+
+# Materialize the live account during image construction as well as at boot.
+# LightDM can start before a first-boot sysusers pass on some releng images;
+# pre-creating the account keeps the configured autologin session deterministic.
 install -d "$ROOTFS/usr/lib/sysusers.d" "$ROOTFS/usr/lib/tmpfiles.d"
 cat > "$ROOTFS/usr/lib/sysusers.d/slopos-live.conf" <<'EOF'
 g autologin -
-u slopos - "SLOPOS Live User" /home/slopos /bin/bash
+u slopos 1000 "SLOPOS Live User" /home/slopos /bin/bash
 m slopos autologin
 m slopos audio
 m slopos video
@@ -93,6 +109,10 @@ cat > "$ROOTFS/usr/lib/tmpfiles.d/slopos-live.conf" <<'EOF'
 d /home/slopos 0755 slopos slopos -
 d /home/slopos/.config 0755 slopos slopos -
 EOF
+
+systemd-sysusers --root="$ROOTFS"
+systemd-tmpfiles --root="$ROOTFS" --create
+passwd --root "$ROOTFS" --delete slopos
 
 # LightDM owns Xorg startup; SLOPOS remains an X11 session rather than trying to
 # launch an X server itself.
@@ -104,6 +124,36 @@ autologin-user-timeout=0
 autologin-session=slopos-i
 user-session=slopos-i
 greeter-session=lightdm-gtk-greeter
+EOF
+# Arch's LightDM package keeps the [Seat:*] defaults in the primary config;
+# write the live-session values there too because not every LightDM build
+# enables drop-in discovery by default. Archiso runs this hook after package
+# installation, when the package-owned primary config exists.
+CUSTOMIZE_HOOK="$ROOTFS/root/customize_airootfs.sh"
+install -Dm755 /dev/null "$CUSTOMIZE_HOOK"
+if ! grep -q '^#!/usr/bin/env bash' "$CUSTOMIZE_HOOK"; then
+  {
+    printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail'
+    cat "$CUSTOMIZE_HOOK"
+  } > "$CUSTOMIZE_HOOK.tmp"
+  mv "$CUSTOMIZE_HOOK.tmp" "$CUSTOMIZE_HOOK"
+fi
+cat >> "$CUSTOMIZE_HOOK" <<'EOF'
+chmod 0755 \
+  /usr/local/bin/slopos-session \
+  /usr/local/bin/slopos-shell \
+  /usr/local/bin/slopos-catalogue \
+  /usr/local/bin/slopos-settings \
+  /usr/local/bin/start-slopos-i
+if [[ -f /etc/lightdm/lightdm.conf ]]; then
+  sed -i \
+    -e 's|^#greeter-session=.*|greeter-session=lightdm-gtk-greeter|' \
+    -e 's|^#user-session=.*|user-session=slopos-i|' \
+    -e 's|^#autologin-user=.*|autologin-user=slopos|' \
+    -e 's|^#autologin-user-timeout=.*|autologin-user-timeout=0|' \
+    -e 's|^#autologin-session=.*|autologin-session=slopos-i|' \
+    /etc/lightdm/lightdm.conf
+fi
 EOF
 
 install -d "$ROOTFS/etc/systemd/system/graphical.target.wants"

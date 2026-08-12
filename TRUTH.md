@@ -1,37 +1,37 @@
 # TRUTH.md — SLOPOS-I Factual Audit & Readiness Ledger
 
-**Audit date:** 2026-08-12
+**Audit date:** 2026-08-13
 **Branch:** `pivot`
 **Audit scope:** remediation working tree after the X11 packaging, catalogue, shell and QA tranche
-**Current evidence-backed readiness:** **72/100**
+**Current evidence-backed readiness:** **75/100**
 
-The previous `100/100` claim was invalid. This audit credits the fixes that have objective source, test and Docker/Xvfb evidence, while withholding credit for VM/boot, hardware, independent visual, performance, accessibility, localization and recovery evidence that has not been produced.
+The previous `100/100` claim was invalid. This audit credits the fixes that have objective source, test, Docker/Xvfb and live-ISO/QEMU evidence, while withholding credit for installed-VM, hardware, independent visual, performance, accessibility and localization evidence that has not been produced.
 
 ## Scorecard
 
 | Domain | Weight | Score | Evidence-based status |
 |---|---:|---:|---|
 | System 7 / Platinum visual identity | 20 | **12/20** | Fresh 1280x800 captures now show the slate desktop, Platinum bar, framed Application Strip and coherent shell windows. The visual gate is still below the contract because icon fallback, upstream-window leakage and several canonical states lack independent review. |
-| Desktop shell / interaction | 15 | **11/15** | Top bar, live focus/time/status updates, singleton Search, keyboard navigation, explicit unavailable menu feedback and local notifications are covered by source/tests and Xvfb interaction. Topbar/dock geometry now passes 1366x768 and 1920x1080 checks; full accessibility interaction remains unverified. |
+| Desktop shell / interaction | 15 | **12/15** | Top bar, live focus/time/status updates, singleton Search, keyboard navigation, explicit unavailable menu feedback and local notifications are covered by source/tests and Xvfb interaction. Target-dependent global commands now disable when no focused application/helper exists; topbar/dock geometry passes 1366x768 and 1920x1080 checks. Full accessibility interaction remains unverified. |
 | X11 window-management integration | 10 | **8/10** | Openbox, X11 margins, four desktops, launcher hotkey and visible window geometry pass the Docker smoke path; disposable Xvfb checks also pass at 1366x768 and 1920x1080. No installed VM evidence is available. |
 | Upstream application integration | 10 | **7/10** | PCManFM and Xfce Terminal launch in the Docker scene; Settings and Catalogue windows are visible and tied to their launched PIDs. Broader upstream-app behavior and theming remain unreviewed. |
 | Software Catalogue / AppImage | 8 | **8/8** | Metadata now requires complete control-free fields, HTTPS host URLs, trusted SHA-256 and a valid ELF payload; redirects are HTTPS-only and bounded. The four curated entries (Kdenlive 24.05.0, Inkscape 1.3.2, GIMP 3.2.4 and Audacity 3.7.7) are installable only with pinned official assets/digests; OBS is omitted because its official release has no Linux AppImage. |
 | System services integration | 8 | **4/8** | Settings is an honest upstream-tool hub and shell status reads available NetworkManager/PipeWire/battery state. Hardware mutation, suspend, Bluetooth and absence/error behavior are not VM-tested. |
-| Installer / boot / session | 8 | **7/8** | Arch/Debian/ISO/root manifests now contain only the four binaries and required assets; disposable Ubuntu smokes validate both a custom-prefix layout and a privileged default-prefix install. The default install placed the descriptor in `/usr/share/xsessions` with absolute `Exec`/`TryExec` paths. Display-manager login, ISO boot and installed-VM evidence remain open. |
-| Functional QA | 7 | **6/7** | The fresh Docker/Xvfb gate passes release build, 13 catalogue tests, 5 shell unit tests, 13 shell integration tests, 3 spaces tests, launcher singleton behavior, visible window/PID checks and five non-empty 1280x800 captures. A separate Docker/Xvfb click-through downloaded Kdenlive, verified its 204,903,616-byte payload hash and desktop entry. VM functional evidence is still absent. |
+| Installer / boot / session | 8 | **8/8** | Arch/Debian/ISO/root manifests contain only the four binaries and required assets; disposable Ubuntu smokes validate custom-prefix and privileged default-prefix installs. The rebuilt Arch ISO contains UID-1000 `slopos`, executable session binaries, primary LightDM autologin/session keys, and a 1280x800 QEMU boot reaches the SLOPOS top bar and launcher after LightDM. Installed-to-disk VM evidence remains open. |
+| Functional QA | 7 | **7/7** | The current Rust gate passes metadata, fmt, check, 13 catalogue tests, 5 shell unit tests, 13 shell integration tests and 3 spaces tests with zero failures; Docker/Xvfb passes all eight stages with recovery and mandatory screenshots. A separate Docker/Xvfb click-through downloaded Kdenlive, verified its 204,903,616-byte payload hash and desktop entry. The QEMU ISO guest reaches the live SLOPOS session at 1280x800; installed-to-disk and hardware behavior remain open. |
 | Visual regression QA | 5 | **3/5** | Canonical desktop, application, multi-window, Catalogue and Settings scenes are captured and manually inspected at 1280x800. The contract's independent 95/100-per-scene visual review and additional resolutions are not complete. |
 | Performance | 3 | **2/3** | `scripts/benchmark-x11-session.sh` records reproducible Xvfb session startup and process-tree RSS: 556 ms / 114,472 KiB at 1280x800 and 555 ms / 116,072 KiB at 1920x1080 in disposable Ubuntu containers. Long-run, cold-cache and hardware-target budgets remain unverified. |
 | Accessibility / localization | 3 | **1/3** | Keyboard basics exist; no complete AT-SPI, focus-order, scaling, locale or international-input acceptance evidence. |
 | Recovery / resilience | 3 | **3/3** | The Docker gate proves one restart of each child; a separate disposable run completed three consecutive shell and Openbox kill/respawn cycles with fresh PIDs, visible shell windows and the supervisor still alive. Hardware/VM recovery remains outside this score. |
-| **Total** | **100** | **72/100** | **Verified development milestone; not production-ready.** |
+| **Total** | **100** | **75/100** | **Verified development milestone; not production-ready.** |
 
 ## Current release-blocking findings
 
 1. **False completion accounting:** `TRUTH.md` awarded 100/100 despite visibly unfinished canonical screenshots and unverified claims.
-2. **Release evidence:** a 1,974,534,144-byte Arch ISO now builds reproducibly, but it has not yet been booted in QEMU/VirtualBox, exercised through a display-manager login, or captured from an installed VM.
+2. **Release evidence:** a 1,974,534,144-byte Arch ISO now builds reproducibly and was booted in QEMU through LightDM autologin into the SLOPOS session at 1280x800. An installed-to-disk VM, installer partitioning path and hardware-target evidence remain open.
 3. **Visual acceptance:** canonical application scenes have been reviewed at 1280x800; the independent 95/100 scene gate, retained 1366x768/1920x1080/HiDPI visual scenes and notification/modal states remain open.
 4. **System and quality evidence:** hardware-backed service mutation, AT-SPI/focus-order/scaling/localization checks and long-run/cold-cache performance budgets remain open; bounded child-failure recovery is now evidenced.
-5. **Packaging policy:** a privileged container install now verifies the default `/usr/share/xsessions` descriptor and absolute `Exec`/`TryExec` paths; display-manager discovery/login and installed-VM evidence are still required.
+5. **Packaging policy:** a privileged container install verifies the default `/usr/share/xsessions` descriptor and absolute `Exec`/`TryExec` paths; QEMU verifies the live ISO display-manager handoff, while installed-VM evidence is still required.
 
 ## Canonical visual findings
 
@@ -88,6 +88,7 @@ The 2026-08-11 deep audit initiates a corrective tranche that:
 - A separate disposable Xvfb session completed three consecutive shell and Openbox kill/respawn cycles; each cycle produced a fresh PID and visible topbar/dock, and the supervisor remained alive (`RECOVERY_REPEAT_STATUS_0`, exit 0).
 - `scripts/benchmark-x11-session.sh` produced `BENCHMARK_STATUS_0` twice: 556 ms startup / 114,472 KiB RSS at 1280x800 and 555 ms / 116,072 KiB at 1920x1080.
 - A disposable Ubuntu smoke install of `scripts/install-session-files.sh --prefix /workspace/artifacts/qa/prefix-test --session-dir /workspace/artifacts/qa/xsessions-test` produced an X11 descriptor whose `Exec` and `TryExec` both point to the prefix's `bin/slopos-session`.
+- The current Arch ISO build completed with `mkarchiso` in a privileged Arch container. Its SHA-256 is `318ffc19ee0289c0e9c7d279ee34113546ff926065ef0d7685384e37aa6afa22`; extracted squashfs checks show UID-1000 `slopos`, mode-755 SLOPOS session binaries, primary LightDM autologin/session keys and no leftover customization hook. QEMU booted that ISO through LightDM into the SLOPOS top bar and launcher; the retained 1280x800 screenshot is `artifacts/qa/iso-boot-final-360s.png` (PNG IHDR verified as 1280x800).
 - `cargo fmt --all -- --check` passes in the Rust 1.97 container after the remediation formatting pass.
 - `git diff --check` and `bash -n` for the changed installer, session, Docker, ISO and VM scripts pass.
 - The Docker gate intentionally prints that visual acceptance remains a separate human/vision review gate; this ledger does not turn generated screenshots into a 100/100 claim.
