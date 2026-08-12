@@ -11,6 +11,9 @@ SLOPOS_SHARE_DIR="${SLOPOS_SHARE_DIR:-$INSTALL_PREFIX/share}"
 # SLOPOS is an X11-only session. Do not inherit a caller's Wayland value and
 # accidentally let an upstream browser select a different display backend.
 export XDG_SESSION_TYPE="x11"
+unset WAYLAND_DISPLAY
+export GDK_BACKEND="x11"
+export MOZ_ENABLE_WAYLAND="0"
 export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-SLOPOS}"
 export XDG_SESSION_DESKTOP="${XDG_SESSION_DESKTOP:-slopos-i}"
 export DESKTOP_SESSION="${DESKTOP_SESSION:-slopos-i}"
@@ -50,11 +53,18 @@ BROWSER="$(resolve_browser)" || {
 
 browser_name="$(basename "$BROWSER")"
 browser_args=()
-if [[ "${SLOPOS_BROWSER_THEME:-1}" != "0" && "$browser_name" == chromium* ]]; then
-  theme_dir="${SLOPOS_BROWSER_THEME_DIR:-$SLOPOS_SHARE_DIR/slopos-i/browser/chromium}"
-  if [[ -f "$theme_dir/manifest.json" ]]; then
-    browser_args+=("--load-extension=$theme_dir")
-  fi
-fi
+case "$browser_name" in
+  chromium*|chrome*|google-chrome*)
+    # Chromium-family builds share the documented Ozone switch. Keep the
+    # browser upstream while making the session's X11 contract explicit.
+    browser_args+=("--ozone-platform=x11")
+    if [[ "${SLOPOS_BROWSER_THEME:-1}" != "0" ]]; then
+      theme_dir="${SLOPOS_BROWSER_THEME_DIR:-$SLOPOS_SHARE_DIR/slopos-i/browser/chromium}"
+      if [[ -f "$theme_dir/manifest.json" ]]; then
+        browser_args+=("--load-extension=$theme_dir")
+      fi
+    fi
+    ;;
+esac
 
 exec "$BROWSER" "${browser_args[@]}" "$@"

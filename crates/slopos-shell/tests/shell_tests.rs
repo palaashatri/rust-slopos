@@ -288,8 +288,13 @@ fn browser_integration_is_upstream_and_no_fork() {
 
     assert!(launcher.contains("GTK_THEME"));
     assert!(launcher.contains("export XDG_SESSION_TYPE=\"x11\""));
+    assert!(launcher.contains("unset WAYLAND_DISPLAY"));
+    assert!(launcher.contains("export GDK_BACKEND=\"x11\""));
+    assert!(launcher.contains("export MOZ_ENABLE_WAYLAND=\"0\""));
     assert!(launcher.contains("firefox"));
     assert!(launcher.contains("chromium"));
+    assert!(launcher.contains("google-chrome"));
+    assert!(launcher.contains("--ozone-platform=x11"));
     assert!(launcher.contains("--load-extension"));
     assert!(installer.contains("PROFILE_DIR must be an absolute path"));
     assert!(installer.contains("slopos-backup"));
