@@ -146,7 +146,7 @@ run_window_app() {
       return 1
     fi
   fi
-  scrot "artifacts/qa/app-matrix/$screenshot"
+  scrot -o "artifacts/qa/app-matrix/$screenshot"
   echo "    pid=$app_pid window_pid=$window_pid"
   kill "$app_pid" 2>/dev/null || true
   wait "$app_pid" 2>/dev/null || true
@@ -237,7 +237,7 @@ xdotool keyup --window "$GAME_WINDOW" Right
 xdotool key --window "$GAME_WINDOW" space
 sleep 1
 kill -0 "$GAME_PID" 2>/dev/null
-scrot artifacts/qa/app-matrix/game.png
+scrot -o artifacts/qa/app-matrix/game.png
 sleep 3
 kill -0 "$GAME_PID" 2>/dev/null
 pactl list sink-inputs >artifacts/qa/app-matrix/sink-inputs.txt

@@ -11,16 +11,12 @@ mkdir -p "$XDG_RUNTIME_DIR" artifacts/qa/screenshots
 chmod 700 "$XDG_RUNTIME_DIR"
 
 # The container is disposable, but the mounted workspace is not. Remove
-# stale processes and only the generated canonical captures so a failed run
-# cannot satisfy a later run with an old window or screenshot.
+# stale processes and every generated capture so a failed run cannot satisfy
+# a later run with an old window or a scrot-generated `_000` image.
 for process in slopos-session slopos-shell slopos-settings slopos-catalogue openbox; do
   pkill -TERM -x "$process" 2>/dev/null || true
 done
-rm -f artifacts/qa/screenshots/clean_desktop_1280x800.png \
-      artifacts/qa/screenshots/active_app_1280x800.png \
-      artifacts/qa/screenshots/multi_window_1280x800.png \
-      artifacts/qa/screenshots/catalogue_store_1280x800.png \
-      artifacts/qa/screenshots/system_settings_1280x800.png
+rm -f artifacts/qa/screenshots/*.png
 
 cleanup() {
   set +e
@@ -122,16 +118,16 @@ test "$wm_after" != "$wm_before"
 wait_visible_window '^SLOPOS Application Strip$'
 
 echo "[6/8] Capture canonical scenes"
-scrot -z artifacts/qa/screenshots/clean_desktop_1280x800.png
+scrot -zo artifacts/qa/screenshots/clean_desktop_1280x800.png
 
 pcmanfm /workspace >artifacts/qa/pcmanfm.log 2>&1 & PCMAN_PID=$!
 sleep 2
 xdotool search --onlyvisible --class pcmanfm >/dev/null
-scrot -z artifacts/qa/screenshots/active_app_1280x800.png
+scrot -zo artifacts/qa/screenshots/active_app_1280x800.png
 
 xfce4-terminal >artifacts/qa/terminal.log 2>&1 & TERM_PID=$!
 sleep 2
-scrot -z artifacts/qa/screenshots/multi_window_1280x800.png
+scrot -zo artifacts/qa/screenshots/multi_window_1280x800.png
 kill "$TERM_PID" "$PCMAN_PID" 2>/dev/null || true
 unset TERM_PID PCMAN_PID
 
@@ -143,7 +139,7 @@ for _ in $(seq 1 20); do
 done
 test -n "${CATALOGUE_WINDOW:-}"
 test "$(xdotool getwindowpid "$CATALOGUE_WINDOW")" = "$CATALOGUE_PID"
-scrot -z artifacts/qa/screenshots/catalogue_store_1280x800.png
+scrot -zo artifacts/qa/screenshots/catalogue_store_1280x800.png
 kill "$CATALOGUE_PID" 2>/dev/null || true
 unset CATALOGUE_PID
 
@@ -155,7 +151,7 @@ for _ in $(seq 1 20); do
 done
 test -n "${SETTINGS_WINDOW:-}"
 test "$(xdotool getwindowpid "$SETTINGS_WINDOW")" = "$SETTINGS_PID"
-scrot -z artifacts/qa/screenshots/system_settings_1280x800.png
+scrot -zo artifacts/qa/screenshots/system_settings_1280x800.png
 kill "$SETTINGS_PID" 2>/dev/null || true
 unset SETTINGS_PID
 
