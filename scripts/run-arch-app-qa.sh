@@ -196,11 +196,11 @@ mkdir -p /tmp/slopos-supertux-qa
 printf '%s\n' '(supertux-config' '  (disable_network #t)' ')' \
   >/tmp/slopos-supertux-qa/config
 GAME_LEVEL="$(pacman -Ql supertux 2>/dev/null \
-  | awk '$2 ~ /\/levels\/world1\/intro\.stl$/ { print $2; exit }')"
+  | awk '$2 ~ /\/levels\/world1\/frosted_fields\.stl$/ { print $2; exit }')"
 if [[ -z "$GAME_LEVEL" || ! -f "$GAME_LEVEL" ]]; then
   GAME_LEVEL="$(find /usr/share /usr/local/share -type f \
-    \( -path '*/supertux*/levels/world1/intro.stl' \
-       -o -path '*/supertux*/data/levels/world1/intro.stl' \) \
+    \( -path '*/supertux*/levels/world1/frosted_fields.stl' \
+       -o -path '*/supertux*/data/levels/world1/frosted_fields.stl' \) \
     -print -quit 2>/dev/null || true)"
 fi
 if [[ -z "$GAME_LEVEL" || ! -f "$GAME_LEVEL" ]]; then
@@ -225,12 +225,16 @@ xdotool windowfocus "$GAME_WINDOW"
 eval "$(xdotool getwindowgeometry --shell "$GAME_WINDOW")"
 test "${WIDTH:-0}" -ge 400
 test "${HEIGHT:-0}" -ge 300
-sleep 2
+# A direct level starts with the upstream introductory cut-scene. Skip it so
+# the retained frame proves that the playable level, not just a mapped game
+# window, is rendering before we exercise movement/jump input.
+xdotool key --window "$GAME_WINDOW" Escape
+sleep 10
 kill -0 "$GAME_PID" 2>/dev/null
-xdotool keydown Right
+xdotool keydown --window "$GAME_WINDOW" Right
 sleep 2
-xdotool keyup Right
-xdotool key space
+xdotool keyup --window "$GAME_WINDOW" Right
+xdotool key --window "$GAME_WINDOW" space
 sleep 1
 kill -0 "$GAME_PID" 2>/dev/null
 scrot artifacts/qa/app-matrix/game.png
@@ -245,9 +249,14 @@ grep -Eq "${GAME_PID}|supertux|SuperTux" artifacts/qa/app-matrix/sink-inputs.txt
 }
 echo "    game_pid=$GAME_PID window_pid=$GAME_WINDOW_PID"
 
-# Close the game before Xvfb is torn down. This avoids turning normal display
-# shutdown into an SDL/X11 crash that the old gate accidentally ignored.
-xdotool windowclose "$GAME_WINDOW" 2>/dev/null || true
+# Ask the upstream game to leave through its own input path before Xvfb is
+# torn down. Sending a WM close request while SDL is processing input can
+# trigger a SuperTux/X11 teardown crash; Escape opens the pause menu and Q
+# selects its quit action without closing the X connection underneath SDL.
+xdotool windowactivate --sync "$GAME_WINDOW" 2>/dev/null || true
+xdotool key --window "$GAME_WINDOW" Escape 2>/dev/null || true
+sleep 1
+xdotool key --window "$GAME_WINDOW" q 2>/dev/null || true
 for _ in $(seq 1 40); do
   if ! kill -0 "$GAME_PID" 2>/dev/null; then
     break

@@ -30,8 +30,19 @@ $existing = & $VBox list vms | Select-String -SimpleMatch "`"$VmName`""
 if ($existing) {
     if ($Recreate) {
         Write-Host "Removing existing VM $VmName"
-        & $VBox controlvm $VmName poweroff 2>$null | Out-Null
-        Start-Sleep -Seconds 2
+        $vmState = (& $VBox showvminfo $VmName --machinereadable |
+            Select-String '^VMState="([^\"]+)"$').Matches.Groups[1].Value
+        if ($vmState -in @('running', 'paused', 'stuck')) {
+            $previousErrorAction = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            & $VBox controlvm $VmName poweroff 2>&1 | Out-Null
+            $poweroffExit = $LASTEXITCODE
+            $ErrorActionPreference = $previousErrorAction
+            if ($poweroffExit -ne 0) {
+                throw "VBoxManage controlvm $VmName poweroff failed ($poweroffExit)"
+            }
+            Start-Sleep -Seconds 2
+        }
         VB unregistervm $VmName --delete
     } else {
         Write-Host "VM $VmName already exists (use -Recreate to rebuild)"

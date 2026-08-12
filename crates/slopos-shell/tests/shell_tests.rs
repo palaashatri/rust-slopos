@@ -217,6 +217,14 @@ fn installed_vm_harness_pins_source_and_collects_status() {
 }
 
 #[test]
+fn vm_recreate_checks_state_before_poweroff() {
+    let create_vm = include_str!("../../../packaging/vm/create-vm.ps1");
+    assert!(create_vm.contains("showvminfo $VmName --machinereadable"));
+    assert!(create_vm.contains("$vmState -in @('running', 'paused', 'stuck')"));
+    assert!(create_vm.contains("controlvm $VmName poweroff"));
+}
+
+#[test]
 fn docker_qa_uses_fresh_visible_windows() {
     let qa = include_str!("../../../scripts/run-docker-qa.sh");
     assert!(qa.contains("dbus-run-session -- ./target/release/slopos-session"));
@@ -307,11 +315,12 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("SLOPOS Browser QA"));
     assert!(qa.contains("browser-dom.html"));
     assert!(qa.contains("getwindowname"));
-    assert!(qa.contains("world1/intro.stl"));
-    assert!(qa.contains("xdotool keydown Right"));
-    assert!(qa.contains("xdotool key space"));
+    assert!(qa.contains("world1/frosted_fields.stl"));
+    assert!(qa.contains("xdotool keydown --window"));
+    assert!(qa.contains("xdotool key --window \"$GAME_WINDOW\" space"));
     assert!(qa.contains("kill -0 \"$GAME_PID\""));
-    assert!(qa.contains("xdotool windowclose"));
+    assert!(qa.contains("xdotool key --window \"$GAME_WINDOW\" Escape"));
+    assert!(qa.contains("xdotool key --window \"$GAME_WINDOW\" q"));
     assert!(qa.contains("unrecoverable error"));
     assert!(qa.contains("pactl list sink-inputs"));
     assert!(qa.contains("test -s artifacts/qa/app-matrix/sink-inputs.txt"));
