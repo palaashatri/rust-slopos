@@ -26,9 +26,10 @@ impl CatalogueApp {
     }
 
     pub fn metadata_is_installable(&self) -> bool {
-        self.download_url.starts_with("https://")
+        valid_id(&self.id)
+            && self.download_url.starts_with("https://")
             && self.sha256.len() == 64
-            && self.sha256.chars().all(|c| c.is_ascii_hexdigit())
+            && self.sha256.chars().all(|character| character.is_ascii_hexdigit())
             && !self.sha256.eq_ignore_ascii_case(EMPTY_FILE_SHA256)
     }
 }
@@ -56,16 +57,51 @@ pub fn get_desktop_entry_path(id: &str) -> PathBuf {
 /// disable installation rather than bypass integrity verification.
 pub fn get_curated_catalogue() -> Vec<CatalogueApp> {
     vec![
-        app("kdenlive", "Kdenlive", "Non-linear video editor", "24.05.0", "Media", "kdenlive",
-            "https://files.kde.org/kdenlive/release/kdenlive-24.05.0-x86_64.AppImage"),
-        app("inkscape", "Inkscape", "Vector graphics editor", "1.3.2", "Graphics", "inkscape",
-            "https://inkscape.org/gallery/item/44621/Inkscape-e7c6843-x86_64.AppImage"),
-        app("gimp", "GIMP", "GNU Image Manipulation Program", "2.10.38", "Graphics", "gimp",
-            "https://download.gimp.org/gimp/v2.10/appimage/GIMP_AppImage-git-2.10.38-x86_64.AppImage"),
-        app("obs-studio", "OBS Studio", "Screen recording and live streaming", "30.1.2", "Media", "com.obsproject.Studio",
-            "https://github.com/obsproject/obs-studio/releases/download/30.1.2/OBS-Studio-30.1.2-x86_64.AppImage"),
-        app("audacity", "Audacity", "Multi-track audio editor", "3.5.1", "Media", "audacity",
-            "https://github.com/audacity/audacity/releases/download/Audacity-3.5.1/audacity-linux-3.5.1-x86_64.AppImage"),
+        app(
+            "kdenlive",
+            "Kdenlive",
+            "Non-linear video editor",
+            "24.05.0",
+            "Media",
+            "kdenlive",
+            "https://files.kde.org/kdenlive/release/kdenlive-24.05.0-x86_64.AppImage",
+        ),
+        app(
+            "inkscape",
+            "Inkscape",
+            "Vector graphics editor",
+            "1.3.2",
+            "Graphics",
+            "inkscape",
+            "https://inkscape.org/gallery/item/44621/Inkscape-e7c6843-x86_64.AppImage",
+        ),
+        app(
+            "gimp",
+            "GIMP",
+            "GNU Image Manipulation Program",
+            "2.10.38",
+            "Graphics",
+            "gimp",
+            "https://download.gimp.org/gimp/v2.10/appimage/GIMP_AppImage-git-2.10.38-x86_64.AppImage",
+        ),
+        app(
+            "obs-studio",
+            "OBS Studio",
+            "Screen recording and live streaming",
+            "30.1.2",
+            "Media",
+            "com.obsproject.Studio",
+            "https://github.com/obsproject/obs-studio/releases/download/30.1.2/OBS-Studio-30.1.2-x86_64.AppImage",
+        ),
+        app(
+            "audacity",
+            "Audacity",
+            "Multi-track audio editor",
+            "3.5.1",
+            "Media",
+            "audacity",
+            "https://github.com/audacity/audacity/releases/download/Audacity-3.5.1/audacity-linux-3.5.1-x86_64.AppImage",
+        ),
     ]
 }
 
@@ -89,5 +125,48 @@ fn app(
         icon_name: icon_name.to_string(),
         download_url: download_url.to_string(),
         sha256: String::new(),
+    }
+}
+
+fn valid_id(id: &str) -> bool {
+    !id.is_empty()
+        && id
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.'))
+        && id != "."
+        && id != ".."
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn candidate(id: &str, digest: &str) -> CatalogueApp {
+        CatalogueApp {
+            id: id.to_string(),
+            name: "Test".into(),
+            summary: "Test".into(),
+            description: "Test".into(),
+            version: "1".into(),
+            architecture: "x86_64".into(),
+            category: "Utility".into(),
+            icon_name: "application-x-executable".into(),
+            download_url: "https://example.invalid/app.AppImage".into(),
+            sha256: digest.into(),
+        }
+    }
+
+    #[test]
+    fn rejects_path_traversal_ids() {
+        let digest = "a".repeat(64);
+        assert!(!candidate("../escape", &digest).metadata_is_installable());
+        assert!(!candidate("..", &digest).metadata_is_installable());
+    }
+
+    #[test]
+    fn requires_non_placeholder_sha256() {
+        assert!(!candidate("safe", "").metadata_is_installable());
+        assert!(!candidate("safe", EMPTY_FILE_SHA256).metadata_is_installable());
+        assert!(candidate("safe", &"a".repeat(64)).metadata_is_installable());
     }
 }
