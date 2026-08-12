@@ -1,13 +1,23 @@
 //! SLOPOS-I Settings hub.
 //!
-//! This intentionally delegates to mature upstream configuration utilities.
-//! It does not expose decorative controls that pretend to modify system state.
+//! The hub provides a consistent SLOPOS control-panel surface while delegating
+//! system mutation to mature upstream X11/Linux configuration utilities.
 
 use gtk::prelude::*;
-use gtk::{Box as GtkBox, Button, IconSize, Image, Label, Orientation, Window, WindowPosition, WindowType};
+use gtk::{
+    Align, Box as GtkBox, Button, Grid, IconSize, Image, Label, Orientation, Window,
+    WindowPosition, WindowType,
+};
 use std::env;
 use std::path::Path;
 use std::process::Command;
+
+struct ControlPanel<'a> {
+    icon: &'a str,
+    title: &'a str,
+    description: &'a str,
+    candidates: &'a [(&'a str, &'a [&'a str])],
+}
 
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -16,10 +26,14 @@ fn main() {
 
     let window = Window::new(WindowType::Toplevel);
     window.set_title("System Settings");
-    window.set_default_size(620, 520);
+    window.set_default_size(700, 540);
     window.set_position(WindowPosition::Center);
+    window.connect_delete_event(|_, _| {
+        gtk::main_quit();
+        glib::Propagation::Proceed
+    });
 
-    let body = GtkBox::new(Orientation::Vertical, 7);
+    let body = GtkBox::new(Orientation::Vertical, 8);
     body.style_context().add_class("slopos-window-body");
 
     let title = Label::new(Some("System Settings"));
@@ -27,69 +41,86 @@ fn main() {
     title.style_context().add_class("slopos-panel-title");
     body.pack_start(&title, false, false, 0);
 
-    let subtitle = Label::new(Some("SLOPOS delegates system configuration to mature X11/Linux utilities."));
+    let subtitle = Label::new(Some(
+        "Open a control panel to configure your Linux desktop and hardware.",
+    ));
     subtitle.set_xalign(0.0);
-    subtitle.style_context().add_class("slopos-panel-subtitle");
-    body.pack_start(&subtitle, false, false, 2);
+    subtitle
+        .style_context()
+        .add_class("slopos-panel-subtitle");
+    body.pack_start(&subtitle, false, false, 0);
 
-    add_launcher_row(
-        &body,
-        "video-display-symbolic",
-        "Displays",
-        "Resolution, orientation and monitor layout",
-        &[("arandr", &[]), ("lxrandr", &[])],
-    );
-    add_launcher_row(
-        &body,
-        "audio-card-symbolic",
-        "Sound",
-        "Output devices, input devices and volume",
-        &[("pavucontrol", &[])],
-    );
-    add_launcher_row(
-        &body,
-        "network-wireless-symbolic",
-        "Network",
-        "Wi-Fi, Ethernet and saved connections",
-        &[("nm-connection-editor", &[])],
-    );
-    add_launcher_row(
-        &body,
-        "bluetooth-symbolic",
-        "Bluetooth",
-        "Discover, pair and manage Bluetooth devices",
-        &[("blueman-manager", &[])],
-    );
-    add_launcher_row(
-        &body,
-        "battery-good-symbolic",
-        "Power",
-        "Sleep, lid and battery behavior",
-        &[("xfce4-power-manager-settings", &[])],
-    );
-    add_launcher_row(
-        &body,
-        "preferences-desktop-theme-symbolic",
-        "Appearance",
-        "GTK theme, icons and font preferences",
-        &[("lxappearance", &[])],
-    );
-    add_launcher_row(
-        &body,
-        "preferences-desktop-wallpaper-symbolic",
-        "Desktop",
-        "Wallpaper and desktop presentation",
-        &[("pcmanfm", &["--desktop-pref"])],
-    );
-    add_launcher_row(
-        &body,
-        "input-keyboard-symbolic",
-        "Keyboard & Mouse",
-        "Pointer and keyboard preferences",
-        &[("lxinput", &[])],
-    );
+    let separator = gtk::Separator::new(Orientation::Horizontal);
+    body.pack_start(&separator, false, false, 0);
 
-    let status = Label::new(Some("Unavailable tools are disabled instead of simulated."));
+    let grid = Grid::new();
+    grid.set_row_spacing(8);
+    grid.set_column_spacing(8);
+    grid.set_column_homogeneous(true);
+    grid.set_row_homogeneous(true);
+    grid.set_hexpand(true);
+    grid.set_vexpand(true);
+
+    let panels = [
+        ControlPanel {
+            icon: "video-display-symbolic",
+            title: "Displays",
+            description: "Resolution, rotation and monitor layout",
+            candidates: &[("arandr", &[]), ("lxrandr", &[])],
+        },
+        ControlPanel {
+            icon: "audio-card-symbolic",
+            title: "Sound",
+            description: "Output, input devices and volume",
+            candidates: &[("pavucontrol", &[])],
+        },
+        ControlPanel {
+            icon: "network-wireless-symbolic",
+            title: "Network",
+            description: "Wi-Fi, Ethernet and saved connections",
+            candidates: &[("nm-connection-editor", &[])],
+        },
+        ControlPanel {
+            icon: "bluetooth-symbolic",
+            title: "Bluetooth",
+            description: "Discover, pair and manage devices",
+            candidates: &[("blueman-manager", &[])],
+        },
+        ControlPanel {
+            icon: "battery-good-symbolic",
+            title: "Power",
+            description: "Sleep, lid and battery behaviour",
+            candidates: &[("xfce4-power-manager-settings", &[])],
+        },
+        ControlPanel {
+            icon: "preferences-desktop-theme-symbolic",
+            title: "Appearance",
+            description: "GTK theme, icons and font preferences",
+            candidates: &[("lxappearance", &[])],
+        },
+        ControlPanel {
+            icon: "preferences-desktop-wallpaper-symbolic",
+            title: "Desktop",
+            description: "Wallpaper and desktop presentation",
+            candidates: &[("pcmanfm", &["--desktop-pref"])],
+        },
+        ControlPanel {
+            icon: "input-keyboard-symbolic",
+            title: "Keyboard & Mouse",
+            description: "Pointer and keyboard preferences",
+            candidates: &[("lxinput", &[])],
+        },
+    ];
+
+    for (index, panel) in panels.iter().enumerate() {
+        let button = control_panel_button(panel);
+        grid.attach(&button, (index % 2) as i32, (index / 2) as i32, 1, 1);
+    }
+    body.pack_start(&grid, true, true, 0);
+
+    let status = Label::new(Some(
+        "Unavailable control panels are disabled rather than simulated.",
+    ));
     status.set_xalign(0.0);
     status.style_context().add_class("slopos-statusbar");
     body.pack_end(&status, false, false, 0);
@@ -99,54 +130,75 @@ fn main() {
     gtk::main();
 }
 
-fn add_launcher_row(
-    parent: &GtkBox,
-    icon_name: &str,
-    title_text: &str,
-    description_text: &str,
-    candidates: &[(&str, &[&str])],
-) {
-    let row = GtkBox::new(Orientation::Horizontal, 9);
-    row.style_context().add_class("slopos-preference-row");
+fn control_panel_button(panel: &ControlPanel<'_>) -> Button {
+    let selected = panel
+        .candidates
+        .iter()
+        .find(|(program, _)| command_exists(program))
+        .map(|(program, args)| {
+            (
+                (*program).to_string(),
+                args.iter()
+                    .map(|argument| (*argument).to_string())
+                    .collect::<Vec<_>>(),
+            )
+        });
 
-    row.pack_start(&Image::from_icon_name(Some(icon_name), IconSize::Dnd), false, false, 0);
+    let button = Button::new();
+    button.style_context().add_class("slopos-control-panel");
+    button.set_hexpand(true);
+    button.set_vexpand(true);
+    button.set_tooltip_text(Some(panel.description));
 
-    let text = GtkBox::new(Orientation::Vertical, 1);
-    let title = Label::new(Some(title_text));
+    let content = GtkBox::new(Orientation::Horizontal, 10);
+    content.set_halign(Align::Fill);
+    content.set_valign(Align::Center);
+
+    let icon = Image::from_icon_name(Some(panel.icon), IconSize::Dialog);
+    content.pack_start(&icon, false, false, 0);
+
+    let labels = GtkBox::new(Orientation::Vertical, 2);
+    labels.set_valign(Align::Center);
+    let title = Label::new(Some(panel.title));
     title.set_xalign(0.0);
-    title.style_context().add_class("slopos-result-title");
-    text.pack_start(&title, false, false, 0);
+    title.style_context().add_class("slopos-control-title");
+    labels.pack_start(&title, false, false, 0);
 
-    let description = Label::new(Some(description_text));
-    description.set_xalign(0.0);
-    description.style_context().add_class("slopos-secondary-text");
-    text.pack_start(&description, false, false, 0);
-    row.pack_start(&text, true, true, 0);
+    let description = if selected.is_some() {
+        panel.description.to_string()
+    } else {
+        format!("{} — utility not installed", panel.description)
+    };
+    let subtitle = Label::new(Some(&description));
+    subtitle.set_xalign(0.0);
+    subtitle.set_line_wrap(true);
+    subtitle
+        .style_context()
+        .add_class("slopos-secondary-text");
+    labels.pack_start(&subtitle, false, false, 0);
+    content.pack_start(&labels, true, true, 0);
+    button.add(&content);
 
-    let selected = candidates.iter().find(|(program, _)| command_exists(program)).map(|(program, args)| {
-        (
-            (*program).to_string(),
-            args.iter().map(|arg| (*arg).to_string()).collect::<Vec<_>>(),
-        )
-    });
-
-    let button = Button::with_label(if selected.is_some() { "Open…" } else { "Not installed" });
     if let Some((program, args)) = selected {
         button.connect_clicked(move |_| {
-            if let Err(err) = Command::new(&program).args(&args).spawn() {
-                log::warn!("Failed to launch {program}: {err}");
+            if let Err(error) = Command::new(&program).args(&args).spawn() {
+                log::warn!("Failed to launch {program}: {error}");
             }
         });
     } else {
         button.set_sensitive(false);
     }
-    row.pack_end(&button, false, false, 0);
-    parent.pack_start(&row, false, false, 0);
+
+    button
 }
 
 fn command_exists(program: &str) -> bool {
-    if program.contains('/') { return Path::new(program).is_file(); }
-    let Some(path) = env::var_os("PATH") else { return false; };
+    if program.contains('/') {
+        return Path::new(program).is_file();
+    }
+    let Some(path) = env::var_os("PATH") else {
+        return false;
+    };
     env::split_paths(&path).any(|dir| dir.join(program).is_file())
 }
 
@@ -156,7 +208,9 @@ fn load_css_theme() {
         "/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css",
         "/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css",
     ] {
-        if !Path::new(path).exists() { continue; }
+        if !Path::new(path).exists() {
+            continue;
+        }
         let provider = gtk::CssProvider::new();
         if provider.load_from_path(path).is_ok() {
             if let Some(screen) = gdk::Screen::default() {
