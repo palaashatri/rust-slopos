@@ -40,9 +40,7 @@ fn main() {
         "Curated AppImages — installation is enabled only for integrity-verified metadata.",
     ));
     subtitle.set_xalign(0.0);
-    subtitle
-        .style_context()
-        .add_class("slopos-panel-subtitle");
+    subtitle.style_context().add_class("slopos-panel-subtitle");
     body.pack_start(&subtitle, false, false, 0);
 
     let search = Entry::new();
@@ -128,9 +126,7 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
 
         let summary = Label::new(Some(&app.summary));
         summary.set_xalign(0.0);
-        summary
-            .style_context()
-            .add_class("slopos-secondary-text");
+        summary.style_context().add_class("slopos-secondary-text");
         text.pack_start(&summary, false, false, 0);
 
         if !app.metadata_is_installable() && !app.is_installed() {

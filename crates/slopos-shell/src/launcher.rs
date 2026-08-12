@@ -43,7 +43,9 @@ impl Launcher {
             gtk::EntryIconPosition::Primary,
             Some("system-search-symbolic"),
         );
-        search_entry.style_context().add_class("slopos-search-entry");
+        search_entry
+            .style_context()
+            .add_class("slopos-search-entry");
         search_entry.set_tooltip_text(Some("Search installed desktop applications"));
         main_box.pack_start(&search_entry, false, false, 0);
 
@@ -257,7 +259,9 @@ fn spawn_app(app: &DesktopApp) -> Result<(), String> {
                     .map_err(|error| error.to_string());
             }
         }
-        return Err("application requires a terminal, but no supported terminal is installed".into());
+        return Err(
+            "application requires a terminal, but no supported terminal is installed".into(),
+        );
     }
 
     Command::new(program)

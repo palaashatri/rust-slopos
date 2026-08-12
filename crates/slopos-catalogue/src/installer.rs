@@ -23,7 +23,10 @@ pub fn install_appimage(app: &CatalogueApp) -> Result<(), String> {
     let part = temporary_path(&target);
     remove_if_present(&part)?;
 
-    log::info!("Downloading integrity-verified AppImage target: {}", app.name);
+    log::info!(
+        "Downloading integrity-verified AppImage target: {}",
+        app.name
+    );
     let install_result = (|| -> Result<(), String> {
         let actual = download_and_hash(&app.download_url, &part)?;
         if !actual.eq_ignore_ascii_case(&app.sha256) {
@@ -88,7 +91,8 @@ fn download_and_hash(url: &str, part: &Path) -> Result<String, String> {
         }
     }
 
-    let mut file = File::create(part).map_err(|error| format!("create partial AppImage: {error}"))?;
+    let mut file =
+        File::create(part).map_err(|error| format!("create partial AppImage: {error}"))?;
     let mut hasher = Sha256::new();
     let mut buffer = [0_u8; 128 * 1024];
     let mut total = 0_u64;
@@ -182,7 +186,10 @@ mod tests {
 
     #[test]
     fn desktop_values_cannot_inject_new_lines() {
-        assert_eq!(escape_desktop_value("hello\nExec=evil"), "hello\\nExec=evil");
+        assert_eq!(
+            escape_desktop_value("hello\nExec=evil"),
+            "hello\\nExec=evil"
+        );
     }
 
     #[test]

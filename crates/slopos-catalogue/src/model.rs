@@ -29,7 +29,10 @@ impl CatalogueApp {
         valid_id(&self.id)
             && self.download_url.starts_with("https://")
             && self.sha256.len() == 64
-            && self.sha256.chars().all(|character| character.is_ascii_hexdigit())
+            && self
+                .sha256
+                .chars()
+                .all(|character| character.is_ascii_hexdigit())
             && !self.sha256.eq_ignore_ascii_case(EMPTY_FILE_SHA256)
     }
 }
@@ -130,9 +133,9 @@ fn app(
 
 fn valid_id(id: &str) -> bool {
     !id.is_empty()
-        && id
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.'))
+        && id.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.')
+        })
         && id != "."
         && id != ".."
 }

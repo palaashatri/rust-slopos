@@ -99,7 +99,8 @@ fn main() {
     apply_desktop_fallback();
 
     let openbox_config = resolve_openbox_config();
-    let shell_exe = resolve_sibling("slopos-shell").unwrap_or_else(|| PathBuf::from("slopos-shell"));
+    let shell_exe =
+        resolve_sibling("slopos-shell").unwrap_or_else(|| PathBuf::from("slopos-shell"));
 
     let mut wm = ManagedChild::new("Openbox", spawn_openbox(openbox_config.as_deref()));
     // Give the WM a small head start so shell windows are managed from their

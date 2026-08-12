@@ -40,9 +40,7 @@ impl Dock {
         window.set_skip_pager_hint(true);
 
         let dock_box = GtkBox::new(Orientation::Horizontal, 3);
-        dock_box
-            .style_context()
-            .add_class("slopos-dock-container");
+        dock_box.style_context().add_class("slopos-dock-container");
 
         add_action_item(
             &dock_box,
@@ -144,9 +142,7 @@ impl Dock {
         );
 
         let separator = Separator::new(Orientation::Vertical);
-        separator
-            .style_context()
-            .add_class("slopos-dock-separator");
+        separator.style_context().add_class("slopos-dock-separator");
         dock_box.pack_start(&separator, false, false, 1);
 
         add_launch_item(

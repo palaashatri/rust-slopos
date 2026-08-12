@@ -254,7 +254,7 @@ fn compact_title(title: &str) -> String {
 }
 
 fn current_volume() -> Option<String> {
-    let text = command_output("wpctl", &["get-volume", "@DEFAULT_AUDIO_SINK@"]) ?;
+    let text = command_output("wpctl", &["get-volume", "@DEFAULT_AUDIO_SINK@"])?;
     if text.contains("[MUTED]") {
         return Some("Muted".to_string());
     }
@@ -348,13 +348,9 @@ fn build_system_menu() -> Menu {
     let logout = MenuItem::with_label("Log Out…");
     if env::var_os("SLOPOS_SESSION_MANAGED").is_some() {
         logout.connect_activate(|_| {
-            confirm_action(
-                "Log Out",
-                "End the current SLOPOS session?",
-                || unsafe {
-                    libc::kill(libc::getppid(), libc::SIGTERM);
-                },
-            );
+            confirm_action("Log Out", "End the current SLOPOS session?", || unsafe {
+                libc::kill(libc::getppid(), libc::SIGTERM);
+            });
         });
     } else {
         logout.set_sensitive(false);
@@ -410,11 +406,27 @@ fn build_global_menu_bar(target_window: Rc<Cell<u64>>) -> MenuBar {
 
     let edit_item = MenuItem::with_label("Edit");
     let edit_menu = Menu::new();
-    edit_menu.append(&target_shortcut_item("Undo", "ctrl+z", target_window.clone()));
+    edit_menu.append(&target_shortcut_item(
+        "Undo",
+        "ctrl+z",
+        target_window.clone(),
+    ));
     edit_menu.append(&SeparatorMenuItem::new());
-    edit_menu.append(&target_shortcut_item("Cut", "ctrl+x", target_window.clone()));
-    edit_menu.append(&target_shortcut_item("Copy", "ctrl+c", target_window.clone()));
-    edit_menu.append(&target_shortcut_item("Paste", "ctrl+v", target_window.clone()));
+    edit_menu.append(&target_shortcut_item(
+        "Cut",
+        "ctrl+x",
+        target_window.clone(),
+    ));
+    edit_menu.append(&target_shortcut_item(
+        "Copy",
+        "ctrl+c",
+        target_window.clone(),
+    ));
+    edit_menu.append(&target_shortcut_item(
+        "Paste",
+        "ctrl+v",
+        target_window.clone(),
+    ));
     edit_menu.append(&target_shortcut_item(
         "Select All",
         "ctrl+a",
@@ -425,7 +437,11 @@ fn build_global_menu_bar(target_window: Rc<Cell<u64>>) -> MenuBar {
 
     let view_item = MenuItem::with_label("View");
     let view_menu = Menu::new();
-    view_menu.append(&target_shortcut_item("Refresh", "F5", target_window.clone()));
+    view_menu.append(&target_shortcut_item(
+        "Refresh",
+        "F5",
+        target_window.clone(),
+    ));
     view_menu.append(&SeparatorMenuItem::new());
     view_menu.append(&target_shortcut_item(
         "Zoom In",
@@ -482,7 +498,14 @@ fn target_shortcut(target: &Cell<u64>, shortcut: &str) {
     }
     let id = id.to_string();
     let _ = Command::new("xdotool")
-        .args(["windowactivate", "--sync", &id, "key", "--clearmodifiers", shortcut])
+        .args([
+            "windowactivate",
+            "--sync",
+            &id,
+            "key",
+            "--clearmodifiers",
+            shortcut,
+        ])
         .spawn();
 }
 
@@ -491,7 +514,10 @@ fn target_xdotool(target: &Cell<u64>, action: &str) {
     if id == 0 {
         return;
     }
-    let _ = Command::new("xdotool").arg(action).arg(id.to_string()).spawn();
+    let _ = Command::new("xdotool")
+        .arg(action)
+        .arg(id.to_string())
+        .spawn();
 }
 
 fn target_maximize(target: &Cell<u64>) {

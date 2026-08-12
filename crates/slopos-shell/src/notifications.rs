@@ -63,9 +63,7 @@ impl NotificationServer {
 
             let text = GtkBox::new(Orientation::Vertical, 2);
             let title = Label::new(Some(&summary));
-            title
-                .style_context()
-                .add_class("slopos-notification-title");
+            title.style_context().add_class("slopos-notification-title");
             title.set_xalign(0.0);
             title.set_ellipsize(pango::EllipsizeMode::End);
             text.pack_start(&title, false, false, 0);
@@ -84,9 +82,7 @@ impl NotificationServer {
             main_box.pack_start(&content, true, true, 0);
 
             let dismiss = Button::with_label("Dismiss");
-            dismiss
-                .style_context()
-                .add_class("slopos-compact-button");
+            dismiss.style_context().add_class("slopos-compact-button");
             dismiss.set_halign(Align::End);
             dismiss.set_tooltip_text(Some("Dismiss this notification"));
             let close_target = window.clone();

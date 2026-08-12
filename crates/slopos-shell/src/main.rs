@@ -77,10 +77,7 @@ fn acquire_instance_guard() -> Result<File, String> {
 
 fn install_launcher_signal_bridge(launcher: Rc<Launcher>) {
     unsafe {
-        libc::signal(
-            libc::SIGUSR1,
-            launcher_signal_handler as *const () as usize,
-        );
+        libc::signal(libc::SIGUSR1, launcher_signal_handler as *const () as usize);
     }
 
     glib::timeout_add_local(Duration::from_millis(80), move || {

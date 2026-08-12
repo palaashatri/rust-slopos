@@ -45,9 +45,7 @@ fn main() {
         "Open a control panel to configure your Linux desktop and hardware.",
     ));
     subtitle.set_xalign(0.0);
-    subtitle
-        .style_context()
-        .add_class("slopos-panel-subtitle");
+    subtitle.style_context().add_class("slopos-panel-subtitle");
     body.pack_start(&subtitle, false, false, 0);
 
     let separator = gtk::Separator::new(Orientation::Horizontal);
@@ -172,9 +170,7 @@ fn control_panel_button(panel: &ControlPanel<'_>) -> Button {
     let subtitle = Label::new(Some(&description));
     subtitle.set_xalign(0.0);
     subtitle.set_line_wrap(true);
-    subtitle
-        .style_context()
-        .add_class("slopos-secondary-text");
+    subtitle.style_context().add_class("slopos-secondary-text");
     labels.pack_start(&subtitle, false, false, 0);
     content.pack_start(&labels, true, true, 0);
     button.add(&content);
