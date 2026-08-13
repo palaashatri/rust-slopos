@@ -158,6 +158,7 @@ jobs:
         id: test-workspace
         shell: bash
         run: |
+          set +e
           set -o pipefail
           cargo test --workspace --locked -- --nocapture 2>&1 | tee "$RUNNER_TEMP/cargo-test.log"
           status="${PIPESTATUS[0]}"
@@ -370,6 +371,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Run isolated AT-SPI acceptance
         run: |
+          set +e
           set -o pipefail
           sudo -E env "PATH=$PATH" bash scripts/run-atspi-qa.sh 2>&1 | tee "$RUNNER_TEMP/atspi.log"
           status="${PIPESTATUS[0]}"
@@ -406,6 +408,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Run AT-SPI acceptance in ${{ matrix.locale }}
         run: |
+          set +e
           set -o pipefail
           sudo -E env "PATH=$PATH" SLOPOS_ATSPI_LOCALE="${{ matrix.locale }}" bash scripts/run-atspi-qa.sh 2>&1 | tee "$RUNNER_TEMP/atspi-${{ matrix.locale }}.log"
           status="${PIPESTATUS[0]}"
@@ -438,6 +441,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Run Orca-backed AT-SPI acceptance
         run: |
+          set +e
           set -o pipefail
           sudo -E env "PATH=$PATH" SLOPOS_ATSPI_SCREEN_READER=1 bash scripts/run-atspi-qa.sh 2>&1 | tee "$RUNNER_TEMP/orca.log"
           status="${PIPESTATUS[0]}"
@@ -470,6 +474,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Run Settings service-boundary acceptance
         run: |
+          set +e
           set -o pipefail
           sudo -E env "PATH=$PATH" bash scripts/run-settings-service-qa.sh 2>&1 | tee "$RUNNER_TEMP/settings-services.log"
           status="${PIPESTATUS[0]}"
