@@ -130,6 +130,8 @@ fn platinum_openbox_active_titlebar_uses_readable_gradient() {
         "window.active.title.bg: raised gradient vertical"
     );
     assert!(theme.contains("window.inactive.title.bg: flat solid"));
+    assert!(theme.contains("menu.title.bg: raised gradient vertical"));
+    assert!(!theme.contains("menu.title.bg: raised gradient vertical interlaced"));
     assert!(theme.contains("window.active.label.text.color: #000000"));
     assert!(theme.contains("window.inactive.label.text.color: #707070"));
 }
@@ -243,6 +245,26 @@ fn installed_vm_harness_pins_source_and_collects_status() {
 }
 
 #[test]
+fn installed_vm_harness_requires_efi_xrandr_and_nvme_safe_partitioning() {
+    let installer = include_str!("../../../packaging/vm/arch-install.sh");
+    assert!(installer.contains("xorg-xrandr"));
+    assert!(installer.contains("partition_path()"));
+    assert!(installer.contains("ESP_PART=\"$(partition_path 1)\""));
+    assert!(installer.contains("ROOT_PART=\"$(partition_path 2)\""));
+    assert!(installer.contains("grub-install --target=x86_64-efi"));
+    assert!(installer.contains("--removable"));
+
+    let create_vm = include_str!("../../../packaging/vm/create-vm.ps1");
+    assert!(create_vm.contains("--firmware efi"));
+
+    let qa = include_str!("../../../packaging/vm/qa-vm.sh");
+    assert!(qa.contains("command -v xrandr"));
+    assert!(qa.contains("xrandr reports no connected output"));
+    assert!(qa.contains("X11_ACTIVE_REFRESH_HZ="));
+    assert!(qa.contains("does not claim physical high-refresh or VRR support"));
+}
+
+#[test]
 fn vm_recreate_checks_state_before_poweroff() {
     let create_vm = include_str!("../../../packaging/vm/create-vm.ps1");
     assert!(create_vm.contains("showvminfo $VmName --machinereadable"));
@@ -254,7 +276,9 @@ fn vm_recreate_checks_state_before_poweroff() {
 fn recovery_preserves_config_and_requires_fresh_children() {
     let recovery = include_str!("../../../scripts/slopos-recovery.sh");
     assert!(recovery.contains("refusing an unsafe HOME"));
-    assert!(recovery.contains("BACKUP_DIR=\"${SLOPOS_RECOVERY_BACKUP_DIR:-$HOME_DIR/slopos-config-backup-"));
+    assert!(recovery.contains(
+        "BACKUP_DIR=\"${SLOPOS_RECOVERY_BACKUP_DIR:-$HOME_DIR/slopos-config-backup-"
+    ));
     assert!(recovery.contains("mv -- \"$CONFIG_DIR\""));
     assert!(recovery.contains("VENDOR_DIR=\"${SLOPOS_VENDOR_CONFIG_DIR:-/etc/slopos-i}\""));
     assert!(recovery.contains("wait_for_child_restart"));
@@ -652,6 +676,8 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("browser-firefox.png"));
     assert!(qa.contains("install-browser-theme.sh firefox"));
     assert!(qa.contains("SLOPOS_BROWSER_THEME_DIR=/usr/share/slopos-i/browser/chromium"));
+    assert!(qa.contains("Installed theme"));
+    assert!(qa.contains("xdotool key Escape"));
     assert!(qa.contains("--profile \"$FIREFOX_PROFILE\""));
     assert!(qa.contains("browser-dom.html"));
     assert!(qa.contains("SLOPOS_QA_SKIP_DEPS"));
