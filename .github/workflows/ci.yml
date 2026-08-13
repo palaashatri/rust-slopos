@@ -163,8 +163,10 @@ jobs:
           cargo test --workspace --locked -- --nocapture 2>&1 | tee "$RUNNER_TEMP/cargo-test.log"
           status="${PIPESTATUS[0]}"
           if [ "$status" -ne 0 ]; then
-            summary="$(tail -n 80 "$RUNNER_TEMP/cargo-test.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
-            echo "::error title=Cargo workspace test failure::$summary"
+            while IFS= read -r line; do
+              escaped="$(printf '%s' "$line" | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+              echo "::error file=cargo-test.log,line=1,title=Cargo workspace test failure::$escaped"
+            done < <(grep -E '^test .* \.\.\. FAILED$|^failures:' "$RUNNER_TEMP/cargo-test.log" | tail -n 20 || true)
           fi
           exit "$status"
       - name: Clippy
@@ -376,8 +378,8 @@ jobs:
           sudo -E env "PATH=$PATH" bash scripts/run-atspi-qa.sh 2>&1 | tee "$RUNNER_TEMP/atspi.log"
           status="${PIPESTATUS[0]}"
           if [ "$status" -ne 0 ]; then
-            summary="$(tail -n 80 "$RUNNER_TEMP/atspi.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
-            echo "::error title=AT-SPI acceptance failure::$summary"
+            escaped="$(tail -n 40 "$RUNNER_TEMP/atspi.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+            echo "::error file=atspi.log,line=1,title=AT-SPI acceptance failure::$escaped"
           fi
           exit "$status"
       - name: Upload AT-SPI diagnostics
@@ -413,8 +415,8 @@ jobs:
           sudo -E env "PATH=$PATH" SLOPOS_ATSPI_LOCALE="${{ matrix.locale }}" bash scripts/run-atspi-qa.sh 2>&1 | tee "$RUNNER_TEMP/atspi-${{ matrix.locale }}.log"
           status="${PIPESTATUS[0]}"
           if [ "$status" -ne 0 ]; then
-            summary="$(tail -n 80 "$RUNNER_TEMP/atspi-${{ matrix.locale }}.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
-            echo "::error title=AT-SPI ${{ matrix.locale }} acceptance failure::$summary"
+            escaped="$(tail -n 40 "$RUNNER_TEMP/atspi-${{ matrix.locale }}.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+            echo "::error file=atspi-${{ matrix.locale }}.log,line=1,title=AT-SPI ${{ matrix.locale }} acceptance failure::$escaped"
           fi
           exit "$status"
       - name: Upload translated AT-SPI diagnostics
@@ -446,8 +448,8 @@ jobs:
           sudo -E env "PATH=$PATH" SLOPOS_ATSPI_SCREEN_READER=1 bash scripts/run-atspi-qa.sh 2>&1 | tee "$RUNNER_TEMP/orca.log"
           status="${PIPESTATUS[0]}"
           if [ "$status" -ne 0 ]; then
-            summary="$(tail -n 100 "$RUNNER_TEMP/orca.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
-            echo "::error title=Orca acceptance failure::$summary"
+            escaped="$(tail -n 40 "$RUNNER_TEMP/orca.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+            echo "::error file=orca.log,line=1,title=Orca acceptance failure::$escaped"
           fi
           exit "$status"
       - name: Upload Orca diagnostics
@@ -479,8 +481,8 @@ jobs:
           sudo -E env "PATH=$PATH" bash scripts/run-settings-service-qa.sh 2>&1 | tee "$RUNNER_TEMP/settings-services.log"
           status="${PIPESTATUS[0]}"
           if [ "$status" -ne 0 ]; then
-            summary="$(tail -n 100 "$RUNNER_TEMP/settings-services.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
-            echo "::error title=Settings service acceptance failure::$summary"
+            escaped="$(tail -n 40 "$RUNNER_TEMP/settings-services.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+            echo "::error file=settings-services.log,line=1,title=Settings service acceptance failure::$escaped"
           fi
           exit "$status"
       - name: Upload Settings diagnostics
