@@ -35,6 +35,9 @@ For an explicit profile install:
 
 ```bash
 scripts/install-browser-theme.sh chromium /absolute/chromium-profile
+# The same unpacked theme works for Google Chrome and other Chromium-family
+# builds; the command name is only used to select the profile integration.
+scripts/install-browser-theme.sh google-chrome /absolute/chrome-profile
 scripts/install-browser-theme.sh firefox /absolute/firefox-profile
 ```
 

@@ -484,6 +484,7 @@ fn browser_integration_is_upstream_and_no_fork() {
     assert!(installer.contains("SLOPOS_SHARE_DIR"));
     assert!(installer.contains("BROWSER_RESOURCE_DIR"));
     assert!(installer.contains("slopos-i/browser"));
+    assert!(installer.contains("chromium-browser|chrome|google-chrome|google-chrome-stable"));
     assert!(dock.contains("program: \"start-slopos-browser\""));
     assert!(chromium.contains("\"manifest_version\": 3"));
     assert!(chromium.contains("\"frame\": [117, 128, 144]"));

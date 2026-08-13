@@ -5,7 +5,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 firefox|chromium PROFILE_DIR" >&2
+  echo "Usage: $0 firefox|chromium|chromium-browser|chrome|google-chrome|google-chrome-stable PROFILE_DIR" >&2
   exit 2
 }
 
@@ -31,7 +31,7 @@ esac
 mkdir -p "$PROFILE"
 
 case "$BROWSER" in
-  chromium|chrome)
+  chromium|chromium-browser|chrome|google-chrome|google-chrome-stable)
     target="$PROFILE/slopos-browser-theme"
     rm -rf "$target"
     mkdir -p "$target"
