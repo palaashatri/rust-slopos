@@ -11,7 +11,7 @@
       <action name="Execute"><command>mousepad</command></action>
     </item>
     <item label="Web Browser">
-      <action name="Execute"><command>firefox</command></action>
+      <action name="Execute"><command>start-slopos-browser</command></action>
     </item>
     <separator/>
     <item label="AppImage Catalogue">

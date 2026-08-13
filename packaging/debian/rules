@@ -19,6 +19,7 @@ override_dh_auto_install:
 	install -Dm755 scripts/start-slopos-i debian/slopos-i/usr/bin/start-slopos-i
 	install -Dm755 scripts/start-slopos-browser debian/slopos-i/usr/bin/start-slopos-browser
 	install -Dm755 scripts/install-browser-theme.sh debian/slopos-i/usr/bin/install-browser-theme.sh
+	install -Dm644 packaging/slopos-browser.desktop debian/slopos-i/usr/share/applications/slopos-browser.desktop
 	install -Dm644 packaging/slopos-i.desktop debian/slopos-i/usr/share/xsessions/slopos-i.desktop
 	install -Dm644 assets/config/openbox/rc.xml debian/slopos-i/usr/share/slopos-i/openbox/rc.xml
 	install -Dm644 assets/config/openbox/menu.xml debian/slopos-i/usr/share/slopos-i/openbox/menu.xml

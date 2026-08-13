@@ -63,14 +63,21 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "[1/7] Installing Arch X11 application/browser/game dependencies"
-pacman -Sy --noconfirm --needed \
-  xorg-server xorg-server-xvfb xorg-xsetroot openbox dbus \
-  pcmanfm xfce4-terminal mousepad ristretto \
-  chromium firefox supertux pulseaudio libpulse xdotool scrot imagemagick \
-  adwaita-icon-theme ttf-liberation ttf-dejavu
+if [[ "${SLOPOS_QA_SKIP_DEPS:-0}" == 1 ]]; then
+  echo "[1/7] Using pre-provisioned Arch X11 application/browser/game dependencies"
+else
+  echo "[1/7] Installing Arch X11 application/browser/game dependencies"
+  pacman -Sy --noconfirm --needed \
+    xorg-server xorg-server-xvfb xorg-xsetroot openbox dbus \
+    pcmanfm xfce4-terminal mousepad ristretto \
+    chromium firefox supertux pulseaudio libpulse xdotool scrot imagemagick \
+    adwaita-icon-theme ttf-liberation ttf-dejavu
+fi
 
-if [[ ! -x target/release/slopos-session ]]; then
+if [[ "${SLOPOS_QA_SKIP_BUILD:-0}" == 1 ]]; then
+  test -x target/release/slopos-session
+  echo "[2/7] Using the existing release binaries already present in the workspace"
+elif [[ ! -x target/release/slopos-session ]]; then
   pacman -S --noconfirm --needed rust
   echo "[2/7] Building the current SLOPOS release binary"
   cargo build --release --workspace --locked
@@ -84,16 +91,25 @@ cp assets/config/gtk-3.0/gtk.css /usr/share/themes/slopos-gtk/gtk-3.0/gtk.css
 cp -a packaging/browser/chromium /usr/share/slopos-i/browser/chromium
 cp -a packaging/browser/firefox /usr/share/slopos-i/browser/firefox
 rm -rf "$FIREFOX_PROFILE"
-./scripts/install-browser-theme.sh firefox "$FIREFOX_PROFILE" \
-  >artifacts/qa/app-matrix/firefox-theme-install.log
-cat >>"$FIREFOX_PROFILE/user.js" <<'EOF'
+FIREFOX_AVAILABLE=0
+if command -v firefox >/dev/null 2>&1; then
+  FIREFOX_AVAILABLE=1
+  ./scripts/install-browser-theme.sh firefox "$FIREFOX_PROFILE" \
+    >artifacts/qa/app-matrix/firefox-theme-install.log
+  cat >>"$FIREFOX_PROFILE/user.js" <<'EOF'
 user_pref("browser.aboutwelcome.enabled", false);
 user_pref("browser.shell.checkDefaultBrowser", false);
 user_pref("datareporting.policy.dataSubmissionEnabled", false);
 user_pref("toolkit.telemetry.enabled", false);
 EOF
+else
+  printf '%s\n' 'Firefox is not present in this pre-provisioned image; Chromium is the current browser runtime leg.' \
+    >artifacts/qa/app-matrix/firefox-theme-install.log
+fi
 id qa >/dev/null 2>&1 || useradd --create-home --shell /bin/bash qa
-chown -R qa:qa "$FIREFOX_PROFILE"
+if [[ "$FIREFOX_AVAILABLE" == 1 ]]; then
+  chown -R qa:qa "$FIREFOX_PROFILE"
+fi
 
 echo "[4/7] Starting X11 session and PulseAudio null sink"
 Xvfb :99 -screen 0 1280x800x24 >artifacts/qa/app-matrix/xvfb.log 2>&1 &
@@ -265,13 +281,18 @@ run_window_app browser browser.png "SLOPOS Browser QA" ./scripts/start-slopos-br
 # userChrome.css integration and is passed explicitly to the X11 wrapper.
 # This proves the supported profile path without modifying a user's profile
 # or building a browser fork.
-run_window_app browser-firefox browser-firefox.png "SLOPOS Browser QA" setpriv \
-  --reuid=qa --regid=qa --init-groups -- env \
-  HOME=/home/qa XDG_RUNTIME_DIR="$AUDIO_RUNTIME" GTK_THEME=slopos-gtk \
-  DISPLAY="$DISPLAY" GDK_BACKEND=x11 XDG_SESSION_TYPE=x11 \
-  MOZ_ENABLE_WAYLAND=0 MOZ_DISABLE_CONTENT_SANDBOX=1 SLOPOS_BROWSER=firefox \
-  ./scripts/start-slopos-browser --no-remote --new-instance \
-  --profile "$FIREFOX_PROFILE" "$BROWSER_URL"
+if [[ "$FIREFOX_AVAILABLE" == 1 ]]; then
+  run_window_app browser-firefox browser-firefox.png "SLOPOS Browser QA" setpriv \
+    --reuid=qa --regid=qa --init-groups -- env \
+    HOME=/home/qa XDG_RUNTIME_DIR="$AUDIO_RUNTIME" GTK_THEME=slopos-gtk \
+    DISPLAY="$DISPLAY" GDK_BACKEND=x11 XDG_SESSION_TYPE=x11 \
+    MOZ_ENABLE_WAYLAND=0 MOZ_DISABLE_CONTENT_SANDBOX=1 SLOPOS_BROWSER=firefox \
+    ./scripts/start-slopos-browser --no-remote --new-instance \
+    --profile "$FIREFOX_PROFILE" "$BROWSER_URL"
+else
+  printf '%s\n' 'Firefox runtime leg skipped: package is not present in this pre-provisioned image.' \
+    >artifacts/qa/app-matrix/browser-firefox.log
+fi
 
 echo "[6/7] Launching a SuperTux level, exercising input and proving audio reaches PulseAudio"
 rm -rf /tmp/slopos-supertux-qa
@@ -432,3 +453,9 @@ done
 test -s artifacts/qa/app-matrix/sink-inputs.txt
 test -s artifacts/qa/app-matrix/browser-dom.html
 echo "SLOPOS-I Arch upstream application/browser/game evidence PASS"
+echo "BROWSER_CHROMIUM_STATUS_0"
+if [[ "$FIREFOX_AVAILABLE" == 1 ]]; then
+  echo "BROWSER_FIREFOX_STATUS_0"
+else
+  echo "BROWSER_FIREFOX_STATUS_SKIPPED_OPTIONAL_PACKAGE"
+fi

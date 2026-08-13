@@ -9,13 +9,15 @@ use gtk::{
     Align, Box as GtkBox, Button, Dialog, DialogFlags, IconSize, Image, Label, Menu, MenuItem,
     Orientation, ResponseType, SeparatorMenuItem, Window, WindowPosition, WindowType,
 };
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
-use std::time::Duration;
+use std::sync::mpsc::{self, TryRecvError};
+use std::thread;
+use std::time::{Duration, Instant};
 
 const LOCK_COMMANDS: &[(&str, &[&str])] = &[
     ("xdg-screensaver", &["lock"]),
@@ -90,6 +92,11 @@ impl TopBar {
         set_accessible_name(&active_title_label, "Active application");
         main_box.pack_start(&active_title_label, false, false, 7);
         let app_menu_button = build_app_menu_button();
+        let app_menu_exporter = Rc::new(RefCell::new(None));
+        let app_menu_exporter_ref = app_menu_exporter.clone();
+        app_menu_button.connect_clicked(move |button| {
+            open_imported_app_menu(button, app_menu_exporter_ref.borrow().clone());
+        });
         main_box.pack_start(&app_menu_button, false, false, 0);
 
         let status_box = GtkBox::new(Orientation::Horizontal, 6);
@@ -191,6 +198,7 @@ impl TopBar {
             &battery_label,
             &app_menu_button,
             app_menu_status,
+            app_menu_exporter,
         );
 
         Rc::new(Self {
@@ -201,6 +209,7 @@ impl TopBar {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn install_live_updates(
     active_title: &Label,
     clock: &Label,
@@ -209,11 +218,17 @@ fn install_live_updates(
     battery: &Label,
     app_menu_button: &Button,
     app_menu_status: Rc<Cell<AppMenuStatus>>,
+    app_menu_exporter: Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
 ) {
     let active_title = active_title.clone();
     let app_menu_button = app_menu_button.clone();
     glib::timeout_add_local(Duration::from_millis(500), move || {
-        update_active_window(&active_title, &app_menu_button, &app_menu_status);
+        update_active_window(
+            &active_title,
+            &app_menu_button,
+            &app_menu_status,
+            &app_menu_exporter,
+        );
         glib::ControlFlow::Continue
     });
 
@@ -240,12 +255,14 @@ fn update_active_window(
     label: &Label,
     app_menu_button: &Button,
     app_menu_status: &Cell<AppMenuStatus>,
+    app_menu_exporter: &RefCell<Option<appmenu::AppMenuExporter>>,
 ) {
     let Some(id_text) = command_output("xdotool", &["getactivewindow"]) else {
         label.set_text("SLOPOS Desktop");
         update_app_menu_status(
             app_menu_button,
             app_menu_status,
+            app_menu_exporter,
             AppMenuStatus::ShellOwned,
             None,
         );
@@ -256,6 +273,7 @@ fn update_active_window(
         update_app_menu_status(
             app_menu_button,
             app_menu_status,
+            app_menu_exporter,
             AppMenuStatus::ShellOwned,
             None,
         );
@@ -266,6 +284,7 @@ fn update_active_window(
         update_app_menu_status(
             app_menu_button,
             app_menu_status,
+            app_menu_exporter,
             AppMenuStatus::ShellOwned,
             None,
         );
@@ -277,6 +296,7 @@ fn update_active_window(
         update_app_menu_status(
             app_menu_button,
             app_menu_status,
+            app_menu_exporter,
             AppMenuStatus::ShellOwned,
             None,
         );
@@ -291,25 +311,34 @@ fn update_active_window(
         update_app_menu_status(
             app_menu_button,
             app_menu_status,
+            app_menu_exporter,
             AppMenuStatus::NoExporter,
             None,
         );
         return;
     };
     let (status, exporter) = appmenu::status_for_window(window_id);
-    update_app_menu_status(app_menu_button, app_menu_status, status, exporter.as_ref());
+    update_app_menu_status(
+        app_menu_button,
+        app_menu_status,
+        app_menu_exporter,
+        status,
+        exporter.as_ref(),
+    );
 }
 
 fn update_app_menu_status(
     button: &Button,
     previous: &Cell<AppMenuStatus>,
+    exporter_state: &RefCell<Option<appmenu::AppMenuExporter>>,
     status: AppMenuStatus,
     exporter: Option<&appmenu::AppMenuExporter>,
 ) {
+    *exporter_state.borrow_mut() = exporter.cloned();
     if previous.get() != status {
         match (status, exporter) {
-            (AppMenuStatus::ExporterDetectedNoImporter, Some(exporter)) => log::info!(
-                "Focused X11 application advertises AppMenu bus={} path={}; keeping its local menu because the safe DBusMenu importer is not enabled",
+            (AppMenuStatus::ExporterDetected, Some(exporter)) => log::info!(
+                "Focused X11 application exports AppMenu bus={} path={}; bounded DBusMenu importer enabled",
                 exporter.bus_name,
                 exporter.object_path
             ),
@@ -319,7 +348,7 @@ fn update_app_menu_status(
             (AppMenuStatus::ShellOwned, _) => {
                 log::info!("SLOPOS shell owns the global menu area")
             }
-            (AppMenuStatus::ExporterDetectedNoImporter, None) => log::warn!(
+            (AppMenuStatus::ExporterDetected, None) => log::warn!(
                 "Focused X11 application advertises AppMenu but exporter details were unavailable"
             ),
         }
@@ -343,15 +372,11 @@ fn update_app_menu_status(
                 "Application has no exported menu; use its local menu",
             );
         }
-        AppMenuStatus::ExporterDetectedNoImporter => {
+        AppMenuStatus::ExporterDetected => {
             button.set_label("App");
-            button.set_tooltip_text(Some(
-                "X11 AppMenu detected, but SLOPOS DBusMenu import is unavailable; use the local menu",
-            ));
-            set_accessible_name(
-                button,
-                "Application menu importer unavailable; use the local application menu",
-            );
+            button.set_tooltip_text(Some("Open the focused application's exported AppMenu"));
+            button.set_sensitive(true);
+            set_accessible_name(button, "Open exported application menu");
         }
     }
 }
@@ -453,6 +478,112 @@ fn build_app_menu_button() -> Button {
         "Application menu unavailable; use the local application menu",
     );
     button
+}
+
+fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExporter>) {
+    let Some(exporter) = exporter else {
+        return;
+    };
+
+    button.set_sensitive(false);
+    let (sender, receiver) = mpsc::channel();
+    let worker_exporter = exporter.clone();
+    let deadline = Instant::now() + Duration::from_millis(900);
+    thread::spawn(move || {
+        let result =
+            appmenu::fetch_layout_with_timeout(&worker_exporter, Duration::from_millis(750));
+        let _ = sender.send(result);
+    });
+
+    let button = button.clone();
+    glib::timeout_add_local(Duration::from_millis(25), move || {
+        if Instant::now() >= deadline {
+            log::warn!("Focused application's AppMenu import exceeded its UI deadline");
+            button.set_sensitive(true);
+            button.set_tooltip_text(Some(
+                "The focused application's AppMenu timed out; use its local menu",
+            ));
+            return glib::ControlFlow::Break;
+        }
+        match receiver.try_recv() {
+            Ok(Ok(layout)) => {
+                button.set_sensitive(true);
+                show_imported_app_menu(&button, layout, exporter.clone());
+                glib::ControlFlow::Break
+            }
+            Ok(Err(error)) => {
+                log::warn!("Focused application's AppMenu was not imported: {error}");
+                button.set_sensitive(true);
+                button.set_tooltip_text(Some(
+                    "The focused application's AppMenu is unavailable; use its local menu",
+                ));
+                glib::ControlFlow::Break
+            }
+            Err(TryRecvError::Empty) => glib::ControlFlow::Continue,
+            Err(TryRecvError::Disconnected) => {
+                button.set_sensitive(true);
+                glib::ControlFlow::Break
+            }
+        }
+    });
+}
+
+fn show_imported_app_menu(
+    button: &Button,
+    layout: appmenu::AppMenuLayout,
+    exporter: appmenu::AppMenuExporter,
+) {
+    let menu = Menu::new();
+    append_imported_menu_items(&menu, &layout.items, &exporter);
+    if menu.children().is_empty() {
+        log::warn!("Focused application's AppMenu exported no visible items");
+        return;
+    }
+    menu.show_all();
+    menu.popup_at_widget(
+        button,
+        gdk::Gravity::SouthWest,
+        gdk::Gravity::NorthWest,
+        None,
+    );
+}
+
+fn append_imported_menu_items(
+    menu: &Menu,
+    items: &[appmenu::AppMenuItem],
+    exporter: &appmenu::AppMenuExporter,
+) {
+    for item in items {
+        if !item.visible {
+            continue;
+        }
+        if item.kind == appmenu::AppMenuItemKind::Separator {
+            menu.append(&SeparatorMenuItem::new());
+            continue;
+        }
+
+        let menu_item = MenuItem::with_label(&item.label);
+        menu_item.set_sensitive(item.enabled);
+        if !item.children.is_empty() {
+            let submenu = Menu::new();
+            append_imported_menu_items(&submenu, &item.children, exporter);
+            menu_item.set_submenu(Some(&submenu));
+        } else if item.kind == appmenu::AppMenuItemKind::Standard {
+            let exporter = exporter.clone();
+            let item_id = item.id;
+            menu_item.connect_activate(move |_| {
+                let exporter = exporter.clone();
+                thread::spawn(move || {
+                    if let Err(error) =
+                        appmenu::activate(&exporter, item_id, Duration::from_millis(750))
+                    {
+                        log::warn!("Focused application's AppMenu action failed: {error}");
+                    }
+                });
+            });
+        }
+        menu.append(&menu_item);
+    }
 }
 
 fn build_system_menu() -> Menu {

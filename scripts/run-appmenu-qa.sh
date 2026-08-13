@@ -4,8 +4,11 @@
 # This deliberately assumes a pre-provisioned image and an existing release
 # build. It never installs packages or downloads a toolchain. The test checks
 # that an ordinary Mousepad window keeps its upstream local menu, that a
-# synthetic X11 AppMenu advertisement is detected without importing or
-# fabricating commands, and that the advertisement can be removed again.
+# synthetic X11 AppMenu advertisement is detected without scraping or
+# fabricating commands, and that the advertisement can be removed again. The
+# pre-provisioned image has no real DBusMenu exporter fixture, so this smoke
+# deliberately verifies capability detection and the fail-closed local-menu
+# fallback; parser and Event behavior are covered by Rust tests.
 set -euo pipefail
 
 export DISPLAY="${DISPLAY:-:99}"
@@ -103,14 +106,15 @@ echo "Mousepad local menu remains upstream-owned"
 echo "NON_EXPORTER_STATUS_0"
 
 # Advertise the standard X11 properties on the real Mousepad window. This is
-# a capability fixture only: no DBus object is fabricated and no menu command
-# is imported. SLOPOS must keep the local menu and report the limitation.
+# a capability fixture only: no DBus object is fabricated. SLOPOS must expose
+# its bounded importer affordance, then fall back to the local menu when the
+# advertised object is not actually present on the session bus.
 xprop -id "$APP_WINDOW" -f _GTK_UNIQUE_BUS_NAME 8s -set _GTK_UNIQUE_BUS_NAME ':1.77'
 xprop -id "$APP_WINDOW" -f _GTK_APP_MENU_OBJECT_PATH 8s -set _GTK_APP_MENU_OBJECT_PATH '/com/canonical/dbusmenu'
 xdotool windowactivate --sync "$APP_WINDOW"
 sleep 1
-grep -Fq 'advertises AppMenu' /tmp/slopos-appmenu-session.log
-grep -Fq 'keeping its local menu' /tmp/slopos-appmenu-session.log
+grep -Fq 'exports AppMenu bus=' /tmp/slopos-appmenu-session.log
+grep -Fq 'bounded DBusMenu importer enabled' /tmp/slopos-appmenu-session.log
 echo "EXPORTER_FIXTURE_STATUS_0"
 
 # Remove the fixture and ensure capability disappears after focus polling.

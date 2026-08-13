@@ -10,7 +10,7 @@ use gtk::{
 };
 use std::cell::RefCell;
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
 
@@ -26,10 +26,17 @@ impl Launcher {
     pub fn new() -> Rc<Self> {
         let window = Window::new(WindowType::Toplevel);
         window.set_title("SLOPOS Search");
-        // Reserve enough vertical space for complete result rows.  The list
-        // remains scrollable for larger catalogues, but the canonical palette
-        // must not present a visibly clipped row at its default size.
+        // Reserve enough vertical space for complete result rows. The list
+        // remains scrollable for larger catalogues, but must not present a
+        // visibly clipped row at its default size or become a postage stamp
+        // on retained 4K/5K/8K captures. The helper returns the historical
+        // compact size for the canonical 1x layouts.
+        let (screen_width, screen_height) = screen_geometry();
+        let (window_width, window_height) = adaptive_window_size(screen_width, screen_height);
         window.set_default_size(560, 450);
+        if (window_width, window_height) != (560, 450) {
+            window.set_default_size(window_width, window_height);
+        }
         window.set_position(WindowPosition::Center);
         window.set_decorated(false);
         window.set_keep_above(true);
@@ -62,6 +69,10 @@ impl Launcher {
         scroll.set_policy(PolicyType::Never, PolicyType::Automatic);
         scroll.set_overlay_scrolling(false);
         scroll.set_min_content_height(280);
+        let scroll_height = (window_height - 170).max(280);
+        if scroll_height != 280 {
+            scroll.set_min_content_height(scroll_height);
+        }
         scroll.style_context().add_class("slopos-list-frame");
 
         let list_box = ListBox::new();
@@ -183,11 +194,17 @@ impl Launcher {
             let labels = GtkBox::new(Orientation::Vertical, 1);
             let title = Label::new(Some(&app.name));
             title.set_xalign(0.0);
+            title.set_single_line_mode(true);
+            title.set_ellipsize(pango::EllipsizeMode::End);
+            title.set_hexpand(true);
             title.style_context().add_class("slopos-result-title");
             labels.pack_start(&title, false, false, 0);
             if !app.comment.is_empty() {
                 let description = Label::new(Some(&app.comment));
                 description.set_xalign(0.0);
+                description.set_single_line_mode(true);
+                description.set_ellipsize(pango::EllipsizeMode::End);
+                description.set_hexpand(true);
                 description
                     .style_context()
                     .add_class("slopos-secondary-text");
@@ -346,6 +363,21 @@ fn spawn_app(app: &DesktopApp) -> Result<(), String> {
         );
     }
 
+    // Search may discover an upstream browser's own desktop entry before the
+    // SLOPOS wrapper entry. Route those launches through the wrapper whenever
+    // it is installed, preserving the selected upstream engine via
+    // SLOPOS_BROWSER rather than forking or replacing the browser.
+    if let Some(browser) = upstream_browser_name(program) {
+        if command_exists("start-slopos-browser") {
+            return Command::new("start-slopos-browser")
+                .env("SLOPOS_BROWSER", browser)
+                .args(args)
+                .spawn()
+                .map(|_| ())
+                .map_err(|error| error.to_string());
+        }
+    }
+
     Command::new(program)
         .args(args)
         .spawn()
@@ -353,10 +385,70 @@ fn spawn_app(app: &DesktopApp) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
+fn upstream_browser_name(program: &str) -> Option<&str> {
+    let name = Path::new(program).file_name()?.to_str()?;
+    matches!(
+        name,
+        "firefox"
+            | "firefox-esr"
+            | "chromium"
+            | "chromium-browser"
+            | "google-chrome"
+            | "google-chrome-stable"
+    )
+    .then_some(name)
+}
+
 fn command_exists(command: &str) -> bool {
     std::env::var_os("PATH")
         .map(|paths| std::env::split_paths(&paths).any(|dir| dir.join(command).is_file()))
         .unwrap_or(false)
+}
+
+fn adaptive_window_size(screen_width: i32, screen_height: i32) -> (i32, i32) {
+    let width = if screen_width <= 1600 {
+        560
+    } else {
+        (screen_width * 2 / 5).clamp(640, 960)
+    };
+    let height = if screen_height <= 1000 {
+        450
+    } else {
+        (screen_height * 7 / 12).clamp(540, 720)
+    };
+    (width, height)
+}
+
+fn screen_geometry() -> (i32, i32) {
+    let Ok(output) = Command::new("xrandr").arg("--current").output() else {
+        return (1280, 800);
+    };
+    if !output.status.success() {
+        return (1280, 800);
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    for line in text.lines() {
+        let Some(after_current) = line.split("current ").nth(1) else {
+            continue;
+        };
+        let Some(dimensions) = after_current.split(',').next() else {
+            continue;
+        };
+        let mut parts = dimensions.split('x').map(str::trim);
+        let (Some(width), Some(height)) = (parts.next(), parts.next()) else {
+            continue;
+        };
+        if let (Ok(width), Ok(height)) = (width.parse::<i32>(), height.parse::<i32>()) {
+            let scale = env::var("GDK_SCALE")
+                .ok()
+                .and_then(|value| value.parse::<i32>().ok())
+                .filter(|scale| *scale > 0)
+                .unwrap_or(1);
+            return ((width / scale).max(1), (height / scale).max(1));
+        }
+    }
+    (1280, 800)
 }
 
 fn set_accessible_name<W>(widget: &W, name: &str)
@@ -370,4 +462,27 @@ where
         return;
     };
     accessible.set_name(name);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{adaptive_window_size, upstream_browser_name};
+
+    #[test]
+    fn launcher_keeps_compact_canonical_size_and_scales_large_surfaces() {
+        assert_eq!(adaptive_window_size(1366, 768), (560, 450));
+        assert_eq!(adaptive_window_size(1280, 800), (560, 450));
+        assert_eq!(adaptive_window_size(3440, 1440), (960, 720));
+        assert_eq!(adaptive_window_size(7680, 4320), (960, 720));
+    }
+
+    #[test]
+    fn search_recognizes_upstream_browser_commands_for_wrapper_routing() {
+        assert_eq!(upstream_browser_name("/usr/bin/firefox"), Some("firefox"));
+        assert_eq!(
+            upstream_browser_name("chromium-browser"),
+            Some("chromium-browser")
+        );
+        assert_eq!(upstream_browser_name("mousepad"), None);
+    }
 }

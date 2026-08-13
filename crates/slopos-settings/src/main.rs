@@ -31,8 +31,15 @@ fn main() {
     window.set_title("System Settings");
     set_accessible_name(&window, "SLOPOS system settings");
     // Keep the hub compact like a classic control panel while leaving enough
-    // room for four rows of delegated utilities at 1x scaling.
+    // room for four rows of delegated utilities. Retained high-resolution
+    // captures get a bounded larger surface; canonical 1x layouts retain the
+    // historical dimensions.
+    let (screen_width, screen_height) = screen_geometry();
+    let (window_width, window_height) = adaptive_window_size(screen_width, screen_height);
     window.set_default_size(640, 460);
+    if (window_width, window_height) != (640, 460) {
+        window.set_default_size(window_width, window_height);
+    }
     window.set_position(WindowPosition::Center);
     window.connect_delete_event(|_, _| {
         gtk::main_quit();
@@ -218,6 +225,52 @@ fn command_exists(program: &str) -> bool {
     env::split_paths(&path).any(|dir| dir.join(program).is_file())
 }
 
+fn adaptive_window_size(screen_width: i32, screen_height: i32) -> (i32, i32) {
+    let width = if screen_width <= 1600 {
+        640
+    } else {
+        (screen_width * 2 / 5).clamp(720, 1080)
+    };
+    let height = if screen_height <= 1000 {
+        460
+    } else {
+        (screen_height * 7 / 12).clamp(560, 720)
+    };
+    (width, height)
+}
+
+fn screen_geometry() -> (i32, i32) {
+    let Ok(output) = Command::new("xrandr").arg("--current").output() else {
+        return (1280, 800);
+    };
+    if !output.status.success() {
+        return (1280, 800);
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    for line in text.lines() {
+        let Some(after_current) = line.split("current ").nth(1) else {
+            continue;
+        };
+        let Some(dimensions) = after_current.split(',').next() else {
+            continue;
+        };
+        let mut parts = dimensions.split('x').map(str::trim);
+        let (Some(width), Some(height)) = (parts.next(), parts.next()) else {
+            continue;
+        };
+        if let (Ok(width), Ok(height)) = (width.parse::<i32>(), height.parse::<i32>()) {
+            let scale = env::var("GDK_SCALE")
+                .ok()
+                .and_then(|value| value.parse::<i32>().ok())
+                .filter(|scale| *scale > 0)
+                .unwrap_or(1);
+            return ((width / scale).max(1), (height / scale).max(1));
+        }
+    }
+    (1280, 800)
+}
+
 fn load_control_icon(file_name: &str, fallback: &str) -> Image {
     let mut candidates = Vec::new();
     if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
@@ -283,5 +336,18 @@ fn load_css_theme() {
             }
             break;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::adaptive_window_size;
+
+    #[test]
+    fn settings_keeps_compact_canonical_size_and_scales_large_surfaces() {
+        assert_eq!(adaptive_window_size(1366, 768), (640, 460));
+        assert_eq!(adaptive_window_size(1280, 800), (640, 460));
+        assert_eq!(adaptive_window_size(3440, 1440), (1080, 720));
+        assert_eq!(adaptive_window_size(7680, 4320), (1080, 720));
     }
 }

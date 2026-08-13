@@ -10,7 +10,10 @@
 @define-color slopos_shadow #5e5e5e;
 @define-color slopos_mid #808080;
 @define-color slopos_text #000000;
-@define-color slopos_disabled #777777;
+/* Keep disabled labels visually subdued without dropping below a readable
+ * contrast on the Platinum face (the previous #777777 was too faint for
+ * normal-size Settings descriptions). */
+@define-color slopos_disabled #5e5e5e;
 @define-color slopos_warning #7a2e00;
 
 * {
@@ -49,6 +52,16 @@ headerbar button,
   min-width: 20px;
   min-height: 18px;
   padding: 1px 4px;
+}
+
+/* Keep upstream GTK client-side decorations within the same square Platinum
+ * grammar as Openbox frames; GTK 3 otherwise permits rounded/shadowed CSD
+ * surfaces to leak a second visual language into the desktop. */
+window.csd,
+window.solid-csd,
+window.csd decoration {
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* SLOPOS top menu bar. */
@@ -217,6 +230,18 @@ button:disabled {
 
 button:disabled label {
   color: @slopos_disabled;
+}
+
+/* GTK keeps nested labels/icons in their own style context. Repeat the
+ * disabled state on Settings control-panel descendants so an unavailable
+ * delegate is visibly disabled without becoming illegible at 1x or HiDPI. */
+.slopos-control-panel:disabled .slopos-control-title,
+.slopos-control-panel:disabled .slopos-secondary-text {
+  color: @slopos_disabled;
+}
+
+.slopos-control-panel:disabled image {
+  opacity: 0.72;
 }
 
 /* Keep keyboard focus visible without introducing a second visual language. */

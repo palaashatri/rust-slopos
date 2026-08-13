@@ -298,7 +298,10 @@ fn load_icon(file_name: &str, fallback: &str) -> Image {
 }
 
 fn resolve_program(program: &str) -> Option<PathBuf> {
-    if program.starts_with("slopos-") {
+    // Installed SLOPOS helpers live beside the shell binary. Resolve the
+    // browser wrapper this way as well so a custom-prefix install still uses
+    // the X11/GTK integration before considering direct upstream fallbacks.
+    if program.starts_with("slopos-") || program == "start-slopos-browser" {
         if let Ok(executable) = env::current_exe() {
             if let Some(parent) = executable.parent() {
                 let sibling = parent.join(program);

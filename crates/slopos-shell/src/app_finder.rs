@@ -1,6 +1,7 @@
 //! Desktop application discovery and safe `.desktop` Exec parsing.
 
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -18,11 +19,7 @@ pub struct DesktopApp {
 pub fn scan_desktop_apps() -> Vec<DesktopApp> {
     // Later directories deliberately override earlier ones so a user's desktop
     // entry wins over the system copy with the same desktop-file id.
-    let dirs = [
-        PathBuf::from("/usr/share/applications"),
-        PathBuf::from("/usr/local/share/applications"),
-        dirs_home_applications(),
-    ];
+    let dirs = application_dirs();
     let mut apps_by_id = HashMap::new();
 
     for dir in dirs {
@@ -47,6 +44,33 @@ pub fn scan_desktop_apps() -> Vec<DesktopApp> {
     let mut apps: Vec<_> = apps_by_id.into_values().collect();
     apps.sort_by_key(|app| app.name.to_lowercase());
     apps
+}
+
+fn application_dirs() -> Vec<PathBuf> {
+    application_dirs_from_data_dirs(std::env::var_os("XDG_DATA_DIRS").as_deref())
+}
+
+fn application_dirs_from_data_dirs(data_dirs: Option<&OsStr>) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    push_unique_dir(&mut dirs, PathBuf::from("/usr/share/applications"));
+    push_unique_dir(&mut dirs, PathBuf::from("/usr/local/share/applications"));
+
+    // SLOPOS custom-prefix sessions export XDG_DATA_DIRS so Search sees the
+    // installed wrapper desktop entry without hard-coding that prefix.
+    if let Some(data_dirs) = data_dirs {
+        for data_dir in std::env::split_paths(data_dirs) {
+            push_unique_dir(&mut dirs, data_dir.join("applications"));
+        }
+    }
+
+    push_unique_dir(&mut dirs, dirs_home_applications());
+    dirs
+}
+
+fn push_unique_dir(dirs: &mut Vec<PathBuf>, directory: PathBuf) {
+    if !dirs.iter().any(|existing| existing == &directory) {
+        dirs.push(directory);
+    }
 }
 
 fn parse_desktop_file(path: &Path) -> Option<DesktopApp> {
@@ -266,5 +290,18 @@ Terminal=false
         assert_eq!(app.name, "Echo");
         assert_eq!(app.argv, vec!["/bin/echo", "hello world"]);
         assert!(!app.terminal);
+    }
+
+    #[test]
+    fn application_search_includes_custom_xdg_data_directories() {
+        let dirs =
+            application_dirs_from_data_dirs(Some(OsStr::new("/opt/slopos/share:/usr/share")));
+        assert!(dirs.contains(&PathBuf::from("/opt/slopos/share/applications")));
+        assert_eq!(
+            dirs.iter()
+                .filter(|directory| directory.as_path() == Path::new("/usr/share/applications"))
+                .count(),
+            1
+        );
     }
 }

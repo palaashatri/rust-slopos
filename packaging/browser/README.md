@@ -24,6 +24,13 @@ is a reference for a signed upstream theme; it is not force-installed because
 Firefox requires signed add-ons for normal distribution. Chromium's theme is
 loaded through its documented extension mechanism, not a custom browser build.
 
+The packaged `slopos-browser.desktop` entry is the default HTML/HTTP(S)
+launcher and is also used by the Openbox menu. SLOPOS Search routes discovered
+raw Firefox/Chromium desktop entries through `start-slopos-browser` when that
+helper is available, preserving the selected upstream executable through
+`SLOPOS_BROWSER`; if the helper is absent, the original desktop command remains
+the fallback.
+
 ## Scope and limits
 
 Browser pages remain site-controlled. Browser-owned UI differs by engine and

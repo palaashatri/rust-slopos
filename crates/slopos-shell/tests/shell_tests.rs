@@ -269,6 +269,9 @@ fn docker_qa_uses_fresh_visible_windows() {
     assert!(qa.contains("ACTIVE_BEFORE"));
     assert!(qa.contains("ACTIVE_AFTER"));
     assert!(qa.contains("clean_desktop_1280x800.png"));
+    assert!(qa.contains("appmenu_exported_mousepad_1280x800.png"));
+    assert!(qa.contains("APPMENU_MOUSEPAD_FALLBACK_STATUS_0"));
+    assert!(qa.contains("APPMENU_MOUSEPAD_IMPORT_STATUS_0"));
     for scene in [
         "menu_open_1280x800.png",
         "search_open_1280x800.png",
@@ -289,7 +292,10 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(topbar.contains("build_app_menu_button"));
     assert!(topbar.contains("appmenu::status_for_window"));
     assert!(topbar.contains("This application exports no X11 AppMenu"));
-    assert!(topbar.contains("safe DBusMenu importer is not enabled"));
+    assert!(topbar.contains("appmenu::fetch_layout_with_timeout"));
+    assert!(topbar.contains("appmenu::activate"));
+    assert!(topbar.contains("Open the focused application's exported AppMenu"));
+    assert!(!topbar.contains("safe DBusMenu importer is not enabled"));
     assert!(!topbar.contains("build_global_menu_bar"));
     assert!(!topbar.contains("target_shortcut_item"));
     assert!(!topbar.contains("New File Window"));
@@ -298,6 +304,9 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(appmenu.contains("_GTK_APP_MENU_OBJECT_PATH"));
     assert!(appmenu.contains("_GTK_MENUBAR_OBJECT_PATH"));
     assert!(appmenu.contains("com.canonical.dbusmenu"));
+    assert!(appmenu.contains("MAX_LAYOUT_DEPTH"));
+    assert!(appmenu.contains("MAX_MENU_ITEMS"));
+    assert!(appmenu.contains("call_noreply(DBUSMENU_EVENT"));
     assert!(qa.contains("Mousepad local menu remains upstream-owned"));
     assert!(qa.contains("EXPORTER_FIXTURE_STATUS_0"));
     assert!(qa.contains("NON_EXPORTER_STATUS_0"));
@@ -499,6 +508,7 @@ fn benchmark_has_bounded_long_run_liveness_and_rss_checks() {
 #[test]
 fn upstream_gtk_menubars_keep_platinum_spacing() {
     let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
+    assert!(css.contains("@define-color slopos_disabled #5e5e5e"));
     assert!(css.contains("menubar > menuitem"));
     assert!(css.contains("padding: 2px 7px"));
     assert!(css.contains("menubar > menuitem:hover"));
@@ -508,6 +518,13 @@ fn upstream_gtk_menubars_keep_platinum_spacing() {
 #[test]
 fn browser_integration_is_upstream_and_no_fork() {
     let launcher = include_str!("../../../scripts/start-slopos-browser");
+    let browser_desktop = include_str!("../../../packaging/slopos-browser.desktop");
+    let mimeapps = include_str!("../../../assets/config/mimeapps.list");
+    let openbox = include_str!("../../../assets/config/openbox/menu.xml");
+    let session_launcher = include_str!("../../../scripts/start-slopos-i");
+    let session_source = include_str!("../../slopos-session/src/main.rs");
+    let app_finder = include_str!("../src/app_finder.rs");
+    let launcher_source = include_str!("../src/launcher.rs");
     let installer = include_str!("../../../scripts/install-browser-theme.sh");
     let dock = include_str!("../src/dock.rs");
     let chromium = include_str!("../../../packaging/browser/chromium/manifest.json");
@@ -525,6 +542,23 @@ fn browser_integration_is_upstream_and_no_fork() {
     assert!(launcher.contains("google-chrome"));
     assert!(launcher.contains("--ozone-platform=x11"));
     assert!(launcher.contains("--load-extension"));
+    assert!(browser_desktop.contains("Exec=start-slopos-browser %U"));
+    assert!(browser_desktop.contains("TryExec=start-slopos-browser"));
+    assert!(browser_desktop.contains("x-scheme-handler/http"));
+    assert!(mimeapps.contains("text/html=slopos-browser.desktop"));
+    assert!(mimeapps.contains("x-scheme-handler/https=slopos-browser.desktop"));
+    assert!(openbox.contains("<command>start-slopos-browser</command>"));
+    assert!(session_launcher.contains("export PATH=\"$INSTALL_PREFIX/bin:${PATH:-}\""));
+    assert!(session_launcher.contains("XDG_DATA_DIRS"));
+    assert!(session_launcher.contains("XDG_CONFIG_DIRS"));
+    assert!(session_source.contains("configure_install_prefix_environment"));
+    assert!(session_source.contains("prepend_env_path(\"XDG_DATA_DIRS\""));
+    assert!(session_source.contains("prepend_env_path(\"XDG_CONFIG_DIRS\""));
+    assert!(app_finder.contains("XDG_DATA_DIRS"));
+    assert!(app_finder.contains("applications"));
+    assert!(launcher_source.contains("upstream_browser_name"));
+    assert!(launcher_source.contains("Command::new(\"start-slopos-browser\")"));
+    assert!(launcher_source.contains("SLOPOS_BROWSER"));
     assert!(installer.contains("PROFILE_DIR must be an absolute path"));
     assert!(installer.contains("slopos-backup"));
     assert!(installer.contains("SLOPOS_SHARE_DIR"));
@@ -542,6 +576,8 @@ fn browser_integration_is_upstream_and_no_fork() {
     assert!(firefox_css.contains("#sidebar-box"));
     assert!(firefox_css.contains("menupopup > menuitem[_moz-menuactive=\"true\"]"));
     assert!(browser_docs.contains("does not fork or patch Firefox, Chromium or Chrome"));
+    assert!(browser_docs.contains("slopos-browser.desktop"));
+    assert!(browser_docs.contains("SLOPOS_BROWSER"));
 
     for manifest in [
         include_str!("../../../install.sh"),
@@ -550,6 +586,7 @@ fn browser_integration_is_upstream_and_no_fork() {
         include_str!("../../../packaging/iso/build-iso.sh"),
     ] {
         assert!(manifest.contains("start-slopos-browser"));
+        assert!(manifest.contains("slopos-browser.desktop"));
         assert!(manifest.contains("install-browser-theme.sh"));
         assert!(manifest.contains("packaging/browser") || manifest.contains("browser/chromium"));
     }
@@ -575,6 +612,9 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("SLOPOS_BROWSER_THEME_DIR=/usr/share/slopos-i/browser/chromium"));
     assert!(qa.contains("--profile \"$FIREFOX_PROFILE\""));
     assert!(qa.contains("browser-dom.html"));
+    assert!(qa.contains("SLOPOS_QA_SKIP_DEPS"));
+    assert!(qa.contains("SLOPOS_QA_SKIP_BUILD"));
+    assert!(qa.contains("BROWSER_FIREFOX_STATUS_SKIPPED_OPTIONAL_PACKAGE"));
     assert!(qa.contains("getwindowname"));
     assert!(qa.contains("world1/frosted_fields.stl"));
     assert!(qa.contains("xdotool keydown --window"));

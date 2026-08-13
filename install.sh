@@ -102,6 +102,7 @@ done
 install -Dm755 scripts/start-slopos-i "$PREFIX/bin/start-slopos-i"
 install -Dm755 scripts/start-slopos-browser "$PREFIX/bin/start-slopos-browser"
 install -Dm755 scripts/install-browser-theme.sh "$PREFIX/bin/install-browser-theme.sh"
+install -Dm644 packaging/slopos-browser.desktop "$PREFIX/share/applications/slopos-browser.desktop"
 
 # X11 session descriptor. Display managers conventionally scan /usr/share;
 # override XSESSION_DIR for a deliberately self-contained custom prefix.

@@ -247,6 +247,45 @@ TEXT_WINDOW="$(window_for_pid "$TEXT_PID")"
 test -n "$TEXT_WINDOW"
 xdotool windowactivate --sync "$TEXT_WINDOW"
 capture_screenshot artifacts/qa/screenshots/active_app_1280x800.png
+
+# Mousepad in the provisioned image exports the X11 AppMenu properties. Exercise
+# the real top-bar App button when that capability is present. A genuine
+# DBusMenu exporter must produce an additional visible popup; a property-only
+# or malformed exporter must produce an explicit fail-closed fallback instead
+# of a fabricated menu. A non-exporting build records an honest skip.
+if xprop -id "$TEXT_WINDOW" | grep -qE '_GTK_(UNIQUE_BUS_NAME|APP_MENU_OBJECT_PATH|MENUBAR_OBJECT_PATH)'; then
+  APPMENU_MOUSEPAD_CAPTURED=1
+  grep -Fq 'exports AppMenu bus=' artifacts/qa/session.log
+  before_appmenu_windows="$(xdotool search --onlyvisible --name '.*' | wc -l)"
+  # Keep Mousepad focused while clicking the top-bar button: activating the
+  # shell window first would correctly clear the focused exporter before the
+  # callback can consume the cached capability. The active-title label is
+  # capped at 28 characters, placing App at this stable 1280px coordinate.
+  xdotool windowfocus --sync "$TEXT_WINDOW"
+  xdotool mousemove --window "$TOPBAR_WINDOW" --sync "${SLOPOS_QA_APP_MENU_X:-270}" 13
+  xdotool click 1
+  sleep 1
+  if grep -Fq "Focused application's AppMenu was not imported" artifacts/qa/session.log; then
+    echo "APPMENU_MOUSEPAD_FALLBACK_STATUS_0"
+  else
+    appmenu_popup_windows=""
+    for _ in $(seq 1 20); do
+      appmenu_popup_windows="$(xdotool search --onlyvisible --name '.*' | wc -l)"
+      if [[ "$appmenu_popup_windows" -gt "$before_appmenu_windows" ]]; then
+        break
+      fi
+      sleep 0.25
+    done
+    test "$appmenu_popup_windows" -gt "$before_appmenu_windows"
+    echo "APPMENU_MOUSEPAD_IMPORT_STATUS_0"
+  fi
+  capture_screenshot artifacts/qa/screenshots/appmenu_exported_mousepad_1280x800.png
+  xdotool key Escape
+  echo "APPMENU_MOUSEPAD_STATUS_0"
+else
+  APPMENU_MOUSEPAD_CAPTURED=0
+  echo "APPMENU_MOUSEPAD_STATUS_SKIPPED_NO_EXPORTER"
+fi
 close_visible_windows_by_class mousepad
 kill "$TEXT_PID" 2>/dev/null || true
 unset TEXT_PID
@@ -328,6 +367,10 @@ for image in \
   test -s "$image"
   test "$(identify -format '%wx%h' "$image")" = "1280x800"
 done
+if [[ "$APPMENU_MOUSEPAD_CAPTURED" == 1 ]]; then
+  test -s artifacts/qa/screenshots/appmenu_exported_mousepad_1280x800.png
+  test "$(identify -format '%wx%h' artifacts/qa/screenshots/appmenu_exported_mousepad_1280x800.png)" = "1280x800"
+fi
 
 echo "[8/8] Product-contract sanity checks"
 ! grep -Eq 'slopos-compositor|share/wayland-sessions' install.sh

@@ -157,6 +157,7 @@ fn configure_session_environment() {
     env::set_var("XDG_SESSION_DESKTOP", "slopos");
     env::set_var("DESKTOP_SESSION", "slopos");
     env::set_var("SLOPOS_SESSION_MANAGED", "1");
+    configure_install_prefix_environment();
 
     // Export only the interoperable desktop/session identity to activation
     // services. SLOPOS_SESSION_MANAGED is intentionally private to SLOPOS
@@ -249,6 +250,52 @@ fn resolve_openbox_config() -> Option<PathBuf> {
         PathBuf::from("/usr/share/slopos-i/openbox/rc.xml"),
     ]);
     candidates.into_iter().find(|path| path.exists())
+}
+
+/// Display managers execute slopos-session directly, so the session cannot
+/// rely on start-slopos-i to expose a custom prefix. Derive that prefix from
+/// the installed supervisor path and make its wrapper, desktop entries and
+/// MIME defaults discoverable to shell children.
+fn configure_install_prefix_environment() {
+    let Some(executable) = env::current_exe().ok() else {
+        return;
+    };
+    let Some(bin_dir) = executable.parent() else {
+        return;
+    };
+    let Some(prefix) = bin_dir.parent() else {
+        return;
+    };
+    let share_dir = prefix.join("share");
+    if !share_dir.is_dir() {
+        return;
+    }
+
+    prepend_path("PATH", bin_dir);
+    if env::var_os("SLOPOS_SHARE_DIR").is_none() {
+        env::set_var("SLOPOS_SHARE_DIR", &share_dir);
+    }
+    prepend_env_path("XDG_DATA_DIRS", &share_dir, "/usr/local/share:/usr/share");
+    prepend_env_path("XDG_CONFIG_DIRS", &share_dir.join("slopos-i"), "/etc/xdg");
+}
+
+fn prepend_path(variable: &str, directory: &Path) {
+    prepend_env_path(variable, directory, "");
+}
+
+fn prepend_env_path(variable: &str, directory: &Path, default: &str) {
+    let directory = directory.to_string_lossy();
+    let current = env::var(variable).unwrap_or_else(|_| default.to_string());
+    let prefix = format!(":{current}:");
+    if prefix.contains(&format!(":{directory}:")) {
+        return;
+    }
+    let value = if current.is_empty() {
+        directory.to_string()
+    } else {
+        format!("{directory}:{current}")
+    };
+    env::set_var(variable, value);
 }
 
 extern "C" fn sig_handler(_sig: libc::c_int) {

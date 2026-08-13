@@ -69,6 +69,8 @@ done
 install -Dm755 scripts/start-slopos-i "$ROOTFS/usr/local/bin/start-slopos-i"
 install -Dm755 scripts/start-slopos-browser "$ROOTFS/usr/local/bin/start-slopos-browser"
 install -Dm755 scripts/install-browser-theme.sh "$ROOTFS/usr/local/bin/install-browser-theme.sh"
+install -Dm644 packaging/slopos-browser.desktop \
+  "$ROOTFS/usr/local/share/applications/slopos-browser.desktop"
 install -Dm644 packaging/slopos-i.desktop "$ROOTFS/usr/share/xsessions/slopos-i.desktop"
 install -Dm644 assets/config/openbox/rc.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc.xml"
 install -Dm644 assets/config/openbox/menu.xml "$ROOTFS/usr/local/share/slopos-i/openbox/menu.xml"

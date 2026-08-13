@@ -11,6 +11,16 @@ export XDG_CURRENT_DESKTOP="SLOPOS"
 export XDG_SESSION_DESKTOP="slopos-i"
 export DESKTOP_SESSION="slopos-i"
 
+# Keep helper binaries and desktop-data discoverable for custom-prefix
+# installs. This lets the Search palette and MIME handlers resolve the
+# SLOPOS browser wrapper without replacing an upstream browser executable.
+if [ -d "$INSTALL_PREFIX/bin" ]; then
+  case ":${PATH:-}:" in
+    *":$INSTALL_PREFIX/bin:"*) ;;
+    *) export PATH="$INSTALL_PREFIX/bin:${PATH:-}" ;;
+  esac
+fi
+
 if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
   export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 fi
@@ -26,6 +36,11 @@ if [ -d "$SLOPOS_SHARE_DIR" ]; then
   case ":${XDG_DATA_DIRS:-}:" in
     *":$SLOPOS_SHARE_DIR:"*) ;;
     *) export XDG_DATA_DIRS="$SLOPOS_SHARE_DIR:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" ;;
+  esac
+  SLOPOS_CONFIG_DIR="$SLOPOS_SHARE_DIR/slopos-i"
+  case ":${XDG_CONFIG_DIRS:-}:" in
+    *":$SLOPOS_CONFIG_DIR:"*) ;;
+    *) export XDG_CONFIG_DIRS="$SLOPOS_CONFIG_DIR:${XDG_CONFIG_DIRS:-/etc/xdg}" ;;
   esac
 fi
 if [ -d "$SLOPOS_SHARE_DIR/themes/slopos-gtk/gtk-3.0" ] || \

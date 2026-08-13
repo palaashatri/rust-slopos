@@ -25,6 +25,7 @@ done
 test -n "$session_asset" || fail "missing installed X11 session descriptor"
 for asset in \
   "$session_asset" \
+  /usr/local/share/applications/slopos-browser.desktop \
   /usr/local/share/slopos-i/openbox/rc.xml \
   /usr/local/share/slopos-i/mimeapps.list \
   /usr/local/share/slopos-i/slopos-logo.png \
@@ -107,6 +108,7 @@ if [[ -d "$HOME/slopos-i/.git" ]]; then
     scripts/start-slopos-i
     scripts/install-session-files.sh
     packaging/slopos-i.desktop
+    packaging/slopos-browser.desktop
     packaging/arch/PKGBUILD
     packaging/debian/changelog
     packaging/debian/control

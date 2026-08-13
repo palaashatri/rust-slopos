@@ -9,7 +9,7 @@ titlebar_inactive = "#C8C8C8"
 background = "#FFFFFF"
 highlight = "#000080"
 text = "#000000"
-disabled_text = "#808080"
+disabled_text = "#5E5E5E"
 separator = "#808080"
 
 [button]
@@ -17,7 +17,7 @@ background = "#D9D9D9"
 highlight = "#FFFFFF"
 shadow = "#606060"
 text = "#000000"
-disabled_text = "#888888"
+disabled_text = "#5E5E5E"
 
 [text]
 primary = "#000000"
