@@ -9,10 +9,10 @@ not a source-controlled release bundle.
 ## Audit baseline
 
 - The initial audit snapshot was taken at `a0088dff666aa879e0d9566e447fbfb5d98911bd`.
-- The inspected source tree is now clean at pushed commit
-  `9c073d89e7e36dc6f45beb946d3bba2f6ea69bae` on `pivot`. The latest hosted
-  CI acceptance for that exact revision is run
-  [#566](https://github.com/palaashatri/rust-slopos/actions/runs/31754087286).
+- The inspected source tree is now clean at pushed commit `63de816` on
+  `pivot`. Hosted CI run [#568](https://github.com/palaashatri/rust-slopos/actions/runs/31754694669)
+  has a succeeded build/test/lint job for this revision; its remaining matrix
+  was still in progress when this manifest was updated.
 - The initial audit commands were read-only PowerShell checks (`Get-Content`,
   `Select-String`, `Get-Item`, `Get-FileHash`, `git status`, `git rev-parse`).
 - The parent run subsequently reran the verified current-tree Rust, AppMenu,
@@ -34,7 +34,8 @@ The parent run reran the verified current tree after the initial snapshot. The
 reported markers were:
 
 - Rust: `FMT_STATUS_0`, `CHECK_STATUS_0`, `TEST_STATUS_0`,
-  `CLIPPY_STATUS_0`, and `RELEASE_BUILD_STATUS_0`; counts were 13 catalogue,
+  `CLIPPY_STATUS_0`, and `RELEASE_BUILD_STATUS_0`; the current hosted build/test
+  job reports 14 catalogue,
   14 shell unit, 29 shell integration, 3 spaces, and 1 Settings test.
 - AppMenu: `APPMENU_QA_STATUS_0`.
 - Docker/Xvfb: `DOCKER_QA_STATUS_0`; real Mousepad X11 AppMenu properties were
