@@ -28,7 +28,9 @@ impl Dock {
         let window = Window::new(WindowType::Toplevel);
         window.set_title("SLOPOS Application Strip");
         let (screen_width, screen_height) = screen_geometry();
-        let width = 480;
+        // Keep enough room for the optional upstream game launcher while
+        // remaining compact at the smallest supported desktop widths.
+        let width = 540;
         let height = 54;
         window.set_default_size(width, height);
         window.set_position(WindowPosition::None);
@@ -138,6 +140,22 @@ impl Dock {
                 },
                 LaunchSpec {
                     program: "chromium",
+                    args: &[],
+                },
+            ],
+        );
+        add_launch_item(
+            &dock_box,
+            "game.svg",
+            "applications-games-symbolic",
+            "SuperTux",
+            &[
+                LaunchSpec {
+                    program: "supertux2",
+                    args: &[],
+                },
+                LaunchSpec {
+                    program: "supertux",
                     args: &[],
                 },
             ],

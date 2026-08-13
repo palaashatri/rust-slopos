@@ -295,6 +295,10 @@ fn image_controls_have_accessible_names_and_focus_feedback() {
     assert!(dock.contains("set_accessible_name(&button, tooltip)"));
     assert!(dock.contains("Label::new(Some(\"Apps\"))"));
     assert!(dock.contains("slopos-dock-label"));
+    assert!(dock.contains("program: \"supertux2\""));
+    assert!(dock.contains("program: \"supertux\""));
+    assert!(dock.contains("\"SuperTux\""));
+    assert!(dock.contains("applications-games-symbolic"));
     assert!(topbar.contains("set_accessible_name(&system_button, \"SLOPOS menu\")"));
     assert!(topbar.contains("set_accessible_name(&search_button"));
     assert!(notifications.contains("icon.is_empty().then(load_slopos_mark)"));
