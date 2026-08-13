@@ -418,3 +418,14 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
             .any(|token| token.trim_matches('\\') == "supertux"));
     }
 }
+
+#[test]
+fn retained_resolution_qa_covers_scale_matrix() {
+    let qa = include_str!("../../../scripts/run-resolution-qa.sh");
+    assert!(qa.contains("SLOPOS_RESOLUTION"));
+    assert!(qa.contains("SLOPOS_SCALE"));
+    assert!(qa.contains("GDK_SCALE"));
+    assert!(qa.contains("1366x768"));
+    assert!(qa.contains("RESOLUTION_QA_STATUS_0"));
+    assert!(qa.contains("identify -format '%wx%h'"));
+}

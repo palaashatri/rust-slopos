@@ -47,6 +47,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/benchmark-x11-session.sh
+          bash -n scripts/run-resolution-qa.sh
           bash -n packaging/vm/qa-vm.sh packaging/vm/arch-install.sh
           test ! -d crates/slopos-compositor
           ! grep -Eq 'slopos-compositor|smithay|wayland-client|wayland-server' Cargo.toml

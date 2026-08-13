@@ -310,7 +310,12 @@ fn screen_geometry() -> (i32, i32) {
             continue;
         };
         if let (Ok(width), Ok(height)) = (width.parse::<i32>(), height.parse::<i32>()) {
-            return (width, height);
+            let scale = env::var("GDK_SCALE")
+                .ok()
+                .and_then(|value| value.parse::<i32>().ok())
+                .filter(|scale| *scale > 0)
+                .unwrap_or(1);
+            return ((width / scale).max(1), (height / scale).max(1));
         }
     }
     (1280, 800)
