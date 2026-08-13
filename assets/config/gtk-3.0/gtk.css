@@ -368,6 +368,18 @@ row:selected label {
   border: 1px solid @slopos_text;
 }
 
+.slopos-list-frame scrollbar.vertical {
+  min-width: 14px;
+  background-color: @slopos_mid;
+}
+
+.slopos-list-frame scrollbar.vertical slider {
+  min-width: 10px;
+  background-color: @slopos_face;
+  border: 1px solid @slopos_shadow;
+  box-shadow: inset 1px 1px @slopos_light;
+}
+
 .slopos-list-row {
   border-bottom: 1px solid #e4e4e4;
 }

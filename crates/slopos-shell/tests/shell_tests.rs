@@ -252,6 +252,9 @@ fn docker_qa_uses_fresh_visible_windows() {
     assert!(qa.contains("Close only the fresh visible"));
     assert!(qa.contains("! xdotool search --onlyvisible --name '^SLOPOS Notification [0-9]+$'"));
     assert!(qa.contains("getwindowpid"));
+    assert!(qa.contains("wait_window_for_pid"));
+    assert!(qa.contains("mousepad /workspace/README.md"));
+    assert!(qa.contains("close_visible_windows_by_class mousepad"));
     assert!(qa.contains("Verify session recovery after child failure"));
     assert!(qa.contains("shell_before"));
     assert!(qa.contains("wm_before"));

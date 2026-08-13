@@ -60,6 +60,7 @@ impl Launcher {
 
         let scroll = ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
         scroll.set_policy(PolicyType::Never, PolicyType::Automatic);
+        scroll.set_overlay_scrolling(false);
         scroll.set_min_content_height(280);
         scroll.style_context().add_class("slopos-list-frame");
 

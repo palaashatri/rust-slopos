@@ -21,7 +21,7 @@ rm -f artifacts/qa/screenshots/*.png
 
 cleanup() {
   set +e
-  kill "${SETTINGS_PID:-}" "${CATALOGUE_PID:-}" "${TERM_PID:-}" "${PCMAN_PID:-}" \
+  kill "${SETTINGS_PID:-}" "${CATALOGUE_PID:-}" "${TERM_PID:-}" "${PCMAN_PID:-}" "${TEXT_PID:-}" \
        "${SESSION_PID:-}" "${XVFB_PID:-}" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -35,6 +35,30 @@ wait_visible_window() {
     sleep 0.25
   done
   echo "ERROR: visible window not found: $pattern" >&2
+  return 1
+}
+
+window_for_pid() {
+  local pid="$1" window window_pid
+  for window in $(xdotool search --onlyvisible --name '.*' 2>/dev/null || true); do
+    window_pid="$(xdotool getwindowpid "$window" 2>/dev/null || true)"
+    if [[ "$window_pid" == "$pid" ]]; then
+      printf '%s\n' "$window"
+      return 0
+    fi
+  done
+  return 1
+}
+
+wait_window_for_pid() {
+  local pid="$1"
+  for _ in $(seq 1 40); do
+    if window_for_pid "$pid" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  echo "ERROR: visible window not found for pid: $pid" >&2
   return 1
 }
 
@@ -196,10 +220,22 @@ for _ in $(seq 1 20); do
 done
 ! xdotool search --onlyvisible --name '^SLOPOS Notification [0-9]+$' >/dev/null 2>&1
 
-pcmanfm /workspace >artifacts/qa/pcmanfm.log 2>&1 & PCMAN_PID=$!
-sleep 2
-xdotool search --onlyvisible --class pcmanfm >/dev/null
+# The active-application scene must be distinct from the file-manager scene;
+# Mousepad gives the visual gate a real text-editor surface to inspect.
+mousepad /workspace/README.md >artifacts/qa/mousepad.log 2>&1 & TEXT_PID=$!
+wait_window_for_pid "$TEXT_PID"
+TEXT_WINDOW="$(window_for_pid "$TEXT_PID")"
+test -n "$TEXT_WINDOW"
+xdotool windowactivate --sync "$TEXT_WINDOW"
 capture_screenshot artifacts/qa/screenshots/active_app_1280x800.png
+close_visible_windows_by_class mousepad
+kill "$TEXT_PID" 2>/dev/null || true
+unset TEXT_PID
+
+pcmanfm /workspace >artifacts/qa/pcmanfm.log 2>&1 & PCMAN_PID=$!
+wait_window_for_pid "$PCMAN_PID"
+PCMAN_WINDOW="$(window_for_pid "$PCMAN_PID")"
+test -n "$PCMAN_WINDOW"
 
 xfce4-terminal >artifacts/qa/terminal.log 2>&1 & TERM_PID=$!
 sleep 2

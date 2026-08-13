@@ -221,7 +221,7 @@ fn show_window(
     let width = 340;
     let height = 116;
     let stack_index = windows.borrow().len().min(3) as i32;
-    let y = 36 + (stack_index * 124);
+    let y = notification_top_y(stack_index, screen_height, height);
     window.set_default_size(width, height);
     window.set_position(WindowPosition::None);
     window.move_(
@@ -397,6 +397,18 @@ fn screen_geometry() -> (i32, i32) {
     (1280, 800)
 }
 
+// Openbox reserves 26px for the SLOPOS top bar and the bar itself is 26px
+// tall. Keep notifications below both regions so a toast never obscures the
+// menu/status controls, even when it is kept above normal application windows.
+fn notification_top_y(stack_index: i32, screen_height: i32, height: i32) -> i32 {
+    const OPENBOX_TOP_MARGIN: i32 = 26;
+    const TOPBAR_HEIGHT: i32 = 26;
+    const TOPBAR_GAP: i32 = 8;
+    let minimum = OPENBOX_TOP_MARGIN + TOPBAR_HEIGHT + TOPBAR_GAP;
+    let desired = minimum + (stack_index.max(0) * 124);
+    desired.min((screen_height - height - 12).max(minimum))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -408,5 +420,12 @@ mod tests {
         assert_eq!(normalized_timeout(10), 1000);
         assert_eq!(normalized_timeout(2500), 2500);
         assert_eq!(normalized_timeout(120_000), 60_000);
+    }
+
+    #[test]
+    fn notifications_start_below_the_reserved_top_bar() {
+        assert_eq!(notification_top_y(0, 800, 116), 60);
+        assert_eq!(notification_top_y(1, 800, 116), 184);
+        assert!(notification_top_y(3, 180, 116) >= 60);
     }
 }
