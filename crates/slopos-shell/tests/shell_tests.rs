@@ -369,6 +369,8 @@ fn atspi_acceptance_covers_named_surfaces_and_focus() {
     assert!(runner.contains("SLOPOS_ATSPI_LOCALE"));
     assert!(runner.contains("--extended"));
     assert!(runner.contains("GDK_SCALE"));
+    assert!(ci.contains("x11-settings-services"));
+    assert!(ci.contains("run-settings-service-qa.sh"));
 }
 
 #[test]
@@ -408,6 +410,21 @@ fn settings_hub_uses_packaged_platinum_icons_with_fallbacks() {
             "settings does not reference {icon}"
         );
     }
+}
+
+#[test]
+fn settings_service_qa_proves_delegation_and_fail_closed_controls() {
+    let runner = include_str!("../../../scripts/run-settings-service-qa.sh");
+    let probe = include_str!("../../../scripts/qa-settings-services.py");
+    assert!(runner.contains("unavailable controls fail closed"));
+    assert!(runner.contains("SLOPOS_SERVICE_PROBE_LOG"));
+    assert!(runner.contains("qa-settings-services.py"));
+    assert!(runner.contains("SETTINGS_SERVICE_QA_STATUS_0"));
+    assert!(probe.contains("Atspi.StateType.SENSITIVE"));
+    assert!(probe.contains("Displays settings"));
+    assert!(probe.contains("SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=8"));
+    assert!(probe.contains("SETTINGS_DELEGATED_DISPLAY=arandr"));
+    assert!(probe.contains("SETTINGS_SERVICE_QA_STATUS_0"));
 }
 
 #[test]

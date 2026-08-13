@@ -48,6 +48,7 @@ jobs:
           set -euo pipefail
           bash -n scripts/benchmark-x11-session.sh
           bash -n scripts/run-resolution-qa.sh
+          bash -n scripts/run-settings-service-qa.sh
           bash -n packaging/vm/qa-vm.sh packaging/vm/arch-install.sh
           test ! -d crates/slopos-compositor
           ! grep -Eq 'slopos-compositor|smithay|wayland-client|wayland-server' Cargo.toml
@@ -343,6 +344,20 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Run isolated AT-SPI acceptance
         run: sudo -E env "PATH=$PATH" bash scripts/run-atspi-qa.sh
+
+  x11-settings-services:
+    name: Settings delegation and unavailable-state acceptance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run Settings service-boundary acceptance
+        run: sudo -E env "PATH=$PATH" bash scripts/run-settings-service-qa.sh
 
   release-build:
     name: release build (X11 Linux)

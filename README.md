@@ -6,7 +6,7 @@ SLOPOS-I is a lightweight Linux desktop environment inspired by the clarity and 
 
 ## Current status
 
-The `pivot` branch is an active product reboot. The 2026-08-13 remediation audit records **79/100** in [`TRUTH.md`](TRUTH.md): the X11 packaging, catalogue validation, shell contracts, Docker/Xvfb evidence, AT-SPI surface acceptance, upstream application matrix, installed-disk VirtualBox session and QEMU-booted LightDM session are materially stronger, but the project is **not production-ready**. Independent visual acceptance, hardware-service, accessibility/localization and long-run performance evidence remain open.
+The `pivot` branch is an active product reboot. The 2026-08-13 remediation audit records **80/100** in [`TRUTH.md`](TRUTH.md): the X11 packaging, catalogue validation, shell contracts, Docker/Xvfb evidence, AT-SPI surface acceptance, Settings delegation checks, upstream application matrix, installed-disk VirtualBox session and QEMU-booted LightDM session are materially stronger, but the project is **not production-ready**. Independent visual acceptance, hardware-service, accessibility/localization and long-run performance evidence remain open.
 
 ## Architecture
 
@@ -57,7 +57,7 @@ docker run --rm -v "%CD%:/workspace" -w /workspace ubuntu:24.04 bash /workspace/
 
 The QA script builds the workspace, starts a D-Bus-backed Xvfb/Openbox X11 session, asserts required processes and fresh visible windows, exercises representative upstream apps, checks launched PIDs, verifies deliberate window move/resize plus Alt+Tab focus switching, and records eleven non-empty 1280x800 canonical screenshots covering the desktop, menu, Search, notification, modal, application, overlap, file manager, terminal, Catalogue and Settings states. `scripts/run-resolution-qa.sh` separately retains desktop/Search/Settings evidence at 1366x768 and 1920x1080 at scale 1, plus 2560x1600 with `GDK_SCALE=2`, validating full-width topbar and centered Application Strip geometry. The separate Arch application gate runs PCManFM, Xfce Terminal, Mousepad, Ristretto, Chromium through the SLOPOS wrapper against a deterministic local browser fixture, and a packaged SuperTux world1 level with movement/jump input plus both a PulseAudio sink-input check and non-silent raw PCM monitor capture; its browser/game, null-sink and monitor results remain bounded container evidence, not proof of physical speaker or GPU behavior.
 
-The dedicated `scripts/run-atspi-qa.sh` acceptance starts the same X11 session with the AT-SPI bridge and verifies six named SLOPOS surfaces plus focused Search through the maintained AT-SPI 2 API. Its extended mode also checks UTF-8 Entry input and reversible Tab/Shift+Tab focus at normal and 2x-scale Xvfb sizes. It is also a separate CI job; translated-locale, screen-reader and hardware accessibility remain additional release gates.
+The dedicated `scripts/run-atspi-qa.sh` acceptance starts the same X11 session with the AT-SPI bridge and verifies six named SLOPOS surfaces plus focused Search through the maintained AT-SPI 2 API. Its extended mode also checks UTF-8 Entry input and reversible Tab/Shift+Tab focus at normal and 2x-scale Xvfb sizes. `scripts/run-settings-service-qa.sh` separately proves that Settings disables absent utilities and invokes an available upstream delegate. These are separate CI jobs; translated-locale, screen-reader and hardware accessibility remain additional release gates.
 
 A passing Docker run is **development evidence**, not proof of hardware/installer/visual production readiness.
 
