@@ -8,8 +8,13 @@ export XDG_RUNTIME_DIR=/tmp/slopos-atspi-runtime
 export SLOPOS_QA_NO_WELCOME=1
 export GDK_BACKEND=x11
 AT_SPI_LOCALE="${SLOPOS_ATSPI_LOCALE:-C.UTF-8}"
+AT_SPI_SCREEN_READER="${SLOPOS_ATSPI_SCREEN_READER:-0}"
 if [[ "$AT_SPI_LOCALE" != "C.UTF-8" && ! "$AT_SPI_LOCALE" =~ ^[A-Za-z_]+\.UTF-8$ ]]; then
   echo "SLOPOS_ATSPI_LOCALE must be C.UTF-8 or a UTF-8 locale name: $AT_SPI_LOCALE" >&2
+  exit 2
+fi
+if [[ "$AT_SPI_SCREEN_READER" != 0 && "$AT_SPI_SCREEN_READER" != 1 ]]; then
+  echo "SLOPOS_ATSPI_SCREEN_READER must be 0 or 1" >&2
   exit 2
 fi
 export LC_ALL=C.UTF-8
@@ -37,11 +42,16 @@ trap cleanup EXIT
 
 echo "[1/4] Installing GTK and AT-SPI dependencies"
 apt-get update -qq
-apt-get install -y -qq --no-install-recommends \
+qa_packages=(
   libgtk-3-dev libx11-dev libxrandr-dev libssl-dev libdbus-1-dev \
   ca-certificates curl pkg-config build-essential libgtk-3-0 dbus-x11 at-spi2-core python3-gi \
   gir1.2-atspi-2.0 xvfb openbox xdotool fonts-liberation \
   adwaita-icon-theme libx11-6 libxrandr2 locales
+)
+if [[ "$AT_SPI_SCREEN_READER" == 1 ]]; then
+  qa_packages+=(orca)
+fi
+apt-get install -y -qq --no-install-recommends "${qa_packages[@]}"
 
 if [[ "$AT_SPI_LOCALE" != "C.UTF-8" ]]; then
   locale-gen "$AT_SPI_LOCALE"
@@ -76,6 +86,7 @@ dbus-run-session -- bash -c '
   export GDK_BACKEND=x11
   export GDK_SCALE="$1"
   export LC_ALL="$2"
+  screen_reader="$3"
   export GTK_MODULES=gail:atk-bridge
   at-spi-bus-launcher --launch-immediately >/tmp/slopos-atspi-bus.log 2>&1 &
   AT_SPI_PID=$!
@@ -83,6 +94,18 @@ dbus-run-session -- bash -c '
   gsettings set org.gnome.desktop.interface toolkit-accessibility true >/dev/null 2>&1 || true
   env GTK_MODULES=gail:atk-bridge GDK_BACKEND=x11 ./target/release/slopos-session >/tmp/slopos-atspi-session.log 2>&1 &
   SESSION_PID=$!
+  if [[ "$screen_reader" == 1 ]]; then
+    orca --replace --debug-file=/tmp/slopos-atspi-orca-debug.log --disable=braille \
+      >/tmp/slopos-atspi-orca.log 2>&1 &
+    ORCA_PID=$!
+    for _ in $(seq 1 30); do
+      if grep -Fq "ORCA: Startup complete notification made" /tmp/slopos-atspi-orca-debug.log 2>/dev/null; then
+        break
+      fi
+      sleep 0.5
+    done
+    grep -Fq "ORCA: Startup complete notification made" /tmp/slopos-atspi-orca-debug.log
+  fi
   for _ in $(seq 1 30); do
     if xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null 2>&1 && \
        xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1; then
@@ -122,8 +145,15 @@ dbus-run-session -- bash -c '
     sleep 1
   done
   python3 scripts/qa-atspi.py --extended
+  if [[ "$screen_reader" == 1 ]]; then
+    grep -Fq "SPEECH OUTPUT:" /tmp/slopos-atspi-orca-debug.log
+    grep -Fq "Application search field" /tmp/slopos-atspi-orca-debug.log
+    echo "AT_SPI_SCREEN_READER_ORCA_STATUS_0"
+    kill "$ORCA_PID" 2>/dev/null || true
+  fi
   kill "$SETTINGS_PID" "$CATALOGUE_PID" "$SESSION_PID" "$AT_SPI_PID" 2>/dev/null || true
-' bash "$AT_SPI_SCALE" "$LC_ALL"
+' bash "$AT_SPI_SCALE" "$LC_ALL" "$AT_SPI_SCREEN_READER"
 echo "[4/4] AT-SPI acceptance passed"
 echo "AT_SPI_LOCALE=$AT_SPI_LOCALE"
 echo "AT_SPI_RUNTIME_LOCALE=$AT_SPI_RUNTIME_LOCALE"
+echo "AT_SPI_SCREEN_READER=$AT_SPI_SCREEN_READER"

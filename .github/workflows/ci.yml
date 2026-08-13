@@ -363,6 +363,20 @@ jobs:
       - name: Run AT-SPI acceptance in ${{ matrix.locale }}
         run: sudo -E env "PATH=$PATH" SLOPOS_ATSPI_LOCALE="${{ matrix.locale }}" bash scripts/run-atspi-qa.sh
 
+  x11-screen-reader:
+    name: Orca screen-reader acceptance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run Orca-backed AT-SPI acceptance
+        run: sudo -E env "PATH=$PATH" SLOPOS_ATSPI_SCREEN_READER=1 bash scripts/run-atspi-qa.sh
+
   x11-settings-services:
     name: Settings delegation and unavailable-state acceptance
     runs-on: ubuntu-latest
