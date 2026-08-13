@@ -274,10 +274,14 @@ fn target_menu_commands_report_missing_focus() {
 fn image_controls_have_accessible_names_and_focus_feedback() {
     let dock = include_str!("../src/dock.rs");
     let topbar = include_str!("../src/topbar.rs");
+    let notifications = include_str!("../src/notifications.rs");
     let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
     assert!(dock.contains("set_accessible_name(&button, tooltip)"));
     assert!(topbar.contains("set_accessible_name(&system_button, \"SLOPOS menu\")"));
     assert!(topbar.contains("set_accessible_name(&search_button"));
+    assert!(notifications.contains("icon.is_empty().then(load_slopos_mark)"));
+    assert!(notifications.contains("SLOPOS_SHARE_DIR"));
+    assert!(notifications.contains("slopos-logo.png"));
     assert!(css.contains("button:focus"));
     assert!(css.contains("@slopos_highlight"));
 }

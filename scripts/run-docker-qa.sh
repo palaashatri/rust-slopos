@@ -164,7 +164,10 @@ xdotool key Return
 sleep 1
 
 # Exercise the actual freedesktop notification path on the session bus.
-notify-send -a "SLOPOS QA" -i dialog-information "SLOPOS QA Notification" \
+# An empty icon asks the SLOPOS presenter to use its packaged mark, making
+# the canonical notification scene exercise the product identity rather than
+# a generic desktop icon.
+notify-send -a "SLOPOS QA" -i "" "SLOPOS QA Notification" \
   "A real D-Bus notification rendered by the SLOPOS presenter."
 wait_visible_window '^SLOPOS Notification [0-9]+$'
 scrot -zo artifacts/qa/screenshots/notification_1280x800.png

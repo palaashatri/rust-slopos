@@ -3,12 +3,15 @@
 //! SLOPOS owns `org.freedesktop.Notifications` when no other daemon already
 //! owns it, while retaining the same presenter for shell-local notifications.
 
+use gdk_pixbuf::{InterpType, Pixbuf};
 use gtk::prelude::*;
 use gtk::{
     Align, Box as GtkBox, Button, Image, Label, Orientation, Window, WindowPosition, WindowType,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::env;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -234,17 +237,21 @@ fn show_window(
     main_box.style_context().add_class("slopos-notification");
 
     let content = GtkBox::new(Orientation::Horizontal, 9);
-    let icon_name = if icon.is_empty() {
-        "dialog-information-symbolic"
+    if let Some(mark) = icon.is_empty().then(load_slopos_mark).flatten() {
+        content.pack_start(&mark, false, false, 0);
     } else {
-        icon
-    };
-    content.pack_start(
-        &Image::from_icon_name(Some(icon_name), gtk::IconSize::Dialog),
-        false,
-        false,
-        0,
-    );
+        let icon_name = if icon.is_empty() {
+            "dialog-information-symbolic"
+        } else {
+            icon
+        };
+        content.pack_start(
+            &Image::from_icon_name(Some(icon_name), gtk::IconSize::Dialog),
+            false,
+            false,
+            0,
+        );
+    }
 
     let text = GtkBox::new(Orientation::Vertical, 2);
     let title = Label::new(Some(summary));
@@ -304,6 +311,34 @@ fn normalized_timeout(requested_ms: i32) -> u64 {
         0 => 0,
         value => value.clamp(1000, 60_000) as u64,
     }
+}
+
+fn load_slopos_mark() -> Option<Image> {
+    let mut candidates = Vec::new();
+    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+        candidates.push(PathBuf::from(share_dir).join("slopos-i/slopos-logo.png"));
+    }
+    candidates.extend([
+        PathBuf::from("assets/slopos-logo.png"),
+        PathBuf::from("/usr/local/share/slopos-i/slopos-logo.png"),
+        PathBuf::from("/usr/share/slopos-i/slopos-logo.png"),
+    ]);
+    candidates.into_iter().find_map(|path| {
+        if !Path::new(&path).is_file() {
+            return None;
+        }
+        let pixbuf = Pixbuf::from_file(&path).ok()?;
+        let mark = if pixbuf.width() >= 512 && pixbuf.height() >= 512 {
+            let crop = (pixbuf.width().min(pixbuf.height()) / 4).max(1);
+            let x = (pixbuf.width() - crop) / 2;
+            let y = ((pixbuf.height() * 3) / 10).min(pixbuf.height() - crop);
+            pixbuf.new_subpixbuf(x, y, crop, crop)
+        } else {
+            pixbuf
+        };
+        let scaled = mark.scale_simple(28, 28, InterpType::Bilinear)?;
+        Some(Image::from_pixbuf(Some(&scaled)))
+    })
 }
 
 fn emit_closed(connection: Option<&zbus::blocking::Connection>, id: u32, reason: u32) {

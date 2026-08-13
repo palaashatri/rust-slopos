@@ -46,7 +46,7 @@ fn main() {
         NotificationServer::show_toast(
             "Welcome to SLOPOS-I",
             "Press Super+Space or choose Search to find applications.",
-            "dialog-information-symbolic",
+            "",
         );
     }
 
