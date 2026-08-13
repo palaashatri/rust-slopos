@@ -8,7 +8,11 @@ window.inactive.border.color: #808080
 
 # Keep the active frame's Platinum bevel, but use a smooth gradient so title
 # text remains legible at 1x and HiDPI instead of competing with dense stripes.
-window.active.title.bg: raised gradient vertical
+# Keep the title fill flat so Openbox does not draw the raised-bevel scanline
+# pattern that turns active upstream windows into black/white stripes at 1x.
+# The Platinum bevel is supplied by the one-pixel frame border and buttons;
+# title text needs a clean gradient for legibility across Xvfb and real X11.
+window.active.title.bg: flat gradient vertical
 window.active.title.bg.color: #F0F0F0
 window.active.title.bg.colorTo: #CFCFCF
 window.active.label.bg: parentrelative
@@ -34,7 +38,7 @@ menu.border.color: #000000
 menu.border.width: 2
 # Keep menu headers on the same legible Platinum gradient as active frames;
 # interlaced fills turn compact labels into noisy black/white stripes at 1x.
-menu.title.bg: raised gradient vertical
+menu.title.bg: flat gradient vertical
 menu.title.bg.color: #F0F0F0
 menu.title.bg.colorTo: #D0D0D0
 menu.title.text.color: #000000

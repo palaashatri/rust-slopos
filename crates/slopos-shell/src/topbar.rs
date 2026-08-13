@@ -41,6 +41,12 @@ impl TopBar {
         window.move_(0, 0);
         window.set_decorated(false);
         window.set_keep_above(true);
+        // The top bar is desktop chrome, not an application surface.  Keep
+        // the X11 client focus on the focused upstream application while a
+        // panel control is clicked; otherwise opening the exported AppMenu
+        // would race the 500 ms focus poll and could send an action to a
+        // stale exporter or show a misleading shell-owned state.
+        window.set_accept_focus(false);
         window.set_skip_taskbar_hint(true);
         window.set_skip_pager_hint(true);
         set_accessible_name(&window, "SLOPOS top bar");
@@ -95,7 +101,8 @@ impl TopBar {
         let app_menu_exporter = Rc::new(RefCell::new(None));
         let app_menu_exporter_ref = app_menu_exporter.clone();
         app_menu_button.connect_clicked(move |button| {
-            open_imported_app_menu(button, app_menu_exporter_ref.borrow().clone());
+            let exporter = app_menu_exporter_ref.borrow().clone();
+            open_imported_app_menu(button, exporter);
         });
         main_box.pack_start(&app_menu_button, false, false, 0);
 
@@ -499,6 +506,24 @@ fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExpo
         return;
     };
 
+    // The capability poll is intentionally periodic, so focus can change
+    // between the last poll and this click.  Never send a protocol event to
+    // an exporter that is no longer the active X11 window; doing so would be
+    // an invisible cross-application command and would make the global menu
+    // look like it belongs to the wrong application.  The top bar also opts
+    // out of X11 focus, so this check still sees the upstream window while
+    // the panel button is being clicked.
+    if current_active_window_id() != Some(exporter.window_id) {
+        log::info!(
+            "Focused X11 application changed before AppMenu click; keeping its local menu"
+        );
+        button.set_sensitive(false);
+        button.set_tooltip_text(Some(
+            "Focused application changed; use the current application's local menu",
+        ));
+        return;
+    }
+
     button.set_sensitive(false);
     let (sender, receiver) = mpsc::channel();
     let worker_exporter = exporter.clone();
@@ -521,6 +546,16 @@ fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExpo
         }
         match receiver.try_recv() {
             Ok(Ok(layout)) => {
+                if current_active_window_id() != Some(exporter.window_id) {
+                    log::info!(
+                        "Focused X11 application changed before AppMenu layout was shown"
+                    );
+                    button.set_sensitive(false);
+                    button.set_tooltip_text(Some(
+                        "Focused application changed; use the current application's local menu",
+                    ));
+                    return glib::ControlFlow::Break;
+                }
                 button.set_sensitive(true);
                 show_imported_app_menu(&button, layout, exporter.clone());
                 glib::ControlFlow::Break
@@ -540,6 +575,11 @@ fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExpo
             }
         }
     });
+}
+
+fn current_active_window_id() -> Option<u32> {
+    command_output("xdotool", &["getactivewindow"])
+        .and_then(|value| value.trim().parse::<u32>().ok())
 }
 
 fn show_imported_app_menu(
@@ -586,6 +626,12 @@ fn append_imported_menu_items(
             let exporter = exporter.clone();
             let item_id = item.id;
             menu_item.connect_activate(move |_| {
+                if current_active_window_id() != Some(exporter.window_id) {
+                    log::info!(
+                        "Focused X11 application changed before AppMenu event; dropping action"
+                    );
+                    return;
+                }
                 let exporter = exporter.clone();
                 thread::spawn(move || {
                     if let Err(error) =

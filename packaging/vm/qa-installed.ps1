@@ -48,7 +48,10 @@ try {
     if ($SshUser -notmatch '^[a-z_][a-z0-9_-]*$') {
         throw "SshUser must be a simple Linux account name"
     }
-    if ($ExpectedCommit -and $ExpectedCommit -notmatch '^[0-9a-fA-F]{40}$') {
+    if ([string]::IsNullOrWhiteSpace($ExpectedCommit)) {
+        throw "ExpectedCommit is required; refusing to accept an unpinned installed VM"
+    }
+    if ($ExpectedCommit -notmatch '^[0-9a-fA-F]{40}$') {
         throw "ExpectedCommit must be a full 40-character commit SHA"
     }
     if ($WaitSec -lt 1) { throw "WaitSec must be positive" }
@@ -130,7 +133,7 @@ try {
     if ($sourceCommitExit -ne 0 -or $sourceCommit -notmatch '^[0-9a-fA-F]{40}$') {
         throw "Installed source checkout did not report a full commit SHA"
     }
-    if ($ExpectedCommit -and $sourceCommit -ne $ExpectedCommit) {
+    if ($sourceCommit -ne $ExpectedCommit) {
         throw "Installed source commit $sourceCommit does not match expected $ExpectedCommit"
     }
 

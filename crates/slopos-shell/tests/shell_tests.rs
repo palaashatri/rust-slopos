@@ -127,11 +127,11 @@ fn platinum_openbox_active_titlebar_uses_readable_gradient() {
         .expect("active titlebar background is defined");
     assert_eq!(
         active_title.trim(),
-        "window.active.title.bg: raised gradient vertical"
+        "window.active.title.bg: flat gradient vertical"
     );
     assert!(theme.contains("window.inactive.title.bg: flat solid"));
-    assert!(theme.contains("menu.title.bg: raised gradient vertical"));
-    assert!(!theme.contains("menu.title.bg: raised gradient vertical interlaced"));
+    assert!(theme.contains("menu.title.bg: flat gradient vertical"));
+    assert!(!theme.contains("menu.title.bg: flat gradient vertical interlaced"));
     assert!(theme.contains("window.active.label.text.color: #000000"));
     assert!(theme.contains("window.inactive.label.text.color: #707070"));
 }
@@ -236,6 +236,8 @@ fn installed_vm_harness_pins_source_and_collects_status() {
 
     let qa = include_str!("../../../packaging/vm/qa-installed.ps1");
     assert!(qa.contains("[string]$ExpectedCommit = \"\""));
+    assert!(qa.contains("ExpectedCommit is required; refusing to accept an unpinned installed VM"));
+    assert!(qa.contains("if ($ExpectedCommit -notmatch '^[0-9a-fA-F]{40}$')"));
     assert!(qa.contains("does not match expected"));
     assert!(qa.contains("function Invoke-SshCapture"));
     assert!(qa.contains("$ErrorActionPreference = \"Continue\""));
@@ -352,6 +354,14 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(topbar.contains("appmenu::fetch_layout_with_timeout"));
     assert!(topbar.contains("appmenu::activate"));
     assert!(topbar.contains("Open the focused application's exported AppMenu"));
+    assert!(topbar.contains("window.set_accept_focus(false)"));
+    assert!(topbar.contains("current_active_window_id() != Some(exporter.window_id)"));
+    assert!(topbar.contains("Focused X11 application changed before AppMenu click"));
+    assert!(topbar.contains("Focused X11 application changed before AppMenu event"));
+    assert!(topbar.contains("Focused X11 application changed before AppMenu layout was shown"));
+    assert!(docker_qa.contains("APPMENU_FOCUS_BEFORE"));
+    assert!(docker_qa.contains("APPMENU_FOCUS_AFTER"));
+    assert!(docker_qa.contains("destroyed pre-recovery top-bar window"));
     assert!(!topbar.contains("safe DBusMenu importer is not enabled"));
     assert!(!topbar.contains("build_global_menu_bar"));
     assert!(!topbar.contains("target_shortcut_item"));
@@ -688,7 +698,10 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("install-browser-theme.sh firefox"));
     assert!(qa.contains("SLOPOS_BROWSER_THEME_DIR=/usr/share/slopos-i/browser/chromium"));
     assert!(qa.contains("Installed theme"));
-    assert!(qa.contains("xdotool key Escape"));
+    assert!(qa.contains("xdotool key --window \"$window\" Escape"));
+    assert!(qa.contains("xdotool mousemove --window \"$window\""));
+    assert!(qa.contains("xdotool click --window \"$window\" 1"));
+    assert!(qa.contains("$((WIDTH - 30)) 98"));
     assert!(qa.contains("--profile \"$FIREFOX_PROFILE\""));
     assert!(qa.contains("browser-dom.html"));
     assert!(qa.contains("SLOPOS_QA_SKIP_DEPS"));

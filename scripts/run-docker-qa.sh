@@ -213,6 +213,11 @@ test "$wm_after" != "$wm_before"
 wait_visible_window '^SLOPOS Application Strip$'
 wait_visible_window '^SLOPOS Top Bar$'
 sleep 1
+# The supervisor recreates shell windows after the deliberate recovery test;
+# refresh the ID before later pointer-driven AppMenu checks instead of
+# reusing the destroyed pre-recovery top-bar window.
+TOPBAR_WINDOW="$(xdotool search --onlyvisible --name '^SLOPOS Top Bar$' | tail -n 1)"
+test -n "$TOPBAR_WINDOW"
 
 echo "[6/8] Capture canonical scenes"
 capture_screenshot artifacts/qa/screenshots/clean_desktop_1280x800.png
@@ -303,8 +308,14 @@ if [[ "$APPMENU_FIXTURE_AVAILABLE" == 1 ]] || \
     sleep 1
   fi
   grep -Fq 'exports AppMenu bus=' artifacts/qa/session.log
+  APPMENU_FOCUS_BEFORE="$(xdotool getactivewindow)"
+  test "$APPMENU_FOCUS_BEFORE" = "$TEXT_WINDOW"
   xdotool mousemove --window "$TOPBAR_WINDOW" --sync "${SLOPOS_QA_APP_MENU_X:-270}" 13
   xdotool click 1
+  APPMENU_FOCUS_AFTER="$(xdotool getactivewindow)"
+  # Desktop chrome must not steal X11 focus from the exporter window.  This
+  # keeps the imported menu tied to the app the user was actually using.
+  test "$APPMENU_FOCUS_AFTER" = "$APPMENU_FOCUS_BEFORE"
   sleep 1
   if grep -Fq "Focused application's AppMenu was not imported" artifacts/qa/session.log; then
     if [[ "$APPMENU_FIXTURE_AVAILABLE" == 1 ]]; then

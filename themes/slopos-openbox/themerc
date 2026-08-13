@@ -7,7 +7,7 @@ border.width: 1
 window.active.border.color: #000000
 window.inactive.border.color: #A0A0A0
 
-# Active Window Titlebar (Classic Pinstripe Effect)
+# Active Window Titlebar (Classic Platinum Gradient)
 window.active.title.bg: flat gradient vertical
 window.active.title.bg.color: #E6E6E6
 window.active.title.bg.colorTo: #CDCDCD

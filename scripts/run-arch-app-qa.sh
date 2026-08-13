@@ -261,8 +261,20 @@ run_window_app() {
   # transient UI before the evidence capture; the upstream browser remains
   # untouched and the deterministic page stays visible underneath.
   if [[ "$label" == browser || "$label" == browser-firefox ]]; then
-    xdotool key Escape 2>/dev/null || true
-    sleep 0.5
+    xdotool key --window "$window" Escape 2>/dev/null || true
+    # Chromium's unpacked-theme toast is an in-client surface rather than an
+    # X11 child window, so xdotool cannot search it by name.  Its close button
+    # is at the far-right edge of the fixed browser notification row (about
+    # 98 logical pixels below the outer X11 client origin in this 1280x800
+    # gate, after Chromium's tab strip and toolbar).  A
+    # click there is harmless when the toast is absent (it lands in the blank
+    # fixture page), while reliably removing the toast when present.  Escape
+    # is sent again so Firefox's profile notification path is covered too.
+    eval "$(xdotool getwindowgeometry --shell \"$window\")"
+    xdotool mousemove --window "$window" $((WIDTH - 30)) 98 2>/dev/null || true
+    xdotool click --window "$window" 1 2>/dev/null || true
+    xdotool key --window "$window" Escape 2>/dev/null || true
+    sleep 0.75
   fi
   scrot -o "artifacts/qa/app-matrix/$screenshot"
   echo "    pid=$app_pid window_pid=$window_pid"
