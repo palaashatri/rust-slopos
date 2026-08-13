@@ -3,6 +3,7 @@
 //! The hub provides a consistent SLOPOS control-panel surface while delegating
 //! system mutation to mature upstream X11/Linux configuration utilities.
 
+use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
@@ -14,7 +15,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 struct ControlPanel<'a> {
-    icon: &'a str,
+    icon_file: &'a str,
+    fallback_icon: &'a str,
     title: &'a str,
     description: &'a str,
     candidates: &'a [(&'a str, &'a [&'a str])],
@@ -66,49 +68,57 @@ fn main() {
 
     let panels = [
         ControlPanel {
-            icon: "video-display-symbolic",
+            icon_file: "display.svg",
+            fallback_icon: "video-display-symbolic",
             title: "Displays",
             description: "Resolution, rotation and monitor layout",
             candidates: &[("arandr", &[]), ("lxrandr", &[])],
         },
         ControlPanel {
-            icon: "audio-card-symbolic",
+            icon_file: "sound.svg",
+            fallback_icon: "audio-card-symbolic",
             title: "Sound",
             description: "Output, input devices and volume",
             candidates: &[("pavucontrol", &[])],
         },
         ControlPanel {
-            icon: "network-wireless-symbolic",
+            icon_file: "network.svg",
+            fallback_icon: "network-wireless-symbolic",
             title: "Network",
             description: "Wi-Fi, Ethernet and saved connections",
             candidates: &[("nm-connection-editor", &[])],
         },
         ControlPanel {
-            icon: "bluetooth-symbolic",
+            icon_file: "bluetooth.svg",
+            fallback_icon: "bluetooth-symbolic",
             title: "Bluetooth",
             description: "Discover, pair and manage devices",
             candidates: &[("blueman-manager", &[])],
         },
         ControlPanel {
-            icon: "battery-good-symbolic",
+            icon_file: "power.svg",
+            fallback_icon: "battery-good-symbolic",
             title: "Power",
             description: "Sleep, lid and battery behaviour",
             candidates: &[("xfce4-power-manager-settings", &[])],
         },
         ControlPanel {
-            icon: "preferences-desktop-theme-symbolic",
+            icon_file: "appearance.svg",
+            fallback_icon: "preferences-desktop-theme-symbolic",
             title: "Appearance",
             description: "GTK theme, icons and font preferences",
             candidates: &[("lxappearance", &[])],
         },
         ControlPanel {
-            icon: "preferences-desktop-wallpaper-symbolic",
+            icon_file: "desktop.svg",
+            fallback_icon: "preferences-desktop-wallpaper-symbolic",
             title: "Desktop",
             description: "Wallpaper and desktop presentation",
             candidates: &[("pcmanfm", &["--desktop-pref"])],
         },
         ControlPanel {
-            icon: "input-keyboard-symbolic",
+            icon_file: "keyboard.svg",
+            fallback_icon: "input-keyboard-symbolic",
             title: "Keyboard & Mouse",
             description: "Pointer and keyboard preferences",
             candidates: &[("lxinput", &[])],
@@ -160,7 +170,7 @@ fn control_panel_button(panel: &ControlPanel<'_>) -> Button {
     content.set_halign(Align::Fill);
     content.set_valign(Align::Center);
 
-    let icon = Image::from_icon_name(Some(panel.icon), IconSize::LargeToolbar);
+    let icon = load_control_icon(panel.icon_file, panel.fallback_icon);
     icon.set_pixel_size(32);
     icon.style_context().add_class("slopos-control-icon");
     content.pack_start(&icon, false, false, 0);
@@ -206,6 +216,30 @@ fn command_exists(program: &str) -> bool {
         return false;
     };
     env::split_paths(&path).any(|dir| dir.join(program).is_file())
+}
+
+fn load_control_icon(file_name: &str, fallback: &str) -> Image {
+    let mut candidates = Vec::new();
+    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+        candidates.push(
+            PathBuf::from(share_dir)
+                .join("slopos-i/themes/platinum/icons")
+                .join(file_name),
+        );
+    }
+    candidates.extend([
+        PathBuf::from("themes/platinum/icons").join(file_name),
+        PathBuf::from("/usr/local/share/slopos-i/themes/platinum/icons").join(file_name),
+        PathBuf::from("/usr/share/slopos-i/themes/platinum/icons").join(file_name),
+    ]);
+    for path in candidates {
+        if path.is_file() {
+            if let Ok(pixbuf) = Pixbuf::from_file_at_scale(&path, 32, 32, true) {
+                return Image::from_pixbuf(Some(&pixbuf));
+            }
+        }
+    }
+    Image::from_icon_name(Some(fallback), IconSize::LargeToolbar)
 }
 
 fn set_accessible_name<W>(widget: &W, name: &str)

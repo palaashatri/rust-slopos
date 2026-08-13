@@ -333,6 +333,33 @@ fn settings_hub_uses_compact_platinum_controls() {
 }
 
 #[test]
+fn settings_hub_uses_packaged_platinum_icons_with_fallbacks() {
+    let settings = include_str!("../../slopos-settings/src/main.rs");
+    assert!(settings.contains("load_control_icon(panel.icon_file, panel.fallback_icon)"));
+    assert!(settings.contains("Pixbuf::from_file_at_scale(&path, 32, 32, true)"));
+    for icon in [
+        "display.svg",
+        "sound.svg",
+        "network.svg",
+        "bluetooth.svg",
+        "power.svg",
+        "appearance.svg",
+        "desktop.svg",
+        "keyboard.svg",
+    ] {
+        let path = format!("themes/platinum/icons/{icon}");
+        let repo_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join(&path);
+        assert!(repo_path.is_file(), "missing packaged icon {path}");
+        assert!(
+            settings.contains(icon),
+            "settings does not reference {icon}"
+        );
+    }
+}
+
+#[test]
 fn upstream_gtk_menubars_keep_platinum_spacing() {
     let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
     assert!(css.contains("menubar > menuitem"));

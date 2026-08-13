@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 gtk = { workspace = true }
 gdk = { workspace = true }
+gdk-pixbuf = { workspace = true }
 glib = { workspace = true }
 gio = { workspace = true }
 serde = { workspace = true }
