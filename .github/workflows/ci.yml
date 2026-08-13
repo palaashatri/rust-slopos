@@ -345,6 +345,24 @@ jobs:
       - name: Run isolated AT-SPI acceptance
         run: sudo -E env "PATH=$PATH" bash scripts/run-atspi-qa.sh
 
+  x11-atspi-locales:
+    name: AT-SPI translated-locale matrix (${{ matrix.locale }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        locale: [fr_FR.UTF-8, de_DE.UTF-8]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run AT-SPI acceptance in ${{ matrix.locale }}
+        run: sudo -E env "PATH=$PATH" SLOPOS_ATSPI_LOCALE="${{ matrix.locale }}" bash scripts/run-atspi-qa.sh
+
   x11-settings-services:
     name: Settings delegation and unavailable-state acceptance
     runs-on: ubuntu-latest

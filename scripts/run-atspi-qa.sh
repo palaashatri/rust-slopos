@@ -7,7 +7,12 @@ export DISPLAY=:99
 export XDG_RUNTIME_DIR=/tmp/slopos-atspi-runtime
 export SLOPOS_QA_NO_WELCOME=1
 export GDK_BACKEND=x11
-export LC_ALL="${SLOPOS_ATSPI_LOCALE:-C.UTF-8}"
+AT_SPI_LOCALE="${SLOPOS_ATSPI_LOCALE:-C.UTF-8}"
+if [[ "$AT_SPI_LOCALE" != "C.UTF-8" && ! "$AT_SPI_LOCALE" =~ ^[A-Za-z_]+\.UTF-8$ ]]; then
+  echo "SLOPOS_ATSPI_LOCALE must be C.UTF-8 or a UTF-8 locale name: $AT_SPI_LOCALE" >&2
+  exit 2
+fi
+export LC_ALL=C.UTF-8
 AT_SPI_SCREEN="${SLOPOS_ATSPI_SCREEN:-1280x800}"
 AT_SPI_SCALE="${SLOPOS_ATSPI_SCALE:-1}"
 if [[ ! "$AT_SPI_SCREEN" =~ ^[0-9]+x[0-9]+$ ]]; then
@@ -36,7 +41,20 @@ apt-get install -y -qq --no-install-recommends \
   libgtk-3-dev libx11-dev libxrandr-dev libssl-dev libdbus-1-dev \
   ca-certificates curl pkg-config build-essential libgtk-3-0 dbus-x11 at-spi2-core python3-gi \
   gir1.2-atspi-2.0 xvfb openbox xdotool fonts-liberation \
-  adwaita-icon-theme libx11-6 libxrandr2
+  adwaita-icon-theme libx11-6 libxrandr2 locales
+
+if [[ "$AT_SPI_LOCALE" != "C.UTF-8" ]]; then
+  locale-gen "$AT_SPI_LOCALE"
+fi
+AT_SPI_RUNTIME_LOCALE="$AT_SPI_LOCALE"
+if ! locale -a | grep -Fxq "$AT_SPI_RUNTIME_LOCALE"; then
+  AT_SPI_RUNTIME_LOCALE="${AT_SPI_LOCALE/.UTF-8/.utf8}"
+fi
+locale -a | grep -Fxq "$AT_SPI_RUNTIME_LOCALE" || {
+  echo "requested locale was not generated: $AT_SPI_LOCALE" >&2
+  exit 1
+}
+export LC_ALL="$AT_SPI_RUNTIME_LOCALE"
 
 if [[ "${SLOPOS_QA_SKIP_BUILD:-0}" == 1 ]]; then
   echo "[2/4] Using the existing release workspace build"
@@ -107,3 +125,5 @@ dbus-run-session -- bash -c '
   kill "$SETTINGS_PID" "$CATALOGUE_PID" "$SESSION_PID" "$AT_SPI_PID" 2>/dev/null || true
 ' bash "$AT_SPI_SCALE" "$LC_ALL"
 echo "[4/4] AT-SPI acceptance passed"
+echo "AT_SPI_LOCALE=$AT_SPI_LOCALE"
+echo "AT_SPI_RUNTIME_LOCALE=$AT_SPI_RUNTIME_LOCALE"

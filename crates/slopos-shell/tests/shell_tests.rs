@@ -367,10 +367,16 @@ fn atspi_acceptance_covers_named_surfaces_and_focus() {
     assert!(runner.contains("SLOPOS_ATSPI_SCREEN"));
     assert!(runner.contains("SLOPOS_ATSPI_SCALE"));
     assert!(runner.contains("SLOPOS_ATSPI_LOCALE"));
+    assert!(runner.contains("locale-gen \"$AT_SPI_LOCALE\""));
+    assert!(runner.contains("AT_SPI_RUNTIME_LOCALE"));
+    assert!(runner.contains("AT_SPI_LOCALE=$AT_SPI_LOCALE"));
     assert!(runner.contains("--extended"));
     assert!(runner.contains("GDK_SCALE"));
     assert!(ci.contains("x11-settings-services"));
     assert!(ci.contains("run-settings-service-qa.sh"));
+    assert!(ci.contains("x11-atspi-locales"));
+    assert!(ci.contains("fr_FR.UTF-8"));
+    assert!(ci.contains("de_DE.UTF-8"));
 }
 
 #[test]
