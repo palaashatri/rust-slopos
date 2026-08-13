@@ -428,6 +428,19 @@ fn settings_service_qa_proves_delegation_and_fail_closed_controls() {
 }
 
 #[test]
+fn benchmark_has_bounded_long_run_liveness_and_rss_checks() {
+    let benchmark = include_str!("../../../scripts/benchmark-x11-session.sh");
+    assert!(benchmark.contains("SLOPOS_BENCHMARK_HOLD_SECONDS"));
+    assert!(benchmark.contains("SLOPOS_BENCHMARK_MAX_RSS_GROWTH_KIB"));
+    assert!(benchmark.contains("SESSION_TREE_RSS_KIB_INITIAL"));
+    assert!(benchmark.contains("SESSION_TREE_RSS_KIB_FINAL"));
+    assert!(benchmark.contains("SESSION_TREE_RSS_DELTA_KIB"));
+    assert!(benchmark.contains("BENCHMARK_HOLD_SECONDS"));
+    assert!(benchmark.contains("live_pid slopos-shell"));
+    assert!(benchmark.contains("SLOPOS Top Bar"));
+}
+
+#[test]
 fn upstream_gtk_menubars_keep_platinum_spacing() {
     let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
     assert!(css.contains("menubar > menuitem"));

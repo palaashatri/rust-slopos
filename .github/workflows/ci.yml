@@ -359,6 +359,29 @@ jobs:
       - name: Run Settings service-boundary acceptance
         run: sudo -E env "PATH=$PATH" bash scripts/run-settings-service-qa.sh
 
+  x11-performance:
+    name: bounded X11 long-run benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Install X11/GTK build and runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            libssl-dev libdbus-1-dev xvfb openbox xdotool x11-utils dbus-x11 \
+            fonts-liberation adwaita-icon-theme
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build release binaries
+        run: cargo build --workspace --release --locked
+      - name: Hold the X11 session and check RSS/window stability
+        run: sudo -E env "PATH=$PATH" SLOPOS_BENCHMARK_HOLD_SECONDS=30 bash scripts/benchmark-x11-session.sh
+
   release-build:
     name: release build (X11 Linux)
     runs-on: ubuntu-latest
