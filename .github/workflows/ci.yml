@@ -160,7 +160,12 @@ jobs:
         run: |
           set -o pipefail
           cargo test --workspace --locked -- --nocapture 2>&1 | tee "$RUNNER_TEMP/cargo-test.log"
-          exit "${PIPESTATUS[0]}"
+          status="${PIPESTATUS[0]}"
+          if [ "$status" -ne 0 ]; then
+            summary="$(tail -n 80 "$RUNNER_TEMP/cargo-test.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+            echo "::error title=Cargo workspace test failure::$summary"
+          fi
+          exit "$status"
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: rustfmt
@@ -367,7 +372,12 @@ jobs:
         run: |
           set -o pipefail
           sudo -E env "PATH=$PATH" bash scripts/run-atspi-qa.sh 2>&1 | tee "$RUNNER_TEMP/atspi.log"
-          exit "${PIPESTATUS[0]}"
+          status="${PIPESTATUS[0]}"
+          if [ "$status" -ne 0 ]; then
+            summary="$(tail -n 80 "$RUNNER_TEMP/atspi.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+            echo "::error title=AT-SPI acceptance failure::$summary"
+          fi
+          exit "$status"
       - name: Upload AT-SPI diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -398,7 +408,12 @@ jobs:
         run: |
           set -o pipefail
           sudo -E env "PATH=$PATH" SLOPOS_ATSPI_LOCALE="${{ matrix.locale }}" bash scripts/run-atspi-qa.sh 2>&1 | tee "$RUNNER_TEMP/atspi-${{ matrix.locale }}.log"
-          exit "${PIPESTATUS[0]}"
+          status="${PIPESTATUS[0]}"
+          if [ "$status" -ne 0 ]; then
+            summary="$(tail -n 80 "$RUNNER_TEMP/atspi-${{ matrix.locale }}.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+            echo "::error title=AT-SPI ${{ matrix.locale }} acceptance failure::$summary"
+          fi
+          exit "$status"
       - name: Upload translated AT-SPI diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -425,7 +440,12 @@ jobs:
         run: |
           set -o pipefail
           sudo -E env "PATH=$PATH" SLOPOS_ATSPI_SCREEN_READER=1 bash scripts/run-atspi-qa.sh 2>&1 | tee "$RUNNER_TEMP/orca.log"
-          exit "${PIPESTATUS[0]}"
+          status="${PIPESTATUS[0]}"
+          if [ "$status" -ne 0 ]; then
+            summary="$(tail -n 100 "$RUNNER_TEMP/orca.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+            echo "::error title=Orca acceptance failure::$summary"
+          fi
+          exit "$status"
       - name: Upload Orca diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -452,7 +472,12 @@ jobs:
         run: |
           set -o pipefail
           sudo -E env "PATH=$PATH" bash scripts/run-settings-service-qa.sh 2>&1 | tee "$RUNNER_TEMP/settings-services.log"
-          exit "${PIPESTATUS[0]}"
+          status="${PIPESTATUS[0]}"
+          if [ "$status" -ne 0 ]; then
+            summary="$(tail -n 100 "$RUNNER_TEMP/settings-services.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+            echo "::error title=Settings service acceptance failure::$summary"
+          fi
+          exit "$status"
       - name: Upload Settings diagnostics
         if: always()
         uses: actions/upload-artifact@v4
