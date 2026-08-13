@@ -72,7 +72,11 @@ hard-fail switch to the Docker harness. It also hardens recovery config
 preservation, VM installer partition cleanup and the Openbox active titlebar
 gradient. The local Docker image/volume cache is currently empty, so no
 post-tranche Rust or Docker runtime result is claimed here; the prior markers
-remain provenance for the earlier pushed source only.
+remain provenance for the earlier pushed source only. The fixture itself was
+compiled in the existing WSL Ubuntu environment (`C_FIXTURE_COMPILE_STATUS_0`)
+and its direct session-bus `GetLayout`/`Event` round-trip recorded
+`DBUSMENU_FIXTURE_ROUNDTRIP_STATUS_0`; this does not replace the full GTK/Xvfb
+click-through.
 
 ## Release accounting boundary
 
