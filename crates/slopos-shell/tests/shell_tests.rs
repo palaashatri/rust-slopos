@@ -27,8 +27,18 @@ fn topbar_uses_packaged_slopos_mark_with_fallback() {
     let topbar = include_str!("../src/topbar.rs");
     assert!(topbar.contains("assets/slopos-logo.png"));
     assert!(topbar.contains("new_subpixbuf"));
-    assert!(topbar.contains("scale_simple(20, 20, InterpType::Bilinear)"));
+    assert!(topbar.contains("load_slopos_mark_sized(20)"));
+    assert!(topbar.contains("scale_simple(size, size, InterpType::Bilinear)"));
     assert!(topbar.contains("set_label(\"S\")"));
+}
+
+#[test]
+fn platinum_dialogs_use_packaged_identity_mark() {
+    let topbar = include_str!("../src/topbar.rs");
+    assert!(topbar.contains("alert.pack_start(&mark, false, false, 0)"));
+    assert!(topbar.contains("style_context().add_class(\"slopos-alert-box\")"));
+    assert!(topbar.contains("load_slopos_mark_sized(40)"));
+    assert!(topbar.contains("fn load_slopos_mark_sized(size: i32)"));
 }
 
 #[test]

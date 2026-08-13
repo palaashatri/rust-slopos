@@ -5,9 +5,8 @@ use gdk_pixbuf::{InterpType, Pixbuf};
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
-    Align, Box as GtkBox, Button, ButtonsType, DialogFlags, IconSize, Image, Label, Menu, MenuBar,
-    MenuItem, MessageDialog, MessageType, Orientation, ResponseType, SeparatorMenuItem, Window,
-    WindowPosition, WindowType,
+    Align, Box as GtkBox, Button, Dialog, DialogFlags, IconSize, Image, Label, Menu, MenuBar,
+    MenuItem, Orientation, ResponseType, SeparatorMenuItem, Window, WindowPosition, WindowType,
 };
 use std::cell::{Cell, RefCell};
 use std::env;
@@ -672,14 +671,7 @@ where
 }
 
 fn show_message(title: &str, message: &str) {
-    let dialog = MessageDialog::new(
-        None::<&Window>,
-        DialogFlags::MODAL,
-        MessageType::Info,
-        ButtonsType::Close,
-        message,
-    );
-    dialog.set_title(title);
+    let dialog = platinum_dialog(title, message, &[("Close", ResponseType::Close)]);
     dialog.connect_response(|dialog, _| dialog.close());
     dialog.show_all();
 }
@@ -688,14 +680,11 @@ fn confirm_action<F>(title: &str, message: &str, action: F)
 where
     F: Fn() + 'static,
 {
-    let dialog = MessageDialog::new(
-        None::<&Window>,
-        DialogFlags::MODAL,
-        MessageType::Question,
-        ButtonsType::YesNo,
+    let dialog = platinum_dialog(
+        title,
         message,
+        &[("No", ResponseType::No), ("Yes", ResponseType::Yes)],
     );
-    dialog.set_title(title);
     dialog.connect_response(move |dialog, response| {
         if response == ResponseType::Yes {
             action();
@@ -703,6 +692,32 @@ where
         dialog.close();
     });
     dialog.show_all();
+}
+
+fn platinum_dialog(title: &str, message: &str, buttons: &[(&str, ResponseType)]) -> Dialog {
+    let button_specs = buttons.to_vec();
+    let dialog = Dialog::with_buttons(
+        Some(title),
+        None::<&Window>,
+        DialogFlags::MODAL,
+        &button_specs,
+    );
+    dialog.set_default_size(360, 150);
+    dialog.set_resizable(false);
+
+    let alert = GtkBox::new(Orientation::Horizontal, 9);
+    alert.style_context().add_class("slopos-alert-box");
+    if let Some(mark) = load_slopos_mark_sized(40) {
+        alert.pack_start(&mark, false, false, 0);
+    }
+    let label = Label::new(Some(message));
+    label.set_xalign(0.0);
+    label.set_line_wrap(true);
+    label.set_line_wrap_mode(pango::WrapMode::WordChar);
+    label.set_max_width_chars(48);
+    alert.pack_start(&label, true, true, 0);
+    dialog.content_area().pack_start(&alert, false, false, 0);
+    dialog
 }
 
 fn lock_command() -> Option<(&'static str, &'static [&'static str])> {
@@ -787,6 +802,10 @@ where
 }
 
 fn load_slopos_mark() -> Option<Image> {
+    load_slopos_mark_sized(20)
+}
+
+fn load_slopos_mark_sized(size: i32) -> Option<Image> {
     let mut candidates = Vec::new();
     if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
         candidates.push(format!("{share_dir}/slopos-i/slopos-logo.png"));
@@ -814,7 +833,7 @@ fn load_slopos_mark() -> Option<Image> {
                 } else {
                     pixbuf
                 };
-                let scaled = mark.scale_simple(20, 20, InterpType::Bilinear)?;
+                let scaled = mark.scale_simple(size, size, InterpType::Bilinear)?;
                 Some(Image::from_pixbuf(Some(&scaled)))
             }
             Err(error) => {
