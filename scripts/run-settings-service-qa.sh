@@ -67,6 +67,12 @@ run_case() {
     export DISPLAY=:99
     export GDK_BACKEND=x11
     export XDG_RUNTIME_DIR=/tmp/slopos-settings-services-runtime
+    cleanup_inner() {
+      set +e
+      kill "${SETTINGS_PID:-}" "${OPENBOX_PID:-}" "${AT_SPI_PID:-}" 2>/dev/null || true
+      wait "${SETTINGS_PID:-}" "${OPENBOX_PID:-}" "${AT_SPI_PID:-}" 2>/dev/null || true
+    }
+    trap cleanup_inner EXIT
     at-spi-bus-launcher --launch-immediately >/tmp/slopos-settings-atspi.log 2>&1 &
     AT_SPI_PID=$!
     openbox --config-file "$SLOPOS_OPENBOX_CONFIG" >/tmp/slopos-settings-openbox.log 2>&1 &

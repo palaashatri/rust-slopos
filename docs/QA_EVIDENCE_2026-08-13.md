@@ -8,14 +8,14 @@ not a source-controlled release bundle.
 
 ## Audit baseline
 
-- `git rev-parse HEAD` returned `a0088dff666aa879e0d9566e447fbfb5d98911bd`.
-- `git status --short --branch` returned `pivot...origin/pivot` with a dirty
-  working tree, including the shell, packaging, QA-script and documentation
-  changes listed by the parent task.
+- The initial audit snapshot was taken at `a0088dff666aa879e0d9566e447fbfb5d98911bd`.
+- The verified milestone is now `c74ce886ec115f25fbfec183e08f2ca9dbbd772d`
+  (`pivot...origin/pivot`, clean after the pushed shell/browser milestone).
 - The initial audit commands were read-only PowerShell checks (`Get-Content`,
   `Select-String`, `Get-Item`, `Get-FileHash`, `git status`, `git rev-parse`).
-- The parent run subsequently reran the current-tree Rust, AppMenu, Docker,
-  Arch application and resolution gates; those markers are recorded below.
+- The parent run subsequently reran the verified current-tree Rust, AppMenu,
+  Docker, Arch application and resolution gates; those markers are recorded
+  below.
 
 ## Observed artifacts
 
@@ -24,11 +24,11 @@ not a source-controlled release bundle.
 | AppMenu capability | `artifacts/qa/session.log` — `0aecfd1c5fc90c3346fa8d171dd61d3a74f8c91704ad643f2be147888a533b96` (initial snapshot) | The initial full Docker session log contained `Focused X11 application exports AppMenu bus=:1.9 path=/org/xfce/mousepad/menus/menubar; bounded DBusMenu importer enabled`. | No `GetLayout` or `Event` result was present in that initial log. The dedicated AppMenu smoke used a synthetic X11-property fixture and no DBusMenu service. Later Docker evidence is listed below. |
 | Browser | `artifacts/qa/app-matrix/browser.png` — `fa92bb898e61eb5d261f80d1b10694b86e547e7612f96c8c126ad778973778c8`; `browser-dom.html` — `fcbb2b3e360d9d88866d5fb46baaf4efc912069d24dd1dc8e4dd1c86898a1f38` | The DOM file contains `SLOPOS_BROWSER_QA_MARKER`; the visible Chromium frame exists. | `browser-firefox.log` says `Firefox runtime leg skipped: package is not present in this pre-provisioned image.` No current Firefox frame is evidenced. |
 | Game/audio artifacts | `artifacts/qa/app-matrix/game.png` — `bc3aab87d4067adaade6524f417b568cdc4513092e6783f9e34faae575aca130`; `game-audio.raw` — `c9a0da59644db01a6ff69451d751e796ac41f437961d228d3227e5e2f3de1f9c`; `sink-inputs.txt` — `fe5ad873e0fe3875c3162d7c80c135a3336c1684bd4da66925f946b0c48c95f8` | The three files were present (395,906; 1,723,524; and 1,035 bytes respectively), and the sink listing names `SuperTux 2` with `media.role = "game"`. | This audit did not recompute PCM non-silence or replay input; retain the original Arch gate output as the semantic result. |
-| Installed VM | `artifacts/qa/installed-vm-evidence/status.json` — `5467668de959f2188797d8bfa268602ad6e104f95e6d52f4180c2be67cb59d42`; `qa-vm.log` — `20cad238946b15e8cfe7bf8ab3df1d4005f4a781af91ea67995a5f94cf3d1368` | Status recorded `expected_commit`/`source_commit` `206c456e0ae02a5a9543ff15fce413618f222fd8`, `qa_exit: 0`, `passed: true`, and completion `2026-08-12T21:52:45.3473597Z`. | This is ignored, pinned-commit installation evidence. It predates current HEAD `a0088dff...` and does not validate the dirty current tree. |
+| Installed VM | `artifacts/qa/installed-vm-evidence/status.json` — `5467668de959f2188797d8bfa268602ad6e104f95e6d52f4180c2be67cb59d42`; `qa-vm.log` — `20cad238946b15e8cfe7bf8ab3df1d4005f4a781af91ea67995a5f94cf3d1368` | Status recorded `expected_commit`/`source_commit` `206c456e0ae02a5a9543ff15fce413618f222fd8`, `qa_exit: 0`, `passed: true`, and completion `2026-08-12T21:52:45.3473597Z`. | This is ignored, pinned-commit installation evidence. It predates the verified milestone `c74ce88` and does not validate the current tree. |
 
 ## Current-tree gate rerun
 
-The parent run reran the current dirty tree after the initial snapshot. The
+The parent run reran the verified current tree after the initial snapshot. The
 reported markers were:
 
 - Rust: `FMT_STATUS_0`, `CHECK_STATUS_0`, `TEST_STATUS_0`,
@@ -51,7 +51,13 @@ reported markers were:
   Xvfb geometry/render checks, not physical display evidence.
 
 The reruns above do not change the installed-VM boundary: the only VM result
-inspected remains the ignored run pinned to `206c456e`, not current HEAD.
+inspected remains the ignored run pinned to `206c456e`, not the verified
+milestone `c74ce88`.
+
+After that rerun, the nested AT-SPI and Settings service D-Bus shells received
+inner EXIT traps for their child PIDs. The Rust static contracts, `bash -n`,
+fmt/check/test/clippy, cache-only AppMenu smoke and full Docker/Xvfb gate all
+passed again; no new package or image downloads were used.
 
 ## Release accounting boundary
 
@@ -61,4 +67,6 @@ only. They do not close the independent visual review, real AppMenu layout
 action delivery (the current Mousepad path fails closed on `UnknownMethod`),
 Firefox runtime leg, hardware-backed services/accessibility, physical
 audio/GPU, or current-tree VM gates. Do not use this manifest or generated
-screenshots as a 100/100 claim.
+screenshots as a 100/100 claim. The readiness ledger conservatively records
+78/100: one Installer point and one Recovery point are withheld for
+current-tree VM/EFI and hardware-recovery evidence that is not present.

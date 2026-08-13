@@ -87,6 +87,14 @@ dbus-run-session -- bash -c '
   export GDK_SCALE="$1"
   export LC_ALL="$2"
   screen_reader="$3"
+  cleanup_inner() {
+    set +e
+    kill "${SETTINGS_PID:-}" "${CATALOGUE_PID:-}" "${ORCA_PID:-}" \
+      "${SESSION_PID:-}" "${AT_SPI_PID:-}" 2>/dev/null || true
+    wait "${SETTINGS_PID:-}" "${CATALOGUE_PID:-}" "${ORCA_PID:-}" \
+      "${SESSION_PID:-}" "${AT_SPI_PID:-}" 2>/dev/null || true
+  }
+  trap cleanup_inner EXIT
   export GTK_MODULES=gail:atk-bridge
   at-spi-bus-launcher --launch-immediately >/tmp/slopos-atspi-bus.log 2>&1 &
   AT_SPI_PID=$!
