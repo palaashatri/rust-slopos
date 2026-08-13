@@ -397,6 +397,7 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("SLOPOS Browser QA"));
     assert!(qa.contains("browser-firefox.png"));
     assert!(qa.contains("install-browser-theme.sh firefox"));
+    assert!(qa.contains("SLOPOS_BROWSER_THEME_DIR=/usr/share/slopos-i/browser/chromium"));
     assert!(qa.contains("--profile \"$FIREFOX_PROFILE\""));
     assert!(qa.contains("browser-dom.html"));
     assert!(qa.contains("getwindowname"));

@@ -14,7 +14,10 @@ export DESKTOP_SESSION=slopos-i
 export GTK_THEME=slopos-gtk
 export SLOPOS_QA_NO_WELCOME=1
 export SLOPOS_BROWSER=chromium
-export SLOPOS_BROWSER_THEME_DIR=/workspace/packaging/browser/chromium
+# Chromium writes its generated Cached Theme.pak beside an unpacked theme.
+# Point the disposable run at the installed copy so QA never mutates source
+# assets under /workspace.
+export SLOPOS_BROWSER_THEME_DIR=/usr/share/slopos-i/browser/chromium
 export LIBGL_ALWAYS_SOFTWARE=1
 export GALLIUM_DRIVER=llvmpipe
 export SDL_AUDIODRIVER=pulse
