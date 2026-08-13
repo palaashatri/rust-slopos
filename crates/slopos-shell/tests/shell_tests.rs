@@ -408,6 +408,7 @@ fn browser_integration_is_upstream_and_no_fork() {
     let dock = include_str!("../src/dock.rs");
     let chromium = include_str!("../../../packaging/browser/chromium/manifest.json");
     let firefox = include_str!("../../../packaging/browser/firefox/manifest.json");
+    let firefox_css = include_str!("../../../packaging/browser/firefox/userChrome.css");
     let browser_docs = include_str!("../../../packaging/browser/README.md");
 
     assert!(launcher.contains("GTK_THEME"));
@@ -429,9 +430,9 @@ fn browser_integration_is_upstream_and_no_fork() {
     assert!(chromium.contains("\"omnibox_background\": [255, 255, 255]"));
     assert!(firefox.contains("\"theme\""));
     assert!(firefox.contains("\"toolbar_field_border_focus\": \"#000080\""));
-    assert!(firefox.contains("#nav-bar .toolbarbutton-1"));
-    assert!(firefox.contains("#sidebar-box"));
-    assert!(firefox.contains("menupopup > menuitem[_moz-menuactive=\"true\"]"));
+    assert!(firefox_css.contains("#nav-bar .toolbarbutton-1"));
+    assert!(firefox_css.contains("#sidebar-box"));
+    assert!(firefox_css.contains("menupopup > menuitem[_moz-menuactive=\"true\"]"));
     assert!(browser_docs.contains("does not fork or patch Firefox, Chromium or Chrome"));
 
     for manifest in [
