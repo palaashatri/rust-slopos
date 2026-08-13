@@ -332,6 +332,14 @@ fn launcher_prefers_packaged_role_icons_with_upstream_fallbacks() {
 }
 
 #[test]
+fn launcher_default_geometry_keeps_result_rows_fully_visible() {
+    let launcher = include_str!("../src/launcher.rs");
+    assert!(launcher.contains("window.set_default_size(560, 450)"));
+    assert!(launcher.contains("scroll.set_min_content_height(280)"));
+    assert!(launcher.contains("visibly clipped row"));
+}
+
+#[test]
 fn atspi_acceptance_covers_named_surfaces_and_focus() {
     let launcher = include_str!("../src/launcher.rs");
     let topbar = include_str!("../src/topbar.rs");

@@ -26,7 +26,10 @@ impl Launcher {
     pub fn new() -> Rc<Self> {
         let window = Window::new(WindowType::Toplevel);
         window.set_title("SLOPOS Search");
-        window.set_default_size(560, 390);
+        // Reserve enough vertical space for complete result rows.  The list
+        // remains scrollable for larger catalogues, but the canonical palette
+        // must not present a visibly clipped row at its default size.
+        window.set_default_size(560, 450);
         window.set_position(WindowPosition::Center);
         window.set_decorated(false);
         window.set_keep_above(true);
@@ -57,6 +60,7 @@ impl Launcher {
 
         let scroll = ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
         scroll.set_policy(PolicyType::Never, PolicyType::Automatic);
+        scroll.set_min_content_height(280);
         scroll.style_context().add_class("slopos-list-frame");
 
         let list_box = ListBox::new();
