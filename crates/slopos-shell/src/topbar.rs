@@ -43,6 +43,7 @@ impl TopBar {
         window.set_keep_above(true);
         window.set_skip_taskbar_hint(true);
         window.set_skip_pager_hint(true);
+        set_accessible_name(&window, "SLOPOS top bar");
         window.style_context().add_class("slopos-topbar");
 
         let target_window = Rc::new(Cell::new(0_u64));
@@ -89,6 +90,7 @@ impl TopBar {
         active_title_label.set_halign(Align::Start);
         active_title_label.set_ellipsize(pango::EllipsizeMode::End);
         active_title_label.set_max_width_chars(28);
+        set_accessible_name(&active_title_label, "Active application");
         main_box.pack_start(&active_title_label, false, false, 7);
         main_box.pack_start(
             &build_global_menu_bar(target_window.clone(), target_menu_controls.clone()),
@@ -167,6 +169,7 @@ impl TopBar {
         status_box.pack_start(&network_button, false, false, 0);
 
         let battery_box = GtkBox::new(Orientation::Horizontal, 3);
+        set_accessible_name(&battery_box, "Battery status");
         battery_box.pack_start(
             &Image::from_icon_name(Some("battery-good-symbolic"), IconSize::Menu),
             false,
@@ -180,6 +183,7 @@ impl TopBar {
         let clock_label = Label::new(Some("--:--"));
         clock_label.style_context().add_class("slopos-clock");
         clock_label.set_tooltip_text(Some("Local time"));
+        set_accessible_name(&clock_label, "Local time");
         status_box.pack_start(&clock_label, false, false, 2);
 
         main_box.pack_end(&status_box, false, false, 0);

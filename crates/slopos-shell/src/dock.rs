@@ -40,6 +40,7 @@ impl Dock {
         window.set_keep_above(true);
         window.set_skip_taskbar_hint(true);
         window.set_skip_pager_hint(true);
+        set_accessible_name(&window, "SLOPOS application strip");
 
         let dock_box = GtkBox::new(Orientation::Horizontal, 3);
         dock_box.style_context().add_class("slopos-dock-container");

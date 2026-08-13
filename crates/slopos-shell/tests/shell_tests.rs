@@ -283,6 +283,40 @@ fn image_controls_have_accessible_names_and_focus_feedback() {
 }
 
 #[test]
+fn atspi_acceptance_covers_named_surfaces_and_focus() {
+    let launcher = include_str!("../src/launcher.rs");
+    let topbar = include_str!("../src/topbar.rs");
+    let dock = include_str!("../src/dock.rs");
+    let settings = include_str!("../../slopos-settings/src/main.rs");
+    let catalogue = include_str!("../../slopos-catalogue/src/main.rs");
+    let runner = include_str!("../../../scripts/run-atspi-qa.sh");
+    let probe = include_str!("../../../scripts/qa-atspi.py");
+    let ci = include_str!("../../../.github/workflows/ci.yml");
+
+    for (source, name) in [
+        (launcher, "SLOPOS application search"),
+        (launcher, "Application search field"),
+        (topbar, "SLOPOS top bar"),
+        (dock, "SLOPOS application strip"),
+        (settings, "SLOPOS system settings"),
+        (catalogue, "SLOPOS software catalogue"),
+    ] {
+        assert!(source.contains(name), "missing AT-SPI name {name}");
+    }
+    assert!(runner.contains("GTK_MODULES=gail:atk-bridge"));
+    assert!(runner.contains("at-spi-bus-launcher --launch-immediately"));
+    assert!(runner.contains("gsettings set org.gnome.desktop.interface toolkit-accessibility true"));
+    assert!(runner.contains("qa-atspi.py"));
+    assert!(ci.contains("x11-atspi-acceptance"));
+    assert!(ci.contains("sudo -E env \"PATH=$PATH\" bash scripts/run-atspi-qa.sh"));
+    assert!(probe.contains("Atspi.get_desktop(0)"));
+    assert!(probe.contains("Atspi.StateType.FOCUSED"));
+    assert!(probe.contains("EXPECTED_NAMES"));
+    assert!(probe.contains("AT_SPI_EXPECTED_NAMES="));
+    assert!(probe.contains("AT_SPI_STATUS_0"));
+}
+
+#[test]
 fn settings_hub_uses_compact_platinum_controls() {
     let settings = include_str!("../../slopos-settings/src/main.rs");
     let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");

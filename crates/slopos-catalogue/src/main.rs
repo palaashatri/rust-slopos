@@ -4,6 +4,7 @@ mod installer;
 mod model;
 
 use gdk_pixbuf::Pixbuf;
+use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
     Align, Box as GtkBox, Button, Entry, IconSize, Image, Label, ListBox, ListBoxRow, Orientation,
@@ -23,6 +24,7 @@ fn main() {
 
     let window = Window::new(WindowType::Toplevel);
     window.set_title("Software Catalogue");
+    set_accessible_name(&window, "SLOPOS software catalogue");
     window.set_default_size(700, 510);
     window.set_position(WindowPosition::Center);
     window.connect_delete_event(|_, _| {
@@ -36,6 +38,7 @@ fn main() {
     let title = Label::new(Some("SLOPOS Software Catalogue"));
     title.set_xalign(0.0);
     title.style_context().add_class("slopos-panel-title");
+    set_accessible_name(&title, "SLOPOS Software Catalogue");
     body.pack_start(&title, false, false, 0);
 
     let subtitle = Label::new(Some(
@@ -52,12 +55,14 @@ fn main() {
         Some("system-search-symbolic"),
     );
     search.set_tooltip_text(Some("Filter the curated software catalogue"));
+    set_accessible_name(&search, "Catalogue search field");
     body.pack_start(&search, false, false, 2);
 
     let scroll = ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
     scroll.set_policy(PolicyType::Never, PolicyType::Automatic);
     scroll.style_context().add_class("slopos-list-frame");
     let list = ListBox::new();
+    set_accessible_name(&list, "Catalogue application results");
     scroll.add(&list);
     body.pack_start(&scroll, true, true, 0);
 
@@ -66,6 +71,7 @@ fn main() {
     ));
     status.set_xalign(0.0);
     status.style_context().add_class("slopos-statusbar");
+    set_accessible_name(&status, "Catalogue status");
     body.pack_end(&status, false, false, 0);
 
     window.add(&body);
@@ -107,6 +113,7 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
 
         let row = ListBoxRow::new();
         row.style_context().add_class("slopos-catalogue-row");
+        set_accessible_name(&row, &format!("{} {}", app.name, app.version));
         let content = GtkBox::new(Orientation::Horizontal, 10);
         content.set_margin_start(8);
         content.set_margin_end(8);
@@ -144,6 +151,14 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
             button
         };
         button.set_valign(Align::Center);
+        let initial_button_name = if app.is_installed() {
+            format!("Remove {}", app.name)
+        } else if app.metadata_is_installable() {
+            format!("Install {}", app.name)
+        } else {
+            format!("{} unavailable", app.name)
+        };
+        set_accessible_name(&button, &initial_button_name);
 
         if app.is_installed() || app.metadata_is_installable() {
             let app = app.clone();
@@ -162,8 +177,10 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
                         status.set_text(&message);
                         if app.is_installed() {
                             state_button.set_label("Remove");
+                            set_accessible_name(&state_button, &format!("Remove {}", app.name));
                         } else {
                             state_button.set_label("Install");
+                            set_accessible_name(&state_button, &format!("Install {}", app.name));
                         }
                     }
                     Err(error) => status.set_text(&format!("Error: {error}")),
@@ -237,6 +254,19 @@ fn load_catalogue_icon(icon_name: &str) -> Image {
     }
 
     Image::from_icon_name(Some("application-x-executable"), IconSize::Dnd)
+}
+
+fn set_accessible_name<W>(widget: &W, name: &str)
+where
+    W: IsA<gtk::Widget>,
+{
+    let Some(accessible) = widget.accessible() else {
+        return;
+    };
+    let Ok(accessible) = accessible.downcast::<gtk::atk::Object>() else {
+        return;
+    };
+    accessible.set_name(name);
 }
 
 fn load_css_theme() {

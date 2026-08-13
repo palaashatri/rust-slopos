@@ -1,6 +1,7 @@
 //! SLOPOS application Search palette.
 
 use crate::app_finder::{scan_desktop_apps, DesktopApp};
+use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
     Box as GtkBox, Entry, IconSize, Image, Label, ListBox, ListBoxRow, Orientation, PolicyType,
@@ -28,6 +29,7 @@ impl Launcher {
         window.set_keep_above(true);
         window.set_skip_taskbar_hint(true);
         window.style_context().add_class("slopos-launcher-window");
+        set_accessible_name(&window, "SLOPOS application search");
 
         let main_box = GtkBox::new(Orientation::Vertical, 6);
         main_box.style_context().add_class("slopos-launcher");
@@ -47,6 +49,7 @@ impl Launcher {
             .style_context()
             .add_class("slopos-search-entry");
         search_entry.set_tooltip_text(Some("Search installed desktop applications"));
+        set_accessible_name(&search_entry, "Application search field");
         main_box.pack_start(&search_entry, false, false, 0);
 
         let scroll = ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
@@ -56,12 +59,14 @@ impl Launcher {
         let list_box = ListBox::new();
         list_box.set_selection_mode(SelectionMode::Single);
         list_box.style_context().add_class("slopos-search-results");
+        set_accessible_name(&list_box, "Application search results");
         scroll.add(&list_box);
         main_box.pack_start(&scroll, true, true, 0);
 
         let status_label = Label::new(Some(""));
         status_label.style_context().add_class("slopos-statusbar");
         status_label.set_xalign(0.0);
+        set_accessible_name(&status_label, "Search result status");
         main_box.pack_start(&status_label, false, false, 0);
 
         window.add(&main_box);
@@ -150,6 +155,13 @@ impl Launcher {
             count += 1;
             let row = ListBoxRow::new();
             row.style_context().add_class("slopos-list-row");
+            let accessible_name = if app.comment.is_empty() {
+                app.name.clone()
+            } else {
+                format!("{} — {}", app.name, app.comment)
+            };
+            set_accessible_name(&row, &accessible_name);
+            row.set_tooltip_text(Some(&accessible_name));
             let hbox = GtkBox::new(Orientation::Horizontal, 9);
             hbox.set_margin_start(7);
             hbox.set_margin_end(7);
@@ -275,4 +287,17 @@ fn command_exists(command: &str) -> bool {
     std::env::var_os("PATH")
         .map(|paths| std::env::split_paths(&paths).any(|dir| dir.join(command).is_file()))
         .unwrap_or(false)
+}
+
+fn set_accessible_name<W>(widget: &W, name: &str)
+where
+    W: IsA<gtk::Widget>,
+{
+    let Some(accessible) = widget.accessible() else {
+        return;
+    };
+    let Ok(accessible) = accessible.downcast::<gtk::atk::Object>() else {
+        return;
+    };
+    accessible.set_name(name);
 }

@@ -329,6 +329,20 @@ jobs:
             ${{ runner.temp }}/slopos-catalogue.log
             ${{ runner.temp }}/xvfb.log
 
+  x11-atspi-acceptance:
+    name: AT-SPI named surfaces and focus acceptance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run isolated AT-SPI acceptance
+        run: sudo -E env "PATH=$PATH" bash scripts/run-atspi-qa.sh
+
   release-build:
     name: release build (X11 Linux)
     runs-on: ubuntu-latest

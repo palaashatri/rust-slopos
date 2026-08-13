@@ -3,6 +3,7 @@
 //! The hub provides a consistent SLOPOS control-panel surface while delegating
 //! system mutation to mature upstream X11/Linux configuration utilities.
 
+use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
     Align, Box as GtkBox, Button, Grid, IconSize, Image, Label, Orientation, Window,
@@ -26,6 +27,7 @@ fn main() {
 
     let window = Window::new(WindowType::Toplevel);
     window.set_title("System Settings");
+    set_accessible_name(&window, "SLOPOS system settings");
     // Keep the hub compact like a classic control panel while leaving enough
     // room for four rows of delegated utilities at 1x scaling.
     window.set_default_size(640, 460);
@@ -41,6 +43,7 @@ fn main() {
     let title = Label::new(Some("System Settings"));
     title.set_xalign(0.0);
     title.style_context().add_class("slopos-panel-title");
+    set_accessible_name(&title, "System Settings");
     body.pack_start(&title, false, false, 0);
 
     let subtitle = Label::new(Some(
@@ -123,6 +126,7 @@ fn main() {
     ));
     status.set_xalign(0.0);
     status.style_context().add_class("slopos-statusbar");
+    set_accessible_name(&status, "Settings availability status");
     body.pack_end(&status, false, false, 0);
 
     window.add(&body);
@@ -149,6 +153,8 @@ fn control_panel_button(panel: &ControlPanel<'_>) -> Button {
     button.set_hexpand(true);
     button.set_vexpand(false);
     button.set_tooltip_text(Some(panel.description));
+    let accessible_name = format!("{} settings", panel.title);
+    set_accessible_name(&button, &accessible_name);
 
     let content = GtkBox::new(Orientation::Horizontal, 10);
     content.set_halign(Align::Fill);
@@ -200,6 +206,19 @@ fn command_exists(program: &str) -> bool {
         return false;
     };
     env::split_paths(&path).any(|dir| dir.join(program).is_file())
+}
+
+fn set_accessible_name<W>(widget: &W, name: &str)
+where
+    W: IsA<gtk::Widget>,
+{
+    let Some(accessible) = widget.accessible() else {
+        return;
+    };
+    let Ok(accessible) = accessible.downcast::<gtk::atk::Object>() else {
+        return;
+    };
+    accessible.set_name(name);
 }
 
 fn load_css_theme() {
