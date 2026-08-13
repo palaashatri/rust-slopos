@@ -1,6 +1,8 @@
 //! AppImage installer — fail closed, stream to disk, verify before placement.
 
-use crate::model::{get_appimage_dir, get_appimage_path, get_desktop_entry_path, CatalogueApp};
+use crate::model::{
+    get_appimage_dir, get_appimage_path, get_desktop_entry_path, valid_id, CatalogueApp,
+};
 use hex::ToHex;
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
@@ -62,6 +64,9 @@ pub fn install_appimage(app: &CatalogueApp) -> Result<(), String> {
 }
 
 pub fn uninstall_appimage(app: &CatalogueApp) -> Result<(), String> {
+    if !valid_id(&app.id) {
+        return Err(format!("invalid AppImage id: {}", app.id));
+    }
     remove_if_present(&get_appimage_path(&app.id))?;
     remove_if_present(&get_desktop_entry_path(&app.id))?;
     Ok(())
@@ -244,5 +249,24 @@ mod tests {
         assert!(redirect_is_allowed(&secure, 0));
         assert!(!redirect_is_allowed(&insecure, 0));
         assert!(!redirect_is_allowed(&secure, 10));
+    }
+
+    #[test]
+    fn uninstall_rejects_invalid_id_before_filesystem_use() {
+        let app = CatalogueApp {
+            id: "../escape".into(),
+            name: "Test".into(),
+            summary: "Test".into(),
+            description: "Test".into(),
+            version: "1".into(),
+            architecture: "x86_64".into(),
+            category: "Utility".into(),
+            icon_name: "application-x-executable".into(),
+            download_url: "https://example.invalid/app.AppImage".into(),
+            sha256: "a".repeat(64),
+        };
+
+        let error = uninstall_appimage(&app).expect_err("path traversal must be rejected");
+        assert!(error.contains("invalid AppImage id"));
     }
 }

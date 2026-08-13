@@ -694,6 +694,8 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("SLOPOS_QA_SKIP_DEPS"));
     assert!(qa.contains("SLOPOS_QA_SKIP_BUILD"));
     assert!(qa.contains("SLOPOS_OPENBOX_CONFIG"));
+    assert!(qa.contains("ARCH_APP_QA_THEME_STATUS_0"));
+    assert!(qa.contains("ARCH_APP_QA_STATUS_0"));
     assert!(qa.contains("themes/slopos-openbox/openbox-3/themerc"));
     assert!(qa.contains("/usr/share/themes/slopos-openbox/openbox-3/themerc"));
     assert!(qa.contains("BROWSER_FIREFOX_STATUS_SKIPPED_OPTIONAL_PACKAGE"));

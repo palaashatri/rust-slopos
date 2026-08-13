@@ -98,6 +98,18 @@ mkdir -p /usr/share/themes/slopos-gtk/gtk-3.0 /usr/share/slopos-i/browser
 cp assets/config/gtk-3.0/gtk.css /usr/share/themes/slopos-gtk/gtk-3.0/gtk.css
 cp -a packaging/browser/chromium /usr/share/slopos-i/browser/chromium
 cp -a packaging/browser/firefox /usr/share/slopos-i/browser/firefox
+# The marker below is deliberately limited to resource installation.  It does
+# not claim that a human has accepted every rendered upstream frame; the
+# screenshot and independent visual gates remain separate evidence tiers.
+for resource in \
+  "$HOME/.themes/slopos-openbox/openbox-3/themerc" \
+  "/usr/share/themes/slopos-openbox/openbox-3/themerc" \
+  "/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css" \
+  "/usr/share/slopos-i/browser/chromium/manifest.json" \
+  "/usr/share/slopos-i/browser/firefox/userChrome.css"; do
+  test -s "$resource"
+done
+echo "ARCH_APP_QA_THEME_STATUS_0"
 rm -rf "$FIREFOX_PROFILE"
 FIREFOX_AVAILABLE=0
 if command -v firefox >/dev/null 2>&1; then
@@ -469,6 +481,7 @@ done
 test -s artifacts/qa/app-matrix/sink-inputs.txt
 test -s artifacts/qa/app-matrix/browser-dom.html
 echo "SLOPOS-I Arch upstream application/browser/game evidence PASS"
+echo "ARCH_APP_QA_STATUS_0"
 echo "BROWSER_CHROMIUM_STATUS_0"
 if [[ "$FIREFOX_AVAILABLE" == 1 ]]; then
   echo "BROWSER_FIREFOX_STATUS_0"

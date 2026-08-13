@@ -435,6 +435,9 @@ echo "[8/8] Product-contract sanity checks"
 ! grep -Eq 'smithay|wayland-client|wayland-server' Cargo.toml
 ! grep -Fq 'create_stub_appimage' crates/slopos-catalogue/src/installer.rs
 grep -Fq 'eq_ignore_ascii_case(EMPTY_FILE_SHA256)' crates/slopos-catalogue/src/model.rs
+grep -Fq 'non_empty_metadata(&self.description)' crates/slopos-catalogue/src/model.rs
+grep -Fq 'valid_icon_name(&self.icon_name)' crates/slopos-catalogue/src/model.rs
+grep -Fq 'if !valid_id(&app.id)' crates/slopos-catalogue/src/installer.rs
 
 echo "SLOPOS-I Docker/Xvfb functional evidence PASS"
 echo "Canonical screenshots captured under artifacts/qa/screenshots/."

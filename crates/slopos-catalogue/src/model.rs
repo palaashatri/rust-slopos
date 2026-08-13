@@ -22,17 +22,22 @@ pub struct CatalogueApp {
 
 impl CatalogueApp {
     pub fn is_installed(&self) -> bool {
-        get_appimage_path(&self.id).exists()
+        // Catalogue IDs are also used as filesystem names.  Keep malformed
+        // data from probing a path outside the AppImage directory, and only
+        // treat a regular file as an installed payload (a stale directory or
+        // partial marker is not an installed AppImage).
+        valid_id(&self.id) && get_appimage_path(&self.id).is_file()
     }
 
     pub fn metadata_is_installable(&self) -> bool {
         valid_id(&self.id)
             && non_empty_metadata(&self.name)
             && non_empty_metadata(&self.summary)
+            && non_empty_metadata(&self.description)
             && non_empty_metadata(&self.version)
             && non_empty_metadata(&self.architecture)
             && non_empty_metadata(&self.category)
-            && non_empty_metadata(&self.icon_name)
+            && valid_icon_name(&self.icon_name)
             && secure_download_url(&self.download_url)
             && self.sha256.len() == 64
             && self
@@ -45,6 +50,13 @@ impl CatalogueApp {
 
 fn non_empty_metadata(value: &str) -> bool {
     !value.trim().is_empty() && value.chars().all(|character| !character.is_control())
+}
+
+fn valid_icon_name(value: &str) -> bool {
+    non_empty_metadata(value)
+        && value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.')
+        })
 }
 
 fn secure_download_url(value: &str) -> bool {
@@ -160,7 +172,7 @@ impl CatalogueApp {
     }
 }
 
-fn valid_id(id: &str) -> bool {
+pub(crate) fn valid_id(id: &str) -> bool {
     !id.is_empty()
         && id.chars().all(|character| {
             character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.')
@@ -212,6 +224,10 @@ mod tests {
         assert!(!app.metadata_is_installable());
         app.architecture = "x86_64".into();
 
+        app.description.clear();
+        assert!(!app.metadata_is_installable());
+        app.description = "Test".into();
+
         app.version.clear();
         assert!(!app.metadata_is_installable());
         app.version = "1".into();
@@ -219,6 +235,10 @@ mod tests {
         app.name = "Unsafe\nName".into();
         assert!(!app.metadata_is_installable());
         app.name = "Test".into();
+
+        app.icon_name = "../../etc/passwd".into();
+        assert!(!app.metadata_is_installable());
+        app.icon_name = "application-x-executable".into();
 
         app.download_url = "http://example.invalid/app.AppImage".into();
         assert!(!app.metadata_is_installable());
