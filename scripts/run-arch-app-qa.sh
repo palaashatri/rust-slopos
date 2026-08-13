@@ -43,7 +43,19 @@ cleanup() {
     kill -TERM "$GAME_AUDIO_CAPTURE_PID" 2>/dev/null || true
     wait "$GAME_AUDIO_CAPTURE_PID" 2>/dev/null || true
   fi
-  for process in supertux supertux2 chromium firefox firefox-esr pcmanfm xfce4-terminal mousepad ristretto slopos-session slopos-shell openbox Xvfb pulseaudio; do
+  # Let SDL close while the X server still exists.  On a failed scene probe,
+  # killing Xvfb immediately underneath SuperTux can turn a QA timeout into a
+  # misleading client SIG11 log instead of a clean, diagnosable failure.
+  if [[ -n "${GAME_PID:-}" ]] && kill -0 "$GAME_PID" 2>/dev/null; then
+    kill -TERM "$GAME_PID" 2>/dev/null || true
+    for _ in $(seq 1 20); do
+      kill -0 "$GAME_PID" 2>/dev/null || break
+      sleep 0.25
+    done
+    kill -KILL "$GAME_PID" 2>/dev/null || true
+  fi
+  wait "${GAME_PID:-}" 2>/dev/null || true
+  for process in chromium firefox firefox-esr pcmanfm xfce4-terminal mousepad ristretto slopos-session slopos-shell openbox Xvfb pulseaudio; do
     pkill -TERM -x "$process" 2>/dev/null || true
   done
   rm -f "$BROWSER_FIXTURE"
@@ -312,25 +324,24 @@ test "${HEIGHT:-0}" -ge 300
 # non-silent audio are not enough if the retained frame is still the title card.
 # Crop the game window from the root capture and require a non-black rendered
 # scene (the intro card is black; the playable level has a large coloured
-# tile/background surface).  A second Escape is permitted only if the first
-# event did not produce a playable frame.
+# tile/background surface).  Large packaged assets can take several seconds
+# to finish loading in a cold Arch container, so keep retrying the upstream
+# Escape binding only while the probe is still the black intro card.
 GAME_SCENE_PROBE=/tmp/slopos-supertux-game-scene.png
 GAME_SCENE_MEAN=""
 GAME_SCENE_READY=0
 sleep 3
-for _attempt in 1 2; do
+for _ in $(seq 1 60); do
   xdotool key --window "$GAME_WINDOW" Escape
-  for _ in $(seq 1 12); do
-    sleep 0.5
-    scrot -o "$GAME_SCENE_PROBE"
-    GAME_SCENE_MEAN="$(convert "$GAME_SCENE_PROBE" \
-      -crop "${WIDTH}x${HEIGHT}+${X}+${Y}" -colorspace Gray \
-      -format '%[fx:mean]' info: 2>/dev/null)"
-    if awk -v mean="$GAME_SCENE_MEAN" 'BEGIN { exit !(mean > 0.05) }'; then
-      GAME_SCENE_READY=1
-      break 2
-    fi
-  done
+  sleep 0.5
+  scrot -o "$GAME_SCENE_PROBE"
+  GAME_SCENE_MEAN="$(convert "$GAME_SCENE_PROBE" \
+    -crop "${WIDTH}x${HEIGHT}+${X}+${Y}" -colorspace Gray \
+    -format '%[fx:mean]' info: 2>/dev/null)"
+  if awk -v mean="$GAME_SCENE_MEAN" 'BEGIN { exit !(mean > 0.05) }'; then
+    GAME_SCENE_READY=1
+    break
+  fi
 done
 if [[ "$GAME_SCENE_READY" -ne 1 ]]; then
   echo "ERROR: SuperTux remained on its introductory title card" >&2

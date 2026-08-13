@@ -493,6 +493,7 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("GAME_SCENE_PROBE"));
     assert!(qa.contains("GAME_SCENE_MEAN"));
     assert!(qa.contains("-crop \"${WIDTH}x${HEIGHT}+${X}+${Y}\""));
+    assert!(qa.contains("seq 1 60"));
     assert!(qa.contains("mean > 0.05"));
     assert!(qa.contains("remained on its introductory title card"));
     assert!(qa.contains("xdotool key --window \"$GAME_WINDOW\" q"));
