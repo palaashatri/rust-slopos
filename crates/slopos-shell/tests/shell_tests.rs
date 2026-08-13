@@ -354,7 +354,17 @@ fn atspi_acceptance_covers_named_surfaces_and_focus() {
     assert!(probe.contains("Atspi.StateType.FOCUSED"));
     assert!(probe.contains("EXPECTED_NAMES"));
     assert!(probe.contains("AT_SPI_EXPECTED_NAMES="));
+    assert!(probe.contains("run_extended_checks"));
+    assert!(probe.contains("AT_SPI_UTF8_TEXT="));
+    assert!(probe.contains("AT_SPI_EXTENDED_STATUS_0"));
+    assert!(probe.contains("xdotool"));
+    assert!(probe.contains("shift+Tab"));
     assert!(probe.contains("AT_SPI_STATUS_0"));
+    assert!(runner.contains("SLOPOS_ATSPI_SCREEN"));
+    assert!(runner.contains("SLOPOS_ATSPI_SCALE"));
+    assert!(runner.contains("SLOPOS_ATSPI_LOCALE"));
+    assert!(runner.contains("--extended"));
+    assert!(runner.contains("GDK_SCALE"));
 }
 
 #[test]

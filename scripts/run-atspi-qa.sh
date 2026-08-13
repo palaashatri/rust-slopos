@@ -7,6 +7,19 @@ export DISPLAY=:99
 export XDG_RUNTIME_DIR=/tmp/slopos-atspi-runtime
 export SLOPOS_QA_NO_WELCOME=1
 export GDK_BACKEND=x11
+export LC_ALL="${SLOPOS_ATSPI_LOCALE:-C.UTF-8}"
+AT_SPI_SCREEN="${SLOPOS_ATSPI_SCREEN:-1280x800}"
+AT_SPI_SCALE="${SLOPOS_ATSPI_SCALE:-1}"
+if [[ ! "$AT_SPI_SCREEN" =~ ^[0-9]+x[0-9]+$ ]]; then
+  echo "SLOPOS_ATSPI_SCREEN must be WIDTHxHEIGHT: $AT_SPI_SCREEN" >&2
+  exit 2
+fi
+if [[ ! "$AT_SPI_SCALE" =~ ^[1-9][0-9]*$ ]]; then
+  echo "SLOPOS_ATSPI_SCALE must be a positive integer: $AT_SPI_SCALE" >&2
+  exit 2
+fi
+AT_SPI_WIDTH="${AT_SPI_SCREEN%x*}"
+AT_SPI_HEIGHT="${AT_SPI_SCREEN#*x}"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 
@@ -33,7 +46,7 @@ else
 fi
 
 echo "[3/4] Starting a D-Bus-backed X11 session with AT-SPI"
-Xvfb :99 -screen 0 1280x800x24 > /tmp/slopos-atspi-xvfb.log 2>&1 &
+Xvfb :99 -screen 0 "${AT_SPI_WIDTH}x${AT_SPI_HEIGHT}x24" > /tmp/slopos-atspi-xvfb.log 2>&1 &
 XVFB_PID=$!
 sleep 2
 
@@ -43,6 +56,8 @@ dbus-run-session -- bash -c '
   export XDG_RUNTIME_DIR=/tmp/slopos-atspi-runtime
   export SLOPOS_QA_NO_WELCOME=1
   export GDK_BACKEND=x11
+  export GDK_SCALE="$1"
+  export LC_ALL="$2"
   export GTK_MODULES=gail:atk-bridge
   at-spi-bus-launcher --launch-immediately >/tmp/slopos-atspi-bus.log 2>&1 &
   AT_SPI_PID=$!
@@ -88,7 +103,7 @@ dbus-run-session -- bash -c '
     fi
     sleep 1
   done
-  python3 scripts/qa-atspi.py
+  python3 scripts/qa-atspi.py --extended
   kill "$SETTINGS_PID" "$CATALOGUE_PID" "$SESSION_PID" "$AT_SPI_PID" 2>/dev/null || true
-'
+' bash "$AT_SPI_SCALE" "$LC_ALL"
 echo "[4/4] AT-SPI acceptance passed"
