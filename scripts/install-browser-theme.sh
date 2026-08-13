@@ -12,7 +12,15 @@ usage() {
 [[ $# -eq 2 ]] || usage
 BROWSER="$1"
 PROFILE="$2"
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_PREFIX="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+SLOPOS_SHARE_DIR="${SLOPOS_SHARE_DIR:-$INSTALL_PREFIX/share}"
+SOURCE_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+if [[ -d "$SOURCE_ROOT/packaging/browser" ]]; then
+  BROWSER_RESOURCE_DIR="$SOURCE_ROOT/packaging/browser"
+else
+  BROWSER_RESOURCE_DIR="$SLOPOS_SHARE_DIR/slopos-i/browser"
+fi
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 case "$PROFILE" in
@@ -27,7 +35,7 @@ case "$BROWSER" in
     target="$PROFILE/slopos-browser-theme"
     rm -rf "$target"
     mkdir -p "$target"
-    cp -a "$ROOT/packaging/browser/chromium/." "$target/"
+    cp -a "$BROWSER_RESOURCE_DIR/chromium/." "$target/"
     chmod -R u+rwX,go+rX "$target"
     cat <<EOF
 Installed the Chromium theme files at:
@@ -53,7 +61,7 @@ EOF
     elif [[ ! -f "$css" ]]; then
       printf '%s\n' '@import url("slopos-i.css");' > "$css"
     fi
-    install -m644 "$ROOT/packaging/browser/firefox/userChrome.css" "$slopos_css"
+    install -m644 "$BROWSER_RESOURCE_DIR/firefox/userChrome.css" "$slopos_css"
 
     user_js="$PROFILE/user.js"
     if [[ -f "$user_js" ]] && ! grep -Fq 'toolkit.legacyUserProfileCustomizations.stylesheets' "$user_js"; then
@@ -62,7 +70,7 @@ EOF
     if ! [[ -f "$user_js" ]] || ! grep -Fq 'toolkit.legacyUserProfileCustomizations.stylesheets' "$user_js"; then
       printf '%s\n' 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);' >> "$user_js"
     fi
-    install -m644 "$ROOT/packaging/browser/firefox/manifest.json" "$PROFILE/slopos-platinum-theme-manifest.json"
+    install -m644 "$BROWSER_RESOURCE_DIR/firefox/manifest.json" "$PROFILE/slopos-platinum-theme-manifest.json"
     cat <<EOF
 Installed the optional Firefox chrome integration at:
   $chrome_dir

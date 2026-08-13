@@ -38,6 +38,11 @@ scripts/install-browser-theme.sh chromium /absolute/chromium-profile
 scripts/install-browser-theme.sh firefox /absolute/firefox-profile
 ```
 
+Packaged installations expose the same helper as `install-browser-theme.sh`
+in the SLOPOS `bin` directory. It resolves the shipped theme resources from
+the installed `share/slopos-i/browser` tree, so profile integration remains
+available without a source checkout.
+
 The Chromium profile install prints a launch command using
 `SLOPOS_BROWSER_THEME_DIR`; Firefox must be restarted after the profile files
 are changed.

@@ -40,6 +40,7 @@ package() {
   done
   install -Dm755 scripts/start-slopos-i "$pkgdir/usr/bin/start-slopos-i"
   install -Dm755 scripts/start-slopos-browser "$pkgdir/usr/bin/start-slopos-browser"
+  install -Dm755 scripts/install-browser-theme.sh "$pkgdir/usr/bin/install-browser-theme.sh"
 
   install -Dm644 packaging/slopos-i.desktop "$pkgdir/usr/share/xsessions/slopos-i.desktop"
   install -Dm644 assets/config/openbox/rc.xml "$pkgdir/usr/share/slopos-i/openbox/rc.xml"

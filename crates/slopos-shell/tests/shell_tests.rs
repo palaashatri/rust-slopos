@@ -441,6 +441,9 @@ fn browser_integration_is_upstream_and_no_fork() {
     assert!(launcher.contains("--load-extension"));
     assert!(installer.contains("PROFILE_DIR must be an absolute path"));
     assert!(installer.contains("slopos-backup"));
+    assert!(installer.contains("SLOPOS_SHARE_DIR"));
+    assert!(installer.contains("BROWSER_RESOURCE_DIR"));
+    assert!(installer.contains("share/slopos-i/browser"));
     assert!(dock.contains("program: \"start-slopos-browser\""));
     assert!(chromium.contains("\"manifest_version\": 3"));
     assert!(chromium.contains("\"frame\": [117, 128, 144]"));
@@ -460,6 +463,7 @@ fn browser_integration_is_upstream_and_no_fork() {
         include_str!("../../../packaging/iso/build-iso.sh"),
     ] {
         assert!(manifest.contains("start-slopos-browser"));
+        assert!(manifest.contains("install-browser-theme.sh"));
         assert!(manifest.contains("packaging/browser") || manifest.contains("browser/chromium"));
     }
 }
