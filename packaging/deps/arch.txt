@@ -24,6 +24,7 @@ upower
 xfce4-power-manager
 lxappearance
 arandr
+xorg-xrandr
 xorg-xsetroot
 xdotool
 wmctrl

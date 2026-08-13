@@ -106,13 +106,26 @@ dbus-run-session -- bash -c '
     orca --replace --debug-file=/tmp/slopos-atspi-orca-debug.log --disable=braille \
       >/tmp/slopos-atspi-orca.log 2>&1 &
     ORCA_PID=$!
+    orca_ready=0
     for _ in $(seq 1 30); do
-      if grep -Fq "ORCA: Startup complete notification made" /tmp/slopos-atspi-orca-debug.log 2>/dev/null; then
+      # Orca debug wording has changed between Ubuntu releases.  Treat a
+      # live process with an initialized debug stream as process readiness;
+      # the actual speech and focused-field assertions below remain the
+      # acceptance evidence.
+      if [[ -s /tmp/slopos-atspi-orca-debug.log ]] && kill -0 "$ORCA_PID" 2>/dev/null; then
+        orca_ready=1
+        break
+      fi
+      if ! kill -0 "$ORCA_PID" 2>/dev/null; then
         break
       fi
       sleep 0.5
     done
-    grep -Fq "ORCA: Startup complete notification made" /tmp/slopos-atspi-orca-debug.log
+    if [[ "$orca_ready" != 1 ]]; then
+      echo "Orca did not remain running with a debug stream" >&2
+      tail -n 80 /tmp/slopos-atspi-orca.log /tmp/slopos-atspi-orca-debug.log 2>/dev/null || true
+      exit 1
+    fi
   fi
   for _ in $(seq 1 30); do
     if xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null 2>&1 && \
@@ -154,8 +167,16 @@ dbus-run-session -- bash -c '
   done
   python3 scripts/qa-atspi.py --extended
   if [[ "$screen_reader" == 1 ]]; then
-    grep -Fq "SPEECH OUTPUT:" /tmp/slopos-atspi-orca-debug.log
-    grep -Fq "Application search field" /tmp/slopos-atspi-orca-debug.log
+    if ! grep -Fq "SPEECH OUTPUT:" /tmp/slopos-atspi-orca-debug.log; then
+      echo "Orca produced no speech-output evidence" >&2
+      tail -n 120 /tmp/slopos-atspi-orca-debug.log 2>/dev/null || true
+      exit 1
+    fi
+    if ! grep -Fq "Application search field" /tmp/slopos-atspi-orca-debug.log; then
+      echo "Orca did not speak the focused Application search field" >&2
+      tail -n 120 /tmp/slopos-atspi-orca-debug.log 2>/dev/null || true
+      exit 1
+    fi
     echo "AT_SPI_SCREEN_READER_ORCA_STATUS_0"
     kill "$ORCA_PID" 2>/dev/null || true
   fi

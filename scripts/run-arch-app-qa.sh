@@ -244,6 +244,14 @@ run_window_app() {
       return 1
     fi
   fi
+  # Installing the optional Chromium-family theme can leave a transient
+  # browser-owned "Installed theme" toast over the frame.  Dismiss only that
+  # transient UI before the evidence capture; the upstream browser remains
+  # untouched and the deterministic page stays visible underneath.
+  if [[ "$label" == browser || "$label" == browser-firefox ]]; then
+    xdotool key Escape 2>/dev/null || true
+    sleep 0.5
+  fi
   scrot -o "artifacts/qa/app-matrix/$screenshot"
   echo "    pid=$app_pid window_pid=$window_pid"
   kill "$app_pid" 2>/dev/null || true

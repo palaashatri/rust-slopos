@@ -167,6 +167,9 @@ fn arch_build_manifest_has_native_gui_dependencies() {
     ] {
         assert!(manifest.lines().any(|line| line.trim() == package));
     }
+
+    let runtime = include_str!("../../../packaging/deps/arch.txt");
+    assert!(runtime.lines().any(|line| line.trim() == "xorg-xrandr"));
 }
 
 #[test]
@@ -389,6 +392,8 @@ fn image_controls_have_accessible_names_and_focus_feedback() {
     assert!(topbar.contains("set_accessible_name(&search_button"));
     assert!(topbar.contains("network_button.set_sensitive(false)"));
     assert!(topbar.contains("Network status"));
+    assert!(topbar.contains("battery_box.set_visible(current_battery_state().is_some())"));
+    assert!(topbar.contains("battery_box.set_visible(false)"));
     assert!(notifications.contains("icon.is_empty().then(load_slopos_mark)"));
     assert!(notifications.contains("SLOPOS_SHARE_DIR"));
     assert!(notifications.contains("slopos-logo.png"));
@@ -408,12 +413,17 @@ fn launcher_prefers_packaged_role_icons_with_upstream_fallbacks() {
         "terminal.svg",
         "textedit.svg",
         "browser.svg",
+        "game.svg",
         "desktop.svg",
         "software.svg",
         "settings.svg",
     ] {
         assert!(launcher.contains(icon), "missing launcher role icon {icon}");
     }
+    let game_icon = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("themes/platinum/icons/game.svg");
+    assert!(game_icon.is_file(), "missing packaged game launcher icon");
     assert!(launcher.contains("Image::from_icon_name(Some(icon_name), IconSize::Dnd)"));
     assert!(css.contains(".slopos-result-icon"));
     assert!(css.contains("min-width: 32px"));

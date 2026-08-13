@@ -84,6 +84,7 @@ jobs:
             done
           done
           grep -Fq 'assets/slopos-logo.png' install.sh
+          grep -Fqx 'xorg-xrandr' packaging/deps/arch.txt
           for path in packaging/arch/PKGBUILD packaging/debian/rules packaging/iso/build-iso.sh; do
             grep -Fq 'share/xsessions/slopos-i.desktop' "$path"
             grep -Fq 'assets/config/openbox/rc.xml' "$path"
@@ -96,6 +97,12 @@ jobs:
           grep -Fq 'shipping_files=(' packaging/vm/qa-vm.sh
           grep -Fq 'REPO_COMMIT="${REPO_COMMIT:-}"' packaging/vm/arch-install.sh
           grep -Fq 'git -C ~/slopos-i checkout --detach' packaging/vm/arch-install.sh
+          grep -Fq 'xorg-xrandr' packaging/vm/arch-install.sh
+          grep -Fq 'partition_path()' packaging/vm/arch-install.sh
+          grep -Fq 'grub-install --target=x86_64-efi' packaging/vm/arch-install.sh
+          grep -Fq -- '--firmware efi' packaging/vm/create-vm.ps1
+          grep -Fq 'command -v xrandr' packaging/vm/qa-vm.sh
+          grep -Fq 'X11_ACTIVE_REFRESH_HZ=' packaging/vm/qa-vm.sh
           grep -Fq 'INSTALLED_VM_QA_STATUS_0' packaging/vm/qa-installed.ps1
 
   format-evidence:

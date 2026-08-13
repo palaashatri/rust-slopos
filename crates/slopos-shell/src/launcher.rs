@@ -326,6 +326,8 @@ fn role_icon_file(app: &DesktopApp) -> Option<&'static str> {
         || haystack.contains("viewnior")
     {
         Some("desktop.svg")
+    } else if haystack.contains("supertux") || haystack.contains("game") {
+        Some("game.svg")
     } else if haystack.contains("slopos-catalogue") || haystack.contains("software catalogue") {
         Some("software.svg")
     } else if haystack.contains("slopos-settings") || haystack.contains("system settings") {

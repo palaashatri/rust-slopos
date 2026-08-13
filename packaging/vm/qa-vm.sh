@@ -37,6 +37,7 @@ done
 
 step "X11 session identity and processes"
 command -v xdpyinfo >/dev/null || fail "xdpyinfo is required"
+command -v xrandr >/dev/null || fail "xrandr is required"
 command -v xdotool >/dev/null || fail "xdotool is required"
 command -v wmctrl >/dev/null || fail "wmctrl is required"
 xdpyinfo -display "$DISPLAY" >/dev/null
@@ -47,8 +48,10 @@ xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null
 xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null
 
 step "shell geometry"
+XRANDR_CURRENT="$(xrandr --current)"
+grep -q ' connected ' <<<"$XRANDR_CURRENT" || fail "xrandr reports no connected output"
 read -r screen_width screen_height < <(
-  xrandr --current | sed -nE 's/.*current ([0-9]+) x ([0-9]+).*/\1 \2/p' | head -1
+  sed -nE 's/.*current ([0-9]+) x ([0-9]+).*/\1 \2/p' <<<"$XRANDR_CURRENT" | head -1
 )
 test -n "${screen_width:-}" && test -n "${screen_height:-}" || fail "cannot read XRandR geometry"
 bar_id="$(xdotool search --onlyvisible --name '^SLOPOS Top Bar$' | head -1)"
@@ -56,6 +59,12 @@ bar_geometry="$(xdotool getwindowgeometry --shell "$bar_id")"
 grep -q "WIDTH=$screen_width" <<<"$bar_geometry" || fail "top bar does not span the screen"
 
 echo "screen=${screen_width}x${screen_height}"
+# Record the active mode's refresh-rate token when the X11 driver exposes it.
+# This is diagnostic evidence only; it does not claim physical high-refresh or
+# VRR support, which requires a real monitor and GPU-backed run.
+current_mode_line="$(sed -nE '/ connected /,/^[^[:space:]]/ { /\*/ { print; exit } }' <<<"$XRANDR_CURRENT")"
+refresh_token="$(grep -oE '[0-9]+([.][0-9]+)?\*' <<<"$current_mode_line" | head -1 | tr -d '*' || true)"
+echo "X11_ACTIVE_REFRESH_HZ=${refresh_token:-unknown}"
 
 step "launcher singleton and keyboard behavior"
 before="$(pgrep -xc slopos-shell)"

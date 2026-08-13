@@ -81,7 +81,7 @@ mount "$ESP_PART" /mnt/boot
 echo "=== install base system, X11 and representative desktop applications ==="
 pacstrap -K /mnt \
   base linux linux-firmware networkmanager sudo git curl base-devel rust pkgconf \
-  xorg-server xorg-xinit xorg-xsetroot xorg-xdpyinfo openbox \
+  xorg-server xorg-xinit xorg-xrandr xorg-xsetroot xorg-xdpyinfo openbox \
   gtk3 libx11 libxrandr openssl dbus librsvg \
   ttf-dejavu ttf-liberation \
   pcmanfm xfce4-terminal mousepad ristretto zathura mpv galculator supertux \

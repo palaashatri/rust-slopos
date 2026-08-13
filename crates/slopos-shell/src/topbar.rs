@@ -196,6 +196,7 @@ impl TopBar {
             &clock_label,
             &audio_label,
             &network_label,
+            &battery_box,
             &battery_label,
             &app_menu_button,
             app_menu_status,
@@ -216,6 +217,7 @@ fn install_live_updates(
     clock: &Label,
     audio: &Label,
     network: &Label,
+    battery_box: &GtkBox,
     battery: &Label,
     app_menu_button: &Button,
     app_menu_status: Rc<Cell<AppMenuStatus>>,
@@ -243,11 +245,22 @@ fn install_live_updates(
 
     let audio = audio.clone();
     let network = network.clone();
+    let battery_box = battery_box.clone();
     let battery = battery.clone();
+    battery_box.set_visible(current_battery_state().is_some());
     glib::timeout_add_seconds_local(5, move || {
         audio.set_text(&current_volume().unwrap_or_else(|| "--".to_string()));
         network.set_text(&current_network_state());
-        battery.set_text(&current_battery_state().unwrap_or_default());
+        if let Some(value) = current_battery_state() {
+            battery.set_text(&value);
+            battery_box.set_visible(true);
+        } else {
+            // Do not leave an unlabeled battery glyph in the status area when
+            // this machine has no battery provider.  A live provider can make
+            // the box visible again on a later refresh.
+            battery.set_text("");
+            battery_box.set_visible(false);
+        }
         glib::ControlFlow::Continue
     });
 }

@@ -27,7 +27,7 @@ apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
   build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
   libssl-dev libdbus-1-dev \
-  libgtk-3-0 dbus-x11 at-spi2-core python3-gi gir1.2-atspi-2.0 \
+  libgtk-3-0 libatk-bridge2.0-0 dbus-x11 at-spi2-core python3-gi gir1.2-atspi-2.0 \
   xvfb openbox xdotool x11-utils fonts-liberation adwaita-icon-theme
 
 if [[ "${SLOPOS_QA_SKIP_BUILD:-0}" == 1 ]]; then
@@ -52,7 +52,9 @@ run_case() {
   local mode="$1"
   local settings_path="$2"
   local log_file="/tmp/slopos-settings-${mode}.log"
+  local runner_log="/tmp/slopos-settings-${mode}-runner.log"
   rm -f "$log_file"
+  rm -f "$runner_log"
 
   Xvfb :99 -screen 0 1280x800x24 -nolisten tcp >"/tmp/slopos-settings-xvfb.log" 2>&1 &
   XVFB_PID=$!
@@ -66,6 +68,10 @@ run_case() {
     set -euo pipefail
     export DISPLAY=:99
     export GDK_BACKEND=x11
+    # Settings must expose its GTK widgets through the same AT-SPI bridge as
+    # the shell acceptance.  Without this, the service test can only observe
+    # the X11 window and cannot prove the controls are disabled or delegated.
+    export GTK_MODULES=gail:atk-bridge
     export XDG_RUNTIME_DIR=/tmp/slopos-settings-services-runtime
     cleanup_inner() {
       set +e
@@ -75,10 +81,12 @@ run_case() {
     trap cleanup_inner EXIT
     at-spi-bus-launcher --launch-immediately >/tmp/slopos-settings-atspi.log 2>&1 &
     AT_SPI_PID=$!
+    gsettings set org.gnome.desktop.interface toolkit-accessibility true >/dev/null 2>&1 || true
     openbox --config-file "$SLOPOS_OPENBOX_CONFIG" >/tmp/slopos-settings-openbox.log 2>&1 &
     OPENBOX_PID=$!
     sleep 1
-    env PATH="$1" SLOPOS_SERVICE_PROBE_LOG="$2" \
+    env PATH="$1" GTK_MODULES=gail:atk-bridge GDK_BACKEND=x11 \
+      SLOPOS_SERVICE_PROBE_LOG="$2" \
       ./target/release/slopos-settings >"$3" 2>&1 &
     SETTINGS_PID=$!
     for _ in $(seq 1 40); do
@@ -90,7 +98,21 @@ run_case() {
     python3 scripts/qa-settings-services.py --mode "$4"
     kill -TERM "$SETTINGS_PID" "$OPENBOX_PID" "$AT_SPI_PID" 2>/dev/null || true
     wait "$SETTINGS_PID" "$OPENBOX_PID" "$AT_SPI_PID" 2>/dev/null || true
-  ' bash "$settings_path" "$log_file" "$log_file" "$mode"
+  ' bash "$settings_path" "$log_file" "$log_file" "$mode" >"$runner_log" 2>&1 || {
+    status=$?
+    echo "Settings service QA case failed: $mode (exit $status)" >&2
+    echo "--- runner output ---" >&2
+    tail -n 120 "$runner_log" >&2 || true
+    echo "--- Settings log ---" >&2
+    tail -n 120 "$log_file" >&2 || true
+    echo "--- AT-SPI launcher log ---" >&2
+    tail -n 80 /tmp/slopos-settings-atspi.log >&2 || true
+    echo "--- Openbox log ---" >&2
+    tail -n 80 /tmp/slopos-settings-openbox.log >&2 || true
+    echo "--- visible X11 windows ---" >&2
+    xdotool search --onlyvisible --name ".*" getwindowname %@ >&2 || true
+    return "$status"
+  }
 
   kill -TERM "$XVFB_PID" 2>/dev/null || true
   wait "$XVFB_PID" 2>/dev/null || true
