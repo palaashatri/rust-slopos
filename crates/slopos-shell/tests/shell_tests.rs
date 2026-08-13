@@ -280,7 +280,8 @@ fn vm_recreate_checks_state_before_poweroff() {
 fn recovery_preserves_config_and_requires_fresh_children() {
     let recovery = include_str!("../../../scripts/slopos-recovery.sh");
     assert!(recovery.contains("refusing an unsafe HOME"));
-    assert!(recovery.contains("BACKUP_DIR=\"${SLOPOS_RECOVERY_BACKUP_DIR:-$HOME_DIR/slopos-config-backup-"));
+    assert!(recovery
+        .contains("BACKUP_DIR=\"${SLOPOS_RECOVERY_BACKUP_DIR:-$HOME_DIR/slopos-config-backup-"));
     assert!(recovery.contains("mv -- \"$CONFIG_DIR\""));
     assert!(recovery.contains("VENDOR_DIR=\"${SLOPOS_VENDOR_CONFIG_DIR:-/etc/slopos-i}\""));
     assert!(recovery.contains("wait_for_child_restart"));
