@@ -59,6 +59,12 @@ inner EXIT traps for their child PIDs. The Rust static contracts, `bash -n`,
 fmt/check/test/clippy, cache-only AppMenu smoke and full Docker/Xvfb gate all
 passed again; no new package or image downloads were used.
 
+The cache-only Arch application/game matrix was then rerun after its harness
+installed `themes/slopos-openbox/openbox-3/themerc` and exported the explicit
+SLOPOS Openbox config. It passed `ARCH_APP_QA_THEME_STATUS_0`, captured fresh
+1280x800 PCManFM, terminal, Mousepad, Ristretto, Chromium and SuperTux scenes,
+and reported `game_audio_bytes=1675860` with `nonzero_audio_bytes=1591119`.
+
 ## Release accounting boundary
 
 The inspected artifacts and current rerun markers support bounded capability,

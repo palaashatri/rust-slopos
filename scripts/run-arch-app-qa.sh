@@ -11,6 +11,11 @@ export XDG_RUNTIME_DIR=/tmp/slopos-app-qa-runtime
 export XDG_CURRENT_DESKTOP=SLOPOS
 export XDG_SESSION_DESKTOP=slopos-i
 export DESKTOP_SESSION=slopos-i
+# Keep the upstream application matrix on the same Openbox frame/theme as the
+# canonical Docker scenes.  Without an installed themerc, Openbox silently
+# falls back to its distro default (typically a blue, rounded frame), which
+# makes the five-app visual evidence measure the wrong desktop.
+export SLOPOS_OPENBOX_CONFIG="${SLOPOS_OPENBOX_CONFIG:-$PWD/assets/config/openbox/rc.xml}"
 export GTK_THEME=slopos-gtk
 export SLOPOS_QA_NO_WELCOME=1
 export SLOPOS_BROWSER=chromium
@@ -86,6 +91,9 @@ else
 fi
 
 echo "[3/7] Installing SLOPOS GTK/browser theme resources"
+mkdir -p "$HOME/.themes/slopos-openbox/openbox-3" /usr/share/themes/slopos-openbox/openbox-3
+cp themes/slopos-openbox/openbox-3/themerc "$HOME/.themes/slopos-openbox/openbox-3/themerc"
+cp themes/slopos-openbox/openbox-3/themerc /usr/share/themes/slopos-openbox/openbox-3/themerc
 mkdir -p /usr/share/themes/slopos-gtk/gtk-3.0 /usr/share/slopos-i/browser
 cp assets/config/gtk-3.0/gtk.css /usr/share/themes/slopos-gtk/gtk-3.0/gtk.css
 cp -a packaging/browser/chromium /usr/share/slopos-i/browser/chromium

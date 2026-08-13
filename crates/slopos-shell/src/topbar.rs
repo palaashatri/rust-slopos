@@ -164,6 +164,7 @@ impl TopBar {
             network_button.set_tooltip_text(Some("Open network connections"));
             network_button.connect_clicked(|_| spawn_resolved("nm-connection-editor", &[]));
         } else {
+            network_button.set_sensitive(false);
             network_button.set_tooltip_text(Some("Network status"));
         }
         status_box.pack_start(&network_button, false, false, 0);

@@ -414,6 +414,58 @@ jobs:
       - name: Hold the X11 session and check RSS/window stability
         run: sudo -E env "PATH=$PATH" SLOPOS_BENCHMARK_HOLD_SECONDS=30 bash scripts/benchmark-x11-session.sh
 
+  x11-resolution-matrix:
+    name: X11 geometry QA (${{ matrix.screen }} scale=${{ matrix.scale }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - screen: 3440x1440
+            scale: 1
+          - screen: 3840x2160
+            scale: 1
+          - screen: 5120x2880
+            scale: 1
+          - screen: 7680x4320
+            scale: 1
+          - screen: 2560x1600
+            scale: 2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Install retained-resolution X11 dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            libssl-dev libdbus-1-dev xvfb openbox xdotool scrot imagemagick \
+            dbus-x11 x11-utils x11-xserver-utils librsvg2-common \
+            fonts-liberation fonts-dejavu-core adwaita-icon-theme
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build release binaries
+        run: cargo build --workspace --release --locked
+      - name: Run retained-resolution geometry QA
+        run: >-
+          sudo -E env "PATH=$PATH"
+          SLOPOS_QA_SKIP_DEPS=1
+          SLOPOS_QA_SKIP_BUILD=1
+          SLOPOS_RESOLUTION=${{ matrix.screen }}
+          SLOPOS_SCALE=${{ matrix.scale }}
+          bash scripts/run-resolution-qa.sh
+      - name: Upload resolution evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slopos-resolution-${{ matrix.screen }}-scale${{ matrix.scale }}-${{ env.SOURCE_SHA }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: artifacts/qa/resolutions/${{ matrix.screen }}-scale${{ matrix.scale }}/
+
   release-build:
     name: release build (X11 Linux)
     runs-on: ubuntu-latest

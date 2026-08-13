@@ -328,6 +328,8 @@ fn image_controls_have_accessible_names_and_focus_feedback() {
     assert!(dock.contains("applications-games-symbolic"));
     assert!(topbar.contains("set_accessible_name(&system_button, \"SLOPOS menu\")"));
     assert!(topbar.contains("set_accessible_name(&search_button"));
+    assert!(topbar.contains("network_button.set_sensitive(false)"));
+    assert!(topbar.contains("Network status"));
     assert!(notifications.contains("icon.is_empty().then(load_slopos_mark)"));
     assert!(notifications.contains("SLOPOS_SHARE_DIR"));
     assert!(notifications.contains("slopos-logo.png"));
@@ -619,6 +621,9 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("browser-dom.html"));
     assert!(qa.contains("SLOPOS_QA_SKIP_DEPS"));
     assert!(qa.contains("SLOPOS_QA_SKIP_BUILD"));
+    assert!(qa.contains("SLOPOS_OPENBOX_CONFIG"));
+    assert!(qa.contains("themes/slopos-openbox/openbox-3/themerc"));
+    assert!(qa.contains("/usr/share/themes/slopos-openbox/openbox-3/themerc"));
     assert!(qa.contains("BROWSER_FIREFOX_STATUS_SKIPPED_OPTIONAL_PACKAGE"));
     assert!(qa.contains("getwindowname"));
     assert!(qa.contains("world1/frosted_fields.stl"));
