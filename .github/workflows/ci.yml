@@ -155,11 +155,24 @@ jobs:
       - name: Build workspace
         run: cargo build --workspace --all-targets --locked
       - name: Test workspace
-        run: cargo test --workspace --locked
+        id: test-workspace
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --workspace --locked -- --nocapture 2>&1 | tee "$RUNNER_TEMP/cargo-test.log"
+          exit "${PIPESTATUS[0]}"
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: rustfmt
         run: cargo fmt --all --check
+      - name: Upload workspace test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-test-${{ env.SOURCE_SHA }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: ${{ runner.temp }}/cargo-test.log
 
   x11-runtime-smoke:
     name: Xvfb + Openbox behavior and visual smoke
@@ -351,7 +364,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Run isolated AT-SPI acceptance
-        run: sudo -E env "PATH=$PATH" bash scripts/run-atspi-qa.sh
+        run: |
+          set -o pipefail
+          sudo -E env "PATH=$PATH" bash scripts/run-atspi-qa.sh 2>&1 | tee "$RUNNER_TEMP/atspi.log"
+          exit "${PIPESTATUS[0]}"
+      - name: Upload AT-SPI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: atspi-default-${{ env.SOURCE_SHA }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            ${{ runner.temp }}/atspi.log
+            /tmp/slopos-atspi-*.log
 
   x11-atspi-locales:
     name: AT-SPI translated-locale matrix (${{ matrix.locale }})
@@ -369,7 +395,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Run AT-SPI acceptance in ${{ matrix.locale }}
-        run: sudo -E env "PATH=$PATH" SLOPOS_ATSPI_LOCALE="${{ matrix.locale }}" bash scripts/run-atspi-qa.sh
+        run: |
+          set -o pipefail
+          sudo -E env "PATH=$PATH" SLOPOS_ATSPI_LOCALE="${{ matrix.locale }}" bash scripts/run-atspi-qa.sh 2>&1 | tee "$RUNNER_TEMP/atspi-${{ matrix.locale }}.log"
+          exit "${PIPESTATUS[0]}"
+      - name: Upload translated AT-SPI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: atspi-${{ matrix.locale }}-${{ env.SOURCE_SHA }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            ${{ runner.temp }}/atspi-${{ matrix.locale }}.log
+            /tmp/slopos-atspi-*.log
 
   x11-screen-reader:
     name: Orca screen-reader acceptance
@@ -383,7 +422,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Run Orca-backed AT-SPI acceptance
-        run: sudo -E env "PATH=$PATH" SLOPOS_ATSPI_SCREEN_READER=1 bash scripts/run-atspi-qa.sh
+        run: |
+          set -o pipefail
+          sudo -E env "PATH=$PATH" SLOPOS_ATSPI_SCREEN_READER=1 bash scripts/run-atspi-qa.sh 2>&1 | tee "$RUNNER_TEMP/orca.log"
+          exit "${PIPESTATUS[0]}"
+      - name: Upload Orca diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orca-${{ env.SOURCE_SHA }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            ${{ runner.temp }}/orca.log
+            /tmp/slopos-atspi-*.log
 
   x11-settings-services:
     name: Settings delegation and unavailable-state acceptance
@@ -397,7 +449,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Run Settings service-boundary acceptance
-        run: sudo -E env "PATH=$PATH" bash scripts/run-settings-service-qa.sh
+        run: |
+          set -o pipefail
+          sudo -E env "PATH=$PATH" bash scripts/run-settings-service-qa.sh 2>&1 | tee "$RUNNER_TEMP/settings-services.log"
+          exit "${PIPESTATUS[0]}"
+      - name: Upload Settings diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: settings-services-${{ env.SOURCE_SHA }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            ${{ runner.temp }}/settings-services.log
+            /tmp/slopos-settings-*.log
 
   x11-performance:
     name: bounded X11 long-run benchmark
