@@ -240,6 +240,11 @@ fn docker_qa_uses_fresh_visible_windows() {
     assert!(qa.contains("shell_before"));
     assert!(qa.contains("wm_before"));
     assert!(qa.contains("close_visible_windows_by_class"));
+    assert!(qa.contains("xdotool windowmove --sync"));
+    assert!(qa.contains("xdotool windowsize"));
+    assert!(qa.contains("xdotool key --clearmodifiers alt+Tab"));
+    assert!(qa.contains("ACTIVE_BEFORE"));
+    assert!(qa.contains("ACTIVE_AFTER"));
     assert!(qa.contains("clean_desktop_1280x800.png"));
     for scene in [
         "menu_open_1280x800.png",
@@ -275,6 +280,18 @@ fn image_controls_have_accessible_names_and_focus_feedback() {
     assert!(topbar.contains("set_accessible_name(&search_button"));
     assert!(css.contains("button:focus"));
     assert!(css.contains("@slopos_highlight"));
+}
+
+#[test]
+fn settings_hub_uses_compact_platinum_controls() {
+    let settings = include_str!("../../slopos-settings/src/main.rs");
+    let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
+    assert!(settings.contains("window.set_default_size(640, 460)"));
+    assert!(settings.contains("IconSize::LargeToolbar"));
+    assert!(settings.contains("icon.set_pixel_size(32)"));
+    assert!(settings.contains("button.set_vexpand(false)"));
+    assert!(css.contains(".slopos-control-icon"));
+    assert!(css.contains("min-height: 64px"));
 }
 
 #[test]

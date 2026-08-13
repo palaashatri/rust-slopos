@@ -26,14 +26,16 @@ fn main() {
 
     let window = Window::new(WindowType::Toplevel);
     window.set_title("System Settings");
-    window.set_default_size(700, 540);
+    // Keep the hub compact like a classic control panel while leaving enough
+    // room for four rows of delegated utilities at 1x scaling.
+    window.set_default_size(640, 460);
     window.set_position(WindowPosition::Center);
     window.connect_delete_event(|_, _| {
         gtk::main_quit();
         glib::Propagation::Proceed
     });
 
-    let body = GtkBox::new(Orientation::Vertical, 8);
+    let body = GtkBox::new(Orientation::Vertical, 6);
     body.style_context().add_class("slopos-window-body");
 
     let title = Label::new(Some("System Settings"));
@@ -52,8 +54,8 @@ fn main() {
     body.pack_start(&separator, false, false, 0);
 
     let grid = Grid::new();
-    grid.set_row_spacing(8);
-    grid.set_column_spacing(8);
+    grid.set_row_spacing(6);
+    grid.set_column_spacing(6);
     grid.set_column_homogeneous(true);
     grid.set_row_homogeneous(true);
     grid.set_hexpand(true);
@@ -145,14 +147,16 @@ fn control_panel_button(panel: &ControlPanel<'_>) -> Button {
     let button = Button::new();
     button.style_context().add_class("slopos-control-panel");
     button.set_hexpand(true);
-    button.set_vexpand(true);
+    button.set_vexpand(false);
     button.set_tooltip_text(Some(panel.description));
 
     let content = GtkBox::new(Orientation::Horizontal, 10);
     content.set_halign(Align::Fill);
     content.set_valign(Align::Center);
 
-    let icon = Image::from_icon_name(Some(panel.icon), IconSize::Dialog);
+    let icon = Image::from_icon_name(Some(panel.icon), IconSize::LargeToolbar);
+    icon.set_pixel_size(32);
+    icon.style_context().add_class("slopos-control-icon");
     content.pack_start(&icon, false, false, 0);
 
     let labels = GtkBox::new(Orientation::Vertical, 2);

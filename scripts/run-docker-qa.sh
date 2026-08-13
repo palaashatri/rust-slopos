@@ -144,6 +144,8 @@ done
 test -n "$wm_after"
 test "$wm_after" != "$wm_before"
 wait_visible_window '^SLOPOS Application Strip$'
+wait_visible_window '^SLOPOS Top Bar$'
+sleep 1
 
 echo "[6/8] Capture canonical scenes"
 scrot -zo artifacts/qa/screenshots/clean_desktop_1280x800.png
@@ -175,7 +177,21 @@ scrot -zo artifacts/qa/screenshots/active_app_1280x800.png
 
 xfce4-terminal >artifacts/qa/terminal.log 2>&1 & TERM_PID=$!
 sleep 2
-xdotool search --onlyvisible --class xfce4-terminal >/dev/null
+TERM_WINDOW="$(xdotool search --onlyvisible --class xfce4-terminal | tail -n 1)"
+test -n "$TERM_WINDOW"
+# Arrange the overlap scene deliberately so both upstream windows remain fully
+# visible above the Application Strip instead of relying on WM placement luck.
+xdotool windowmove --sync "$TERM_WINDOW" 520 300
+xdotool windowsize "$TERM_WINDOW" 610 360
+sleep 1
+ACTIVE_BEFORE="$(xdotool getactivewindow)"
+xdotool key --clearmodifiers alt+Tab
+sleep 0.5
+ACTIVE_AFTER="$(xdotool getactivewindow)"
+test "$ACTIVE_BEFORE" != "$ACTIVE_AFTER"
+xdotool windowactivate --sync "$TERM_WINDOW"
+xdotool windowfocus --sync "$TERM_WINDOW"
+sleep 1
 scrot -zo artifacts/qa/screenshots/multi_window_1280x800.png
 close_visible_windows_by_class xfce4-terminal
 kill "$TERM_PID" 2>/dev/null || true
