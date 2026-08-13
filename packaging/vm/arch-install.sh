@@ -39,6 +39,29 @@ if [[ ! "$REPO_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
   exit 2
 fi
 
+# Keep the QA installer usable for both traditional (/dev/sda) and NVMe
+# (/dev/nvme0n1) disks.  The latter already ends in a digit, so its partition
+# names require an explicit `p` separator.
+partition_path() {
+  local number="$1"
+  if [[ "$DISK" =~ [0-9]$ ]]; then
+    printf '%sp%s\n' "$DISK" "$number"
+  else
+    printf '%s%s\n' "$DISK" "$number"
+  fi
+}
+
+ESP_PART="$(partition_path 1)"
+ROOT_PART="$(partition_path 2)"
+
+# Do not strand a mounted target disk when a package, build or QA step fails.
+# This trap is intentionally limited to the exact installer mountpoint.
+cleanup_mounts() {
+  set +e
+  umount -R /mnt >/dev/null 2>&1 || true
+}
+trap cleanup_mounts EXIT
+
 echo "=== enable clock and current keyring ==="
 timedatectl set-ntp true || true
 pacman -Sy --noconfirm archlinux-keyring
@@ -49,11 +72,11 @@ sgdisk -n 1:0:+512M -t 1:ef00 -c 1:EFI "$DISK"
 sgdisk -n 2:0:0 -t 2:8300 -c 2:ROOT "$DISK"
 partprobe "$DISK"
 sleep 2
-mkfs.fat -F32 "${DISK}1"
-mkfs.ext4 -F "${DISK}2"
-mount "${DISK}2" /mnt
+mkfs.fat -F32 "$ESP_PART"
+mkfs.ext4 -F "$ROOT_PART"
+mount "$ROOT_PART" /mnt
 mkdir -p /mnt/boot
-mount "${DISK}1" /mnt/boot
+mount "$ESP_PART" /mnt/boot
 
 echo "=== install base system, X11 and representative desktop applications ==="
 pacstrap -K /mnt \

@@ -114,6 +114,13 @@ Xvfb, live-ISO and QEMU checks do not replace it.
 bash scripts/slopos-recovery.sh
 ```
 
+The recovery helper preserves the current per-user SLOPOS/Openbox config in a
+timestamped backup, stages installed vendor defaults when available, and
+restarts the existing session's managed X11 children. It exits non-zero when
+the session cannot be restored and prints `SLOPOS_RECOVERY_STATUS_0` only after
+fresh Openbox and shell processes are observed; it does not claim hardware or
+VM recovery.
+
 ## Project truth
 
 - `AGENTS.md` — normative product/engineering contract.
