@@ -1,22 +1,21 @@
 //! SLOPOS-I classic top menu/system bar.
 
+use crate::appmenu::{self, AppMenuStatus};
 use crate::launcher::Launcher;
 use gdk_pixbuf::{InterpType, Pixbuf};
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
-    Align, Box as GtkBox, Button, Dialog, DialogFlags, IconSize, Image, Label, Menu, MenuBar,
-    MenuItem, Orientation, ResponseType, SeparatorMenuItem, Window, WindowPosition, WindowType,
+    Align, Box as GtkBox, Button, Dialog, DialogFlags, IconSize, Image, Label, Menu, MenuItem,
+    Orientation, ResponseType, SeparatorMenuItem, Window, WindowPosition, WindowType,
 };
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
 use std::time::Duration;
-
-type TargetMenuControls = Rc<RefCell<Vec<(MenuItem, &'static str)>>>;
 
 const LOCK_COMMANDS: &[(&str, &[&str])] = &[
     ("xdg-screensaver", &["lock"]),
@@ -45,8 +44,7 @@ impl TopBar {
         set_accessible_name(&window, "SLOPOS top bar");
         window.style_context().add_class("slopos-topbar");
 
-        let target_window = Rc::new(Cell::new(0_u64));
-        let target_menu_controls: TargetMenuControls = Rc::new(RefCell::new(Vec::new()));
+        let app_menu_status = Rc::new(Cell::new(AppMenuStatus::ShellOwned));
         let main_box = GtkBox::new(Orientation::Horizontal, 0);
         // Paint the bar on the child that owns the full allocation as well as
         // on the borderless window. GTK themes do not consistently paint a
@@ -91,12 +89,8 @@ impl TopBar {
         active_title_label.set_max_width_chars(28);
         set_accessible_name(&active_title_label, "Active application");
         main_box.pack_start(&active_title_label, false, false, 7);
-        main_box.pack_start(
-            &build_global_menu_bar(target_window.clone(), target_menu_controls.clone()),
-            false,
-            false,
-            0,
-        );
+        let app_menu_button = build_app_menu_button();
+        main_box.pack_start(&app_menu_button, false, false, 0);
 
         let status_box = GtkBox::new(Orientation::Horizontal, 6);
         status_box.style_context().add_class("slopos-status-area");
@@ -190,13 +184,13 @@ impl TopBar {
         window.show_all();
 
         install_live_updates(
-            target_window,
-            target_menu_controls,
             &active_title_label,
             &clock_label,
             &audio_label,
             &network_label,
             &battery_label,
+            &app_menu_button,
+            app_menu_status,
         );
 
         Rc::new(Self {
@@ -208,19 +202,18 @@ impl TopBar {
 }
 
 fn install_live_updates(
-    target_window: Rc<Cell<u64>>,
-    target_menu_controls: TargetMenuControls,
     active_title: &Label,
     clock: &Label,
     audio: &Label,
     network: &Label,
     battery: &Label,
+    app_menu_button: &Button,
+    app_menu_status: Rc<Cell<AppMenuStatus>>,
 ) {
-    let title_target = target_window.clone();
-    let target_menu_controls = target_menu_controls.clone();
     let active_title = active_title.clone();
+    let app_menu_button = app_menu_button.clone();
     glib::timeout_add_local(Duration::from_millis(500), move || {
-        update_active_window(&title_target, &active_title, &target_menu_controls);
+        update_active_window(&active_title, &app_menu_button, &app_menu_status);
         glib::ControlFlow::Continue
     });
 
@@ -244,52 +237,122 @@ fn install_live_updates(
 }
 
 fn update_active_window(
-    target_window: &Cell<u64>,
     label: &Label,
-    target_menu_controls: &TargetMenuControls,
+    app_menu_button: &Button,
+    app_menu_status: &Cell<AppMenuStatus>,
 ) {
     let Some(id_text) = command_output("xdotool", &["getactivewindow"]) else {
-        target_window.set(0);
-        update_target_menu_controls(target_window, target_menu_controls);
         label.set_text("SLOPOS Desktop");
+        update_app_menu_status(
+            app_menu_button,
+            app_menu_status,
+            AppMenuStatus::ShellOwned,
+            None,
+        );
         return;
     };
     let Ok(id) = id_text.trim().parse::<u64>() else {
-        target_window.set(0);
-        update_target_menu_controls(target_window, target_menu_controls);
         label.set_text("SLOPOS Desktop");
+        update_app_menu_status(
+            app_menu_button,
+            app_menu_status,
+            AppMenuStatus::ShellOwned,
+            None,
+        );
         return;
     };
     let Some(title) = command_output("xdotool", &["getwindowname", &id.to_string()]) else {
-        target_window.set(0);
-        update_target_menu_controls(target_window, target_menu_controls);
         label.set_text("SLOPOS Desktop");
+        update_app_menu_status(
+            app_menu_button,
+            app_menu_status,
+            AppMenuStatus::ShellOwned,
+            None,
+        );
         return;
     };
 
     if is_shell_surface(&title) {
-        target_window.set(0);
-        update_target_menu_controls(target_window, target_menu_controls);
         label.set_text("SLOPOS Desktop");
+        update_app_menu_status(
+            app_menu_button,
+            app_menu_status,
+            AppMenuStatus::ShellOwned,
+            None,
+        );
         return;
     }
     if title.is_empty() {
-        target_window.set(0);
         label.set_text("SLOPOS Desktop");
     } else {
-        target_window.set(id);
         label.set_text(&compact_title(&title));
     }
-    update_target_menu_controls(target_window, target_menu_controls);
+    let Some(window_id) = u32::try_from(id).ok() else {
+        update_app_menu_status(
+            app_menu_button,
+            app_menu_status,
+            AppMenuStatus::NoExporter,
+            None,
+        );
+        return;
+    };
+    let (status, exporter) = appmenu::status_for_window(window_id);
+    update_app_menu_status(app_menu_button, app_menu_status, status, exporter.as_ref());
 }
 
-fn update_target_menu_controls(
-    target_window: &Cell<u64>,
-    target_menu_controls: &TargetMenuControls,
+fn update_app_menu_status(
+    button: &Button,
+    previous: &Cell<AppMenuStatus>,
+    status: AppMenuStatus,
+    exporter: Option<&appmenu::AppMenuExporter>,
 ) {
-    let has_target = target_window.get() != 0;
-    for (item, required_command) in target_menu_controls.borrow().iter() {
-        item.set_sensitive(has_target && resolve_program(required_command).is_some());
+    if previous.get() != status {
+        match (status, exporter) {
+            (AppMenuStatus::ExporterDetectedNoImporter, Some(exporter)) => log::info!(
+                "Focused X11 application advertises AppMenu bus={} path={}; keeping its local menu because the safe DBusMenu importer is not enabled",
+                exporter.bus_name,
+                exporter.object_path
+            ),
+            (AppMenuStatus::NoExporter, _) => {
+                log::info!("Focused X11 application exports no AppMenu; using its local menu")
+            }
+            (AppMenuStatus::ShellOwned, _) => {
+                log::info!("SLOPOS shell owns the global menu area")
+            }
+            (AppMenuStatus::ExporterDetectedNoImporter, None) => log::warn!(
+                "Focused X11 application advertises AppMenu but exporter details were unavailable"
+            ),
+        }
+        previous.set(status);
+    }
+
+    button.set_sensitive(false);
+    match status {
+        AppMenuStatus::ShellOwned => {
+            button.set_label("App");
+            button.set_tooltip_text(Some("SLOPOS owns this menu area"));
+            set_accessible_name(button, "Application menu unavailable for SLOPOS shell");
+        }
+        AppMenuStatus::NoExporter => {
+            button.set_label("App");
+            button.set_tooltip_text(Some(
+                "This application exports no X11 AppMenu; use its local menu",
+            ));
+            set_accessible_name(
+                button,
+                "Application has no exported menu; use its local menu",
+            );
+        }
+        AppMenuStatus::ExporterDetectedNoImporter => {
+            button.set_label("App");
+            button.set_tooltip_text(Some(
+                "X11 AppMenu detected, but SLOPOS DBusMenu import is unavailable; use the local menu",
+            ));
+            set_accessible_name(
+                button,
+                "Application menu importer unavailable; use the local application menu",
+            );
+        }
     }
 }
 
@@ -378,6 +441,20 @@ fn command_output(program: &str, args: &[&str]) -> Option<String> {
     Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
+fn build_app_menu_button() -> Button {
+    let button = Button::with_label("App");
+    button.style_context().add_class("slopos-menubar-control");
+    button.set_sensitive(false);
+    button.set_tooltip_text(Some(
+        "Application menus stay local unless a safe X11 AppMenu importer is available",
+    ));
+    set_accessible_name(
+        &button,
+        "Application menu unavailable; use the local application menu",
+    );
+    button
+}
+
 fn build_system_menu() -> Menu {
     let menu = Menu::new();
 
@@ -450,226 +527,6 @@ fn build_system_menu() -> Menu {
     menu
 }
 
-fn build_global_menu_bar(
-    target_window: Rc<Cell<u64>>,
-    target_menu_controls: TargetMenuControls,
-) -> MenuBar {
-    let menu_bar = MenuBar::new();
-    menu_bar.style_context().add_class("slopos-menu-bar");
-
-    let file_item = MenuItem::with_label("File");
-    let file_menu = Menu::new();
-    file_menu.append(&command_item("New File Window", || {
-        spawn_first_or_message(&["pcmanfm", "thunar"], &[])
-    }));
-    file_menu.append(&command_item("Home Folder", || {
-        spawn_first_or_message(&["pcmanfm", "thunar"], &[])
-    }));
-    file_menu.append(&SeparatorMenuItem::new());
-    let close_target = target_window.clone();
-    let close_item = command_item("Close Window", move || {
-        if !target_xdotool(&close_target, "windowclose") {
-            show_target_unavailable();
-        }
-    });
-    register_target_menu_control(&target_menu_controls, &close_item, "xdotool");
-    file_menu.append(&close_item);
-    file_item.set_submenu(Some(&file_menu));
-    menu_bar.append(&file_item);
-
-    let edit_item = MenuItem::with_label("Edit");
-    let edit_menu = Menu::new();
-    edit_menu.append(&target_shortcut_item(
-        "Undo",
-        "ctrl+z",
-        target_window.clone(),
-        target_menu_controls.clone(),
-    ));
-    edit_menu.append(&SeparatorMenuItem::new());
-    edit_menu.append(&target_shortcut_item(
-        "Cut",
-        "ctrl+x",
-        target_window.clone(),
-        target_menu_controls.clone(),
-    ));
-    edit_menu.append(&target_shortcut_item(
-        "Copy",
-        "ctrl+c",
-        target_window.clone(),
-        target_menu_controls.clone(),
-    ));
-    edit_menu.append(&target_shortcut_item(
-        "Paste",
-        "ctrl+v",
-        target_window.clone(),
-        target_menu_controls.clone(),
-    ));
-    edit_menu.append(&target_shortcut_item(
-        "Select All",
-        "ctrl+a",
-        target_window.clone(),
-        target_menu_controls.clone(),
-    ));
-    edit_item.set_submenu(Some(&edit_menu));
-    menu_bar.append(&edit_item);
-
-    let view_item = MenuItem::with_label("View");
-    let view_menu = Menu::new();
-    view_menu.append(&target_shortcut_item(
-        "Refresh",
-        "F5",
-        target_window.clone(),
-        target_menu_controls.clone(),
-    ));
-    view_menu.append(&SeparatorMenuItem::new());
-    view_menu.append(&target_shortcut_item(
-        "Zoom In",
-        "ctrl+plus",
-        target_window.clone(),
-        target_menu_controls.clone(),
-    ));
-    view_menu.append(&target_shortcut_item(
-        "Zoom Out",
-        "ctrl+minus",
-        target_window.clone(),
-        target_menu_controls.clone(),
-    ));
-    view_item.set_submenu(Some(&view_menu));
-    menu_bar.append(&view_item);
-
-    let window_item = MenuItem::with_label("Window");
-    let window_menu = Menu::new();
-    let minimize_target = target_window.clone();
-    let minimize_item = command_item("Minimize", move || {
-        if !target_xdotool(&minimize_target, "windowminimize") {
-            show_target_unavailable();
-        }
-    });
-    register_target_menu_control(&target_menu_controls, &minimize_item, "xdotool");
-    window_menu.append(&minimize_item);
-    let maximize_target = target_window.clone();
-    let maximize_item = command_item("Zoom / Maximize", move || {
-        if !target_maximize(&maximize_target) {
-            show_target_unavailable();
-        }
-    });
-    register_target_menu_control(&target_menu_controls, &maximize_item, "wmctrl");
-    window_menu.append(&maximize_item);
-    window_menu.append(&command_item("Next Window", || {
-        spawn_resolved("xdotool", &["key", "alt+Tab"])
-    }));
-    window_item.set_submenu(Some(&window_menu));
-    menu_bar.append(&window_item);
-
-    let help_item = MenuItem::with_label("Help");
-    let help_menu = Menu::new();
-    help_menu.append(&command_item("Keyboard Shortcuts", || {
-        show_message(
-            "SLOPOS-I Keyboard Shortcuts",
-            "Super+Space  Search\nSuper+Left/Right  Switch desktop\nSuper+Q  Close window\nSuper+M  Minimize\nSuper+F  Zoom / maximize",
-        )
-    }));
-    help_item.set_submenu(Some(&help_menu));
-    menu_bar.append(&help_item);
-
-    menu_bar.show_all();
-    menu_bar
-}
-
-fn target_shortcut_item(
-    label: &str,
-    shortcut: &'static str,
-    target: Rc<Cell<u64>>,
-    target_menu_controls: TargetMenuControls,
-) -> MenuItem {
-    let item = command_item(label, move || {
-        if !target_shortcut(&target, shortcut) {
-            show_target_unavailable();
-        }
-    });
-    register_target_menu_control(&target_menu_controls, &item, "xdotool");
-    item
-}
-
-fn register_target_menu_control(
-    target_menu_controls: &TargetMenuControls,
-    item: &MenuItem,
-    required_command: &'static str,
-) {
-    item.set_sensitive(false);
-    target_menu_controls
-        .borrow_mut()
-        .push((item.clone(), required_command));
-}
-
-fn target_shortcut(target: &Cell<u64>, shortcut: &str) -> bool {
-    let id = target.get();
-    if id == 0 {
-        return false;
-    }
-    let id = id.to_string();
-    Command::new("xdotool")
-        .args([
-            "windowactivate",
-            "--sync",
-            &id,
-            "key",
-            "--clearmodifiers",
-            shortcut,
-        ])
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
-}
-
-fn target_xdotool(target: &Cell<u64>, action: &str) -> bool {
-    let id = target.get();
-    if id == 0 {
-        return false;
-    }
-    Command::new("xdotool")
-        .arg(action)
-        .arg(id.to_string())
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
-}
-
-fn target_maximize(target: &Cell<u64>) -> bool {
-    let id = target.get();
-    if id == 0 {
-        return false;
-    }
-    let window = format!("0x{id:x}");
-    Command::new("wmctrl")
-        .args([
-            "-i",
-            "-r",
-            &window,
-            "-b",
-            "toggle,maximized_vert,maximized_horz",
-        ])
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
-}
-
-fn show_target_unavailable() {
-    show_message(
-        "SLOPOS-I",
-        "This command needs a focused application window.",
-    );
-}
-
-fn command_item<F>(label: &str, action: F) -> MenuItem
-where
-    F: Fn() + 'static,
-{
-    let item = MenuItem::with_label(label);
-    item.connect_activate(move |_| action());
-    item
-}
-
 fn show_message(title: &str, message: &str) {
     let dialog = platinum_dialog(title, message, &[("Close", ResponseType::Close)]);
     dialog.connect_response(|dialog, _| dialog.close());
@@ -729,15 +586,6 @@ fn lock_command() -> Option<(&'static str, &'static [&'static str])> {
     None
 }
 
-fn spawn_first(programs: &[&str], args: &[&str]) {
-    if let Some(program) = programs
-        .iter()
-        .find(|program| resolve_program(program).is_some())
-    {
-        spawn_resolved(program, args);
-    }
-}
-
 fn spawn_resolved(program: &str, args: &[&str]) {
     let Some(path) = resolve_program(program) else {
         log::warn!("Cannot launch {program}: command not found");
@@ -770,20 +618,6 @@ fn resolve_program(program: &str) -> Option<PathBuf> {
             .map(|directory| directory.join(program))
             .find(|candidate| candidate.is_file())
     })
-}
-
-fn spawn_first_or_message(programs: &[&str], args: &[&str]) {
-    if programs
-        .iter()
-        .any(|program| resolve_program(program).is_some())
-    {
-        spawn_first(programs, args);
-    } else {
-        show_message(
-            "SLOPOS-I",
-            "No compatible file manager is installed for this command.",
-        );
-    }
 }
 
 /// Keep image-led top-bar controls discoverable to ATK clients even when the

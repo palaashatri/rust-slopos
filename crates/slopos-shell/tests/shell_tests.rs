@@ -239,6 +239,10 @@ fn docker_qa_uses_fresh_visible_windows() {
     let qa = include_str!("../../../scripts/run-docker-qa.sh");
     assert!(qa.contains("dbus-run-session -- bash -c"));
     assert!(qa.contains("DBUS_SESSION_BUS_ADDRESS"));
+    assert!(qa.contains("SLOPOS_QA_SKIP_DEPS"));
+    assert!(qa.contains("SLOPOS_QA_SKIP_BUILD"));
+    assert!(qa.contains("Using pre-provisioned X11/GTK QA dependencies"));
+    assert!(qa.contains("dbus-send --session"));
     assert!(qa.contains("notify-send"));
     assert!(qa.contains("wait_visible_window '^SLOPOS Top Bar$'"));
     assert!(qa.contains("wait_visible_window '^SLOPOS Application Strip$'"));
@@ -278,15 +282,26 @@ fn docker_qa_uses_fresh_visible_windows() {
 }
 
 #[test]
-fn target_menu_commands_report_missing_focus() {
+fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     let topbar = include_str!("../src/topbar.rs");
-    assert!(topbar.contains("show_target_unavailable"));
-    assert!(topbar.contains("This command needs a focused application window."));
-    assert!(topbar.contains("register_target_menu_control"));
-    assert!(topbar.contains("item.set_sensitive(false)"));
-    assert!(topbar.contains("update_target_menu_controls"));
-    assert!(topbar.contains("spawn_first_or_message"));
-    assert!(topbar.contains("No compatible file manager is installed"));
+    let appmenu = include_str!("../src/appmenu.rs");
+    let qa = include_str!("../../../scripts/run-appmenu-qa.sh");
+    assert!(topbar.contains("build_app_menu_button"));
+    assert!(topbar.contains("appmenu::status_for_window"));
+    assert!(topbar.contains("This application exports no X11 AppMenu"));
+    assert!(topbar.contains("safe DBusMenu importer is not enabled"));
+    assert!(!topbar.contains("build_global_menu_bar"));
+    assert!(!topbar.contains("target_shortcut_item"));
+    assert!(!topbar.contains("New File Window"));
+    assert!(!topbar.contains("Window switching is unavailable."));
+    assert!(appmenu.contains("_GTK_UNIQUE_BUS_NAME"));
+    assert!(appmenu.contains("_GTK_APP_MENU_OBJECT_PATH"));
+    assert!(appmenu.contains("_GTK_MENUBAR_OBJECT_PATH"));
+    assert!(appmenu.contains("com.canonical.dbusmenu"));
+    assert!(qa.contains("Mousepad local menu remains upstream-owned"));
+    assert!(qa.contains("EXPORTER_FIXTURE_STATUS_0"));
+    assert!(qa.contains("NON_EXPORTER_STATUS_0"));
+    assert!(qa.contains("SLOPOS AppMenu capability evidence PASS"));
 }
 
 #[test]

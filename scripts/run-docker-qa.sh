@@ -90,15 +90,19 @@ close_visible_windows_by_class() {
   return 1
 }
 
-echo "[1/8] Installing X11/GTK QA dependencies"
-apt-get update -qq
-apt-get install -y -qq --no-install-recommends \
-  xvfb openbox pcmanfm xfce4-terminal mousepad ristretto zathura mpv galculator \
-  libgtk-3-dev libx11-dev libxrandr-dev libssl-dev libdbus-1-dev pkg-config \
-  python3 scrot imagemagick x11-utils x11-xserver-utils xdotool wmctrl dbus-x11 librsvg2-common curl git build-essential \
-  ca-certificates adwaita-icon-theme fonts-liberation fonts-dejavu-core libnotify-bin
+if [[ "${SLOPOS_QA_SKIP_DEPS:-0}" == "1" ]]; then
+  echo "[1/8] Using pre-provisioned X11/GTK QA dependencies"
+else
+  echo "[1/8] Installing X11/GTK QA dependencies"
+  apt-get update -qq
+  apt-get install -y -qq --no-install-recommends \
+    xvfb openbox pcmanfm xfce4-terminal mousepad ristretto zathura mpv galculator \
+    libgtk-3-dev libx11-dev libxrandr-dev libssl-dev libdbus-1-dev pkg-config \
+    python3 scrot imagemagick x11-utils x11-xserver-utils xdotool wmctrl dbus-x11 librsvg2-common curl git build-essential \
+    ca-certificates adwaita-icon-theme fonts-liberation fonts-dejavu-core libnotify-bin
+fi
 
-if ! command -v cargo >/dev/null 2>&1; then
+if [[ "${SLOPOS_QA_SKIP_BUILD:-0}" != "1" ]] && ! command -v cargo >/dev/null 2>&1; then
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
   # shellcheck source=/dev/null
   source "$HOME/.cargo/env"
@@ -115,9 +119,16 @@ if [[ -f assets/config/gtk-3.0/settings.ini ]]; then
   cp assets/config/gtk-3.0/settings.ini "$HOME/.config/gtk-3.0/settings.ini"
 fi
 
-echo "[2/8] Build + test"
-cargo build --workspace --release --locked
-cargo test --workspace --locked
+if [[ "${SLOPOS_QA_SKIP_BUILD:-0}" == "1" ]]; then
+  echo "[2/8] Using prebuilt release binaries"
+  for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+    test -x "target/release/$binary"
+  done
+else
+  echo "[2/8] Build + test"
+  cargo build --workspace --release --locked
+  cargo test --workspace --locked
+fi
 
 echo "[3/8] Start Xvfb and SLOPOS session"
 Xvfb :99 -screen 0 1280x800x24 >artifacts/qa/xvfb.log 2>&1 &
@@ -202,8 +213,16 @@ sleep 1
 # An empty icon asks the SLOPOS presenter to use its packaged mark, making
 # the canonical notification scene exercise the product identity rather than
 # a generic desktop icon.
-notify-send -t 60000 -a "SLOPOS QA" -i "" "SLOPOS QA Notification" \
-  "A real D-Bus notification rendered by the SLOPOS presenter."
+if command -v notify-send >/dev/null 2>&1; then
+  notify-send -t 60000 -a "SLOPOS QA" -i "" "SLOPOS QA Notification" \
+    "A real D-Bus notification rendered by the SLOPOS presenter."
+else
+  dbus-send --session --dest=org.freedesktop.Notifications --type=method_call \
+    /org/freedesktop/Notifications org.freedesktop.Notifications.Notify \
+    string:"SLOPOS QA" uint32:0 string:"" string:"SLOPOS QA Notification" \
+    string:"A real D-Bus notification rendered by the SLOPOS presenter." \
+    array:string: dict:string:variant: int32:60000
+fi
 wait_visible_window '^SLOPOS Notification [0-9]+$'
 capture_screenshot artifacts/qa/screenshots/notification_1280x800.png
 # The long timeout keeps the notification visible long enough to capture, but
