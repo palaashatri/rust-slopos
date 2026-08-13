@@ -182,7 +182,19 @@ notify-send -t 60000 -a "SLOPOS QA" -i "" "SLOPOS QA Notification" \
   "A real D-Bus notification rendered by the SLOPOS presenter."
 wait_visible_window '^SLOPOS Notification [0-9]+$'
 capture_screenshot artifacts/qa/screenshots/notification_1280x800.png
-sleep 7
+# The long timeout keeps the notification visible long enough to capture, but
+# it must not contaminate later canonical scenes. Close only the fresh visible
+# SLOPOS notification window and assert that it is gone before continuing.
+for notification_window in $(xdotool search --onlyvisible --name '^SLOPOS Notification [0-9]+$' 2>/dev/null || true); do
+  xdotool windowclose "$notification_window"
+done
+for _ in $(seq 1 20); do
+  if ! xdotool search --onlyvisible --name '^SLOPOS Notification [0-9]+$' >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.25
+done
+! xdotool search --onlyvisible --name '^SLOPOS Notification [0-9]+$' >/dev/null 2>&1
 
 pcmanfm /workspace >artifacts/qa/pcmanfm.log 2>&1 & PCMAN_PID=$!
 sleep 2

@@ -249,6 +249,8 @@ fn docker_qa_uses_fresh_visible_windows() {
     assert!(qa.contains("--onlyvisible --name '^Software Catalogue$'"));
     assert!(qa.contains("--onlyvisible --name '^System Settings$'"));
     assert!(qa.contains("notify-send -t 60000"));
+    assert!(qa.contains("Close only the fresh visible"));
+    assert!(qa.contains("! xdotool search --onlyvisible --name '^SLOPOS Notification [0-9]+$'"));
     assert!(qa.contains("getwindowpid"));
     assert!(qa.contains("Verify session recovery after child failure"));
     assert!(qa.contains("shell_before"));
