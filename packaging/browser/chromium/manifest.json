@@ -17,7 +17,12 @@
       "ntp_text": [255, 255, 255],
       "ntp_link": [255, 255, 255],
       "ntp_section": [217, 217, 217],
-      "button_background": [217, 217, 217]
+      "button_background": [217, 217, 217],
+      "toolbar_button_icon": [0, 0, 0],
+      "omnibox_background": [255, 255, 255],
+      "omnibox_text": [0, 0, 0],
+      "tab_background": [217, 217, 217],
+      "tab_background_inactive": [192, 192, 192]
     },
     "tints": {
       "buttons": [0.0, 0.0, 0.0]

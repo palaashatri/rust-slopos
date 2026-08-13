@@ -25,6 +25,29 @@
   box-shadow: inset 0 1px var(--slopos-light) !important;
 }
 
+#nav-bar,
+#PersonalToolbar {
+  padding-block: 2px !important;
+}
+
+#nav-bar .toolbarbutton-1,
+#PersonalToolbar .toolbarbutton-1 {
+  border: 1px solid var(--slopos-shadow) !important;
+  border-radius: 0 !important;
+  background: linear-gradient(var(--slopos-light), var(--slopos-face)) !important;
+  color: #000000 !important;
+}
+
+#nav-bar .toolbarbutton-1:hover,
+#PersonalToolbar .toolbarbutton-1:hover {
+  background: var(--slopos-light) !important;
+}
+
+#nav-bar .toolbarbutton-1[disabled="true"],
+#PersonalToolbar .toolbarbutton-1[disabled="true"] {
+  opacity: 0.55 !important;
+}
+
 #TabsToolbar .tab-background {
   border-radius: 0 !important;
   background: var(--slopos-face) !important;
@@ -48,6 +71,49 @@
 #urlbar[focused="true"],
 #searchbar:focus-within {
   border-color: var(--slopos-highlight) !important;
+}
+
+#identity-box,
+#tracking-protection-icon-container {
+  background: var(--slopos-face) !important;
+  border-inline-end: 1px solid var(--slopos-shadow) !important;
+}
+
+#sidebar-box,
+#sidebar-header,
+#sidebar-search-container,
+#browser-bottombox,
+.findbar-container {
+  background: var(--slopos-face) !important;
+  color: #000000 !important;
+  border-color: var(--slopos-shadow) !important;
+}
+
+#sidebar-header,
+.findbar-container {
+  box-shadow: inset 0 1px var(--slopos-light) !important;
+}
+
+menupopup,
+panel[type="arrow"] {
+  --panel-background: var(--slopos-face) !important;
+  --panel-color: #000000 !important;
+  --panel-border-color: var(--slopos-shadow) !important;
+  border-radius: 0 !important;
+  border: 1px solid var(--slopos-shadow) !important;
+  box-shadow: 3px 3px rgba(0, 0, 0, 0.28) !important;
+}
+
+menupopup > menu,
+menupopup > menuitem {
+  padding-block: 3px !important;
+  border-radius: 0 !important;
+}
+
+menupopup > menu[_moz-menuactive="true"],
+menupopup > menuitem[_moz-menuactive="true"] {
+  background: var(--slopos-highlight) !important;
+  color: #ffffff !important;
 }
 
 .toolbarbutton-1,

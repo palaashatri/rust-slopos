@@ -425,8 +425,13 @@ fn browser_integration_is_upstream_and_no_fork() {
     assert!(dock.contains("program: \"start-slopos-browser\""));
     assert!(chromium.contains("\"manifest_version\": 3"));
     assert!(chromium.contains("\"frame\": [117, 128, 144]"));
+    assert!(chromium.contains("\"toolbar_button_icon\": [0, 0, 0]"));
+    assert!(chromium.contains("\"omnibox_background\": [255, 255, 255]"));
     assert!(firefox.contains("\"theme\""));
     assert!(firefox.contains("\"toolbar_field_border_focus\": \"#000080\""));
+    assert!(firefox.contains("#nav-bar .toolbarbutton-1"));
+    assert!(firefox.contains("#sidebar-box"));
+    assert!(firefox.contains("menupopup > menuitem[_moz-menuactive=\"true\"]"));
     assert!(browser_docs.contains("does not fork or patch Firefox, Chromium or Chrome"));
 
     for manifest in [
