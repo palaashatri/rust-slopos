@@ -9,9 +9,10 @@ not a source-controlled release bundle.
 ## Audit baseline
 
 - The initial audit snapshot was taken at `a0088dff666aa879e0d9566e447fbfb5d98911bd`.
-- The last fully verified pushed milestone in the inspected cache was
-  `c74ce886ec115f25fbfec183e08f2ca9dbbd772d`; the source tree has since
-  advanced through `6a77780` and pushed recovery/VM hardening `3287d00`.
+- The inspected source tree is now clean at pushed commit
+  `9c073d89e7e36dc6f45beb946d3bba2f6ea69bae` on `pivot`. The latest hosted
+  CI acceptance for that exact revision is run
+  [#566](https://github.com/palaashatri/rust-slopos/actions/runs/31754087286).
 - The initial audit commands were read-only PowerShell checks (`Get-Content`,
   `Select-String`, `Get-Item`, `Get-FileHash`, `git status`, `git rev-parse`).
 - The parent run subsequently reran the verified current-tree Rust, AppMenu,
@@ -53,7 +54,17 @@ reported markers were:
 
 The reruns above do not change the installed-VM boundary: the only VM result
 inspected remains the ignored run pinned to `206c456e`, not the verified
-milestone `c74ce88`.
+milestone `9c073d8`.
+
+The hosted CI run for `9c073d8` completed successfully. It passed the locked
+workspace build/test/lint, rustfmt, Xvfb/Openbox smoke, AT-SPI named surfaces,
+Orca, Settings delegation, benchmark, release build, two locale legs and five
+resolution legs. GitHub reported cache/artifact-upload warnings for some jobs
+and no-files-found warnings for several resolution artifact directories; those
+warnings do not provide extra visual evidence. The run is therefore strong
+current hosted CI evidence, but it does not close the current-tree VM/EFI,
+physical hardware, real AppMenu visual/action review, Firefox runtime, or
+independent visual-gate boundaries below.
 
 After that rerun, the nested AT-SPI and Settings service D-Bus shells received
 inner EXIT traps for their child PIDs. The Rust static contracts, `bash -n`,
@@ -70,9 +81,9 @@ The post-`3287d00` source tranche adds a QA-only low-level DBusMenu exporter
 (`scripts/qa-dbusmenu-exporter.c`) and a `SLOPOS_QA_REQUIRE_REAL_APPMENU=1`
 hard-fail switch to the Docker harness. It also hardens recovery config
 preservation, VM installer partition cleanup and the Openbox active titlebar
-gradient. The local Docker image/volume cache is currently empty, so no
-post-tranche Rust or Docker runtime result is claimed here; the prior markers
-remain provenance for the earlier pushed source only. The fixture itself was
+gradient. The local Docker image/volume cache is currently empty, so no local
+post-tranche Docker runtime result is claimed here. The hosted CI run above
+does provide current Linux/X11 acceptance for `9c073d8`; the fixture itself was
 compiled in the existing WSL Ubuntu environment (`C_FIXTURE_COMPILE_STATUS_0`)
 and its direct session-bus `GetLayout`/`Event` round-trip recorded
 `DBUSMENU_FIXTURE_ROUNDTRIP_STATUS_0`; this does not replace the full GTK/Xvfb
