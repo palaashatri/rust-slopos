@@ -109,6 +109,37 @@ headerbar button,
   padding: 3px 7px;
 }
 
+/* Native GTK menubars are used by upstream applications. Keep their spacing
+ * and interaction states in the same Platinum language as the shell menu bar
+ * so labels cannot collapse into strings such as "FileEditView". This also
+ * reaches browser-owned GTK menus and dialogs without modifying the browser.
+ */
+menubar {
+  min-height: 22px;
+  padding: 0 2px;
+  background-color: @slopos_face;
+  border-bottom: 1px solid @slopos_mid;
+}
+
+menubar > menuitem {
+  min-height: 18px;
+  padding: 2px 7px;
+  color: @slopos_text;
+}
+
+menubar > menuitem:hover,
+menubar > menuitem:focus,
+menubar > menuitem:selected {
+  background-color: @slopos_highlight;
+  color: @slopos_light;
+}
+
+menubar > menuitem:hover label,
+menubar > menuitem:focus label,
+menubar > menuitem:selected label {
+  color: @slopos_light;
+}
+
 .slopos-status-area {
   padding: 0;
 }

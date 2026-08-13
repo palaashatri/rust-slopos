@@ -333,6 +333,15 @@ fn settings_hub_uses_compact_platinum_controls() {
 }
 
 #[test]
+fn upstream_gtk_menubars_keep_platinum_spacing() {
+    let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
+    assert!(css.contains("menubar > menuitem"));
+    assert!(css.contains("padding: 2px 7px"));
+    assert!(css.contains("menubar > menuitem:hover"));
+    assert!(css.contains("menubar > menuitem:focus"));
+}
+
+#[test]
 fn browser_integration_is_upstream_and_no_fork() {
     let launcher = include_str!("../../../scripts/start-slopos-browser");
     let installer = include_str!("../../../scripts/install-browser-theme.sh");
