@@ -472,6 +472,7 @@ fn atspi_acceptance_covers_named_surfaces_and_focus() {
     assert!(probe.contains("run_extended_checks"));
     assert!(probe.contains("AT_SPI_UTF8_TEXT="));
     assert!(probe.contains("AT_SPI_EXTENDED_STATUS_0"));
+    assert!(probe.contains("xclip"));
     assert!(probe.contains("xdotool"));
     assert!(probe.contains("shift+Tab"));
     assert!(probe.contains("AT_SPI_STATUS_0"));

@@ -172,7 +172,18 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: rustfmt
-        run: cargo fmt --all --check
+        shell: bash
+        run: |
+          set +e
+          cargo fmt --all -- --check > "$RUNNER_TEMP/rustfmt-check.log" 2>&1
+          status="$?"
+          if [ "$status" -ne 0 ]; then
+            while IFS= read -r line; do
+              escaped="$(printf '%s' "$line" | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+              echo "::error file=rustfmt-check.log,line=1,title=rustfmt mismatch::$escaped"
+            done < <(grep -E '^Diff in |^\+|^-|^@@' "$RUNNER_TEMP/rustfmt-check.log" | head -n 40 || true)
+          fi
+          exit "$status"
       - name: Upload workspace test diagnostics
         if: always()
         uses: actions/upload-artifact@v4

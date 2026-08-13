@@ -111,6 +111,10 @@ run_case() {
     tail -n 80 /tmp/slopos-settings-openbox.log >&2 || true
     echo "--- visible X11 windows ---" >&2
     xdotool search --onlyvisible --name ".*" getwindowname %@ >&2 || true
+    echo "--- concise failure markers ---" >&2
+    grep -E 'Settings service QA case failed|RuntimeError|SETTINGS_|missing|disabled|delegat|not found|error' \
+      "$runner_log" "$log_file" /tmp/slopos-settings-atspi.log /tmp/slopos-settings-openbox.log \
+      2>/dev/null | tail -n 40 >&2 || true
     return "$status"
   }
 

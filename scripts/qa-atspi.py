@@ -153,7 +153,14 @@ def run_extended_checks(desktop):
     if field is None:
         raise RuntimeError("Search field disappeared from AT-SPI tree")
 
-    subprocess.run(["xdotool", "type", "--delay", "15", "café"], check=True)
+    # xdotool's locale-sensitive keysym path drops non-ASCII characters under
+    # some generated X11 locales (notably fr_FR.UTF-8).  Clipboard paste still
+    # exercises the real GTK Entry and AT-SPI text path while preserving the
+    # exact UTF-8 payload in every locale.
+    subprocess.run(
+        ["xclip", "-selection", "clipboard"], input="café", text=True, check=True
+    )
+    subprocess.run(["xdotool", "key", "--clearmodifiers", "ctrl+v"], check=True)
     typed = None
     deadline = time.monotonic() + 4
     while time.monotonic() < deadline:

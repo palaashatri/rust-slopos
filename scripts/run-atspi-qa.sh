@@ -45,11 +45,15 @@ apt-get update -qq
 qa_packages=(
   libgtk-3-dev libx11-dev libxrandr-dev libssl-dev libdbus-1-dev \
   ca-certificates curl pkg-config build-essential libgtk-3-0 dbus-x11 at-spi2-core python3-gi \
-  gir1.2-atspi-2.0 xvfb openbox xdotool fonts-liberation \
+  gir1.2-atspi-2.0 xvfb openbox xdotool xclip fonts-liberation \
   adwaita-icon-theme libx11-6 libxrandr2 locales
 )
 if [[ "$AT_SPI_SCREEN_READER" == 1 ]]; then
-  qa_packages+=(orca)
+  # --no-install-recommends omits the speech stack on Ubuntu runners.  Keep
+  # the Orca leg real by provisioning a deterministic local speech engine;
+  # final acceptance still requires Orca's speech-output and focused-field
+  # debug evidence.
+  qa_packages+=(orca speech-dispatcher espeak-ng)
 fi
 apt-get install -y -qq --no-install-recommends "${qa_packages[@]}"
 
