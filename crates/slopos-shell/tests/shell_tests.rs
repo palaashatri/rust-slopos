@@ -488,6 +488,11 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("xdotool key --window \"$GAME_WINDOW\" space"));
     assert!(qa.contains("kill -0 \"$GAME_PID\""));
     assert!(qa.contains("xdotool key --window \"$GAME_WINDOW\" Escape"));
+    assert!(qa.contains("GAME_SCENE_PROBE"));
+    assert!(qa.contains("GAME_SCENE_MEAN"));
+    assert!(qa.contains("-crop \"${WIDTH}x${HEIGHT}+${X}+${Y}\""));
+    assert!(qa.contains("mean > 0.05"));
+    assert!(qa.contains("remained on its introductory title card"));
     assert!(qa.contains("xdotool key --window \"$GAME_WINDOW\" q"));
     assert!(qa.contains("unrecoverable error"));
     assert!(qa.contains("pactl list sink-inputs"));

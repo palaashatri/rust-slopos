@@ -297,14 +297,47 @@ test -n "$GAME_WINDOW_PID"
 xdotool windowmap "$GAME_WINDOW"
 xdotool windowactivate --sync "$GAME_WINDOW"
 xdotool windowfocus "$GAME_WINDOW"
+# Openbox may keep focus on the shell when a game window appears later in the
+# session. Raise and click the actual client before sending synthetic keys so
+# SDL receives the same focused X11 input path as a user launch.
+xdotool windowraise "$GAME_WINDOW"
+xdotool mousemove --window "$GAME_WINDOW" 80 80
+xdotool click --window "$GAME_WINDOW" 1
 eval "$(xdotool getwindowgeometry --shell "$GAME_WINDOW")"
 test "${WIDTH:-0}" -ge 400
 test "${HEIGHT:-0}" -ge 300
-# A direct level starts with the upstream introductory cut-scene. Skip it so
-# the retained frame proves that the playable level, not just a mapped game
-# window, is rendering before we exercise movement/jump input.
-xdotool key --window "$GAME_WINDOW" Escape
-sleep 10
+# A direct level starts with the upstream introductory cut-scene. Wait for the
+# level surface to finish mapping, then use the upstream Escape binding to
+# leave that screen.  The probe is deliberately visual: a live X11 window and
+# non-silent audio are not enough if the retained frame is still the title card.
+# Crop the game window from the root capture and require a non-black rendered
+# scene (the intro card is black; the playable level has a large coloured
+# tile/background surface).  A second Escape is permitted only if the first
+# event did not produce a playable frame.
+GAME_SCENE_PROBE=/tmp/slopos-supertux-game-scene.png
+GAME_SCENE_MEAN=""
+GAME_SCENE_READY=0
+sleep 3
+for _attempt in 1 2; do
+  xdotool key --window "$GAME_WINDOW" Escape
+  for _ in $(seq 1 12); do
+    sleep 0.5
+    scrot -o "$GAME_SCENE_PROBE"
+    GAME_SCENE_MEAN="$(convert "$GAME_SCENE_PROBE" \
+      -crop "${WIDTH}x${HEIGHT}+${X}+${Y}" -colorspace Gray \
+      -format '%[fx:mean]' info: 2>/dev/null)"
+    if awk -v mean="$GAME_SCENE_MEAN" 'BEGIN { exit !(mean > 0.05) }'; then
+      GAME_SCENE_READY=1
+      break 2
+    fi
+  done
+done
+if [[ "$GAME_SCENE_READY" -ne 1 ]]; then
+  echo "ERROR: SuperTux remained on its introductory title card" >&2
+  echo "game_scene_mean=$GAME_SCENE_MEAN" >&2
+  exit 1
+fi
+echo "    game_scene_mean=$GAME_SCENE_MEAN"
 kill -0 "$GAME_PID" 2>/dev/null
 xdotool keydown --window "$GAME_WINDOW" Right
 sleep 2
@@ -313,6 +346,10 @@ xdotool key --window "$GAME_WINDOW" space
 sleep 1
 kill -0 "$GAME_PID" 2>/dev/null
 scrot -o artifacts/qa/app-matrix/game.png
+GAME_SCENE_MEAN="$(convert artifacts/qa/app-matrix/game.png \
+  -crop "${WIDTH}x${HEIGHT}+${X}+${Y}" -colorspace Gray \
+  -format '%[fx:mean]' info: 2>/dev/null)"
+awk -v mean="$GAME_SCENE_MEAN" 'BEGIN { exit !(mean > 0.05) }'
 sleep 3
 kill -0 "$GAME_PID" 2>/dev/null
 pactl list sink-inputs >artifacts/qa/app-matrix/sink-inputs.txt
