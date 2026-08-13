@@ -377,6 +377,11 @@ row:selected label {
   font-weight: bold;
 }
 
+.slopos-result-icon {
+  min-width: 32px;
+  min-height: 32px;
+}
+
 .slopos-secondary-text {
   color: #606060;
   font-size: 11px;

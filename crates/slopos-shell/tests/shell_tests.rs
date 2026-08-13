@@ -297,6 +297,29 @@ fn image_controls_have_accessible_names_and_focus_feedback() {
 }
 
 #[test]
+fn launcher_prefers_packaged_role_icons_with_upstream_fallbacks() {
+    let launcher = include_str!("../src/launcher.rs");
+    let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
+    assert!(launcher.contains("fn role_icon_file(app: &DesktopApp)"));
+    assert!(launcher.contains("load_launcher_icon(app)"));
+    assert!(launcher.contains("Pixbuf::from_file_at_scale(&path, 32, 32, true)"));
+    for icon in [
+        "folder.svg",
+        "terminal.svg",
+        "textedit.svg",
+        "browser.svg",
+        "desktop.svg",
+        "software.svg",
+        "settings.svg",
+    ] {
+        assert!(launcher.contains(icon), "missing launcher role icon {icon}");
+    }
+    assert!(launcher.contains("Image::from_icon_name(Some(icon_name), IconSize::Dnd)"));
+    assert!(css.contains(".slopos-result-icon"));
+    assert!(css.contains("min-width: 32px"));
+}
+
+#[test]
 fn atspi_acceptance_covers_named_surfaces_and_focus() {
     let launcher = include_str!("../src/launcher.rs");
     let topbar = include_str!("../src/topbar.rs");

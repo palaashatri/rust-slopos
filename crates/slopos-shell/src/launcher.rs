@@ -1,6 +1,7 @@
 //! SLOPOS application Search palette.
 
 use crate::app_finder::{scan_desktop_apps, DesktopApp};
+use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
@@ -8,6 +9,8 @@ use gtk::{
     ScrolledWindow, SelectionMode, Window, WindowPosition, WindowType,
 };
 use std::cell::RefCell;
+use std::env;
+use std::path::PathBuf;
 use std::process::Command;
 use std::rc::Rc;
 
@@ -168,17 +171,9 @@ impl Launcher {
             hbox.set_margin_top(4);
             hbox.set_margin_bottom(4);
 
-            let icon_name = if app.icon.is_empty() {
-                "application-x-executable"
-            } else {
-                &app.icon
-            };
-            hbox.pack_start(
-                &Image::from_icon_name(Some(icon_name), IconSize::Dnd),
-                false,
-                false,
-                0,
-            );
+            let icon = load_launcher_icon(app);
+            icon.style_context().add_class("slopos-result-icon");
+            hbox.pack_start(&icon, false, false, 0);
 
             let labels = GtkBox::new(Orientation::Vertical, 1);
             let title = Label::new(Some(&app.name));
@@ -247,6 +242,76 @@ impl Launcher {
             .unwrap_or(0) as isize;
         let next = (current + direction).clamp(0, rows.len() as isize - 1) as usize;
         self.list_box.select_row(Some(&rows[next]));
+    }
+}
+
+fn load_launcher_icon(app: &DesktopApp) -> Image {
+    if let Some(file_name) = role_icon_file(app) {
+        let mut candidates = Vec::new();
+        if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+            candidates.push(
+                PathBuf::from(share_dir)
+                    .join("slopos-i/themes/platinum/icons")
+                    .join(file_name),
+            );
+        }
+        candidates.extend([
+            PathBuf::from("themes/platinum/icons").join(file_name),
+            PathBuf::from("/usr/local/share/slopos-i/themes/platinum/icons").join(file_name),
+            PathBuf::from("/usr/share/slopos-i/themes/platinum/icons").join(file_name),
+        ]);
+        for path in candidates {
+            if path.is_file() {
+                if let Ok(pixbuf) = Pixbuf::from_file_at_scale(&path, 32, 32, true) {
+                    return Image::from_pixbuf(Some(&pixbuf));
+                }
+            }
+        }
+    }
+
+    let icon_name = if app.icon.is_empty() {
+        "application-x-executable"
+    } else {
+        &app.icon
+    };
+    Image::from_icon_name(Some(icon_name), IconSize::Dnd)
+}
+
+fn role_icon_file(app: &DesktopApp) -> Option<&'static str> {
+    let command = app.argv.first().map(String::as_str).unwrap_or_default();
+    let haystack = format!("{} {} {}", app.id, app.name, command).to_ascii_lowercase();
+    if haystack.contains("pcmanfm") || haystack.contains("file manager") {
+        Some("folder.svg")
+    } else if haystack.contains("xfce4-terminal")
+        || haystack.contains("xterm")
+        || haystack.contains("terminal")
+    {
+        Some("terminal.svg")
+    } else if haystack.contains("mousepad")
+        || haystack.contains("text editor")
+        || haystack.contains("xed")
+        || haystack.contains("gedit")
+    {
+        Some("textedit.svg")
+    } else if haystack.contains("firefox")
+        || haystack.contains("chromium")
+        || haystack.contains("google-chrome")
+        || haystack.contains("web browser")
+    {
+        Some("browser.svg")
+    } else if haystack.contains("ristretto")
+        || haystack.contains("image viewer")
+        || haystack.contains("viewnior")
+    {
+        Some("desktop.svg")
+    } else if haystack.contains("slopos-catalogue") || haystack.contains("software catalogue") {
+        Some("software.svg")
+    } else if haystack.contains("slopos-settings") || haystack.contains("system settings") {
+        Some("settings.svg")
+    } else if haystack.contains("desktop preferences") {
+        Some("desktop.svg")
+    } else {
+        None
     }
 }
 
