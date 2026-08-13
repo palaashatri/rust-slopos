@@ -242,9 +242,13 @@ fn docker_qa_uses_fresh_visible_windows() {
     assert!(qa.contains("notify-send"));
     assert!(qa.contains("wait_visible_window '^SLOPOS Top Bar$'"));
     assert!(qa.contains("wait_visible_window '^SLOPOS Application Strip$'"));
+    assert!(qa.contains("capture_screenshot()"));
+    assert!(qa.contains("xdotool getdisplaygeometry"));
+    assert!(qa.contains("Keep pointer-driven tooltips out of canonical evidence"));
     assert!(qa.contains("xdotool search --onlyvisible --name \"$pattern\""));
     assert!(qa.contains("--onlyvisible --name '^Software Catalogue$'"));
     assert!(qa.contains("--onlyvisible --name '^System Settings$'"));
+    assert!(qa.contains("notify-send -t 60000"));
     assert!(qa.contains("getwindowpid"));
     assert!(qa.contains("Verify session recovery after child failure"));
     assert!(qa.contains("shell_before"));
@@ -504,4 +508,6 @@ fn retained_resolution_qa_covers_scale_matrix() {
     assert!(qa.contains("1366x768"));
     assert!(qa.contains("RESOLUTION_QA_STATUS_0"));
     assert!(qa.contains("identify -format '%wx%h'"));
+    assert!(qa.contains("capture_screenshot"));
+    assert!(qa.contains("xdotool getdisplaygeometry"));
 }

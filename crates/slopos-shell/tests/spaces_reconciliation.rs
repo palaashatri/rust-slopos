@@ -23,7 +23,7 @@ fn install_script_is_x11_only() {
 fn docker_qa_does_not_ignore_required_screenshots() {
     let qa = include_str!("../../../scripts/run-docker-qa.sh");
     assert!(qa.contains("rm -f artifacts/qa/screenshots/*.png"));
-    assert!(qa.contains("scrot -zo artifacts/qa/screenshots/clean_desktop_1280x800.png"));
+    assert!(qa.contains("capture_screenshot artifacts/qa/screenshots/clean_desktop_1280x800.png"));
     assert!(!qa.contains("scrot -z artifacts/qa/screenshots/clean_desktop_1280x800.png || true"));
     assert!(qa.contains("Visual acceptance remains a separate human/vision review gate"));
 }

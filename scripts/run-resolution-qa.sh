@@ -101,6 +101,17 @@ wait_visible_window() {
   return 1
 }
 
+capture_screenshot() {
+  local output="$1"
+  local width height
+  read -r width height < <(xdotool getdisplaygeometry)
+  # Keep pointer-driven tooltips out of retained evidence. This is capture
+  # hygiene only; it does not alter application input or focus.
+  xdotool mousemove "$((width - 24))" "$((height - 24))"
+  sleep 0.35
+  scrot -zo "$output"
+}
+
 for _ in $(seq 1 30); do
   if pgrep -x openbox >/dev/null && pgrep -x slopos-shell >/dev/null && [[ -s "$DBUS_ENV_FILE" ]]; then
     break
@@ -139,10 +150,10 @@ DELTA=$((DOCK_CENTER - SCREEN_CENTER))
 DELTA=${DELTA#-}
 test "$DELTA" -le $((SCREEN_WIDTH / 10))
 
-scrot -zo "$OUTPUT_DIR/desktop_${SCREEN_TAG}.png"
+capture_screenshot "$OUTPUT_DIR/desktop_${SCREEN_TAG}.png"
 pkill -USR1 -x slopos-shell
 wait_visible_window '^SLOPOS Search$'
-scrot -zo "$OUTPUT_DIR/search_${SCREEN_TAG}.png"
+capture_screenshot "$OUTPUT_DIR/search_${SCREEN_TAG}.png"
 xdotool key Escape || true
 
 ./target/release/slopos-settings >"$OUTPUT_DIR/settings.log" 2>&1 &
@@ -150,7 +161,7 @@ SETTINGS_PID=$!
 wait_visible_window '^System Settings$'
 SETTINGS_WINDOW="$(xdotool search --onlyvisible --name '^System Settings$' | tail -n 1)"
 test "$(xdotool getwindowpid "$SETTINGS_WINDOW")" = "$SETTINGS_PID"
-scrot -zo "$OUTPUT_DIR/settings_${SCREEN_TAG}.png"
+capture_screenshot "$OUTPUT_DIR/settings_${SCREEN_TAG}.png"
 
 echo "[5/5] Validating retained screenshots"
 for image in \

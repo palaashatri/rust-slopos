@@ -38,6 +38,17 @@ wait_visible_window() {
   return 1
 }
 
+capture_screenshot() {
+  local output="$1"
+  local width height
+  read -r width height < <(xdotool getdisplaygeometry)
+  # Keep pointer-driven tooltips out of canonical evidence. This is capture
+  # hygiene only; it does not alter application input or focus.
+  xdotool mousemove "$((width - 24))" "$((height - 24))"
+  sleep 0.35
+  scrot -zo "$output"
+}
+
 close_visible_windows_by_class() {
   local class="$1"
   for _ in $(seq 1 20); do
@@ -117,7 +128,7 @@ sleep 2
 SHELL_COUNT_AFTER="$(pgrep -xc slopos-shell)"
 test "$SHELL_COUNT_BEFORE" = "$SHELL_COUNT_AFTER"
 wait_visible_window '^SLOPOS Search$'
-scrot -zo artifacts/qa/screenshots/search_open_1280x800.png
+capture_screenshot artifacts/qa/screenshots/search_open_1280x800.png
 xdotool key Escape || true
 
 echo "[5/8] Verify session recovery after child failure"
@@ -148,7 +159,7 @@ wait_visible_window '^SLOPOS Top Bar$'
 sleep 1
 
 echo "[6/8] Capture canonical scenes"
-scrot -zo artifacts/qa/screenshots/clean_desktop_1280x800.png
+capture_screenshot artifacts/qa/screenshots/clean_desktop_1280x800.png
 
 # Exercise a real top-bar menu and its About dialog. The dialog assertion also
 # proves that the menu click/keyboard path reached a functional item.
@@ -156,10 +167,10 @@ xdotool windowactivate --sync "$TOPBAR_WINDOW"
 xdotool mousemove --window "$TOPBAR_WINDOW" --sync 14 13
 xdotool click 1
 sleep 1
-scrot -zo artifacts/qa/screenshots/menu_open_1280x800.png
+capture_screenshot artifacts/qa/screenshots/menu_open_1280x800.png
 xdotool key Down Return
 wait_visible_window '^About SLOPOS-I$'
-scrot -zo artifacts/qa/screenshots/modal_about_1280x800.png
+capture_screenshot artifacts/qa/screenshots/modal_about_1280x800.png
 xdotool key Return
 sleep 1
 
@@ -167,16 +178,16 @@ sleep 1
 # An empty icon asks the SLOPOS presenter to use its packaged mark, making
 # the canonical notification scene exercise the product identity rather than
 # a generic desktop icon.
-notify-send -a "SLOPOS QA" -i "" "SLOPOS QA Notification" \
+notify-send -t 60000 -a "SLOPOS QA" -i "" "SLOPOS QA Notification" \
   "A real D-Bus notification rendered by the SLOPOS presenter."
 wait_visible_window '^SLOPOS Notification [0-9]+$'
-scrot -zo artifacts/qa/screenshots/notification_1280x800.png
+capture_screenshot artifacts/qa/screenshots/notification_1280x800.png
 sleep 7
 
 pcmanfm /workspace >artifacts/qa/pcmanfm.log 2>&1 & PCMAN_PID=$!
 sleep 2
 xdotool search --onlyvisible --class pcmanfm >/dev/null
-scrot -zo artifacts/qa/screenshots/active_app_1280x800.png
+capture_screenshot artifacts/qa/screenshots/active_app_1280x800.png
 
 xfce4-terminal >artifacts/qa/terminal.log 2>&1 & TERM_PID=$!
 sleep 2
@@ -195,18 +206,18 @@ test "$ACTIVE_BEFORE" != "$ACTIVE_AFTER"
 xdotool windowactivate --sync "$TERM_WINDOW"
 xdotool windowfocus --sync "$TERM_WINDOW"
 sleep 1
-scrot -zo artifacts/qa/screenshots/multi_window_1280x800.png
+capture_screenshot artifacts/qa/screenshots/multi_window_1280x800.png
 close_visible_windows_by_class xfce4-terminal
 kill "$TERM_PID" 2>/dev/null || true
 unset TERM_PID
-scrot -zo artifacts/qa/screenshots/file_manager_1280x800.png
+capture_screenshot artifacts/qa/screenshots/file_manager_1280x800.png
 kill "$PCMAN_PID" 2>/dev/null || true
 unset PCMAN_PID
 
 xfce4-terminal >artifacts/qa/terminal.log 2>&1 & TERM_PID=$!
 sleep 2
 xdotool search --onlyvisible --class xfce4-terminal >/dev/null
-scrot -zo artifacts/qa/screenshots/terminal_1280x800.png
+capture_screenshot artifacts/qa/screenshots/terminal_1280x800.png
 kill "$TERM_PID" 2>/dev/null || true
 unset TERM_PID
 
@@ -218,7 +229,7 @@ for _ in $(seq 1 20); do
 done
 test -n "${CATALOGUE_WINDOW:-}"
 test "$(xdotool getwindowpid "$CATALOGUE_WINDOW")" = "$CATALOGUE_PID"
-scrot -zo artifacts/qa/screenshots/catalogue_store_1280x800.png
+capture_screenshot artifacts/qa/screenshots/catalogue_store_1280x800.png
 kill "$CATALOGUE_PID" 2>/dev/null || true
 unset CATALOGUE_PID
 
@@ -230,7 +241,7 @@ for _ in $(seq 1 20); do
 done
 test -n "${SETTINGS_WINDOW:-}"
 test "$(xdotool getwindowpid "$SETTINGS_WINDOW")" = "$SETTINGS_PID"
-scrot -zo artifacts/qa/screenshots/system_settings_1280x800.png
+capture_screenshot artifacts/qa/screenshots/system_settings_1280x800.png
 kill "$SETTINGS_PID" 2>/dev/null || true
 unset SETTINGS_PID
 
