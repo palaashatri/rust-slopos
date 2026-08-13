@@ -12,6 +12,7 @@ export XDG_CURRENT_DESKTOP=SLOPOS
 export XDG_SESSION_DESKTOP=slopos-i
 export DESKTOP_SESSION=slopos-i
 export GTK_THEME=slopos-gtk
+export SLOPOS_QA_NO_WELCOME=1
 export SLOPOS_BROWSER=chromium
 export SLOPOS_BROWSER_THEME_DIR=/workspace/packaging/browser/chromium
 export LIBGL_ALWAYS_SOFTWARE=1
@@ -20,6 +21,7 @@ export SDL_AUDIODRIVER=pulse
 
 BROWSER_FIXTURE=/tmp/slopos-browser-qa.html
 BROWSER_DOM_PROFILE=/tmp/slopos-browser-qa-dom
+FIREFOX_PROFILE=/tmp/slopos-firefox-qa-profile
 BROWSER_URL="file://$BROWSER_FIXTURE"
 GAME_AUDIO_CAPTURE_PID=""
 
@@ -38,11 +40,11 @@ cleanup() {
     kill -TERM "$GAME_AUDIO_CAPTURE_PID" 2>/dev/null || true
     wait "$GAME_AUDIO_CAPTURE_PID" 2>/dev/null || true
   fi
-  for process in supertux supertux2 chromium pcmanfm xfce4-terminal mousepad ristretto slopos-session slopos-shell openbox Xvfb pulseaudio; do
+  for process in supertux supertux2 chromium firefox firefox-esr pcmanfm xfce4-terminal mousepad ristretto slopos-session slopos-shell openbox Xvfb pulseaudio; do
     pkill -TERM -x "$process" 2>/dev/null || true
   done
   rm -f "$BROWSER_FIXTURE"
-  rm -rf "$BROWSER_DOM_PROFILE" /tmp/slopos-chromium
+  rm -rf "$BROWSER_DOM_PROFILE" /tmp/slopos-chromium "$FIREFOX_PROFILE"
 }
 trap cleanup EXIT
 
@@ -50,7 +52,7 @@ echo "[1/7] Installing Arch X11 application/browser/game dependencies"
 pacman -Sy --noconfirm --needed \
   xorg-server xorg-server-xvfb xorg-xsetroot openbox dbus \
   pcmanfm xfce4-terminal mousepad ristretto \
-  chromium supertux pulseaudio libpulse xdotool scrot imagemagick \
+  chromium firefox supertux pulseaudio libpulse xdotool scrot imagemagick \
   adwaita-icon-theme ttf-liberation ttf-dejavu
 
 if [[ ! -x target/release/slopos-session ]]; then
@@ -66,6 +68,17 @@ mkdir -p /usr/share/themes/slopos-gtk/gtk-3.0 /usr/share/slopos-i/browser
 cp assets/config/gtk-3.0/gtk.css /usr/share/themes/slopos-gtk/gtk-3.0/gtk.css
 cp -a packaging/browser/chromium /usr/share/slopos-i/browser/chromium
 cp -a packaging/browser/firefox /usr/share/slopos-i/browser/firefox
+rm -rf "$FIREFOX_PROFILE"
+./scripts/install-browser-theme.sh firefox "$FIREFOX_PROFILE" \
+  >artifacts/qa/app-matrix/firefox-theme-install.log
+cat >>"$FIREFOX_PROFILE/user.js" <<'EOF'
+user_pref("browser.aboutwelcome.enabled", false);
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("datareporting.policy.dataSubmissionEnabled", false);
+user_pref("toolkit.telemetry.enabled", false);
+EOF
+id qa >/dev/null 2>&1 || useradd --create-home --shell /bin/bash qa
+chown -R qa:qa "$FIREFOX_PROFILE"
 
 echo "[4/7] Starting X11 session and PulseAudio null sink"
 Xvfb :99 -screen 0 1280x800x24 >artifacts/qa/app-matrix/xvfb.log 2>&1 &
@@ -232,6 +245,18 @@ run_window_app image-viewer image-viewer.png "" ristretto /workspace/assets/slop
 rm -rf /tmp/slopos-chromium
 run_window_app browser browser.png "SLOPOS Browser QA" ./scripts/start-slopos-browser \
   --no-sandbox --test-type --disable-gpu --user-data-dir=/tmp/slopos-chromium "$BROWSER_URL"
+
+# Firefox remains upstream: the disposable profile receives the opt-in
+# userChrome.css integration and is passed explicitly to the X11 wrapper.
+# This proves the supported profile path without modifying a user's profile
+# or building a browser fork.
+run_window_app browser-firefox browser-firefox.png "SLOPOS Browser QA" setpriv \
+  --reuid=qa --regid=qa --init-groups -- env \
+  HOME=/home/qa XDG_RUNTIME_DIR="$AUDIO_RUNTIME" GTK_THEME=slopos-gtk \
+  DISPLAY="$DISPLAY" GDK_BACKEND=x11 XDG_SESSION_TYPE=x11 \
+  MOZ_ENABLE_WAYLAND=0 MOZ_DISABLE_CONTENT_SANDBOX=1 SLOPOS_BROWSER=firefox \
+  ./scripts/start-slopos-browser --no-remote --new-instance \
+  --profile "$FIREFOX_PROFILE" "$BROWSER_URL"
 
 echo "[6/7] Launching a SuperTux level, exercising input and proving audio reaches PulseAudio"
 rm -rf /tmp/slopos-supertux-qa
