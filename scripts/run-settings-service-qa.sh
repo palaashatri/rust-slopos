@@ -52,8 +52,10 @@ run_case() {
   local mode="$1"
   local settings_path="$2"
   local log_file="/tmp/slopos-settings-${mode}.log"
+  local qa_log="/tmp/slopos-settings-${mode}-qa.log"
   local runner_log="/tmp/slopos-settings-${mode}-runner.log"
   rm -f "$log_file"
+  rm -f "$qa_log"
   rm -f "$runner_log"
 
   Xvfb :99 -screen 0 1280x800x24 -nolisten tcp >"/tmp/slopos-settings-xvfb.log" 2>&1 &
@@ -95,16 +97,21 @@ run_case() {
     done
     xdotool search --onlyvisible --name "^System Settings$" >/dev/null
     export SLOPOS_SERVICE_PROBE_LOG="$2"
-    python3 scripts/qa-settings-services.py --mode "$4"
+    # Keep the AT-SPI assertions separate from the Settings process log so
+    # the post-case marker checks cannot accidentally inspect the wrong
+    # stream.  This also leaves a focused artifact when a case fails.
+    python3 scripts/qa-settings-services.py --mode "$4" >"$5" 2>&1
     kill -TERM "$SETTINGS_PID" "$OPENBOX_PID" "$AT_SPI_PID" 2>/dev/null || true
     wait "$SETTINGS_PID" "$OPENBOX_PID" "$AT_SPI_PID" 2>/dev/null || true
-  ' bash "$settings_path" "$log_file" "$log_file" "$mode" >"$runner_log" 2>&1 || {
+  ' bash "$settings_path" "$log_file" "$log_file" "$mode" "$qa_log" >"$runner_log" 2>&1 || {
     status=$?
     echo "Settings service QA case failed: $mode (exit $status)" >&2
     echo "--- runner output ---" >&2
     tail -n 120 "$runner_log" >&2 || true
     echo "--- Settings log ---" >&2
     tail -n 120 "$log_file" >&2 || true
+    echo "--- AT-SPI assertion log ---" >&2
+    tail -n 120 "$qa_log" >&2 || true
     echo "--- AT-SPI launcher log ---" >&2
     tail -n 80 /tmp/slopos-settings-atspi.log >&2 || true
     echo "--- Openbox log ---" >&2
@@ -113,7 +120,7 @@ run_case() {
     xdotool search --onlyvisible --name ".*" getwindowname %@ >&2 || true
     echo "--- concise failure markers ---" >&2
     grep -E 'Settings service QA case failed|RuntimeError|SETTINGS_|missing|disabled|delegat|not found|error' \
-      "$runner_log" "$log_file" /tmp/slopos-settings-atspi.log /tmp/slopos-settings-openbox.log \
+      "$runner_log" "$log_file" "$qa_log" /tmp/slopos-settings-atspi.log /tmp/slopos-settings-openbox.log \
       2>/dev/null | tail -n 40 >&2 || true
     return "$status"
   }
@@ -133,9 +140,11 @@ echo "[4/4] Checking delegated controls invoke an upstream utility"
 export SLOPOS_SERVICE_PROBE_LOG=/tmp/slopos-settings-delegation-probe.log
 rm -f "$SLOPOS_SERVICE_PROBE_LOG"
 run_case delegation /tmp/slopos-settings-service-stubs
-grep -Fxq SETTINGS_DELEGATED_CONTROLS=8 /tmp/slopos-settings-delegation.log
+grep -Fxq SETTINGS_DELEGATED_CONTROLS=8 /tmp/slopos-settings-delegation-qa.log
 for utility in arandr pavucontrol nm-connection-editor blueman-manager \
   xfce4-power-manager-settings lxappearance pcmanfm lxinput; do
+  # The stub commands append their names to the probe log (the Settings
+  # process log path); keep that check distinct from the AT-SPI result log.
   grep -Fxq "$utility" /tmp/slopos-settings-delegation.log
 done
 echo "SETTINGS_SERVICE_QA_STATUS_0"
