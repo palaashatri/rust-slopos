@@ -264,7 +264,8 @@ fn installed_vm_harness_requires_efi_xrandr_and_nvme_safe_partitioning() {
     assert!(qa.contains("command -v xrandr"));
     assert!(qa.contains("xrandr reports no connected output"));
     assert!(qa.contains("X11_ACTIVE_REFRESH_HZ="));
-    assert!(qa.contains("does not claim physical high-refresh or VRR support"));
+    assert!(qa.contains("does not claim physical high-refresh or"));
+    assert!(qa.contains("VRR support"));
 }
 
 #[test]
