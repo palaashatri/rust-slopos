@@ -101,5 +101,9 @@ echo "[4/4] Checking delegated controls invoke an upstream utility"
 export SLOPOS_SERVICE_PROBE_LOG=/tmp/slopos-settings-delegation-probe.log
 rm -f "$SLOPOS_SERVICE_PROBE_LOG"
 run_case delegation /tmp/slopos-settings-service-stubs
-grep -Fxq arandr /tmp/slopos-settings-delegation.log
+grep -Fxq SETTINGS_DELEGATED_CONTROLS=8 /tmp/slopos-settings-delegation.log
+for utility in arandr pavucontrol nm-connection-editor blueman-manager \
+  xfce4-power-manager-settings lxappearance pcmanfm lxinput; do
+  grep -Fxq "$utility" /tmp/slopos-settings-delegation.log
+done
 echo "SETTINGS_SERVICE_QA_STATUS_0"

@@ -22,6 +22,17 @@ PANELS = [
     "Keyboard & Mouse settings",
 ]
 
+DELEGATES = [
+    ("Displays settings", "arandr"),
+    ("Sound settings", "pavucontrol"),
+    ("Network settings", "nm-connection-editor"),
+    ("Bluetooth settings", "blueman-manager"),
+    ("Power settings", "xfce4-power-manager-settings"),
+    ("Appearance settings", "lxappearance"),
+    ("Desktop settings", "pcmanfm"),
+    ("Keyboard & Mouse settings", "lxinput"),
+]
+
 
 def children(node, result, depth=0):
     if depth > 20:
@@ -85,17 +96,16 @@ def verify_disabled(desktop):
 
 
 def verify_delegation(desktop):
-    for name in PANELS:
+    for name, utility in DELEGATES:
         node = find_named(desktop, name)
         if not state_is_enabled(node):
             raise RuntimeError(f"available delegated panel is disabled: {name}")
 
-    displays = find_named(desktop, "Displays settings")
-    action = displays.get_action_iface()
-    if action is None or action.get_n_actions() < 1:
-        raise RuntimeError("Displays settings has no AT-SPI action")
-    if not action.do_action(0):
-        raise RuntimeError("Displays settings action was rejected")
+        action = node.get_action_iface()
+        if action is None or action.get_n_actions() < 1:
+            raise RuntimeError(f"{name} has no AT-SPI action")
+        if not action.do_action(0):
+            raise RuntimeError(f"{name} action was rejected")
 
     probe_log = os.environ.get("SLOPOS_SERVICE_PROBE_LOG")
     if not probe_log:
@@ -106,11 +116,14 @@ def verify_delegation(desktop):
             content = open(probe_log, encoding="utf-8").read()
         except FileNotFoundError:
             content = ""
-        if "arandr" in content:
+        lines = set(content.splitlines())
+        missing = [utility for _, utility in DELEGATES if utility not in lines]
+        if not missing:
+            print("SETTINGS_DELEGATED_CONTROLS=8")
             print("SETTINGS_DELEGATED_DISPLAY=arandr")
             return
         time.sleep(0.1)
-    raise RuntimeError("Displays settings did not invoke the upstream utility")
+    raise RuntimeError(f"delegated utilities were not invoked: {missing}")
 
 
 def main():

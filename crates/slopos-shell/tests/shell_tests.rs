@@ -437,7 +437,23 @@ fn settings_service_qa_proves_delegation_and_fail_closed_controls() {
     assert!(probe.contains("Atspi.StateType.SENSITIVE"));
     assert!(probe.contains("Displays settings"));
     assert!(probe.contains("SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=8"));
+    assert!(probe.contains("SETTINGS_DELEGATED_CONTROLS=8"));
     assert!(probe.contains("SETTINGS_DELEGATED_DISPLAY=arandr"));
+    for utility in [
+        "arandr",
+        "pavucontrol",
+        "nm-connection-editor",
+        "blueman-manager",
+        "xfce4-power-manager-settings",
+        "lxappearance",
+        "pcmanfm",
+        "lxinput",
+    ] {
+        assert!(
+            runner.contains(utility),
+            "missing delegated utility {utility}"
+        );
+    }
     assert!(probe.contains("SETTINGS_SERVICE_QA_STATUS_0"));
 }
 
