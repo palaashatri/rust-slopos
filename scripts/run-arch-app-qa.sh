@@ -21,15 +21,23 @@ export SDL_AUDIODRIVER=pulse
 BROWSER_FIXTURE=/tmp/slopos-browser-qa.html
 BROWSER_DOM_PROFILE=/tmp/slopos-browser-qa-dom
 BROWSER_URL="file://$BROWSER_FIXTURE"
+GAME_AUDIO_CAPTURE_PID=""
 
 mkdir -p "$XDG_RUNTIME_DIR" artifacts/qa/app-matrix
 chmod 700 "$XDG_RUNTIME_DIR"
 # Keep this evidence directory deterministic.  Stale scrot files otherwise
 # receive _000 suffixes and can make a previous run look like fresh evidence.
-rm -f artifacts/qa/app-matrix/*.png artifacts/qa/app-matrix/sink-inputs.txt
+rm -f artifacts/qa/app-matrix/*.png \
+  artifacts/qa/app-matrix/sink-inputs.txt \
+  artifacts/qa/app-matrix/game-audio.raw \
+  artifacts/qa/app-matrix/game-audio.log
 
 cleanup() {
   set +e
+  if [[ -n "${GAME_AUDIO_CAPTURE_PID:-}" ]]; then
+    kill -TERM "$GAME_AUDIO_CAPTURE_PID" 2>/dev/null || true
+    wait "$GAME_AUDIO_CAPTURE_PID" 2>/dev/null || true
+  fi
   for process in supertux supertux2 chromium pcmanfm xfce4-terminal mousepad ristretto slopos-session slopos-shell openbox Xvfb pulseaudio; do
     pkill -TERM -x "$process" 2>/dev/null || true
   done
@@ -81,6 +89,44 @@ pactl info >/dev/null
 NULL_SINK="$(runuser -u qa -- env PULSE_SERVER="$PULSE_SERVER" PULSE_COOKIE="$PULSE_COOKIE" \
   pactl load-module module-null-sink sink_name=slopos_null sink_properties=device.description=SLOPOS-QA)"
 export PULSE_SINK=slopos_null
+
+GAME_AUDIO_CAPTURE=artifacts/qa/app-matrix/game-audio.raw
+GAME_AUDIO_CAPTURE_LOG=artifacts/qa/app-matrix/game-audio.log
+
+start_game_audio_capture() {
+  command -v parec >/dev/null 2>&1 || {
+    echo "ERROR: parec is required for game audio evidence" >&2
+    exit 1
+  }
+  rm -f "$GAME_AUDIO_CAPTURE" "$GAME_AUDIO_CAPTURE_LOG"
+  # Capture the null sink monitor as raw PCM. This proves that the upstream
+  # game produces audio samples through PulseAudio, rather than merely
+  # registering a sink-input. The physical speaker path remains outside the
+  # container contract.
+  parec --device=slopos_null.monitor --format=s16le --rate=44100 --channels=2 \
+    --raw >"$GAME_AUDIO_CAPTURE" 2>"$GAME_AUDIO_CAPTURE_LOG" &
+  GAME_AUDIO_CAPTURE_PID=$!
+  for _ in $(seq 1 20); do
+    kill -0 "$GAME_AUDIO_CAPTURE_PID" 2>/dev/null && return 0
+    sleep 0.25
+  done
+  echo "ERROR: PulseAudio monitor capture did not start" >&2
+  cat "$GAME_AUDIO_CAPTURE_LOG" >&2 || true
+  exit 1
+}
+
+stop_game_audio_capture() {
+  if [[ -n "$GAME_AUDIO_CAPTURE_PID" ]] && kill -0 "$GAME_AUDIO_CAPTURE_PID" 2>/dev/null; then
+    kill -INT "$GAME_AUDIO_CAPTURE_PID" 2>/dev/null || true
+    for _ in $(seq 1 20); do
+      kill -0 "$GAME_AUDIO_CAPTURE_PID" 2>/dev/null || break
+      sleep 0.25
+    done
+    kill -TERM "$GAME_AUDIO_CAPTURE_PID" 2>/dev/null || true
+  fi
+  wait "$GAME_AUDIO_CAPTURE_PID" 2>/dev/null || true
+  GAME_AUDIO_CAPTURE_PID=""
+}
 
 dbus-run-session -- ./target/release/slopos-session >artifacts/qa/app-matrix/session.log 2>&1 &
 SESSION_PID=$!
@@ -207,6 +253,7 @@ if [[ -z "$GAME_LEVEL" || ! -f "$GAME_LEVEL" ]]; then
   echo "ERROR: packaged SuperTux world1/intro.stl was not found" >&2
   exit 1
 fi
+start_game_audio_capture
 supertux2 --window --geometry 960x540 --renderer sdl --userdir /tmp/slopos-supertux-qa \
   "$GAME_LEVEL" \
   >artifacts/qa/app-matrix/game.log 2>&1 &
@@ -247,6 +294,17 @@ grep -Eq "${GAME_PID}|supertux|SuperTux" artifacts/qa/app-matrix/sink-inputs.txt
   cat artifacts/qa/app-matrix/sink-inputs.txt >&2
   exit 1
 }
+stop_game_audio_capture
+test -s "$GAME_AUDIO_CAPTURE"
+GAME_AUDIO_BYTES="$(wc -c <"$GAME_AUDIO_CAPTURE" | tr -d '[:space:]')"
+GAME_AUDIO_NONZERO_BYTES="$(LC_ALL=C tr -d '\000' <"$GAME_AUDIO_CAPTURE" | wc -c | tr -d '[:space:]')"
+if [[ "$GAME_AUDIO_BYTES" -lt 4096 || "$GAME_AUDIO_NONZERO_BYTES" -lt 1024 ]]; then
+  echo "ERROR: SuperTux PulseAudio monitor capture is empty or silent" >&2
+  echo "bytes=$GAME_AUDIO_BYTES nonzero_bytes=$GAME_AUDIO_NONZERO_BYTES" >&2
+  cat "$GAME_AUDIO_CAPTURE_LOG" >&2 || true
+  exit 1
+fi
+echo "    game_audio_bytes=$GAME_AUDIO_BYTES nonzero_audio_bytes=$GAME_AUDIO_NONZERO_BYTES"
 echo "    game_pid=$GAME_PID window_pid=$GAME_WINDOW_PID"
 
 # Ask the upstream game to leave through its own input path before Xvfb is

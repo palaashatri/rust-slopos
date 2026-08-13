@@ -393,6 +393,11 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("unrecoverable error"));
     assert!(qa.contains("pactl list sink-inputs"));
     assert!(qa.contains("test -s artifacts/qa/app-matrix/sink-inputs.txt"));
+    assert!(qa.contains("command -v parec"));
+    assert!(qa.contains("slopos_null.monitor"));
+    assert!(qa.contains("game-audio.raw"));
+    assert!(qa.contains("GAME_AUDIO_NONZERO_BYTES"));
+    assert!(qa.contains("PulseAudio monitor capture is empty or silent"));
     assert!(qa.contains("SLOPOS-I Arch upstream application/browser/game evidence PASS"));
 
     for manifest in [
