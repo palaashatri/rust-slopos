@@ -22,7 +22,7 @@ rm -f artifacts/qa/screenshots/*.png
 cleanup() {
   set +e
   kill "${SETTINGS_PID:-}" "${CATALOGUE_PID:-}" "${TERM_PID:-}" "${PCMAN_PID:-}" "${TEXT_PID:-}" \
-       "${SESSION_PID:-}" "${XVFB_PID:-}" 2>/dev/null || true
+       "${APPMENU_FIXTURE_PID:-}" "${SESSION_PID:-}" "${XVFB_PID:-}" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -100,6 +100,27 @@ else
     libgtk-3-dev libx11-dev libxrandr-dev libssl-dev libdbus-1-dev pkg-config \
     python3 scrot imagemagick x11-utils x11-xserver-utils xdotool wmctrl dbus-x11 librsvg2-common curl git build-essential \
     ca-certificates adwaita-icon-theme fonts-liberation fonts-dejavu-core libnotify-bin
+fi
+
+# Build a disposable, standard DBusMenu exporter for the end-to-end AppMenu
+# check.  The fixture is QA-only: it is compiled into /tmp, never installed,
+# and owns no application UI.  If the cached image does not carry the DBus
+# development headers, the real-exporter leg remains an explicit skip rather
+# than silently turning a property fixture into evidence.
+APPMENU_FIXTURE_BIN=/tmp/slopos-qa-dbusmenu-exporter
+APPMENU_FIXTURE_AVAILABLE=0
+if command -v gcc >/dev/null 2>&1 && command -v pkg-config >/dev/null 2>&1 && \
+   pkg-config --exists dbus-1; then
+  gcc -std=c11 -Wall -Wextra -Werror scripts/qa-dbusmenu-exporter.c \
+    $(pkg-config --cflags --libs dbus-1) -o "$APPMENU_FIXTURE_BIN"
+  APPMENU_FIXTURE_AVAILABLE=1
+  echo "APPMENU_REAL_FIXTURE_COMPILE_STATUS_0"
+else
+  echo "APPMENU_REAL_FIXTURE_STATUS_SKIPPED_NO_DBUS_DEV"
+  if [[ "${SLOPOS_QA_REQUIRE_REAL_APPMENU:-0}" == "1" ]]; then
+    echo "ERROR: real AppMenu QA requested but gcc/pkg-config/libdbus-1 are unavailable" >&2
+    exit 2
+  fi
 fi
 
 if [[ "${SLOPOS_QA_SKIP_BUILD:-0}" != "1" ]] && ! command -v cargo >/dev/null 2>&1; then
@@ -253,19 +274,43 @@ capture_screenshot artifacts/qa/screenshots/active_app_1280x800.png
 # DBusMenu exporter must produce an additional visible popup; a property-only
 # or malformed exporter must produce an explicit fail-closed fallback instead
 # of a fabricated menu. A non-exporting build records an honest skip.
-if xprop -id "$TEXT_WINDOW" | grep -qE '_GTK_(UNIQUE_BUS_NAME|APP_MENU_OBJECT_PATH|MENUBAR_OBJECT_PATH)'; then
+if [[ "$APPMENU_FIXTURE_AVAILABLE" == 1 ]] || \
+   xprop -id "$TEXT_WINDOW" | grep -qE '_GTK_(UNIQUE_BUS_NAME|APP_MENU_OBJECT_PATH|MENUBAR_OBJECT_PATH)'; then
   APPMENU_MOUSEPAD_CAPTURED=1
-  grep -Fq 'exports AppMenu bus=' artifacts/qa/session.log
   before_appmenu_windows="$(xdotool search --onlyvisible --name '.*' | wc -l)"
   # Keep Mousepad focused while clicking the top-bar button: activating the
   # shell window first would correctly clear the focused exporter before the
   # callback can consume the cached capability. The active-title label is
   # capped at 28 characters, placing App at this stable 1280px coordinate.
   xdotool windowfocus --sync "$TEXT_WINDOW"
+  if [[ "$APPMENU_FIXTURE_AVAILABLE" == 1 ]]; then
+    APPMENU_BUS_FILE=/tmp/slopos-qa-dbusmenu.bus
+    APPMENU_EVENT_FILE=/tmp/slopos-qa-dbusmenu.events
+    rm -f "$APPMENU_BUS_FILE" "$APPMENU_EVENT_FILE"
+    "$APPMENU_FIXTURE_BIN" "$APPMENU_BUS_FILE" "$APPMENU_EVENT_FILE" \
+      >/tmp/slopos-qa-dbusmenu.log 2>&1 & APPMENU_FIXTURE_PID=$!
+    for _ in $(seq 1 40); do
+      [[ -s "$APPMENU_BUS_FILE" ]] && break
+      sleep 0.1
+    done
+    test -s "$APPMENU_BUS_FILE"
+    APPMENU_BUS_NAME="$(cat "$APPMENU_BUS_FILE")"
+    xprop -id "$TEXT_WINDOW" -f _GTK_UNIQUE_BUS_NAME 8s \
+      -set _GTK_UNIQUE_BUS_NAME "$APPMENU_BUS_NAME"
+    xprop -id "$TEXT_WINDOW" -f _GTK_APP_MENU_OBJECT_PATH 8s \
+      -set _GTK_APP_MENU_OBJECT_PATH '/org/slopos/qa/dbusmenu'
+    xdotool windowfocus --sync "$TEXT_WINDOW"
+    sleep 1
+  fi
+  grep -Fq 'exports AppMenu bus=' artifacts/qa/session.log
   xdotool mousemove --window "$TOPBAR_WINDOW" --sync "${SLOPOS_QA_APP_MENU_X:-270}" 13
   xdotool click 1
   sleep 1
   if grep -Fq "Focused application's AppMenu was not imported" artifacts/qa/session.log; then
+    if [[ "$APPMENU_FIXTURE_AVAILABLE" == 1 ]]; then
+      echo "ERROR: real DBusMenu fixture did not import" >&2
+      exit 1
+    fi
     echo "APPMENU_MOUSEPAD_FALLBACK_STATUS_0"
   else
     appmenu_popup_windows=""
@@ -277,7 +322,20 @@ if xprop -id "$TEXT_WINDOW" | grep -qE '_GTK_(UNIQUE_BUS_NAME|APP_MENU_OBJECT_PA
       sleep 0.25
     done
     test "$appmenu_popup_windows" -gt "$before_appmenu_windows"
-    echo "APPMENU_MOUSEPAD_IMPORT_STATUS_0"
+    if [[ "$APPMENU_FIXTURE_AVAILABLE" == 1 ]]; then
+      # The imported menu contains one real item.  Activating it must travel
+      # back through the protocol's Event call; no shell-side command is
+      # fabricated for the item.
+      xdotool key Down Return
+      for _ in $(seq 1 20); do
+        grep -Fq 'clicked id=1 event=clicked' "$APPMENU_EVENT_FILE" && break
+        sleep 0.1
+      done
+      grep -Fq 'clicked id=1 event=clicked' "$APPMENU_EVENT_FILE"
+      echo "APPMENU_REAL_IMPORT_STATUS_0"
+    else
+      echo "APPMENU_MOUSEPAD_IMPORT_STATUS_0"
+    fi
   fi
   capture_screenshot artifacts/qa/screenshots/appmenu_exported_mousepad_1280x800.png
   xdotool key Escape

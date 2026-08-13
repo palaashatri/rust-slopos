@@ -9,8 +9,9 @@ not a source-controlled release bundle.
 ## Audit baseline
 
 - The initial audit snapshot was taken at `a0088dff666aa879e0d9566e447fbfb5d98911bd`.
-- The verified milestone is now `c74ce886ec115f25fbfec183e08f2ca9dbbd772d`
-  (`pivot...origin/pivot`, clean after the pushed shell/browser milestone).
+- The last fully verified pushed milestone in the inspected cache was
+  `c74ce886ec115f25fbfec183e08f2ca9dbbd772d`; the source tree has since
+  advanced through `6a77780` and pushed recovery/VM hardening `3287d00`.
 - The initial audit commands were read-only PowerShell checks (`Get-Content`,
   `Select-String`, `Get-Item`, `Get-FileHash`, `git status`, `git rev-parse`).
 - The parent run subsequently reran the verified current-tree Rust, AppMenu,
@@ -64,6 +65,14 @@ installed `themes/slopos-openbox/openbox-3/themerc` and exported the explicit
 SLOPOS Openbox config. It passed `ARCH_APP_QA_THEME_STATUS_0`, captured fresh
 1280x800 PCManFM, terminal, Mousepad, Ristretto, Chromium and SuperTux scenes,
 and reported `game_audio_bytes=1675860` with `nonzero_audio_bytes=1591119`.
+
+The post-`3287d00` source tranche adds a QA-only low-level DBusMenu exporter
+(`scripts/qa-dbusmenu-exporter.c`) and a `SLOPOS_QA_REQUIRE_REAL_APPMENU=1`
+hard-fail switch to the Docker harness. It also hardens recovery config
+preservation, VM installer partition cleanup and the Openbox active titlebar
+gradient. The local Docker image/volume cache is currently empty, so no
+post-tranche Rust or Docker runtime result is claimed here; the prior markers
+remain provenance for the earlier pushed source only.
 
 ## Release accounting boundary
 

@@ -6,9 +6,9 @@ border.width: 1
 window.active.border.color: #000000
 window.inactive.border.color: #808080
 
-# Openbox supports interlaced gradients; this produces the restrained striped
-# active frame required by the SLOPOS Platinum contract without custom WM code.
-window.active.title.bg: raised gradient vertical interlaced
+# Keep the active frame's Platinum bevel, but use a smooth gradient so title
+# text remains legible at 1x and HiDPI instead of competing with dense stripes.
+window.active.title.bg: raised gradient vertical
 window.active.title.bg.color: #F0F0F0
 window.active.title.bg.colorTo: #CFCFCF
 window.active.label.bg: parentrelative

@@ -119,6 +119,22 @@ fn shipping_manifests_are_x11_only_and_complete() {
 }
 
 #[test]
+fn platinum_openbox_active_titlebar_uses_readable_gradient() {
+    let theme = include_str!("../../../themes/slopos-openbox/openbox-3/themerc");
+    let active_title = theme
+        .lines()
+        .find(|line| line.trim_start().starts_with("window.active.title.bg:"))
+        .expect("active titlebar background is defined");
+    assert_eq!(
+        active_title.trim(),
+        "window.active.title.bg: raised gradient vertical"
+    );
+    assert!(theme.contains("window.inactive.title.bg: flat solid"));
+    assert!(theme.contains("window.active.label.text.color: #000000"));
+    assert!(theme.contains("window.inactive.label.text.color: #707070"));
+}
+
+#[test]
 fn dependency_manifests_do_not_reintroduce_removed_display_stack() {
     for manifest in [
         include_str!("../../../packaging/deps/arch.txt"),
@@ -235,6 +251,18 @@ fn vm_recreate_checks_state_before_poweroff() {
 }
 
 #[test]
+fn recovery_preserves_config_and_requires_fresh_children() {
+    let recovery = include_str!("../../../scripts/slopos-recovery.sh");
+    assert!(recovery.contains("refusing an unsafe HOME"));
+    assert!(recovery.contains("BACKUP_DIR=\"${SLOPOS_RECOVERY_BACKUP_DIR:-$HOME_DIR/slopos-config-backup-"));
+    assert!(recovery.contains("mv -- \"$CONFIG_DIR\""));
+    assert!(recovery.contains("VENDOR_DIR=\"${SLOPOS_VENDOR_CONFIG_DIR:-/etc/slopos-i}\""));
+    assert!(recovery.contains("wait_for_child_restart"));
+    assert!(recovery.contains("slopos-session"));
+    assert!(recovery.contains("SLOPOS_RECOVERY_STATUS_0"));
+}
+
+#[test]
 fn docker_qa_uses_fresh_visible_windows() {
     let qa = include_str!("../../../scripts/run-docker-qa.sh");
     assert!(qa.contains("dbus-run-session -- bash -c"));
@@ -289,6 +317,8 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     let topbar = include_str!("../src/topbar.rs");
     let appmenu = include_str!("../src/appmenu.rs");
     let qa = include_str!("../../../scripts/run-appmenu-qa.sh");
+    let docker_qa = include_str!("../../../scripts/run-docker-qa.sh");
+    let exporter_fixture = include_str!("../../../scripts/qa-dbusmenu-exporter.c");
     assert!(topbar.contains("build_app_menu_button"));
     assert!(topbar.contains("appmenu::status_for_window"));
     assert!(topbar.contains("This application exports no X11 AppMenu"));
@@ -311,6 +341,11 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(qa.contains("EXPORTER_FIXTURE_STATUS_0"));
     assert!(qa.contains("NON_EXPORTER_STATUS_0"));
     assert!(qa.contains("SLOPOS AppMenu capability evidence PASS"));
+    assert!(docker_qa.contains("APPMENU_REAL_IMPORT_STATUS_0"));
+    assert!(docker_qa.contains("SLOPOS_QA_REQUIRE_REAL_APPMENU"));
+    assert!(exporter_fixture.contains("com.canonical.dbusmenu"));
+    assert!(exporter_fixture.contains("GetLayout"));
+    assert!(exporter_fixture.contains("Event"));
 }
 
 #[test]
