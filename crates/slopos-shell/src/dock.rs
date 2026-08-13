@@ -5,7 +5,7 @@ use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
-    Box as GtkBox, Button, IconSize, Image, Orientation, Separator, Window, WindowPosition,
+    Box as GtkBox, Button, IconSize, Image, Label, Orientation, Separator, Window, WindowPosition,
     WindowType,
 };
 use std::env;
@@ -28,7 +28,7 @@ impl Dock {
         let window = Window::new(WindowType::Toplevel);
         window.set_title("SLOPOS Application Strip");
         let (screen_width, screen_height) = screen_geometry();
-        let width = 432;
+        let width = 480;
         let height = 54;
         window.set_default_size(width, height);
         window.set_position(WindowPosition::None);
@@ -46,6 +46,19 @@ impl Dock {
         dock_box.style_context().add_class("slopos-dock-container");
         dock_box.set_hexpand(true);
         dock_box.set_vexpand(true);
+
+        let strip_label = Label::new(Some("Apps"));
+        strip_label.style_context().add_class("slopos-dock-label");
+        strip_label.set_xalign(0.5);
+        strip_label.set_yalign(0.5);
+        set_accessible_name(&strip_label, "Application launchers");
+        dock_box.pack_start(&strip_label, false, false, 2);
+
+        let label_separator = Separator::new(Orientation::Vertical);
+        label_separator
+            .style_context()
+            .add_class("slopos-dock-separator");
+        dock_box.pack_start(&label_separator, false, false, 1);
 
         add_action_item(
             &dock_box,

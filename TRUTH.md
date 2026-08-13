@@ -36,10 +36,10 @@ The previous `100/100` claim was invalid. This audit credits the fixes that have
 
 ## Canonical visual findings
 
-The 2026-08-13 Docker/Xvfb screenshots are retained as fresh evidence of the baseline, not proof of acceptance. The latest pass fixed transient blank clean-desktop captures and tightened the Settings hub layout; remaining review areas include:
+The 2026-08-13 Docker/Xvfb screenshots are retained as fresh evidence of the baseline, not proof of acceptance. The latest pass fixed transient blank clean-desktop captures, tightened the Settings hub layout, and gave the Application Strip an explicit Platinum “Apps” gutter and stronger inset shelf; remaining review areas include:
 
 - Settings uses compact, consistently framed delegated control panels with honest unavailable states and eight packaged Platinum SVG icons with symbolic fallbacks;
-- application strip reading as a toolbar rather than a coherent classic launcher;
+- application strip now has a clearer “Apps” identity and inset Platinum shelf, but still needs independent classic-launcher review at the retained resolutions;
 - notification and About/confirmation dialogs now use the packaged SLOPOS mark with compact Platinum framing, but their composition still needs independent classic-Mac review;
 - Search now uses packaged Platinum role icons for the known file manager, terminal, text editor, browser, image viewer, Catalogue, Settings and desktop roles; unrelated desktop entries retain their upstream icon so the shell does not misrepresent unknown applications;
 - GTK HeaderBar/CSD presentation in Catalogue and Settings conflicting with Openbox/System 7 chrome;
@@ -97,6 +97,8 @@ The 2026-08-11 deep audit initiates a corrective tranche that:
 - The shared GTK theme now styles native `menubar > menuitem` spacing, hover and focus states. Fresh PCManFM and Xfce4 Terminal captures show separated Platinum menu labels; this same GTK surface is available to browser-native dialogs/menus through the no-fork wrapper, while browser tab, address-bar and web-content styling remain engine/profile-owned.
 - Canonical screenshot capture now removes every prior PNG, moves the pointer away from transient tooltips, uses scrot overwrite mode and gives the notification a 60-second QA lifetime, preventing stale or pointer-raced images from satisfying a later run; the fresh Docker/Xvfb gate produced eleven expected base-named 1280x800 captures for every contract scene, including a visible D-Bus notification and functional About modal. The scene set is evidence for review, not an automatic visual score.
 - The current Docker/Xvfb harness closes the captured notification and asserts that no visible notification remains before launching Catalogue and Settings; the fresh Settings and Catalogue captures are therefore isolated from the notification scene.
+- A fresh Docker/Xvfb pass after the Application Strip refinement completed all eight stages with exit 0; the accepted `clean_desktop_1280x800.png` visibly includes the “Apps” gutter, eight launch controls and the centered strip without changing the launcher targets or accessible names.
+- The same refinement passed fresh retained-resolution runs at 1366x768/GDK_SCALE=1, 1920x1080/GDK_SCALE=1 and 2560x1600/GDK_SCALE=2. Each run reported `RESOLUTION_QA_STATUS_0`, exact screenshot dimensions, full-width topbar geometry and centered strip coordinates (`700`, `977`, `1314` respectively).
 - The latest Docker/Xvfb pass waits for the recovered top bar and Application Strip before the clean scene, and its multi-window scene explicitly moves/resizes the terminal, exercises Alt+Tab, then restores terminal focus. The Settings capture uses the compact 640x460 control-panel layout and disables unavailable delegated utilities.
 - The current post-icon Docker/Xvfb pass completed all eight stages with exit 0; `artifacts/qa/screenshots/system_settings_1280x800.png` visibly renders all eight packaged Platinum panel icons at 32px with unavailable utilities disabled.
 - The current post-dialog Docker/Xvfb pass completed all eight stages with exit 0; `artifacts/qa/screenshots/modal_about_1280x800.png` visibly renders the packaged SLOPOS mark in a compact Platinum dialog, with no generic GTK lightbulb/question artwork.

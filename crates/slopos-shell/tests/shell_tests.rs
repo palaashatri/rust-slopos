@@ -293,6 +293,8 @@ fn image_controls_have_accessible_names_and_focus_feedback() {
     let notifications = include_str!("../src/notifications.rs");
     let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
     assert!(dock.contains("set_accessible_name(&button, tooltip)"));
+    assert!(dock.contains("Label::new(Some(\"Apps\"))"));
+    assert!(dock.contains("slopos-dock-label"));
     assert!(topbar.contains("set_accessible_name(&system_button, \"SLOPOS menu\")"));
     assert!(topbar.contains("set_accessible_name(&search_button"));
     assert!(notifications.contains("icon.is_empty().then(load_slopos_mark)"));
