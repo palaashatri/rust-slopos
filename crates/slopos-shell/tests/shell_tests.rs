@@ -697,7 +697,7 @@ fn browser_integration_is_upstream_and_no_fork() {
     assert!(chromium.contains("\"omnibox_background\": [255, 255, 255]"));
     assert!(firefox.contains("\"theme\""));
     assert!(firefox.contains("\"toolbar_field_border_focus\": \"#000080\""));
-    assert!(installer.contains("firefox_pref='user_pref(\\\"toolkit.legacyUserProfileCustomizations.stylesheets\\\", true);'"));
+    assert!(installer.contains("firefox_pref='user_pref(\"toolkit.legacyUserProfileCustomizations.stylesheets\", true);'"));
     assert!(installer.contains("firefox_pref_false_re"));
     assert!(installer.contains("sed -E \"/$firefox_pref_re/d\""));
     assert!(firefox_css.contains("#nav-bar .toolbarbutton-1"));
