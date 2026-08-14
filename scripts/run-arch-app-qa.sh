@@ -455,7 +455,7 @@ if ! awk -v game_pid="$GAME_PID" '
   /application\.process\.binary = "supertux2"/ {
     line = $0
     gsub(/\n/, " ", line)
-    if (line ~ ("application\\.process\\.id = \\\"" game_pid "\\\"")) {
+    if (index(line, "application.process.id = \"" game_pid "\"") > 0) {
       found = 1
     }
   }
