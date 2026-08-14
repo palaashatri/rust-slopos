@@ -882,7 +882,7 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("application\\.name = \"SuperTux 2\""));
     assert!(qa.contains("application\\.process\\.id = \"[0-9]+\""));
     assert!(qa.contains("application\\.process\\.binary = \"supertux2\""));
-    assert!(qa.contains("if (line ~ (\"application\\\\.process\\\\.id"));
+    assert!(qa.contains("if (index(line, \"application.process.id = \\\"\" game_pid"));
     assert!(qa.contains("game_pid"));
     assert!(qa.contains("command -v parec"));
     assert!(qa.contains("slopos_null.monitor"));
