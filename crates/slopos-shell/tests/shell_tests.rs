@@ -355,6 +355,7 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     let appmenu = include_str!("../src/appmenu.rs");
     let qa = include_str!("../../../scripts/run-appmenu-qa.sh");
     let docker_qa = include_str!("../../../scripts/run-docker-qa.sh");
+    let ci = include_str!("../../../.github/workflows/ci.yml");
     let exporter_fixture = include_str!("../../../scripts/qa-dbusmenu-exporter.c");
     assert!(topbar.contains("build_app_menu_button"));
     assert!(topbar.contains("appmenu::status_for_window"));
@@ -373,6 +374,10 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(docker_qa.contains("APPMENU_FOCUS_BEFORE"));
     assert!(docker_qa.contains("APPMENU_FOCUS_AFTER"));
     assert!(docker_qa.contains("destroyed pre-recovery top-bar window"));
+    assert!(ci.contains("x11-appmenu-real:"));
+    assert!(ci.contains("github.event_name == 'workflow_dispatch'"));
+    assert!(ci.contains("SLOPOS_QA_REQUIRE_REAL_APPMENU=1"));
+    assert!(ci.contains("APPMENU_REAL_IMPORT_STATUS_0"));
     assert!(!topbar.contains("safe DBusMenu importer is not enabled"));
     assert!(!topbar.contains("build_global_menu_bar"));
     assert!(!topbar.contains("target_shortcut_item"));

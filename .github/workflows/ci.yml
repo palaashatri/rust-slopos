@@ -371,6 +371,57 @@ jobs:
             ${{ runner.temp }}/slopos-catalogue.log
             ${{ runner.temp }}/xvfb.log
 
+  x11-appmenu-real:
+    name: Manual real AppMenu importer evidence
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Install cached Docker-QA runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            libssl-dev libdbus-1-dev xvfb openbox pcmanfm xfce4-terminal \
+            mousepad ristretto zathura mpv galculator xdotool wmctrl scrot \
+            imagemagick x11-utils x11-xserver-utils dbus-x11 librsvg2-common \
+            curl ca-certificates adwaita-icon-theme fonts-liberation \
+            fonts-dejavu-core libnotify-bin
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build exact release workspace
+        run: cargo build --workspace --release --locked
+      - name: Run real exporter/importer click-through
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -E env "PATH=$PATH" \
+            SLOPOS_QA_SKIP_DEPS=1 \
+            SLOPOS_QA_SKIP_BUILD=1 \
+            SLOPOS_QA_REQUIRE_REAL_APPMENU=1 \
+            bash scripts/run-docker-qa.sh 2>&1 | tee "$RUNNER_TEMP/appmenu-real.log"
+          sudo chown -R "$USER":"$USER" artifacts/qa || true
+      - name: Require real AppMenu evidence marker
+        run: grep -Fq 'APPMENU_REAL_IMPORT_STATUS_0' "$RUNNER_TEMP/appmenu-real.log"
+      - name: Upload real AppMenu evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slopos-appmenu-real-${{ env.SOURCE_SHA }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/qa/session.log
+            artifacts/qa/xvfb.log
+            artifacts/qa/screenshots/appmenu_exported_mousepad_1280x800.png
+            ${{ runner.temp }}/appmenu-real.log
+            /tmp/slopos-qa-dbusmenu.log
+            /tmp/slopos-qa-dbusmenu.events
+
   x11-atspi-acceptance:
     name: AT-SPI named surfaces and focus acceptance
     runs-on: ubuntu-latest
