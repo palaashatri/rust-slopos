@@ -69,6 +69,14 @@ current hosted CI evidence, but it does not close the current-tree VM/EFI,
 physical hardware, real AppMenu visual/action review, Firefox runtime, or
 independent visual-gate boundaries below.
 
+Hosted CI run [#588](https://github.com/palaashatri/rust-slopos/actions/runs/31760566548)
+for `3e2e3d7` then completed successfully. It passed the current locked
+build/test/lint, rustfmt, Xvfb/Openbox smoke, benchmark, release, accessibility
+and Settings jobs, plus all five retained-resolution legs: 3440x1440,
+3840x2160, 5120x2880, 7680x4320 and 2560x1600 with `GDK_SCALE=2`. These are
+hosted Xvfb geometry/render results, not physical monitor timing or independent
+visual acceptance.
+
 After that rerun, the nested AT-SPI and Settings service D-Bus shells received
 inner EXIT traps for their child PIDs. The Rust static contracts, `bash -n`,
 fmt/check/test/clippy, cache-only AppMenu smoke and full Docker/Xvfb gate all
