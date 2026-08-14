@@ -141,8 +141,8 @@ fn platinum_openbox_active_titlebar_uses_readable_gradient() {
 
 #[test]
 fn legacy_openbox_theme_path_matches_installed_theme_source() {
-    let canonical = include_str!("../../../themes/slopos-openbox/openbox-3/themerc")
-        .replace("\r\n", "\n");
+    let canonical =
+        include_str!("../../../themes/slopos-openbox/openbox-3/themerc").replace("\r\n", "\n");
     let legacy = include_str!("../../../themes/slopos-openbox/themerc").replace("\r\n", "\n");
     assert_eq!(
         canonical, legacy,
@@ -456,6 +456,13 @@ fn docker_qa_uses_fresh_visible_windows() {
     ] {
         assert!(qa.contains(scene), "missing canonical scene {scene}");
     }
+}
+
+#[test]
+fn hosted_x11_smoke_waits_for_restarted_shell_windows() {
+    let ci = include_str!("../../../.github/workflows/ci.yml");
+    assert!(ci.contains("wait_for \"top bar after shell restart\""));
+    assert!(ci.contains("wait_for \"application strip after Openbox restart\""));
 }
 
 #[test]

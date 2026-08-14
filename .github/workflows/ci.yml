@@ -321,7 +321,7 @@ jobs:
           done
           test -n "$shell_pid_after"
           test "$shell_pid_after" != "$shell_pid_before"
-          xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null
+          wait_for "top bar after shell restart" xdotool search --onlyvisible --name '^SLOPOS Top Bar$'
 
           wm_pid_before=$(pgrep -xo openbox)
           kill "$wm_pid_before"
@@ -333,7 +333,7 @@ jobs:
           done
           test -n "$wm_pid_after"
           test "$wm_pid_after" != "$wm_pid_before"
-          xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null
+          wait_for "application strip after Openbox restart" xdotool search --onlyvisible --name '^SLOPOS Application Strip$'
 
           ./target/debug/slopos-settings >"$RUNNER_TEMP/slopos-settings.log" 2>&1 &
           SETTINGS_PID=$!
