@@ -5,7 +5,10 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 export DISPLAY=:99
 export XDG_RUNTIME_DIR=/tmp/slopos-qa-runtime
-export SLOPOS_OPENBOX_CONFIG=/workspace/assets/config/openbox/rc.xml
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+export SLOPOS_OPENBOX_CONFIG="${SLOPOS_OPENBOX_CONFIG:-$REPO_ROOT/assets/config/openbox/rc.xml}"
 export SLOPOS_QA_NO_WELCOME=1
 DBUS_ENV_FILE="$XDG_RUNTIME_DIR/dbus-env.sh"
 mkdir -p "$XDG_RUNTIME_DIR" artifacts/qa/screenshots
@@ -267,7 +270,7 @@ done
 
 # The active-application scene must be distinct from the file-manager scene;
 # Mousepad gives the visual gate a real text-editor surface to inspect.
-mousepad /workspace/README.md >artifacts/qa/mousepad.log 2>&1 & TEXT_PID=$!
+mousepad "$REPO_ROOT/README.md" >artifacts/qa/mousepad.log 2>&1 & TEXT_PID=$!
 wait_window_for_pid "$TEXT_PID"
 TEXT_WINDOW="$(window_for_pid "$TEXT_PID")"
 test -n "$TEXT_WINDOW"
@@ -359,7 +362,7 @@ close_visible_windows_by_class mousepad
 kill "$TEXT_PID" 2>/dev/null || true
 unset TEXT_PID
 
-pcmanfm /workspace >artifacts/qa/pcmanfm.log 2>&1 & PCMAN_PID=$!
+pcmanfm "$REPO_ROOT" >artifacts/qa/pcmanfm.log 2>&1 & PCMAN_PID=$!
 wait_window_for_pid "$PCMAN_PID"
 PCMAN_WINDOW="$(window_for_pid "$PCMAN_PID")"
 test -n "$PCMAN_WINDOW"
