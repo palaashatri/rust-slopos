@@ -11,6 +11,8 @@ cd "$REPO_ROOT"
 export SLOPOS_OPENBOX_CONFIG="${SLOPOS_OPENBOX_CONFIG:-$REPO_ROOT/assets/config/openbox/rc.xml}"
 export SLOPOS_QA_NO_WELCOME=1
 DBUS_ENV_FILE="$XDG_RUNTIME_DIR/dbus-env.sh"
+QA_STARTED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)"
 mkdir -p "$XDG_RUNTIME_DIR" artifacts/qa/screenshots
 chmod 700 "$XDG_RUNTIME_DIR"
 
@@ -21,6 +23,7 @@ for process in slopos-session slopos-shell slopos-settings slopos-catalogue open
   pkill -TERM -x "$process" 2>/dev/null || true
 done
 rm -f artifacts/qa/screenshots/*.png
+rm -f artifacts/qa/screenshots/evidence-manifest.txt
 
 cleanup() {
   set +e
@@ -448,6 +451,19 @@ if [[ "$APPMENU_MOUSEPAD_CAPTURED" == 1 ]]; then
   test -s "artifacts/qa/screenshots/$APPMENU_MOUSEPAD_SCREENSHOT"
   test "$(identify -format '%wx%h' "artifacts/qa/screenshots/$APPMENU_MOUSEPAD_SCREENSHOT")" = "1280x800"
 fi
+
+{
+  printf 'source_commit=%s\n' "$SOURCE_COMMIT"
+  printf 'started_utc=%s\n' "$QA_STARTED_UTC"
+  printf 'completed_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  for image in artifacts/qa/screenshots/*.png; do
+    printf 'screenshot=%s sha256=' "${image##*/}"
+    sha256sum "$image" | awk '{print $1}'
+    printf 'dimensions=%s\n' "$(identify -format '%wx%h' "$image")"
+  done
+} >artifacts/qa/screenshots/evidence-manifest.txt
+test -s artifacts/qa/screenshots/evidence-manifest.txt
+echo "DOCKER_QA_SOURCE_COMMIT=$SOURCE_COMMIT"
 
 echo "[8/8] Product-contract sanity checks"
 ! grep -Eq 'slopos-compositor|share/wayland-sessions' install.sh
