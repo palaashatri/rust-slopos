@@ -99,10 +99,17 @@ impl TopBar {
         main_box.pack_start(&active_title_label, false, false, 7);
         let app_menu_button = build_app_menu_button();
         let app_menu_exporter = Rc::new(RefCell::new(None));
+        // A window may advertise the standard X11 properties while its
+        // advertised object does not actually implement DBusMenu (Mousepad
+        // does this in the retained QA image). Remember a failed import for
+        // the current exporter so the next focus poll does not immediately
+        // re-enable a misleading global-menu button.
+        let app_menu_failure = Rc::new(RefCell::new(None));
+        let app_menu_failure_ref = app_menu_failure.clone();
         let app_menu_exporter_ref = app_menu_exporter.clone();
         app_menu_button.connect_clicked(move |button| {
             let exporter = app_menu_exporter_ref.borrow().clone();
-            open_imported_app_menu(button, exporter);
+            open_imported_app_menu(button, exporter, app_menu_failure_ref.clone());
         });
         main_box.pack_start(&app_menu_button, false, false, 0);
 
@@ -208,6 +215,7 @@ impl TopBar {
             &app_menu_button,
             app_menu_status,
             app_menu_exporter,
+            app_menu_failure,
         );
 
         Rc::new(Self {
@@ -229,15 +237,18 @@ fn install_live_updates(
     app_menu_button: &Button,
     app_menu_status: Rc<Cell<AppMenuStatus>>,
     app_menu_exporter: Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
+    app_menu_failure: Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
 ) {
     let active_title = active_title.clone();
     let app_menu_button = app_menu_button.clone();
+    let app_menu_failure = app_menu_failure.clone();
     glib::timeout_add_local(Duration::from_millis(500), move || {
         update_active_window(
             &active_title,
             &app_menu_button,
             &app_menu_status,
             &app_menu_exporter,
+            &app_menu_failure,
         );
         glib::ControlFlow::Continue
     });
@@ -277,6 +288,7 @@ fn update_active_window(
     app_menu_button: &Button,
     app_menu_status: &Cell<AppMenuStatus>,
     app_menu_exporter: &RefCell<Option<appmenu::AppMenuExporter>>,
+    app_menu_failure: &RefCell<Option<appmenu::AppMenuExporter>>,
 ) {
     let Some(id_text) = command_output("xdotool", &["getactivewindow"]) else {
         label.set_text("SLOPOS Desktop");
@@ -284,6 +296,7 @@ fn update_active_window(
             app_menu_button,
             app_menu_status,
             app_menu_exporter,
+            app_menu_failure,
             AppMenuStatus::ShellOwned,
             None,
         );
@@ -295,6 +308,7 @@ fn update_active_window(
             app_menu_button,
             app_menu_status,
             app_menu_exporter,
+            app_menu_failure,
             AppMenuStatus::ShellOwned,
             None,
         );
@@ -306,6 +320,7 @@ fn update_active_window(
             app_menu_button,
             app_menu_status,
             app_menu_exporter,
+            app_menu_failure,
             AppMenuStatus::ShellOwned,
             None,
         );
@@ -318,6 +333,7 @@ fn update_active_window(
             app_menu_button,
             app_menu_status,
             app_menu_exporter,
+            app_menu_failure,
             AppMenuStatus::ShellOwned,
             None,
         );
@@ -333,6 +349,7 @@ fn update_active_window(
             app_menu_button,
             app_menu_status,
             app_menu_exporter,
+            app_menu_failure,
             AppMenuStatus::NoExporter,
             None,
         );
@@ -343,6 +360,7 @@ fn update_active_window(
         app_menu_button,
         app_menu_status,
         app_menu_exporter,
+        app_menu_failure,
         status,
         exporter.as_ref(),
     );
@@ -352,10 +370,19 @@ fn update_app_menu_status(
     button: &Button,
     previous: &Cell<AppMenuStatus>,
     exporter_state: &RefCell<Option<appmenu::AppMenuExporter>>,
+    exporter_failure: &RefCell<Option<appmenu::AppMenuExporter>>,
     status: AppMenuStatus,
     exporter: Option<&appmenu::AppMenuExporter>,
 ) {
     *exporter_state.borrow_mut() = exporter.cloned();
+    let failed_exporter = exporter_failure.borrow();
+    let import_failed = exporter
+        .map(|current| failed_exporter.as_ref() == Some(current))
+        .unwrap_or(false);
+    drop(failed_exporter);
+    if status != AppMenuStatus::ExporterDetected {
+        exporter_failure.borrow_mut().take();
+    }
     if previous.get() != status {
         match (status, exporter) {
             (AppMenuStatus::ExporterDetected, Some(exporter)) => log::info!(
@@ -391,6 +418,17 @@ fn update_app_menu_status(
             set_accessible_name(
                 button,
                 "Application has no exported menu; use its local menu",
+            );
+        }
+        AppMenuStatus::ExporterDetected if import_failed => {
+            button.set_label("App");
+            button.set_sensitive(false);
+            button.set_tooltip_text(Some(
+                "The focused application's AppMenu is unavailable; use its local menu",
+            ));
+            set_accessible_name(
+                button,
+                "Application menu unavailable; use the local application menu",
             );
         }
         AppMenuStatus::ExporterDetected => {
@@ -501,7 +539,11 @@ fn build_app_menu_button() -> Button {
     button
 }
 
-fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExporter>) {
+fn open_imported_app_menu(
+    button: &Button,
+    exporter: Option<appmenu::AppMenuExporter>,
+    exporter_failure: Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
+) {
     let Some(exporter) = exporter else {
         return;
     };
@@ -525,6 +567,7 @@ fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExpo
     button.set_sensitive(false);
     let (sender, receiver) = mpsc::channel();
     let worker_exporter = exporter.clone();
+    let failure_state = exporter_failure.clone();
     let deadline = Instant::now() + Duration::from_millis(900);
     thread::spawn(move || {
         let result =
@@ -537,7 +580,8 @@ fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExpo
         if Instant::now() >= deadline {
             log::warn!("Focused application's AppMenu import exceeded its UI deadline");
             if current_active_window_id() == Some(exporter.window_id) {
-                button.set_sensitive(true);
+                *failure_state.borrow_mut() = Some(exporter.clone());
+                button.set_sensitive(false);
                 button.set_tooltip_text(Some(
                     "The focused application's AppMenu timed out; use its local menu",
                 ));
@@ -560,8 +604,10 @@ fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExpo
                     return glib::ControlFlow::Break;
                 }
                 if show_imported_app_menu(&button, layout, exporter.clone()) {
+                    failure_state.borrow_mut().take();
                     button.set_sensitive(true);
                 } else {
+                    *failure_state.borrow_mut() = Some(exporter.clone());
                     button.set_sensitive(false);
                     button.set_tooltip_text(Some(
                         "The focused application's AppMenu has no visible items; use its local menu",
@@ -572,7 +618,8 @@ fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExpo
             Ok(Err(error)) => {
                 log::warn!("Focused application's AppMenu was not imported: {error}");
                 if current_active_window_id() == Some(exporter.window_id) {
-                    button.set_sensitive(true);
+                    *failure_state.borrow_mut() = Some(exporter.clone());
+                    button.set_sensitive(false);
                     button.set_tooltip_text(Some(
                         "The focused application's AppMenu is unavailable; use its local menu",
                     ));
@@ -587,7 +634,11 @@ fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExpo
             Err(TryRecvError::Empty) => glib::ControlFlow::Continue,
             Err(TryRecvError::Disconnected) => {
                 if current_active_window_id() == Some(exporter.window_id) {
-                    button.set_sensitive(true);
+                    *failure_state.borrow_mut() = Some(exporter.clone());
+                    button.set_sensitive(false);
+                    button.set_tooltip_text(Some(
+                        "The focused application's AppMenu is unavailable; use its local menu",
+                    ));
                 } else {
                     button.set_sensitive(false);
                     button.set_tooltip_text(Some(

@@ -125,6 +125,9 @@ static DBusHandlerResult handle_message(DBusConnection *connection,
             dbus_error_free(&error);
             reply = dbus_message_new_error(message, DBUS_ERROR_INVALID_ARGS,
                                             "Expected (isvu) DBusMenu Event");
+        } else if (!event || strcmp(event, "clicked") != 0) {
+            reply = dbus_message_new_error(message, DBUS_ERROR_INVALID_ARGS,
+                                            "Only the DBusMenu clicked event is accepted");
         } else {
             FILE *events = fopen(fixture->event_file, "a");
             if (events) {
