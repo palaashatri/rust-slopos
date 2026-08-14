@@ -603,7 +603,8 @@ fn open_imported_app_menu(
                     ));
                     return glib::ControlFlow::Break;
                 }
-                if show_imported_app_menu(&button, layout, exporter.clone(), failure_state.clone()) {
+                if show_imported_app_menu(&button, layout, exporter.clone(), failure_state.clone())
+                {
                     failure_state.borrow_mut().take();
                     button.set_sensitive(true);
                 } else {
@@ -663,13 +664,7 @@ fn show_imported_app_menu(
     exporter_failure: Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
 ) -> bool {
     let menu = Menu::new();
-    append_imported_menu_items(
-        &menu,
-        &layout.items,
-        &exporter,
-        &exporter_failure,
-        button,
-    );
+    append_imported_menu_items(&menu, &layout.items, &exporter, &exporter_failure, button);
     if menu.children().is_empty() {
         log::warn!("Focused application's AppMenu exported no visible items");
         return false;
