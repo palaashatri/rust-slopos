@@ -384,6 +384,9 @@ fn docker_qa_uses_fresh_visible_windows() {
     assert!(qa.contains("wait_visible_window '^SLOPOS Application Strip$'"));
     assert!(qa.contains("capture_screenshot()"));
     assert!(qa.contains("xdotool getdisplaygeometry"));
+    assert!(qa.contains("QA_STARTED_UTC"));
+    assert!(qa.contains("evidence-manifest.txt"));
+    assert!(qa.contains("DOCKER_QA_SOURCE_COMMIT"));
     assert!(qa.contains("Keep pointer-driven tooltips out of canonical evidence"));
     assert!(qa.contains("xdotool search --onlyvisible --name \"$pattern\""));
     assert!(qa.contains("--onlyvisible --name '^Software Catalogue$'"));
