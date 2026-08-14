@@ -357,7 +357,7 @@ if [[ -z "$GAME_LEVEL" || ! -f "$GAME_LEVEL" ]]; then
     -print -quit 2>/dev/null || true)"
 fi
 if [[ -z "$GAME_LEVEL" || ! -f "$GAME_LEVEL" ]]; then
-  echo "ERROR: packaged SuperTux world1/intro.stl was not found" >&2
+  echo "ERROR: packaged SuperTux world1/frosted_fields.stl was not found" >&2
   exit 1
 fi
 start_game_audio_capture
