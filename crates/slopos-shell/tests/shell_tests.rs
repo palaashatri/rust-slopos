@@ -845,9 +845,7 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("browser-dom.html"));
     assert!(qa.contains("SLOPOS_QA_SKIP_DEPS"));
     assert!(qa.contains("SLOPOS_QA_SKIP_BUILD"));
-    assert!(qa.contains(
-        "REPO_ROOT=\"$(cd -- \"$SCRIPT_DIR/..\" && pwd)\""
-    ));
+    assert!(qa.contains("REPO_ROOT=\"$(cd -- \"$SCRIPT_DIR/..\" && pwd)\""));
     assert!(qa.contains("pcmanfm \"$REPO_ROOT\""));
     assert!(qa.contains("mousepad \"$REPO_ROOT/README.md\""));
     assert!(qa.contains("ristretto \"$REPO_ROOT/assets/slopos-logo.png\""));
