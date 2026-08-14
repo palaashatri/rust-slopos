@@ -477,7 +477,7 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(appmenu.contains("MAX_MENU_ITEMS"));
     assert!(appmenu.contains("call_noreply(DBUSMENU_EVENT"));
     assert!(appmenu.contains("dot-separated ASCII bus-name grammar"));
-    assert!(appmenu.contains("D-bus object paths are `/` or slash-separated elements"));
+    assert!(appmenu.contains("D-Bus object paths are `/` or slash-separated elements"));
     assert!(qa.contains("Mousepad local menu remains upstream-owned"));
     assert!(qa.contains("EXPORTER_FIXTURE_STATUS_0"));
     assert!(qa.contains("NON_EXPORTER_STATUS_0"));
