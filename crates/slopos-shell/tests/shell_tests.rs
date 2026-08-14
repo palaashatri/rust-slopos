@@ -491,7 +491,7 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(ci.contains("x11-appmenu-real:"));
     assert!(ci.contains("github.event_name == 'workflow_dispatch'"));
     assert!(ci.contains("SLOPOS_QA_REQUIRE_REAL_APPMENU=1"));
-    assert!(ci.contains("APPMENU_REAL_IMPORT_STATUS_0"));
+    assert!(!ci.contains("APPMENU_REAL_IMPORT_STATUS_0"));
     assert!(!topbar.contains("safe DBusMenu importer is not enabled"));
     assert!(!topbar.contains("build_global_menu_bar"));
     assert!(!topbar.contains("target_shortcut_item"));
