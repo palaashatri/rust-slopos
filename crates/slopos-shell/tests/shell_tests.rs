@@ -807,6 +807,8 @@ fn retained_resolution_qa_covers_scale_matrix() {
     assert!(qa.contains("1366x768"));
     assert!(qa.contains("dimensions must be positive"));
     assert!(qa.contains("xdpyinfo -display \"$DISPLAY\""));
+    assert!(qa.contains("/dimensions:/ && !found"));
+    assert!(qa.contains("END {if (!found) exit 1}"));
     assert!(qa.contains("X11_ROOT_DIMENSIONS="));
     assert!(qa.contains(
         "OUTPUT_DIR=\"${SLOPOS_RESOLUTION_OUTPUT:-artifacts/qa/resolutions/${SCREEN}-scale${SCALE}}\""

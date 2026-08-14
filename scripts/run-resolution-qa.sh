@@ -98,7 +98,7 @@ Xvfb :99 -screen 0 "${SCREEN_WIDTH}x${SCREEN_HEIGHT}x24" >"$OUTPUT_DIR/xvfb.log"
 XVFB_PID=$!
 ROOT_DIMENSIONS=""
 for _ in $(seq 1 40); do
-  ROOT_DIMENSIONS="$(xdpyinfo -display "$DISPLAY" 2>/dev/null | awk '/dimensions:/{print $2; exit}')"
+  ROOT_DIMENSIONS="$(xdpyinfo -display "$DISPLAY" 2>/dev/null | awk '/dimensions:/ && !found {print $2; found=1} END {if (!found) exit 1}')"
   [[ "$ROOT_DIMENSIONS" == "$SCREEN" ]] && break
   sleep 0.25
 done
