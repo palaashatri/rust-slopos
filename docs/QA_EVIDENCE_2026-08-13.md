@@ -100,6 +100,14 @@ and its direct session-bus `GetLayout`/`Event` round-trip recorded
 `DBUSMENU_FIXTURE_ROUNDTRIP_STATUS_0`; this does not replace the full GTK/Xvfb
 click-through.
 
+The exact-head hosted run [#605](https://github.com/palaashatri/rust-slopos/actions/runs/31763457747)
+for `5b784f0` then completed successfully. All 17 non-skipped jobs passed:
+locked build/test/lint, rustfmt, release, Xvfb/Openbox smoke, benchmark,
+AT-SPI named surfaces, Orca, Settings delegation, `de_DE`/`fr_FR` locale legs
+and all five retained-resolution legs. The manual real-AppMenu importer job
+was skipped, so this run is not evidence of a real upstream exporter or a
+100/100 visual/hardware release.
+
 ## Release accounting boundary
 
 The inspected artifacts and current rerun markers support bounded capability,
