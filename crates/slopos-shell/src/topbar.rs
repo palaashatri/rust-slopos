@@ -514,9 +514,7 @@ fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExpo
     // out of X11 focus, so this check still sees the upstream window while
     // the panel button is being clicked.
     if current_active_window_id() != Some(exporter.window_id) {
-        log::info!(
-            "Focused X11 application changed before AppMenu click; keeping its local menu"
-        );
+        log::info!("Focused X11 application changed before AppMenu click; keeping its local menu");
         button.set_sensitive(false);
         button.set_tooltip_text(Some(
             "Focused application changed; use the current application's local menu",
@@ -554,9 +552,7 @@ fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExpo
         match receiver.try_recv() {
             Ok(Ok(layout)) => {
                 if current_active_window_id() != Some(exporter.window_id) {
-                    log::info!(
-                        "Focused X11 application changed before AppMenu layout was shown"
-                    );
+                    log::info!("Focused X11 application changed before AppMenu layout was shown");
                     button.set_sensitive(false);
                     button.set_tooltip_text(Some(
                         "Focused application changed; use the current application's local menu",

@@ -24,6 +24,10 @@ fi
 
 SCREEN_WIDTH="${SCREEN%x*}"
 SCREEN_HEIGHT="${SCREEN#*x}"
+if (( SCREEN_WIDTH < 1 || SCREEN_HEIGHT < 1 )); then
+  echo "SLOPOS_RESOLUTION dimensions must be positive: $SCREEN" >&2
+  exit 2
+fi
 SCREEN_TAG="${SCREEN//x/_}"
 OUTPUT_DIR="${SLOPOS_RESOLUTION_OUTPUT:-artifacts/qa/resolutions/${SCREEN_TAG}-scale${SCALE}}"
 DBUS_ENV_FILE="$XDG_RUNTIME_DIR/dbus-env.sh"
@@ -80,6 +84,12 @@ export GDK_SCALE="$SCALE"
 Xvfb :99 -screen 0 "${SCREEN_WIDTH}x${SCREEN_HEIGHT}x24" >"$OUTPUT_DIR/xvfb.log" 2>&1 &
 XVFB_PID=$!
 sleep 2
+ROOT_DIMENSIONS="$(xdpyinfo -display "$DISPLAY" 2>/dev/null | awk '/dimensions:/{print $2; exit}')"
+test "$ROOT_DIMENSIONS" = "$SCREEN" || {
+  echo "ERROR: X11 root dimensions are ${ROOT_DIMENSIONS:-unknown}, expected $SCREEN" >&2
+  exit 1
+}
+echo "X11_ROOT_DIMENSIONS=$ROOT_DIMENSIONS"
 xsetroot -solid "#758090"
 rm -f "$DBUS_ENV_FILE"
 dbus-run-session -- bash -c '
@@ -141,6 +151,8 @@ DOCK_HEIGHT="$HEIGHT"
 if [[ "$SCALE" == 1 ]]; then
   test "$TOPBAR_WIDTH" = "$SCREEN_WIDTH"
 fi
+MIN_TOPBAR_WIDTH=$((SCREEN_WIDTH / SCALE))
+test "$TOPBAR_WIDTH" -ge "$MIN_TOPBAR_WIDTH"
 test "$TOPBAR_HEIGHT" -ge 20
 test "$DOCK_WIDTH" -ge 300
 test "$DOCK_HEIGHT" -ge 40

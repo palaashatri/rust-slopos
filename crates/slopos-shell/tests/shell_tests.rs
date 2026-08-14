@@ -266,6 +266,9 @@ fn installed_vm_harness_requires_efi_xrandr_and_nvme_safe_partitioning() {
     assert!(qa.contains("command -v xrandr"));
     assert!(qa.contains("xrandr reports no connected output"));
     assert!(qa.contains("X11_ACTIVE_REFRESH_HZ="));
+    assert!(qa.contains("X11_AVAILABLE_REFRESH_HZ="));
+    assert!(qa.contains("SLOPOS_MIN_REFRESH_HZ"));
+    assert!(qa.contains("X11_MIN_REFRESH_HZ_STATUS_0"));
     assert!(qa.contains("does not claim physical high-refresh or"));
     assert!(qa.contains("VRR support"));
 }
@@ -757,8 +760,18 @@ fn retained_resolution_qa_covers_scale_matrix() {
     assert!(qa.contains("SLOPOS_SCALE"));
     assert!(qa.contains("GDK_SCALE"));
     assert!(qa.contains("1366x768"));
+    assert!(qa.contains("dimensions must be positive"));
+    assert!(qa.contains("xdpyinfo -display \"$DISPLAY\""));
+    assert!(qa.contains("X11_ROOT_DIMENSIONS="));
     assert!(qa.contains("RESOLUTION_QA_STATUS_0"));
     assert!(qa.contains("identify -format '%wx%h'"));
     assert!(qa.contains("capture_screenshot"));
     assert!(qa.contains("xdotool getdisplaygeometry"));
+
+    let ci = include_str!("../../../.github/workflows/ci.yml");
+    for screen in ["3440x1440", "3840x2160", "5120x2880", "7680x4320"] {
+        assert!(ci.contains(screen), "missing retained resolution {screen}");
+    }
+    assert!(ci.contains("2560x1600"));
+    assert!(ci.contains("scale: 2"));
 }

@@ -65,6 +65,37 @@ echo "screen=${screen_width}x${screen_height}"
 current_mode_line="$(sed -nE '/ connected /,/^[^[:space:]]/ { /\*/ { print; exit } }' <<<"$XRANDR_CURRENT")"
 refresh_token="$(grep -oE '[0-9]+([.][0-9]+)?\*' <<<"$current_mode_line" | head -1 | tr -d '*' || true)"
 echo "X11_ACTIVE_REFRESH_HZ=${refresh_token:-unknown}"
+# Keep the full rate list as diagnostic evidence too.  A real XRandR driver
+# may advertise several modes on the connected output; recording them makes a
+# later high-refresh review reproducible without pretending that Xvfb or a VM
+# proves physical panel timing, VRR, or GPU bandwidth.
+available_refresh_hz="$(awk '
+  / connected / && !seen { in_output=1; seen=1; next }
+  in_output && /^[^[:space:]]/ { exit }
+  in_output && /^[[:space:]]+[0-9]+x[0-9]+[[:space:]]/ {
+    line=$0
+    sub(/^[[:space:]]+[0-9]+x[0-9]+[[:space:]]+/, "", line)
+    gsub(/[+*]/, "", line)
+    count=split(line, rates, /[[:space:]]+/)
+    for (i=1; i<=count; i++) {
+      if (rates[i] ~ /^[0-9]+([.][0-9]+)?$/) {
+        printf "%s%s", separator, rates[i]
+        separator=" "
+      }
+    }
+  }
+' <<<"$XRANDR_CURRENT")"
+echo "X11_AVAILABLE_REFRESH_HZ=${available_refresh_hz:-unknown}"
+if [[ -n "${SLOPOS_MIN_REFRESH_HZ:-}" ]]; then
+  [[ "$SLOPOS_MIN_REFRESH_HZ" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
+    fail "SLOPOS_MIN_REFRESH_HZ must be numeric"
+  [[ "$refresh_token" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
+    fail "active X11 refresh rate is unknown; cannot satisfy SLOPOS_MIN_REFRESH_HZ=$SLOPOS_MIN_REFRESH_HZ"
+  awk -v actual="$refresh_token" -v minimum="$SLOPOS_MIN_REFRESH_HZ" \
+    'BEGIN { exit !(actual + 0 >= minimum + 0) }' ||
+    fail "active X11 refresh ${refresh_token}Hz is below requested ${SLOPOS_MIN_REFRESH_HZ}Hz"
+  echo "X11_MIN_REFRESH_HZ_STATUS_0=${SLOPOS_MIN_REFRESH_HZ}"
+fi
 
 step "launcher singleton and keyboard behavior"
 before="$(pgrep -xc slopos-shell)"
