@@ -7,10 +7,7 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 export DISPLAY=:99
 export XDG_RUNTIME_DIR=/tmp/slopos-resolution-qa-runtime
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-cd "$REPO_ROOT"
-export SLOPOS_OPENBOX_CONFIG="${SLOPOS_OPENBOX_CONFIG:-$REPO_ROOT/assets/config/openbox/rc.xml}"
+export SLOPOS_OPENBOX_CONFIG=/workspace/assets/config/openbox/rc.xml
 export SLOPOS_QA_NO_WELCOME=1
 export GDK_BACKEND=x11
 
