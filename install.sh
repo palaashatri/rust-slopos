@@ -58,6 +58,21 @@ if [[ "$DISTRO" != "arch" && "$DISTRO" != "ubuntu" ]]; then
   exit 2
 fi
 
+# Refuse ambiguous relative destinations before any package or filesystem
+# mutation.  A relative prefix/session directory can otherwise install a
+# descriptor under the caller's current directory and leave the display
+# manager unable to discover it.
+for install_path_name in PREFIX XSESSION_DIR; do
+  install_path_value="${!install_path_name}"
+  case "$install_path_value" in
+    /*) ;;
+    *)
+      echo "ERROR: $install_path_name must be an absolute path: $install_path_value" >&2
+      exit 2
+      ;;
+  esac
+done
+
 echo "=== SLOPOS-I X11 Installer ==="
 echo "Distribution family: $DISTRO"
 echo "Prefix: $PREFIX"
