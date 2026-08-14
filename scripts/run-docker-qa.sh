@@ -12,7 +12,7 @@ export SLOPOS_OPENBOX_CONFIG="${SLOPOS_OPENBOX_CONFIG:-$REPO_ROOT/assets/config/
 export SLOPOS_QA_NO_WELCOME=1
 DBUS_ENV_FILE="$XDG_RUNTIME_DIR/dbus-env.sh"
 QA_STARTED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)"
+SOURCE_COMMIT="${SOURCE_SHA:-$(git -C "$REPO_ROOT" rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)}"
 mkdir -p "$XDG_RUNTIME_DIR" artifacts/qa/screenshots
 chmod 700 "$XDG_RUNTIME_DIR"
 

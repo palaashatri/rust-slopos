@@ -37,7 +37,7 @@ FIREFOX_PROFILE=/tmp/slopos-firefox-qa-profile
 BROWSER_URL="file://$BROWSER_FIXTURE"
 GAME_AUDIO_CAPTURE_PID=""
 QA_STARTED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)"
+SOURCE_COMMIT="${SOURCE_SHA:-$(git -C "$REPO_ROOT" rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)}"
 
 mkdir -p "$XDG_RUNTIME_DIR" artifacts/qa/app-matrix
 chmod 700 "$XDG_RUNTIME_DIR"

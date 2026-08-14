@@ -40,7 +40,7 @@ SCREEN_TAG="${SCREEN//x/_}"
 OUTPUT_DIR="${SLOPOS_RESOLUTION_OUTPUT:-artifacts/qa/resolutions/${SCREEN}-scale${SCALE}}"
 DBUS_ENV_FILE="$XDG_RUNTIME_DIR/dbus-env.sh"
 QA_STARTED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)"
+SOURCE_COMMIT="${SOURCE_SHA:-$(git -C "$REPO_ROOT" rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)}"
 
 mkdir -p "$XDG_RUNTIME_DIR" "$OUTPUT_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
