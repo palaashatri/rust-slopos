@@ -359,7 +359,8 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(topbar.contains("Focused X11 application changed before AppMenu click"));
     assert!(topbar.contains("Focused X11 application changed before AppMenu event"));
     assert!(topbar.contains("Focused X11 application changed before AppMenu layout was shown"));
-    assert!(topbar.contains("enabled menu item whose activation would do nothing"));
+    assert!(topbar.contains("never show an enabled"));
+    assert!(topbar.contains("menu item whose activation would do nothing"));
     assert!(topbar.contains("no visible items; use its local menu"));
     assert!(docker_qa.contains("APPMENU_FOCUS_BEFORE"));
     assert!(docker_qa.contains("APPMENU_FOCUS_AFTER"));
