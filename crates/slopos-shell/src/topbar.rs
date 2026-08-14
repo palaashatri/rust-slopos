@@ -538,10 +538,17 @@ fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExpo
     glib::timeout_add_local(Duration::from_millis(25), move || {
         if Instant::now() >= deadline {
             log::warn!("Focused application's AppMenu import exceeded its UI deadline");
-            button.set_sensitive(true);
-            button.set_tooltip_text(Some(
-                "The focused application's AppMenu timed out; use its local menu",
-            ));
+            if current_active_window_id() == Some(exporter.window_id) {
+                button.set_sensitive(true);
+                button.set_tooltip_text(Some(
+                    "The focused application's AppMenu timed out; use its local menu",
+                ));
+            } else {
+                button.set_sensitive(false);
+                button.set_tooltip_text(Some(
+                    "Focused application changed; use the current application's local menu",
+                ));
+            }
             return glib::ControlFlow::Break;
         }
         match receiver.try_recv() {
@@ -556,21 +563,41 @@ fn open_imported_app_menu(button: &Button, exporter: Option<appmenu::AppMenuExpo
                     ));
                     return glib::ControlFlow::Break;
                 }
-                button.set_sensitive(true);
-                show_imported_app_menu(&button, layout, exporter.clone());
+                if show_imported_app_menu(&button, layout, exporter.clone()) {
+                    button.set_sensitive(true);
+                } else {
+                    button.set_sensitive(false);
+                    button.set_tooltip_text(Some(
+                        "The focused application's AppMenu has no visible items; use its local menu",
+                    ));
+                }
                 glib::ControlFlow::Break
             }
             Ok(Err(error)) => {
                 log::warn!("Focused application's AppMenu was not imported: {error}");
-                button.set_sensitive(true);
-                button.set_tooltip_text(Some(
-                    "The focused application's AppMenu is unavailable; use its local menu",
-                ));
+                if current_active_window_id() == Some(exporter.window_id) {
+                    button.set_sensitive(true);
+                    button.set_tooltip_text(Some(
+                        "The focused application's AppMenu is unavailable; use its local menu",
+                    ));
+                } else {
+                    button.set_sensitive(false);
+                    button.set_tooltip_text(Some(
+                        "Focused application changed; use the current application's local menu",
+                    ));
+                }
                 glib::ControlFlow::Break
             }
             Err(TryRecvError::Empty) => glib::ControlFlow::Continue,
             Err(TryRecvError::Disconnected) => {
-                button.set_sensitive(true);
+                if current_active_window_id() == Some(exporter.window_id) {
+                    button.set_sensitive(true);
+                } else {
+                    button.set_sensitive(false);
+                    button.set_tooltip_text(Some(
+                        "Focused application changed; use the current application's local menu",
+                    ));
+                }
                 glib::ControlFlow::Break
             }
         }
@@ -586,12 +613,12 @@ fn show_imported_app_menu(
     button: &Button,
     layout: appmenu::AppMenuLayout,
     exporter: appmenu::AppMenuExporter,
-) {
+) -> bool {
     let menu = Menu::new();
     append_imported_menu_items(&menu, &layout.items, &exporter);
     if menu.children().is_empty() {
         log::warn!("Focused application's AppMenu exported no visible items");
-        return;
+        return false;
     }
     menu.show_all();
     menu.popup_at_widget(
@@ -600,6 +627,7 @@ fn show_imported_app_menu(
         gdk::Gravity::NorthWest,
         None,
     );
+    true
 }
 
 fn append_imported_menu_items(
@@ -622,6 +650,12 @@ fn append_imported_menu_items(
             let submenu = Menu::new();
             append_imported_menu_items(&submenu, &item.children, exporter);
             menu_item.set_submenu(Some(&submenu));
+        } else if item.kind == appmenu::AppMenuItemKind::Submenu {
+            // A depth-limited or malformed exporter can advertise a submenu
+            // without returning children.  Keep the protocol label visible
+            // only as an explicit unavailable state; never show an enabled
+            // menu item whose activation would do nothing.
+            menu_item.set_sensitive(false);
         } else if item.kind == appmenu::AppMenuItemKind::Standard {
             let exporter = exporter.clone();
             let item_id = item.id;
