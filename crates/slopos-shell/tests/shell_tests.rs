@@ -853,6 +853,7 @@ fn browser_integration_is_upstream_and_no_fork() {
 #[test]
 fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     let qa = include_str!("../../../scripts/run-arch-app-qa.sh");
+    let ci = include_str!("../../../.github/workflows/ci.yml");
     for role in [
         "file-manager",
         "terminal",
@@ -926,6 +927,12 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("GAME_AUDIO_NONZERO_BYTES"));
     assert!(qa.contains("PulseAudio monitor capture is empty or silent"));
     assert!(qa.contains("SLOPOS-I Arch upstream application/browser/game evidence PASS"));
+    assert!(ci.contains("x11-arch-app-matrix:"));
+    assert!(ci.contains("if: github.event_name == 'workflow_dispatch'"));
+    assert!(ci.contains("archlinux:base-devel"));
+    assert!(ci.contains("SLOPOS_QA_SKIP_BUILD=1"));
+    assert!(ci.contains("BROWSER_FIREFOX_STATUS_0"));
+    assert!(ci.contains("game_audio_bytes="));
 
     for manifest in [
         include_str!("../../../packaging/deps/arch.txt"),

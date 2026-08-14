@@ -430,6 +430,70 @@ jobs:
             /tmp/slopos-qa-dbusmenu.events
             /tmp/slopos-qa-upstream-dbusmenu.monitor
 
+  x11-arch-app-matrix:
+    name: Manual Arch upstream applications and game evidence
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install release-build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            libssl-dev libdbus-1-dev
+      - name: Build exact release workspace
+        run: cargo build --workspace --release --locked
+      - name: Run Arch application/browser/game gate in disposable container
+        id: arch-app-qa
+        shell: bash
+        run: |
+          set +e
+          set -o pipefail
+          mkdir -p artifacts/qa/app-matrix
+          docker run --rm --shm-size=2g \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --workdir /workspace \
+            --env SOURCE_SHA="$SOURCE_SHA" \
+            --env SLOPOS_QA_SKIP_BUILD=1 \
+            archlinux:base-devel \
+            bash scripts/run-arch-app-qa.sh 2>&1 | tee "$RUNNER_TEMP/arch-app-qa.log"
+          status="${PIPESTATUS[0]}"
+          sudo chown -R "$USER":"$USER" artifacts/qa || true
+          if [ "$status" -ne 0 ]; then
+            escaped="$(tail -n 60 "$RUNNER_TEMP/arch-app-qa.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+            echo "::error file=arch-app-qa.log,line=1,title=Arch application QA failure::$escaped"
+          fi
+          exit "$status"
+      - name: Require complete application and game evidence
+        run: |
+          set -euo pipefail
+          grep -Fq "ARCH_APP_QA_SOURCE_COMMIT=$SOURCE_SHA" "$RUNNER_TEMP/arch-app-qa.log"
+          grep -Fq 'ARCH_APP_QA_STATUS_0' "$RUNNER_TEMP/arch-app-qa.log"
+          grep -Fq 'BROWSER_CHROMIUM_STATUS_0' "$RUNNER_TEMP/arch-app-qa.log"
+          grep -Fq 'BROWSER_FIREFOX_STATUS_0' "$RUNNER_TEMP/arch-app-qa.log"
+          grep -Fq 'game_audio_bytes=' "$RUNNER_TEMP/arch-app-qa.log"
+          test "$(find artifacts/qa/app-matrix -maxdepth 1 -name '*.png' | wc -l)" -ge 7
+          test -s artifacts/qa/app-matrix/evidence-manifest.txt
+          grep -Fq "source_commit=$SOURCE_SHA" artifacts/qa/app-matrix/evidence-manifest.txt
+      - name: Upload Arch application/browser/game evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slopos-arch-app-matrix-${{ env.SOURCE_SHA }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/qa/app-matrix/
+            ${{ runner.temp }}/arch-app-qa.log
+
   x11-atspi-acceptance:
     name: AT-SPI named surfaces and focus acceptance
     runs-on: ubuntu-latest
