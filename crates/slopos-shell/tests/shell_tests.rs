@@ -167,8 +167,14 @@ fn bundled_theme_metadata_uses_redistributable_fonts() {
             include_str!("../../../themes/oled-graphite/Typography.toml"),
         ),
     ] {
-        assert!(!metadata.contains("SF Pro"), "{name} ships a proprietary font");
-        assert!(!metadata.contains("SF Mono"), "{name} ships a proprietary font");
+        assert!(
+            !metadata.contains("SF Pro"),
+            "{name} ships a proprietary font"
+        );
+        assert!(
+            !metadata.contains("SF Mono"),
+            "{name} ships a proprietary font"
+        );
         assert!(
             metadata.contains("Liberation Sans") || metadata.contains("DejaVu Sans Mono"),
             "{name} does not name a redistributable font"
