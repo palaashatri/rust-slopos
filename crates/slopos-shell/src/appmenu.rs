@@ -372,6 +372,13 @@ fn parse_children<'a>(value: Value<'a>) -> Result<Vec<Structure<'a>>, AppMenuImp
             "children are not an array".to_string(),
         ));
     };
+    // Check the wire length before reserving memory.  An exporter can report
+    // an arbitrarily large array even when the shell will only accept a
+    // bounded menu, so using `with_capacity(array.len())` first would make
+    // malformed input an avoidable allocation/DoS vector.
+    if array.len() > MAX_MENU_ITEMS {
+        return Err(AppMenuImportError::LimitExceeded("children"));
+    }
     let mut children = Vec::with_capacity(array.len());
     for child in array.iter() {
         let child = child
@@ -454,20 +461,34 @@ fn read_property(connection: &RustConnection, window: Window, atom: u32) -> Opti
 fn valid_bus_name(value: &str) -> bool {
     // `_GTK_UNIQUE_BUS_NAME` must contain a D-Bus unique name, not merely a
     // string that happens to begin with `:`.  Restricting this to the
-    // dot-separated ASCII bus-name grammar prevents a malformed X11 property
-    // from steering the worker toward an arbitrary destination.
+    // dot-separated ASCII unique-name grammar prevents a malformed X11
+    // property from steering the worker toward an arbitrary destination.
+    // Unique-name elements may begin with digits (and may contain `-`), so
+    // this deliberately follows the D-Bus grammar instead of assuming only
+    // the usual daemon-assigned `:1.42` shape.
+    if value.len() > 255 {
+        return false;
+    }
     let Some(body) = value.strip_prefix(':') else {
         return false;
     };
-    let components = body.split('.').collect::<Vec<_>>();
-    value.len() <= 255
-        && components.len() >= 2
-        && components.iter().all(|component| {
-            !component.is_empty()
-                && component
-                    .bytes()
-                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
-        })
+    let mut components = body.split('.');
+    let Some(first) = components.next() else {
+        return false;
+    };
+    let Some(second) = components.next() else {
+        return false;
+    };
+    valid_bus_name_component(first)
+        && valid_bus_name_component(second)
+        && components.all(valid_bus_name_component)
+}
+
+fn valid_bus_name_component(component: &str) -> bool {
+    !component.is_empty()
+        && component
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
 }
 
 fn valid_object_path(value: &str) -> bool {
@@ -495,6 +516,7 @@ fn valid_object_path(value: &str) -> bool {
 mod tests {
     use super::{
         parse_layout, valid_bus_name, valid_object_path, AppMenuImportError, AppMenuItemKind,
+        MAX_MENU_ITEMS,
     };
     use zbus::zvariant::{Array, Dict, Signature, Structure, StructureBuilder, Value};
 
@@ -532,6 +554,8 @@ mod tests {
         assert!(valid_bus_name(":1.42"));
         assert!(valid_bus_name(":1.2.3"));
         assert!(valid_bus_name(":1foo.42"));
+        assert!(valid_bus_name(":34-907.1"));
+        assert!(valid_bus_name(":org.gnome.Service-for_you"));
         assert!(!valid_bus_name("org.example.App"));
         assert!(!valid_bus_name(":"));
         assert!(!valid_bus_name(":1foo"));
@@ -539,7 +563,20 @@ mod tests {
         assert!(!valid_bus_name(":1..2"));
         assert!(!valid_bus_name(":1.f?"));
         assert!(!valid_bus_name(":1 42"));
+        assert!(!valid_bus_name(":1.é"));
         assert!(!valid_bus_name(""));
+    }
+
+    #[test]
+    fn rejects_oversized_child_arrays_before_reserving_memory() {
+        let children = (0..=MAX_MENU_ITEMS)
+            .map(|id| node(id as i32, vec![], vec![]))
+            .collect();
+        let root = node(0, vec![], children);
+        assert!(matches!(
+            parse_layout(1, root),
+            Err(AppMenuImportError::LimitExceeded("children"))
+        ));
     }
 
     #[test]
