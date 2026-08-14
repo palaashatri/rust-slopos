@@ -603,12 +603,7 @@ fn open_imported_app_menu(
                     ));
                     return glib::ControlFlow::Break;
                 }
-                if show_imported_app_menu(
-                    &button,
-                    layout,
-                    exporter.clone(),
-                    failure_state.clone(),
-                ) {
+                if show_imported_app_menu(&button, layout, exporter.clone(), failure_state.clone()) {
                     failure_state.borrow_mut().take();
                     button.set_sensitive(true);
                 } else {
