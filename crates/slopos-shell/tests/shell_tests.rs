@@ -802,6 +802,8 @@ fn retained_resolution_qa_covers_scale_matrix() {
     assert!(qa.contains("SLOPOS_SCALE"));
     assert!(qa.contains("GDK_SCALE"));
     assert!(qa.contains("REPO_ROOT/assets/config/openbox/rc.xml"));
+    assert!(qa.contains("export GTK_THEME=slopos-gtk"));
+    assert!(qa.contains("if (( EUID == 0 )); then"));
     assert!(qa.contains("1366x768"));
     assert!(qa.contains("dimensions must be positive"));
     assert!(qa.contains("xdpyinfo -display \"$DISPLAY\""));

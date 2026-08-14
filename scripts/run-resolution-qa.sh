@@ -73,12 +73,17 @@ else
   fi
 fi
 
-mkdir -p "$HOME/.themes/slopos-openbox/openbox-3" /usr/share/themes/slopos-openbox/openbox-3
+mkdir -p "$HOME/.themes/slopos-openbox/openbox-3"
 cp themes/slopos-openbox/openbox-3/themerc "$HOME/.themes/slopos-openbox/openbox-3/themerc"
-cp themes/slopos-openbox/openbox-3/themerc /usr/share/themes/slopos-openbox/openbox-3/themerc
-mkdir -p /usr/share/themes/slopos-gtk/gtk-3.0 "$HOME/.config/gtk-3.0"
-cp assets/config/gtk-3.0/gtk.css /usr/share/themes/slopos-gtk/gtk-3.0/gtk.css
+mkdir -p "$HOME/.themes/slopos-gtk/gtk-3.0" "$HOME/.config/gtk-3.0"
+cp assets/config/gtk-3.0/gtk.css "$HOME/.themes/slopos-gtk/gtk-3.0/gtk.css"
 cp assets/config/gtk-3.0/gtk.css "$HOME/.config/gtk-3.0/gtk.css"
+export GTK_THEME=slopos-gtk
+if (( EUID == 0 )); then
+  mkdir -p /usr/share/themes/slopos-openbox/openbox-3 /usr/share/themes/slopos-gtk/gtk-3.0
+  cp themes/slopos-openbox/openbox-3/themerc /usr/share/themes/slopos-openbox/openbox-3/themerc
+  cp assets/config/gtk-3.0/gtk.css /usr/share/themes/slopos-gtk/gtk-3.0/gtk.css
+fi
 
 if [[ "${SLOPOS_QA_SKIP_BUILD:-0}" == 1 && -x target/release/slopos-session ]]; then
   echo "[2/5] Using the existing release workspace build"
