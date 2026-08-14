@@ -141,7 +141,11 @@ try {
         throw "Installed source commit $sourceCommit does not match expected $ExpectedCommit"
     }
 
-    $remoteQa = "DISPLAY=:0 XAUTHORITY=/home/$SshUser/.Xauthority bash /home/$SshUser/slopos-i/packaging/vm/qa-vm.sh"
+    # Pass the already-verified identity into the guest harness too.  The
+    # standalone in-guest script remains useful, but the installed-VM marker
+    # must be impossible to obtain from a different checkout than the one the
+    # host requested.
+    $remoteQa = "DISPLAY=:0 XAUTHORITY=/home/$SshUser/.Xauthority SLOPOS_SOURCE_ROOT=/home/$SshUser/slopos-i SLOPOS_EXPECTED_COMMIT=$ExpectedCommit bash /home/$SshUser/slopos-i/packaging/vm/qa-vm.sh"
     Write-Host "Running installed VM QA at source commit $sourceCommit"
     $qaResult = Invoke-SshCapture -Arguments @($sshArgs + @("$SshUser@127.0.0.1", $remoteQa))
     $qaExit = $qaResult.ExitCode

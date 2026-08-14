@@ -140,6 +140,17 @@ fn platinum_openbox_active_titlebar_uses_readable_gradient() {
 }
 
 #[test]
+fn legacy_openbox_theme_path_matches_installed_theme_source() {
+    let canonical = include_str!("../../../themes/slopos-openbox/openbox-3/themerc")
+        .replace("\r\n", "\n");
+    let legacy = include_str!("../../../themes/slopos-openbox/themerc").replace("\r\n", "\n");
+    assert_eq!(
+        canonical, legacy,
+        "duplicate Openbox theme paths must not drift apart"
+    );
+}
+
+#[test]
 fn bundled_theme_metadata_uses_redistributable_fonts() {
     for (name, metadata) in [
         (
@@ -265,6 +276,10 @@ fn installed_vm_source_scan_only_checks_shipping_files() {
     assert!(qa.contains("SLOPOS_SOURCE_CONTRACT_STATUS_0"));
     assert!(qa.contains("scripts/start-slopos-i"));
     assert!(qa.contains("packaging/vm/arch-install.sh"));
+    assert!(qa.contains("SLOPOS_SOURCE_ROOT must be an absolute path"));
+    assert!(qa.contains("SLOPOS_EXPECTED_COMMIT must be a full 40-character commit SHA"));
+    assert!(qa.contains("does not match expected $SLOPOS_EXPECTED_COMMIT"));
+    assert!(qa.contains("SLOPOS_SOURCE_COMMIT="));
     assert!(qa.contains("obsolete display-stack reference remains in shipping file"));
     assert!(!qa.contains("grep -RIEq"));
     assert!(!qa.contains("--exclude='qa-vm.sh'"));
@@ -303,6 +318,8 @@ fn installed_vm_harness_pins_source_and_collects_status() {
     assert!(qa.contains("LogLevel=ERROR"));
     assert!(qa.contains("git -C /home/$SshUser/slopos-i rev-parse HEAD"));
     assert!(qa.contains("packaging/vm/qa-vm.sh"));
+    assert!(qa.contains("SLOPOS_SOURCE_ROOT=/home/$SshUser/slopos-i"));
+    assert!(qa.contains("SLOPOS_EXPECTED_COMMIT=$ExpectedCommit"));
     assert!(qa.contains("screenshotpng"));
     assert!(qa.contains("INSTALLED_VM_QA_STATUS_0"));
     assert!(qa.contains("SLOPOS_X11_INSTALLED_VM_QA=PASS"));
@@ -352,6 +369,12 @@ fn vm_recreate_checks_state_before_poweroff() {
     assert!(create_vm.contains("showvminfo $VmName --machinereadable"));
     assert!(create_vm.contains("Unable to determine the state of existing VM"));
     assert!(create_vm.contains("Refusing to delete VM $VmName in unsupported state"));
+    assert!(create_vm.contains("VmName must not be empty"));
+    assert!(create_vm.contains("IsoSha256 must be a 64-character SHA-256 digest"));
+    assert!(create_vm.contains("ISO must be a regular file"));
+    assert!(create_vm.contains("ISO must be non-empty"));
+    assert!(create_vm.contains("Get-FileHash -LiteralPath $IsoPath -Algorithm SHA256"));
+    assert!(create_vm.contains("does not match expected $IsoSha256"));
     assert!(create_vm.contains("'saved'"));
     assert!(create_vm.contains("controlvm $VmName poweroff"));
     assert!(create_vm.contains("MemoryMB must be positive"));
@@ -366,6 +389,7 @@ fn recovery_preserves_config_and_requires_fresh_children() {
     assert!(recovery.contains("refusing an unsafe HOME"));
     assert!(recovery.contains("HOME must be an absolute path"));
     assert!(recovery.contains("backup destination must be an absolute path"));
+    assert!(recovery.contains("refusing a symlinked config parent"));
     assert!(recovery
         .contains("BACKUP_DIR=\"${SLOPOS_RECOVERY_BACKUP_DIR:-$HOME_DIR/slopos-config-backup-"));
     assert!(recovery.contains("-L \"$CONFIG_DIR\""));
@@ -498,6 +522,15 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(!qa.contains("/workspace/assets/config/openbox/rc.xml"));
     assert!(qa.contains("SLOPOS AppMenu capability evidence PASS"));
     assert!(docker_qa.contains("APPMENU_REAL_IMPORT_STATUS_0"));
+    assert!(docker_qa.contains("SLOPOS_QA_USE_UPSTREAM_APPMENU"));
+    assert!(docker_qa.contains("SLOPOS_QA_REQUIRE_UPSTREAM_APPMENU"));
+    assert!(docker_qa.contains("APPMENU_UPSTREAM_IMPORT_STATUS_0"));
+    assert!(docker_qa.contains("dbus-monitor --session"));
+    assert!(docker_qa.contains("capture_open_popup"));
+    assert!(docker_qa.contains("APPMENU_MOUSEPAD_SCREENSHOT_CAPTURED"));
+    assert!(ci.contains("appmenu-gtk3-module"));
+    assert!(ci.contains("appmenu-registrar"));
+    assert!(ci.contains("APPMENU_UPSTREAM_IMPORT_STATUS_0"));
     assert!(docker_qa.contains("SLOPOS_QA_REQUIRE_REAL_APPMENU"));
     assert!(exporter_fixture.contains("com.canonical.dbusmenu"));
     assert!(exporter_fixture.contains("GetLayout"));
@@ -877,6 +910,11 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("unrecoverable error"));
     assert!(qa.contains("pactl list sink-inputs"));
     assert!(qa.contains("test -s artifacts/qa/app-matrix/sink-inputs.txt"));
+    assert!(qa.contains("artifact=%s sha256="));
+    assert!(qa.contains("screenshot=%s sha256="));
+    assert!(qa.contains("browser-dom.html"));
+    assert!(qa.contains("game-audio.raw"));
+    assert!(qa.contains("bytes=%s"));
     assert!(qa.contains("application\\.name = \"SuperTux 2\""));
     assert!(qa.contains("application\\.process\\.id = \"[0-9]+\""));
     assert!(qa.contains("application\\.process\\.binary = \"supertux2\""));

@@ -169,7 +169,22 @@ test -s "$QA/installed-session-${screen_width}x${screen_height}.png" || fail "VM
 
 step "source/install contract"
 source_root="${SLOPOS_SOURCE_ROOT:-$HOME/slopos-i}"
-test -d "$source_root/.git" || fail "pinned source checkout is missing: $source_root"
+case "$source_root" in
+  /*) ;;
+  *) fail "SLOPOS_SOURCE_ROOT must be an absolute path: $source_root" ;;
+esac
+test -e "$source_root/.git" || fail "pinned source checkout is missing: $source_root"
+source_commit="$(git -C "$source_root" rev-parse --verify HEAD 2>/dev/null)" ||
+  fail "pinned source checkout has no readable HEAD: $source_root"
+[[ "$source_commit" =~ ^[0-9a-fA-F]{40}$ ]] ||
+  fail "pinned source checkout reported an invalid commit: $source_commit"
+if [[ -n "${SLOPOS_EXPECTED_COMMIT:-}" ]]; then
+  [[ "$SLOPOS_EXPECTED_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]] ||
+    fail "SLOPOS_EXPECTED_COMMIT must be a full 40-character commit SHA"
+  [[ "$source_commit" == "$SLOPOS_EXPECTED_COMMIT" ]] ||
+    fail "pinned source commit $source_commit does not match expected $SLOPOS_EXPECTED_COMMIT"
+fi
+echo "SLOPOS_SOURCE_COMMIT=$source_commit"
 cd "$source_root"
 # Scan only files that can ship the product. QA helpers intentionally carry
 # negative assertions containing the forbidden terms; recursively scanning

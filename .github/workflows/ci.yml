@@ -394,7 +394,8 @@ jobs:
             mousepad ristretto zathura mpv galculator xdotool wmctrl scrot \
             imagemagick x11-utils x11-xserver-utils dbus-x11 librsvg2-common \
             curl ca-certificates adwaita-icon-theme fonts-liberation \
-            fonts-dejavu-core libnotify-bin
+            fonts-dejavu-core libnotify-bin appmenu-gtk3-module \
+            appmenu-registrar
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build exact release workspace
@@ -406,11 +407,13 @@ jobs:
           sudo -E env "PATH=$PATH" \
             SLOPOS_QA_SKIP_DEPS=1 \
             SLOPOS_QA_SKIP_BUILD=1 \
+            SLOPOS_QA_USE_UPSTREAM_APPMENU=1 \
+            SLOPOS_QA_REQUIRE_UPSTREAM_APPMENU=1 \
             SLOPOS_QA_REQUIRE_REAL_APPMENU=1 \
             bash scripts/run-docker-qa.sh 2>&1 | tee "$RUNNER_TEMP/appmenu-real.log"
           sudo chown -R "$USER":"$USER" artifacts/qa || true
       - name: Require real AppMenu evidence marker
-        run: grep -Fq 'APPMENU_REAL_IMPORT_STATUS_0' "$RUNNER_TEMP/appmenu-real.log"
+        run: grep -Fq 'APPMENU_UPSTREAM_IMPORT_STATUS_0' "$RUNNER_TEMP/appmenu-real.log"
       - name: Upload real AppMenu evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -425,6 +428,7 @@ jobs:
             ${{ runner.temp }}/appmenu-real.log
             /tmp/slopos-qa-dbusmenu.log
             /tmp/slopos-qa-dbusmenu.events
+            /tmp/slopos-qa-upstream-dbusmenu.monitor
 
   x11-atspi-acceptance:
     name: AT-SPI named surfaces and focus acceptance

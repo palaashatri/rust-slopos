@@ -4,10 +4,11 @@
 # behavior outside Xvfb. VMSVGA is used for broad Linux guest compatibility;
 # SLOPOS itself does not own the display server or graphics driver.
 #
-# Usage: pwsh -File create-vm.ps1 [-IsoPath <path>] [-Recreate]
+# Usage: pwsh -File create-vm.ps1 [-IsoPath <path>] [-IsoSha256 <sha256>] [-Recreate]
 param(
     [string]$VmName  = "slopos-i-arch",
     [string]$IsoPath = "",
+    [string]$IsoSha256 = "",
     [int]$MemoryMB   = 4096,
     [int]$Cpus       = 4,
     [int]$DiskMB     = 40960,
@@ -18,11 +19,33 @@ param(
 $ErrorActionPreference = "Stop"
 $VBox = "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe"
 if (-not (Test-Path $VBox)) { throw "VBoxManage not found at $VBox" }
+if ([string]::IsNullOrWhiteSpace($VmName)) { throw "VmName must not be empty" }
 if ($MemoryMB -lt 1) { throw "MemoryMB must be positive" }
 if ($Cpus -lt 1) { throw "Cpus must be positive" }
 if ($DiskMB -lt 1) { throw "DiskMB must be positive" }
 if ($SshPort -lt 1 -or $SshPort -gt 65535) {
     throw "SshPort must be between 1 and 65535"
+}
+if (-not [string]::IsNullOrWhiteSpace($IsoSha256) -and
+    $IsoSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+    throw "IsoSha256 must be a 64-character SHA-256 digest"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($IsoPath)) {
+    if (-not (Test-Path -LiteralPath $IsoPath -PathType Leaf)) {
+        throw "ISO must be a regular file: $IsoPath"
+    }
+    $isoInfo = Get-Item -LiteralPath $IsoPath
+    if ($isoInfo.Length -le 0) {
+        throw "ISO must be non-empty: $IsoPath"
+    }
+    $IsoPath = $isoInfo.FullName
+    $actualIsoSha256 = (Get-FileHash -LiteralPath $IsoPath -Algorithm SHA256).Hash
+    if (-not [string]::IsNullOrWhiteSpace($IsoSha256) -and
+        $actualIsoSha256 -ine $IsoSha256) {
+        throw "ISO SHA-256 $actualIsoSha256 does not match expected $IsoSha256"
+    }
+    Write-Host "ISO SHA-256: $actualIsoSha256"
 }
 
 function VB {
@@ -92,7 +115,6 @@ VB storagectl $VmName --name "SATA" --add sata --controller IntelAhci --portcoun
 VB storageattach $VmName --storagectl "SATA" --port 0 --device 0 --type hdd --medium $disk
 
 if ($IsoPath) {
-    if (-not (Test-Path $IsoPath)) { throw "ISO not found: $IsoPath" }
     VB storageattach $VmName --storagectl "SATA" --port 1 --device 0 --type dvddrive --medium $IsoPath
     VB modifyvm $VmName --boot1 dvd --boot2 disk --boot3 none --boot4 none
     Write-Host "Attached ISO: $IsoPath"

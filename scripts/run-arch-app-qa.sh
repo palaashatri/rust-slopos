@@ -530,10 +530,31 @@ test -s artifacts/qa/app-matrix/browser-dom.html
   printf 'source_commit=%s\n' "$SOURCE_COMMIT"
   printf 'started_utc=%s\n' "$QA_STARTED_UTC"
   printf 'completed_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  for image in artifacts/qa/app-matrix/*.png; do
-    printf 'screenshot=%s sha256=' "${image##*/}"
-    sha256sum "$image" | awk '{print $1}'
-    printf 'dimensions=%s\n' "$(identify -format '%wx%h' "$image")"
+  # Keep semantic browser/game evidence in the same provenance manifest as
+  # screenshots.  A PNG alone cannot prove that the DOM marker, PulseAudio
+  # stream identity, and non-silent monitor capture came from this run.
+  for evidence in \
+    artifacts/qa/app-matrix/*.png \
+    artifacts/qa/app-matrix/browser-dom.html \
+    artifacts/qa/app-matrix/sink-inputs.txt \
+    artifacts/qa/app-matrix/game-audio.raw \
+    artifacts/qa/app-matrix/game-audio.log \
+    artifacts/qa/app-matrix/browser-dom.log \
+    artifacts/qa/app-matrix/browser-firefox.log \
+    artifacts/qa/app-matrix/firefox-theme-install.log; do
+    test -f "$evidence"
+    if [[ "$evidence" == *.png ]]; then
+      # Preserve the screenshot-specific record used by existing evidence
+      # readers while adding the same digest/size provenance to semantic files.
+      printf 'screenshot=%s sha256=' "${evidence##*/}"
+    else
+      printf 'artifact=%s sha256=' "${evidence##*/}"
+    fi
+    sha256sum "$evidence" | awk '{print $1}'
+    printf 'bytes=%s\n' "$(wc -c <"$evidence" | tr -d '[:space:]')"
+    if [[ "$evidence" == *.png ]]; then
+      printf 'dimensions=%s\n' "$(identify -format '%wx%h' "$evidence")"
+    fi
   done
 } >artifacts/qa/app-matrix/evidence-manifest.txt
 test -s artifacts/qa/app-matrix/evidence-manifest.txt

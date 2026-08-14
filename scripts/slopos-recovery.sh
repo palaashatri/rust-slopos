@@ -15,6 +15,7 @@ echo "=========================================================="
 HOME_DIR="${HOME:-/root}"
 CONFIG_DIR="$HOME_DIR/.config/slopos-i"
 OPENBOX_DIR="$HOME_DIR/.config/openbox"
+CONFIG_PARENT="$HOME_DIR/.config"
 VENDOR_DIR="${SLOPOS_VENDOR_CONFIG_DIR:-/etc/slopos-i}"
 BACKUP_DIR="${SLOPOS_RECOVERY_BACKUP_DIR:-$HOME_DIR/slopos-config-backup-$(date +%Y%m%d-%H%M%S)-$$}"
 RECOVERY_LOG="${SLOPOS_RECOVERY_LOG:-${TMPDIR:-/tmp}/slopos-recovery-session-$(id -u).log}"
@@ -37,6 +38,10 @@ case "$BACKUP_DIR" in
     exit 2
     ;;
 esac
+if [[ -L "$CONFIG_PARENT" ]]; then
+  echo "slopos-recovery: refusing a symlinked config parent: $CONFIG_PARENT" >&2
+  exit 2
+fi
 
 pid_for() {
   local name="$1"
@@ -65,7 +70,7 @@ if [[ -e "$BACKUP_DIR" ]]; then
   echo "slopos-recovery: backup destination already exists: $BACKUP_DIR" >&2
   exit 2
 fi
-mkdir -p "$HOME_DIR/.config"
+mkdir -p "$CONFIG_PARENT"
 mkdir "$BACKUP_DIR"
 
 echo "[1/3] Preserving existing configuration in $BACKUP_DIR"
