@@ -117,6 +117,9 @@ echo "X11_AVAILABLE_REFRESH_HZ=${available_refresh_hz:-unknown}"
 if [[ -n "${SLOPOS_MIN_REFRESH_HZ:-}" ]]; then
   [[ "$SLOPOS_MIN_REFRESH_HZ" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
     fail "SLOPOS_MIN_REFRESH_HZ must be numeric"
+  awk -v minimum="$SLOPOS_MIN_REFRESH_HZ" \
+    'BEGIN { exit !(minimum + 0 > 0) }' ||
+    fail "SLOPOS_MIN_REFRESH_HZ must be greater than zero"
   [[ "$refresh_token" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
     fail "active X11 refresh rate is unknown; cannot satisfy SLOPOS_MIN_REFRESH_HZ=$SLOPOS_MIN_REFRESH_HZ"
   awk -v actual="$refresh_token" -v minimum="$SLOPOS_MIN_REFRESH_HZ" \

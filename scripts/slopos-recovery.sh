@@ -23,6 +23,20 @@ if [[ -z "$HOME_DIR" || "$HOME_DIR" == "/" ]]; then
   echo "slopos-recovery: refusing an unsafe HOME directory: '$HOME_DIR'" >&2
   exit 2
 fi
+case "$HOME_DIR" in
+  /*) ;;
+  *)
+    echo "slopos-recovery: HOME must be an absolute path: '$HOME_DIR'" >&2
+    exit 2
+    ;;
+esac
+case "$BACKUP_DIR" in
+  /*) ;;
+  *)
+    echo "slopos-recovery: backup destination must be an absolute path: '$BACKUP_DIR'" >&2
+    exit 2
+    ;;
+esac
 
 pid_for() {
   local name="$1"
@@ -55,10 +69,10 @@ mkdir -p "$HOME_DIR/.config"
 mkdir "$BACKUP_DIR"
 
 echo "[1/3] Preserving existing configuration in $BACKUP_DIR"
-if [[ -d "$CONFIG_DIR" ]]; then
+if [[ -d "$CONFIG_DIR" || -L "$CONFIG_DIR" || -f "$CONFIG_DIR" ]]; then
   mv -- "$CONFIG_DIR" "$BACKUP_DIR/slopos-i"
 fi
-if [[ -d "$OPENBOX_DIR" ]]; then
+if [[ -d "$OPENBOX_DIR" || -L "$OPENBOX_DIR" || -f "$OPENBOX_DIR" ]]; then
   mv -- "$OPENBOX_DIR" "$BACKUP_DIR/openbox"
 fi
 

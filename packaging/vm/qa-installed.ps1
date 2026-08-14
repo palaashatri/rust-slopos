@@ -22,6 +22,7 @@ $sourceCommitExit = $null
 $sourceCommit = ""
 $screenshotExit = $null
 $screenshotOk = $false
+$qaMarker = $false
 $failure = $null
 $statusPath = Join-Path $OutputDir "status.json"
 $qaLogPath = Join-Path $OutputDir "qa-vm.log"
@@ -149,6 +150,11 @@ try {
     if ($qaExit -ne 0) {
         throw "qa-vm.sh failed with exit code $qaExit"
     }
+    $qaText = $qaOutput -join [Environment]::NewLine
+    $qaMarker = $qaText -match '(?m)^SLOPOS_X11_INSTALLED_VM_QA=PASS\s*$'
+    if (-not $qaMarker) {
+        throw "qa-vm.sh exited successfully without SLOPOS_X11_INSTALLED_VM_QA=PASS"
+    }
 
     $savedErrorActionPreference = $ErrorActionPreference
     try {
@@ -183,10 +189,11 @@ finally {
         source_commit       = $sourceCommit
         source_commit_exit  = $sourceCommitExit
         qa_exit             = $qaExit
+        qa_marker           = $qaMarker
         screenshot_exit     = $screenshotExit
         screenshot          = $screenshotPath
         qa_log              = $qaLogPath
-        passed              = ($null -eq $failure -and $qaExit -eq 0 -and $screenshotOk)
+        passed              = ($null -eq $failure -and $qaExit -eq 0 -and $qaMarker -and $screenshotOk)
         failure             = $failure
         completed_utc       = (Get-Date).ToUniversalTime().ToString("o")
     }

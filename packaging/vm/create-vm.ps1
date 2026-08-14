@@ -38,16 +38,31 @@ if ($existing) {
         Write-Host "Removing existing VM $VmName"
         $vmState = (& $VBox showvminfo $VmName --machinereadable |
             Select-String '^VMState="([^\"]+)"$').Matches.Groups[1].Value
-        if ($vmState -in @('running', 'paused', 'stuck')) {
-            $previousErrorAction = $ErrorActionPreference
-            $ErrorActionPreference = 'Continue'
-            & $VBox controlvm $VmName poweroff 2>&1 | Out-Null
-            $poweroffExit = $LASTEXITCODE
-            $ErrorActionPreference = $previousErrorAction
-            if ($poweroffExit -ne 0) {
-                throw "VBoxManage controlvm $VmName poweroff failed ($poweroffExit)"
+        if ([string]::IsNullOrWhiteSpace($vmState)) {
+            throw "Unable to determine the state of existing VM $VmName; refusing --delete"
+        }
+        switch ($vmState) {
+            { $_ -in @('running', 'paused', 'stuck', 'starting', 'stopping') } {
+                $previousErrorAction = $ErrorActionPreference
+                $ErrorActionPreference = 'Continue'
+                & $VBox controlvm $VmName poweroff 2>&1 | Out-Null
+                $poweroffExit = $LASTEXITCODE
+                $ErrorActionPreference = $previousErrorAction
+                if ($poweroffExit -ne 0) {
+                    throw "VBoxManage controlvm $VmName poweroff failed ($poweroffExit)"
+                }
+                Start-Sleep -Seconds 2
+                break
             }
-            Start-Sleep -Seconds 2
+            'saved' {
+                VB controlvm $VmName discardstate
+                break
+            }
+            'poweroff' { break }
+            'aborted' { break }
+            default {
+                throw "Refusing to delete VM $VmName in unsupported state '$vmState'"
+            }
         }
         VB unregistervm $VmName --delete
     } else {

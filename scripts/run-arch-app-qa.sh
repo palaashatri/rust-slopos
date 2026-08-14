@@ -5,6 +5,10 @@
 # current release binary from this workspace.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 export DEBIAN_FRONTEND=noninteractive
 export DISPLAY=:99
 export XDG_RUNTIME_DIR=/tmp/slopos-app-qa-runtime
@@ -15,7 +19,7 @@ export DESKTOP_SESSION=slopos-i
 # canonical Docker scenes.  Without an installed themerc, Openbox silently
 # falls back to its distro default (typically a blue, rounded frame), which
 # makes the five-app visual evidence measure the wrong desktop.
-export SLOPOS_OPENBOX_CONFIG="${SLOPOS_OPENBOX_CONFIG:-$PWD/assets/config/openbox/rc.xml}"
+export SLOPOS_OPENBOX_CONFIG="${SLOPOS_OPENBOX_CONFIG:-$REPO_ROOT/assets/config/openbox/rc.xml}"
 export GTK_THEME=slopos-gtk
 export SLOPOS_QA_NO_WELCOME=1
 export SLOPOS_BROWSER=chromium
@@ -32,6 +36,8 @@ BROWSER_DOM_PROFILE=/tmp/slopos-browser-qa-dom
 FIREFOX_PROFILE=/tmp/slopos-firefox-qa-profile
 BROWSER_URL="file://$BROWSER_FIXTURE"
 GAME_AUDIO_CAPTURE_PID=""
+QA_STARTED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)"
 
 mkdir -p "$XDG_RUNTIME_DIR" artifacts/qa/app-matrix
 chmod 700 "$XDG_RUNTIME_DIR"
@@ -40,7 +46,8 @@ chmod 700 "$XDG_RUNTIME_DIR"
 rm -f artifacts/qa/app-matrix/*.png \
   artifacts/qa/app-matrix/sink-inputs.txt \
   artifacts/qa/app-matrix/game-audio.raw \
-  artifacts/qa/app-matrix/game-audio.log
+  artifacts/qa/app-matrix/game-audio.log \
+  artifacts/qa/app-matrix/evidence-manifest.txt
 
 cleanup() {
   set +e
@@ -241,8 +248,13 @@ run_window_app() {
   local window_pid
   window_pid="$(xdotool getwindowpid "$window")"
   test -n "$window_pid"
+  # Every retained application frame must be captured with the matched client
+  # focused. This keeps the active-window/title and global-menu evidence tied
+  # to the same X11 window that was matched by PID, even when a WM delays the
+  # initial focus request.
+  xdotool windowactivate --sync "$window"
+  test "$(xdotool getactivewindow)" = "$window"
   if [[ -n "$expected_title" ]]; then
-    xdotool windowactivate --sync "$window"
     local window_title=""
     for _ in $(seq 1 40); do
       window_title="$(xdotool getwindowname "$window" 2>/dev/null || true)"
@@ -498,6 +510,18 @@ for image in artifacts/qa/app-matrix/*.png; do
 done
 test -s artifacts/qa/app-matrix/sink-inputs.txt
 test -s artifacts/qa/app-matrix/browser-dom.html
+{
+  printf 'source_commit=%s\n' "$SOURCE_COMMIT"
+  printf 'started_utc=%s\n' "$QA_STARTED_UTC"
+  printf 'completed_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  for image in artifacts/qa/app-matrix/*.png; do
+    printf 'screenshot=%s sha256=' "${image##*/}"
+    sha256sum "$image" | awk '{print $1}'
+    printf 'dimensions=%s\n' "$(identify -format '%wx%h' "$image")"
+  done
+} >artifacts/qa/app-matrix/evidence-manifest.txt
+test -s artifacts/qa/app-matrix/evidence-manifest.txt
+echo "ARCH_APP_QA_SOURCE_COMMIT=$SOURCE_COMMIT"
 echo "SLOPOS-I Arch upstream application/browser/game evidence PASS"
 echo "ARCH_APP_QA_STATUS_0"
 echo "BROWSER_CHROMIUM_STATUS_0"

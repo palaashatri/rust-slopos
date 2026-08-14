@@ -39,10 +39,12 @@ SCREEN_TAG="${SCREEN//x/_}"
 # literal matrix value (for example 3440x1440-scale1).
 OUTPUT_DIR="${SLOPOS_RESOLUTION_OUTPUT:-artifacts/qa/resolutions/${SCREEN}-scale${SCALE}}"
 DBUS_ENV_FILE="$XDG_RUNTIME_DIR/dbus-env.sh"
+QA_STARTED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)"
 
 mkdir -p "$XDG_RUNTIME_DIR" "$OUTPUT_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
-rm -f "$OUTPUT_DIR"/*.png "$OUTPUT_DIR"/*.log
+rm -f "$OUTPUT_DIR"/*.png "$OUTPUT_DIR"/*.log "$OUTPUT_DIR"/evidence-manifest.txt
 
 cleanup() {
   set +e
@@ -202,5 +204,22 @@ for image in \
   echo "$(basename "$image")=$IMAGE_DIMENSIONS"
   test "$IMAGE_DIMENSIONS" = "$SCREEN"
 done
+{
+  printf 'source_commit=%s\n' "$SOURCE_COMMIT"
+  printf 'started_utc=%s\n' "$QA_STARTED_UTC"
+  printf 'completed_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf 'resolution=%s\n' "$SCREEN"
+  printf 'scale=%s\n' "$SCALE"
+  for image in \
+    "$OUTPUT_DIR/desktop_${SCREEN_TAG}.png" \
+    "$OUTPUT_DIR/search_${SCREEN_TAG}.png" \
+    "$OUTPUT_DIR/settings_${SCREEN_TAG}.png"; do
+    printf 'screenshot=%s sha256=' "${image##*/}"
+    sha256sum "$image" | awk '{print $1}'
+    printf 'dimensions=%s\n' "$(identify -format '%wx%h' "$image")"
+  done
+} >"$OUTPUT_DIR/evidence-manifest.txt"
+test -s "$OUTPUT_DIR/evidence-manifest.txt"
+echo "RESOLUTION_QA_SOURCE_COMMIT=$SOURCE_COMMIT"
 echo "RESOLUTION=$SCREEN SCALE=$SCALE TOPBAR_WIDTH=$TOPBAR_WIDTH DOCK_CENTER=$DOCK_CENTER"
 echo "RESOLUTION_QA_STATUS_0"

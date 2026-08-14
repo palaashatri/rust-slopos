@@ -452,19 +452,43 @@ fn read_property(connection: &RustConnection, window: Window, atom: u32) -> Opti
 }
 
 fn valid_bus_name(value: &str) -> bool {
-    value.starts_with(':')
-        && value.len() <= 255
-        && value.chars().all(|character| {
-            !character.is_control() && !character.is_whitespace() && character != '\0'
+    // `_GTK_UNIQUE_BUS_NAME` must contain a D-Bus unique name, not merely a
+    // string that happens to begin with `:`.  Restricting this to the
+    // dot-separated ASCII bus-name grammar prevents a malformed X11 property
+    // from steering the worker toward an arbitrary destination.
+    let Some(body) = value.strip_prefix(':') else {
+        return false;
+    };
+    let components = body.split('.').collect::<Vec<_>>();
+    value.len() <= 255
+        && components.len() >= 2
+        && components.iter().all(|component| {
+            !component.is_empty()
+                && component
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
         })
 }
 
 fn valid_object_path(value: &str) -> bool {
-    value.starts_with('/')
-        && value.len() <= 1024
-        && value
-            .chars()
-            .all(|character| !character.is_control() && character != '\0')
+    // D-Bus object paths are `/` or slash-separated elements.  Each element
+    // starts with an ASCII letter/underscore and continues with
+    // ASCII letters, digits or underscores; empty elements are invalid.
+    if value.len() > 1024 || value == "/" {
+        return value == "/";
+    }
+    let Some(body) = value.strip_prefix('/') else {
+        return false;
+    };
+    !body.is_empty()
+        && body.split('/').all(|component| {
+            let mut bytes = component.bytes();
+            let Some(first) = bytes.next() else {
+                return false;
+            };
+            (first.is_ascii_alphabetic() || first == b'_')
+                && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        })
 }
 
 #[cfg(test)]
@@ -506,15 +530,27 @@ mod tests {
     #[test]
     fn accepts_only_session_bus_names() {
         assert!(valid_bus_name(":1.42"));
+        assert!(valid_bus_name(":1.2.3"));
+        assert!(valid_bus_name(":1foo.42"));
         assert!(!valid_bus_name("org.example.App"));
+        assert!(!valid_bus_name(":"));
+        assert!(!valid_bus_name(":1foo"));
+        assert!(!valid_bus_name(":1."));
+        assert!(!valid_bus_name(":1..2"));
+        assert!(!valid_bus_name(":1.f?"));
         assert!(!valid_bus_name(":1 42"));
         assert!(!valid_bus_name(""));
     }
 
     #[test]
-    fn accepts_absolute_object_paths_without_controls() {
+    fn accepts_dbus_object_paths_without_invalid_elements() {
+        assert!(valid_object_path("/"));
         assert!(valid_object_path("/com/canonical/menu"));
+        assert!(valid_object_path("/org/slopos_1/menu2"));
         assert!(!valid_object_path("com/canonical/menu"));
+        assert!(!valid_object_path("/com//menu"));
+        assert!(!valid_object_path("/com/1menu"));
+        assert!(!valid_object_path("/com/menu-name"));
         assert!(!valid_object_path("/com/example/menu\n"));
     }
 

@@ -5,7 +5,6 @@ set -euo pipefail
 
 CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/cargo-target}"
 export CARGO_TARGET_DIR
-mkdir -p "$CARGO_TARGET_DIR"
 
 PREFIX="${PREFIX:-/usr/local}"
 XSESSION_DIR="${XSESSION_DIR:-/usr/share/xsessions}"
@@ -72,6 +71,11 @@ for install_path_name in PREFIX XSESSION_DIR; do
       ;;
   esac
 done
+
+# Do not create a build-cache directory until all user-controlled installation
+# destinations have passed validation.  A rejected invocation must not leave
+# filesystem state behind merely because it reached argument parsing.
+mkdir -p "$CARGO_TARGET_DIR"
 
 echo "=== SLOPOS-I X11 Installer ==="
 echo "Distribution family: $DISTRO"

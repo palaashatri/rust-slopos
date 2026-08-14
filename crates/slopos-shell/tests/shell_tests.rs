@@ -299,8 +299,12 @@ fn installed_vm_harness_pins_source_and_collects_status() {
     assert!(qa.contains("packaging/vm/qa-vm.sh"));
     assert!(qa.contains("screenshotpng"));
     assert!(qa.contains("INSTALLED_VM_QA_STATUS_0"));
+    assert!(qa.contains("SLOPOS_X11_INSTALLED_VM_QA=PASS"));
+    assert!(qa.contains("qa-vm.sh exited successfully without"));
     assert!(qa.contains("status.json"));
     assert!(qa.contains("SshPort must be between 1 and 65535"));
+    let in_guest_qa = include_str!("../../../packaging/vm/qa-vm.sh");
+    assert!(in_guest_qa.contains("echo \"SLOPOS_X11_INSTALLED_VM_QA=PASS\""));
 }
 
 #[test]
@@ -325,6 +329,7 @@ fn installed_vm_harness_requires_efi_xrandr_and_nvme_safe_partitioning() {
     assert!(qa.contains("X11_ACTIVE_REFRESH_HZ="));
     assert!(qa.contains("X11_AVAILABLE_REFRESH_HZ="));
     assert!(qa.contains("SLOPOS_MIN_REFRESH_HZ"));
+    assert!(qa.contains("SLOPOS_MIN_REFRESH_HZ must be greater than zero"));
     assert!(qa.contains("X11_MIN_REFRESH_HZ_STATUS_0"));
     assert!(qa.contains("does not claim physical high-refresh or"));
     assert!(qa.contains("VRR support"));
@@ -339,7 +344,9 @@ fn installed_vm_harness_requires_efi_xrandr_and_nvme_safe_partitioning() {
 fn vm_recreate_checks_state_before_poweroff() {
     let create_vm = include_str!("../../../packaging/vm/create-vm.ps1");
     assert!(create_vm.contains("showvminfo $VmName --machinereadable"));
-    assert!(create_vm.contains("$vmState -in @('running', 'paused', 'stuck')"));
+    assert!(create_vm.contains("Unable to determine the state of existing VM"));
+    assert!(create_vm.contains("Refusing to delete VM $VmName in unsupported state"));
+    assert!(create_vm.contains("'saved'"));
     assert!(create_vm.contains("controlvm $VmName poweroff"));
     assert!(create_vm.contains("MemoryMB must be positive"));
     assert!(create_vm.contains("Cpus must be positive"));
@@ -351,8 +358,11 @@ fn vm_recreate_checks_state_before_poweroff() {
 fn recovery_preserves_config_and_requires_fresh_children() {
     let recovery = include_str!("../../../scripts/slopos-recovery.sh");
     assert!(recovery.contains("refusing an unsafe HOME"));
+    assert!(recovery.contains("HOME must be an absolute path"));
+    assert!(recovery.contains("backup destination must be an absolute path"));
     assert!(recovery
         .contains("BACKUP_DIR=\"${SLOPOS_RECOVERY_BACKUP_DIR:-$HOME_DIR/slopos-config-backup-"));
+    assert!(recovery.contains("-L \"$CONFIG_DIR\""));
     assert!(recovery.contains("mv -- \"$CONFIG_DIR\""));
     assert!(recovery.contains("VENDOR_DIR=\"${SLOPOS_VENDOR_CONFIG_DIR:-/etc/slopos-i}\""));
     assert!(recovery.contains("wait_for_child_restart"));
@@ -463,9 +473,13 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(appmenu.contains("MAX_LAYOUT_DEPTH"));
     assert!(appmenu.contains("MAX_MENU_ITEMS"));
     assert!(appmenu.contains("call_noreply(DBUSMENU_EVENT"));
+    assert!(appmenu.contains("dot-separated ASCII bus-name grammar"));
+    assert!(appmenu.contains("D-bus object paths are `/` or slash-separated elements"));
     assert!(qa.contains("Mousepad local menu remains upstream-owned"));
     assert!(qa.contains("EXPORTER_FIXTURE_STATUS_0"));
     assert!(qa.contains("NON_EXPORTER_STATUS_0"));
+    assert!(qa.contains("Mousepad AppMenu properties were not removed for fallback check"));
+    assert!(qa.contains("_GTK_MENUBAR_OBJECT_PATH 2>/dev/null || true"));
     assert!(qa.contains(
         "SCRIPT_DIR=\"$(cd -- \"$(dirname -- \"${BASH_SOURCE[0]}\")\" && pwd)\""
     ));
@@ -826,7 +840,13 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("browser-dom.html"));
     assert!(qa.contains("SLOPOS_QA_SKIP_DEPS"));
     assert!(qa.contains("SLOPOS_QA_SKIP_BUILD"));
+    assert!(qa.contains(
+        "REPO_ROOT=\"$(cd -- \"$SCRIPT_DIR/..\" && pwd)\""
+    ));
     assert!(qa.contains("SLOPOS_OPENBOX_CONFIG"));
+    assert!(qa.contains("QA_STARTED_UTC"));
+    assert!(qa.contains("evidence-manifest.txt"));
+    assert!(qa.contains("xdotool getactivewindow"));
     assert!(qa.contains("ARCH_APP_QA_THEME_STATUS_0"));
     assert!(qa.contains("ARCH_APP_QA_STATUS_0"));
     assert!(qa.contains("themes/slopos-openbox/openbox-3/themerc"));
@@ -886,6 +906,9 @@ fn retained_resolution_qa_covers_scale_matrix() {
     assert!(qa.contains(
         "OUTPUT_DIR=\"${SLOPOS_RESOLUTION_OUTPUT:-artifacts/qa/resolutions/${SCREEN}-scale${SCALE}}\""
     ));
+    assert!(qa.contains("QA_STARTED_UTC"));
+    assert!(qa.contains("evidence-manifest.txt"));
+    assert!(qa.contains("RESOLUTION_QA_SOURCE_COMMIT"));
     assert!(qa.contains("RESOLUTION_QA_STATUS_0"));
     assert!(qa.contains("identify -format '%wx%h'"));
     assert!(qa.contains("capture_screenshot"));
