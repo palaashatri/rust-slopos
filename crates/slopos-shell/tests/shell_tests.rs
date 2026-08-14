@@ -265,6 +265,9 @@ fn installed_vm_harness_requires_efi_xrandr_and_nvme_safe_partitioning() {
     let qa = include_str!("../../../packaging/vm/qa-vm.sh");
     assert!(qa.contains("command -v xrandr"));
     assert!(qa.contains("xrandr reports no connected output"));
+    assert!(qa.contains("current_mode_line=\"$(awk '"));
+    assert!(qa.contains("in_output && /^[^[:space:]]/ { exit }"));
+    assert!(!qa.contains("sed -nE '/ connected /,/^[^[:space:]]/"));
     assert!(qa.contains("X11_ACTIVE_REFRESH_HZ="));
     assert!(qa.contains("X11_AVAILABLE_REFRESH_HZ="));
     assert!(qa.contains("SLOPOS_MIN_REFRESH_HZ"));

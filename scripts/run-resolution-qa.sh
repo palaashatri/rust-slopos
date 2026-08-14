@@ -83,8 +83,12 @@ echo "[3/5] Starting Xvfb/Openbox at $SCREEN (GDK_SCALE=$SCALE)"
 export GDK_SCALE="$SCALE"
 Xvfb :99 -screen 0 "${SCREEN_WIDTH}x${SCREEN_HEIGHT}x24" >"$OUTPUT_DIR/xvfb.log" 2>&1 &
 XVFB_PID=$!
-sleep 2
-ROOT_DIMENSIONS="$(xdpyinfo -display "$DISPLAY" 2>/dev/null | awk '/dimensions:/{print $2; exit}')"
+ROOT_DIMENSIONS=""
+for _ in $(seq 1 40); do
+  ROOT_DIMENSIONS="$(xdpyinfo -display "$DISPLAY" 2>/dev/null | awk '/dimensions:/{print $2; exit}')"
+  [[ "$ROOT_DIMENSIONS" == "$SCREEN" ]] && break
+  sleep 0.25
+done
 test "$ROOT_DIMENSIONS" = "$SCREEN" || {
   echo "ERROR: X11 root dimensions are ${ROOT_DIMENSIONS:-unknown}, expected $SCREEN" >&2
   exit 1

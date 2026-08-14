@@ -62,7 +62,14 @@ echo "screen=${screen_width}x${screen_height}"
 # Record the active mode's refresh-rate token when the X11 driver exposes it.
 # This is diagnostic evidence only; it does not claim physical high-refresh or
 # VRR support, which requires a real monitor and GPU-backed run.
-current_mode_line="$(sed -nE '/ connected /,/^[^[:space:]]/ { /\*/ { print; exit } }' <<<"$XRANDR_CURRENT")"
+# Use awk for the mode walk instead of nested sed ranges.  GNU sed rejects
+# the nested-brace form used by older versions, which would silently turn a
+# real active mode into an "unknown" refresh diagnostic.
+current_mode_line="$(awk '
+  / connected / && !seen { in_output=1; seen=1; next }
+  in_output && /^[^[:space:]]/ { exit }
+  in_output && /^[[:space:]]+[0-9]+x[0-9]+[[:space:]]/ && /\*/ { print; exit }
+' <<<"$XRANDR_CURRENT")"
 refresh_token="$(grep -oE '[0-9]+([.][0-9]+)?\*' <<<"$current_mode_line" | head -1 | tr -d '*' || true)"
 echo "X11_ACTIVE_REFRESH_HZ=${refresh_token:-unknown}"
 # Keep the full rate list as diagnostic evidence too.  A real XRandR driver
