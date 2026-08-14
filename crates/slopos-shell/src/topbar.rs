@@ -603,7 +603,12 @@ fn open_imported_app_menu(
                     ));
                     return glib::ControlFlow::Break;
                 }
-                if show_imported_app_menu(&button, layout, exporter.clone()) {
+                if show_imported_app_menu(
+                    &button,
+                    layout,
+                    exporter.clone(),
+                    failure_state.clone(),
+                ) {
                     failure_state.borrow_mut().take();
                     button.set_sensitive(true);
                 } else {
@@ -660,9 +665,16 @@ fn show_imported_app_menu(
     button: &Button,
     layout: appmenu::AppMenuLayout,
     exporter: appmenu::AppMenuExporter,
+    exporter_failure: Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
 ) -> bool {
     let menu = Menu::new();
-    append_imported_menu_items(&menu, &layout.items, &exporter);
+    append_imported_menu_items(
+        &menu,
+        &layout.items,
+        &exporter,
+        &exporter_failure,
+        button,
+    );
     if menu.children().is_empty() {
         log::warn!("Focused application's AppMenu exported no visible items");
         return false;
@@ -681,6 +693,8 @@ fn append_imported_menu_items(
     menu: &Menu,
     items: &[appmenu::AppMenuItem],
     exporter: &appmenu::AppMenuExporter,
+    exporter_failure: &Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
+    app_menu_button: &Button,
 ) {
     for item in items {
         if !item.visible {
@@ -695,7 +709,13 @@ fn append_imported_menu_items(
         menu_item.set_sensitive(item.enabled);
         if !item.children.is_empty() {
             let submenu = Menu::new();
-            append_imported_menu_items(&submenu, &item.children, exporter);
+            append_imported_menu_items(
+                &submenu,
+                &item.children,
+                exporter,
+                exporter_failure,
+                app_menu_button,
+            );
             menu_item.set_submenu(Some(&submenu));
         } else if item.kind == appmenu::AppMenuItemKind::Submenu {
             // A depth-limited or malformed exporter can advertise a submenu
@@ -705,20 +725,65 @@ fn append_imported_menu_items(
             menu_item.set_sensitive(false);
         } else if item.kind == appmenu::AppMenuItemKind::Standard {
             let exporter = exporter.clone();
+            let failure_state = exporter_failure.clone();
+            let app_menu_button = app_menu_button.clone();
             let item_id = item.id;
             menu_item.connect_activate(move |_| {
+                let exporter = exporter.clone();
                 if current_active_window_id() != Some(exporter.window_id) {
                     log::info!(
                         "Focused X11 application changed before AppMenu event; dropping action"
                     );
+                    app_menu_button.set_sensitive(false);
+                    app_menu_button.set_tooltip_text(Some(
+                        "Focused application changed; use the current application's local menu",
+                    ));
                     return;
                 }
-                let exporter = exporter.clone();
+                let worker_exporter = exporter.clone();
+                let failure_state = failure_state.clone();
+                let app_menu_button = app_menu_button.clone();
+                let (sender, receiver) = mpsc::channel();
                 thread::spawn(move || {
-                    if let Err(error) =
-                        appmenu::activate(&exporter, item_id, Duration::from_millis(750))
-                    {
-                        log::warn!("Focused application's AppMenu action failed: {error}");
+                    let result =
+                        appmenu::activate(&worker_exporter, item_id, Duration::from_millis(750));
+                    let _ = sender.send(result);
+                });
+                glib::timeout_add_local(Duration::from_millis(25), move || {
+                    match receiver.try_recv() {
+                        Ok(Ok(())) => glib::ControlFlow::Break,
+                        Ok(Err(error)) => {
+                            log::warn!("Focused application's AppMenu action failed: {error}");
+                            if current_active_window_id() == Some(exporter.window_id) {
+                                *failure_state.borrow_mut() = Some(exporter.clone());
+                                app_menu_button.set_sensitive(false);
+                                app_menu_button.set_tooltip_text(Some(
+                                    "The focused application's AppMenu action failed; use its local menu",
+                                ));
+                            } else {
+                                app_menu_button.set_sensitive(false);
+                                app_menu_button.set_tooltip_text(Some(
+                                    "Focused application changed; use the current application's local menu",
+                                ));
+                            }
+                            glib::ControlFlow::Break
+                        }
+                        Err(TryRecvError::Empty) => glib::ControlFlow::Continue,
+                        Err(TryRecvError::Disconnected) => {
+                            if current_active_window_id() == Some(exporter.window_id) {
+                                *failure_state.borrow_mut() = Some(exporter.clone());
+                                app_menu_button.set_sensitive(false);
+                                app_menu_button.set_tooltip_text(Some(
+                                    "The focused application's AppMenu action failed; use its local menu",
+                                ));
+                            } else {
+                                app_menu_button.set_sensitive(false);
+                                app_menu_button.set_tooltip_text(Some(
+                                    "Focused application changed; use the current application's local menu",
+                                ));
+                            }
+                            glib::ControlFlow::Break
+                        }
                     }
                 });
             });

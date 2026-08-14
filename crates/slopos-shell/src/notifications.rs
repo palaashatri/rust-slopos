@@ -4,6 +4,7 @@
 //! owns it, while retaining the same presenter for shell-local notifications.
 
 use gdk_pixbuf::{InterpType, Pixbuf};
+use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
     Align, Box as GtkBox, Button, Image, Label, Orientation, Window, WindowPosition, WindowType,
@@ -217,6 +218,7 @@ fn show_window(
 
     let window = Window::new(WindowType::Toplevel);
     window.set_title(&format!("SLOPOS Notification {id}"));
+    set_accessible_name(&window, "SLOPOS notification");
     let (screen_width, screen_height) = screen_geometry();
     let width = 340;
     let height = 116;
@@ -258,6 +260,14 @@ fn show_window(
     title.style_context().add_class("slopos-notification-title");
     title.set_xalign(0.0);
     title.set_ellipsize(pango::EllipsizeMode::End);
+    set_accessible_name(
+        &title,
+        if summary.is_empty() {
+            "Notification"
+        } else {
+            summary
+        },
+    );
     text.pack_start(&title, false, false, 0);
 
     if !body.is_empty() {
@@ -268,6 +278,7 @@ fn show_window(
         message.set_ellipsize(pango::EllipsizeMode::End);
         message.set_lines(3);
         message.set_max_width_chars(43);
+        set_accessible_name(&message, "Notification message");
         text.pack_start(&message, false, false, 0);
     }
     content.pack_start(&text, true, true, 0);
@@ -277,6 +288,7 @@ fn show_window(
     dismiss.style_context().add_class("slopos-compact-button");
     dismiss.set_halign(Align::End);
     dismiss.set_tooltip_text(Some("Dismiss this notification"));
+    set_accessible_name(&dismiss, "Dismiss notification");
     let dismiss_windows = windows.clone();
     let dismiss_connection = dbus_connection.clone();
     let close_target = window.clone();
@@ -303,6 +315,19 @@ fn show_window(
             glib::ControlFlow::Break
         });
     }
+}
+
+fn set_accessible_name<W>(widget: &W, name: &str)
+where
+    W: IsA<gtk::Widget>,
+{
+    let Some(accessible) = widget.accessible() else {
+        return;
+    };
+    let Ok(accessible) = accessible.downcast::<gtk::atk::Object>() else {
+        return;
+    };
+    accessible.set_name(name);
 }
 
 fn normalized_timeout(requested_ms: i32) -> u64 {

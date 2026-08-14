@@ -121,6 +121,7 @@ fn shipping_manifests_are_x11_only_and_complete() {
 #[test]
 fn platinum_openbox_active_titlebar_uses_readable_gradient() {
     let theme = include_str!("../../../themes/slopos-openbox/openbox-3/themerc");
+    let colors = include_str!("../../../themes/platinum/Colors.toml");
     let active_title = theme
         .lines()
         .find(|line| line.trim_start().starts_with("window.active.title.bg:"))
@@ -134,6 +135,45 @@ fn platinum_openbox_active_titlebar_uses_readable_gradient() {
     assert!(!theme.contains("menu.title.bg: flat gradient vertical interlaced"));
     assert!(theme.contains("window.active.label.text.color: #000000"));
     assert!(theme.contains("window.inactive.label.text.color: #707070"));
+    assert!(theme.contains("menu.items.disabled.text.color: #5E5E5E"));
+    assert!(colors.contains("disabled_text = \"#5E5E5E\""));
+}
+
+#[test]
+fn bundled_theme_metadata_uses_redistributable_fonts() {
+    for (name, metadata) in [
+        (
+            "graphite Theme.toml",
+            include_str!("../../../themes/graphite/Theme.toml"),
+        ),
+        (
+            "graphite Typography.toml",
+            include_str!("../../../themes/graphite/Typography.toml"),
+        ),
+        (
+            "high-contrast Theme.toml",
+            include_str!("../../../themes/high-contrast/Theme.toml"),
+        ),
+        (
+            "high-contrast Typography.toml",
+            include_str!("../../../themes/high-contrast/Typography.toml"),
+        ),
+        (
+            "oled-graphite Theme.toml",
+            include_str!("../../../themes/oled-graphite/Theme.toml"),
+        ),
+        (
+            "oled-graphite Typography.toml",
+            include_str!("../../../themes/oled-graphite/Typography.toml"),
+        ),
+    ] {
+        assert!(!metadata.contains("SF Pro"), "{name} ships a proprietary font");
+        assert!(!metadata.contains("SF Mono"), "{name} ships a proprietary font");
+        assert!(
+            metadata.contains("Liberation Sans") || metadata.contains("DejaVu Sans Mono"),
+            "{name} does not name a redistributable font"
+        );
+    }
 }
 
 #[test]
@@ -182,6 +222,7 @@ fn custom_prefix_session_resources_are_forwarded() {
     let installer = include_str!("../../../install.sh");
     assert!(installer.contains("XSESSION_DIR=\"${XSESSION_DIR:-/usr/share/xsessions}\""));
     assert!(installer.contains("--session-dir \"$XSESSION_DIR\""));
+    assert!(installer.contains("must be an absolute path"));
 
     let session_files = include_str!("../../../scripts/install-session-files.sh");
     assert!(session_files.contains("install_session_descriptor"));
@@ -259,6 +300,7 @@ fn installed_vm_harness_pins_source_and_collects_status() {
     assert!(qa.contains("screenshotpng"));
     assert!(qa.contains("INSTALLED_VM_QA_STATUS_0"));
     assert!(qa.contains("status.json"));
+    assert!(qa.contains("SshPort must be between 1 and 65535"));
 }
 
 #[test]
@@ -299,6 +341,10 @@ fn vm_recreate_checks_state_before_poweroff() {
     assert!(create_vm.contains("showvminfo $VmName --machinereadable"));
     assert!(create_vm.contains("$vmState -in @('running', 'paused', 'stuck')"));
     assert!(create_vm.contains("controlvm $VmName poweroff"));
+    assert!(create_vm.contains("MemoryMB must be positive"));
+    assert!(create_vm.contains("Cpus must be positive"));
+    assert!(create_vm.contains("DiskMB must be positive"));
+    assert!(create_vm.contains("SshPort must be between 1 and 65535"));
 }
 
 #[test]
@@ -391,6 +437,10 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(topbar.contains("app_menu_failure"));
     assert!(topbar.contains("import_failed"));
     assert!(topbar.contains("The focused application's AppMenu is unavailable; use its local menu"));
+    assert!(topbar.contains("Focused application's AppMenu action failed"));
+    assert!(topbar.contains(
+        "The focused application's AppMenu action failed; use its local menu"
+    ));
     assert!(topbar.contains("never show an enabled"));
     assert!(topbar.contains("menu item whose activation would do nothing"));
     assert!(topbar.contains("no visible items; use its local menu"));
@@ -416,12 +466,25 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(qa.contains("Mousepad local menu remains upstream-owned"));
     assert!(qa.contains("EXPORTER_FIXTURE_STATUS_0"));
     assert!(qa.contains("NON_EXPORTER_STATUS_0"));
+    assert!(qa.contains(
+        "SCRIPT_DIR=\"$(cd -- \"$(dirname -- \"${BASH_SOURCE[0]}\")\" && pwd)\""
+    ));
+    assert!(qa.contains("REPO_ROOT=\"$(cd -- \"$SCRIPT_DIR/..\" && pwd)\""));
+    assert!(qa.contains(
+        "SLOPOS_OPENBOX_CONFIG=\"${SLOPOS_OPENBOX_CONFIG:-$REPO_ROOT/assets/config/openbox/rc.xml}\""
+    ));
+    assert!(qa.contains("mousepad \"$REPO_ROOT/README.md\""));
+    assert!(qa.contains("--name 'README.md - Mousepad$'"));
+    assert!(!qa.contains("/workspace/README.md - Mousepad"));
+    assert!(!qa.contains("/workspace/assets/config/openbox/rc.xml"));
     assert!(qa.contains("SLOPOS AppMenu capability evidence PASS"));
     assert!(docker_qa.contains("APPMENU_REAL_IMPORT_STATUS_0"));
     assert!(docker_qa.contains("SLOPOS_QA_REQUIRE_REAL_APPMENU"));
     assert!(exporter_fixture.contains("com.canonical.dbusmenu"));
     assert!(exporter_fixture.contains("GetLayout"));
     assert!(exporter_fixture.contains("Event"));
+    assert!(exporter_fixture.contains("parse_clicked_event"));
+    assert!(exporter_fixture.contains("DBUS_TYPE_VARIANT"));
     assert!(exporter_fixture.contains("Only the DBusMenu clicked event is accepted"));
 }
 
@@ -445,9 +508,18 @@ fn image_controls_have_accessible_names_and_focus_feedback() {
     assert!(topbar.contains("battery_box.set_visible(current_battery_state().is_some())"));
     assert!(topbar.contains("battery_box.set_visible(false)"));
     assert!(notifications.contains("icon.is_empty().then(load_slopos_mark)"));
+    assert!(notifications.contains("set_accessible_name(&window, \"SLOPOS notification\")"));
+    assert!(notifications.contains("set_accessible_name(&dismiss, \"Dismiss notification\")"));
     assert!(notifications.contains("SLOPOS_SHARE_DIR"));
     assert!(notifications.contains("slopos-logo.png"));
     assert!(css.contains("button:focus"));
+    assert!(css.contains("button.default:focus"));
+    assert!(css.contains("menu menuitem:focus"));
+    assert!(css.contains("menu menuitem:disabled"));
+    assert!(css.contains("menu menuitem:disabled image"));
+    assert!(css.contains("button:disabled image"));
+    assert!(css.contains(".slopos-dock-btn:disabled"));
+    assert!(css.contains(".slopos-secondary-text {\n  color: @slopos_disabled;"));
     assert!(css.contains("@slopos_highlight"));
 }
 

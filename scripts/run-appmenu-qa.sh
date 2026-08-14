@@ -11,9 +11,13 @@
 # fallback; parser and Event behavior are covered by Rust tests.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 export DISPLAY="${DISPLAY:-:99}"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/slopos-appmenu-qa-runtime}"
-export SLOPOS_OPENBOX_CONFIG="${SLOPOS_OPENBOX_CONFIG:-/workspace/assets/config/openbox/rc.xml}"
+export SLOPOS_OPENBOX_CONFIG="${SLOPOS_OPENBOX_CONFIG:-$REPO_ROOT/assets/config/openbox/rc.xml}"
 export SLOPOS_QA_NO_WELCOME=1
 export GDK_BACKEND=x11
 
@@ -24,7 +28,7 @@ for program in "${required[@]}"; do
     exit 2
   }
 done
-test -x target/release/slopos-session
+test -x "$REPO_ROOT/target/release/slopos-session"
 
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
@@ -83,11 +87,11 @@ XVFB_PID=$!
 sleep 1
 xsetroot -solid "#758090"
 
-dbus-run-session -- ./target/release/slopos-session >/tmp/slopos-appmenu-session.log 2>&1 &
+dbus-run-session -- "$REPO_ROOT/target/release/slopos-session" >/tmp/slopos-appmenu-session.log 2>&1 &
 SESSION_PID=$!
 wait_visible '^SLOPOS Top Bar$'
 
-mousepad /workspace/README.md >/tmp/slopos-appmenu-mousepad.log 2>&1 &
+mousepad "$REPO_ROOT/README.md" >/tmp/slopos-appmenu-mousepad.log 2>&1 &
 APP_PID=$!
 wait_window_for_pid "$APP_PID"
 APP_WINDOW="$(window_for_pid "$APP_PID")"
@@ -97,7 +101,9 @@ sleep 1
 
 # Mousepad has no AppMenu properties in this clean launch. Its own native
 # menu remains visible and is the only application menu the user should use.
-xdotool search --onlyvisible --name '^/workspace/README.md - Mousepad$' >/dev/null
+# Keep the assertion independent of the checkout path while still requiring
+# the real document title (rather than a stale/hidden Mousepad window).
+xdotool search --onlyvisible --name 'README.md - Mousepad$' >/dev/null
 if xprop -id "$APP_WINDOW" | grep -qE '_GTK_(UNIQUE_BUS_NAME|APP_MENU_OBJECT_PATH)'; then
   echo "ERROR: clean Mousepad unexpectedly advertises an AppMenu" >&2
   exit 1

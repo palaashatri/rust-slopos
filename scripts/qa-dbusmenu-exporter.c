@@ -95,11 +95,44 @@ static DBusMessage *layout_reply(DBusMessage *call) {
     return reply;
 }
 
+/* Accept only the complete DBusMenu Event signature.  The fixture is
+ * intentionally stricter than a minimal mock so a successful QA marker proves
+ * that the importer sent (isvu), not merely the id and event string. */
+static int parse_clicked_event(DBusMessage *message, dbus_int32_t *item_id,
+                               const char **event) {
+    DBusMessageIter iter;
+    DBusMessageIter variant;
+
+    if (!dbus_message_iter_init(message, &iter) ||
+        dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_INT32) {
+        return 0;
+    }
+    dbus_message_iter_get_basic(&iter, item_id);
+    if (!dbus_message_iter_next(&iter) ||
+        dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING) {
+        return 0;
+    }
+    dbus_message_iter_get_basic(&iter, event);
+    if (!dbus_message_iter_next(&iter) ||
+        dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
+        return 0;
+    }
+    dbus_message_iter_recurse(&iter, &variant);
+    if (dbus_message_iter_get_arg_type(&variant) == DBUS_TYPE_INVALID ||
+        dbus_message_iter_next(&variant)) {
+        return 0;
+    }
+    if (!dbus_message_iter_next(&iter) ||
+        dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_UINT32) {
+        return 0;
+    }
+    return !dbus_message_iter_next(&iter);
+}
+
 static DBusHandlerResult handle_message(DBusConnection *connection,
                                          DBusMessage *message, void *user_data) {
     struct Fixture *fixture = user_data;
     DBusMessage *reply;
-    DBusError error;
     dbus_int32_t item_id;
     const char *event = NULL;
 
@@ -119,10 +152,7 @@ static DBusHandlerResult handle_message(DBusConnection *connection,
 
     if (dbus_message_is_method_call(message, DBUSMENU_INTERFACE, "Event") &&
         strcmp(dbus_message_get_path(message), DBUSMENU_PATH) == 0) {
-        dbus_error_init(&error);
-        if (!dbus_message_get_args(message, &error, DBUS_TYPE_INT32, &item_id,
-                                   DBUS_TYPE_STRING, &event, DBUS_TYPE_INVALID)) {
-            dbus_error_free(&error);
+        if (!parse_clicked_event(message, &item_id, &event)) {
             reply = dbus_message_new_error(message, DBUS_ERROR_INVALID_ARGS,
                                             "Expected (isvu) DBusMenu Event");
         } else if (!event || strcmp(event, "clicked") != 0) {

@@ -48,6 +48,9 @@ try {
     if ($SshUser -notmatch '^[a-z_][a-z0-9_-]*$') {
         throw "SshUser must be a simple Linux account name"
     }
+    if ($SshPort -lt 1 -or $SshPort -gt 65535) {
+        throw "SshPort must be between 1 and 65535"
+    }
     if ([string]::IsNullOrWhiteSpace($ExpectedCommit)) {
         throw "ExpectedCommit is required; refusing to accept an unpinned installed VM"
     }

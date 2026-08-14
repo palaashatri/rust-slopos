@@ -21,7 +21,7 @@ disabled_text = "#5E5E5E"
 
 [text]
 primary = "#000000"
-secondary = "#606060"
+secondary = "#5E5E5E"
 link = "#000080"
 selection_background = "#000080"
 selection_text = "#FFFFFF"

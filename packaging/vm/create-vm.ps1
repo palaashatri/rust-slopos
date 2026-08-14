@@ -18,6 +18,12 @@ param(
 $ErrorActionPreference = "Stop"
 $VBox = "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe"
 if (-not (Test-Path $VBox)) { throw "VBoxManage not found at $VBox" }
+if ($MemoryMB -lt 1) { throw "MemoryMB must be positive" }
+if ($Cpus -lt 1) { throw "Cpus must be positive" }
+if ($DiskMB -lt 1) { throw "DiskMB must be positive" }
+if ($SshPort -lt 1 -or $SshPort -gt 65535) {
+    throw "SshPort must be between 1 and 65535"
+}
 
 function VB {
     & $VBox @args

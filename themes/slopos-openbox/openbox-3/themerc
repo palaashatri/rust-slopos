@@ -45,7 +45,9 @@ menu.title.text.color: #000000
 menu.items.bg: flat solid
 menu.items.bg.color: #FFFFFF
 menu.items.text.color: #000000
-menu.items.disabled.text.color: #888888
+# Match the Platinum GTK disabled-text token on white menus (the prior
+# #888888 was too low-contrast for compact 9px labels).
+menu.items.disabled.text.color: #5E5E5E
 menu.items.active.bg: flat solid
 menu.items.active.bg.color: #000080
 menu.items.active.text.color: #FFFFFF

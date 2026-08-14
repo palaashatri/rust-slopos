@@ -1,24 +1,24 @@
 [system]
-font = "SF Pro Text"
+font = "Liberation Sans"
 size = 16
 weight = 400
 
 [heading]
-font = "SF Pro Text"
+font = "Liberation Sans"
 size = 18
 weight = 600
 
 [title]
-font = "SF Pro Text"
+font = "Liberation Sans"
 size = 24
 weight = 700
 
 [mono]
-font = "SF Mono"
+font = "DejaVu Sans Mono"
 size = 14
 weight = 400
 
 [small]
-font = "SF Pro Text"
+font = "Liberation Sans"
 size = 14
 weight = 400

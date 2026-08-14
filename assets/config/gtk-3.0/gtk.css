@@ -171,13 +171,32 @@ menu menuitem {
   padding: 3px 18px 3px 8px;
 }
 
-menu menuitem:hover {
+menu menuitem:hover,
+menu menuitem:focus,
+menu menuitem:selected {
   background-color: @slopos_highlight;
   color: @slopos_light;
 }
 
-menu menuitem:hover label {
+menu menuitem:hover label,
+menu menuitem:focus label,
+menu menuitem:selected label {
   color: @slopos_light;
+}
+
+menu menuitem:disabled,
+menubar > menuitem:disabled {
+  color: @slopos_disabled;
+}
+
+menu menuitem:disabled label,
+menubar > menuitem:disabled label {
+  color: @slopos_disabled;
+}
+
+menu menuitem:disabled image,
+menubar > menuitem:disabled image {
+  opacity: 0.55;
 }
 
 menu separator {
@@ -232,6 +251,18 @@ button:disabled label {
   color: @slopos_disabled;
 }
 
+/* An unavailable launcher/status control may contain only an icon. Dim that
+ * image as well as the label so the disabled state is visible without relying
+ * on a pointer tooltip (and remains clear to low-vision users at 1x/HiDPI). */
+button:disabled image {
+  opacity: 0.55;
+}
+
+.slopos-dock-btn:disabled {
+  background-image: none;
+  background-color: #d8d8d8;
+}
+
 /* GTK keeps nested labels/icons in their own style context. Repeat the
  * disabled state on Settings control-panel descendants so an unavailable
  * delegate is visibly disabled without becoming illegible at 1x or HiDPI. */
@@ -257,6 +288,14 @@ row:focus {
 button.default {
   border: 2px solid @slopos_text;
   box-shadow: inset 1px 1px @slopos_light, inset -1px -1px #606060;
+}
+
+/* Preserve a visible keyboard-focus ring when GTK marks a button as the
+ * dialog default; the default-button bevel otherwise replaces button:focus's
+ * ring due to the later, more-specific style rule. */
+button.default:focus {
+  box-shadow: inset 0 0 0 1px @slopos_highlight,
+    inset 1px 1px @slopos_light, inset -1px -1px #606060;
 }
 
 .slopos-compact-button {
@@ -420,7 +459,7 @@ row:selected label {
 }
 
 .slopos-secondary-text {
-  color: #606060;
+  color: @slopos_disabled;
   font-size: 11px;
 }
 
