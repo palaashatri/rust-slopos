@@ -33,7 +33,18 @@ mkdir -p "$PROFILE"
 case "$BROWSER" in
   chromium|chromium-browser|chrome|google-chrome|google-chrome-stable)
     target="$PROFILE/slopos-browser-theme"
-    rm -rf "$target"
+    # Never recursively delete an existing profile-owned theme. Preserve it
+    # under a unique timestamped backup before replacing the unpacked theme.
+    if [[ -e "$target" || -L "$target" ]]; then
+      backup="$PROFILE/slopos-browser-theme.backup.$STAMP"
+      backup_index=0
+      while [[ -e "$backup" || -L "$backup" ]]; do
+        backup_index=$((backup_index + 1))
+        backup="$PROFILE/slopos-browser-theme.backup.$STAMP.$backup_index"
+      done
+      mv -- "$target" "$backup"
+      printf 'Existing Chromium theme moved to:\n  %s\n' "$backup" >&2
+    fi
     mkdir -p "$target"
     cp -a "$BROWSER_RESOURCE_DIR/chromium/." "$target/"
     chmod -R u+rwX,go+rX "$target"
@@ -64,11 +75,28 @@ EOF
     install -m644 "$BROWSER_RESOURCE_DIR/firefox/userChrome.css" "$slopos_css"
 
     user_js="$PROFILE/user.js"
-    if [[ -f "$user_js" ]] && ! grep -Fq 'toolkit.legacyUserProfileCustomizations.stylesheets' "$user_js"; then
-      cp -p "$user_js" "$user_js.slopos-backup.$STAMP"
-    fi
-    if ! [[ -f "$user_js" ]] || ! grep -Fq 'toolkit.legacyUserProfileCustomizations.stylesheets' "$user_js"; then
-      printf '%s\n' 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);' >> "$user_js"
+    firefox_pref='user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
+    firefox_pref_re='^[[:space:]]*user_pref\([[:space:]]*"toolkit\.legacyUserProfileCustomizations\.stylesheets"[[:space:]]*,'
+    firefox_pref_true_re="${firefox_pref_re}[[:space:]]*true[[:space:]]*\\);"
+    firefox_pref_false_re="${firefox_pref_re}[[:space:]]*false[[:space:]]*\\);"
+    if [[ ! -f "$user_js" ]]; then
+      printf '%s\n' "$firefox_pref" > "$user_js"
+    elif grep -Eq "$firefox_pref_false_re" "$user_js" || \
+         ! grep -Eq "$firefox_pref_true_re" "$user_js"; then
+      # Normalize any existing true/false declaration so a stale `false`
+      # cannot win by appearing later in user.js. Keep a byte-for-byte backup
+      # before rewriting the explicit profile the caller supplied.
+      backup="$user_js.slopos-backup.$STAMP"
+      backup_index=0
+      while [[ -e "$backup" || -L "$backup" ]]; do
+        backup_index=$((backup_index + 1))
+        backup="$user_js.slopos-backup.$STAMP.$backup_index"
+      done
+      cp -p "$user_js" "$backup"
+      tmp="$user_js.tmp.$STAMP"
+      sed -E "/$firefox_pref_re/d" "$user_js" > "$tmp"
+      printf '%s\n' "$firefox_pref" >> "$tmp"
+      mv -- "$tmp" "$user_js"
     fi
     install -m644 "$BROWSER_RESOURCE_DIR/firefox/manifest.json" "$PROFILE/slopos-platinum-theme-manifest.json"
     cat <<EOF

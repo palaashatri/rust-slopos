@@ -112,6 +112,7 @@ fi
 # than silently turning a property fixture into evidence.
 APPMENU_FIXTURE_BIN=/tmp/slopos-qa-dbusmenu-exporter
 APPMENU_FIXTURE_AVAILABLE=0
+APPMENU_MOUSEPAD_SCREENSHOT="appmenu_fallback_mousepad_1280x800.png"
 if command -v gcc >/dev/null 2>&1 && command -v pkg-config >/dev/null 2>&1 && \
    pkg-config --exists dbus-1; then
   gcc -std=c11 -Wall -Wextra -Werror scripts/qa-dbusmenu-exporter.c \
@@ -350,8 +351,12 @@ if [[ "$APPMENU_FIXTURE_AVAILABLE" == 1 ]] || \
     else
       echo "APPMENU_MOUSEPAD_IMPORT_STATUS_0"
     fi
+    # Keep the retained filename truthful: only a successful layout/event
+    # path may be called imported. Property-only or UnknownMethod fallback
+    # evidence remains explicitly named as fallback below.
+    APPMENU_MOUSEPAD_SCREENSHOT="appmenu_imported_mousepad_1280x800.png"
   fi
-  capture_screenshot artifacts/qa/screenshots/appmenu_exported_mousepad_1280x800.png
+  capture_screenshot "artifacts/qa/screenshots/$APPMENU_MOUSEPAD_SCREENSHOT"
   xdotool key Escape
   echo "APPMENU_MOUSEPAD_STATUS_0"
 else
@@ -440,8 +445,8 @@ for image in \
   test "$(identify -format '%wx%h' "$image")" = "1280x800"
 done
 if [[ "$APPMENU_MOUSEPAD_CAPTURED" == 1 ]]; then
-  test -s artifacts/qa/screenshots/appmenu_exported_mousepad_1280x800.png
-  test "$(identify -format '%wx%h' artifacts/qa/screenshots/appmenu_exported_mousepad_1280x800.png)" = "1280x800"
+  test -s "artifacts/qa/screenshots/$APPMENU_MOUSEPAD_SCREENSHOT"
+  test "$(identify -format '%wx%h' "artifacts/qa/screenshots/$APPMENU_MOUSEPAD_SCREENSHOT")" = "1280x800"
 fi
 
 echo "[8/8] Product-contract sanity checks"

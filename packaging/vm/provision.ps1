@@ -29,6 +29,17 @@ if ($RepoCommit -notmatch '^[0-9a-fA-F]{40}$') {
 if ($SshPort -lt 1 -or $SshPort -gt 65535) {
     throw "SshPort must be between 1 and 65535"
 }
+if ($HttpPort -lt 1 -or $HttpPort -gt 65535) {
+    throw "HttpPort must be between 1 and 65535"
+}
+$installerPath = Join-Path $ScriptDir "arch-install.sh"
+if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
+    throw "Arch installer script not found: $installerPath"
+}
+$installerSha256 = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($installerSha256 -notmatch '^[0-9a-f]{64}$') {
+    throw "Unable to calculate a valid SHA-256 for $installerPath"
+}
 
 # --- PS/2 set-1 scancodes for the ASCII we need ------------------------------
 $Map = @{
@@ -92,13 +103,18 @@ try {
     # Wake the console, then type the one bootstrap line.
     Send-Enter
     Start-Sleep -Seconds 2
-    $cmd = "curl -sL http://10.0.2.2:$HttpPort/arch-install.sh -o /root/i.sh && REPO_COMMIT=$RepoCommit bash /root/i.sh 2>&1 | tee /root/install.log"
+    # The installer is served over the VM's host-only NAT path.  Fail closed
+    # on HTTP errors, verify the exact host bytes, and syntax-check before
+    # executing so a truncated/error-page download can never become a shell
+    # script.  Both digests are generated from validated hexadecimal values.
+    $cmd = "curl --fail --silent --show-error --location http://10.0.2.2:$HttpPort/arch-install.sh -o /root/i.sh && printf '%s  /root/i.sh\n' '$installerSha256' | sha256sum -c - && bash -n /root/i.sh && set -o pipefail && REPO_COMMIT=$RepoCommit bash /root/i.sh 2>&1 | tee /root/install.log"
     Write-Host "Typing bootstrap: $cmd"
     Send-Text $cmd
     Send-Enter
 
     Write-Host ""
     Write-Host "Pinned source commit: $RepoCommit"
+    Write-Host "Installer SHA-256: $installerSha256"
     Write-Host "Install is running inside the guest (pacstrap + cargo build; expect 20-40 min)."
     Write-Host "Watch it with:"
     Write-Host "  & '$VBox' controlvm $VmName screenshotpng shot.png"

@@ -186,6 +186,9 @@ fn custom_prefix_session_resources_are_forwarded() {
     let session_files = include_str!("../../../scripts/install-session-files.sh");
     assert!(session_files.contains("install_session_descriptor"));
     assert!(session_files.contains("$PREFIX/bin/slopos-session"));
+    assert!(session_files.contains("saw_exec=0"));
+    assert!(session_files.contains("saw_tryexec=0"));
+    assert!(session_files.contains("source descriptor must contain Exec= and TryExec="));
 
     let session = include_str!("../../slopos-session/src/main.rs");
     assert!(session.contains("SLOPOS_SHARE_DIR"));
@@ -211,6 +214,8 @@ fn vm_qa_requires_screenshot_evidence() {
 fn installed_vm_source_scan_only_checks_shipping_files() {
     let qa = include_str!("../../../packaging/vm/qa-vm.sh");
     assert!(qa.contains("shipping_files=("));
+    assert!(qa.contains("pinned source checkout is missing"));
+    assert!(qa.contains("SLOPOS_SOURCE_CONTRACT_STATUS_0"));
     assert!(qa.contains("scripts/start-slopos-i"));
     assert!(qa.contains("packaging/vm/arch-install.sh"));
     assert!(qa.contains("obsolete display-stack reference remains in shipping file"));
@@ -233,6 +238,13 @@ fn installed_vm_harness_pins_source_and_collects_status() {
     assert!(provision.contains("qa-installed.ps1"));
     assert!(provision.contains("-ExpectedCommit $RepoCommit"));
     assert!(provision.contains("Stop-Process -Id $http.Id -Force"));
+    assert!(provision.contains("Get-FileHash -LiteralPath $installerPath -Algorithm SHA256"));
+    assert!(provision.contains("HttpPort must be between 1 and 65535"));
+    assert!(provision.contains("Installer SHA-256: $installerSha256"));
+    assert!(provision.contains("curl --fail --silent --show-error --location"));
+    assert!(provision.contains("sha256sum -c -"));
+    assert!(provision.contains("bash -n /root/i.sh"));
+    assert!(provision.contains("set -o pipefail && REPO_COMMIT=$RepoCommit"));
 
     let qa = include_str!("../../../packaging/vm/qa-installed.ps1");
     assert!(qa.contains("[string]$ExpectedCommit = \"\""));
@@ -274,6 +286,11 @@ fn installed_vm_harness_requires_efi_xrandr_and_nvme_safe_partitioning() {
     assert!(qa.contains("X11_MIN_REFRESH_HZ_STATUS_0"));
     assert!(qa.contains("does not claim physical high-refresh or"));
     assert!(qa.contains("VRR support"));
+    assert!(qa.contains("/sys/firmware/efi"));
+    assert!(qa.contains("EFI_BOOT_STATUS_0="));
+    assert!(qa.contains("/boot/EFI/BOOT/BOOTX64.EFI"));
+    assert!(qa.contains("/usr/share/wayland-sessions/slopos-i.desktop"));
+    assert!(qa.contains("/usr/local/share/wayland-sessions/slopos-i.desktop"));
 }
 
 #[test]
@@ -334,7 +351,10 @@ fn docker_qa_uses_fresh_visible_windows() {
     assert!(qa.contains("ACTIVE_BEFORE"));
     assert!(qa.contains("ACTIVE_AFTER"));
     assert!(qa.contains("clean_desktop_1280x800.png"));
-    assert!(qa.contains("appmenu_exported_mousepad_1280x800.png"));
+    assert!(qa.contains("appmenu_fallback_mousepad_1280x800.png"));
+    assert!(qa.contains("appmenu_imported_mousepad_1280x800.png"));
+    assert!(qa.contains("APPMENU_MOUSEPAD_SCREENSHOT"));
+    assert!(!qa.contains("appmenu_exported_mousepad_1280x800.png"));
     assert!(qa.contains("APPMENU_MOUSEPAD_FALLBACK_STATUS_0"));
     assert!(qa.contains("APPMENU_MOUSEPAD_IMPORT_STATUS_0"));
     for scene in [
@@ -664,6 +684,8 @@ fn browser_integration_is_upstream_and_no_fork() {
     assert!(launcher_source.contains("SLOPOS_BROWSER"));
     assert!(installer.contains("PROFILE_DIR must be an absolute path"));
     assert!(installer.contains("slopos-backup"));
+    assert!(installer.contains("slopos-browser-theme.backup"));
+    assert!(installer.contains("mv -- \"$target\" \"$backup\""));
     assert!(installer.contains("SLOPOS_SHARE_DIR"));
     assert!(installer.contains("BROWSER_RESOURCE_DIR"));
     assert!(installer.contains("slopos-i/browser"));
@@ -675,6 +697,9 @@ fn browser_integration_is_upstream_and_no_fork() {
     assert!(chromium.contains("\"omnibox_background\": [255, 255, 255]"));
     assert!(firefox.contains("\"theme\""));
     assert!(firefox.contains("\"toolbar_field_border_focus\": \"#000080\""));
+    assert!(installer.contains("firefox_pref='user_pref(\\\"toolkit.legacyUserProfileCustomizations.stylesheets\\\", true);'"));
+    assert!(installer.contains("firefox_pref_false_re"));
+    assert!(installer.contains("sed -E \"/$firefox_pref_re/d\""));
     assert!(firefox_css.contains("#nav-bar .toolbarbutton-1"));
     assert!(firefox_css.contains("#sidebar-box"));
     assert!(firefox_css.contains("menupopup > menuitem[_moz-menuactive=\"true\"]"));
@@ -715,9 +740,10 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("SLOPOS_BROWSER_THEME_DIR=/usr/share/slopos-i/browser/chromium"));
     assert!(qa.contains("Installed theme"));
     assert!(qa.contains("xdotool key --window \"$window\" Escape"));
-    assert!(qa.contains("xdotool mousemove --window \"$window\""));
+    assert!(qa.contains("xdotool mousemove --sync --window \"$window\""));
     assert!(qa.contains("xdotool click --window \"$window\" 1"));
     assert!(qa.contains("$((WIDTH - 30)) 98"));
+    assert!(qa.contains("for _ in $(seq 1 6); do"));
     assert!(qa.contains("--profile \"$FIREFOX_PROFILE\""));
     assert!(qa.contains("browser-dom.html"));
     assert!(qa.contains("SLOPOS_QA_SKIP_DEPS"));
@@ -773,6 +799,9 @@ fn retained_resolution_qa_covers_scale_matrix() {
     assert!(qa.contains("dimensions must be positive"));
     assert!(qa.contains("xdpyinfo -display \"$DISPLAY\""));
     assert!(qa.contains("X11_ROOT_DIMENSIONS="));
+    assert!(qa.contains(
+        "OUTPUT_DIR=\"${SLOPOS_RESOLUTION_OUTPUT:-artifacts/qa/resolutions/${SCREEN}-scale${SCALE}}\""
+    ));
     assert!(qa.contains("RESOLUTION_QA_STATUS_0"));
     assert!(qa.contains("identify -format '%wx%h'"));
     assert!(qa.contains("capture_screenshot"));

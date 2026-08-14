@@ -56,3 +56,9 @@ available without a source checkout.
 The Chromium profile install prints a launch command using
 `SLOPOS_BROWSER_THEME_DIR`; Firefox must be restarted after the profile files
 are changed.
+
+Profile safety is explicit: an existing `slopos-browser-theme` directory is
+moved to a timestamped backup before the Chromium theme is refreshed, and an
+existing Firefox `toolkit.legacyUserProfileCustomizations.stylesheets` setting
+is normalized to `true` only after its original `user.js` is backed up. The
+installer never recursively deletes profile data.

@@ -41,9 +41,11 @@ reported markers were:
 - Docker/Xvfb: `DOCKER_QA_STATUS_0`; real Mousepad X11 AppMenu properties were
   detected, the App-button click produced the fail-closed fallback marker
   `APPMENU_MOUSEPAD_FALLBACK_STATUS_0`, and
-  `artifacts/qa/screenshots/appmenu_exported_mousepad_1280x800.png` was
-  captured and checked as 1280x800. The current session log records the
-  concrete failure: `UnknownMethod: No such interface “com.canonical.dbusmenu”`
+  `artifacts/qa/screenshots/appmenu_fallback_mousepad_1280x800.png` was
+  captured and checked as 1280x800. The explicit `fallback` name records the
+  capability-aware result rather than implying an imported menu. The current
+  session log records the concrete failure:
+  `UnknownMethod: No such interface “com.canonical.dbusmenu”`
   at `/org/xfce/mousepad/menus/menubar`.
 - Arch upstream application/game: `ARCH_APP_QA_STATUS_0`,
   `BROWSER_CHROMIUM_STATUS_0`, and

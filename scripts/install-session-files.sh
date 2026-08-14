@@ -85,14 +85,27 @@ install_session_descriptor() {
 
   mkdir -p "$(dirname "$XSESSION_DST")"
   local temporary
+  local saw_exec=0
+  local saw_tryexec=0
   temporary="$(mktemp "${XSESSION_DST}.XXXXXX")"
   while IFS= read -r line || [[ -n "$line" ]]; do
     case "$line" in
-      Exec=*) printf 'Exec=%s\n' "$PREFIX/bin/slopos-session" ;;
-      TryExec=*) printf 'TryExec=%s\n' "$PREFIX/bin/slopos-session" ;;
+      Exec=*)
+        saw_exec=1
+        printf 'Exec=%s\n' "$PREFIX/bin/slopos-session"
+        ;;
+      TryExec=*)
+        saw_tryexec=1
+        printf 'TryExec=%s\n' "$PREFIX/bin/slopos-session"
+        ;;
       *) printf '%s\n' "$line" ;;
     esac
   done < "$XSESSION_SRC" > "$temporary"
+  if [[ "$saw_exec" -ne 1 || "$saw_tryexec" -ne 1 ]]; then
+    rm -f -- "$temporary"
+    echo "install-session-files: source descriptor must contain Exec= and TryExec=" >&2
+    return 1
+  fi
   chmod 644 "$temporary"
   mv -f "$temporary" "$XSESSION_DST"
   echo "installed $XSESSION_DST"

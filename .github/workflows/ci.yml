@@ -102,7 +102,11 @@ jobs:
           grep -Fq 'grub-install --target=x86_64-efi' packaging/vm/arch-install.sh
           grep -Fq -- '--firmware efi' packaging/vm/create-vm.ps1
           grep -Fq 'command -v xrandr' packaging/vm/qa-vm.sh
+          grep -Fq '/sys/firmware/efi' packaging/vm/qa-vm.sh
+          grep -Fq 'EFI_BOOT_STATUS_0=' packaging/vm/qa-vm.sh
           grep -Fq 'X11_ACTIVE_REFRESH_HZ=' packaging/vm/qa-vm.sh
+          grep -Fq 'sha256sum -c -' packaging/vm/provision.ps1
+          grep -Fq 'bash -n /root/i.sh' packaging/vm/provision.ps1
           grep -Fq 'INSTALLED_VM_QA_STATUS_0' packaging/vm/qa-installed.ps1
 
   format-evidence:
@@ -417,7 +421,7 @@ jobs:
           path: |
             artifacts/qa/session.log
             artifacts/qa/xvfb.log
-            artifacts/qa/screenshots/appmenu_exported_mousepad_1280x800.png
+            artifacts/qa/screenshots/appmenu_*_mousepad_1280x800.png
             ${{ runner.temp }}/appmenu-real.log
             /tmp/slopos-qa-dbusmenu.log
             /tmp/slopos-qa-dbusmenu.events

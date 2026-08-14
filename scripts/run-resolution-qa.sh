@@ -29,7 +29,12 @@ if (( SCREEN_WIDTH < 1 || SCREEN_HEIGHT < 1 )); then
   exit 2
 fi
 SCREEN_TAG="${SCREEN//x/_}"
-OUTPUT_DIR="${SLOPOS_RESOLUTION_OUTPUT:-artifacts/qa/resolutions/${SCREEN_TAG}-scale${SCALE}}"
+# Keep screenshot filenames shell-friendly while retaining the canonical
+# WIDTHxHEIGHT directory name consumed by the CI upload step.  The previous
+# underscore substitution made every retained-resolution job pass while
+# silently dropping its evidence because upload-artifact looked under the
+# literal matrix value (for example 3440x1440-scale1).
+OUTPUT_DIR="${SLOPOS_RESOLUTION_OUTPUT:-artifacts/qa/resolutions/${SCREEN}-scale${SCALE}}"
 DBUS_ENV_FILE="$XDG_RUNTIME_DIR/dbus-env.sh"
 
 mkdir -p "$XDG_RUNTIME_DIR" "$OUTPUT_DIR"

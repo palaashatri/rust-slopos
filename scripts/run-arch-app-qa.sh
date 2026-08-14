@@ -264,17 +264,23 @@ run_window_app() {
     xdotool key --window "$window" Escape 2>/dev/null || true
     # Chromium's unpacked-theme toast is an in-client surface rather than an
     # X11 child window, so xdotool cannot search it by name.  Its close button
-    # is at the far-right edge of the fixed browser notification row (about
-    # 98 logical pixels below the outer X11 client origin in this 1280x800
-    # gate, after Chromium's tab strip and toolbar).  A
-    # click there is harmless when the toast is absent (it lands in the blank
-    # fixture page), while reliably removing the toast when present.  Escape
-    # is sent again so Firefox's profile notification path is covered too.
-    eval "$(xdotool getwindowgeometry --shell \"$window\")"
-    xdotool mousemove --window "$window" $((WIDTH - 30)) 98 2>/dev/null || true
-    xdotool click --window "$window" 1 2>/dev/null || true
-    xdotool key --window "$window" Escape 2>/dev/null || true
-    sleep 0.75
+    # is anchored at the far-right edge of the fixed browser notification row
+    # (about 98 logical pixels below the outer X11 client origin in this
+    # 1280x800 gate, after Chromium's tab strip and toolbar).  Browser startup
+    # can paint the toast after the title is visible, so click the stable close
+    # coordinate repeatedly with --sync.  A click is harmless when the toast
+    # is absent (it lands in the deterministic fixture page), and Escape also
+    # dismisses Firefox's profile notification path.  This keeps a transient
+    # extension-install notice out of the retained upstream-browser frame.
+    for _ in $(seq 1 6); do
+      eval "$(xdotool getwindowgeometry --shell \"$window\")"
+      if [[ "${WIDTH:-0}" -gt 100 && "${HEIGHT:-0}" -gt 120 ]]; then
+        xdotool mousemove --sync --window "$window" $((WIDTH - 30)) 98 2>/dev/null || true
+        xdotool click --window "$window" 1 2>/dev/null || true
+      fi
+      xdotool key --window "$window" Escape 2>/dev/null || true
+      sleep 0.4
+    done
   fi
   scrot -o "artifacts/qa/app-matrix/$screenshot"
   echo "    pid=$app_pid window_pid=$window_pid"

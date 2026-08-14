@@ -33,7 +33,28 @@ for asset in \
   /usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css; do
   test -s "$asset" || fail "missing installed asset: $asset"
 done
-! test -e /usr/local/share/wayland-sessions/slopos-i.desktop || fail "obsolete Wayland session is installed"
+for obsolete_session in \
+  /usr/share/wayland-sessions/slopos-i.desktop \
+  /usr/local/share/wayland-sessions/slopos-i.desktop; do
+  ! test -e "$obsolete_session" || fail "obsolete Wayland session is installed: $obsolete_session"
+done
+
+step "UEFI boot and installed loader"
+test -d /sys/firmware/efi || fail "installed VM is not booted through UEFI"
+test -r /sys/firmware/efi/fw_platform_size || fail "UEFI runtime metadata is unavailable"
+efi_loader=""
+for candidate in \
+  /boot/EFI/BOOT/BOOTX64.EFI \
+  /boot/EFI/SLOPOS-QA/grubx64.efi \
+  /boot/efi/EFI/BOOT/BOOTX64.EFI \
+  /boot/efi/EFI/SLOPOS-QA/grubx64.efi; do
+  if [[ -s "$candidate" ]]; then
+    efi_loader="$candidate"
+    break
+  fi
+done
+test -n "$efi_loader" || fail "installed EFI loader was not found under /boot"
+echo "EFI_BOOT_STATUS_0=firmware=$(< /sys/firmware/efi/fw_platform_size) loader=$efi_loader"
 
 step "X11 session identity and processes"
 command -v xdpyinfo >/dev/null || fail "xdpyinfo is required"
@@ -144,38 +165,39 @@ scrot -z "$QA/installed-session-${screen_width}x${screen_height}.png"
 test -s "$QA/installed-session-${screen_width}x${screen_height}.png" || fail "VM screenshot is missing or empty"
 
 step "source/install contract"
-if [[ -d "$HOME/slopos-i/.git" ]]; then
-  cd "$HOME/slopos-i"
-  # Scan only files that can ship the product. QA helpers intentionally carry
-  # negative assertions containing the forbidden terms; recursively scanning
-  # scripts/ would therefore make a healthy installed VM fail its own check.
-  shipping_files=(
-    Cargo.toml
-    install.sh
-    scripts/start-slopos-i
-    scripts/install-session-files.sh
-    packaging/slopos-i.desktop
-    packaging/slopos-browser.desktop
-    packaging/arch/PKGBUILD
-    packaging/debian/changelog
-    packaging/debian/control
-    packaging/debian/rules
-    packaging/iso/build-iso.sh
-    packaging/iso/packages.x86_64
-    packaging/deps/arch.txt
-    packaging/deps/ubuntu.txt
-    packaging/deps/arch-build.txt
-    packaging/deps/ubuntu-build.txt
-    packaging/vm/arch-install.sh
-  )
-  for path in "${shipping_files[@]}"; do
-    test -f "$path" || fail "missing source-contract file: $path"
-    if grep -Eiq '(^|[^[:alnum:]])(wayland|smithay|wlroots|xwayland|slopos-compositor)([^[:alnum:]]|$)' "$path"; then
-      fail "obsolete display-stack reference remains in shipping file: $path"
-    fi
-  done
-  echo "shipping source contract clean (${#shipping_files[@]} files)"
-fi
+source_root="${SLOPOS_SOURCE_ROOT:-$HOME/slopos-i}"
+test -d "$source_root/.git" || fail "pinned source checkout is missing: $source_root"
+cd "$source_root"
+# Scan only files that can ship the product. QA helpers intentionally carry
+# negative assertions containing the forbidden terms; recursively scanning
+# scripts/ would therefore make a healthy installed VM fail its own check.
+shipping_files=(
+  Cargo.toml
+  install.sh
+  scripts/start-slopos-i
+  scripts/install-session-files.sh
+  packaging/slopos-i.desktop
+  packaging/slopos-browser.desktop
+  packaging/arch/PKGBUILD
+  packaging/debian/changelog
+  packaging/debian/control
+  packaging/debian/rules
+  packaging/iso/build-iso.sh
+  packaging/iso/packages.x86_64
+  packaging/deps/arch.txt
+  packaging/deps/ubuntu.txt
+  packaging/deps/arch-build.txt
+  packaging/deps/ubuntu-build.txt
+  packaging/vm/arch-install.sh
+)
+for path in "${shipping_files[@]}"; do
+  test -f "$path" || fail "missing source-contract file: $path"
+  if grep -Eiq '(^|[^[:alnum:]])(wayland|smithay|wlroots|xwayland|slopos-compositor)([^[:alnum:]]|$)' "$path"; then
+    fail "obsolete display-stack reference remains in shipping file: $path"
+  fi
+done
+echo "shipping source contract clean (${#shipping_files[@]} files)"
+echo "SLOPOS_SOURCE_CONTRACT_STATUS_0"
 
 echo "SLOPOS_X11_INSTALLED_VM_QA=PASS"
 echo "Evidence directory: $QA"

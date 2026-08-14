@@ -84,6 +84,13 @@ The 2026-08-11 deep audit initiates a corrective tranche that:
 - The active Openbox titlebar theme now uses a smooth Platinum bevel gradient instead of dense interlacing; the source contract records the intended active/inactive hierarchy. A fresh visual review is still required before changing the visual score.
 - `scripts/run-docker-qa.sh` now carries `scripts/qa-dbusmenu-exporter.c`, a QA-only low-level `com.canonical.dbusmenu` service that returns one bounded action and logs its protocol `Event`. The fixture is compiled into `/tmp`, never installed, and is optional unless `SLOPOS_QA_REQUIRE_REAL_APPMENU=1` is set. No post-3287d00 Docker/Xvfb run is claimed here because the local image cache is currently empty.
 
+## Post-d6d25d7 source hardening (runtime verification pending)
+
+- `scripts/run-resolution-qa.sh` now keeps screenshot filenames underscore-safe while writing the default evidence directory as `WIDTHxHEIGHT-scaleN`, matching the CI upload matrix. The previous mismatch could let a successful geometry job lose its artifacts; this fix is source-level until the hosted matrix reruns.
+- `scripts/install-browser-theme.sh` moves an existing Chromium unpacked theme to a unique backup instead of recursively deleting it, and normalizes Firefox's stylesheet preference to one explicit `true` declaration after backing up `user.js`. This preserves upstream browser profiles while keeping the no-fork integration opt-in.
+- `packaging/vm/provision.ps1` verifies the exact installer SHA-256 before execution, uses fail-closed HTTP/syntax checks and `pipefail`; `packaging/vm/qa-vm.sh` requires UEFI runtime/loader evidence, checks both possible Wayland-session locations, and refuses to skip the pinned source-contract scan. `scripts/install-session-files.sh` rejects malformed source descriptors missing `Exec=` or `TryExec=`.
+- Static Bash/PowerShell/YAML checks for this tranche pass in the current worktree. No current-tree cargo, Docker/Xvfb, EFI, physical-monitor or hardware evidence is claimed here; the score remains 78/100 until those gates produce fresh results.
+
 ## Evidence ledger
 
 - `docker run --rm -v <repo>:/workspace -w /workspace ubuntu:24.04 bash /workspace/scripts/run-docker-qa.sh` completed all eight stages, including shell/Openbox child-restart checks, with `SLOPOS-I Docker/Xvfb functional evidence PASS` and exit 0 in a fresh Ubuntu 24.04 snapshot.
