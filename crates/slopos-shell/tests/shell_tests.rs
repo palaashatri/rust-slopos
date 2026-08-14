@@ -511,6 +511,8 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(appmenu.contains("MAX_LAYOUT_DEPTH"));
     assert!(appmenu.contains("MAX_MENU_ITEMS"));
     assert!(appmenu.contains("if array.len() > MAX_MENU_ITEMS"));
+    assert!(appmenu.contains("reserve_non_root"));
+    assert!(appmenu.contains("MAX_MENU_ITEMS.saturating_sub(self.items)"));
     assert!(appmenu.contains("dot-separated ASCII unique-name grammar"));
     assert!(appmenu.contains("Unique-name elements may begin with digits"));
     assert!(appmenu.contains("call_noreply(DBUSMENU_EVENT"));

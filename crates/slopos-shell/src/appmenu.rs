@@ -212,6 +212,28 @@ struct ParseBudget {
     items: usize,
 }
 
+impl ParseBudget {
+    // The root wrapper is not counted; every descendant is counted, including
+    // invisible entries, before its children are parsed.
+    fn reserve_non_root(&mut self, depth: u32) -> Result<(), AppMenuImportError> {
+        if depth == 0 {
+            return Ok(());
+        }
+        self.items = self
+            .items
+            .checked_add(1)
+            .ok_or(AppMenuImportError::LimitExceeded("item count"))?;
+        if self.items > MAX_MENU_ITEMS {
+            return Err(AppMenuImportError::LimitExceeded("item count"));
+        }
+        Ok(())
+    }
+
+    fn remaining(&self) -> usize {
+        MAX_MENU_ITEMS.saturating_sub(self.items)
+    }
+}
+
 fn parse_wire_node<'a>(
     node: Structure<'a>,
     depth: u32,
@@ -230,7 +252,6 @@ fn parse_wire_node<'a>(
     let id = i32::try_from(fields.next().expect("checked field count"))
         .map_err(|_| AppMenuImportError::InvalidLayout("item id is not int32".to_string()))?;
     let properties = parse_properties(fields.next().expect("checked field count"))?;
-    let child_values = parse_children(fields.next().expect("checked field count"))?;
 
     let visible = properties
         .get("visible")
@@ -253,6 +274,11 @@ fn parse_wire_node<'a>(
             "unsupported item type {item_type:?}"
         )));
     }
+    // The root node is a transport wrapper, not a rendered menu item.  Count
+    // every other node before descending so a branching exporter cannot make
+    // the parser walk beyond the global item budget.
+    budget.reserve_non_root(depth)?;
+    let child_values = parse_children(fields.next().expect("checked field count"), budget)?;
     if item_type == "separator" && !child_values.is_empty() {
         return Err(AppMenuImportError::InvalidLayout(
             "separator has children".to_string(),
@@ -262,9 +288,6 @@ fn parse_wire_node<'a>(
         return Err(AppMenuImportError::InvalidLayout(
             "children are missing children-display=submenu".to_string(),
         ));
-    }
-    if child_values.len() > MAX_MENU_ITEMS {
-        return Err(AppMenuImportError::LimitExceeded("children"));
     }
 
     let mut children = Vec::with_capacity(child_values.len());
@@ -284,17 +307,6 @@ fn parse_wire_node<'a>(
         .unwrap_or_default()
         .to_string();
     validate_label(&label)?;
-
-    // Invisible entries are still parsed and counted to avoid an exporter
-    // hiding an unbounded tree behind the protocol's `visible` property, but
-    // they are not rendered by the shell.
-    budget.items = budget
-        .items
-        .checked_add(1)
-        .ok_or(AppMenuImportError::LimitExceeded("item count"))?;
-    if budget.items > MAX_MENU_ITEMS {
-        return Err(AppMenuImportError::LimitExceeded("item count"));
-    }
 
     Ok(AppMenuItem {
         id,
@@ -366,7 +378,10 @@ impl PropertyValue {
     }
 }
 
-fn parse_children<'a>(value: Value<'a>) -> Result<Vec<Structure<'a>>, AppMenuImportError> {
+fn parse_children<'a>(
+    value: Value<'a>,
+    budget: &ParseBudget,
+) -> Result<Vec<Structure<'a>>, AppMenuImportError> {
     let Value::Array(array) = value else {
         return Err(AppMenuImportError::InvalidLayout(
             "children are not an array".to_string(),
@@ -378,6 +393,9 @@ fn parse_children<'a>(value: Value<'a>) -> Result<Vec<Structure<'a>>, AppMenuImp
     // malformed input an avoidable allocation/DoS vector.
     if array.len() > MAX_MENU_ITEMS {
         return Err(AppMenuImportError::LimitExceeded("children"));
+    }
+    if array.len() > budget.remaining() {
+        return Err(AppMenuImportError::LimitExceeded("item count"));
     }
     let mut children = Vec::with_capacity(array.len());
     for child in array.iter() {
@@ -563,7 +581,8 @@ mod tests {
         assert!(!valid_bus_name(":1..2"));
         assert!(!valid_bus_name(":1.f?"));
         assert!(!valid_bus_name(":1 42"));
-        assert!(!valid_bus_name(":1.é"));
+        assert!(!valid_bus_name(":1.\u{e9}"));
+        assert!(!valid_bus_name(&format!(":{}.", "a".repeat(254))));
         assert!(!valid_bus_name(""));
     }
 
@@ -576,6 +595,35 @@ mod tests {
         assert!(matches!(
             parse_layout(1, root),
             Err(AppMenuImportError::LimitExceeded("children"))
+        ));
+    }
+
+    #[test]
+    fn allows_maximum_top_level_items_without_counting_root() {
+        let children = (0..MAX_MENU_ITEMS)
+            .map(|id| node(id as i32, vec![], vec![]))
+            .collect();
+        let root = node(0, vec![], children);
+        let layout = parse_layout(1, root).expect("256 top-level items fit the budget");
+        assert_eq!(layout.items.len(), MAX_MENU_ITEMS);
+    }
+
+    #[test]
+    fn rejects_branching_layouts_before_descending_past_item_budget() {
+        let branch = |root_id: i32| {
+            let children = (0..128)
+                .map(|id| node(root_id + id + 1, vec![], vec![]))
+                .collect();
+            node(
+                root_id,
+                vec![("children-display", Value::from("submenu"))],
+                children,
+            )
+        };
+        let root = node(0, vec![], vec![branch(1), branch(1000)]);
+        assert!(matches!(
+            parse_layout(1, root),
+            Err(AppMenuImportError::LimitExceeded("item count"))
         ));
     }
 
