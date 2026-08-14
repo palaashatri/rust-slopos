@@ -457,9 +457,7 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(topbar.contains("import_failed"));
     assert!(topbar.contains("The focused application's AppMenu is unavailable; use its local menu"));
     assert!(topbar.contains("Focused application's AppMenu action failed"));
-    assert!(topbar.contains(
-        "The focused application's AppMenu action failed; use its local menu"
-    ));
+    assert!(topbar.contains("The focused application's AppMenu action failed; use its local menu"));
     assert!(topbar.contains("never show an enabled"));
     assert!(topbar.contains("menu item whose activation would do nothing"));
     assert!(topbar.contains("no visible items; use its local menu"));
@@ -489,9 +487,7 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(qa.contains("NON_EXPORTER_STATUS_0"));
     assert!(qa.contains("Mousepad AppMenu properties were not removed for fallback check"));
     assert!(qa.contains("_GTK_MENUBAR_OBJECT_PATH 2>/dev/null || true"));
-    assert!(qa.contains(
-        "SCRIPT_DIR=\"$(cd -- \"$(dirname -- \"${BASH_SOURCE[0]}\")\" && pwd)\""
-    ));
+    assert!(qa.contains("SCRIPT_DIR=\"$(cd -- \"$(dirname -- \"${BASH_SOURCE[0]}\")\" && pwd)\""));
     assert!(qa.contains("REPO_ROOT=\"$(cd -- \"$SCRIPT_DIR/..\" && pwd)\""));
     assert!(qa.contains(
         "SLOPOS_OPENBOX_CONFIG=\"${SLOPOS_OPENBOX_CONFIG:-$REPO_ROOT/assets/config/openbox/rc.xml}\""
@@ -852,6 +848,12 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains(
         "REPO_ROOT=\"$(cd -- \"$SCRIPT_DIR/..\" && pwd)\""
     ));
+    assert!(qa.contains("pcmanfm \"$REPO_ROOT\""));
+    assert!(qa.contains("mousepad \"$REPO_ROOT/README.md\""));
+    assert!(qa.contains("ristretto \"$REPO_ROOT/assets/slopos-logo.png\""));
+    assert!(!qa.contains("pcmanfm /workspace"));
+    assert!(!qa.contains("mousepad /workspace/README.md"));
+    assert!(!qa.contains("ristretto /workspace/assets/slopos-logo.png"));
     assert!(qa.contains("SLOPOS_OPENBOX_CONFIG"));
     assert!(qa.contains("QA_STARTED_UTC"));
     assert!(qa.contains("evidence-manifest.txt"));
@@ -877,6 +879,11 @@ fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
     assert!(qa.contains("unrecoverable error"));
     assert!(qa.contains("pactl list sink-inputs"));
     assert!(qa.contains("test -s artifacts/qa/app-matrix/sink-inputs.txt"));
+    assert!(qa.contains("application\\.name = \"SuperTux 2\""));
+    assert!(qa.contains("application\\.process\\.id = \"[0-9]+\""));
+    assert!(qa.contains("application\\.process\\.binary = \"supertux2\""));
+    assert!(qa.contains("if (line ~ (\"application\\\\.process\\\\.id"));
+    assert!(qa.contains("game_pid"));
     assert!(qa.contains("command -v parec"));
     assert!(qa.contains("slopos_null.monitor"));
     assert!(qa.contains("game-audio.raw"));

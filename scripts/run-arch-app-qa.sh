@@ -325,10 +325,10 @@ SLOPOS_BROWSER_THEME=0 ./scripts/start-slopos-browser --no-sandbox --headless=ne
   >artifacts/qa/app-matrix/browser-dom.html 2>artifacts/qa/app-matrix/browser-dom.log
 grep -Fq 'SLOPOS_BROWSER_QA_MARKER' artifacts/qa/app-matrix/browser-dom.html
 
-run_window_app file-manager file-manager.png "" pcmanfm /workspace
+run_window_app file-manager file-manager.png "" pcmanfm "$REPO_ROOT"
 run_window_app terminal terminal.png "" xfce4-terminal --disable-server --title=SLOPOS\ Terminal
-run_window_app text-editor text-editor.png "" mousepad /workspace/README.md
-run_window_app image-viewer image-viewer.png "" ristretto /workspace/assets/slopos-logo.png
+run_window_app text-editor text-editor.png "" mousepad "$REPO_ROOT/README.md"
+run_window_app image-viewer image-viewer.png "" ristretto "$REPO_ROOT/assets/slopos-logo.png"
 # The container runs as root, so Chromium needs --no-sandbox; --test-type
 # suppresses its test-only infobar without changing the upstream binary.
 rm -rf /tmp/slopos-chromium
@@ -444,11 +444,27 @@ sleep 3
 kill -0 "$GAME_PID" 2>/dev/null
 pactl list sink-inputs >artifacts/qa/app-matrix/sink-inputs.txt
 test -s artifacts/qa/app-matrix/sink-inputs.txt
-grep -Eq "${GAME_PID}|supertux|SuperTux" artifacts/qa/app-matrix/sink-inputs.txt || {
+# Match the stream's process id, application name and upstream binary within
+# one sink-input record. A loose grep for any SuperTux text could accidentally
+# accept a stale stream left by a previous run and overstate game-audio
+# evidence.
+if ! awk -v game_pid="$GAME_PID" '
+  BEGIN { RS = "" }
+  /application\.name = "SuperTux 2"/ &&
+  /application\.process\.id = "[0-9]+"/ &&
+  /application\.process\.binary = "supertux2"/ {
+    line = $0
+    gsub(/\n/, " ", line)
+    if (line ~ ("application\\.process\\.id = \\\"" game_pid "\\\"")) {
+      found = 1
+    }
+  }
+  END { exit(found ? 0 : 1) }
+' artifacts/qa/app-matrix/sink-inputs.txt; then
   echo "ERROR: SuperTux window started but no identifiable game PulseAudio stream was observed" >&2
   cat artifacts/qa/app-matrix/sink-inputs.txt >&2
   exit 1
-}
+fi
 stop_game_audio_capture
 test -s "$GAME_AUDIO_CAPTURE"
 GAME_AUDIO_BYTES="$(wc -c <"$GAME_AUDIO_CAPTURE" | tr -d '[:space:]')"
