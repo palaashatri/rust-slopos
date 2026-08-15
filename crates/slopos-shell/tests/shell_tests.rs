@@ -498,6 +498,8 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(topbar.contains("Focused X11 application changed before AppMenu click"));
     assert!(topbar.contains("Focused X11 application changed before AppMenu event"));
     assert!(topbar.contains("Focused X11 application changed before AppMenu layout was shown"));
+    assert!(topbar.contains("gtk::current_event()"));
+    assert!(topbar.contains("trigger_event.as_ref()"));
     assert!(topbar.contains("app_menu_failure"));
     assert!(topbar.contains("import_failed"));
     assert!(topbar.contains("The focused application's AppMenu is unavailable; use its local menu"));
@@ -553,6 +555,9 @@ fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
     assert!(docker_qa.contains("dbus-monitor --session"));
     assert!(docker_qa.contains("capture_open_popup"));
     assert!(docker_qa.contains("APPMENU_MOUSEPAD_SCREENSHOT_CAPTURED"));
+    assert!(docker_qa.contains("is_settled_appmenu_popup"));
+    assert!(docker_qa.contains("_NET_WM_WINDOW_TYPE_(POPUP_MENU|DROPDOWN_MENU)"));
+    assert!(docker_qa.contains("APPMENU_POPUP_STATUS_0"));
     assert!(ci.contains("appmenu-gtk3-module"));
     assert!(ci.contains("appmenu-registrar"));
     assert!(ci.contains("APPMENU_UPSTREAM_IMPORT_STATUS_0"));

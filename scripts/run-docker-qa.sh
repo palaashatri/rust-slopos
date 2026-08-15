@@ -105,6 +105,27 @@ close_visible_windows_by_class() {
   return 1
 }
 
+# GTK tooltips and popup menus are both transient X11 windows. A raw window
+# count after clicking the App button can therefore mistake a tooltip for a
+# successful imported menu. Require the EWMH popup-menu type and a settled,
+# screen-visible geometry instead. `show_imported_app_menu` only calls
+# gtk_menu_popup_at_widget after it has appended at least one visible item, so
+# this is also a bounded assertion that the populated menu reached X11.
+is_settled_appmenu_popup() {
+  local window="$1" window_type geometry window_x window_y window_width window_height
+  window_type="$(xprop -id "$window" _NET_WM_WINDOW_TYPE 2>/dev/null || true)"
+  grep -Eq '_NET_WM_WINDOW_TYPE_(POPUP_MENU|DROPDOWN_MENU)' <<<"$window_type" || return 1
+
+  geometry="$(xdotool getwindowgeometry --shell "$window" 2>/dev/null || true)"
+  window_x="$(awk -F= '/^X=/{print $2}' <<<"$geometry")"
+  window_y="$(awk -F= '/^Y=/{print $2}' <<<"$geometry")"
+  window_width="$(awk -F= '/^WIDTH=/{print $2}' <<<"$geometry")"
+  window_height="$(awk -F= '/^HEIGHT=/{print $2}' <<<"$geometry")"
+  [[ "$window_x" =~ ^[0-9]+$ && "$window_y" =~ ^[0-9]+$ &&
+     "$window_width" =~ ^[0-9]+$ && "$window_height" =~ ^[0-9]+$ ]] || return 1
+  ((window_y >= 26 && window_width >= 40 && window_height >= 20))
+}
+
 if [[ "${SLOPOS_QA_SKIP_DEPS:-0}" == "1" ]]; then
   echo "[1/8] Using pre-provisioned X11/GTK QA dependencies"
 else
@@ -363,7 +384,13 @@ if [[ "$APPMENU_UPSTREAM_PROPERTIES_STATUS" == 1 ]] || \
    xprop -id "$TEXT_WINDOW" | grep -qE '_GTK_(UNIQUE_BUS_NAME|APP_MENU_OBJECT_PATH|MENUBAR_OBJECT_PATH)'; then
   APPMENU_MOUSEPAD_CAPTURED=1
   APPMENU_MOUSEPAD_SCREENSHOT_CAPTURED=0
-  before_appmenu_windows="$(xdotool search --onlyvisible --name '.*' | wc -l)"
+  # Clear any hover tooltip before taking the baseline. The popup detector
+  # below still filters by EWMH type, but this keeps the retained scene free of
+  # a stale tooltip when the App button is clicked.
+  read -r screen_width screen_height < <(xdotool getdisplaygeometry)
+  xdotool mousemove "$((screen_width - 24))" "$((screen_height - 24))"
+  sleep 0.35
+  before_appmenu_windows="$(xdotool search --onlyvisible --name '.*' 2>/dev/null || true)"
   # Keep Mousepad focused while clicking the top-bar button: activating the
   # shell window first would correctly clear the focused exporter before the
   # callback can consume the cached capability. The active-title label is
@@ -418,21 +445,51 @@ if [[ "$APPMENU_UPSTREAM_PROPERTIES_STATUS" == 1 ]] || \
     fi
     echo "APPMENU_MOUSEPAD_FALLBACK_STATUS_0"
   else
-    appmenu_popup_windows=""
+    appmenu_popup_window=""
+    appmenu_popup_geometry=""
+    previous_popup_window=""
+    previous_popup_geometry=""
     for _ in $(seq 1 20); do
-      appmenu_popup_windows="$(xdotool search --onlyvisible --name '.*' | wc -l)"
-      if [[ "$appmenu_popup_windows" -gt "$before_appmenu_windows" ]]; then
+      candidate_popup_window=""
+      candidate_popup_geometry=""
+      for window in $(xdotool search --onlyvisible --name '.*' 2>/dev/null || true); do
+        if grep -Fqx "$window" <<<"$before_appmenu_windows"; then
+          continue
+        fi
+        if is_settled_appmenu_popup "$window"; then
+          candidate_popup_window="$window"
+          candidate_popup_geometry="$(xdotool getwindowgeometry --shell "$window" 2>/dev/null || true)"
+          if [[ -n "$candidate_popup_geometry" ]]; then
+            break
+          fi
+          candidate_popup_window=""
+        fi
+      done
+      # Require the same popup window and geometry in consecutive polls. A
+      # tooltip-only transient can no longer satisfy this because it fails the
+      # popup-menu type check above.
+      if [[ -n "$candidate_popup_window" &&
+            "$candidate_popup_window" == "$previous_popup_window" &&
+            "$candidate_popup_geometry" == "$previous_popup_geometry" ]]; then
+        appmenu_popup_window="$candidate_popup_window"
+        appmenu_popup_geometry="$candidate_popup_geometry"
         break
       fi
+      previous_popup_window="$candidate_popup_window"
+      previous_popup_geometry="$candidate_popup_geometry"
       sleep 0.25
     done
-    test "$appmenu_popup_windows" -gt "$before_appmenu_windows"
+    test -n "$appmenu_popup_window"
+    echo "APPMENU_POPUP_STATUS_0 window=$appmenu_popup_window geometry=$(tr '\n' ',' <<<"$appmenu_popup_geometry")"
     # The importer succeeded, so select the truthful filename before taking
     # the open-popup capture (the fallback filename must never hold an
     # imported scene).
     APPMENU_MOUSEPAD_SCREENSHOT="appmenu_imported_mousepad_1280x800.png"
     # Preserve the popup scene before keyboard activation can close it; the
-    # post-event frame remains useful only as process/protocol evidence.
+    # post-event frame remains useful only as process/protocol evidence. Move
+    # into the popup first so the App-button tooltip cannot cover the scene.
+    xdotool mousemove --window "$appmenu_popup_window" --sync 8 8
+    sleep 0.25
     capture_open_popup "artifacts/qa/screenshots/$APPMENU_MOUSEPAD_SCREENSHOT"
     APPMENU_MOUSEPAD_SCREENSHOT_CAPTURED=1
     if [[ "$APPMENU_UPSTREAM_MODE" == "1" ]]; then

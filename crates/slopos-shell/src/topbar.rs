@@ -109,7 +109,17 @@ impl TopBar {
         let app_menu_exporter_ref = app_menu_exporter.clone();
         app_menu_button.connect_clicked(move |button| {
             let exporter = app_menu_exporter_ref.borrow().clone();
-            open_imported_app_menu(button, exporter, app_menu_failure_ref.clone());
+            // Preserve the originating button event for GTK's popup
+            // positioning. The DBusMenu request is asynchronous, so
+            // `gtk::current_event()` would be empty by the time the layout
+            // arrives on the main loop.
+            let trigger_event = gtk::current_event();
+            open_imported_app_menu(
+                button,
+                exporter,
+                app_menu_failure_ref.clone(),
+                trigger_event,
+            );
         });
         main_box.pack_start(&app_menu_button, false, false, 0);
 
@@ -543,6 +553,7 @@ fn open_imported_app_menu(
     button: &Button,
     exporter: Option<appmenu::AppMenuExporter>,
     exporter_failure: Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
+    trigger_event: Option<gdk::Event>,
 ) {
     let Some(exporter) = exporter else {
         return;
@@ -603,8 +614,13 @@ fn open_imported_app_menu(
                     ));
                     return glib::ControlFlow::Break;
                 }
-                if show_imported_app_menu(&button, layout, exporter.clone(), failure_state.clone())
-                {
+                if show_imported_app_menu(
+                    &button,
+                    layout,
+                    exporter.clone(),
+                    failure_state.clone(),
+                    trigger_event.as_ref(),
+                ) {
                     failure_state.borrow_mut().take();
                     button.set_sensitive(true);
                 } else {
@@ -662,6 +678,7 @@ fn show_imported_app_menu(
     layout: appmenu::AppMenuLayout,
     exporter: appmenu::AppMenuExporter,
     exporter_failure: Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
+    trigger_event: Option<&gdk::Event>,
 ) -> bool {
     let menu = Menu::new();
     append_imported_menu_items(&menu, &layout.items, &exporter, &exporter_failure, button);
@@ -674,7 +691,7 @@ fn show_imported_app_menu(
         button,
         gdk::Gravity::SouthWest,
         gdk::Gravity::NorthWest,
-        None,
+        trigger_event,
     );
     true
 }
