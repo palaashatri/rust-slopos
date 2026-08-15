@@ -323,7 +323,8 @@ cat >"$BROWSER_FIXTURE" <<'EOF'
 EOF
 # Check the browser engine's DOM separately from the visible X11 run. The
 # visible run below remains the evidence-bearing path for frame/theme capture.
-SLOPOS_BROWSER_THEME=0 ./scripts/start-slopos-browser --no-sandbox --headless=new --disable-gpu \
+SLOPOS_BROWSER_THEME=0 bash "$REPO_ROOT/scripts/start-slopos-browser" \
+  --no-sandbox --headless=new --disable-gpu \
   --user-data-dir="$BROWSER_DOM_PROFILE" --dump-dom "$BROWSER_URL" \
   >artifacts/qa/app-matrix/browser-dom.html 2>artifacts/qa/app-matrix/browser-dom.log
 grep -Fq 'SLOPOS_BROWSER_QA_MARKER' artifacts/qa/app-matrix/browser-dom.html
@@ -335,7 +336,8 @@ run_window_app image-viewer image-viewer.png "" ristretto "$REPO_ROOT/assets/slo
 # The container runs as root, so Chromium needs --no-sandbox; --test-type
 # suppresses its test-only infobar without changing the upstream binary.
 rm -rf /tmp/slopos-chromium
-run_window_app browser browser.png "SLOPOS Browser QA" ./scripts/start-slopos-browser \
+run_window_app browser browser.png "SLOPOS Browser QA" \
+  bash "$REPO_ROOT/scripts/start-slopos-browser" \
   --no-sandbox --test-type --disable-gpu --user-data-dir=/tmp/slopos-chromium "$BROWSER_URL"
 
 # Firefox remains upstream: the disposable profile receives the opt-in
@@ -348,7 +350,7 @@ if [[ "$FIREFOX_AVAILABLE" == 1 ]]; then
     HOME=/home/qa XDG_RUNTIME_DIR="$AUDIO_RUNTIME" GTK_THEME=slopos-gtk \
     DISPLAY="$DISPLAY" GDK_BACKEND=x11 XDG_SESSION_TYPE=x11 \
     MOZ_ENABLE_WAYLAND=0 MOZ_DISABLE_CONTENT_SANDBOX=1 SLOPOS_BROWSER=firefox \
-    ./scripts/start-slopos-browser --no-remote --new-instance \
+    bash "$REPO_ROOT/scripts/start-slopos-browser" --no-remote --new-instance \
     --profile "$FIREFOX_PROFILE" "$BROWSER_URL"
 else
   printf '%s\n' 'Firefox runtime leg skipped: package is not present in this pre-provisioned image.' \
