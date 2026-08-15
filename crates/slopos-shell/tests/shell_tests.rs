@@ -61,6 +61,20 @@ fn appimage_installer_has_no_stub_fallback() {
 }
 
 #[test]
+fn mime_defaults_reference_provisioned_handlers_only() {
+    let mimeapps = include_str!("../../../assets/config/mimeapps.list");
+    for mime in ["image/png", "image/jpeg", "image/gif", "image/svg+xml"] {
+        assert!(
+            mimeapps.contains(&format!("{mime}=ristretto.desktop")),
+            "missing Ristretto default for {mime}"
+        );
+    }
+    assert!(!mimeapps.contains("viewnior.desktop"));
+    assert!(!mimeapps.contains("slopos-appimage-runner.desktop"));
+    assert!(!mimeapps.contains("application/x-executable="));
+}
+
+#[test]
 fn shipping_manifests_are_x11_only_and_complete() {
     let manifests = [
         include_str!("../../../install.sh"),
@@ -620,6 +634,13 @@ fn launcher_default_geometry_keeps_result_rows_fully_visible() {
     assert!(launcher.contains("window.set_default_size(560, 450)"));
     assert!(launcher.contains("scroll.set_min_content_height(280)"));
     assert!(launcher.contains("visibly clipped row"));
+}
+
+#[test]
+fn launcher_renders_ranked_search_matches() {
+    let launcher = include_str!("../src/launcher.rs");
+    assert!(launcher.contains("ranked_app_matches"));
+    assert!(!launcher.contains("let command_text = app.argv.join(\" \").to_lowercase();"));
 }
 
 #[test]

@@ -1,6 +1,6 @@
 //! SLOPOS application Search palette.
 
-use crate::app_finder::{scan_desktop_apps, DesktopApp};
+use crate::app_finder::{ranked_app_matches, scan_desktop_apps, DesktopApp};
 use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
@@ -160,18 +160,9 @@ impl Launcher {
             self.list_box.remove(&child);
         }
 
-        let mut count = 0usize;
-        for app in self.all_apps.borrow().iter() {
-            let command_text = app.argv.join(" ").to_lowercase();
-            if !query.is_empty()
-                && !app.name.to_lowercase().contains(query)
-                && !app.comment.to_lowercase().contains(query)
-                && !command_text.contains(query)
-            {
-                continue;
-            }
-
-            count += 1;
+        let matches = ranked_app_matches(&self.all_apps.borrow(), query);
+        let count = matches.len();
+        for app in matches.iter() {
             let row = ListBoxRow::new();
             row.style_context().add_class("slopos-list-row");
             let accessible_name = if app.comment.is_empty() {
