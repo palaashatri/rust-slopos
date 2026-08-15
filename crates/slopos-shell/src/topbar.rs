@@ -162,7 +162,7 @@ impl TopBar {
             false,
             0,
         );
-        let audio_label = Label::new(Some("--"));
+        let audio_label = Label::new(Some("N/A"));
         audio_box.pack_start(&audio_label, false, false, 0);
         audio_button.add(&audio_box);
         if resolve_program("pavucontrol").is_some() {
@@ -186,7 +186,7 @@ impl TopBar {
             false,
             0,
         );
-        let network_label = Label::new(Some("--"));
+        let network_label = Label::new(Some("N/A"));
         network_box.pack_start(&network_label, false, false, 0);
         network_button.add(&network_box);
         if resolve_program("nm-connection-editor").is_some() {
@@ -210,7 +210,9 @@ impl TopBar {
         battery_box.pack_start(&battery_label, false, false, 0);
         status_box.pack_start(&battery_box, false, false, 0);
 
-        let clock_label = Label::new(Some("--:--"));
+        let initial_clock =
+            command_output("date", &["+%H:%M"]).unwrap_or_else(|| "N/A".to_string());
+        let clock_label = Label::new(Some(&initial_clock));
         clock_label.style_context().add_class("slopos-clock");
         clock_label.set_tooltip_text(Some("Local time"));
         set_accessible_name(&clock_label, "Local time");
@@ -282,7 +284,7 @@ fn install_live_updates(
     let battery = battery.clone();
     battery_box.set_visible(current_battery_state().is_some());
     glib::timeout_add_seconds_local(5, move || {
-        audio.set_text(&current_volume().unwrap_or_else(|| "--".to_string()));
+        audio.set_text(&current_volume().unwrap_or_else(|| "N/A".to_string()));
         network.set_text(&current_network_state());
         if let Some(value) = current_battery_state() {
             battery.set_text(&value);
@@ -421,12 +423,12 @@ fn update_app_menu_status(
     button.set_sensitive(false);
     match status {
         AppMenuStatus::ShellOwned => {
-            button.set_label("App");
+            button.set_label("App (SLOPOS)");
             button.set_tooltip_text(Some("SLOPOS owns this menu area"));
             set_accessible_name(button, "Application menu unavailable for SLOPOS shell");
         }
         AppMenuStatus::NoExporter => {
-            button.set_label("App");
+            button.set_label("App (local)");
             button.set_tooltip_text(Some(
                 "This application exports no X11 AppMenu; use its local menu",
             ));
@@ -436,7 +438,7 @@ fn update_app_menu_status(
             );
         }
         AppMenuStatus::ExporterDetected if import_failed => {
-            button.set_label("App");
+            button.set_label("App (local)");
             button.set_sensitive(false);
             button.set_tooltip_text(Some(
                 "The focused application's AppMenu is unavailable; use its local menu",
@@ -487,7 +489,7 @@ fn current_network_state() -> String {
     match command_output("nmcli", &["-t", "-f", "STATE", "general"]) {
         Some(value) if value.to_ascii_lowercase().starts_with("connected") => "Online".to_string(),
         Some(_) => "Offline".to_string(),
-        None => "--".to_string(),
+        None => "N/A".to_string(),
     }
 }
 
@@ -541,7 +543,7 @@ fn command_output(program: &str, args: &[&str]) -> Option<String> {
 }
 
 fn build_app_menu_button() -> Button {
-    let button = Button::with_label("App");
+    let button = Button::with_label("App (local)");
     button.style_context().add_class("slopos-menubar-control");
     button.set_sensitive(false);
     button.set_tooltip_text(Some(

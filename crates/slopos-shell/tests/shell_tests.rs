@@ -41,6 +41,15 @@ fn desktop_chrome_advertises_dock_window_type() {
 }
 
 #[test]
+fn topbar_unavailable_statuses_are_explicit() {
+    let topbar = include_str!("../src/topbar.rs");
+    assert!(!topbar.contains("Label::new(Some(\"--\"))"));
+    assert!(!topbar.contains("unwrap_or_else(|| \"--\".to_string())"));
+    assert!(topbar.contains("\"N/A\""));
+    assert!(topbar.contains("\"App (local)\""));
+}
+
+#[test]
 fn platinum_dialogs_use_packaged_identity_mark() {
     let topbar = include_str!("../src/topbar.rs");
     assert!(topbar.contains("alert.pack_start(&mark, false, false, 0)"));
