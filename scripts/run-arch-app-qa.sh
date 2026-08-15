@@ -121,7 +121,10 @@ rm -rf "$FIREFOX_PROFILE"
 FIREFOX_AVAILABLE=0
 if command -v firefox >/dev/null 2>&1; then
   FIREFOX_AVAILABLE=1
-  ./scripts/install-browser-theme.sh firefox "$FIREFOX_PROFILE" \
+  # Run through Bash so a source checkout that does not preserve executable
+  # bits (for example an uploaded workflow artifact) still exercises the
+  # Firefox profile integration instead of failing with exit 126.
+  bash "$REPO_ROOT/scripts/install-browser-theme.sh" firefox "$FIREFOX_PROFILE" \
     >artifacts/qa/app-matrix/firefox-theme-install.log
   cat >>"$FIREFOX_PROFILE/user.js" <<'EOF'
 user_pref("browser.aboutwelcome.enabled", false);
