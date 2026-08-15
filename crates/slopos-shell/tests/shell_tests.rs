@@ -33,6 +33,14 @@ fn topbar_uses_packaged_slopos_mark_with_fallback() {
 }
 
 #[test]
+fn desktop_chrome_advertises_dock_window_type() {
+    let topbar = include_str!("../src/topbar.rs");
+    let dock = include_str!("../src/dock.rs");
+    assert!(topbar.contains("window.set_type_hint(gdk::WindowTypeHint::Dock)"));
+    assert!(dock.contains("window.set_type_hint(gdk::WindowTypeHint::Dock)"));
+}
+
+#[test]
 fn platinum_dialogs_use_packaged_identity_mark() {
     let topbar = include_str!("../src/topbar.rs");
     assert!(topbar.contains("alert.pack_start(&mark, false, false, 0)"));

@@ -39,6 +39,11 @@ impl Dock {
             (screen_height - height - 6).max(28),
         );
         window.set_decorated(false);
+        // The Application Strip is desktop chrome, not an application window.
+        // Marking it as a dock lets Openbox place it in the reserved desktop
+        // area instead of clamping it into the application work area, which
+        // otherwise makes the strip overlap terminal/file-manager content.
+        window.set_type_hint(gdk::WindowTypeHint::Dock);
         window.set_keep_above(true);
         window.set_skip_taskbar_hint(true);
         window.set_skip_pager_hint(true);

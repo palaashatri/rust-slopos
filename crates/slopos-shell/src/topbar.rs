@@ -40,6 +40,11 @@ impl TopBar {
         window.set_position(WindowPosition::None);
         window.move_(0, 0);
         window.set_decorated(false);
+        // Advertise the bar as desktop chrome so Openbox does not apply the
+        // application work-area margins to it.  This keeps the Platinum bar
+        // flush with the physical screen edge while normal applications still
+        // receive the configured top margin below it.
+        window.set_type_hint(gdk::WindowTypeHint::Dock);
         window.set_keep_above(true);
         // The top bar is desktop chrome, not an application surface.  Keep
         // the X11 client focus on the focused upstream application while a
