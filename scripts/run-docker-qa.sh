@@ -113,6 +113,7 @@ close_visible_windows_by_class() {
 # this is also a bounded assertion that the populated menu reached X11.
 is_settled_appmenu_popup() {
   local window="$1" window_type geometry window_x window_y window_width window_height
+  local display_width display_height
   window_type="$(xprop -id "$window" _NET_WM_WINDOW_TYPE 2>/dev/null || true)"
   grep -Eq '_NET_WM_WINDOW_TYPE_(POPUP_MENU|DROPDOWN_MENU)' <<<"$window_type" || return 1
 
@@ -123,7 +124,11 @@ is_settled_appmenu_popup() {
   window_height="$(awk -F= '/^HEIGHT=/{print $2}' <<<"$geometry")"
   [[ "$window_x" =~ ^[0-9]+$ && "$window_y" =~ ^[0-9]+$ &&
      "$window_width" =~ ^[0-9]+$ && "$window_height" =~ ^[0-9]+$ ]] || return 1
-  ((window_y >= 26 && window_width >= 40 && window_height >= 20))
+  read -r display_width display_height < <(xdotool getdisplaygeometry 2>/dev/null) || return 1
+  [[ "$display_width" =~ ^[0-9]+$ && "$display_height" =~ ^[0-9]+$ ]] || return 1
+  ((window_y >= 26 && window_width >= 40 && window_height >= 20 &&
+    window_x + window_width <= display_width &&
+    window_y + window_height <= display_height))
 }
 
 if [[ "${SLOPOS_QA_SKIP_DEPS:-0}" == "1" ]]; then
