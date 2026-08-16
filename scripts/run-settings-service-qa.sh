@@ -1,7 +1,6 @@
 #!/bin/bash
-# Verify that Settings delegates to mature utilities and fails closed when
-# those utilities are absent. This is service-boundary evidence, not hardware
-# suspend/Bluetooth/audio mutation proof.
+# Verify that Settings delegates to mature utilities, keeps its built-in
+# Appearance panel available, and fails closed when external utilities are absent.
 set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
@@ -40,7 +39,7 @@ test -x target/release/slopos-settings
 
 mkdir -p /tmp/slopos-settings-service-stubs
 for utility in arandr lxrandr pavucontrol nm-connection-editor blueman-manager \
-  xfce4-power-manager-settings lxappearance pcmanfm lxinput; do
+  xfce4-power-manager-settings pcmanfm lxinput; do
   cat >"/tmp/slopos-settings-service-stubs/$utility" <<EOF
 #!/bin/bash
 printf '%s\\n' '$utility' >> "\${SLOPOS_SERVICE_PROBE_LOG:?}"
@@ -54,9 +53,7 @@ run_case() {
   local log_file="/tmp/slopos-settings-${mode}.log"
   local qa_log="/tmp/slopos-settings-${mode}-qa.log"
   local runner_log="/tmp/slopos-settings-${mode}-runner.log"
-  rm -f "$log_file"
-  rm -f "$qa_log"
-  rm -f "$runner_log"
+  rm -f "$log_file" "$qa_log" "$runner_log"
 
   Xvfb :99 -screen 0 1280x800x24 -nolisten tcp >"/tmp/slopos-settings-xvfb.log" 2>&1 &
   XVFB_PID=$!
@@ -70,9 +67,6 @@ run_case() {
     set -euo pipefail
     export DISPLAY=:99
     export GDK_BACKEND=x11
-    # Settings must expose its GTK widgets through the same AT-SPI bridge as
-    # the shell acceptance.  Without this, the service test can only observe
-    # the X11 window and cannot prove the controls are disabled or delegated.
     export GTK_MODULES=gail:atk-bridge
     export XDG_RUNTIME_DIR=/tmp/slopos-settings-services-runtime
     cleanup_inner() {
@@ -97,9 +91,6 @@ run_case() {
     done
     xdotool search --onlyvisible --name "^System Settings$" >/dev/null
     export SLOPOS_SERVICE_PROBE_LOG="$2"
-    # Keep the AT-SPI assertions separate from the Settings process log so
-    # the post-case marker checks cannot accidentally inspect the wrong
-    # stream.  This also leaves a focused artifact when a case fails.
     python3 scripts/qa-settings-services.py --mode "$4" >"$5" 2>&1
     kill -TERM "$SETTINGS_PID" "$OPENBOX_PID" "$AT_SPI_PID" 2>/dev/null || true
     wait "$SETTINGS_PID" "$OPENBOX_PID" "$AT_SPI_PID" 2>/dev/null || true
@@ -133,18 +124,19 @@ run_case() {
   SETTINGS_PID=""
 }
 
-echo "[3/4] Checking unavailable controls fail closed"
+echo "[3/4] Checking unavailable delegated controls fail closed while Appearance remains available"
 run_case disabled /tmp/slopos-settings-empty-path
+grep -Fxq SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=7 /tmp/slopos-settings-disabled-qa.log
+grep -Fxq SETTINGS_BUILTIN_APPEARANCE_ENABLED=1 /tmp/slopos-settings-disabled-qa.log
 
-echo "[4/4] Checking delegated controls invoke an upstream utility"
+echo "[4/4] Checking seven external controls delegate to mature utilities"
 export SLOPOS_SERVICE_PROBE_LOG=/tmp/slopos-settings-delegation-probe.log
 rm -f "$SLOPOS_SERVICE_PROBE_LOG"
 run_case delegation /tmp/slopos-settings-service-stubs
-grep -Fxq SETTINGS_DELEGATED_CONTROLS=8 /tmp/slopos-settings-delegation-qa.log
+grep -Fxq SETTINGS_DELEGATED_CONTROLS=7 /tmp/slopos-settings-delegation-qa.log
+grep -Fxq SETTINGS_BUILTIN_APPEARANCE_ENABLED=1 /tmp/slopos-settings-delegation-qa.log
 for utility in arandr pavucontrol nm-connection-editor blueman-manager \
-  xfce4-power-manager-settings lxappearance pcmanfm lxinput; do
-  # The stub commands append their names to the probe log (the Settings
-  # process log path); keep that check distinct from the AT-SPI result log.
+  xfce4-power-manager-settings pcmanfm lxinput; do
   grep -Fxq "$utility" /tmp/slopos-settings-delegation.log
 done
 echo "SETTINGS_SERVICE_QA_STATUS_0"
