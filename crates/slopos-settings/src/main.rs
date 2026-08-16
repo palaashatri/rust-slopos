@@ -1,14 +1,14 @@
 //! SLOPOS-I Settings hub.
 //!
-//! The hub provides a consistent SLOPOS control-panel surface while delegating
-//! system mutation to mature upstream X11/Linux configuration utilities.
+//! SLOPOS owns the coherent control-panel entry point while mature upstream
+//! X11/Linux utilities perform hardware and service mutation.
 
 use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
-    Align, Box as GtkBox, Button, Grid, IconSize, Image, Label, Orientation, Window,
-    WindowPosition, WindowType,
+    Align, Box as GtkBox, Button, Dialog, DialogFlags, Grid, IconSize, Image, Label,
+    Orientation, RadioButton, ResponseType, Window, WindowPosition, WindowType,
 };
 use std::env;
 use std::path::{Path, PathBuf};
@@ -20,6 +20,7 @@ struct ControlPanel<'a> {
     title: &'a str,
     description: &'a str,
     candidates: &'a [(&'a str, &'a [&'a str])],
+    built_in: bool,
 }
 
 fn main() {
@@ -30,16 +31,9 @@ fn main() {
     let window = Window::new(WindowType::Toplevel);
     window.set_title("System Settings");
     set_accessible_name(&window, "SLOPOS system settings");
-    // Keep the hub compact like a classic control panel while leaving enough
-    // room for four rows of delegated utilities. Retained high-resolution
-    // captures get a bounded larger surface; canonical 1x layouts retain the
-    // historical dimensions.
     let (screen_width, screen_height) = screen_geometry();
     let (window_width, window_height) = adaptive_window_size(screen_width, screen_height);
-    window.set_default_size(640, 460);
-    if (window_width, window_height) != (640, 460) {
-        window.set_default_size(window_width, window_height);
-    }
+    window.set_default_size(window_width, window_height);
     window.set_position(WindowPosition::Center);
     window.connect_delete_event(|_, _| {
         gtk::main_quit();
@@ -49,25 +43,25 @@ fn main() {
     let body = GtkBox::new(Orientation::Vertical, 6);
     body.style_context().add_class("slopos-window-body");
 
-    let title = Label::new(Some("System Settings"));
+    let title = Label::new(Some("Control Panels"));
     title.set_xalign(0.0);
     title.style_context().add_class("slopos-panel-title");
-    set_accessible_name(&title, "System Settings");
+    set_accessible_name(&title, "Control Panels");
     body.pack_start(&title, false, false, 0);
 
     let subtitle = Label::new(Some(
-        "Open a control panel to configure your Linux desktop and hardware.",
+        "Configure the desktop and open the system utility responsible for each device or service.",
     ));
     subtitle.set_xalign(0.0);
+    subtitle.set_line_wrap(true);
     subtitle.style_context().add_class("slopos-panel-subtitle");
     body.pack_start(&subtitle, false, false, 0);
 
-    let separator = gtk::Separator::new(Orientation::Horizontal);
-    body.pack_start(&separator, false, false, 0);
+    body.pack_start(&gtk::Separator::new(Orientation::Horizontal), false, false, 0);
 
     let grid = Grid::new();
-    grid.set_row_spacing(6);
-    grid.set_column_spacing(6);
+    grid.set_row_spacing(7);
+    grid.set_column_spacing(7);
     grid.set_column_homogeneous(true);
     grid.set_row_homogeneous(true);
     grid.set_hexpand(true);
@@ -78,68 +72,80 @@ fn main() {
             icon_file: "display.svg",
             fallback_icon: "video-display-symbolic",
             title: "Displays",
-            description: "Resolution, rotation and monitor layout",
-            candidates: &[("arandr", &[]), ("lxrandr", &[])],
+            description: "Resolution and monitor layout",
+            candidates: &[("arandr", &[]), ("xfce4-display-settings", &[]), ("lxrandr", &[])],
+            built_in: false,
         },
         ControlPanel {
             icon_file: "sound.svg",
             fallback_icon: "audio-card-symbolic",
             title: "Sound",
-            description: "Output, input devices and volume",
+            description: "Input, output and volume",
             candidates: &[("pavucontrol", &[])],
+            built_in: false,
         },
         ControlPanel {
             icon_file: "network.svg",
             fallback_icon: "network-wireless-symbolic",
             title: "Network",
-            description: "Wi-Fi, Ethernet and saved connections",
+            description: "Wi-Fi and Ethernet",
             candidates: &[("nm-connection-editor", &[])],
+            built_in: false,
         },
         ControlPanel {
             icon_file: "bluetooth.svg",
             fallback_icon: "bluetooth-symbolic",
             title: "Bluetooth",
-            description: "Discover, pair and manage devices",
+            description: "Pair and manage devices",
             candidates: &[("blueman-manager", &[])],
+            built_in: false,
         },
         ControlPanel {
             icon_file: "power.svg",
             fallback_icon: "battery-good-symbolic",
             title: "Power",
-            description: "Sleep, lid and battery behaviour",
+            description: "Sleep, lid and battery",
             candidates: &[("xfce4-power-manager-settings", &[])],
+            built_in: false,
         },
         ControlPanel {
             icon_file: "appearance.svg",
             fallback_icon: "preferences-desktop-theme-symbolic",
             title: "Appearance",
-            description: "GTK theme, icons and font preferences",
-            candidates: &[("lxappearance", &[])],
+            description: "Platinum or Graphite",
+            candidates: &[],
+            built_in: true,
         },
         ControlPanel {
             icon_file: "desktop.svg",
             fallback_icon: "preferences-desktop-wallpaper-symbolic",
             title: "Desktop",
-            description: "Wallpaper and desktop presentation",
+            description: "Wallpaper and desktop icons",
             candidates: &[("pcmanfm", &["--desktop-pref"])],
+            built_in: false,
         },
         ControlPanel {
             icon_file: "keyboard.svg",
             fallback_icon: "input-keyboard-symbolic",
             title: "Keyboard & Mouse",
             description: "Pointer and keyboard preferences",
-            candidates: &[("lxinput", &[])],
+            candidates: &[
+                ("lxinput", &[]),
+                ("xfce4-mouse-settings", &[]),
+                ("xfce4-keyboard-settings", &[]),
+            ],
+            built_in: false,
         },
     ];
 
     for (index, panel) in panels.iter().enumerate() {
-        let button = control_panel_button(panel);
-        grid.attach(&button, (index % 2) as i32, (index / 2) as i32, 1, 1);
+        let button = control_panel_button(panel, &window);
+        grid.attach(&button, (index % 4) as i32, (index / 4) as i32, 1, 1);
     }
     body.pack_start(&grid, true, true, 0);
 
     let status = Label::new(Some(
-        "Unavailable control panels are disabled rather than simulated.",
+        "SLOPOS provides the control-panel surface; mature Linux tools perform system changes.",
     ));
     status.set_xalign(0.0);
     status.style_context().add_class("slopos-statusbar");
@@ -151,7 +157,7 @@ fn main() {
     gtk::main();
 }
 
-fn control_panel_button(panel: &ControlPanel<'_>) -> Button {
+fn control_panel_button(panel: &ControlPanel<'_>, parent: &Window) -> Button {
     let selected = panel
         .candidates
         .iter()
@@ -168,13 +174,12 @@ fn control_panel_button(panel: &ControlPanel<'_>) -> Button {
     let button = Button::new();
     button.style_context().add_class("slopos-control-panel");
     button.set_hexpand(true);
-    button.set_vexpand(false);
+    button.set_vexpand(true);
     button.set_tooltip_text(Some(panel.description));
-    let accessible_name = format!("{} settings", panel.title);
-    set_accessible_name(&button, &accessible_name);
+    set_accessible_name(&button, &format!("{} settings", panel.title));
 
-    let content = GtkBox::new(Orientation::Horizontal, 10);
-    content.set_halign(Align::Fill);
+    let content = GtkBox::new(Orientation::Vertical, 4);
+    content.set_halign(Align::Center);
     content.set_valign(Align::Center);
 
     let icon = load_control_icon(panel.icon_file, panel.fallback_icon);
@@ -182,27 +187,29 @@ fn control_panel_button(panel: &ControlPanel<'_>) -> Button {
     icon.style_context().add_class("slopos-control-icon");
     content.pack_start(&icon, false, false, 0);
 
-    let labels = GtkBox::new(Orientation::Vertical, 2);
-    labels.set_valign(Align::Center);
     let title = Label::new(Some(panel.title));
-    title.set_xalign(0.0);
+    title.set_xalign(0.5);
     title.style_context().add_class("slopos-control-title");
-    labels.pack_start(&title, false, false, 0);
+    content.pack_start(&title, false, false, 0);
 
-    let description = if selected.is_some() {
+    let description = if panel.built_in || selected.is_some() {
         panel.description.to_string()
     } else {
-        format!("{} — utility not installed", panel.description)
+        "Utility not installed".to_string()
     };
     let subtitle = Label::new(Some(&description));
-    subtitle.set_xalign(0.0);
+    subtitle.set_xalign(0.5);
+    subtitle.set_justify(gtk::Justification::Center);
     subtitle.set_line_wrap(true);
+    subtitle.set_max_width_chars(24);
     subtitle.style_context().add_class("slopos-secondary-text");
-    labels.pack_start(&subtitle, false, false, 0);
-    content.pack_start(&labels, true, true, 0);
+    content.pack_start(&subtitle, false, false, 0);
     button.add(&content);
 
-    if let Some((program, args)) = selected {
+    if panel.built_in && panel.title == "Appearance" {
+        let parent = parent.clone();
+        button.connect_clicked(move |_| show_appearance_dialog(&parent));
+    } else if let Some((program, args)) = selected {
         button.connect_clicked(move |_| {
             if let Err(error) = Command::new(&program).args(&args).spawn() {
                 log::warn!("Failed to launch {program}: {error}");
@@ -215,26 +222,106 @@ fn control_panel_button(panel: &ControlPanel<'_>) -> Button {
     button
 }
 
-fn command_exists(program: &str) -> bool {
-    if program.contains('/') {
-        return Path::new(program).is_file();
+fn show_appearance_dialog(parent: &Window) {
+    let dialog = Dialog::with_buttons(
+        Some("Appearance"),
+        Some(parent),
+        DialogFlags::MODAL | DialogFlags::DESTROY_WITH_PARENT,
+        &[("Cancel", ResponseType::Cancel), ("Apply", ResponseType::Accept)],
+    );
+    dialog.set_default_response(ResponseType::Accept);
+    set_accessible_name(&dialog, "SLOPOS appearance chooser");
+
+    let content = dialog.content_area();
+    content.set_spacing(8);
+    content.set_margin_start(12);
+    content.set_margin_end(12);
+    content.set_margin_top(10);
+    content.set_margin_bottom(10);
+
+    let heading = Label::new(Some("Desktop Appearance"));
+    heading.set_xalign(0.0);
+    heading.style_context().add_class("slopos-control-title");
+    content.pack_start(&heading, false, false, 0);
+
+    let explanation = Label::new(Some(
+        "Platinum is the canonical light appearance. Graphite is the complete dark counterpart.",
+    ));
+    explanation.set_xalign(0.0);
+    explanation.set_line_wrap(true);
+    explanation.style_context().add_class("slopos-secondary-text");
+    content.pack_start(&explanation, false, false, 0);
+
+    let platinum = RadioButton::with_label(None::<&RadioButton>, "Platinum — classic light");
+    let graphite = RadioButton::with_label_from_widget(&platinum, "Graphite — dark");
+    if current_appearance() == "graphite" {
+        graphite.set_active(true);
+    } else {
+        platinum.set_active(true);
     }
-    let Some(path) = env::var_os("PATH") else {
-        return false;
-    };
-    env::split_paths(&path).any(|dir| dir.join(program).is_file())
+    content.pack_start(&platinum, false, false, 0);
+    content.pack_start(&graphite, false, false, 0);
+
+    dialog.show_all();
+    let response = dialog.run();
+    if response == ResponseType::Accept {
+        let mode = if graphite.is_active() {
+            "graphite"
+        } else {
+            "platinum"
+        };
+        if let Some(helper) = appearance_helper() {
+            if let Err(error) = Command::new(helper).arg(mode).spawn() {
+                log::warn!("Failed to switch appearance: {error}");
+            }
+        } else {
+            log::warn!("slopos-appearance helper is unavailable");
+        }
+    }
+    dialog.close();
+}
+
+fn appearance_helper() -> Option<PathBuf> {
+    if let Ok(executable) = env::current_exe() {
+        if let Some(dir) = executable.parent() {
+            let sibling = dir.join("slopos-appearance");
+            if sibling.is_file() {
+                return Some(sibling);
+            }
+        }
+    }
+    let local = PathBuf::from("scripts/slopos-appearance");
+    if local.is_file() {
+        return Some(local);
+    }
+    resolve_program_path("slopos-appearance")
+}
+
+fn command_exists(program: &str) -> bool {
+    resolve_program_path(program).is_some()
+}
+
+fn resolve_program_path(program: &str) -> Option<PathBuf> {
+    if program.contains('/') {
+        let path = PathBuf::from(program);
+        return path.is_file().then_some(path);
+    }
+    let path = env::var_os("PATH")?;
+    env::split_paths(&path)
+        .map(|dir| dir.join(program))
+        .find(|candidate| candidate.is_file())
 }
 
 fn adaptive_window_size(screen_width: i32, screen_height: i32) -> (i32, i32) {
     let width = if screen_width <= 1600 {
         640
     } else {
-        (screen_width * 2 / 5).clamp(720, 1080)
+        (screen_width * 2 / 5).clamp(720, 960)
     };
     let height = if screen_height <= 1000 {
-        460
+        390
     } else {
-        (screen_height * 7 / 12).clamp(560, 720)
+        (screen_height / 2).clamp(460, 620)
     };
     (width, height)
 }
@@ -308,15 +395,49 @@ where
     accessible.set_name(name);
 }
 
+fn current_appearance() -> &'static str {
+    let config_home = env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+    if let Some(config_home) = config_home {
+        if let Ok(value) = std::fs::read_to_string(config_home.join("slopos-i/appearance")) {
+            if value.trim().eq_ignore_ascii_case("graphite") {
+                return "graphite";
+            }
+        }
+    }
+    "platinum"
+}
+
 fn load_css_theme() {
+    let graphite = current_appearance() == "graphite";
+    let installed_theme = if graphite {
+        "slopos-gtk-graphite"
+    } else {
+        "slopos-gtk"
+    };
+    let source_css = if graphite {
+        "assets/config/gtk-3.0/gtk-graphite.css"
+    } else {
+        "assets/config/gtk-3.0/gtk.css"
+    };
     let mut css_paths = Vec::new();
     if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
-        css_paths.push(PathBuf::from(share_dir).join("themes/slopos-gtk/gtk-3.0/gtk.css"));
+        css_paths.push(
+            PathBuf::from(share_dir)
+                .join("themes")
+                .join(installed_theme)
+                .join("gtk-3.0/gtk.css"),
+        );
     }
     css_paths.extend([
-        PathBuf::from("assets/config/gtk-3.0/gtk.css"),
-        PathBuf::from("/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css"),
-        PathBuf::from("/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css"),
+        PathBuf::from(source_css),
+        PathBuf::from(format!(
+            "/usr/local/share/themes/{installed_theme}/gtk-3.0/gtk.css"
+        )),
+        PathBuf::from(format!(
+            "/usr/share/themes/{installed_theme}/gtk-3.0/gtk.css"
+        )),
     ]);
     for path in css_paths {
         if !path.exists() {
@@ -345,9 +466,9 @@ mod tests {
 
     #[test]
     fn settings_keeps_compact_canonical_size_and_scales_large_surfaces() {
-        assert_eq!(adaptive_window_size(1366, 768), (640, 460));
-        assert_eq!(adaptive_window_size(1280, 800), (640, 460));
-        assert_eq!(adaptive_window_size(3440, 1440), (1080, 720));
-        assert_eq!(adaptive_window_size(7680, 4320), (1080, 720));
+        assert_eq!(adaptive_window_size(1366, 768), (640, 390));
+        assert_eq!(adaptive_window_size(1280, 800), (640, 390));
+        assert_eq!(adaptive_window_size(3440, 1440), (960, 620));
+        assert_eq!(adaptive_window_size(7680, 4320), (960, 620));
     }
 }
