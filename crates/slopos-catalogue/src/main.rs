@@ -25,7 +25,7 @@ fn main() {
     let window = Window::new(WindowType::Toplevel);
     window.set_title("Software Catalogue");
     set_accessible_name(&window, "SLOPOS software catalogue");
-    window.set_default_size(700, 510);
+    window.set_default_size(640, 400);
     window.set_position(WindowPosition::Center);
     window.connect_delete_event(|_, _| {
         gtk::main_quit();
@@ -35,24 +35,25 @@ fn main() {
     let body = GtkBox::new(Orientation::Vertical, 7);
     body.style_context().add_class("slopos-window-body");
 
-    let title = Label::new(Some("SLOPOS Software Catalogue"));
+    let title = Label::new(Some("Software"));
     title.set_xalign(0.0);
     title.style_context().add_class("slopos-panel-title");
     set_accessible_name(&title, "SLOPOS Software Catalogue");
     body.pack_start(&title, false, false, 0);
 
     let subtitle = Label::new(Some(
-        "Curated AppImages — installation is enabled only for integrity-verified metadata.",
+        "Curated AppImages with pinned integrity metadata. System packages remain managed by the base OS.",
     ));
     subtitle.set_xalign(0.0);
+    subtitle.set_line_wrap(true);
     subtitle.style_context().add_class("slopos-panel-subtitle");
     body.pack_start(&subtitle, false, false, 0);
 
     let search = Entry::new();
-    search.set_placeholder_text(Some("Search applications…"));
+    search.set_placeholder_text(Some("Search software…"));
     search.set_icon_from_icon_name(
         gtk::EntryIconPosition::Primary,
-        Some("system-search-symbolic"),
+        Some("edit-find"),
     );
     search.set_tooltip_text(Some("Filter the curated software catalogue"));
     set_accessible_name(&search, "Catalogue search field");
@@ -62,13 +63,12 @@ fn main() {
     scroll.set_policy(PolicyType::Never, PolicyType::Automatic);
     scroll.style_context().add_class("slopos-list-frame");
     let list = ListBox::new();
+    list.set_selection_mode(gtk::SelectionMode::None);
     set_accessible_name(&list, "Catalogue application results");
     scroll.add(&list);
     body.pack_start(&scroll, true, true, 0);
 
-    let status = Label::new(Some(
-        "Browse the curated catalogue. Unverified entries remain unavailable.",
-    ));
+    let status = Label::new(Some("Curated AppImage catalogue"));
     status.set_xalign(0.0);
     status.style_context().add_class("slopos-statusbar");
     set_accessible_name(&status, "Catalogue status");
@@ -128,7 +128,7 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
         name.style_context().add_class("slopos-result-title");
         text.pack_start(&name, false, false, 0);
 
-        let summary = Label::new(Some(&app.summary));
+        let summary = Label::new(Some(&format!("{}  ·  {}", app.summary, app.category)));
         summary.set_xalign(0.0);
         summary.style_context().add_class("slopos-secondary-text");
         text.pack_start(&summary, false, false, 0);
@@ -201,10 +201,12 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
 fn load_catalogue_icon(icon_name: &str) -> Image {
     let mut candidates = Vec::new();
     if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
-        candidates
-            .push(PathBuf::from(&share_dir).join(format!("themes/platinum/icons/{icon_name}.svg")));
-        candidates
-            .push(PathBuf::from(&share_dir).join(format!("themes/platinum/icons/{icon_name}.png")));
+        candidates.push(
+            PathBuf::from(&share_dir).join(format!("themes/platinum/icons/{icon_name}.svg")),
+        );
+        candidates.push(
+            PathBuf::from(&share_dir).join(format!("themes/platinum/icons/{icon_name}.png")),
+        );
     }
     candidates.extend([
         PathBuf::from(format!("themes/platinum/icons/{icon_name}.svg")),
@@ -223,12 +225,7 @@ fn load_catalogue_icon(icon_name: &str) -> Image {
         )),
     ]);
 
-    // Curated upstream application names are not guaranteed to be present in
-    // the host icon theme. Use the original Platinum software mark instead of
-    // rendering GTK's missing-icon placeholder when an app-specific asset is
-    // unavailable.
-    let fallback_names = ["software.svg", "software.png"];
-    for fallback_name in fallback_names {
+    for fallback_name in ["software.svg", "software.png"] {
         if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
             candidates.push(
                 PathBuf::from(share_dir).join(format!("themes/platinum/icons/{fallback_name}")),
@@ -269,15 +266,49 @@ where
     accessible.set_name(name);
 }
 
+fn current_appearance() -> &'static str {
+    let config_home = env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+    if let Some(config_home) = config_home {
+        if let Ok(value) = std::fs::read_to_string(config_home.join("slopos-i/appearance")) {
+            if value.trim().eq_ignore_ascii_case("graphite") {
+                return "graphite";
+            }
+        }
+    }
+    "platinum"
+}
+
 fn load_css_theme() {
+    let graphite = current_appearance() == "graphite";
+    let installed_theme = if graphite {
+        "slopos-gtk-graphite"
+    } else {
+        "slopos-gtk"
+    };
+    let source_css = if graphite {
+        "assets/config/gtk-3.0/gtk-graphite.css"
+    } else {
+        "assets/config/gtk-3.0/gtk.css"
+    };
     let mut css_paths = Vec::new();
-    if let Ok(share_dir) = std::env::var("SLOPOS_SHARE_DIR") {
-        css_paths.push(PathBuf::from(share_dir).join("themes/slopos-gtk/gtk-3.0/gtk.css"));
+    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+        css_paths.push(
+            PathBuf::from(share_dir)
+                .join("themes")
+                .join(installed_theme)
+                .join("gtk-3.0/gtk.css"),
+        );
     }
     css_paths.extend([
-        PathBuf::from("assets/config/gtk-3.0/gtk.css"),
-        PathBuf::from("/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css"),
-        PathBuf::from("/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css"),
+        PathBuf::from(source_css),
+        PathBuf::from(format!(
+            "/usr/local/share/themes/{installed_theme}/gtk-3.0/gtk.css"
+        )),
+        PathBuf::from(format!(
+            "/usr/share/themes/{installed_theme}/gtk-3.0/gtk.css"
+        )),
     ]);
     for path in css_paths {
         if !path.exists() {
