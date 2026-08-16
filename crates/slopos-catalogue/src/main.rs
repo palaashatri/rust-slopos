@@ -51,10 +51,7 @@ fn main() {
 
     let search = Entry::new();
     search.set_placeholder_text(Some("Search software…"));
-    search.set_icon_from_icon_name(
-        gtk::EntryIconPosition::Primary,
-        Some("edit-find"),
-    );
+    search.set_icon_from_icon_name(gtk::EntryIconPosition::Primary, Some("edit-find"));
     search.set_tooltip_text(Some("Filter the curated software catalogue"));
     set_accessible_name(&search, "Catalogue search field");
     body.pack_start(&search, false, false, 2);
@@ -201,12 +198,10 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
 fn load_catalogue_icon(icon_name: &str) -> Image {
     let mut candidates = Vec::new();
     if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
-        candidates.push(
-            PathBuf::from(&share_dir).join(format!("themes/platinum/icons/{icon_name}.svg")),
-        );
-        candidates.push(
-            PathBuf::from(&share_dir).join(format!("themes/platinum/icons/{icon_name}.png")),
-        );
+        candidates
+            .push(PathBuf::from(&share_dir).join(format!("themes/platinum/icons/{icon_name}.svg")));
+        candidates
+            .push(PathBuf::from(&share_dir).join(format!("themes/platinum/icons/{icon_name}.png")));
     }
     candidates.extend([
         PathBuf::from(format!("themes/platinum/icons/{icon_name}.svg")),
