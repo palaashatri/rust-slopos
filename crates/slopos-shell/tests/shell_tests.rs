@@ -260,11 +260,11 @@ fn appimage_catalogue_remains_fail_closed() {
 fn ui_ux_acceptance_proves_the_user_reported_gaps() {
     let qa = include_str!("../../../scripts/run-ui-ux-qa.sh");
     for proof in [
-        "02-pcmanfm-slopos-icons.png",
-        "03-real-gtk-global-menu.png",
-        "04-settings-available.png",
-        "05-graphite-desktop.png",
-        "06-graphite-settings.png",
+        "capture 02-pcmanfm-slopos-icons",
+        "capture 03-real-gtk-global-menu",
+        "capture 04-settings-available",
+        "capture 05-graphite-desktop",
+        "capture 06-graphite-settings",
         "gtk-icon-theme-name",
         "gtk-shell-shows-menubar",
         "Imported GTK global menubar",
@@ -275,7 +275,7 @@ fn ui_ux_acceptance_proves_the_user_reported_gaps() {
     ] {
         assert!(qa.contains(proof), "UI/UX harness misses proof {proof}");
     }
-    assert!(!qa.contains("App (local) placeholder leaked") || qa.contains("grep -q 'App (local)'"));
+    assert!(qa.contains("grep -q 'App (local)'"));
 }
 
 #[test]
@@ -339,7 +339,8 @@ fn x11_resolution_and_accessibility_acceptance_remain_release_gates() {
     assert!(resolution.contains("SLOPOS_SCALE"));
     assert!(resolution.contains("RESOLUTION_QA_STATUS_0"));
     assert!(atspi.contains("at-spi-bus-launcher --launch-immediately"));
-    assert!(atspi.contains("AT_SPI_STATUS_0"));
+    assert!(atspi.contains("python3 scripts/qa-atspi.py --extended"));
+    assert!(atspi.contains("AT_SPI_SCREEN_READER_ORCA_STATUS_0"));
 }
 
 #[test]
