@@ -260,7 +260,11 @@ fn resolve_openbox_config() -> Option<PathBuf> {
     };
     let mut candidates = Vec::new();
     if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
-        candidates.push(PathBuf::from(share_dir).join("slopos-i/openbox").join(file_name));
+        candidates.push(
+            PathBuf::from(share_dir)
+                .join("slopos-i/openbox")
+                .join(file_name),
+        );
     }
     if let Ok(executable) = env::current_exe() {
         if let Some(prefix) = executable.parent().and_then(Path::parent) {
