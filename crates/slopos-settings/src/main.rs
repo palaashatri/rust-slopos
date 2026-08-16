@@ -7,8 +7,8 @@ use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
-    Align, Box as GtkBox, Button, Dialog, DialogFlags, Grid, IconSize, Image, Label,
-    Orientation, RadioButton, ResponseType, Window, WindowPosition, WindowType,
+    Align, Box as GtkBox, Button, Dialog, DialogFlags, Grid, IconSize, Image, Label, Orientation,
+    RadioButton, ResponseType, Window, WindowPosition, WindowType,
 };
 use std::env;
 use std::path::PathBuf;
@@ -57,7 +57,12 @@ fn main() {
     subtitle.style_context().add_class("slopos-panel-subtitle");
     body.pack_start(&subtitle, false, false, 0);
 
-    body.pack_start(&gtk::Separator::new(Orientation::Horizontal), false, false, 0);
+    body.pack_start(
+        &gtk::Separator::new(Orientation::Horizontal),
+        false,
+        false,
+        0,
+    );
 
     let grid = Grid::new();
     grid.set_row_spacing(7);
@@ -73,7 +78,11 @@ fn main() {
             fallback_icon: "video-display-symbolic",
             title: "Displays",
             description: "Resolution and monitor layout",
-            candidates: &[("arandr", &[]), ("xfce4-display-settings", &[]), ("lxrandr", &[])],
+            candidates: &[
+                ("arandr", &[]),
+                ("xfce4-display-settings", &[]),
+                ("lxrandr", &[]),
+            ],
             built_in: false,
         },
         ControlPanel {
@@ -227,7 +236,10 @@ fn show_appearance_dialog(parent: &Window) {
         Some("Appearance"),
         Some(parent),
         DialogFlags::MODAL | DialogFlags::DESTROY_WITH_PARENT,
-        &[("Cancel", ResponseType::Cancel), ("Apply", ResponseType::Accept)],
+        &[
+            ("Cancel", ResponseType::Cancel),
+            ("Apply", ResponseType::Accept),
+        ],
     );
     dialog.set_default_response(ResponseType::Accept);
     set_accessible_name(&dialog, "SLOPOS appearance chooser");
@@ -249,7 +261,9 @@ fn show_appearance_dialog(parent: &Window) {
     ));
     explanation.set_xalign(0.0);
     explanation.set_line_wrap(true);
-    explanation.style_context().add_class("slopos-secondary-text");
+    explanation
+        .style_context()
+        .add_class("slopos-secondary-text");
     content.pack_start(&explanation, false, false, 0);
 
     let platinum = RadioButton::with_label("Platinum — classic light");
