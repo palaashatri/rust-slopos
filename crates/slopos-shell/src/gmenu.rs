@@ -5,7 +5,6 @@
 //! those private wire protocols, so SLOPOS deliberately uses GDBusMenuModel and
 //! GDBusActionGroup instead of reimplementing `org.gtk.Menus`/`org.gtk.Actions`.
 
-use gio::prelude::*;
 use gtk::prelude::*;
 use x11rb::protocol::xproto::{AtomEnum, ConnectionExt, Window};
 use x11rb::rust_connection::RustConnection;
@@ -28,8 +27,6 @@ pub fn detect(window_id: Window) -> Option<GtkMenuExporter> {
     let window_atom = intern_atom(&connection, b"_GTK_WINDOW_OBJECT_PATH")?;
 
     let bus_name = read_property(&connection, window_id, unique_atom)?;
-    // Prefer the traditional menubar: it contains File/Edit/View/etc. The
-    // app-menu path is only a fallback for applications that export no menubar.
     let menu_path = read_property(&connection, window_id, menubar_atom)
         .or_else(|| read_property(&connection, window_id, app_menu_atom))?;
     let app_action_path = read_property(&connection, window_id, application_atom);
@@ -47,10 +44,6 @@ pub fn detect(window_id: Window) -> Option<GtkMenuExporter> {
     {
         return None;
     }
-
-    // A GMenu model without either action group can still contain non-action
-    // section headings, but presenting it as an application menu would create
-    // dead controls. Fall back to the application's local menu instead.
     if app_action_path.is_none() && window_action_path.is_none() {
         return None;
     }
@@ -76,19 +69,11 @@ pub fn build_menu_bar(exporter: &GtkMenuExporter) -> Result<gtk::MenuBar, String
     menu_bar.style_context().add_class("slopos-menu-bar");
 
     if let Some(path) = exporter.app_action_path.as_deref() {
-        let group = gio::DBusActionGroup::get(
-            &connection,
-            Some(exporter.bus_name.as_str()),
-            path,
-        );
+        let group = gio::DBusActionGroup::get(&connection, Some(exporter.bus_name.as_str()), path);
         menu_bar.insert_action_group("app", Some(&group));
     }
     if let Some(path) = exporter.window_action_path.as_deref() {
-        let group = gio::DBusActionGroup::get(
-            &connection,
-            Some(exporter.bus_name.as_str()),
-            path,
-        );
+        let group = gio::DBusActionGroup::get(&connection, Some(exporter.bus_name.as_str()), path);
         menu_bar.insert_action_group("win", Some(&group));
     }
 
