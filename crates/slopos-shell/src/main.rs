@@ -93,16 +93,51 @@ extern "C" fn launcher_signal_handler(_sig: libc::c_int) {
     TOGGLE_LAUNCHER.store(true, Ordering::SeqCst);
 }
 
+fn current_appearance() -> &'static str {
+    let config_home = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+    if let Some(config_home) = config_home {
+        if let Ok(value) = std::fs::read_to_string(config_home.join("slopos-i/appearance")) {
+            if value.trim().eq_ignore_ascii_case("graphite") {
+                return "graphite";
+            }
+        }
+    }
+    "platinum"
+}
+
 fn load_css_theme() {
+    let graphite = current_appearance() == "graphite";
+    let installed_theme = if graphite {
+        "slopos-gtk-graphite"
+    } else {
+        "slopos-gtk"
+    };
+    let source_css = if graphite {
+        "assets/config/gtk-3.0/gtk-graphite.css"
+    } else {
+        "assets/config/gtk-3.0/gtk.css"
+    };
+
     let mut css_paths = Vec::new();
     if let Ok(share_dir) = std::env::var("SLOPOS_SHARE_DIR") {
-        css_paths.push(PathBuf::from(share_dir).join("themes/slopos-gtk/gtk-3.0/gtk.css"));
+        css_paths.push(
+            PathBuf::from(share_dir)
+                .join("themes")
+                .join(installed_theme)
+                .join("gtk-3.0/gtk.css"),
+        );
     }
     css_paths.extend([
-        PathBuf::from("assets/config/gtk-3.0/gtk.css"),
-        PathBuf::from("/etc/slopos-i/gtk-3.0/gtk.css"),
-        PathBuf::from("/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css"),
-        PathBuf::from("/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css"),
+        PathBuf::from(source_css),
+        PathBuf::from(format!("/etc/slopos-i/gtk-3.0/{installed_theme}.css")),
+        PathBuf::from(format!(
+            "/usr/local/share/themes/{installed_theme}/gtk-3.0/gtk.css"
+        )),
+        PathBuf::from(format!(
+            "/usr/share/themes/{installed_theme}/gtk-3.0/gtk.css"
+        )),
     ]);
 
     for path in css_paths {
@@ -122,7 +157,11 @@ fn load_css_theme() {
                         &provider,
                         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
                     );
-                    log::info!("Loaded SLOPOS GTK CSS from {}", path.display());
+                    log::info!(
+                        "Loaded SLOPOS {} GTK CSS from {}",
+                        current_appearance(),
+                        path.display()
+                    );
                     return;
                 }
                 log::error!("GTK has no default screen while loading {}", path.display());
