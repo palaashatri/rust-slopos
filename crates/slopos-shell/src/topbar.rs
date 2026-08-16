@@ -425,10 +425,7 @@ fn build_system_menu() -> Menu {
 
     let about = MenuItem::with_label("About SLOPOS-I");
     about.connect_activate(|_| {
-        show_message(
-            "About SLOPOS-I",
-            "SLOPOS-I\nX11 Macintosh-inspired desktop",
-        )
+        show_message("About SLOPOS-I", "SLOPOS-I\nX11 Macintosh-inspired desktop")
     });
     menu.append(&about);
     menu.append(&SeparatorMenuItem::new());
