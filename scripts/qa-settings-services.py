@@ -22,13 +22,16 @@ PANELS = [
     "Keyboard & Mouse settings",
 ]
 
+# Appearance is deliberately SLOPOS-owned: it switches Platinum/Graphite and
+# must remain available even on a minimal system. Every other panel delegates
+# mutation to a mature upstream utility.
+BUILT_IN = "Appearance settings"
 DELEGATES = [
     ("Displays settings", "arandr"),
     ("Sound settings", "pavucontrol"),
     ("Network settings", "nm-connection-editor"),
     ("Bluetooth settings", "blueman-manager"),
     ("Power settings", "xfce4-power-manager-settings"),
-    ("Appearance settings", "lxappearance"),
     ("Desktop settings", "pcmanfm"),
     ("Keyboard & Mouse settings", "lxinput"),
 ]
@@ -87,15 +90,27 @@ def wait_for_panels(desktop):
     raise RuntimeError(f"Settings panels missing from AT-SPI: {missing}")
 
 
+def verify_builtin_appearance(desktop):
+    node = find_named(desktop, BUILT_IN)
+    if node is None or not state_is_enabled(node):
+        raise RuntimeError("built-in Appearance panel must always be enabled")
+    action = node.get_action_iface()
+    if action is None or action.get_n_actions() < 1:
+        raise RuntimeError("built-in Appearance panel has no AT-SPI action")
+    print("SETTINGS_BUILTIN_APPEARANCE_ENABLED=1")
+
+
 def verify_disabled(desktop):
-    for name in PANELS:
+    verify_builtin_appearance(desktop)
+    for name, _ in DELEGATES:
         node = find_named(desktop, name)
         if state_is_enabled(node):
-            raise RuntimeError(f"unavailable panel is still enabled: {name}")
-    print("SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=8")
+            raise RuntimeError(f"unavailable delegated panel is still enabled: {name}")
+    print("SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=7")
 
 
 def verify_delegation(desktop):
+    verify_builtin_appearance(desktop)
     for name, utility in DELEGATES:
         node = find_named(desktop, name)
         if not state_is_enabled(node):
@@ -119,7 +134,7 @@ def verify_delegation(desktop):
         lines = set(content.splitlines())
         missing = [utility for _, utility in DELEGATES if utility not in lines]
         if not missing:
-            print("SETTINGS_DELEGATED_CONTROLS=8")
+            print("SETTINGS_DELEGATED_CONTROLS=7")
             print("SETTINGS_DELEGATED_DISPLAY=arandr")
             return
         time.sleep(0.1)
