@@ -135,12 +135,10 @@ fn valid_object_path(value: &str) -> bool {
     };
     !body.is_empty()
         && body.split('/').all(|component| {
-            let mut bytes = component.bytes();
-            let Some(first) = bytes.next() else {
-                return false;
-            };
-            (first.is_ascii_alphabetic() || first == b'_')
-                && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+            !component.is_empty()
+                && component
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
         })
 }
 
@@ -153,6 +151,8 @@ mod tests {
         assert!(valid_bus_name(":1.42"));
         assert!(!valid_bus_name("org.example.App"));
         assert!(valid_object_path("/org/gtk/Test/menus/MenuBar"));
+        // GTK window action groups routinely use a numeric terminal path
+        // component (for example /windows/0), which is valid D-Bus syntax.
         assert!(valid_object_path("/org/gtk/Test/windows/0"));
         assert!(!valid_object_path("org/gtk/Test"));
         assert!(!valid_object_path("/org/gtk/menu-name"));
