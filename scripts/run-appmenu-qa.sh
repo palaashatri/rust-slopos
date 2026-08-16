@@ -4,11 +4,11 @@
 # This deliberately assumes a pre-provisioned image and an existing release
 # build. It never installs packages or downloads a toolchain. The test checks
 # that an ordinary Mousepad window keeps its upstream local menu, that a
-# synthetic native X11 AppMenu advertisement is detected without scraping or
+# synthetic X11 AppMenu advertisement is detected without scraping or
 # fabricating commands, and that the advertisement can be removed again. The
-# pre-provisioned image has no real exporter fixture, so this smoke verifies
-# capability detection and the fail-closed local-menu fallback; native
-# Start/End/DescribeAll/Activate behavior is covered by the Docker fixture.
+# pre-provisioned image has no real DBusMenu exporter fixture, so this smoke
+# deliberately verifies capability detection and the fail-closed local-menu
+# fallback; parser and Event behavior are covered by Rust tests.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,9 +37,6 @@ cleanup() {
   set +e
   xprop -id "${APP_WINDOW:-0}" -remove _GTK_UNIQUE_BUS_NAME 2>/dev/null || true
   xprop -id "${APP_WINDOW:-0}" -remove _GTK_APP_MENU_OBJECT_PATH 2>/dev/null || true
-  xprop -id "${APP_WINDOW:-0}" -remove _GTK_MENUBAR_OBJECT_PATH 2>/dev/null || true
-  xprop -id "${APP_WINDOW:-0}" -remove _GTK_APPLICATION_OBJECT_PATH 2>/dev/null || true
-  xprop -id "${APP_WINDOW:-0}" -remove _GTK_WINDOW_OBJECT_PATH 2>/dev/null || true
   kill "${APP_PID:-}" "${SESSION_PID:-}" "${XVFB_PID:-}" 2>/dev/null || true
   pkill -TERM -x mousepad 2>/dev/null || true
   pkill -TERM -x slopos-shell 2>/dev/null || true
@@ -126,19 +123,17 @@ echo "NON_EXPORTER_STATUS_0"
 # its bounded importer affordance, then fall back to the local menu when the
 # advertised object is not actually present on the session bus.
 xprop -id "$APP_WINDOW" -f _GTK_UNIQUE_BUS_NAME 8s -set _GTK_UNIQUE_BUS_NAME ':1.77'
-xprop -id "$APP_WINDOW" -f _GTK_MENUBAR_OBJECT_PATH 8s -set _GTK_MENUBAR_OBJECT_PATH '/org/slopos/qa/gmenu'
+xprop -id "$APP_WINDOW" -f _GTK_APP_MENU_OBJECT_PATH 8s -set _GTK_APP_MENU_OBJECT_PATH '/com/canonical/dbusmenu'
 xdotool windowactivate --sync "$APP_WINDOW"
 sleep 1
 grep -Fq 'exports AppMenu bus=' /tmp/slopos-appmenu-session.log
-grep -Fq 'bounded importer enabled' /tmp/slopos-appmenu-session.log
+grep -Fq 'bounded DBusMenu importer enabled' /tmp/slopos-appmenu-session.log
 echo "EXPORTER_FIXTURE_STATUS_0"
 
 # Remove the fixture and ensure capability disappears after focus polling.
 xprop -id "$APP_WINDOW" -remove _GTK_UNIQUE_BUS_NAME
 xprop -id "$APP_WINDOW" -remove _GTK_APP_MENU_OBJECT_PATH
 xprop -id "$APP_WINDOW" -remove _GTK_MENUBAR_OBJECT_PATH 2>/dev/null || true
-xprop -id "$APP_WINDOW" -remove _GTK_APPLICATION_OBJECT_PATH 2>/dev/null || true
-xprop -id "$APP_WINDOW" -remove _GTK_WINDOW_OBJECT_PATH 2>/dev/null || true
 sleep 1
 grep -Fq 'exports no AppMenu; using its local menu' /tmp/slopos-appmenu-session.log
 echo "NON_EXPORTER_RETURN_STATUS_0"

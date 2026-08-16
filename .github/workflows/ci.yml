@@ -426,9 +426,9 @@ jobs:
             artifacts/qa/xvfb.log
             artifacts/qa/screenshots/appmenu_*_mousepad_1280x800.png
             ${{ runner.temp }}/appmenu-real.log
-            /tmp/slopos-qa-gmenu.log
-            /tmp/slopos-qa-gmenu.events
-            /tmp/slopos-qa-upstream-gmenu.monitor
+            /tmp/slopos-qa-dbusmenu.log
+            /tmp/slopos-qa-dbusmenu.events
+            /tmp/slopos-qa-upstream-dbusmenu.monitor
 
   x11-arch-app-matrix:
     name: Manual Arch upstream applications and game evidence
