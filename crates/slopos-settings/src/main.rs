@@ -11,7 +11,7 @@ use gtk::{
     Orientation, RadioButton, ResponseType, Window, WindowPosition, WindowType,
 };
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 struct ControlPanel<'a> {
@@ -252,7 +252,7 @@ fn show_appearance_dialog(parent: &Window) {
     explanation.style_context().add_class("slopos-secondary-text");
     content.pack_start(&explanation, false, false, 0);
 
-    let platinum = RadioButton::with_label(None::<&RadioButton>, "Platinum — classic light");
+    let platinum = RadioButton::with_label("Platinum — classic light");
     let graphite = RadioButton::with_label_from_widget(&platinum, "Graphite — dark");
     if current_appearance() == "graphite" {
         graphite.set_active(true);
@@ -271,8 +271,16 @@ fn show_appearance_dialog(parent: &Window) {
             "platinum"
         };
         if let Some(helper) = appearance_helper() {
-            if let Err(error) = Command::new(helper).arg(mode).spawn() {
-                log::warn!("Failed to switch appearance: {error}");
+            match Command::new(helper).arg(mode).spawn() {
+                Ok(_) => {
+                    dialog.close();
+                    // Settings itself was styled at process startup. Close it
+                    // after applying so reopening is guaranteed to use the new
+                    // complete theme rather than a mixed old/new palette.
+                    gtk::main_quit();
+                    return;
+                }
+                Err(error) => log::warn!("Failed to switch appearance: {error}"),
             }
         } else {
             log::warn!("slopos-appearance helper is unavailable");
