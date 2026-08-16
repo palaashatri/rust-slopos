@@ -19,6 +19,7 @@ wireplumber
 blueman
 upower
 xfce4-power-manager
+xfce4-settings
 lxappearance
 arandr
 x11-xserver-utils
