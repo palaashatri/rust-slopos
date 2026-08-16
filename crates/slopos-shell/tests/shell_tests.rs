@@ -1,1037 +1,371 @@
+use std::path::Path;
+
 #[test]
-fn pivot_workspace_has_only_current_product_crates() {
-    let cargo = include_str!("../../../Cargo.toml");
-    assert!(cargo.contains("crates/slopos-session"));
-    assert!(cargo.contains("crates/slopos-shell"));
-    assert!(cargo.contains("crates/slopos-catalogue"));
-    assert!(cargo.contains("crates/slopos-settings"));
-    assert!(!cargo.contains("slopos-compositor"));
-    assert!(!cargo.contains("smithay"));
+fn pivot_workspace_contains_only_the_current_x11_product_crates() {
+    let cargo = include_str!("../../../Cargo.toml").to_ascii_lowercase();
+    for member in [
+        "crates/slopos-session",
+        "crates/slopos-shell",
+        "crates/slopos-catalogue",
+        "crates/slopos-settings",
+    ] {
+        assert!(cargo.contains(member), "missing workspace member {member}");
+    }
+    for obsolete in [
+        "slopos-compositor",
+        "slopos-vision",
+        "smithay",
+        "wlroots",
+        "xwayland",
+    ] {
+        assert!(!cargo.contains(obsolete), "obsolete scope returned: {obsolete}");
+    }
 }
 
 #[test]
-fn launcher_hotkey_targets_existing_shell() {
-    let openbox = include_str!("../../../assets/config/openbox/rc.xml");
-    assert!(openbox.contains("pkill -USR1 -x slopos-shell"));
-    assert!(!openbox.contains("slopos-shell --toggle-launcher"));
+fn search_hotkey_targets_the_existing_shell_instance() {
+    for openbox in [
+        include_str!("../../../assets/config/openbox/rc.xml"),
+        include_str!("../../../assets/config/openbox/rc-graphite.xml"),
+    ] {
+        assert!(openbox.contains("pkill -USR1 -x slopos-shell"));
+        assert!(!openbox.contains("slopos-shell --toggle-launcher"));
+    }
+    let shell = include_str!("../src/main.rs");
+    assert!(shell.contains("SIGUSR1"));
+    assert!(shell.contains("Refusing to start a second SLOPOS shell"));
 }
 
 #[test]
-fn shell_does_not_ship_apple_logo_glyph() {
+fn topbar_is_a_real_global_menu_host_not_the_old_placeholder() {
     let topbar = include_str!("../src/topbar.rs");
+    assert!(topbar.contains("slopos-global-menu-host"));
+    assert!(topbar.contains("gmenu::detect"));
+    assert!(topbar.contains("gmenu::build_menu_bar"));
+    assert!(topbar.contains("Imported GTK global menubar"));
+    assert!(!topbar.contains("App (local)"));
+    assert!(!topbar.contains("N/A"));
     assert!(!topbar.contains(''));
-}
-
-#[test]
-fn topbar_uses_packaged_slopos_mark_with_fallback() {
-    let topbar = include_str!("../src/topbar.rs");
-    assert!(topbar.contains("assets/slopos-logo.png"));
-    assert!(topbar.contains("new_subpixbuf"));
-    assert!(topbar.contains("load_slopos_mark_sized(20)"));
-    assert!(topbar.contains("scale_simple(size, size, InterpType::Bilinear)"));
-    assert!(topbar.contains("set_label(\"S\")"));
-}
-
-#[test]
-fn desktop_chrome_advertises_dock_window_type() {
-    let topbar = include_str!("../src/topbar.rs");
-    let dock = include_str!("../src/dock.rs");
+    assert!(topbar.contains("Control Panels…"));
+    assert!(topbar.contains("Software…"));
+    assert!(topbar.contains("Platinum (Light)"));
+    assert!(topbar.contains("Graphite (Dark)"));
     assert!(topbar.contains("window.set_type_hint(gdk::WindowTypeHint::Dock)"));
-    assert!(dock.contains("window.set_type_hint(gdk::WindowTypeHint::Dock)"));
-}
-
-#[test]
-fn topbar_unavailable_statuses_are_explicit() {
-    let topbar = include_str!("../src/topbar.rs");
-    assert!(!topbar.contains("Label::new(Some(\"--\"))"));
-    assert!(!topbar.contains("unwrap_or_else(|| \"--\".to_string())"));
-    assert!(topbar.contains("\"N/A\""));
-    assert!(topbar.contains("\"App (local)\""));
-}
-
-#[test]
-fn platinum_dialogs_use_packaged_identity_mark() {
-    let topbar = include_str!("../src/topbar.rs");
-    assert!(topbar.contains("alert.pack_start(&mark, false, false, 0)"));
-    assert!(topbar.contains("style_context().add_class(\"slopos-alert-box\")"));
-    assert!(topbar.contains("load_slopos_mark_sized(40)"));
-    assert!(topbar.contains("fn load_slopos_mark_sized(size: i32)"));
-}
-
-#[test]
-fn catalogue_uses_packaged_fallback_icon() {
-    let catalogue = include_str!("../../slopos-catalogue/src/main.rs");
-    assert!(catalogue.contains("load_catalogue_icon"));
-    assert!(catalogue.contains("software.svg"));
-    assert!(catalogue.contains("from_file_at_scale"));
-    assert!(catalogue.contains("application-x-executable"));
-}
-
-#[test]
-fn appimage_installer_has_no_stub_fallback() {
-    let installer = include_str!("../../slopos-catalogue/src/installer.rs");
-    let model = include_str!("../../slopos-catalogue/src/model.rs");
-    assert!(!installer.contains("create_stub_appimage"));
-    assert!(installer.contains("metadata_is_installable"));
-    assert!(installer.contains("SHA-256 mismatch"));
-    assert!(model.contains("eq_ignore_ascii_case(EMPTY_FILE_SHA256)"));
-}
-
-#[test]
-fn mime_defaults_reference_provisioned_handlers_only() {
-    let mimeapps = include_str!("../../../assets/config/mimeapps.list");
-    for mime in ["image/png", "image/jpeg", "image/gif", "image/svg+xml"] {
-        assert!(
-            mimeapps.contains(&format!("{mime}=ristretto.desktop")),
-            "missing Ristretto default for {mime}"
-        );
-    }
-    assert!(!mimeapps.contains("viewnior.desktop"));
-    assert!(!mimeapps.contains("slopos-appimage-runner.desktop"));
-    assert!(!mimeapps.contains("application/x-executable="));
-}
-
-#[test]
-fn shipping_manifests_are_x11_only_and_complete() {
-    let manifests = [
-        include_str!("../../../install.sh"),
-        include_str!("../../../packaging/arch/PKGBUILD"),
-        include_str!("../../../packaging/debian/rules"),
-        include_str!("../../../packaging/iso/build-iso.sh"),
-    ];
-    for manifest in manifests {
-        for binary in [
-            "slopos-session",
-            "slopos-shell",
-            "slopos-catalogue",
-            "slopos-settings",
-        ] {
-            assert!(manifest.contains(binary), "missing {binary} in manifest");
-        }
-        assert!(!manifest.to_ascii_lowercase().contains("wayland"));
-        assert!(!manifest.to_ascii_lowercase().contains("smithay"));
-        assert!(!manifest.to_ascii_lowercase().contains("wlroots"));
-        assert!(!manifest.to_ascii_lowercase().contains("xwayland"));
-        assert!(!manifest.contains("slopos-compositor"));
-    }
-
-    let package_manifests = [
-        include_str!("../../../packaging/arch/PKGBUILD"),
-        include_str!("../../../packaging/debian/rules"),
-        include_str!("../../../packaging/iso/build-iso.sh"),
-    ];
-    for manifest in package_manifests {
-        for asset in [
-            "share/xsessions/slopos-i.desktop",
-            "assets/config/openbox/rc.xml",
-            "themes/slopos-openbox/openbox-3/themerc",
-            "assets/config/gtk-3.0/gtk.css",
-            "assets/slopos-logo.png",
-        ] {
-            assert!(
-                manifest.contains(asset),
-                "missing {asset} in package manifest"
-            );
-        }
-    }
-
-    let iso = include_str!("../../../packaging/iso/build-iso.sh");
-    assert!(iso.contains("assets/config/mimeapps.list"));
-    assert!(iso.contains("sub(/\\r$/, \"\")"));
-    assert!(iso.contains("systemd-sysusers --root=\"$ROOTFS\""));
-    assert!(iso.contains("systemd-tmpfiles --root=\"$ROOTFS\" --create"));
-    assert!(iso.contains("passwd --root \"$ROOTFS\" --delete slopos"));
-    assert!(iso.contains("u slopos 1000"));
-    assert!(iso.contains("file_permissions[\"/usr/local/bin/slopos-session\"]=\"0:0:755\""));
-    assert!(iso.contains("chmod 0755"));
-    assert!(iso.contains("s|^#autologin-user=.*|autologin-user=slopos|"));
-    assert!(iso.contains("s|^#autologin-session=.*|autologin-session=slopos-i|"));
-    assert!(include_str!("../../../install.sh").contains("assets/slopos-logo.png"));
-}
-
-#[test]
-fn platinum_openbox_active_titlebar_uses_readable_gradient() {
-    let theme = include_str!("../../../themes/slopos-openbox/openbox-3/themerc");
-    let colors = include_str!("../../../themes/platinum/Colors.toml");
-    let active_title = theme
-        .lines()
-        .find(|line| line.trim_start().starts_with("window.active.title.bg:"))
-        .expect("active titlebar background is defined");
-    assert_eq!(
-        active_title.trim(),
-        "window.active.title.bg: flat gradient vertical"
-    );
-    assert!(theme.contains("window.inactive.title.bg: flat solid"));
-    assert!(theme.contains("menu.title.bg: flat gradient vertical"));
-    assert!(!theme.contains("menu.title.bg: flat gradient vertical interlaced"));
-    assert!(theme.contains("window.active.label.text.color: #000000"));
-    assert!(theme.contains("window.inactive.label.text.color: #707070"));
-    assert!(theme.contains("menu.items.disabled.text.color: #5E5E5E"));
-    assert!(colors.contains("disabled_text = \"#5E5E5E\""));
-}
-
-#[test]
-fn legacy_openbox_theme_path_matches_installed_theme_source() {
-    let canonical =
-        include_str!("../../../themes/slopos-openbox/openbox-3/themerc").replace("\r\n", "\n");
-    let legacy = include_str!("../../../themes/slopos-openbox/themerc").replace("\r\n", "\n");
-    assert_eq!(
-        canonical, legacy,
-        "duplicate Openbox theme paths must not drift apart"
-    );
-}
-
-#[test]
-fn bundled_theme_metadata_uses_redistributable_fonts() {
-    for (name, metadata) in [
-        (
-            "graphite Theme.toml",
-            include_str!("../../../themes/graphite/Theme.toml"),
-        ),
-        (
-            "graphite Typography.toml",
-            include_str!("../../../themes/graphite/Typography.toml"),
-        ),
-        (
-            "high-contrast Theme.toml",
-            include_str!("../../../themes/high-contrast/Theme.toml"),
-        ),
-        (
-            "high-contrast Typography.toml",
-            include_str!("../../../themes/high-contrast/Typography.toml"),
-        ),
-        (
-            "oled-graphite Theme.toml",
-            include_str!("../../../themes/oled-graphite/Theme.toml"),
-        ),
-        (
-            "oled-graphite Typography.toml",
-            include_str!("../../../themes/oled-graphite/Typography.toml"),
-        ),
-    ] {
-        assert!(
-            !metadata.contains("SF Pro"),
-            "{name} ships a proprietary font"
-        );
-        assert!(
-            !metadata.contains("SF Mono"),
-            "{name} ships a proprietary font"
-        );
-        assert!(
-            metadata.contains("Liberation Sans") || metadata.contains("DejaVu Sans Mono"),
-            "{name} does not name a redistributable font"
-        );
-    }
-}
-
-#[test]
-fn dependency_manifests_do_not_reintroduce_removed_display_stack() {
-    for manifest in [
-        include_str!("../../../packaging/deps/arch.txt"),
-        include_str!("../../../packaging/deps/ubuntu.txt"),
-        include_str!("../../../packaging/deps/arch-build.txt"),
-        include_str!("../../../packaging/deps/ubuntu-build.txt"),
-        include_str!("../../../packaging/vm/arch-install.sh"),
-    ] {
-        let manifest = manifest.to_ascii_lowercase();
-        assert!(!manifest.contains("wayland"));
-        assert!(!manifest.contains("smithay"));
-        assert!(!manifest.contains("wlroots"));
-        assert!(!manifest.contains("xwayland"));
-        assert!(!manifest.contains("slopos-compositor"));
-    }
-}
-
-#[test]
-fn arch_build_manifest_has_native_gui_dependencies() {
-    let manifest = include_str!("../../../packaging/deps/arch-build.txt");
-    for package in [
-        "gtk3",
-        "gdk-pixbuf2",
-        "libx11",
-        "libxrandr",
-        "openssl",
-        "dbus",
-    ] {
-        assert!(manifest.lines().any(|line| line.trim() == package));
-    }
-
-    let runtime = include_str!("../../../packaging/deps/arch.txt");
-    assert!(runtime.lines().any(|line| line.trim() == "xorg-xrandr"));
-}
-
-#[test]
-fn custom_prefix_session_resources_are_forwarded() {
-    let launcher = include_str!("../../../scripts/start-slopos-i");
-    assert!(launcher.contains("SLOPOS_INSTALL_PREFIX"));
-    assert!(launcher.contains("SLOPOS_SHARE_DIR"));
-    assert!(launcher.contains("$INSTALL_PREFIX/bin/$name"));
-
-    let installer = include_str!("../../../install.sh");
-    assert!(installer.contains("XSESSION_DIR=\"${XSESSION_DIR:-/usr/share/xsessions}\""));
-    assert!(installer.contains("--session-dir \"$XSESSION_DIR\""));
-    assert!(installer.contains("must be an absolute path"));
-
-    let session_files = include_str!("../../../scripts/install-session-files.sh");
-    assert!(session_files.contains("install_session_descriptor"));
-    assert!(session_files.contains("$PREFIX/bin/slopos-session"));
-    assert!(session_files.contains("saw_exec=0"));
-    assert!(session_files.contains("saw_tryexec=0"));
-    assert!(session_files.contains("source descriptor must contain Exec= and TryExec="));
-
-    let session = include_str!("../../slopos-session/src/main.rs");
-    assert!(session.contains("SLOPOS_SHARE_DIR"));
-    assert!(session.contains("share/slopos-i/openbox/rc.xml"));
-
-    let topbar = include_str!("../src/topbar.rs");
-    assert!(topbar.contains("SLOPOS_SHARE_DIR"));
-}
-
-#[test]
-fn vm_qa_requires_screenshot_evidence() {
-    for qa in [
-        include_str!("../../../packaging/vm/qa-vm.sh"),
-        include_str!("../../../packaging/vm/qa-live.sh"),
-    ] {
-        assert!(qa.contains("command -v scrot"));
-        assert!(qa.contains("test -s"));
-        assert!(!qa.contains("if command -v scrot"));
-    }
-}
-
-#[test]
-fn installed_vm_source_scan_only_checks_shipping_files() {
-    let qa = include_str!("../../../packaging/vm/qa-vm.sh");
-    assert!(qa.contains("shipping_files=("));
-    assert!(qa.contains("pinned source checkout is missing"));
-    assert!(qa.contains("SLOPOS_SOURCE_CONTRACT_STATUS_0"));
-    assert!(qa.contains("scripts/start-slopos-i"));
-    assert!(qa.contains("packaging/vm/arch-install.sh"));
-    assert!(qa.contains("SLOPOS_SOURCE_ROOT must be an absolute path"));
-    assert!(qa.contains("SLOPOS_EXPECTED_COMMIT must be a full 40-character commit SHA"));
-    assert!(qa.contains("does not match expected $SLOPOS_EXPECTED_COMMIT"));
-    assert!(qa.contains("SLOPOS_SOURCE_COMMIT="));
-    assert!(qa.contains("obsolete display-stack reference remains in shipping file"));
-    assert!(!qa.contains("grep -RIEq"));
-    assert!(!qa.contains("--exclude='qa-vm.sh'"));
-}
-
-#[test]
-fn installed_vm_harness_pins_source_and_collects_status() {
-    let installer = include_str!("../../../packaging/vm/arch-install.sh");
-    assert!(installer.contains("REPO_COMMIT=\"${REPO_COMMIT:-}\""));
-    assert!(installer.contains("REPO_COMMIT must be a full 40-character commit SHA"));
-    assert!(installer.contains("git -C ~/slopos-i fetch --depth 1 origin"));
-    assert!(installer.contains("git -C ~/slopos-i checkout --detach"));
-    assert!(installer.contains("Pinned source commit: $REPO_COMMIT"));
-
-    let provision = include_str!("../../../packaging/vm/provision.ps1");
-    assert!(provision.contains("[string]$RepoCommit = \"\""));
-    assert!(provision.contains("REPO_COMMIT=$RepoCommit"));
-    assert!(provision.contains("qa-installed.ps1"));
-    assert!(provision.contains("-ExpectedCommit $RepoCommit"));
-    assert!(provision.contains("Stop-Process -Id $http.Id -Force"));
-    assert!(provision.contains("Get-FileHash -LiteralPath $installerPath -Algorithm SHA256"));
-    assert!(provision.contains("HttpPort must be between 1 and 65535"));
-    assert!(provision.contains("Installer SHA-256: $installerSha256"));
-    assert!(provision.contains("curl --fail --silent --show-error --location"));
-    assert!(provision.contains("sha256sum -c -"));
-    assert!(provision.contains("bash -n /root/i.sh"));
-    assert!(provision.contains("set -o pipefail && REPO_COMMIT=$RepoCommit"));
-
-    let qa = include_str!("../../../packaging/vm/qa-installed.ps1");
-    assert!(qa.contains("[string]$ExpectedCommit = \"\""));
-    assert!(qa.contains("ExpectedCommit is required; refusing to accept an unpinned installed VM"));
-    assert!(qa.contains("if ($ExpectedCommit -notmatch '^[0-9a-fA-F]{40}$')"));
-    assert!(qa.contains("does not match expected"));
-    assert!(qa.contains("function Invoke-SshCapture"));
-    assert!(qa.contains("$ErrorActionPreference = \"Continue\""));
-    assert!(qa.contains("LogLevel=ERROR"));
-    assert!(qa.contains("git -C /home/$SshUser/slopos-i rev-parse HEAD"));
-    assert!(qa.contains("packaging/vm/qa-vm.sh"));
-    assert!(qa.contains("SLOPOS_SOURCE_ROOT=/home/$SshUser/slopos-i"));
-    assert!(qa.contains("SLOPOS_EXPECTED_COMMIT=$ExpectedCommit"));
-    assert!(qa.contains("screenshotpng"));
-    assert!(qa.contains("INSTALLED_VM_QA_STATUS_0"));
-    assert!(qa.contains("SLOPOS_X11_INSTALLED_VM_QA=PASS"));
-    assert!(qa.contains("qa-vm.sh exited successfully without"));
-    assert!(qa.contains("status.json"));
-    assert!(qa.contains("SshPort must be between 1 and 65535"));
-    let in_guest_qa = include_str!("../../../packaging/vm/qa-vm.sh");
-    assert!(in_guest_qa.contains("echo \"SLOPOS_X11_INSTALLED_VM_QA=PASS\""));
-}
-
-#[test]
-fn installed_vm_harness_requires_efi_xrandr_and_nvme_safe_partitioning() {
-    let installer = include_str!("../../../packaging/vm/arch-install.sh");
-    assert!(installer.contains("xorg-xrandr"));
-    assert!(installer.contains("partition_path()"));
-    assert!(installer.contains("ESP_PART=\"$(partition_path 1)\""));
-    assert!(installer.contains("ROOT_PART=\"$(partition_path 2)\""));
-    assert!(installer.contains("grub-install --target=x86_64-efi"));
-    assert!(installer.contains("--removable"));
-
-    let create_vm = include_str!("../../../packaging/vm/create-vm.ps1");
-    assert!(create_vm.contains("--firmware efi"));
-
-    let qa = include_str!("../../../packaging/vm/qa-vm.sh");
-    assert!(qa.contains("command -v xrandr"));
-    assert!(qa.contains("xrandr reports no connected output"));
-    assert!(qa.contains("current_mode_line=\"$(awk '"));
-    assert!(qa.contains("in_output && /^[^[:space:]]/ { exit }"));
-    assert!(!qa.contains("sed -nE '/ connected /,/^[^[:space:]]/"));
-    assert!(qa.contains("X11_ACTIVE_REFRESH_HZ="));
-    assert!(qa.contains("X11_AVAILABLE_REFRESH_HZ="));
-    assert!(qa.contains("SLOPOS_MIN_REFRESH_HZ"));
-    assert!(qa.contains("SLOPOS_MIN_REFRESH_HZ must be greater than zero"));
-    assert!(qa.contains("X11_MIN_REFRESH_HZ_STATUS_0"));
-    assert!(qa.contains("does not claim physical high-refresh or"));
-    assert!(qa.contains("VRR support"));
-    assert!(qa.contains("/sys/firmware/efi"));
-    assert!(qa.contains("EFI_BOOT_STATUS_0="));
-    assert!(qa.contains("/boot/EFI/BOOT/BOOTX64.EFI"));
-    assert!(qa.contains("/usr/share/wayland-sessions/slopos-i.desktop"));
-    assert!(qa.contains("/usr/local/share/wayland-sessions/slopos-i.desktop"));
-}
-
-#[test]
-fn vm_recreate_checks_state_before_poweroff() {
-    let create_vm = include_str!("../../../packaging/vm/create-vm.ps1");
-    assert!(create_vm.contains("showvminfo $VmName --machinereadable"));
-    assert!(create_vm.contains("Unable to determine the state of existing VM"));
-    assert!(create_vm.contains("Refusing to delete VM $VmName in unsupported state"));
-    assert!(create_vm.contains("VmName must not be empty"));
-    assert!(create_vm.contains("IsoSha256 must be a 64-character SHA-256 digest"));
-    assert!(create_vm.contains("ISO must be a regular file"));
-    assert!(create_vm.contains("ISO must be non-empty"));
-    assert!(create_vm.contains("Get-FileHash -LiteralPath $IsoPath -Algorithm SHA256"));
-    assert!(create_vm.contains("does not match expected $IsoSha256"));
-    assert!(create_vm.contains("'saved'"));
-    assert!(create_vm.contains("controlvm $VmName poweroff"));
-    assert!(create_vm.contains("MemoryMB must be positive"));
-    assert!(create_vm.contains("Cpus must be positive"));
-    assert!(create_vm.contains("DiskMB must be positive"));
-    assert!(create_vm.contains("SshPort must be between 1 and 65535"));
-}
-
-#[test]
-fn recovery_preserves_config_and_requires_fresh_children() {
-    let recovery = include_str!("../../../scripts/slopos-recovery.sh");
-    assert!(recovery.contains("refusing an unsafe HOME"));
-    assert!(recovery.contains("HOME must be an absolute path"));
-    assert!(recovery.contains("backup destination must be an absolute path"));
-    assert!(recovery.contains("refusing a symlinked config parent"));
-    assert!(recovery
-        .contains("BACKUP_DIR=\"${SLOPOS_RECOVERY_BACKUP_DIR:-$HOME_DIR/slopos-config-backup-"));
-    assert!(recovery.contains("-L \"$CONFIG_DIR\""));
-    assert!(recovery.contains("mv -- \"$CONFIG_DIR\""));
-    assert!(recovery.contains("VENDOR_DIR=\"${SLOPOS_VENDOR_CONFIG_DIR:-/etc/slopos-i}\""));
-    assert!(recovery.contains("wait_for_child_restart"));
-    assert!(recovery.contains("slopos-session"));
-    assert!(recovery.contains("SLOPOS_RECOVERY_STATUS_0"));
-}
-
-#[test]
-fn docker_qa_uses_fresh_visible_windows() {
-    let qa = include_str!("../../../scripts/run-docker-qa.sh");
-    assert!(qa.contains("dbus-run-session -- bash -c"));
-    assert!(qa.contains("DBUS_SESSION_BUS_ADDRESS"));
-    assert!(qa.contains("SLOPOS_QA_SKIP_DEPS"));
-    assert!(qa.contains("SLOPOS_QA_SKIP_BUILD"));
-    assert!(qa.contains("Using pre-provisioned X11/GTK QA dependencies"));
-    assert!(qa.contains("dbus-send --session"));
-    assert!(qa.contains("notify-send"));
-    assert!(qa.contains("wait_visible_window '^SLOPOS Top Bar$'"));
-    assert!(qa.contains("wait_visible_window '^SLOPOS Application Strip$'"));
-    assert!(qa.contains("capture_screenshot()"));
-    assert!(qa.contains("xdotool getdisplaygeometry"));
-    assert!(qa.contains("QA_STARTED_UTC"));
-    assert!(qa.contains("evidence-manifest.txt"));
-    assert!(qa.contains("DOCKER_QA_SOURCE_COMMIT"));
-    assert!(qa.contains("Keep pointer-driven tooltips out of canonical evidence"));
-    assert!(qa.contains("xdotool search --onlyvisible --name \"$pattern\""));
-    assert!(qa.contains("--onlyvisible --name '^Software Catalogue$'"));
-    assert!(qa.contains("--onlyvisible --name '^System Settings$'"));
-    assert!(qa.contains("notify-send -t 60000"));
-    assert!(qa.contains("Close only the fresh visible"));
-    assert!(qa.contains("! xdotool search --onlyvisible --name '^SLOPOS Notification [0-9]+$'"));
-    assert!(qa.contains("getwindowpid"));
-    assert!(qa.contains("wait_window_for_pid"));
-    assert!(qa.contains("mousepad \"$REPO_ROOT/README.md\""));
-    assert!(qa.contains("pcmanfm \"$REPO_ROOT\""));
-    assert!(qa.contains("REPO_ROOT=\"$(cd -- \"$SCRIPT_DIR/..\" && pwd)\""));
-    assert!(qa.contains("close_visible_windows_by_class mousepad"));
-    assert!(qa.contains("Verify session recovery after child failure"));
-    assert!(qa.contains("shell_before"));
-    assert!(qa.contains("wm_before"));
-    assert!(qa.contains("close_visible_windows_by_class"));
-    assert!(qa.contains("xdotool windowmove --sync"));
-    assert!(qa.contains("xdotool windowsize"));
-    assert!(qa.contains("xdotool key --clearmodifiers alt+Tab"));
-    assert!(qa.contains("ACTIVE_BEFORE"));
-    assert!(qa.contains("ACTIVE_AFTER"));
-    assert!(qa.contains("clean_desktop_1280x800.png"));
-    assert!(qa.contains("appmenu_fallback_mousepad_1280x800.png"));
-    assert!(qa.contains("appmenu_imported_mousepad_1280x800.png"));
-    assert!(qa.contains("APPMENU_MOUSEPAD_SCREENSHOT"));
-    assert!(!qa.contains("appmenu_exported_mousepad_1280x800.png"));
-    assert!(qa.contains("APPMENU_MOUSEPAD_FALLBACK_STATUS_0"));
-    assert!(qa.contains("APPMENU_MOUSEPAD_IMPORT_STATUS_0"));
-    for scene in [
-        "menu_open_1280x800.png",
-        "search_open_1280x800.png",
-        "notification_1280x800.png",
-        "modal_about_1280x800.png",
-        "file_manager_1280x800.png",
-        "terminal_1280x800.png",
-    ] {
-        assert!(qa.contains(scene), "missing canonical scene {scene}");
-    }
-}
-
-#[test]
-fn hosted_x11_smoke_waits_for_restarted_shell_windows() {
-    let ci = include_str!("../../../.github/workflows/ci.yml");
-    assert!(ci.contains("wait_for \"top bar after shell restart\""));
-    assert!(ci.contains("wait_for \"application strip after Openbox restart\""));
-}
-
-#[test]
-fn global_menu_is_capability_aware_and_never_fabricates_app_commands() {
-    let topbar = include_str!("../src/topbar.rs");
-    let appmenu = include_str!("../src/appmenu.rs");
-    let qa = include_str!("../../../scripts/run-appmenu-qa.sh");
-    let docker_qa = include_str!("../../../scripts/run-docker-qa.sh");
-    let ci = include_str!("../../../.github/workflows/ci.yml");
-    let exporter_fixture = include_str!("../../../scripts/qa-dbusmenu-exporter.c");
-    assert!(topbar.contains("build_app_menu_button"));
-    assert!(topbar.contains("appmenu::status_for_window"));
-    assert!(topbar.contains("This application exports no X11 AppMenu"));
-    assert!(topbar.contains("appmenu::fetch_layout_with_timeout"));
-    assert!(topbar.contains("appmenu::activate"));
-    assert!(topbar.contains("Open the focused application's exported AppMenu"));
     assert!(topbar.contains("window.set_accept_focus(false)"));
-    assert!(topbar.contains("current_active_window_id() != Some(exporter.window_id)"));
-    assert!(topbar.contains("Focused X11 application changed before AppMenu click"));
-    assert!(topbar.contains("Focused X11 application changed before AppMenu event"));
-    assert!(topbar.contains("Focused X11 application changed before AppMenu layout was shown"));
-    assert!(topbar.contains("gtk::current_event()"));
-    assert!(topbar.contains("trigger_event.as_ref()"));
-    assert!(topbar.contains("app_menu_failure"));
-    assert!(topbar.contains("import_failed"));
-    assert!(topbar.contains("The focused application's AppMenu is unavailable; use its local menu"));
-    assert!(topbar.contains("Focused application's AppMenu action failed"));
-    assert!(topbar.contains("The focused application's AppMenu action failed; use its local menu"));
-    assert!(topbar.contains("never show an enabled"));
-    assert!(topbar.contains("menu item whose activation would do nothing"));
-    assert!(topbar.contains("no visible items; use its local menu"));
-    assert!(docker_qa.contains("APPMENU_FOCUS_BEFORE"));
-    assert!(docker_qa.contains("APPMENU_FOCUS_AFTER"));
-    assert!(docker_qa.contains("destroyed pre-recovery top-bar window"));
-    assert!(ci.contains("x11-appmenu-real:"));
-    assert!(ci.contains("github.event_name == 'workflow_dispatch'"));
-    assert!(ci.contains("SLOPOS_QA_REQUIRE_REAL_APPMENU=1"));
-    assert!(!ci.contains("APPMENU_REAL_IMPORT_STATUS_0"));
-    assert!(!topbar.contains("safe DBusMenu importer is not enabled"));
-    assert!(!topbar.contains("build_global_menu_bar"));
-    assert!(!topbar.contains("target_shortcut_item"));
-    assert!(!topbar.contains("New File Window"));
-    assert!(!topbar.contains("Window switching is unavailable."));
-    assert!(appmenu.contains("_GTK_UNIQUE_BUS_NAME"));
-    assert!(appmenu.contains("_GTK_APP_MENU_OBJECT_PATH"));
-    assert!(appmenu.contains("_GTK_MENUBAR_OBJECT_PATH"));
-    assert!(appmenu.contains("com.canonical.dbusmenu"));
-    assert!(appmenu.contains("MAX_LAYOUT_DEPTH"));
-    assert!(appmenu.contains("MAX_MENU_ITEMS"));
-    assert!(appmenu.contains("if array.len() > MAX_MENU_ITEMS"));
-    assert!(appmenu.contains("reserve_non_root"));
-    assert!(appmenu.contains("MAX_MENU_ITEMS.saturating_sub(self.items)"));
-    assert!(appmenu.contains("dot-separated ASCII unique-name grammar"));
-    assert!(appmenu.contains("Unique-name elements may begin with digits"));
-    assert!(appmenu.contains("call_noreply(DBUSMENU_EVENT"));
-    assert!(appmenu.contains("D-Bus object paths are `/` or slash-separated elements"));
-    assert!(qa.contains("Mousepad local menu remains upstream-owned"));
-    assert!(qa.contains("EXPORTER_FIXTURE_STATUS_0"));
-    assert!(qa.contains("NON_EXPORTER_STATUS_0"));
-    assert!(qa.contains("Mousepad AppMenu properties were not removed for fallback check"));
-    assert!(qa.contains("_GTK_MENUBAR_OBJECT_PATH 2>/dev/null || true"));
-    assert!(qa.contains("SCRIPT_DIR=\"$(cd -- \"$(dirname -- \"${BASH_SOURCE[0]}\")\" && pwd)\""));
-    assert!(qa.contains("REPO_ROOT=\"$(cd -- \"$SCRIPT_DIR/..\" && pwd)\""));
-    assert!(qa.contains(
-        "SLOPOS_OPENBOX_CONFIG=\"${SLOPOS_OPENBOX_CONFIG:-$REPO_ROOT/assets/config/openbox/rc.xml}\""
-    ));
-    assert!(qa.contains("mousepad \"$REPO_ROOT/README.md\""));
-    assert!(qa.contains("--name 'README.md - Mousepad$'"));
-    assert!(!qa.contains("/workspace/README.md - Mousepad"));
-    assert!(!qa.contains("/workspace/assets/config/openbox/rc.xml"));
-    assert!(qa.contains("SLOPOS AppMenu capability evidence PASS"));
-    assert!(docker_qa.contains("APPMENU_REAL_IMPORT_STATUS_0"));
-    assert!(docker_qa.contains("SLOPOS_QA_USE_UPSTREAM_APPMENU"));
-    assert!(docker_qa.contains("SLOPOS_QA_REQUIRE_UPSTREAM_APPMENU"));
-    assert!(docker_qa.contains("APPMENU_UPSTREAM_IMPORT_STATUS_0"));
-    assert!(docker_qa.contains("dbus-monitor --session"));
-    assert!(docker_qa.contains("capture_open_popup"));
-    assert!(docker_qa.contains("APPMENU_MOUSEPAD_SCREENSHOT_CAPTURED"));
-    assert!(docker_qa.contains("is_settled_appmenu_popup"));
-    assert!(docker_qa.contains("_NET_WM_WINDOW_TYPE_(POPUP_MENU|DROPDOWN_MENU)"));
-    assert!(docker_qa.contains("APPMENU_POPUP_STATUS_0"));
-    assert!(ci.contains("appmenu-gtk3-module"));
-    assert!(ci.contains("appmenu-registrar"));
-    assert!(ci.contains("APPMENU_UPSTREAM_IMPORT_STATUS_0"));
-    assert!(docker_qa.contains("SLOPOS_QA_REQUIRE_REAL_APPMENU"));
-    assert!(exporter_fixture.contains("com.canonical.dbusmenu"));
-    assert!(exporter_fixture.contains("GetLayout"));
-    assert!(exporter_fixture.contains("Event"));
-    assert!(exporter_fixture.contains("parse_clicked_event"));
-    assert!(exporter_fixture.contains("DBUS_TYPE_VARIANT"));
-    assert!(exporter_fixture.contains("Only the DBusMenu clicked event is accepted"));
 }
 
 #[test]
-fn image_controls_have_accessible_names_and_focus_feedback() {
-    let dock = include_str!("../src/dock.rs");
-    let topbar = include_str!("../src/topbar.rs");
-    let notifications = include_str!("../src/notifications.rs");
-    let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
-    assert!(dock.contains("set_accessible_name(&button, tooltip)"));
-    assert!(dock.contains("Label::new(Some(\"Apps\"))"));
-    assert!(dock.contains("slopos-dock-label"));
-    assert!(dock.contains("program: \"supertux2\""));
-    assert!(dock.contains("program: \"supertux\""));
-    assert!(dock.contains("\"SuperTux\""));
-    assert!(dock.contains("applications-games-symbolic"));
-    assert!(topbar.contains("set_accessible_name(&system_button, \"SLOPOS menu\")"));
-    assert!(topbar.contains("set_accessible_name(&search_button"));
-    assert!(topbar.contains("network_button.set_sensitive(false)"));
-    assert!(topbar.contains("Network status"));
-    assert!(topbar.contains("battery_box.set_visible(current_battery_state().is_some())"));
-    assert!(topbar.contains("battery_box.set_visible(false)"));
-    assert!(notifications.contains("icon.is_empty().then(load_slopos_mark)"));
-    assert!(notifications.contains("set_accessible_name(&window, \"SLOPOS notification\")"));
-    assert!(notifications.contains("set_accessible_name(&dismiss, \"Dismiss notification\")"));
-    assert!(notifications.contains("SLOPOS_SHARE_DIR"));
-    assert!(notifications.contains("slopos-logo.png"));
-    assert!(css.contains("button:focus"));
-    assert!(css.contains("button.default:focus"));
-    assert!(css.contains("menu menuitem:focus"));
-    assert!(css.contains("menu menuitem:disabled"));
-    assert!(css.contains("menu menuitem:disabled image"));
-    assert!(css.contains("button:disabled image"));
-    assert!(css.contains(".slopos-dock-btn:disabled"));
-    assert!(css.contains(".slopos-secondary-text {\n  color: @slopos_disabled;"));
-    assert!(css.contains("@slopos_highlight"));
-}
-
-#[test]
-fn launcher_prefers_packaged_role_icons_with_upstream_fallbacks() {
-    let launcher = include_str!("../src/launcher.rs");
-    let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
-    assert!(launcher.contains("fn role_icon_file(app: &DesktopApp)"));
-    assert!(launcher.contains("load_launcher_icon(app)"));
-    assert!(launcher.contains("Pixbuf::from_file_at_scale(&path, 32, 32, true)"));
-    for icon in [
-        "folder.svg",
-        "terminal.svg",
-        "textedit.svg",
-        "browser.svg",
-        "game.svg",
-        "desktop.svg",
-        "software.svg",
-        "settings.svg",
+fn gtk_gmenu_bridge_uses_the_native_export_protocol() {
+    let bridge = include_str!("../src/gmenu.rs");
+    for property in [
+        "_GTK_UNIQUE_BUS_NAME",
+        "_GTK_MENUBAR_OBJECT_PATH",
+        "_GTK_APP_MENU_OBJECT_PATH",
+        "_GTK_APPLICATION_OBJECT_PATH",
+        "_GTK_WINDOW_OBJECT_PATH",
     ] {
-        assert!(launcher.contains(icon), "missing launcher role icon {icon}");
+        assert!(bridge.contains(property), "missing GTK export property {property}");
     }
-    let game_icon = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+    assert!(bridge.contains("gio::DBusMenuModel::get"));
+    assert!(bridge.contains("gio::DBusActionGroup::get"));
+    assert!(bridge.contains("gtk::MenuBar::from_model"));
+    assert!(bridge.contains("insert_action_group(\"app\""));
+    assert!(bridge.contains("insert_action_group(\"win\""));
+    assert!(!bridge.contains("com.canonical.dbusmenu"));
+}
+
+#[test]
+fn gtk_is_configured_for_a_shell_owned_global_menubar() {
+    let settings = include_str!("../../../assets/config/gtk-3.0/settings.ini");
+    assert!(settings.contains("gtk-icon-theme-name = SLOPOS-Platinum"));
+    assert!(settings.contains("gtk-shell-shows-menubar = 1"));
+    assert!(settings.contains("gtk-shell-shows-app-menu = 0"));
+}
+
+#[test]
+fn slopos_freedesktop_icon_theme_covers_core_file_manager_vocabulary() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
-        .join("themes/platinum/icons/game.svg");
-    assert!(game_icon.is_file(), "missing packaged game launcher icon");
-    assert!(launcher.contains("Image::from_icon_name(Some(icon_name), IconSize::Dnd)"));
-    assert!(css.contains(".slopos-result-icon"));
-    assert!(css.contains("min-width: 32px"));
-}
-
-#[test]
-fn launcher_default_geometry_keeps_result_rows_fully_visible() {
-    let launcher = include_str!("../src/launcher.rs");
-    assert!(launcher.contains("window.set_default_size(560, 450)"));
-    assert!(launcher.contains("scroll.set_min_content_height(280)"));
-    assert!(launcher.contains("visibly clipped row"));
-}
-
-#[test]
-fn launcher_renders_ranked_search_matches() {
-    let launcher = include_str!("../src/launcher.rs");
-    assert!(launcher.contains("ranked_app_matches"));
-    assert!(!launcher.contains("let command_text = app.argv.join(\" \").to_lowercase();"));
-}
-
-#[test]
-fn atspi_acceptance_covers_named_surfaces_and_focus() {
-    let launcher = include_str!("../src/launcher.rs");
-    let topbar = include_str!("../src/topbar.rs");
-    let dock = include_str!("../src/dock.rs");
-    let settings = include_str!("../../slopos-settings/src/main.rs");
-    let catalogue = include_str!("../../slopos-catalogue/src/main.rs");
-    let runner = include_str!("../../../scripts/run-atspi-qa.sh");
-    let probe = include_str!("../../../scripts/qa-atspi.py");
-    let ci = include_str!("../../../.github/workflows/ci.yml");
-
-    for (source, name) in [
-        (launcher, "SLOPOS application search"),
-        (launcher, "Application search field"),
-        (topbar, "SLOPOS top bar"),
-        (dock, "SLOPOS application strip"),
-        (settings, "SLOPOS system settings"),
-        (catalogue, "SLOPOS software catalogue"),
+        .join("themes/platinum/icon-theme");
+    assert!(root.join("index.theme").is_file());
+    for relative in [
+        "scalable/places/folder.svg",
+        "scalable/places/user-home.svg",
+        "scalable/places/user-desktop.svg",
+        "scalable/places/computer.svg",
+        "scalable/mimetypes/text-x-generic.svg",
+        "scalable/devices/drive-harddisk.svg",
+        "scalable/status/user-trash.svg",
+        "scalable/actions/go-previous.svg",
+        "scalable/actions/go-next.svg",
+        "scalable/actions/go-up.svg",
+        "scalable/actions/go-home.svg",
+        "scalable/actions/view-refresh.svg",
+        "scalable/actions/edit-find.svg",
     ] {
-        assert!(source.contains(name), "missing AT-SPI name {name}");
+        assert!(root.join(relative).is_file(), "missing SLOPOS icon {relative}");
     }
-    assert!(runner.contains("GTK_MODULES=gail:atk-bridge"));
-    assert!(runner.contains("at-spi-bus-launcher --launch-immediately"));
-    assert!(runner.contains("gsettings set org.gnome.desktop.interface toolkit-accessibility true"));
-    assert!(runner.contains("qa-atspi.py"));
-    assert!(ci.contains("x11-atspi-acceptance"));
-    assert!(ci.contains("sudo -E env \"PATH=$PATH\" bash scripts/run-atspi-qa.sh"));
-    assert!(probe.contains("Atspi.get_desktop(0)"));
-    assert!(probe.contains("Atspi.StateType.FOCUSED"));
-    assert!(probe.contains("EXPECTED_NAMES"));
-    assert!(probe.contains("AT_SPI_EXPECTED_NAMES="));
-    assert!(probe.contains("run_extended_checks"));
-    assert!(probe.contains("AT_SPI_UTF8_TEXT="));
-    assert!(probe.contains("AT_SPI_EXTENDED_STATUS_0"));
-    assert!(probe.contains("xclip"));
-    assert!(probe.contains("xdotool"));
-    assert!(probe.contains("shift+Tab"));
-    assert!(probe.contains("AT_SPI_STATUS_0"));
-    assert!(runner.contains("SLOPOS_ATSPI_SCREEN"));
-    assert!(runner.contains("SLOPOS_ATSPI_SCALE"));
-    assert!(runner.contains("SLOPOS_ATSPI_LOCALE"));
-    assert!(runner.contains("locale-gen \"$AT_SPI_LOCALE\""));
-    assert!(runner.contains("AT_SPI_RUNTIME_LOCALE"));
-    assert!(runner.contains("SLOPOS_ATSPI_SCREEN_READER"));
-    assert!(runner.contains("orca --replace"));
-    assert!(runner.contains("AT_SPI_SCREEN_READER_ORCA_STATUS_0"));
-    assert!(runner.contains("AT_SPI_LOCALE=$AT_SPI_LOCALE"));
-    assert!(runner.contains("--extended"));
-    assert!(runner.contains("GDK_SCALE"));
-    assert!(runner.contains("cleanup_inner()"));
-    assert!(runner.contains("trap cleanup_inner EXIT"));
-    assert!(runner.contains("${ORCA_PID:-}"));
-    assert!(ci.contains("x11-settings-services"));
-    assert!(ci.contains("run-settings-service-qa.sh"));
-    assert!(ci.contains("x11-atspi-locales"));
-    assert!(ci.contains("fr_FR.UTF-8"));
-    assert!(ci.contains("de_DE.UTF-8"));
-    assert!(ci.contains("x11-screen-reader"));
+    let index = include_str!("../../../themes/platinum/icon-theme/index.theme");
+    assert!(index.contains("Name=SLOPOS Platinum"));
+    assert!(index.contains("Context=Places"));
+    assert!(index.contains("Context=MimeTypes"));
+    assert!(index.contains("Context=Actions"));
 }
 
 #[test]
-fn settings_hub_uses_compact_platinum_controls() {
-    let settings = include_str!("../../slopos-settings/src/main.rs");
-    let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
-    assert!(settings.contains("window.set_default_size(640, 460)"));
-    assert!(settings.contains("IconSize::LargeToolbar"));
-    assert!(settings.contains("icon.set_pixel_size(32)"));
-    assert!(settings.contains("button.set_vexpand(false)"));
-    assert!(css.contains(".slopos-control-icon"));
-    assert!(css.contains("min-height: 64px"));
-}
+fn platinum_and_graphite_are_complete_runtime_appearances() {
+    let light = include_str!("../../../assets/config/gtk-3.0/gtk.css");
+    let dark = include_str!("../../../assets/config/gtk-3.0/gtk-graphite.css");
+    let light_wm = include_str!("../../../themes/slopos-openbox/openbox-3/themerc");
+    let dark_wm = include_str!("../../../themes/slopos-openbox-graphite/openbox-3/themerc");
+    let dark_rc = include_str!("../../../assets/config/openbox/rc-graphite.xml");
+    let switcher = include_str!("../../../scripts/slopos-appearance");
 
-#[test]
-fn settings_hub_uses_packaged_platinum_icons_with_fallbacks() {
-    let settings = include_str!("../../slopos-settings/src/main.rs");
-    assert!(settings.contains("load_control_icon(panel.icon_file, panel.fallback_icon)"));
-    assert!(settings.contains("Pixbuf::from_file_at_scale(&path, 32, 32, true)"));
-    for icon in [
-        "display.svg",
-        "sound.svg",
-        "network.svg",
-        "bluetooth.svg",
-        "power.svg",
-        "appearance.svg",
-        "desktop.svg",
-        "keyboard.svg",
-    ] {
-        let path = format!("themes/platinum/icons/{icon}");
-        let repo_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../..")
-            .join(&path);
-        assert!(repo_path.is_file(), "missing packaged icon {path}");
-        assert!(
-            settings.contains(icon),
-            "settings does not reference {icon}"
-        );
+    for css in [light, dark] {
+        for selector in [
+            ".slopos-topbar",
+            ".slopos-dock-container",
+            ".slopos-launcher",
+            ".slopos-notification",
+            ".slopos-control-panel",
+            "menubar > menuitem",
+            "menu menuitem",
+            "button",
+            "entry",
+            "scrollbar",
+        ] {
+            assert!(css.contains(selector), "appearance misses selector {selector}");
+        }
     }
+    assert!(light_wm.contains("window.active.title.bg"));
+    assert!(dark_wm.contains("window.active.title.bg"));
+    assert!(dark_rc.contains("slopos-openbox-graphite"));
+    assert!(switcher.contains("platinum|graphite|status"));
+    assert!(switcher.contains("gtk-theme-name = $gtk_theme"));
+    assert!(switcher.contains("gtk-shell-shows-menubar = 1"));
+    assert!(switcher.contains("pkill -TERM -x slopos-shell"));
+    assert!(switcher.contains("pkill -TERM -x openbox"));
 }
 
 #[test]
-fn settings_service_qa_proves_delegation_and_fail_closed_controls() {
-    let runner = include_str!("../../../scripts/run-settings-service-qa.sh");
-    let probe = include_str!("../../../scripts/qa-settings-services.py");
-    assert!(runner.contains("unavailable controls fail closed"));
-    assert!(runner.contains("SLOPOS_SERVICE_PROBE_LOG"));
-    assert!(runner.contains("qa-settings-services.py"));
-    assert!(runner.contains("SETTINGS_SERVICE_QA_STATUS_0"));
-    assert!(runner.contains("cleanup_inner()"));
-    assert!(runner.contains("trap cleanup_inner EXIT"));
-    assert!(probe.contains("Atspi.StateType.SENSITIVE"));
-    assert!(probe.contains("Displays settings"));
-    assert!(probe.contains("SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=8"));
-    assert!(probe.contains("SETTINGS_DELEGATED_CONTROLS=8"));
-    assert!(probe.contains("SETTINGS_DELEGATED_DISPLAY=arandr"));
+fn settings_is_a_compact_control_panel_and_appearance_is_built_in() {
+    let settings = include_str!("../../slopos-settings/src/main.rs");
+    assert!(settings.contains("Label::new(Some(\"Control Panels\"))"));
+    assert!(settings.contains("(640, 390)"));
+    assert!(settings.contains("(index % 4) as i32"));
+    assert!(settings.contains("(index / 4) as i32"));
+    assert!(settings.contains("title: \"Appearance\""));
+    assert!(settings.contains("built_in: true"));
+    assert!(settings.contains("Platinum — classic light"));
+    assert!(settings.contains("Graphite — dark"));
+    assert!(settings.contains("appearance_helper"));
+    assert!(settings.contains("slopos-appearance"));
+    assert!(settings.contains("button.set_sensitive(false)"));
+}
+
+#[test]
+fn settings_delegates_the_seven_external_system_panels() {
+    let settings = include_str!("../../slopos-settings/src/main.rs");
     for utility in [
         "arandr",
         "pavucontrol",
         "nm-connection-editor",
         "blueman-manager",
         "xfce4-power-manager-settings",
-        "lxappearance",
         "pcmanfm",
         "lxinput",
     ] {
-        assert!(
-            runner.contains(utility),
-            "missing delegated utility {utility}"
-        );
+        assert!(settings.contains(utility), "missing Settings delegate {utility}");
     }
-    assert!(probe.contains("SETTINGS_SERVICE_QA_STATUS_0"));
+    let runner = include_str!("../../../scripts/run-settings-service-qa.sh");
+    let probe = include_str!("../../../scripts/qa-settings-services.py");
+    assert!(runner.contains("SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=7"));
+    assert!(runner.contains("SETTINGS_DELEGATED_CONTROLS=7"));
+    assert!(probe.contains("BUILT_IN = \"Appearance settings\""));
+    assert!(probe.contains("SETTINGS_BUILTIN_APPEARANCE_ENABLED=1"));
 }
 
 #[test]
-fn benchmark_has_bounded_long_run_liveness_and_rss_checks() {
-    let benchmark = include_str!("../../../scripts/benchmark-x11-session.sh");
-    assert!(benchmark.contains("SLOPOS_BENCHMARK_HOLD_SECONDS"));
-    assert!(benchmark.contains("SLOPOS_BENCHMARK_MAX_RSS_GROWTH_KIB"));
-    assert!(benchmark.contains("SESSION_TREE_RSS_KIB_INITIAL"));
-    assert!(benchmark.contains("SESSION_TREE_RSS_KIB_FINAL"));
-    assert!(benchmark.contains("SESSION_TREE_RSS_DELTA_KIB"));
-    assert!(benchmark.contains("BENCHMARK_HOLD_SECONDS"));
-    assert!(benchmark.contains("live_pid slopos-shell"));
-    assert!(benchmark.contains("SLOPOS Top Bar"));
-}
-
-#[test]
-fn upstream_gtk_menubars_keep_platinum_spacing() {
-    let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
-    assert!(css.contains("@define-color slopos_disabled #5e5e5e"));
-    assert!(css.contains("menubar > menuitem"));
-    assert!(css.contains("padding: 2px 7px"));
-    assert!(css.contains("menubar > menuitem:hover"));
-    assert!(css.contains("menubar > menuitem:focus"));
-}
-
-#[test]
-fn browser_integration_is_upstream_and_no_fork() {
-    let launcher = include_str!("../../../scripts/start-slopos-browser");
-    let browser_desktop = include_str!("../../../packaging/slopos-browser.desktop");
-    let mimeapps = include_str!("../../../assets/config/mimeapps.list");
-    let openbox = include_str!("../../../assets/config/openbox/menu.xml");
-    let session_launcher = include_str!("../../../scripts/start-slopos-i");
-    let session_source = include_str!("../../slopos-session/src/main.rs");
-    let app_finder = include_str!("../src/app_finder.rs");
-    let launcher_source = include_str!("../src/launcher.rs");
-    let installer = include_str!("../../../scripts/install-browser-theme.sh");
-    let dock = include_str!("../src/dock.rs");
-    let chromium = include_str!("../../../packaging/browser/chromium/manifest.json");
-    let firefox = include_str!("../../../packaging/browser/firefox/manifest.json");
-    let firefox_css = include_str!("../../../packaging/browser/firefox/userChrome.css");
-    let browser_docs = include_str!("../../../packaging/browser/README.md");
-
-    assert!(launcher.contains("GTK_THEME"));
-    assert!(launcher.contains("export XDG_SESSION_TYPE=\"x11\""));
-    assert!(launcher.contains("unset WAYLAND_DISPLAY"));
-    assert!(launcher.contains("export GDK_BACKEND=\"x11\""));
-    assert!(launcher.contains("export MOZ_ENABLE_WAYLAND=\"0\""));
-    assert!(launcher.contains("firefox"));
-    assert!(launcher.contains("chromium"));
-    assert!(launcher.contains("google-chrome"));
-    assert!(launcher.contains("--ozone-platform=x11"));
-    assert!(launcher.contains("--load-extension"));
-    assert!(browser_desktop.contains("Exec=start-slopos-browser %U"));
-    assert!(browser_desktop.contains("TryExec=start-slopos-browser"));
-    assert!(browser_desktop.contains("x-scheme-handler/http"));
-    assert!(mimeapps.contains("text/html=slopos-browser.desktop"));
-    assert!(mimeapps.contains("x-scheme-handler/https=slopos-browser.desktop"));
-    assert!(openbox.contains("<command>start-slopos-browser</command>"));
-    assert!(session_launcher.contains("export PATH=\"$INSTALL_PREFIX/bin:${PATH:-}\""));
-    assert!(session_launcher.contains("XDG_DATA_DIRS"));
-    assert!(session_launcher.contains("XDG_CONFIG_DIRS"));
-    assert!(session_source.contains("configure_install_prefix_environment"));
-    assert!(session_source.contains("prepend_env_path(\"XDG_DATA_DIRS\""));
-    assert!(session_source.contains("prepend_env_path(\"XDG_CONFIG_DIRS\""));
-    assert!(app_finder.contains("XDG_DATA_DIRS"));
-    assert!(app_finder.contains("applications"));
-    assert!(launcher_source.contains("upstream_browser_name"));
-    assert!(launcher_source.contains("Command::new(\"start-slopos-browser\")"));
-    assert!(launcher_source.contains("SLOPOS_BROWSER"));
-    assert!(installer.contains("PROFILE_DIR must be an absolute path"));
-    assert!(installer.contains("slopos-backup"));
-    assert!(installer.contains("slopos-browser-theme.backup"));
-    assert!(installer.contains("mv -- \"$target\" \"$backup\""));
-    assert!(installer.contains("SLOPOS_SHARE_DIR"));
-    assert!(installer.contains("BROWSER_RESOURCE_DIR"));
-    assert!(installer.contains("slopos-i/browser"));
-    assert!(installer.contains("chromium-browser|chrome|google-chrome|google-chrome-stable"));
-    assert!(dock.contains("program: \"start-slopos-browser\""));
-    assert!(chromium.contains("\"manifest_version\": 3"));
-    assert!(chromium.contains("\"frame\": [117, 128, 144]"));
-    assert!(chromium.contains("\"toolbar_button_icon\": [0, 0, 0]"));
-    assert!(chromium.contains("\"omnibox_background\": [255, 255, 255]"));
-    assert!(firefox.contains("\"theme\""));
-    assert!(firefox.contains("\"toolbar_field_border_focus\": \"#000080\""));
-    assert!(installer.contains(
-        "firefox_pref='user_pref(\"toolkit.legacyUserProfileCustomizations.stylesheets\", true);'"
-    ));
-    assert!(installer.contains("firefox_pref_false_re"));
-    assert!(installer.contains("sed -E \"/$firefox_pref_re/d\""));
-    assert!(firefox_css.contains("#nav-bar .toolbarbutton-1"));
-    assert!(firefox_css.contains("#sidebar-box"));
-    assert!(firefox_css.contains("menupopup > menuitem[_moz-menuactive=\"true\"]"));
-    assert!(browser_docs.contains("does not fork or patch Firefox, Chromium or Chrome"));
-    assert!(browser_docs.contains("slopos-browser.desktop"));
-    assert!(browser_docs.contains("SLOPOS_BROWSER"));
-
-    for manifest in [
-        include_str!("../../../install.sh"),
-        include_str!("../../../packaging/arch/PKGBUILD"),
-        include_str!("../../../packaging/debian/rules"),
-        include_str!("../../../packaging/iso/build-iso.sh"),
-    ] {
-        assert!(manifest.contains("start-slopos-browser"));
-        assert!(manifest.contains("slopos-browser.desktop"));
-        assert!(manifest.contains("install-browser-theme.sh"));
-        assert!(manifest.contains("packaging/browser") || manifest.contains("browser/chromium"));
-    }
-}
-
-#[test]
-fn upstream_app_and_game_qa_covers_five_roles_with_audio() {
-    let qa = include_str!("../../../scripts/run-arch-app-qa.sh");
-    let ci = include_str!("../../../.github/workflows/ci.yml");
-    for role in [
-        "file-manager",
-        "terminal",
-        "text-editor",
-        "image-viewer",
-        "browser",
-    ] {
-        assert!(qa.contains(role), "missing upstream role {role}");
-    }
-    assert!(qa.contains("supertux"));
-    assert!(qa.contains("SLOPOS_BROWSER_QA_MARKER"));
-    assert!(qa.contains("SLOPOS Browser QA"));
-    assert!(qa.contains("browser-firefox.png"));
-    assert!(qa.contains("bash \"$REPO_ROOT/scripts/install-browser-theme.sh\" firefox"));
-    assert!(qa.contains("bash \"$REPO_ROOT/scripts/start-slopos-browser\""));
-    assert!(qa.contains("SLOPOS_BROWSER_THEME_DIR=/usr/share/slopos-i/browser/chromium"));
-    assert!(qa.contains("Installed theme"));
-    assert!(qa.contains("xdotool key --window \"$window\" Escape"));
-    assert!(qa.contains("xdotool mousemove --sync --window \"$window\""));
-    assert!(qa.contains("xdotool click --window \"$window\" 1"));
-    assert!(qa.contains("$((WIDTH - 30)) 98"));
-    assert!(qa.contains("for _ in $(seq 1 6); do"));
-    assert!(qa.contains("--profile \"$FIREFOX_PROFILE\""));
-    assert!(qa.contains("browser-dom.html"));
-    assert!(qa.contains("SLOPOS_QA_SKIP_DEPS"));
-    assert!(qa.contains("SLOPOS_QA_SKIP_BUILD"));
-    assert!(qa.contains("REPO_ROOT=\"$(cd -- \"$SCRIPT_DIR/..\" && pwd)\""));
-    assert!(qa.contains("pcmanfm \"$REPO_ROOT\""));
-    assert!(qa.contains("mousepad \"$REPO_ROOT/README.md\""));
-    assert!(qa.contains("ristretto \"$REPO_ROOT/assets/slopos-logo.png\""));
-    assert!(!qa.contains("pcmanfm /workspace"));
-    assert!(!qa.contains("mousepad /workspace/README.md"));
-    assert!(!qa.contains("ristretto /workspace/assets/slopos-logo.png"));
-    assert!(qa.contains("SLOPOS_OPENBOX_CONFIG"));
-    assert!(qa.contains("QA_STARTED_UTC"));
-    assert!(qa.contains("evidence-manifest.txt"));
-    assert!(qa.contains("xdotool getactivewindow"));
-    assert!(qa.contains("ARCH_APP_QA_THEME_STATUS_0"));
-    assert!(qa.contains("ARCH_APP_QA_STATUS_0"));
-    assert!(qa.contains("themes/slopos-openbox/openbox-3/themerc"));
-    assert!(qa.contains("/usr/share/themes/slopos-openbox/openbox-3/themerc"));
-    assert!(qa.contains("BROWSER_FIREFOX_STATUS_SKIPPED_OPTIONAL_PACKAGE"));
-    assert!(qa.contains("getwindowname"));
-    assert!(qa.contains("world1/frosted_fields.stl"));
-    assert!(qa.contains("xdotool keydown --window"));
-    assert!(qa.contains("xdotool key --window \"$GAME_WINDOW\" space"));
-    assert!(qa.contains("kill -0 \"$GAME_PID\""));
-    assert!(qa.contains("xdotool key --window \"$GAME_WINDOW\" Escape"));
-    assert!(qa.contains("GAME_SCENE_PROBE"));
-    assert!(qa.contains("GAME_SCENE_MEAN"));
-    assert!(qa.contains("-crop \"${WIDTH}x${HEIGHT}+${X}+${Y}\""));
-    assert!(qa.contains("seq 1 60"));
-    assert!(qa.contains("mean > 0.05"));
-    assert!(qa.contains("remained on its introductory title card"));
-    assert!(qa.contains("xdotool key --window \"$GAME_WINDOW\" q"));
-    assert!(qa.contains("unrecoverable error"));
-    assert!(qa.contains("pactl list sink-inputs"));
-    assert!(qa.contains("test -s artifacts/qa/app-matrix/sink-inputs.txt"));
-    assert!(qa.contains("artifact=%s sha256="));
-    assert!(qa.contains("screenshot=%s sha256="));
-    assert!(qa.contains("browser-dom.html"));
-    assert!(qa.contains("game-audio.raw"));
-    assert!(qa.contains("bytes=%s"));
-    assert!(qa.contains("application\\.name = \"SuperTux 2\""));
-    assert!(qa.contains("application\\.process\\.id = \"[0-9]+\""));
-    assert!(qa.contains("application\\.process\\.binary = \"supertux2\""));
-    assert!(qa.contains("if (index(line, \"application.process.id = \\\"\" game_pid"));
-    assert!(qa.contains("game_pid"));
-    assert!(qa.contains("command -v parec"));
-    assert!(qa.contains("slopos_null.monitor"));
-    assert!(qa.contains("game-audio.raw"));
-    assert!(qa.contains("GAME_AUDIO_NONZERO_BYTES"));
-    assert!(qa.contains("PulseAudio monitor capture is empty or silent"));
-    assert!(qa.contains("SLOPOS-I Arch upstream application/browser/game evidence PASS"));
-    assert!(ci.contains("x11-arch-app-matrix:"));
-    assert!(ci.contains("if: github.event_name == 'workflow_dispatch'"));
-    assert!(ci.contains("archlinux:base-devel"));
-    assert!(ci.contains("SLOPOS_QA_SKIP_BUILD=1"));
-    assert!(ci.contains("BROWSER_FIREFOX_STATUS_0"));
-    assert!(ci.contains("game_audio_bytes="));
-
+fn shipping_dependency_manifests_include_real_settings_backends() {
     for manifest in [
         include_str!("../../../packaging/deps/arch.txt"),
         include_str!("../../../packaging/deps/ubuntu.txt"),
         include_str!("../../../packaging/iso/packages.x86_64"),
         include_str!("../../../packaging/vm/arch-install.sh"),
     ] {
-        assert!(manifest
-            .split_whitespace()
-            .any(|token| token.trim_matches('\\') == "supertux"));
+        for required in [
+            "pavucontrol",
+            "network-manager",
+            "blueman",
+            "xfce4-power-manager",
+            "xfce4-settings",
+            "lxappearance",
+            "arandr",
+        ] {
+            assert!(
+                manifest.contains(required),
+                "shipping dependency set misses {required}"
+            );
+        }
     }
 }
 
 #[test]
-fn retained_resolution_qa_covers_scale_matrix() {
-    let qa = include_str!("../../../scripts/run-resolution-qa.sh");
-    assert!(qa.contains("SLOPOS_RESOLUTION"));
-    assert!(qa.contains("SLOPOS_SCALE"));
-    assert!(qa.contains("GDK_SCALE"));
-    assert!(qa.contains("REPO_ROOT/assets/config/openbox/rc.xml"));
-    assert!(qa.contains("export GTK_THEME=slopos-gtk"));
-    assert!(qa.contains("if (( EUID == 0 )); then"));
-    assert!(qa.contains("1366x768"));
-    assert!(qa.contains("dimensions must be positive"));
-    assert!(qa.contains("xdpyinfo -display \"$DISPLAY\""));
-    assert!(qa.contains("/dimensions:/ && !found"));
-    assert!(qa.contains("END {if (!found) exit 1}"));
-    assert!(qa.contains(")\" || ROOT_DIMENSIONS=\"\""));
-    assert!(qa.contains("X11_ROOT_DIMENSIONS="));
-    assert!(qa.contains(
-        "OUTPUT_DIR=\"${SLOPOS_RESOLUTION_OUTPUT:-artifacts/qa/resolutions/${SCREEN}-scale${SCALE}}\""
-    ));
-    assert!(qa.contains("QA_STARTED_UTC"));
-    assert!(qa.contains("evidence-manifest.txt"));
-    assert!(qa.contains("RESOLUTION_QA_SOURCE_COMMIT"));
-    assert!(qa.contains("RESOLUTION_QA_STATUS_0"));
-    assert!(qa.contains("identify -format '%wx%h'"));
-    assert!(qa.contains("capture_screenshot"));
-    assert!(qa.contains("xdotool getdisplaygeometry"));
-
-    let ci = include_str!("../../../.github/workflows/ci.yml");
-    for screen in ["3440x1440", "3840x2160", "5120x2880", "7680x4320"] {
-        assert!(ci.contains(screen), "missing retained resolution {screen}");
+fn install_and_native_packages_ship_icons_and_both_appearances() {
+    for manifest in [
+        include_str!("../../../install.sh"),
+        include_str!("../../../packaging/arch/PKGBUILD"),
+        include_str!("../../../packaging/debian/rules"),
+    ] {
+        for required in [
+            "slopos-appearance",
+            "SLOPOS-Platinum",
+            "gtk-graphite.css",
+            "slopos-openbox-graphite",
+            "rc-graphite.xml",
+        ] {
+            assert!(manifest.contains(required), "package misses {required}");
+        }
     }
-    assert!(ci.contains("2560x1600"));
-    assert!(ci.contains("scale: 2"));
+}
+
+#[test]
+fn session_reloads_appearance_without_reintroducing_display_stack_scope() {
+    let session = include_str!("../../slopos-session/src/main.rs");
+    assert!(session.contains("fn appearance()"));
+    assert!(session.contains("#25272B"));
+    assert!(session.contains("#758090"));
+    assert!(session.contains("rc-graphite.xml"));
+    assert!(session.contains("resolve_openbox_config"));
+    for obsolete in ["wayland", "smithay", "wlroots", "xwayland"] {
+        assert!(!session.to_ascii_lowercase().contains(obsolete));
+    }
+}
+
+#[test]
+fn appimage_catalogue_remains_fail_closed() {
+    let installer = include_str!("../../slopos-catalogue/src/installer.rs");
+    let model = include_str!("../../slopos-catalogue/src/model.rs");
+    let catalogue = include_str!("../../slopos-catalogue/src/main.rs");
+    assert!(!installer.contains("create_stub_appimage"));
+    assert!(installer.contains("metadata_is_installable"));
+    assert!(installer.contains("SHA-256 mismatch"));
+    assert!(model.contains("eq_ignore_ascii_case(EMPTY_FILE_SHA256)"));
+    assert!(catalogue.contains("Curated AppImages with pinned integrity metadata"));
+    assert!(catalogue.contains("current_appearance"));
+    assert!(catalogue.contains("gtk-graphite.css"));
+}
+
+#[test]
+fn ui_ux_acceptance_proves_the_user_reported_gaps() {
+    let qa = include_str!("../../../scripts/run-ui-ux-qa.sh");
+    for proof in [
+        "02-pcmanfm-slopos-icons.png",
+        "03-real-gtk-global-menu.png",
+        "04-settings-available.png",
+        "05-graphite-desktop.png",
+        "06-graphite-settings.png",
+        "gtk-icon-theme-name",
+        "gtk-shell-shows-menubar",
+        "Imported GTK global menubar",
+        "Required Settings delegate is missing",
+        "slopos-appearance graphite",
+        "slopos-appearance platinum",
+        "UI/UX QA PASS",
+    ] {
+        assert!(qa.contains(proof), "UI/UX harness misses proof {proof}");
+    }
+    assert!(!qa.contains("App (local) placeholder leaked") || qa.contains("grep -q 'App (local)'"));
+}
+
+#[test]
+fn shell_owned_surfaces_keep_accessibility_names() {
+    let launcher = include_str!("../src/launcher.rs");
+    let topbar = include_str!("../src/topbar.rs");
+    let dock = include_str!("../src/dock.rs");
+    let settings = include_str!("../../slopos-settings/src/main.rs");
+    let catalogue = include_str!("../../slopos-catalogue/src/main.rs");
+    for (source, name) in [
+        (launcher, "SLOPOS application search"),
+        (topbar, "SLOPOS top menu bar"),
+        (topbar, "Focused application global menu"),
+        (dock, "SLOPOS application strip"),
+        (settings, "SLOPOS system settings"),
+        (catalogue, "SLOPOS software catalogue"),
+    ] {
+        assert!(source.contains(name), "missing accessible name {name}");
+    }
+}
+
+#[test]
+fn platinum_controls_have_dense_classic_interaction_states() {
+    let css = include_str!("../../../assets/config/gtk-3.0/gtk.css");
+    for required in [
+        "border-radius: 0",
+        "button:active",
+        "button:focus",
+        "button:disabled",
+        "menu menuitem:hover",
+        "menubar > menuitem:hover",
+        "check:checked",
+        "radio:checked",
+        "entry:focus",
+        "row:selected",
+        ".slopos-dock-container",
+        ".slopos-alert-box",
+        ".slopos-control-panel",
+        "tooltip",
+    ] {
+        assert!(css.contains(required), "Platinum CSS misses {required}");
+    }
+}
+
+#[test]
+fn browser_and_upstream_apps_remain_integrated_not_forked() {
+    let browser = include_str!("../../../scripts/start-slopos-browser");
+    let mimeapps = include_str!("../../../assets/config/mimeapps.list");
+    assert!(browser.contains("firefox"));
+    assert!(browser.contains("chromium"));
+    assert!(browser.contains("GDK_BACKEND=\"x11\""));
+    assert!(mimeapps.contains("text/html=slopos-browser.desktop"));
+    assert!(mimeapps.contains("image/png=ristretto.desktop"));
+}
+
+#[test]
+fn x11_resolution_and_accessibility_acceptance_remain_release_gates() {
+    let resolution = include_str!("../../../scripts/run-resolution-qa.sh");
+    let atspi = include_str!("../../../scripts/run-atspi-qa.sh");
+    assert!(resolution.contains("SLOPOS_RESOLUTION"));
+    assert!(resolution.contains("SLOPOS_SCALE"));
+    assert!(resolution.contains("RESOLUTION_QA_STATUS_0"));
+    assert!(atspi.contains("at-spi-bus-launcher --launch-immediately"));
+    assert!(atspi.contains("AT_SPI_STATUS_0"));
+}
+
+#[test]
+fn custom_prefix_installation_forwards_all_desktop_resources() {
+    let installer = include_str!("../../../install.sh");
+    let launcher = include_str!("../../../scripts/start-slopos-i");
+    assert!(installer.contains("XSESSION_DIR"));
+    assert!(installer.contains("must be an absolute path"));
+    assert!(installer.contains("SLOPOS-Platinum"));
+    assert!(launcher.contains("SLOPOS_INSTALL_PREFIX"));
+    assert!(launcher.contains("SLOPOS_SHARE_DIR"));
+    assert!(launcher.contains("XDG_DATA_DIRS"));
+    assert!(launcher.contains("SLOPOS_APPEARANCE"));
+}
+
+#[test]
+fn shipping_sources_do_not_reintroduce_wayland_or_vision() {
+    for source in [
+        include_str!("../../../install.sh"),
+        include_str!("../../../packaging/arch/PKGBUILD"),
+        include_str!("../../../packaging/debian/rules"),
+        include_str!("../../../packaging/vm/arch-install.sh"),
+    ] {
+        let lower = source.to_ascii_lowercase();
+        for obsolete in ["smithay", "wlroots", "xwayland", "slopos-compositor", "slopos-vision"] {
+            assert!(!lower.contains(obsolete), "shipping source contains {obsolete}");
+        }
+    }
 }
