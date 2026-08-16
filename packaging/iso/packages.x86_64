@@ -28,7 +28,7 @@ galculator
 firefox
 supertux
 
-# System integration
+# System integration and Settings delegates
 networkmanager
 network-manager-applet
 pavucontrol
@@ -38,6 +38,7 @@ wireplumber
 blueman
 upower
 xfce4-power-manager
+xfce4-settings
 lxappearance
 arandr
 polkit
