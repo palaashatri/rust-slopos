@@ -11,9 +11,6 @@ export XDG_CURRENT_DESKTOP="SLOPOS"
 export XDG_SESSION_DESKTOP="slopos-i"
 export DESKTOP_SESSION="slopos-i"
 
-# Keep helper binaries and desktop-data discoverable for custom-prefix
-# installs. This lets the Search palette and MIME handlers resolve the
-# SLOPOS browser wrapper without replacing an upstream browser executable.
 if [ -d "$INSTALL_PREFIX/bin" ]; then
   case ":${PATH:-}:" in
     *":$INSTALL_PREFIX/bin:"*) ;;
@@ -27,9 +24,6 @@ fi
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
 
-# Make resources under the installation prefix visible to GTK and SLOPOS
-# binaries. This keeps custom `--prefix` installs functional while retaining
-# the historical /usr/local and /usr layouts.
 SLOPOS_SHARE_DIR="$INSTALL_PREFIX/share"
 if [ -d "$SLOPOS_SHARE_DIR" ]; then
   export SLOPOS_SHARE_DIR
@@ -43,25 +37,29 @@ if [ -d "$SLOPOS_SHARE_DIR" ]; then
     *) export XDG_CONFIG_DIRS="$SLOPOS_CONFIG_DIR:${XDG_CONFIG_DIRS:-/etc/xdg}" ;;
   esac
 fi
-if [ -d "$SLOPOS_SHARE_DIR/themes/slopos-gtk/gtk-3.0" ] || \
-   [ -d /usr/local/share/themes/slopos-gtk/gtk-3.0 ] || \
-   [ -d /usr/share/themes/slopos-gtk/gtk-3.0 ]; then
-  export GTK_THEME="slopos-gtk"
-fi
 
-if [ -z "${SLOPOS_OPENBOX_CONFIG:-}" ]; then
-  for candidate in \
-    "$SLOPOS_SHARE_DIR/slopos-i/openbox/rc.xml" \
-    /usr/local/share/slopos-i/openbox/rc.xml \
-    /usr/share/slopos-i/openbox/rc.xml \
-    "$INSTALL_PREFIX/assets/config/openbox/rc.xml" \
-    "$(pwd)/assets/config/openbox/rc.xml"
-  do
-    if [ -f "$candidate" ]; then
-      export SLOPOS_OPENBOX_CONFIG="$candidate"
-      break
-    fi
-  done
+appearance_file="${XDG_CONFIG_HOME:-$HOME/.config}/slopos-i/appearance"
+appearance="platinum"
+if [ -r "$appearance_file" ]; then
+  configured="$(tr -d '[:space:]' < "$appearance_file")"
+  case "$configured" in
+    graphite|platinum) appearance="$configured" ;;
+  esac
+fi
+export SLOPOS_APPEARANCE="$appearance"
+
+if [ "$appearance" = "graphite" ]; then
+  if [ -d "$SLOPOS_SHARE_DIR/themes/slopos-gtk-graphite/gtk-3.0" ] || \
+     [ -d /usr/local/share/themes/slopos-gtk-graphite/gtk-3.0 ] || \
+     [ -d /usr/share/themes/slopos-gtk-graphite/gtk-3.0 ]; then
+    export GTK_THEME="slopos-gtk-graphite"
+  fi
+else
+  if [ -d "$SLOPOS_SHARE_DIR/themes/slopos-gtk/gtk-3.0" ] || \
+     [ -d /usr/local/share/themes/slopos-gtk/gtk-3.0 ] || \
+     [ -d /usr/share/themes/slopos-gtk/gtk-3.0 ]; then
+    export GTK_THEME="slopos-gtk"
+  fi
 fi
 
 resolve_bin() {
@@ -93,5 +91,5 @@ SESSION_BIN="$(resolve_bin slopos-session)" || {
   exit 1
 }
 
-echo "Starting SLOPOS-I X11 desktop session..."
+echo "Starting SLOPOS-I X11 desktop session ($appearance)..."
 exec "$SESSION_BIN" "$@"
