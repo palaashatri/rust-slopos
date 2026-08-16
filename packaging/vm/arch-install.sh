@@ -11,8 +11,6 @@ HOSTNAME="${HOSTNAME:-slopos-i-vm}"
 USERNAME="${USERNAME:-retro}"
 PASSWORD="${PASSWORD:-retro}"
 REPO_URL="${REPO_URL:-https://github.com/palaashatri/rust-slopos.git}"
-# A branch name is mutable and is not sufficient evidence for an installed
-# release. The host provisioning harness supplies this full commit SHA.
 REPO_COMMIT="${REPO_COMMIT:-}"
 HOST_HTTP="${HOST_HTTP:-http://10.0.2.2:8000}"
 GUEST_TARGET_DIR="${CARGO_TARGET_DIR:-/home/$USERNAME/.cache/slopos-i/cargo-target}"
@@ -39,9 +37,6 @@ if [[ ! "$REPO_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
   exit 2
 fi
 
-# Keep the QA installer usable for both traditional (/dev/sda) and NVMe
-# (/dev/nvme0n1) disks.  The latter already ends in a digit, so its partition
-# names require an explicit `p` separator.
 partition_path() {
   local number="$1"
   if [[ "$DISK" =~ [0-9]$ ]]; then
@@ -53,13 +48,7 @@ partition_path() {
 
 ESP_PART="$(partition_path 1)"
 ROOT_PART="$(partition_path 2)"
-
-# Do not strand a mounted target disk when a package, build or QA step fails.
-# This trap is intentionally limited to the exact installer mountpoint.
-cleanup_mounts() {
-  set +e
-  umount -R /mnt >/dev/null 2>&1 || true
-}
+cleanup_mounts() { set +e; umount -R /mnt >/dev/null 2>&1 || true; }
 trap cleanup_mounts EXIT
 
 echo "=== enable clock and current keyring ==="
@@ -85,7 +74,7 @@ pacstrap -K /mnt \
   gtk3 libx11 libxrandr openssl dbus librsvg \
   ttf-dejavu ttf-liberation \
   pcmanfm xfce4-terminal mousepad ristretto zathura mpv galculator supertux \
-  pavucontrol nm-connection-editor blueman xfce4-power-manager lxappearance \
+  pavucontrol network-manager-applet blueman xfce4-power-manager xfce4-settings lxappearance arandr \
   xdotool wmctrl scrot imagemagick \
   pipewire pipewire-pulse wireplumber upower bluez \
   openssh grub efibootmgr
@@ -129,7 +118,6 @@ ExecStart=-/sbin/agetty --noclear --autologin $USERNAME %I \$TERM
 EOF
 CHROOT
 
-# Optional host-served SSH key. Password access remains available for this QA VM.
 if curl -fsS "$HOST_HTTP/qa_key.pub" -o /tmp/slopos-qa-key 2>/dev/null; then
   install -d -m700 "/mnt/home/$USERNAME/.ssh"
   install -m600 /tmp/slopos-qa-key "/mnt/home/$USERNAME/.ssh/authorized_keys"
