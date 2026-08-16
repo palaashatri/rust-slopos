@@ -98,17 +98,11 @@ fn main() {
     install_signal_handlers();
     apply_desktop_fallback();
 
-    let openbox_config = resolve_openbox_config();
     let shell_exe =
         resolve_sibling("slopos-shell").unwrap_or_else(|| PathBuf::from("slopos-shell"));
-
-    let mut wm = ManagedChild::new("Openbox", spawn_openbox(openbox_config.as_deref()));
-    // Give the WM a small head start so shell windows are managed from their
-    // first map rather than racing Openbox startup.
+    let initial_openbox_config = resolve_openbox_config();
+    let mut wm = ManagedChild::new("Openbox", spawn_openbox(initial_openbox_config.as_deref()));
     thread::sleep(Duration::from_millis(150));
-    // Openbox may reset the root window while it starts. Re-apply the
-    // canonical SLOPOS desktop colour after the WM owns the display so the
-    // shipping desktop never falls back to a black root background.
     apply_desktop_fallback();
     let mut shell = ManagedChild::new("SLOPOS shell", spawn_path(&shell_exe, &[]));
 
@@ -117,10 +111,16 @@ fn main() {
 
         match wm.poll() {
             Ok(true) => {
+                // Resolve again after every restart. `slopos-appearance`
+                // intentionally restarts Openbox so the new Platinum/Graphite
+                // window chrome is picked up without ending the session.
+                let openbox_config = resolve_openbox_config();
                 if let Err(error) = wm.replace(spawn_openbox(openbox_config.as_deref())) {
                     log::error!("{error}");
                     break;
                 }
+                thread::sleep(Duration::from_millis(100));
+                apply_desktop_fallback();
             }
             Ok(false) => {}
             Err(error) => {
@@ -159,9 +159,6 @@ fn configure_session_environment() {
     env::set_var("SLOPOS_SESSION_MANAGED", "1");
     configure_install_prefix_environment();
 
-    // Export only the interoperable desktop/session identity to activation
-    // services. SLOPOS_SESSION_MANAGED is intentionally private to SLOPOS
-    // child processes and must not leak into unrelated D-Bus activations.
     let _ = Command::new("dbus-update-activation-environment")
         .args([
             "--systemd",
@@ -181,11 +178,32 @@ fn install_signal_handlers() {
     }
 }
 
+fn appearance() -> String {
+    let config_home = env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+    if let Some(config_home) = config_home {
+        let path = config_home.join("slopos-i/appearance");
+        if let Ok(value) = std::fs::read_to_string(path) {
+            let value = value.trim().to_ascii_lowercase();
+            if value == "graphite" || value == "platinum" {
+                return value;
+            }
+        }
+    }
+    match env::var("SLOPOS_APPEARANCE") {
+        Ok(value) if value.eq_ignore_ascii_case("graphite") => "graphite".to_string(),
+        _ => "platinum".to_string(),
+    }
+}
+
 fn apply_desktop_fallback() {
-    if let Err(error) = Command::new("xsetroot")
-        .args(["-solid", "#758090"])
-        .status()
-    {
+    let color = if appearance() == "graphite" {
+        "#25272B"
+    } else {
+        "#758090"
+    };
+    if let Err(error) = Command::new("xsetroot").args(["-solid", color]).status() {
         log::debug!("xsetroot is unavailable: {error}");
     }
 }
@@ -235,27 +253,28 @@ fn resolve_openbox_config() -> Option<PathBuf> {
         }
     }
 
+    let file_name = if appearance() == "graphite" {
+        "rc-graphite.xml"
+    } else {
+        "rc.xml"
+    };
     let mut candidates = Vec::new();
     if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
-        candidates.push(PathBuf::from(share_dir).join("slopos-i/openbox/rc.xml"));
+        candidates.push(PathBuf::from(share_dir).join("slopos-i/openbox").join(file_name));
     }
     if let Ok(executable) = env::current_exe() {
         if let Some(prefix) = executable.parent().and_then(Path::parent) {
-            candidates.push(prefix.join("share/slopos-i/openbox/rc.xml"));
+            candidates.push(prefix.join("share/slopos-i/openbox").join(file_name));
         }
     }
     candidates.extend([
-        PathBuf::from("assets/config/openbox/rc.xml"),
-        PathBuf::from("/usr/local/share/slopos-i/openbox/rc.xml"),
-        PathBuf::from("/usr/share/slopos-i/openbox/rc.xml"),
+        PathBuf::from("assets/config/openbox").join(file_name),
+        PathBuf::from("/usr/local/share/slopos-i/openbox").join(file_name),
+        PathBuf::from("/usr/share/slopos-i/openbox").join(file_name),
     ]);
     candidates.into_iter().find(|path| path.exists())
 }
 
-/// Display managers execute slopos-session directly, so the session cannot
-/// rely on start-slopos-i to expose a custom prefix. Derive that prefix from
-/// the installed supervisor path and make its wrapper, desktop entries and
-/// MIME defaults discoverable to shell children.
 fn configure_install_prefix_environment() {
     let Some(executable) = env::current_exe().ok() else {
         return;
