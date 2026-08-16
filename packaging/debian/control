@@ -11,10 +11,11 @@ Build-Depends: debhelper-compat (= 13), cargo, pkg-config, libgtk-3-dev, libx11-
 
 Package: slopos-i
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, xorg, openbox, dbus-x11, pcmanfm, xfce4-terminal, mousepad, ristretto, zathura, mpv, galculator, network-manager, network-manager-gnome, pavucontrol, pipewire, pipewire-pulse, wireplumber, blueman, upower, xfce4-power-manager, lxappearance, arandr, x11-xserver-utils, xdotool, wmctrl, adwaita-icon-theme, librsvg2-common, fonts-liberation, fonts-dejavu-core
+Depends: ${shlibs:Depends}, ${misc:Depends}, xorg, openbox, dbus-x11, pcmanfm, xfce4-terminal, mousepad, ristretto, zathura, mpv, galculator, network-manager, network-manager-gnome, pavucontrol, pipewire, pipewire-pulse, wireplumber, blueman, upower, xfce4-power-manager, xfce4-settings, lxappearance, arandr, x11-xserver-utils, xdotool, wmctrl, adwaita-icon-theme, librsvg2-common, fonts-liberation, fonts-dejavu-core
 Recommends: firefox, supertux
-Description: SLOPOS-I X11 Platinum desktop environment
+Description: SLOPOS-I X11 Platinum/Graphite desktop environment
  SLOPOS-I is a lightweight X11 desktop environment inspired by classic
  Macintosh/System 7 and Platinum interface grammar. It uses Openbox for
  floating window management, mature Linux applications and a small SLOPOS
- shell, Settings hub and AppImage Software Catalogue.
+ shell, Settings hub and AppImage Software Catalogue. Platinum and Graphite
+ provide first-class light and dark appearances.
