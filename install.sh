@@ -57,10 +57,6 @@ if [[ "$DISTRO" != "arch" && "$DISTRO" != "ubuntu" ]]; then
   exit 2
 fi
 
-# Refuse ambiguous relative destinations before any package or filesystem
-# mutation.  A relative prefix/session directory can otherwise install a
-# descriptor under the caller's current directory and leave the display
-# manager unable to discover it.
 for install_path_name in PREFIX XSESSION_DIR; do
   install_path_value="${!install_path_name}"
   case "$install_path_value" in
@@ -72,9 +68,6 @@ for install_path_name in PREFIX XSESSION_DIR; do
   esac
 done
 
-# Do not create a build-cache directory until all user-controlled installation
-# destinations have passed validation.  A rejected invocation must not leave
-# filesystem state behind merely because it reached argument parsing.
 mkdir -p "$CARGO_TARGET_DIR"
 
 echo "=== SLOPOS-I X11 Installer ==="
@@ -123,18 +116,13 @@ install -Dm755 scripts/start-slopos-browser "$PREFIX/bin/start-slopos-browser"
 install -Dm755 scripts/install-browser-theme.sh "$PREFIX/bin/install-browser-theme.sh"
 install -Dm644 packaging/slopos-browser.desktop "$PREFIX/share/applications/slopos-browser.desktop"
 
-# X11 session descriptor. Display managers conventionally scan /usr/share;
-# override XSESSION_DIR for a deliberately self-contained custom prefix.
 bash scripts/install-session-files.sh --prefix "$PREFIX" --session-dir "$XSESSION_DIR"
 
-# SLOPOS-specific Openbox configuration and theme. The session supervisor points
-# Openbox at this config rather than overwriting a user's normal Openbox profile.
 install -Dm644 assets/config/openbox/rc.xml "$PREFIX/share/slopos-i/openbox/rc.xml"
 install -Dm644 assets/config/openbox/menu.xml "$PREFIX/share/slopos-i/openbox/menu.xml"
 install -Dm644 themes/slopos-openbox/openbox-3/themerc \
   "$PREFIX/share/themes/slopos-openbox/openbox-3/themerc"
 
-# GTK theme and desktop defaults.
 install -Dm644 assets/config/gtk-3.0/gtk.css \
   "$PREFIX/share/themes/slopos-gtk/gtk-3.0/gtk.css"
 if [[ -f assets/config/gtk-3.0/settings.ini ]]; then
@@ -143,10 +131,20 @@ if [[ -f assets/config/gtk-3.0/settings.ini ]]; then
 fi
 install -Dm644 assets/config/mimeapps.list "$PREFIX/share/slopos-i/mimeapps.list"
 
-# Original SLOPOS theme resources.
 rm -rf "$PREFIX/share/slopos-i/themes/platinum"
 mkdir -p "$PREFIX/share/slopos-i/themes"
 cp -a themes/platinum "$PREFIX/share/slopos-i/themes/platinum"
+
+# Install the original SLOPOS freedesktop icon theme at the standard location
+# so upstream GTK applications such as PCManFM resolve SLOPOS folders, files,
+# devices and actions instead of falling straight through to Adwaita.
+rm -rf "$PREFIX/share/icons/SLOPOS-Platinum"
+mkdir -p "$PREFIX/share/icons"
+cp -a themes/platinum/icon-theme "$PREFIX/share/icons/SLOPOS-Platinum"
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -f -t "$PREFIX/share/icons/SLOPOS-Platinum" >/dev/null 2>&1 || true
+fi
+
 mkdir -p "$PREFIX/share/slopos-i/browser"
 cp -a packaging/browser/chromium "$PREFIX/share/slopos-i/browser/chromium"
 cp -a packaging/browser/firefox "$PREFIX/share/slopos-i/browser/firefox"
