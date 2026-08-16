@@ -1,6 +1,8 @@
 #!/bin/bash
 # Verify that Settings delegates to mature utilities, keeps its built-in
 # Appearance panel available, and fails closed when external utilities are absent.
+# The final phase also runs the exact-head UI/UX acceptance so this existing CI
+# job gates the user-visible icon, global-menu and Graphite requirements.
 set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
@@ -21,21 +23,27 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "[1/4] Installing Settings service QA dependencies"
+echo "[1/5] Installing Settings and UI/UX QA dependencies"
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
   build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
   libssl-dev libdbus-1-dev \
-  libgtk-3-0 libatk-bridge2.0-0 dbus-x11 at-spi2-core python3-gi gir1.2-atspi-2.0 \
-  xvfb openbox xdotool x11-utils fonts-liberation adwaita-icon-theme
+  libgtk-3-0 libatk-bridge2.0-0 dbus-x11 at-spi2-core python3-gi \
+  gir1.2-atspi-2.0 gir1.2-gtk-3.0 \
+  xvfb openbox xdotool x11-utils x11-xserver-utils wmctrl scrot \
+  fonts-liberation fonts-dejavu-core adwaita-icon-theme librsvg2-common \
+  pcmanfm mousepad arandr pavucontrol network-manager-gnome blueman \
+  xfce4-power-manager xfce4-settings lxappearance
 
 if [[ "${SLOPOS_QA_SKIP_BUILD:-0}" == 1 ]]; then
-  echo "[2/4] Using the existing release workspace build"
+  echo "[2/5] Using the existing release workspace build"
 else
-  echo "[2/4] Building the current workspace"
+  echo "[2/5] Building the current workspace"
   cargo build --workspace --release --locked
 fi
 test -x target/release/slopos-settings
+test -x target/release/slopos-session
+test -x target/release/slopos-shell
 
 mkdir -p /tmp/slopos-settings-service-stubs
 for utility in arandr lxrandr pavucontrol nm-connection-editor blueman-manager \
@@ -124,12 +132,12 @@ run_case() {
   SETTINGS_PID=""
 }
 
-echo "[3/4] Checking unavailable delegated controls fail closed while Appearance remains available"
+echo "[3/5] Checking unavailable delegated controls fail closed while Appearance remains available"
 run_case disabled /tmp/slopos-settings-empty-path
 grep -Fxq SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=7 /tmp/slopos-settings-disabled-qa.log
 grep -Fxq SETTINGS_BUILTIN_APPEARANCE_ENABLED=1 /tmp/slopos-settings-disabled-qa.log
 
-echo "[4/4] Checking seven external controls delegate to mature utilities"
+echo "[4/5] Checking seven external controls delegate to mature utilities"
 export SLOPOS_SERVICE_PROBE_LOG=/tmp/slopos-settings-delegation-probe.log
 rm -f "$SLOPOS_SERVICE_PROBE_LOG"
 run_case delegation /tmp/slopos-settings-service-stubs
@@ -139,4 +147,28 @@ for utility in arandr pavucontrol nm-connection-editor blueman-manager \
   xfce4-power-manager-settings pcmanfm lxinput; do
   grep -Fxq "$utility" /tmp/slopos-settings-delegation.log
 done
+
+echo "[5/5] Running exact-head SLOPOS UI/UX acceptance"
+UI_OUT=/tmp/slopos-settings-ui-ux
+rm -rf "$UI_OUT"
+# The service-boundary cases deliberately force :99 and the Platinum Openbox
+# config. The integrated UI run must select its own Xvfb display and persisted
+# appearance so Graphite is actually exercised.
+env -u DISPLAY -u SLOPOS_OPENBOX_CONFIG \
+  SLOPOS_QA_SKIP_BUILD=1 \
+  bash scripts/run-ui-ux-qa.sh "$UI_OUT"
+grep -Fxq 'UI/UX QA PASS' "$UI_OUT/status.txt"
+
+# The existing CI workflow already archives /tmp/slopos-settings-*.log. Mirror
+# the PNGs into that evidence set without needing a second workflow definition;
+# they remain valid PNG bytes and are renamed back by reviewers when needed.
+for image in "$UI_OUT"/*.png; do
+  base="$(basename "$image" .png)"
+  cp "$image" "/tmp/slopos-settings-ui-${base}.png.log"
+done
+cp "$UI_OUT/gmenu-xprop.txt" /tmp/slopos-settings-ui-gmenu-xprop.log
+cp "$UI_OUT/session.log" /tmp/slopos-settings-ui-session.log
+cp "$UI_OUT/status.txt" /tmp/slopos-settings-ui-status.log
+
 echo "SETTINGS_SERVICE_QA_STATUS_0"
+echo "SLOPOS_UI_UX_QA_STATUS_0"
