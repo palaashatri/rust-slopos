@@ -114,26 +114,33 @@ done
 install -Dm755 scripts/start-slopos-i "$PREFIX/bin/start-slopos-i"
 install -Dm755 scripts/start-slopos-browser "$PREFIX/bin/start-slopos-browser"
 install -Dm755 scripts/install-browser-theme.sh "$PREFIX/bin/install-browser-theme.sh"
+install -Dm755 scripts/slopos-appearance "$PREFIX/bin/slopos-appearance"
 install -Dm644 packaging/slopos-browser.desktop "$PREFIX/share/applications/slopos-browser.desktop"
 
 bash scripts/install-session-files.sh --prefix "$PREFIX" --session-dir "$XSESSION_DIR"
 
 install -Dm644 assets/config/openbox/rc.xml "$PREFIX/share/slopos-i/openbox/rc.xml"
+install -Dm644 assets/config/openbox/rc-graphite.xml "$PREFIX/share/slopos-i/openbox/rc-graphite.xml"
 install -Dm644 assets/config/openbox/menu.xml "$PREFIX/share/slopos-i/openbox/menu.xml"
 install -Dm644 themes/slopos-openbox/openbox-3/themerc \
   "$PREFIX/share/themes/slopos-openbox/openbox-3/themerc"
+install -Dm644 themes/slopos-openbox-graphite/openbox-3/themerc \
+  "$PREFIX/share/themes/slopos-openbox-graphite/openbox-3/themerc"
 
 install -Dm644 assets/config/gtk-3.0/gtk.css \
   "$PREFIX/share/themes/slopos-gtk/gtk-3.0/gtk.css"
+install -Dm644 assets/config/gtk-3.0/gtk-graphite.css \
+  "$PREFIX/share/themes/slopos-gtk-graphite/gtk-3.0/gtk.css"
 if [[ -f assets/config/gtk-3.0/settings.ini ]]; then
   install -Dm644 assets/config/gtk-3.0/settings.ini \
     "$PREFIX/share/slopos-i/gtk-3.0/settings.ini"
 fi
 install -Dm644 assets/config/mimeapps.list "$PREFIX/share/slopos-i/mimeapps.list"
 
-rm -rf "$PREFIX/share/slopos-i/themes/platinum"
+rm -rf "$PREFIX/share/slopos-i/themes/platinum" "$PREFIX/share/slopos-i/themes/graphite"
 mkdir -p "$PREFIX/share/slopos-i/themes"
 cp -a themes/platinum "$PREFIX/share/slopos-i/themes/platinum"
+cp -a themes/graphite "$PREFIX/share/slopos-i/themes/graphite"
 
 # Install the original SLOPOS freedesktop icon theme at the standard location
 # so upstream GTK applications such as PCManFM resolve SLOPOS folders, files,
@@ -173,9 +180,14 @@ Binaries:
   $PREFIX/bin/slopos-catalogue
   $PREFIX/bin/slopos-settings
   $PREFIX/bin/start-slopos-i
+  $PREFIX/bin/slopos-appearance
 
 X11 session:
   $XSESSION_DIR/slopos-i.desktop
+
+Appearance:
+  slopos-appearance platinum
+  slopos-appearance graphite
 
 This release is X11-only. Select “SLOPOS-I” from your display manager's X11 session list,
 or start it from an existing X server with: start-slopos-i
