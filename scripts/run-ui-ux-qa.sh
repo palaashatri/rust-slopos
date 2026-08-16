@@ -5,7 +5,7 @@
 set -euo pipefail
 
 if [[ "${SLOPOS_UI_QA_INNER:-0}" != "1" ]]; then
-  exec dbus-run-session -- env SLOPOS_UI_QA_INNER=1 "$0" "$@"
+  exec dbus-run-session -- env SLOPOS_UI_QA_INNER=1 bash "$0" "$@"
 fi
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -79,18 +79,6 @@ mkdir -p "$HOME/.themes/slopos-openbox/openbox-3" "$HOME/.themes/slopos-openbox-
 cp "$ROOT/themes/slopos-openbox/openbox-3/themerc" "$HOME/.themes/slopos-openbox/openbox-3/themerc"
 cp "$ROOT/themes/slopos-openbox-graphite/openbox-3/themerc" "$HOME/.themes/slopos-openbox-graphite/openbox-3/themerc"
 
-# Prove the release UI does not depend on generic Adwaita for its core file
-# manager vocabulary, and prove GTK is told the shell owns the menubar.
-python3 - <<'PY'
-import os
-os.environ.setdefault("GDK_BACKEND", "x11")
-from gi.repository import Gtk
-settings = Gtk.Settings.get_default()
-assert settings is not None
-assert settings.get_property("gtk-icon-theme-name") == "SLOPOS-Platinum"
-assert bool(settings.get_property("gtk-shell-shows-menubar")) is True
-PY
-
 required_icons=(
   folder user-home user-desktop text-x-generic drive-harddisk user-trash
   go-previous go-next go-up go-home view-refresh edit-find
@@ -105,6 +93,20 @@ done
 Xvfb "$DISPLAY" -screen 0 1280x800x24 -nolisten tcp >"$OUT/xvfb.log" 2>&1 &
 XVFB_PID=$!
 wait_for Xvfb xdpyinfo -display "$DISPLAY"
+
+# Prove the release UI does not depend on generic Adwaita for its core file
+# manager vocabulary, and prove GTK is told the shell owns GtkApplication
+# menubars. This must execute after Xvfb exists so GtkSettings has a screen.
+python3 - <<'PY'
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+settings = Gtk.Settings.get_default()
+assert settings is not None
+assert settings.get_property("gtk-icon-theme-name") == "SLOPOS-Platinum"
+assert bool(settings.get_property("gtk-shell-shows-menubar")) is True
+assert bool(settings.get_property("gtk-shell-shows-app-menu")) is False
+PY
 
 cd "$ROOT"
 ./target/release/slopos-session >"$OUT/session.log" 2>&1 &
@@ -138,8 +140,9 @@ xprop -id "$MOUSEPAD_WIN" \
   _GTK_MENUBAR_OBJECT_PATH \
   _GTK_APPLICATION_OBJECT_PATH \
   _GTK_WINDOW_OBJECT_PATH >"$OUT/gmenu-xprop.txt"
-grep -q '_GTK_UNIQUE_BUS_NAME' "$OUT/gmenu-xprop.txt"
-grep -q '_GTK_MENUBAR_OBJECT_PATH' "$OUT/gmenu-xprop.txt"
+grep -Eq '^_GTK_UNIQUE_BUS_NAME.*= ":' "$OUT/gmenu-xprop.txt"
+grep -Eq '^_GTK_MENUBAR_OBJECT_PATH.*= "/' "$OUT/gmenu-xprop.txt"
+grep -Eq '^_GTK_APPLICATION_OBJECT_PATH.*= "/' "$OUT/gmenu-xprop.txt"
 wait_for "SLOPOS GTK GMenu import" grep -q 'Imported GTK global menubar' "$OUT/session.log"
 if grep -q 'App (local)' "$OUT/session.log"; then
   echo "Legacy App (local) placeholder leaked into global-menu QA" >&2
@@ -165,12 +168,18 @@ sleep 0.5
 capture 04-settings-available
 kill "$SETTINGS_PID" >/dev/null 2>&1 || true
 
-# First-class dark mode: persistence, shell/Openbox reload and a real upstream
-# application must all render in Graphite during the same session.
+# First-class dark mode: persistence, shell/Openbox reload and a real SLOPOS
+# control panel must render in Graphite during the same session.
+OLD_SHELL_PID="$(pgrep -n -x slopos-shell || true)"
 slopos-appearance graphite >"$OUT/appearance.log" 2>&1
 test "$(slopos-appearance status)" = graphite
-wait_for "Graphite shell restart" bash -c 'wmctrl -l | grep -q "SLOPOS Top Bar"'
-sleep 1
+if [[ -n "$OLD_SHELL_PID" ]]; then
+  wait_for "Graphite shell restart" bash -c "test \"\$(pgrep -n -x slopos-shell || true)\" != '$OLD_SHELL_PID'"
+else
+  wait_for "Graphite shell" pgrep -x slopos-shell
+fi
+wait_for "Graphite top bar" bash -c 'wmctrl -l | grep -q "SLOPOS Top Bar"'
+sleep 0.8
 capture 05-graphite-desktop
 
 ./target/release/slopos-settings >>"$OUT/settings.log" 2>&1 &
