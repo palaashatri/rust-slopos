@@ -1,6 +1,6 @@
-//! SLOPOS-I classic top menu/system bar.
+//! SLOPOS-I classic Macintosh-style top menu/system bar.
 
-use crate::appmenu::{self, AppMenuStatus};
+use crate::gmenu::{self, GtkMenuExporter};
 use crate::launcher::Launcher;
 use gdk_pixbuf::{InterpType, Pixbuf};
 use gtk::atk::prelude::AtkObjectExt;
@@ -9,15 +9,13 @@ use gtk::{
     Align, Box as GtkBox, Button, Dialog, DialogFlags, IconSize, Image, Label, Menu, MenuItem,
     Orientation, ResponseType, SeparatorMenuItem, Window, WindowPosition, WindowType,
 };
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
-use std::sync::mpsc::{self, TryRecvError};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 const LOCK_COMMANDS: &[(&str, &[&str])] = &[
     ("xdg-screensaver", &["lock"]),
@@ -40,29 +38,15 @@ impl TopBar {
         window.set_position(WindowPosition::None);
         window.move_(0, 0);
         window.set_decorated(false);
-        // Advertise the bar as desktop chrome so Openbox does not apply the
-        // application work-area margins to it.  This keeps the Platinum bar
-        // flush with the physical screen edge while normal applications still
-        // receive the configured top margin below it.
         window.set_type_hint(gdk::WindowTypeHint::Dock);
         window.set_keep_above(true);
-        // The top bar is desktop chrome, not an application surface.  Keep
-        // the X11 client focus on the focused upstream application while a
-        // panel control is clicked; otherwise opening the exported AppMenu
-        // would race the 500 ms focus poll and could send an action to a
-        // stale exporter or show a misleading shell-owned state.
         window.set_accept_focus(false);
         window.set_skip_taskbar_hint(true);
         window.set_skip_pager_hint(true);
-        set_accessible_name(&window, "SLOPOS top bar");
+        set_accessible_name(&window, "SLOPOS top menu bar");
         window.style_context().add_class("slopos-topbar");
 
-        let app_menu_status = Rc::new(Cell::new(AppMenuStatus::ShellOwned));
         let main_box = GtkBox::new(Orientation::Horizontal, 0);
-        // Paint the bar on the child that owns the full allocation as well as
-        // on the borderless window. GTK themes do not consistently paint a
-        // GtkWindow background under Xvfb/Openbox, which otherwise leaves a
-        // black/transparent strip behind the menu widgets.
         main_box.style_context().add_class("slopos-topbar");
         main_box.set_hexpand(true);
         main_box.set_vexpand(true);
@@ -77,8 +61,6 @@ impl TopBar {
             system_button.set_image(Some(&mark));
             system_button.set_always_show_image(true);
         } else {
-            // Keep a recognizable, text-only fallback if the optional packaged
-            // mark is unavailable during development or recovery.
             system_button.set_label("S");
         }
         let system_menu = build_system_menu();
@@ -99,36 +81,20 @@ impl TopBar {
             .add_class("slopos-active-app");
         active_title_label.set_halign(Align::Start);
         active_title_label.set_ellipsize(pango::EllipsizeMode::End);
-        active_title_label.set_max_width_chars(28);
+        active_title_label.set_max_width_chars(24);
         set_accessible_name(&active_title_label, "Active application");
         main_box.pack_start(&active_title_label, false, false, 7);
-        let app_menu_button = build_app_menu_button();
-        let app_menu_exporter = Rc::new(RefCell::new(None));
-        // A window may advertise the standard X11 properties while its
-        // advertised object does not actually implement DBusMenu (Mousepad
-        // does this in the retained QA image). Remember a failed import for
-        // the current exporter so the next focus poll does not immediately
-        // re-enable a misleading global-menu button.
-        let app_menu_failure = Rc::new(RefCell::new(None));
-        let app_menu_failure_ref = app_menu_failure.clone();
-        let app_menu_exporter_ref = app_menu_exporter.clone();
-        app_menu_button.connect_clicked(move |button| {
-            let exporter = app_menu_exporter_ref.borrow().clone();
-            // Preserve the originating button event for GTK's popup
-            // positioning. The DBusMenu request is asynchronous, so
-            // `gtk::current_event()` would be empty by the time the layout
-            // arrives on the main loop.
-            let trigger_event = gtk::current_event();
-            open_imported_app_menu(
-                button,
-                exporter,
-                app_menu_failure_ref.clone(),
-                trigger_event,
-            );
-        });
-        main_box.pack_start(&app_menu_button, false, false, 0);
 
-        let status_box = GtkBox::new(Orientation::Horizontal, 6);
+        // Unlike the earlier single "App (local)" placeholder, this host is
+        // populated with the focused GtkApplication's actual GMenu menubar.
+        // When an application exports no compatible model, it simply remains
+        // empty and the application's local menu stays authoritative.
+        let global_menu_host = GtkBox::new(Orientation::Horizontal, 0);
+        global_menu_host.style_context().add_class("slopos-global-menu-host");
+        set_accessible_name(&global_menu_host, "Focused application global menu");
+        main_box.pack_start(&global_menu_host, false, false, 0);
+
+        let status_box = GtkBox::new(Orientation::Horizontal, 5);
         status_box.style_context().add_class("slopos-status-area");
 
         let search_button = Button::new();
@@ -139,7 +105,7 @@ impl TopBar {
         set_accessible_name(&search_button, "Search applications (Super+Space)");
         let search_box = GtkBox::new(Orientation::Horizontal, 3);
         search_box.pack_start(
-            &Image::from_icon_name(Some("system-search-symbolic"), IconSize::Menu),
+            &Image::from_icon_name(Some("edit-find"), IconSize::Menu),
             false,
             false,
             0,
@@ -162,7 +128,7 @@ impl TopBar {
             false,
             0,
         );
-        let audio_label = Label::new(Some("N/A"));
+        let audio_label = Label::new(Some("—"));
         audio_box.pack_start(&audio_label, false, false, 0);
         audio_button.add(&audio_box);
         if resolve_program("pavucontrol").is_some() {
@@ -186,7 +152,7 @@ impl TopBar {
             false,
             0,
         );
-        let network_label = Label::new(Some("N/A"));
+        let network_label = Label::new(Some("—"));
         network_box.pack_start(&network_label, false, false, 0);
         network_button.add(&network_box);
         if resolve_program("nm-connection-editor").is_some() {
@@ -194,7 +160,7 @@ impl TopBar {
             network_button.connect_clicked(|_| spawn_resolved("nm-connection-editor", &[]));
         } else {
             network_button.set_sensitive(false);
-            network_button.set_tooltip_text(Some("Network status"));
+            network_button.set_tooltip_text(Some("Network controls are not installed"));
         }
         status_box.pack_start(&network_button, false, false, 0);
 
@@ -211,7 +177,7 @@ impl TopBar {
         status_box.pack_start(&battery_box, false, false, 0);
 
         let initial_clock =
-            command_output("date", &["+%H:%M"]).unwrap_or_else(|| "N/A".to_string());
+            command_output("date", &["+%H:%M"]).unwrap_or_else(|| "--:--".to_string());
         let clock_label = Label::new(Some(&initial_clock));
         clock_label.style_context().add_class("slopos-clock");
         clock_label.set_tooltip_text(Some("Local time"));
@@ -224,15 +190,12 @@ impl TopBar {
 
         install_live_updates(
             &active_title_label,
+            &global_menu_host,
             &clock_label,
             &audio_label,
             &network_label,
             &battery_box,
             &battery_label,
-            &app_menu_button,
-            app_menu_status,
-            app_menu_exporter,
-            app_menu_failure,
         );
 
         Rc::new(Self {
@@ -246,27 +209,18 @@ impl TopBar {
 #[allow(clippy::too_many_arguments)]
 fn install_live_updates(
     active_title: &Label,
+    global_menu_host: &GtkBox,
     clock: &Label,
     audio: &Label,
     network: &Label,
     battery_box: &GtkBox,
     battery: &Label,
-    app_menu_button: &Button,
-    app_menu_status: Rc<Cell<AppMenuStatus>>,
-    app_menu_exporter: Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
-    app_menu_failure: Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
 ) {
     let active_title = active_title.clone();
-    let app_menu_button = app_menu_button.clone();
-    let app_menu_failure = app_menu_failure.clone();
-    glib::timeout_add_local(Duration::from_millis(500), move || {
-        update_active_window(
-            &active_title,
-            &app_menu_button,
-            &app_menu_status,
-            &app_menu_exporter,
-            &app_menu_failure,
-        );
+    let global_menu_host = global_menu_host.clone();
+    let active_exporter: Rc<RefCell<Option<GtkMenuExporter>>> = Rc::new(RefCell::new(None));
+    glib::timeout_add_local(Duration::from_millis(300), move || {
+        update_active_window(&active_title, &global_menu_host, &active_exporter);
         glib::ControlFlow::Continue
     });
 
@@ -284,15 +238,12 @@ fn install_live_updates(
     let battery = battery.clone();
     battery_box.set_visible(current_battery_state().is_some());
     glib::timeout_add_seconds_local(5, move || {
-        audio.set_text(&current_volume().unwrap_or_else(|| "N/A".to_string()));
+        audio.set_text(&current_volume().unwrap_or_else(|| "—".to_string()));
         network.set_text(&current_network_state());
         if let Some(value) = current_battery_state() {
             battery.set_text(&value);
             battery_box.set_visible(true);
         } else {
-            // Do not leave an unlabeled battery glyph in the status area when
-            // this machine has no battery provider.  A live provider can make
-            // the box visible again on a later refresh.
             battery.set_text("");
             battery_box.set_visible(false);
         }
@@ -302,159 +253,87 @@ fn install_live_updates(
 
 fn update_active_window(
     label: &Label,
-    app_menu_button: &Button,
-    app_menu_status: &Cell<AppMenuStatus>,
-    app_menu_exporter: &RefCell<Option<appmenu::AppMenuExporter>>,
-    app_menu_failure: &RefCell<Option<appmenu::AppMenuExporter>>,
+    global_menu_host: &GtkBox,
+    active_exporter: &RefCell<Option<GtkMenuExporter>>,
 ) {
     let Some(id_text) = command_output("xdotool", &["getactivewindow"]) else {
-        label.set_text("SLOPOS Desktop");
-        update_app_menu_status(
-            app_menu_button,
-            app_menu_status,
-            app_menu_exporter,
-            app_menu_failure,
-            AppMenuStatus::ShellOwned,
-            None,
-        );
+        show_desktop_state(label, global_menu_host, active_exporter);
         return;
     };
     let Ok(id) = id_text.trim().parse::<u64>() else {
-        label.set_text("SLOPOS Desktop");
-        update_app_menu_status(
-            app_menu_button,
-            app_menu_status,
-            app_menu_exporter,
-            app_menu_failure,
-            AppMenuStatus::ShellOwned,
-            None,
-        );
+        show_desktop_state(label, global_menu_host, active_exporter);
         return;
     };
     let Some(title) = command_output("xdotool", &["getwindowname", &id.to_string()]) else {
-        label.set_text("SLOPOS Desktop");
-        update_app_menu_status(
-            app_menu_button,
-            app_menu_status,
-            app_menu_exporter,
-            app_menu_failure,
-            AppMenuStatus::ShellOwned,
-            None,
-        );
+        show_desktop_state(label, global_menu_host, active_exporter);
         return;
     };
 
     if is_shell_surface(&title) {
-        label.set_text("SLOPOS Desktop");
-        update_app_menu_status(
-            app_menu_button,
-            app_menu_status,
-            app_menu_exporter,
-            app_menu_failure,
-            AppMenuStatus::ShellOwned,
-            None,
-        );
+        show_desktop_state(label, global_menu_host, active_exporter);
         return;
     }
-    if title.is_empty() {
-        label.set_text("SLOPOS Desktop");
+    label.set_text(if title.is_empty() {
+        "SLOPOS Desktop"
     } else {
-        label.set_text(&compact_title(&title));
-    }
-    let Some(window_id) = u32::try_from(id).ok() else {
-        update_app_menu_status(
-            app_menu_button,
-            app_menu_status,
-            app_menu_exporter,
-            app_menu_failure,
-            AppMenuStatus::NoExporter,
-            None,
-        );
-        return;
-    };
-    let (status, exporter) = appmenu::status_for_window(window_id);
-    update_app_menu_status(
-        app_menu_button,
-        app_menu_status,
-        app_menu_exporter,
-        app_menu_failure,
-        status,
-        exporter.as_ref(),
-    );
+        &compact_title(&title)
+    });
+
+    let exporter = u32::try_from(id).ok().and_then(gmenu::detect);
+    refresh_global_menu(global_menu_host, active_exporter, exporter);
 }
 
-fn update_app_menu_status(
-    button: &Button,
-    previous: &Cell<AppMenuStatus>,
-    exporter_state: &RefCell<Option<appmenu::AppMenuExporter>>,
-    exporter_failure: &RefCell<Option<appmenu::AppMenuExporter>>,
-    status: AppMenuStatus,
-    exporter: Option<&appmenu::AppMenuExporter>,
+fn show_desktop_state(
+    label: &Label,
+    global_menu_host: &GtkBox,
+    active_exporter: &RefCell<Option<GtkMenuExporter>>,
 ) {
-    *exporter_state.borrow_mut() = exporter.cloned();
-    let failed_exporter = exporter_failure.borrow();
-    let import_failed = exporter
-        .map(|current| failed_exporter.as_ref() == Some(current))
-        .unwrap_or(false);
-    drop(failed_exporter);
-    if status != AppMenuStatus::ExporterDetected {
-        exporter_failure.borrow_mut().take();
+    label.set_text("SLOPOS Desktop");
+    refresh_global_menu(global_menu_host, active_exporter, None);
+}
+
+fn refresh_global_menu(
+    host: &GtkBox,
+    current: &RefCell<Option<GtkMenuExporter>>,
+    exporter: Option<GtkMenuExporter>,
+) {
+    if current.borrow().as_ref() == exporter.as_ref() {
+        return;
     }
-    if previous.get() != status {
-        match (status, exporter) {
-            (AppMenuStatus::ExporterDetected, Some(exporter)) => log::info!(
-                "Focused X11 application exports AppMenu bus={} path={}; bounded DBusMenu importer enabled",
-                exporter.bus_name,
-                exporter.object_path
-            ),
-            (AppMenuStatus::NoExporter, _) => {
-                log::info!("Focused X11 application exports no AppMenu; using its local menu")
-            }
-            (AppMenuStatus::ShellOwned, _) => {
-                log::info!("SLOPOS shell owns the global menu area")
-            }
-            (AppMenuStatus::ExporterDetected, None) => log::warn!(
-                "Focused X11 application advertises AppMenu but exporter details were unavailable"
-            ),
-        }
-        previous.set(status);
+    for child in host.children() {
+        host.remove(&child);
+    }
+    *current.borrow_mut() = exporter.clone();
+
+    let Some(exporter) = exporter else {
+        host.hide();
+        return;
+    };
+    if current_active_window_id() != Some(exporter.window_id) {
+        host.hide();
+        return;
     }
 
-    button.set_sensitive(false);
-    match status {
-        AppMenuStatus::ShellOwned => {
-            button.set_label("App (SLOPOS)");
-            button.set_tooltip_text(Some("SLOPOS owns this menu area"));
-            set_accessible_name(button, "Application menu unavailable for SLOPOS shell");
-        }
-        AppMenuStatus::NoExporter => {
-            button.set_label("App (local)");
-            button.set_tooltip_text(Some(
-                "This application exports no X11 AppMenu; use its local menu",
-            ));
-            set_accessible_name(
-                button,
-                "Application has no exported menu; use its local menu",
+    match gmenu::build_menu_bar(&exporter) {
+        Ok(menu_bar) => {
+            host.pack_start(&menu_bar, false, false, 0);
+            host.show_all();
+            log::info!(
+                "Imported GTK global menubar bus={} path={}",
+                exporter.bus_name,
+                exporter.menu_path
             );
         }
-        AppMenuStatus::ExporterDetected if import_failed => {
-            button.set_label("App (local)");
-            button.set_sensitive(false);
-            button.set_tooltip_text(Some(
-                "The focused application's AppMenu is unavailable; use its local menu",
-            ));
-            set_accessible_name(
-                button,
-                "Application menu unavailable; use the local application menu",
-            );
-        }
-        AppMenuStatus::ExporterDetected => {
-            button.set_label("App");
-            button.set_tooltip_text(Some("Open the focused application's exported AppMenu"));
-            button.set_sensitive(true);
-            set_accessible_name(button, "Open exported application menu");
+        Err(error) => {
+            host.hide();
+            log::warn!("Could not import focused application's GTK menu: {error}");
         }
     }
+}
+
+fn current_active_window_id() -> Option<u32> {
+    command_output("xdotool", &["getactivewindow"])
+        .and_then(|value| value.trim().parse::<u32>().ok())
 }
 
 fn is_shell_surface(title: &str) -> bool {
@@ -466,10 +345,10 @@ fn is_shell_surface(title: &str) -> bool {
 
 fn compact_title(title: &str) -> String {
     let title = title.trim();
-    if title.chars().count() <= 28 {
+    if title.chars().count() <= 24 {
         return title.to_string();
     }
-    let mut value = title.chars().take(27).collect::<String>();
+    let mut value = title.chars().take(23).collect::<String>();
     value.push('…');
     value
 }
@@ -489,7 +368,7 @@ fn current_network_state() -> String {
     match command_output("nmcli", &["-t", "-f", "STATE", "general"]) {
         Some(value) if value.to_ascii_lowercase().starts_with("connected") => "Online".to_string(),
         Some(_) => "Offline".to_string(),
-        None => "N/A".to_string(),
+        None => "—".to_string(),
     }
 }
 
@@ -542,279 +421,15 @@ fn command_output(program: &str, args: &[&str]) -> Option<String> {
     Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
-fn build_app_menu_button() -> Button {
-    let button = Button::with_label("App (local)");
-    button.style_context().add_class("slopos-menubar-control");
-    button.set_sensitive(false);
-    button.set_tooltip_text(Some(
-        "Application menus stay local unless a safe X11 AppMenu importer is available",
-    ));
-    set_accessible_name(
-        &button,
-        "Application menu unavailable; use the local application menu",
-    );
-    button
-}
-
-fn open_imported_app_menu(
-    button: &Button,
-    exporter: Option<appmenu::AppMenuExporter>,
-    exporter_failure: Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
-    trigger_event: Option<gdk::Event>,
-) {
-    let Some(exporter) = exporter else {
-        return;
-    };
-
-    // The capability poll is intentionally periodic, so focus can change
-    // between the last poll and this click.  Never send a protocol event to
-    // an exporter that is no longer the active X11 window; doing so would be
-    // an invisible cross-application command and would make the global menu
-    // look like it belongs to the wrong application.  The top bar also opts
-    // out of X11 focus, so this check still sees the upstream window while
-    // the panel button is being clicked.
-    if current_active_window_id() != Some(exporter.window_id) {
-        log::info!("Focused X11 application changed before AppMenu click; keeping its local menu");
-        button.set_sensitive(false);
-        button.set_tooltip_text(Some(
-            "Focused application changed; use the current application's local menu",
-        ));
-        return;
-    }
-
-    button.set_sensitive(false);
-    let (sender, receiver) = mpsc::channel();
-    let worker_exporter = exporter.clone();
-    let failure_state = exporter_failure.clone();
-    let deadline = Instant::now() + Duration::from_millis(900);
-    thread::spawn(move || {
-        let result =
-            appmenu::fetch_layout_with_timeout(&worker_exporter, Duration::from_millis(750));
-        let _ = sender.send(result);
-    });
-
-    let button = button.clone();
-    glib::timeout_add_local(Duration::from_millis(25), move || {
-        if Instant::now() >= deadline {
-            log::warn!("Focused application's AppMenu import exceeded its UI deadline");
-            if current_active_window_id() == Some(exporter.window_id) {
-                *failure_state.borrow_mut() = Some(exporter.clone());
-                button.set_sensitive(false);
-                button.set_tooltip_text(Some(
-                    "The focused application's AppMenu timed out; use its local menu",
-                ));
-            } else {
-                button.set_sensitive(false);
-                button.set_tooltip_text(Some(
-                    "Focused application changed; use the current application's local menu",
-                ));
-            }
-            return glib::ControlFlow::Break;
-        }
-        match receiver.try_recv() {
-            Ok(Ok(layout)) => {
-                if current_active_window_id() != Some(exporter.window_id) {
-                    log::info!("Focused X11 application changed before AppMenu layout was shown");
-                    button.set_sensitive(false);
-                    button.set_tooltip_text(Some(
-                        "Focused application changed; use the current application's local menu",
-                    ));
-                    return glib::ControlFlow::Break;
-                }
-                if show_imported_app_menu(
-                    &button,
-                    layout,
-                    exporter.clone(),
-                    failure_state.clone(),
-                    trigger_event.as_ref(),
-                ) {
-                    failure_state.borrow_mut().take();
-                    button.set_sensitive(true);
-                } else {
-                    *failure_state.borrow_mut() = Some(exporter.clone());
-                    button.set_sensitive(false);
-                    button.set_tooltip_text(Some(
-                        "The focused application's AppMenu has no visible items; use its local menu",
-                    ));
-                }
-                glib::ControlFlow::Break
-            }
-            Ok(Err(error)) => {
-                log::warn!("Focused application's AppMenu was not imported: {error}");
-                if current_active_window_id() == Some(exporter.window_id) {
-                    *failure_state.borrow_mut() = Some(exporter.clone());
-                    button.set_sensitive(false);
-                    button.set_tooltip_text(Some(
-                        "The focused application's AppMenu is unavailable; use its local menu",
-                    ));
-                } else {
-                    button.set_sensitive(false);
-                    button.set_tooltip_text(Some(
-                        "Focused application changed; use the current application's local menu",
-                    ));
-                }
-                glib::ControlFlow::Break
-            }
-            Err(TryRecvError::Empty) => glib::ControlFlow::Continue,
-            Err(TryRecvError::Disconnected) => {
-                if current_active_window_id() == Some(exporter.window_id) {
-                    *failure_state.borrow_mut() = Some(exporter.clone());
-                    button.set_sensitive(false);
-                    button.set_tooltip_text(Some(
-                        "The focused application's AppMenu is unavailable; use its local menu",
-                    ));
-                } else {
-                    button.set_sensitive(false);
-                    button.set_tooltip_text(Some(
-                        "Focused application changed; use the current application's local menu",
-                    ));
-                }
-                glib::ControlFlow::Break
-            }
-        }
-    });
-}
-
-fn current_active_window_id() -> Option<u32> {
-    command_output("xdotool", &["getactivewindow"])
-        .and_then(|value| value.trim().parse::<u32>().ok())
-}
-
-fn show_imported_app_menu(
-    button: &Button,
-    layout: appmenu::AppMenuLayout,
-    exporter: appmenu::AppMenuExporter,
-    exporter_failure: Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
-    trigger_event: Option<&gdk::Event>,
-) -> bool {
-    let menu = Menu::new();
-    append_imported_menu_items(&menu, &layout.items, &exporter, &exporter_failure, button);
-    if menu.children().is_empty() {
-        log::warn!("Focused application's AppMenu exported no visible items");
-        return false;
-    }
-    menu.show_all();
-    menu.popup_at_widget(
-        button,
-        gdk::Gravity::SouthWest,
-        gdk::Gravity::NorthWest,
-        trigger_event,
-    );
-    true
-}
-
-fn append_imported_menu_items(
-    menu: &Menu,
-    items: &[appmenu::AppMenuItem],
-    exporter: &appmenu::AppMenuExporter,
-    exporter_failure: &Rc<RefCell<Option<appmenu::AppMenuExporter>>>,
-    app_menu_button: &Button,
-) {
-    for item in items {
-        if !item.visible {
-            continue;
-        }
-        if item.kind == appmenu::AppMenuItemKind::Separator {
-            menu.append(&SeparatorMenuItem::new());
-            continue;
-        }
-
-        let menu_item = MenuItem::with_label(&item.label);
-        menu_item.set_sensitive(item.enabled);
-        if !item.children.is_empty() {
-            let submenu = Menu::new();
-            append_imported_menu_items(
-                &submenu,
-                &item.children,
-                exporter,
-                exporter_failure,
-                app_menu_button,
-            );
-            menu_item.set_submenu(Some(&submenu));
-        } else if item.kind == appmenu::AppMenuItemKind::Submenu {
-            // A depth-limited or malformed exporter can advertise a submenu
-            // without returning children.  Keep the protocol label visible
-            // only as an explicit unavailable state; never show an enabled
-            // menu item whose activation would do nothing.
-            menu_item.set_sensitive(false);
-        } else if item.kind == appmenu::AppMenuItemKind::Standard {
-            let exporter = exporter.clone();
-            let failure_state = exporter_failure.clone();
-            let app_menu_button = app_menu_button.clone();
-            let item_id = item.id;
-            menu_item.connect_activate(move |_| {
-                let exporter = exporter.clone();
-                if current_active_window_id() != Some(exporter.window_id) {
-                    log::info!(
-                        "Focused X11 application changed before AppMenu event; dropping action"
-                    );
-                    app_menu_button.set_sensitive(false);
-                    app_menu_button.set_tooltip_text(Some(
-                        "Focused application changed; use the current application's local menu",
-                    ));
-                    return;
-                }
-                let worker_exporter = exporter.clone();
-                let failure_state = failure_state.clone();
-                let app_menu_button = app_menu_button.clone();
-                let (sender, receiver) = mpsc::channel();
-                thread::spawn(move || {
-                    let result =
-                        appmenu::activate(&worker_exporter, item_id, Duration::from_millis(750));
-                    let _ = sender.send(result);
-                });
-                glib::timeout_add_local(Duration::from_millis(25), move || {
-                    match receiver.try_recv() {
-                        Ok(Ok(())) => glib::ControlFlow::Break,
-                        Ok(Err(error)) => {
-                            log::warn!("Focused application's AppMenu action failed: {error}");
-                            if current_active_window_id() == Some(exporter.window_id) {
-                                *failure_state.borrow_mut() = Some(exporter.clone());
-                                app_menu_button.set_sensitive(false);
-                                app_menu_button.set_tooltip_text(Some(
-                                    "The focused application's AppMenu action failed; use its local menu",
-                                ));
-                            } else {
-                                app_menu_button.set_sensitive(false);
-                                app_menu_button.set_tooltip_text(Some(
-                                    "Focused application changed; use the current application's local menu",
-                                ));
-                            }
-                            glib::ControlFlow::Break
-                        }
-                        Err(TryRecvError::Empty) => glib::ControlFlow::Continue,
-                        Err(TryRecvError::Disconnected) => {
-                            if current_active_window_id() == Some(exporter.window_id) {
-                                *failure_state.borrow_mut() = Some(exporter.clone());
-                                app_menu_button.set_sensitive(false);
-                                app_menu_button.set_tooltip_text(Some(
-                                    "The focused application's AppMenu action failed; use its local menu",
-                                ));
-                            } else {
-                                app_menu_button.set_sensitive(false);
-                                app_menu_button.set_tooltip_text(Some(
-                                    "Focused application changed; use the current application's local menu",
-                                ));
-                            }
-                            glib::ControlFlow::Break
-                        }
-                    }
-                });
-            });
-        }
-        menu.append(&menu_item);
-    }
-}
-
 fn build_system_menu() -> Menu {
     let menu = Menu::new();
 
     let about = MenuItem::with_label("About SLOPOS-I");
-    about.connect_activate(|_| show_message("About SLOPOS-I", "SLOPOS-I\nX11 Platinum Desktop"));
+    about.connect_activate(|_| show_message("About SLOPOS-I", "SLOPOS-I\nX11 Macintosh-inspired desktop"));
     menu.append(&about);
     menu.append(&SeparatorMenuItem::new());
 
-    let settings = MenuItem::with_label("System Settings…");
+    let settings = MenuItem::with_label("Control Panels…");
     if resolve_program("slopos-settings").is_some() {
         settings.connect_activate(|_| spawn_resolved("slopos-settings", &[]));
     } else {
@@ -822,13 +437,30 @@ fn build_system_menu() -> Menu {
     }
     menu.append(&settings);
 
-    let catalogue = MenuItem::with_label("Software Catalogue…");
+    let catalogue = MenuItem::with_label("Software…");
     if resolve_program("slopos-catalogue").is_some() {
         catalogue.connect_activate(|_| spawn_resolved("slopos-catalogue", &[]));
     } else {
         catalogue.set_sensitive(false);
     }
     menu.append(&catalogue);
+
+    let appearance = MenuItem::with_label("Appearance");
+    let appearance_menu = Menu::new();
+    let platinum = MenuItem::with_label("Platinum (Light)");
+    let graphite = MenuItem::with_label("Graphite (Dark)");
+    if resolve_program("slopos-appearance").is_some() {
+        platinum.connect_activate(|_| spawn_resolved("slopos-appearance", &["platinum"]));
+        graphite.connect_activate(|_| spawn_resolved("slopos-appearance", &["graphite"]));
+    } else {
+        platinum.set_sensitive(false);
+        graphite.set_sensitive(false);
+    }
+    appearance_menu.append(&platinum);
+    appearance_menu.append(&graphite);
+    appearance_menu.show_all();
+    appearance.set_submenu(Some(&appearance_menu));
+    menu.append(&appearance);
     menu.append(&SeparatorMenuItem::new());
 
     let lock = MenuItem::with_label("Lock Screen");
@@ -957,6 +589,10 @@ fn resolve_program(program: &str) -> Option<PathBuf> {
                 }
             }
         }
+        let local = PathBuf::from("scripts").join(program);
+        if local.is_file() {
+            return Some(local);
+        }
     }
 
     let path = Path::new(program);
@@ -971,8 +607,6 @@ fn resolve_program(program: &str) -> Option<PathBuf> {
     })
 }
 
-/// Keep image-led top-bar controls discoverable to ATK clients even when the
-/// host GTK theme does not expose their tooltip text as the accessible name.
 fn set_accessible_name<W>(widget: &W, name: &str)
 where
     W: IsA<gtk::Widget>,
@@ -1006,10 +640,6 @@ fn load_slopos_mark_sized(size: i32) -> Option<Image> {
         }
         match Pixbuf::from_file(&path) {
             Ok(pixbuf) => {
-                // The shipped identity image is a square poster. Use its
-                // central S mark for the 20px menu button instead of shrinking
-                // the entire poster into an unreadable thumbnail. Smaller
-                // replacement assets are scaled as-is.
                 let mark = if pixbuf.width() >= 512 && pixbuf.height() >= 512 {
                     let crop = (pixbuf.width().min(pixbuf.height()) / 4).max(1);
                     let x = (pixbuf.width() - crop) / 2;
