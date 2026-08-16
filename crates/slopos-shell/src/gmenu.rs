@@ -111,9 +111,7 @@ fn valid_bus_name(value: &str) -> bool {
     let (Some(first), Some(second)) = (components.next(), components.next()) else {
         return false;
     };
-    valid_bus_component(first)
-        && valid_bus_component(second)
-        && components.all(valid_bus_component)
+    valid_bus_component(first) && valid_bus_component(second) && components.all(valid_bus_component)
 }
 
 fn valid_bus_component(value: &str) -> bool {
