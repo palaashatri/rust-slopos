@@ -85,12 +85,10 @@ impl TopBar {
         set_accessible_name(&active_title_label, "Active application");
         main_box.pack_start(&active_title_label, false, false, 7);
 
-        // Unlike the earlier single "App (local)" placeholder, this host is
-        // populated with the focused GtkApplication's actual GMenu menubar.
-        // When an application exports no compatible model, it simply remains
-        // empty and the application's local menu stays authoritative.
         let global_menu_host = GtkBox::new(Orientation::Horizontal, 0);
-        global_menu_host.style_context().add_class("slopos-global-menu-host");
+        global_menu_host
+            .style_context()
+            .add_class("slopos-global-menu-host");
         set_accessible_name(&global_menu_host, "Focused application global menu");
         main_box.pack_start(&global_menu_host, false, false, 0);
 
@@ -273,11 +271,12 @@ fn update_active_window(
         show_desktop_state(label, global_menu_host, active_exporter);
         return;
     }
-    label.set_text(if title.is_empty() {
-        "SLOPOS Desktop"
+    if title.is_empty() {
+        label.set_text("SLOPOS Desktop");
     } else {
-        &compact_title(&title)
-    });
+        let compact = compact_title(&title);
+        label.set_text(&compact);
+    }
 
     let exporter = u32::try_from(id).ok().and_then(gmenu::detect);
     refresh_global_menu(global_menu_host, active_exporter, exporter);
@@ -425,7 +424,12 @@ fn build_system_menu() -> Menu {
     let menu = Menu::new();
 
     let about = MenuItem::with_label("About SLOPOS-I");
-    about.connect_activate(|_| show_message("About SLOPOS-I", "SLOPOS-I\nX11 Macintosh-inspired desktop"));
+    about.connect_activate(|_| {
+        show_message(
+            "About SLOPOS-I",
+            "SLOPOS-I\nX11 Macintosh-inspired desktop",
+        )
+    });
     menu.append(&about);
     menu.append(&SeparatorMenuItem::new());
 
