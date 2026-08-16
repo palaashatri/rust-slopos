@@ -3,6 +3,7 @@
 mod app_finder;
 mod appmenu;
 mod dock;
+mod gmenu;
 mod launcher;
 mod notifications;
 mod topbar;
