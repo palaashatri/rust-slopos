@@ -18,7 +18,10 @@ fn pivot_workspace_contains_only_the_current_x11_product_crates() {
         "wlroots",
         "xwayland",
     ] {
-        assert!(!cargo.contains(obsolete), "obsolete scope returned: {obsolete}");
+        assert!(
+            !cargo.contains(obsolete),
+            "obsolete scope returned: {obsolete}"
+        );
     }
 }
 
@@ -64,7 +67,10 @@ fn gtk_gmenu_bridge_uses_the_native_export_protocol() {
         "_GTK_APPLICATION_OBJECT_PATH",
         "_GTK_WINDOW_OBJECT_PATH",
     ] {
-        assert!(bridge.contains(property), "missing GTK export property {property}");
+        assert!(
+            bridge.contains(property),
+            "missing GTK export property {property}"
+        );
     }
     assert!(bridge.contains("gio::DBusMenuModel::get"));
     assert!(bridge.contains("gio::DBusActionGroup::get"));
@@ -103,7 +109,10 @@ fn slopos_freedesktop_icon_theme_covers_core_file_manager_vocabulary() {
         "scalable/actions/view-refresh.svg",
         "scalable/actions/edit-find.svg",
     ] {
-        assert!(root.join(relative).is_file(), "missing SLOPOS icon {relative}");
+        assert!(
+            root.join(relative).is_file(),
+            "missing SLOPOS icon {relative}"
+        );
     }
     let index = include_str!("../../../themes/platinum/icon-theme/index.theme");
     assert!(index.contains("Name=SLOPOS Platinum"));
@@ -134,7 +143,10 @@ fn platinum_and_graphite_are_complete_runtime_appearances() {
             "entry",
             "scrollbar",
         ] {
-            assert!(css.contains(selector), "appearance misses selector {selector}");
+            assert!(
+                css.contains(selector),
+                "appearance misses selector {selector}"
+            );
         }
     }
     assert!(light_wm.contains("window.active.title.bg"));
@@ -175,7 +187,10 @@ fn settings_delegates_the_seven_external_system_panels() {
         "pcmanfm",
         "lxinput",
     ] {
-        assert!(settings.contains(utility), "missing Settings delegate {utility}");
+        assert!(
+            settings.contains(utility),
+            "missing Settings delegate {utility}"
+        );
     }
     let runner = include_str!("../../../scripts/run-settings-service-qa.sh");
     let probe = include_str!("../../../scripts/qa-settings-services.py");
@@ -365,8 +380,17 @@ fn shipping_sources_do_not_reintroduce_wayland_or_vision() {
         include_str!("../../../packaging/vm/arch-install.sh"),
     ] {
         let lower = source.to_ascii_lowercase();
-        for obsolete in ["smithay", "wlroots", "xwayland", "slopos-compositor", "slopos-vision"] {
-            assert!(!lower.contains(obsolete), "shipping source contains {obsolete}");
+        for obsolete in [
+            "smithay",
+            "wlroots",
+            "xwayland",
+            "slopos-compositor",
+            "slopos-vision",
+        ] {
+            assert!(
+                !lower.contains(obsolete),
+                "shipping source contains {obsolete}"
+            );
         }
     }
 }
