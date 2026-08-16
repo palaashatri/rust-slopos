@@ -2,7 +2,7 @@
 pkgname=slopos-i-git
 pkgver=0.1.0.r0
 pkgrel=1
-pkgdesc="SLOPOS-I X11 Platinum desktop environment"
+pkgdesc="SLOPOS-I X11 Platinum/Graphite desktop environment"
 arch=('x86_64' 'aarch64')
 url="https://github.com/palaashatri/rust-slopos"
 license=('MIT')
@@ -10,11 +10,11 @@ depends=(
   xorg-server openbox gtk3 dbus
   pcmanfm xfce4-terminal mousepad ristretto zathura zathura-pdf-mupdf mpv galculator supertux
   networkmanager network-manager-applet pavucontrol pipewire pipewire-pulse wireplumber
-  blueman upower xfce4-power-manager lxappearance arandr xorg-xrandr xorg-xsetroot
+  blueman upower xfce4-power-manager xfce4-settings lxappearance arandr xorg-xrandr xorg-xsetroot
   xdotool wmctrl adwaita-icon-theme librsvg ttf-liberation ttf-dejavu
 )
 makedepends=(cargo pkgconf rust git openssl)
-optdepends=('firefox: web browser' 'supertux: upstream game used for the SLOPOS audio/game smoke' 'lightdm: graphical display manager')
+optdepends=('firefox: web browser' 'lightdm: graphical display manager')
 provides=('slopos-i')
 conflicts=('slopos-i')
 source=('rust-slopos::git+https://github.com/palaashatri/rust-slopos.git#branch=pivot')
@@ -41,20 +41,30 @@ package() {
   install -Dm755 scripts/start-slopos-i "$pkgdir/usr/bin/start-slopos-i"
   install -Dm755 scripts/start-slopos-browser "$pkgdir/usr/bin/start-slopos-browser"
   install -Dm755 scripts/install-browser-theme.sh "$pkgdir/usr/bin/install-browser-theme.sh"
+  install -Dm755 scripts/slopos-appearance "$pkgdir/usr/bin/slopos-appearance"
   install -Dm644 packaging/slopos-browser.desktop "$pkgdir/usr/share/applications/slopos-browser.desktop"
 
   install -Dm644 packaging/slopos-i.desktop "$pkgdir/usr/share/xsessions/slopos-i.desktop"
   install -Dm644 assets/config/openbox/rc.xml "$pkgdir/usr/share/slopos-i/openbox/rc.xml"
+  install -Dm644 assets/config/openbox/rc-graphite.xml "$pkgdir/usr/share/slopos-i/openbox/rc-graphite.xml"
   install -Dm644 assets/config/openbox/menu.xml "$pkgdir/usr/share/slopos-i/openbox/menu.xml"
   install -Dm644 themes/slopos-openbox/openbox-3/themerc \
     "$pkgdir/usr/share/themes/slopos-openbox/openbox-3/themerc"
+  install -Dm644 themes/slopos-openbox-graphite/openbox-3/themerc \
+    "$pkgdir/usr/share/themes/slopos-openbox-graphite/openbox-3/themerc"
   install -Dm644 assets/config/gtk-3.0/gtk.css \
     "$pkgdir/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css"
+  install -Dm644 assets/config/gtk-3.0/gtk-graphite.css \
+    "$pkgdir/usr/share/themes/slopos-gtk-graphite/gtk-3.0/gtk.css"
   install -Dm644 assets/config/gtk-3.0/settings.ini \
     "$pkgdir/usr/share/slopos-i/gtk-3.0/settings.ini"
   install -Dm644 assets/config/mimeapps.list "$pkgdir/usr/share/slopos-i/mimeapps.list"
   install -Dm644 assets/slopos-logo.png "$pkgdir/usr/share/slopos-i/slopos-logo.png"
-  cp -a themes/platinum "$pkgdir/usr/share/slopos-i/themes/"
+  mkdir -p "$pkgdir/usr/share/slopos-i/themes"
+  cp -a themes/platinum "$pkgdir/usr/share/slopos-i/themes/platinum"
+  cp -a themes/graphite "$pkgdir/usr/share/slopos-i/themes/graphite"
+  mkdir -p "$pkgdir/usr/share/icons"
+  cp -a themes/platinum/icon-theme "$pkgdir/usr/share/icons/SLOPOS-Platinum"
   mkdir -p "$pkgdir/usr/share/slopos-i/browser"
   cp -a packaging/browser/chromium "$pkgdir/usr/share/slopos-i/browser/chromium"
   cp -a packaging/browser/firefox "$pkgdir/usr/share/slopos-i/browser/firefox"
