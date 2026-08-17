@@ -54,12 +54,30 @@ if [ "$appearance" = "graphite" ]; then
      [ -d /usr/share/themes/slopos-gtk-graphite/gtk-3.0 ]; then
     export GTK_THEME="slopos-gtk-graphite"
   fi
+elif [ "$appearance" = "classic" ]; then
+  if [ -d "$SLOPOS_SHARE_DIR/themes/slopos-gtk-classic/gtk-3.0" ] || \
+     [ -d /usr/local/share/themes/slopos-gtk-classic/gtk-3.0 ] || \
+     [ -d /usr/share/themes/slopos-gtk-classic/gtk-3.0 ]; then
+    export GTK_THEME="slopos-gtk-classic"
+  fi
 else
   if [ -d "$SLOPOS_SHARE_DIR/themes/slopos-gtk/gtk-3.0" ] || \
      [ -d /usr/local/share/themes/slopos-gtk/gtk-3.0 ] || \
      [ -d /usr/share/themes/slopos-gtk/gtk-3.0 ]; then
     export GTK_THEME="slopos-gtk"
   fi
+fi
+
+# Enable GTK and AppMenu proxy modules so traditional GTK applications (PCManFM, Xfce4-Terminal, GIMP, etc.)
+# export their menus to the SLOPOS top bar.
+export UBUNTU_MENUPROXY=1
+if [ -n "${GTK_MODULES:-}" ]; then
+  case ":$GTK_MODULES:" in
+    *":appmenu-gtk-module:"*) ;;
+    *) export GTK_MODULES="$GTK_MODULES:appmenu-gtk-module" ;;
+  esac
+else
+  export GTK_MODULES="appmenu-gtk-module"
 fi
 
 resolve_bin() {
