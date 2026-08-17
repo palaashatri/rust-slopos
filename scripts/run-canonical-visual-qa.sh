@@ -635,6 +635,10 @@ fi
 # 47. Dock Dodge & Maximized Window Behavior (Auto-Hide Dock)
 mkdir -p "$HOME/.config/slopos-i"
 printf '1\n' > "$HOME/.config/slopos-i/dock_dodge"
+if [[ -f "$HOME/.config/openbox/rc.xml" ]]; then
+  sed -i 's|<bottom>60</bottom>|<bottom>0</bottom>|g' "$HOME/.config/openbox/rc.xml"
+  openbox --reconfigure 2>/dev/null || true
+fi
 if command -v mousepad >/dev/null 2>&1; then
   mousepad /workspace/README.md >/dev/null 2>&1 &
   DODGE_PID=$!
@@ -644,14 +648,22 @@ if command -v mousepad >/dev/null 2>&1; then
     xdotool windowactivate --sync "$DODGE_WIN" 2>/dev/null || true
     wmctrl -i -r "$DODGE_WIN" -b add,maximized_vert,maximized_horz 2>/dev/null || xdotool key "Alt+F10" || true
     xdotool mousemove 640 400
-    sleep 1
+    sleep 1.5
     scrot -zo "$OUT_DIR/47_dock_dodge_maximized_1280x800.png"
     echo "Captured: 47_dock_dodge_maximized_1280x800.png"
+    xdotool mousemove 640 795
+    sleep 0.8
+    scrot -zo "$OUT_DIR/49_dock_dodge_hover_overlap_1280x800.png"
+    echo "Captured: 49_dock_dodge_hover_overlap_1280x800.png"
   fi
   kill "$DODGE_PID" 2>/dev/null || true
   sleep 0.5
 fi
 printf '0\n' > "$HOME/.config/slopos-i/dock_dodge"
+if [[ -f "$HOME/.config/openbox/rc.xml" ]]; then
+  sed -i 's|<bottom>0</bottom>|<bottom>60</bottom>|g' "$HOME/.config/openbox/rc.xml"
+  openbox --reconfigure 2>/dev/null || true
+fi
 
 # 48. Custom Colors & Fonts Studio (Windows XP Style Personalization)
 ./target/release/slopos-settings --appearance >/dev/null 2>&1 &

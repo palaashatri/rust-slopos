@@ -137,6 +137,11 @@ for candidate_rc in \
   "assets/config/openbox/$rc_name"; do
   if [[ -f "$candidate_rc" ]]; then
     cp -f "$candidate_rc" "$openbox_config/rc.xml"
+    if [[ -f "$slopos_config/dock_dodge" ]]; then
+      if grep -q "1" "$slopos_config/dock_dodge"; then
+        sed -i 's|<bottom>60</bottom>|<bottom>0</bottom>|g' "$openbox_config/rc.xml"
+      fi
+    fi
     break
   fi
 done

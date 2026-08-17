@@ -1010,6 +1010,19 @@ fn set_dock_dodge_enabled(enabled: bool) {
         let _ = fs::create_dir_all(&dir);
         let flag_file = dir.join("dock_dodge");
         let _ = fs::write(flag_file, if enabled { "1\n" } else { "0\n" });
+
+        let ob_rc = config_home.join("openbox/rc.xml");
+        if let Ok(content) = fs::read_to_string(&ob_rc) {
+            let new_content = if enabled {
+                content.replace("<bottom>60</bottom>", "<bottom>0</bottom>")
+            } else {
+                content.replace("<bottom>0</bottom>", "<bottom>60</bottom>")
+            };
+            let _ = fs::write(&ob_rc, new_content);
+            let _ = std::process::Command::new("openbox")
+                .arg("--reconfigure")
+                .spawn();
+        }
     }
 }
 

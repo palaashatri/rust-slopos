@@ -413,12 +413,17 @@ fn check_window_and_dodge_state() -> (bool, bool) {
     (is_fullscreen, dodge_enabled && is_maximized)
 }
 
-fn is_pointer_near_bottom(screen_height: i32) -> bool {
+fn is_pointer_near_bottom(screen_height: i32, is_currently_visible: bool) -> bool {
     if let Some(loc) = command_output("xdotool", &["getmouselocation"]) {
         for part in loc.split_whitespace() {
             if let Some(y_str) = part.strip_prefix("y:") {
                 if let Ok(y) = y_str.parse::<i32>() {
-                    return y >= (screen_height - 18);
+                    let threshold = if is_currently_visible {
+                        screen_height - 65
+                    } else {
+                        screen_height - 12
+                    };
+                    return y >= threshold;
                 }
             }
         }
@@ -428,20 +433,27 @@ fn is_pointer_near_bottom(screen_height: i32) -> bool {
 
 fn install_dock_visibility_manager(window: &Window, screen_height: i32) {
     let window_c = window.clone();
-    glib::timeout_add_local(std::time::Duration::from_millis(250), move || {
+    glib::timeout_add_local(std::time::Duration::from_millis(150), move || {
         let (fullscreen, dodge) = check_window_and_dodge_state();
         if fullscreen {
             if window_c.is_visible() {
                 window_c.set_visible(false);
             }
         } else if dodge {
-            let pointer_near_bottom = is_pointer_near_bottom(screen_height);
-            if pointer_near_bottom && !window_c.is_visible() {
+            let is_visible = window_c.is_visible();
+            let pointer_near_bottom = is_pointer_near_bottom(screen_height, is_visible);
+            if pointer_near_bottom && !is_visible {
+                let (sw, sh) = screen_geometry();
+                window_c.move_((sw - 540).max(0) / 2, (sh - 54 - 6).max(28));
+                window_c.set_keep_above(true);
                 window_c.set_visible(true);
-            } else if !pointer_near_bottom && window_c.is_visible() {
+                window_c.present();
+            } else if !pointer_near_bottom && is_visible {
                 window_c.set_visible(false);
             }
         } else if !window_c.is_visible() {
+            let (sw, sh) = screen_geometry();
+            window_c.move_((sw - 540).max(0) / 2, (sh - 54 - 6).max(28));
             window_c.set_visible(true);
         }
         glib::ControlFlow::Continue
