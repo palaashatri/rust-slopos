@@ -6,9 +6,13 @@ on:
     paths:
       - '.github/workflows/installed-vm.yml'
       - 'packaging/vm/**'
+      - 'packaging/arch/PKGBUILD'
+      - 'packaging/debian/rules'
+      - 'packaging/iso/**'
       - 'install.sh'
       - 'scripts/install-session-files.sh'
       - 'scripts/start-slopos-i'
+      - 'scripts/slopos-recovery.sh'
   workflow_dispatch:
 
 permissions:
@@ -25,7 +29,7 @@ jobs:
   qemu-installed-vm:
     name: Exact-head Arch UEFI install + X11 QA
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,6 +47,7 @@ jobs:
           bash -n packaging/vm/qa-installed.sh
           bash -n packaging/vm/run-qemu-installed-qa.sh
           bash -n packaging/vm/qa-vm.sh
+          bash -n scripts/slopos-recovery.sh
 
       - name: Install QEMU/UEFI host dependencies
         run: |
@@ -100,7 +105,7 @@ jobs:
           REPO_COMMIT="$SOURCE_SHA" \
           SSH_KEY_PATH="$GITHUB_WORKSPACE/artifacts/vm-qa/keys/qa_key" \
           SSH_PORT=2222 \
-          WAIT_SEC=6000 \
+          WAIT_SEC=7200 \
           DISK_SIZE=20G \
           VM_MEMORY_MB=4096 \
           VM_CPUS=4 \
@@ -119,9 +124,11 @@ jobs:
           set -euo pipefail
           grep -Fq "QEMU_INSTALLED_VM_QA_STATUS_0=$SOURCE_SHA" "$RUNNER_TEMP/installed-vm.log"
           grep -Fqx 'INSTALLED_VM_QA_STATUS_0' "$RUNNER_TEMP/installed-vm.log"
-          grep -Fqx 'SLOPOS_X11_INSTALLED_VM_QA=PASS' artifacts/vm-qa/qemu/installed-vm-evidence/qa-vm.log
-          grep -Fq "SLOPOS_SOURCE_COMMIT=$SOURCE_SHA" artifacts/vm-qa/qemu/installed-vm-evidence/qa-vm.log
-          grep -Fq 'EFI_BOOT_STATUS_0=' artifacts/vm-qa/qemu/installed-vm-evidence/qa-vm.log
+          guest_log=artifacts/vm-qa/qemu/installed-vm-evidence/qa-vm.log
+          grep -Fqx 'SLOPOS_X11_INSTALLED_VM_QA=PASS' "$guest_log"
+          grep -Fqx 'INSTALLED_RECOVERY_STATUS_0' "$guest_log"
+          grep -Fq "SLOPOS_SOURCE_COMMIT=$SOURCE_SHA" "$guest_log"
+          grep -Fq 'EFI_BOOT_STATUS_0=' "$guest_log"
           python3 - <<'PY'
           import json, os
           path = 'artifacts/vm-qa/qemu/installed-vm-evidence/status.json'
@@ -133,6 +140,8 @@ jobs:
           assert status['expected_commit'].lower() == expected, status
           PY
           test "$(find artifacts/vm-qa/qemu/installed-vm-evidence/guest -name 'installed-session-*.png' -size +0c | wc -l)" -ge 1
+          test "$(find artifacts/vm-qa/qemu/installed-vm-evidence/guest -name 'installed-recovered-*.png' -size +0c | wc -l)" -ge 1
+          test -s artifacts/vm-qa/qemu/installed-vm-evidence/guest/recovery.log
 
       - name: Upload installed-VM evidence
         if: always()
