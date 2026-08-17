@@ -1,0 +1,118 @@
+name: Debian Package QA
+
+on:
+  push:
+    branches: [pivot]
+    paths:
+      - '.github/workflows/debian-package.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/**'
+      - 'packaging/debian/**'
+      - 'packaging/slopos-i.desktop'
+      - 'packaging/slopos-browser.desktop'
+      - 'scripts/start-slopos-i'
+      - 'scripts/start-slopos-browser'
+      - 'scripts/install-browser-theme.sh'
+      - 'scripts/slopos-appearance'
+      - 'scripts/slopos-recovery.sh'
+      - 'assets/**'
+      - 'themes/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: debian-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Exact-head .deb build + payload contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Install Debian package build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential dpkg-dev debhelper cargo pkg-config \
+            libgtk-3-dev libx11-dev libxrandr-dev libssl-dev libdbus-1-dev
+      - name: Build binary package from exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          export CARGO_TARGET_DIR="$RUNNER_TEMP/slopos-debian-target"
+          dpkg-buildpackage --build=binary --no-sign
+          mapfile -t packages < <(find .. -maxdepth 1 -type f -name 'slopos-i_*.deb' -print)
+          test "${#packages[@]}" -eq 1
+          mkdir -p artifacts/debian-package
+          cp "${packages[0]}" artifacts/debian-package/slopos-i.deb
+          dpkg-deb --info artifacts/debian-package/slopos-i.deb > artifacts/debian-package/control-info.txt
+          dpkg-deb --contents artifacts/debian-package/slopos-i.deb > artifacts/debian-package/payload.txt
+          dpkg-deb --fsys-tarfile artifacts/debian-package/slopos-i.deb \
+            | tar -tf - > artifacts/debian-package/payload-paths.txt
+          sha256sum artifacts/debian-package/slopos-i.deb > artifacts/debian-package/SHA256SUMS
+          printf '%s\n' "$GITHUB_SHA" > artifacts/debian-package/source-commit
+      - name: Require current X11 product payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          paths=artifacts/debian-package/payload-paths.txt
+          required=(
+            './usr/bin/slopos-session'
+            './usr/bin/slopos-shell'
+            './usr/bin/slopos-catalogue'
+            './usr/bin/slopos-settings'
+            './usr/bin/start-slopos-i'
+            './usr/bin/start-slopos-browser'
+            './usr/bin/slopos-appearance'
+            './usr/bin/slopos-recovery'
+            './usr/share/xsessions/slopos-i.desktop'
+            './usr/share/applications/slopos-browser.desktop'
+            './usr/share/slopos-i/openbox/rc.xml'
+            './usr/share/slopos-i/openbox/rc-graphite.xml'
+            './usr/share/slopos-i/mimeapps.list'
+            './usr/share/slopos-i/recovery/appearance'
+            './usr/share/slopos-i/recovery/openbox/rc.xml'
+            './usr/share/slopos-i/recovery/openbox/menu.xml'
+            './usr/share/themes/slopos-openbox/openbox-3/themerc'
+            './usr/share/themes/slopos-openbox-graphite/openbox-3/themerc'
+            './usr/share/themes/slopos-gtk/gtk-3.0/gtk.css'
+            './usr/share/themes/slopos-gtk-graphite/gtk-3.0/gtk.css'
+            './usr/share/icons/SLOPOS-Platinum/index.theme'
+          )
+          for path in "${required[@]}"; do
+            grep -Fqx "$path" "$paths" || {
+              echo "missing Debian package payload: $path" >&2
+              exit 1
+            }
+          done
+          ! grep -Eiq '(^|/)(wayland|smithay|wlroots|xwayland|slopos-compositor)(/|$)' "$paths"
+          test "$(cat artifacts/debian-package/source-commit)" = "$GITHUB_SHA"
+      - name: Extract and smoke-check packaged executable modes/defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/slopos-deb-root"
+          mkdir -p "$root"
+          dpkg-deb --extract artifacts/debian-package/slopos-i.deb "$root"
+          for binary in slopos-session slopos-shell slopos-catalogue slopos-settings start-slopos-i start-slopos-browser slopos-appearance slopos-recovery; do
+            test -x "$root/usr/bin/$binary"
+          done
+          grep -Fqx platinum "$root/usr/share/slopos-i/recovery/appearance"
+          grep -Fq 'Exec=/usr/bin/start-slopos-i' "$root/usr/share/xsessions/slopos-i.desktop"
+          grep -Fq 'Type=Application' "$root/usr/share/xsessions/slopos-i.desktop"
+          echo 'DEBIAN_PACKAGE_QA_STATUS_0'
+      - name: Upload Debian package evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slopos-debian-${{ github.sha }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: artifacts/debian-package/
