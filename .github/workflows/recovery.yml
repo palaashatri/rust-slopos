@@ -8,6 +8,11 @@ on:
       - 'scripts/run-recovery-qa.sh'
       - 'scripts/slopos-recovery.sh'
       - 'scripts/start-slopos-i'
+      - 'install.sh'
+      - 'packaging/arch/PKGBUILD'
+      - 'packaging/debian/rules'
+      - 'packaging/iso/build-iso.sh'
+      - 'packaging/vm/qa-vm.sh'
       - 'crates/slopos-session/**'
   workflow_dispatch:
 
@@ -27,6 +32,24 @@ jobs:
       - uses: actions/checkout@v4
       - name: Confirm exact source revision
         run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Enforce shipped recovery contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/slopos-recovery.sh
+          bash -n scripts/run-recovery-qa.sh
+          bash -n install.sh
+          bash -n packaging/iso/build-iso.sh
+          for path in install.sh packaging/arch/PKGBUILD packaging/debian/rules packaging/iso/build-iso.sh; do
+            grep -Fq 'slopos-recovery' "$path"
+            grep -Fq 'share/slopos-i/recovery' "$path"
+            grep -Fq 'recovery/appearance' "$path"
+            grep -Fq 'recovery/openbox/rc.xml' "$path"
+            grep -Fq 'recovery/openbox/menu.xml' "$path"
+          done
+          grep -Fq 'DEFAULT_VENDOR_DIR="$INSTALL_PREFIX/share/slopos-i/recovery"' scripts/slopos-recovery.sh
+          grep -Fq 'slopos-recovery' packaging/vm/qa-vm.sh
+          grep -Fq 'INSTALLED_RECOVERY_STATUS_0' packaging/vm/qa-vm.sh
       - name: Install X11/GTK recovery dependencies
         run: |
           sudo apt-get update
@@ -37,10 +60,6 @@ jobs:
             fonts-liberation fonts-dejavu-core
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Validate recovery scripts
-        run: |
-          bash -n scripts/slopos-recovery.sh
-          bash -n scripts/run-recovery-qa.sh
       - name: Run isolated recovery acceptance
         shell: bash
         run: |
