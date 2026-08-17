@@ -115,6 +115,7 @@ install -Dm755 scripts/start-slopos-i "$PREFIX/bin/start-slopos-i"
 install -Dm755 scripts/start-slopos-browser "$PREFIX/bin/start-slopos-browser"
 install -Dm755 scripts/install-browser-theme.sh "$PREFIX/bin/install-browser-theme.sh"
 install -Dm755 scripts/slopos-appearance "$PREFIX/bin/slopos-appearance"
+install -Dm755 scripts/slopos-recovery.sh "$PREFIX/bin/slopos-recovery"
 install -Dm644 packaging/slopos-browser.desktop "$PREFIX/share/applications/slopos-browser.desktop"
 
 bash scripts/install-session-files.sh --prefix "$PREFIX" --session-dir "$XSESSION_DIR"
@@ -136,6 +137,15 @@ if [[ -f assets/config/gtk-3.0/settings.ini ]]; then
     "$PREFIX/share/slopos-i/gtk-3.0/settings.ini"
 fi
 install -Dm644 assets/config/mimeapps.list "$PREFIX/share/slopos-i/mimeapps.list"
+
+# Recovery defaults are intentionally a tiny user-config reset payload rather
+# than a copy of the whole system share tree. Reset always returns to Platinum.
+mkdir -p "$PREFIX/share/slopos-i/recovery"
+printf '%s\n' platinum >"$PREFIX/share/slopos-i/recovery/appearance"
+install -Dm644 assets/config/openbox/rc.xml \
+  "$PREFIX/share/slopos-i/recovery/openbox/rc.xml"
+install -Dm644 assets/config/openbox/menu.xml \
+  "$PREFIX/share/slopos-i/recovery/openbox/menu.xml"
 
 rm -rf "$PREFIX/share/slopos-i/themes/platinum" "$PREFIX/share/slopos-i/themes/graphite"
 mkdir -p "$PREFIX/share/slopos-i/themes"
@@ -181,6 +191,7 @@ Binaries:
   $PREFIX/bin/slopos-settings
   $PREFIX/bin/start-slopos-i
   $PREFIX/bin/slopos-appearance
+  $PREFIX/bin/slopos-recovery
 
 X11 session:
   $XSESSION_DIR/slopos-i.desktop
@@ -188,6 +199,9 @@ X11 session:
 Appearance:
   slopos-appearance platinum
   slopos-appearance graphite
+
+Recovery:
+  slopos-recovery
 
 This release is X11-only. Select “SLOPOS-I” from your display manager's X11 session list,
 or start it from an existing X server with: start-slopos-i
