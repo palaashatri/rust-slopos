@@ -9,7 +9,7 @@ use gtk::{
     Align, Box as GtkBox, Button, Dialog, DialogFlags, IconSize, Image, Label, Menu, MenuItem,
     Orientation, ResponseType, SeparatorMenuItem, Window, WindowPosition, WindowType,
 };
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -216,19 +216,31 @@ fn install_system_menu_signal_bridge(button: &Button, menu: &Menu) {
         );
     }
 
+    let keyboard_open_pending = Rc::new(Cell::new(false));
+    let map_pending = keyboard_open_pending.clone();
+    menu.connect_map(move |menu| {
+        if !map_pending.replace(false) {
+            return;
+        }
+
+        let menu = menu.clone();
+        glib::idle_add_local_once(move || {
+            menu.select_first(true);
+            log::info!("SLOPOS_SYSTEM_MENU_KEYBOARD_READY");
+        });
+    });
+
     let button = button.clone();
     let menu = menu.clone();
     glib::timeout_add_local(Duration::from_millis(80), move || {
         if OPEN_SYSTEM_MENU.swap(false, Ordering::SeqCst) {
+            keyboard_open_pending.set(true);
             menu.popup_at_widget(
                 &button,
                 gdk::Gravity::SouthWest,
                 gdk::Gravity::NorthWest,
                 None,
             );
-            // A keyboard-opened classic menu must immediately own a current
-            // item so Return works without a pointer or an extra Down press.
-            menu.select_first(true);
             log::info!("SLOPOS_SYSTEM_MENU_KEYBOARD_OPENED");
         }
         glib::ControlFlow::Continue
