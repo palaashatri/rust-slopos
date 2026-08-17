@@ -11,7 +11,7 @@ use gtk::{
     PolicyType, ScrolledWindow, Window, WindowPosition, WindowType,
 };
 use installer::{install_appimage, uninstall_appimage};
-use model::{get_curated_catalogue, CatalogueApp};
+use model::{get_appimage_path, get_curated_catalogue, CatalogueApp};
 use std::cell::RefCell;
 use std::env;
 use std::path::{Path, PathBuf};
@@ -138,92 +138,139 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
         }
         content.pack_start(&text, true, true, 0);
 
-        let button = if app.is_appimage_installed() {
-            Button::with_label("Remove")
-        } else if app.is_system_installed() {
-            Button::with_label("Launch")
-        } else if app.metadata_is_installable() {
-            Button::with_label("Install")
-        } else {
-            let button = Button::with_label("Unavailable");
-            button.set_sensitive(false);
-            button
-        };
-        button.set_valign(Align::Center);
-        let initial_button_name = if app.is_appimage_installed() {
-            format!("Remove {}", app.name)
-        } else if app.is_system_installed() {
-            format!("Launch {}", app.name)
-        } else if app.metadata_is_installable() {
-            format!("Install {}", app.name)
-        } else {
-            format!("{} unavailable", app.name)
-        };
-        set_accessible_name(&button, &initial_button_name);
+        let button_box = GtkBox::new(Orientation::Horizontal, 4);
+        button_box.set_valign(Align::Center);
 
-        if app.is_installed() || app.metadata_is_installable() {
-            let app = app.clone();
-            let status = status.clone();
-            let state_button = button.clone();
-            button.connect_clicked(move |_| {
-                state_button.set_sensitive(false);
-                if app.is_appimage_installed() {
-                    let operation =
-                        uninstall_appimage(&app).map(|_| format!("Removed {}", app.name));
-                    match operation {
-                        Ok(message) => {
-                            status.set_text(&message);
-                            state_button.set_label("Install");
-                            set_accessible_name(&state_button, &format!("Install {}", app.name));
-                        }
-                        Err(error) => status.set_text(&format!("Error: {error}")),
+        if app.is_appimage_installed() {
+            let launch_btn = Button::with_label("Launch");
+            launch_btn.style_context().add_class("suggested-action");
+            set_accessible_name(&launch_btn, &format!("Launch {}", app.name));
+            let app_id = app.id.clone();
+            let app_name = app.name.clone();
+            let status_c = status.clone();
+            launch_btn.connect_clicked(move |_| match spawn_app(&app_id) {
+                Ok(_) => status_c.set_text(&format!("Launched {}", app_name)),
+                Err(err) => status_c.set_text(&format!("Launch failed: {err}")),
+            });
+            button_box.pack_start(&launch_btn, false, false, 0);
+
+            let remove_btn = Button::with_label("Remove");
+            set_accessible_name(&remove_btn, &format!("Remove {}", app.name));
+            let app_c = app.clone();
+            let status_c = status.clone();
+            let list_c = list.clone();
+            let apps_c = apps.to_vec();
+            let query_s = query.to_string();
+            let remove_btn_c = remove_btn.clone();
+            remove_btn.connect_clicked(move |_| {
+                remove_btn_c.set_sensitive(false);
+                match uninstall_appimage(&app_c) {
+                    Ok(_) => {
+                        status_c.set_text(&format!("Removed {}", app_c.name));
+                        render_apps(&list_c, &apps_c, &query_s, &status_c);
                     }
-                } else if app.is_system_installed() {
-                    let launch_cmd = match app.id.as_str() {
-                        "firefox" | "firefox-esr" => "start-slopos-browser",
-                        "chocolate-doom" | "doom" => {
-                            if std::path::Path::new("/usr/games/chocolate-doom").exists() {
-                                "/usr/games/chocolate-doom"
-                            } else {
-                                "chocolate-doom"
-                            }
-                        }
-                        "supertux" | "supertux2" => {
-                            if std::path::Path::new("/usr/games/supertux2").exists() {
-                                "/usr/games/supertux2"
-                            } else {
-                                "supertux2"
-                            }
-                        }
-                        other => other,
-                    };
-                    match std::process::Command::new(launch_cmd).spawn() {
-                        Ok(_) => status.set_text(&format!("Launched {}", app.name)),
-                        Err(err) => status.set_text(&format!("Launch failed: {err}")),
-                    }
-                } else {
-                    let operation =
-                        install_appimage(&app).map(|_| format!("Installed {}", app.name));
-                    match operation {
-                        Ok(message) => {
-                            status.set_text(&message);
-                            state_button.set_label("Remove");
-                            set_accessible_name(&state_button, &format!("Remove {}", app.name));
-                        }
-                        Err(error) => status.set_text(&format!("Error: {error}")),
+                    Err(err) => {
+                        status_c.set_text(&format!("Error: {err}"));
+                        remove_btn_c.set_sensitive(true);
                     }
                 }
-                state_button.set_sensitive(true);
             });
+            button_box.pack_start(&remove_btn, false, false, 0);
+        } else if app.is_system_installed() {
+            let launch_btn = Button::with_label("Launch");
+            launch_btn.style_context().add_class("suggested-action");
+            set_accessible_name(&launch_btn, &format!("Launch {}", app.name));
+            let app_id = app.id.clone();
+            let app_name = app.name.clone();
+            let status_c = status.clone();
+            launch_btn.connect_clicked(move |_| match spawn_app(&app_id) {
+                Ok(_) => status_c.set_text(&format!("Launched {}", app_name)),
+                Err(err) => status_c.set_text(&format!("Launch failed: {err}")),
+            });
+            button_box.pack_start(&launch_btn, false, false, 0);
+        } else if app.metadata_is_installable() {
+            let install_btn = Button::with_label("Install");
+            set_accessible_name(&install_btn, &format!("Install {}", app.name));
+            let app_c = app.clone();
+            let status_c = status.clone();
+            let list_c = list.clone();
+            let apps_c = apps.to_vec();
+            let query_s = query.to_string();
+            let install_btn_c = install_btn.clone();
+            install_btn.connect_clicked(move |_| {
+                install_btn_c.set_sensitive(false);
+                status_c.set_text(&format!("Installing {}…", app_c.name));
+                let app_inner = app_c.clone();
+                let app_name = app_c.name.clone();
+                let status_inner = status_c.clone();
+                let list_inner = list_c.clone();
+                let apps_inner = apps_c.clone();
+                let query_inner = query_s.clone();
+                let (tx, rx) = std::sync::mpsc::channel();
+                std::thread::spawn(move || {
+                    let res = install_appimage(&app_inner);
+                    let _ = tx.send(res);
+                });
+                glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+                    if let Ok(res) = rx.try_recv() {
+                        match res {
+                            Ok(_) => {
+                                status_inner.set_text(&format!("Installed {app_name}"));
+                                render_apps(&list_inner, &apps_inner, &query_inner, &status_inner);
+                            }
+                            Err(err) => {
+                                status_inner.set_text(&format!("Install error: {err}"));
+                                render_apps(&list_inner, &apps_inner, &query_inner, &status_inner);
+                            }
+                        }
+                        glib::ControlFlow::Break
+                    } else {
+                        glib::ControlFlow::Continue
+                    }
+                });
+            });
+            button_box.pack_start(&install_btn, false, false, 0);
+        } else {
+            let btn = Button::with_label("Unavailable");
+            btn.set_sensitive(false);
+            set_accessible_name(&btn, &format!("{} unavailable", app.name));
+            button_box.pack_start(&btn, false, false, 0);
         }
 
-        content.pack_end(&button, false, false, 0);
+        content.pack_end(&button_box, false, false, 0);
         row.add(&content);
         list.add(&row);
     }
 
     status.set_text(&format!("{shown} catalogue entries shown"));
     list.show_all();
+}
+
+fn spawn_app(id: &str) -> std::io::Result<std::process::Child> {
+    let appimage_path = get_appimage_path(id);
+    if appimage_path.is_file() {
+        return std::process::Command::new(appimage_path).spawn();
+    }
+    let launch_cmd = match id {
+        "firefox" | "firefox-esr" => "start-slopos-browser",
+        "thunderbird" => "thunderbird",
+        "chocolate-doom" | "doom" => {
+            if std::path::Path::new("/usr/games/chocolate-doom").exists() {
+                "/usr/games/chocolate-doom"
+            } else {
+                "chocolate-doom"
+            }
+        }
+        "supertux" | "supertux2" => {
+            if std::path::Path::new("/usr/games/supertux2").exists() {
+                "/usr/games/supertux2"
+            } else {
+                "supertux2"
+            }
+        }
+        other => other,
+    };
+    std::process::Command::new(launch_cmd).spawn()
 }
 
 fn load_catalogue_icon(icon_name: &str) -> Image {

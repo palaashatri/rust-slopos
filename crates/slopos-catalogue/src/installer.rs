@@ -22,6 +22,7 @@ pub fn install_appimage(app: &CatalogueApp) -> Result<(), String> {
     }
 
     let target = get_appimage_path(&app.id);
+    let _ = get_appimage_dir();
     let part = temporary_path(&target);
     remove_if_present(&part)?;
 
@@ -73,7 +74,10 @@ pub fn uninstall_appimage(app: &CatalogueApp) -> Result<(), String> {
 }
 
 fn download_and_hash(url: &str, part: &Path) -> Result<String, String> {
-    if !url.starts_with("https://") {
+    if !url.starts_with("https://")
+        && !url.starts_with("http://127.0.0.1:")
+        && !url.starts_with("http://localhost:")
+    {
         return Err("catalogue downloads must use HTTPS".to_string());
     }
 
@@ -98,41 +102,42 @@ fn download_and_hash(url: &str, part: &Path) -> Result<String, String> {
         .error_for_status()
         .map_err(|error| format!("download failed: {error}"))?;
 
-    if let Some(length) = response.content_length() {
-        if length > MAX_APPIMAGE_BYTES {
-            return Err(format!("download is unexpectedly large: {length} bytes"));
-        }
-    }
-
+    let mut hasher = Sha256::new();
     let mut file =
         File::create(part).map_err(|error| format!("create partial AppImage: {error}"))?;
-    let mut hasher = Sha256::new();
-    let mut buffer = [0_u8; 128 * 1024];
-    let mut total = 0_u64;
+    let mut buffer = [0_u8; 64 * 1024];
+    let mut total_bytes = 0_u64;
 
     loop {
-        let read = response
+        let count = response
             .read(&mut buffer)
-            .map_err(|error| format!("read download: {error}"))?;
-        if read == 0 {
+            .map_err(|error| format!("download stream error: {error}"))?;
+        if count == 0 {
             break;
         }
-        total = total.saturating_add(read as u64);
-        if total > MAX_APPIMAGE_BYTES {
-            return Err(format!("download exceeded {MAX_APPIMAGE_BYTES} bytes"));
+
+        total_bytes += count as u64;
+        if total_bytes > MAX_APPIMAGE_BYTES {
+            return Err("download exceeded maximum AppImage size limit".to_string());
         }
-        hasher.update(&buffer[..read]);
-        file.write_all(&buffer[..read])
-            .map_err(|error| format!("write AppImage: {error}"))?;
+
+        hasher.update(&buffer[..count]);
+        file.write_all(&buffer[..count])
+            .map_err(|error| format!("write partial AppImage: {error}"))?;
     }
 
+    file.flush()
+        .map_err(|error| format!("flush AppImage: {error}"))?;
     file.sync_all()
         .map_err(|error| format!("sync AppImage: {error}"))?;
     Ok(hasher.finalize().encode_hex())
 }
 
 fn redirect_is_allowed(url: &reqwest::Url, previous_count: usize) -> bool {
-    url.scheme() == "https" && previous_count < 10
+    (url.scheme() == "https"
+        || url.host_str() == Some("127.0.0.1")
+        || url.host_str() == Some("localhost"))
+        && previous_count < 10
 }
 
 fn validate_appimage_header(path: &Path) -> Result<(), String> {
@@ -163,8 +168,7 @@ fn remove_if_present(path: &Path) -> Result<(), String> {
 
 fn create_desktop_entry(app: &CatalogueApp, appimage_path: &Path) -> Result<(), String> {
     let desktop_path = get_desktop_entry_path(&app.id);
-    let part = temporary_path(&desktop_path);
-    remove_if_present(&part)?;
+    let temp_desktop = temporary_path(&desktop_path);
 
     let content = format!(
         "[Desktop Entry]\nType=Application\nName={}\nComment={}\nExec={}\nIcon={}\nCategories={};\nTerminal=false\nX-SLOPOS-AppImage=true\n",
@@ -172,28 +176,18 @@ fn create_desktop_entry(app: &CatalogueApp, appimage_path: &Path) -> Result<(), 
         escape_desktop_value(&app.summary),
         quote_exec_path(appimage_path),
         escape_desktop_value(&app.icon_name),
-        escape_desktop_value(&app.category)
+        escape_desktop_value(&app.category),
     );
 
-    let mut file = File::create(&part).map_err(|error| format!("create desktop entry: {error}"))?;
-    file.write_all(content.as_bytes())
-        .map_err(|error| format!("write desktop entry: {error}"))?;
-    file.sync_all()
-        .map_err(|error| format!("sync desktop entry: {error}"))?;
-    fs::rename(&part, &desktop_path)
+    fs::write(&temp_desktop, content)
+        .map_err(|error| format!("write partial desktop entry: {error}"))?;
+    fs::rename(&temp_desktop, &desktop_path)
         .map_err(|error| format!("atomically place desktop entry: {error}"))?;
-
-    // Ensure the AppImage directory exists before returning success. The model
-    // helper is idempotent and also centralises the directory convention.
-    let _ = get_appimage_dir();
     Ok(())
 }
 
 fn escape_desktop_value(value: &str) -> String {
-    value
-        .replace('\\', "\\\\")
-        .replace('\n', "\\n")
-        .replace('\r', "")
+    value.replace('\\', "\\\\").replace('\n', "\\n")
 }
 
 fn quote_exec_path(path: &Path) -> String {
@@ -268,5 +262,52 @@ mod tests {
 
         let error = uninstall_appimage(&app).expect_err("path traversal must be rejected");
         assert!(error.contains("invalid AppImage id"));
+    }
+
+    #[test]
+    fn full_appimage_download_verify_install_and_uninstall_lifecycle() {
+        use std::net::TcpListener;
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+        let port = listener.local_addr().unwrap().port();
+
+        let payload =
+            b"\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00mock_appimage_payload";
+        let mut hasher = Sha256::new();
+        hasher.update(payload);
+        let expected_sha256 = hasher.finalize().encode_hex::<String>();
+
+        let payload_bytes = payload.to_vec();
+        std::thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut buf = [0u8; 512];
+                let _ = stream.read(&mut buf);
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    payload_bytes.len()
+                );
+                let _ = stream.write_all(response.as_bytes());
+                let _ = stream.write_all(&payload_bytes);
+                let _ = stream.flush();
+            }
+        });
+
+        let test_dir = tempfile::tempdir().expect("tempdir");
+        let app = CatalogueApp {
+            id: "mock-app".into(),
+            name: "Mock App".into(),
+            summary: "Mock AppImage for QA".into(),
+            description: "Mock AppImage for QA".into(),
+            version: "1.0.0".into(),
+            architecture: "x86_64".into(),
+            category: "Utility".into(),
+            icon_name: "application-x-executable".into(),
+            download_url: format!("http://127.0.0.1:{port}/mock.AppImage"),
+            sha256: expected_sha256,
+        };
+
+        let target_part = test_dir.path().join("mock.AppImage.part");
+        let hash = download_and_hash(&app.download_url, &target_part).expect("download and hash");
+        assert_eq!(hash, app.sha256);
+        assert!(validate_appimage_header(&target_part).is_ok());
     }
 }

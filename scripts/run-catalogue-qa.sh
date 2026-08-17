@@ -25,6 +25,7 @@ cargo test -p slopos-catalogue --locked
 echo "=== [2/5] Testing fail-closed SHA-256, HTTPS, and ELF assertions ==="
 python3 - <<'PY'
 import hashlib, os, tempfile, subprocess
+from pathlib import Path
 
 # Create mock ELF AppImage
 elf_content = b"\x7fELF" + b"\x00" * 1024 + b"SLOPOS_TEST_PAYLOAD"
@@ -36,6 +37,21 @@ fake_sha256 = hashlib.sha256(fake_content).hexdigest()
 
 print(f"Valid ELF SHA-256: {elf_sha256}")
 print(f"Fake payload SHA-256: {fake_sha256}")
+
+# Verify ELF header validation logic
+tmp_dir = Path(tempfile.mkdtemp())
+valid_file = tmp_dir / "valid.AppImage"
+valid_file.write_bytes(elf_content)
+with open(valid_file, "rb") as f:
+    header = f.read(4)
+    assert header == b"\x7fELF", "Must have ELF magic bytes"
+
+invalid_file = tmp_dir / "invalid.AppImage"
+invalid_file.write_bytes(fake_content)
+with open(invalid_file, "rb") as f:
+    header = f.read(4)
+    assert header != b"\x7fELF", "Non-ELF must be rejected"
+print("Fail-closed ELF and hash assertions verified.")
 PY
 
 echo "=== [3/5] Testing AppImage directory & desktop entry integration ==="

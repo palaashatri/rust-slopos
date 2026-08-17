@@ -586,6 +586,21 @@ if command -v supertux2 >/dev/null 2>&1 || command -v /usr/games/supertux2 >/dev
   sleep 0.5
 fi
 
+# 45. Mozilla Thunderbird Email Client
+if command -v thunderbird >/dev/null 2>&1; then
+  thunderbird >/dev/null 2>&1 &
+  TB_PID=$!
+  sleep 3
+  TB_WIN="$(xdotool search --onlyvisible --class Thunderbird | tail -n 1 || xdotool search --onlyvisible --class thunderbird | tail -n 1 || true)"
+  if [[ -n "$TB_WIN" ]]; then
+    xdotool windowactivate --sync "$TB_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "45_app_thunderbird_1280x800.png"
+  fi
+  kill "$TB_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
 kill -TERM "$SESSION_90_PID" "$XVFB_90_PID" 2>/dev/null || true
 pkill -TERM -x slopos-shell 2>/dev/null || true
 pkill -TERM -x openbox 2>/dev/null || true

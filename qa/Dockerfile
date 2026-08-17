@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb xdotool wmctrl x11-utils x11-xserver-utils scrot imagemagick \
     openbox dbus-x11 libnotify-bin \
     pcmanfm xfce4-terminal mousepad ristretto zathura mpv galculator supertux \
-    chocolate-doom freedoom feh gimp inkscape vlc libreoffice-writer libreoffice-calc \
+    chocolate-doom freedoom feh gimp inkscape vlc libreoffice-writer libreoffice-calc thunderbird \
     pavucontrol pulseaudio pulseaudio-utils pipewire pipewire-pulse wireplumber \
     blueman upower xfce4-power-manager xfce4-settings lxappearance arandr \
     network-manager network-manager-gnome \

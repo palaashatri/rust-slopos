@@ -167,11 +167,11 @@ Mature upstream applications + verified AppImages
 |:---:|:---:|
 | ![Galculator](docs/screenshots/27_calculator_galculator_1280x800.png) | ![Ristretto](docs/screenshots/28_image_viewer_ristretto_1280x800.png) |
 
-| Zathura Document Viewer | Curated AppImage Software Catalogue |
+| Mozilla Thunderbird (Mail, Calendar & RSS) | Curated AppImage Software Catalogue |
 |:---:|:---:|
-| ![Zathura Document Viewer](docs/screenshots/29_document_viewer_zathura_1280x800.png) | ![Software Catalogue](docs/screenshots/10_software_catalogue_1280x800.png) |
+| ![Mozilla Thunderbird](docs/screenshots/45_app_thunderbird_1280x800.png) | ![Software Catalogue](docs/screenshots/10_software_catalogue_1280x800.png) |
 
-- **Curated AppImage Software Catalogue (`slopos-catalogue`)**: Fail-closed application installer with cryptographic SHA-256 verification and atomic installation for productivity and creative tools.
+- **Curated AppImage Software Catalogue (`slopos-catalogue`)**: Fail-closed application installer with cryptographic SHA-256 verification and atomic installation for productivity and creative tools (Thunderbird, Firefox ESR, Chocolate Doom, SuperTux, Kdenlive, Inkscape, GIMP, Audacity). Provides live asynchronous status updates, single-click launching of installed applications, and clean uninstallation.
 
 ---
 

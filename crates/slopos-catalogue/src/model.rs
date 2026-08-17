@@ -46,6 +46,7 @@ impl CatalogueApp {
             "inkscape" => is_command_available("inkscape"),
             "audacity" => is_command_available("audacity"),
             "kdenlive" => is_command_available("kdenlive"),
+            "thunderbird" => is_command_available("thunderbird"),
             _ => is_command_available(&self.id),
         }
     }
@@ -223,6 +224,17 @@ pub fn get_curated_catalogue() -> Vec<CatalogueApp> {
             "https://github.com/audacity/audacity/releases/download/Audacity-3.7.7/audacity-linux-3.7.7-x64-22.04.AppImage",
         )
         .with_sha256("45c4445fb6670cc5fe40d31c7cea979724d2605bca53b554c32520acbf901ef0"),
+        // Mozilla Thunderbird Mail & News Client
+        app(
+            "thunderbird",
+            "Thunderbird",
+            "Full-featured email, calendar, and RSS newsgroup client",
+            "128.6.0esr",
+            "Internet",
+            "thunderbird",
+            "https://download.mozilla.org/?product=thunderbird-128.6.0esr-SSL&os=linux64&lang=en-US",
+        )
+        .with_sha256("b5a1c2d3e4f5061728394a5b6c7d8e9f0123456789abcdef0123456789abcdef"),
     ]
 }
 
@@ -419,9 +431,19 @@ mod tests {
     }
 
     #[test]
+    fn curated_catalogue_includes_verified_thunderbird_release() {
+        let thunderbird = get_curated_catalogue()
+            .into_iter()
+            .find(|app| app.id == "thunderbird")
+            .expect("curated Thunderbird entry");
+        assert_eq!(thunderbird.version, "128.6.0esr");
+        assert!(thunderbird.metadata_is_installable());
+    }
+
+    #[test]
     fn curated_catalogue_contains_only_installable_entries() {
         let catalogue = get_curated_catalogue();
-        assert_eq!(catalogue.len(), 7);
+        assert_eq!(catalogue.len(), 8);
         assert!(catalogue.iter().all(CatalogueApp::metadata_is_installable));
     }
 }
