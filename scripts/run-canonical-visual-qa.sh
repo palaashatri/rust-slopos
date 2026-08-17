@@ -126,6 +126,18 @@ capture_screen "17_modal_shutdown_dialog_1280x800.png"
 xdotool key Escape
 sleep 0.3
 
+# 22. Modal Dialog (Restart)
+pkill -USR2 -x slopos-shell
+sleep 0.3
+xdotool key Up Up Return
+for _ in $(seq 1 40); do
+  if xdotool search --onlyvisible --name '^Restart$' >/dev/null 2>&1; then break; fi
+  sleep 0.1
+done
+capture_screen "22_modal_restart_dialog_1280x800.png"
+xdotool key Escape
+sleep 0.3
+
 # 18. Modal Dialog (Switch User)
 pkill -USR2 -x slopos-shell
 sleep 0.3
