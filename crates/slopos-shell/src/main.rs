@@ -6,6 +6,7 @@ mod dock;
 mod gmenu;
 mod launcher;
 mod notifications;
+mod shortcuts;
 mod topbar;
 
 use dock::Dock;
@@ -42,6 +43,7 @@ fn main() {
     install_launcher_signal_bridge(launcher.clone());
 
     let _topbar = TopBar::new(launcher.clone());
+    shortcuts::install_system_menu_shortcut();
     let _dock = Dock::new(launcher);
 
     if std::env::var_os("SLOPOS_QA_NO_WELCOME").is_none() {
