@@ -24,7 +24,6 @@
   <keyboard>
     <keybind key="A-Tab"><action name="NextWindow"><finalactions><action name="Focus"/><action name="Raise"/><action name="Unshade"/></finalactions></action></keybind>
     <keybind key="W-space"><action name="Execute"><command>pkill -USR1 -x slopos-shell</command></action></keybind>
-    <keybind key="C-F2"><action name="Execute"><command>pkill -USR2 -x slopos-shell</command></action></keybind>
     <keybind key="W-q"><action name="Close"/></keybind>
     <keybind key="W-m"><action name="Iconify"/></keybind>
     <keybind key="W-f"><action name="ToggleMaximize"/></keybind>
