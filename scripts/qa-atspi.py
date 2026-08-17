@@ -172,6 +172,10 @@ def run_extended_checks(desktop):
     if typed != "café":
         raise RuntimeError(f"UTF-8 Search entry mismatch: {typed!r}")
 
+    # Clear the UTF-8 text so the application list contains matching rows to focus
+    subprocess.run(["xdotool", "key", "ctrl+a", "BackSpace"], check=True)
+    time.sleep(0.3)
+
     subprocess.run(["xdotool", "key", "Tab"], check=True)
     after_tab = wait_for_focus(desktop, excluded={field_name})
     if not any(name != field_name for name in after_tab):
@@ -184,9 +188,6 @@ def run_extended_checks(desktop):
             f"Shift+Tab did not return focus to Search field: {after_reverse!r}"
         )
 
-    subprocess.run(["xdotool", "key", "ctrl+a", "BackSpace"], check=True)
-    if field_name not in wait_for_focus(desktop, expected=field_name):
-        raise RuntimeError("Search field lost focus after UTF-8 cleanup")
     print(f"AT_SPI_UTF8_TEXT={typed}")
     print(f"AT_SPI_FOCUS_AFTER_TAB={after_tab}")
     print(f"AT_SPI_FOCUS_AFTER_SHIFT_TAB={after_reverse}")

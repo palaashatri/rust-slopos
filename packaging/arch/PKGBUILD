@@ -17,6 +17,7 @@ makedepends=(cargo pkgconf rust git openssl)
 optdepends=('firefox: web browser' 'lightdm: graphical display manager')
 provides=('slopos-i')
 conflicts=('slopos-i')
+options=(!debug)
 source=('rust-slopos::git+https://github.com/palaashatri/rust-slopos.git#branch=pivot')
 sha256sums=('SKIP')
 

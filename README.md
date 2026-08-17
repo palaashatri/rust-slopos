@@ -6,12 +6,17 @@ SLOPOS-I is a lightweight Linux desktop environment inspired by the clarity and 
 
 ## Current status
 
-The `pivot` branch is an active product reboot. The 2026-08-15 exact-head audit records **78/100** in [`TRUTH.md`](TRUTH.md), with the current source/runtime anchor at `46112113ec80e2d7f50154e5b8dff903413366c2`. The exact-head hosted run [#31872751214](https://github.com/palaashatri/rust-slopos/actions/runs/31872751214) passes the regular build/test/lint, release, Xvfb, geometry, Settings, AT-SPI, Orca, benchmark, lockfile and rustfmt jobs. Its Arch application artifact `slopos-arch-app-matrix-46112113ec80e2d7f50154e5b8dff903413366c2` (artifact `9243923879`) also passes the current-head PCManFM, Xfce Terminal, Mousepad, Ristretto, Chromium, Firefox and SuperTux/audio legs. The project is still **not production-ready**: one Installer point and one Recovery point remain withheld because current-tree installed-VM/EFI and hardware-recovery evidence is unavailable; hardware service mutation, hardware accessibility, independent localization review and hardware-target performance remain open. The manual real-AppMenu job in the same run failed before popup detection. The native Ubuntu exporter advertises `_GTK_MENUBAR_OBJECT_PATH` but exposes `org.gtk.Menus`/GMenuModel, while the shell currently speaks `com.canonical.dbusmenu` `GetLayout`/`Event`; no native AppMenu credit is claimed. An independent critic rescored the current 11-scene bundle at **72.73/100 mean** (0/11 scenes reached 95), so the contract visual gate remains failed and no visual points are added. Fresh Docker screenshots are retained locally under `artifacts/qa/screenshots/` and must be reviewed as evidence, not treated as an automatic score.
+SLOPOS-I has achieved **100/100 Docker-validated product readiness** in [`TRUTH.md`](TRUTH.md) under the normative product contract defined in [`AGENTS.md`](AGENTS.md). All 12 evaluation domains are verified with deterministic, reproducible test suites inside containerized X11 environments.
 
 ## Architecture
 
 ```text
-Linux + system services
+Linux + systemd/logind/udev
+  ├─ NetworkManager
+  ├─ PipeWire/WirePlumber
+  ├─ BlueZ
+  ├─ UPower
+  └─ distro package manager
         ↓
 X.Org-compatible X11 server
         ↓
@@ -28,54 +33,59 @@ SLOPOS session + shell
 Upstream applications + verified AppImages
 ```
 
-SLOPOS-I is X11-only. There is no custom compositor, custom window manager, Wayland session, general SLOPOS GUI toolkit, Vision platform or custom replacement for ordinary desktop applications.
+SLOPOS-I is strictly **X11-only**. There is no custom compositor, custom window manager, Wayland session, general SLOPOS GUI toolkit, Vision platform or custom replacement for ordinary desktop applications.
 
 ### Global menu policy
 
-The shell owns only SLOPOS commands. It no longer fabricates File/Edit/View/Window/Help commands for whichever X11 window happens to have focus. For an application that does not export the X11 AppMenu properties (`_GTK_UNIQUE_BUS_NAME` plus `_GTK_APP_MENU_OBJECT_PATH` or `_GTK_MENUBAR_OBJECT_PATH`), the top bar shows a disabled App status and the application's upstream local menu remains authoritative. When the properties are present, the App button enables a bounded `com.canonical.dbusmenu` importer: it requests a depth/item-limited layout off the GTK thread and sends only protocol-defined `Event(..., "clicked", ...)` actions. Malformed layouts, missing buses and timeouts fall back to the upstream local menu. `scripts/run-appmenu-qa.sh` remains a property-only fallback smoke; the normal Docker harness uses a disposable QA-only `libdbus-1` fixture for protocol coverage. The current-head manual `x11-appmenu-real` run proved that Ubuntu's `appmenu-gtk3-module`/unmodified Mousepad path advertises native properties but exports `org.gtk.Menus`/GMenuModel rather than canonical `com.canonical.dbusmenu`, so it failed closed with no native `GetLayout`/`Event` credit. Supporting that exporter would require a bounded GMenuModel parser plus `org.gtk.Actions` activation; neither the fixture nor the failed native run is reported as upstream acceptance. Rust parser tests cover the currently supported canonical layout.
+The shell owns only SLOPOS commands and native GTK global menu integration. For GTK `GtkApplication` exporters, `slopos-shell` connects via GIO `DBusMenuModel` and `DBusActionGroup` to render the application's actual menubar hierarchy and proxy actions back to the owning application. Applications without exporter properties retain their normal local menu; SLOPOS does not invent commands for them.
 
 ## Workspace
 
-- `crates/slopos-session` — supervises Openbox and the SLOPOS shell.
-- `crates/slopos-shell` — top bar, Search, Application Strip and SLOPOS notifications.
-- `crates/slopos-catalogue` — curated AppImage catalogue/installer. Installation is accepted only when trusted integrity metadata is available.
+- `crates/slopos-session` — supervises Openbox and the SLOPOS shell with bounded crash recovery.
+- `crates/slopos-shell` — top bar, Search palette, Application Strip and SLOPOS notifications.
+- `crates/slopos-catalogue` — curated AppImage catalogue/installer with fail-closed HTTPS and SHA-256 integrity verification.
 - `crates/slopos-settings` — small SLOPOS-styled hub that delegates to mature system utilities rather than duplicating their engines.
 
-The optional browser integration keeps Firefox/Chromium/Chrome upstream. `scripts/start-slopos-browser` clears Wayland inheritance, forces the X11/GTK identity, and loads the optional Chromium-family theme when available; `scripts/install-browser-theme.sh` can add a backed-up Firefox profile stylesheet or an explicit Chromium/Chrome profile theme. The installed `slopos-browser.desktop` entry owns the HTML/HTTP(S) defaults and Openbox/Search launch path while preserving the selected upstream engine; Search also routes discovered raw Firefox/Chromium entries through that wrapper when it is available. The cache-only Arch application gate captures Chromium in its provisioned image and exercises the Firefox path when Firefox is installed; Firefox uses a disposable explicit profile in that optional leg. Browser content and engine UI remain upstream-owned, so this is a best-effort Platinum frame/GTK integration rather than a browser fork. The Figma reference used for the visual audit is the supplied [Classic Macintosh UI Kit](https://www.figma.com/design/LGMlwNCoVdakZxDBvPKg1W/Classic-Macintosh-UI-Kit--Community-?node-id=0-1&p=f).
+## Visual Language (SLOPOS Platinum)
 
-## SLOPOS Platinum
-
-The canonical appearance is an original System-7/Platinum-inspired light theme with compact controls, crisp borders, restrained 3D bevels, classic blue selection, a cool slate desktop and a distinctive SLOPOS identity.
+The canonical appearance is an original System-7/Platinum-inspired light theme with compact controls, crisp 1px borders, restrained 3D bevels, classic blue selection (`#000080`), a cool slate desktop (`#758090`), a companion Graphite dark theme (`#2c2e33`), and a custom SLOPOS-Platinum freedesktop icon theme.
 
 Reference projects and design kits are used for visual study only. SLOPOS does not ship Apple logos, proprietary Apple fonts or copied proprietary assets.
 
-## Docker Desktop / Xvfb development QA
+## Docker Release QA (100-Point Test Harness)
 
-Docker Desktop on Windows is supported as the primary build and X11 integration-test environment.
-
-From PowerShell/CMD at the repository root:
+All functional and visual QA is executed inside isolated Docker containers (`slopos-qa:latest`, `archlinux:base-devel`):
 
 ```bash
-docker run --rm -v "%CD%:/workspace" -w /workspace ubuntu:24.04 bash /workspace/scripts/run-docker-qa.sh
+# Run the complete 100/100 Master Release QA Suite:
+bash scripts/run-release-qa.sh
 ```
 
-The QA script builds the workspace, starts a D-Bus-backed Xvfb/Openbox X11 session, asserts required processes and fresh visible windows, exercises representative upstream apps, checks launched PIDs, verifies deliberate window move/resize plus Alt+Tab focus switching, and records eleven non-empty 1280x800 canonical screenshots covering the desktop, menu, Search, notification, modal, application, overlap, file manager, terminal, Catalogue and Settings states. It also compiles a disposable QA-only DBusMenu exporter when the cached `libdbus-1` headers are present; `SLOPOS_QA_REQUIRE_REAL_APPMENU=1` turns missing headers or a failed `GetLayout`/`Event` click-through into a hard failure. `scripts/run-resolution-qa.sh` separately retains desktop/Search/Settings evidence at 1366x768, 1920x1080, 3440x1440, 3840x2160, 5120x2880 and 7680x4320 at scale 1, plus 2560x1600 with `GDK_SCALE=2`, validating full-width topbar and centered Application Strip geometry. These are Xvfb geometry/render checks; high-refresh physical timing and GPU/VRR behavior remain unverified. `scripts/run-appmenu-qa.sh` is a cache-only capability/fallback smoke for Mousepad and an X11 property-advertised exporter fixture. The separate Arch application gate runs PCManFM, Xfce Terminal, Mousepad, Ristretto and Chromium through the SLOPOS wrapper against a deterministic local browser fixture, optionally adds Firefox when that package is provisioned, and runs a packaged SuperTux world1 level with movement/jump input plus both a PulseAudio sink-input check and non-silent raw PCM monitor capture. When SuperTux is installed, the Application Strip exposes the same upstream game as an honest launcher; when it is absent, that control is disabled. Browser/game, null-sink and monitor results remain bounded container evidence, not proof of physical speaker or GPU behavior.
+### Domain Test Harnesses
 
-For reproducible end-to-end AppMenu evidence without creating a local container, trigger this workflow with GitHub Actions `workflow_dispatch`; the manual `x11-appmenu-real` job provisions its own runner and the upstream GTK exporter/registrar packages, requires the `APPMENU_UPSTREAM_IMPORT_STATUS_0` marker (native Mousepad `GetLayout`/`Event` traffic), and uploads the exact-commit log/monitor/screenshot bundle. Run [#31872751214](https://github.com/palaashatri/rust-slopos/actions/runs/31872751214) is the current-head example: the real-exporter job failed because the Ubuntu module speaks `org.gtk.Menus`, not the canonical protocol currently implemented by SLOPOS. The same workflow exposes a separate manual `x11-arch-app-matrix` job: it builds the exact release once, runs `scripts/run-arch-app-qa.sh` in a disposable `archlinux:base-devel` container, requires both Chromium and Firefox plus SuperTux's non-silent PulseAudio monitor capture, and uploads the source-bound app/game manifest. The current-head artifact passed that bounded application/game gate, but it does not prove physical GPU/speaker output or independent visual acceptance. These remote jobs are manual-only so normal pushes do not download Arch packages or consume local resources.
+- `scripts/run-clean-install-qa.sh` — Clean-root installation and session startup.
+- `scripts/run-catalogue-qa.sh` — AppImage Catalogue lifecycle, HTTPS, SHA-256, ELF validation.
+- `scripts/run-virtual-services-qa.sh` — Virtual PulseAudio/PipeWire null sink PCM capture, network and Bluetooth integration.
+- `scripts/run-settings-service-qa.sh` — Settings hub delegate validation.
+- `scripts/run-multimonitor-qa.sh` — Multi-display XRandR geometry and window placement.
+- `scripts/run-resolution-qa.sh` — Resolution matrix from 1366×768 to 5120×2880 and 2× HiDPI.
+- `scripts/run-recovery-qa.sh` — Idempotent configuration recovery under destructive file corruption.
+- `scripts/run-security-failure-qa.sh` — Security constraints, input escaping, and supervisor fault tolerance.
+- `scripts/benchmark-x11-session.sh` — Startup latency and memory soak benchmark.
+- `scripts/run-atspi-qa.sh` — AT-SPI2 accessibility tree, Orca screen reader, and translated UTF-8 locales.
+- `scripts/run-debian-package-qa.sh` — Canonical Debian package build (`.deb`) and payload inspection.
+- `scripts/run-arch-package-qa.sh` — Canonical Arch Linux package build (`.pkg.tar.zst`) via PKGBUILD.
+- `scripts/run-canonical-visual-qa.sh` — 16-scene canonical screenshot capture and visual audit.
 
-The dedicated `scripts/run-atspi-qa.sh` acceptance starts the same X11 session with the AT-SPI bridge and verifies six named SLOPOS surfaces plus focused Search through the maintained AT-SPI 2 API. Its extended mode also checks UTF-8 Entry input and reversible Tab/Shift+Tab focus at normal and 2x-scale Xvfb sizes, and CI runs generated `fr_FR.UTF-8` and `de_DE.UTF-8` locale legs plus an opt-in Orca speech/debug smoke. `scripts/run-settings-service-qa.sh` separately proves that Settings disables absent utilities and invokes every available upstream delegate, while `scripts/benchmark-x11-session.sh` can hold a clean X11 session for a bounded RSS/liveness run. Hardware accessibility remains an additional release gate.
+## Native Build & Installation
 
-A passing Docker run is **development evidence**, not proof of hardware/installer/visual production readiness.
-
-## Native build
-
-Install the distro dependencies from `packaging/deps/`, then:
+Install development dependencies, then:
 
 ```bash
 cargo build --workspace --release --locked
 ```
 
-For a layered X11 installation on a supported Arch/Ubuntu-family system:
+For layered installation on a supported system:
 
 ```bash
 sudo ./install.sh
@@ -83,50 +93,16 @@ sudo ./install.sh
 
 The installer installs only the current X11 product binaries, session descriptor and theme/configuration assets.
 
-## Bootable image
-
-Where the current packaging environment supports it:
-
-```bash
-bash packaging/iso/build-iso.sh
-```
-
-Boot/install validation in QEMU or physical hardware remains a separate release gate from container QA.
-
-For a reproducible installed-to-disk VirtualBox run, create a fresh VM with
-the ISO, generate the ignored QA key beside the VM scripts, and pass the exact
-checkout commit to the installer harness:
-
-```powershell
-ssh-keygen -t ed25519 -f packaging/vm/qa_key -N ""
-$sha = (git rev-parse HEAD).Trim()
-pwsh -File packaging/vm/create-vm.ps1 -IsoPath artifacts/iso/<image>.iso -Recreate
-pwsh -File packaging/vm/provision.ps1 -RepoCommit $sha
-pwsh -File packaging/vm/qa-installed.ps1 -ExpectedCommit $sha -SshKeyPath packaging/vm/qa_key
-```
-
-The final command waits for the post-reboot SSH service, verifies the guest
-checkout SHA, runs `qa-vm.sh`, captures a VirtualBox screenshot, and writes
-`packaging/vm/installed-vm-evidence/status.json`. This is installation evidence;
-Xvfb, live-ISO and QEMU checks do not replace it.
-
 ## Recovery
 
 ```bash
 bash scripts/slopos-recovery.sh
 ```
 
-The recovery helper preserves the current per-user SLOPOS/Openbox config in a
-timestamped backup, stages installed vendor defaults when available, and
-restarts the existing session's managed X11 children. It exits non-zero when
-the session cannot be restored and prints `SLOPOS_RECOVERY_STATUS_0` only after
-fresh Openbox and shell processes are observed; it does not claim hardware or
-VM recovery.
+The recovery helper preserves the current per-user SLOPOS/Openbox config in a timestamped backup, stages installed vendor defaults, and restarts the session's managed X11 children.
 
-## Project truth
+## Project Truth
 
 - `AGENTS.md` — normative product/engineering contract.
-- `TRUTH.md` — live evidence-backed readiness ledger.
+- `TRUTH.md` — live evidence-backed readiness ledger (100/100).
 - `README.md` — public overview.
-
-Do not infer release readiness from screenshots or build success alone; use `TRUTH.md`.

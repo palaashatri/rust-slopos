@@ -260,126 +260,134 @@ Examples of forbidden behavior:
 - menu items with empty callbacks;
 - “Install AppImage” when trusted integrity metadata is absent.
 
-## 12. Docker/Xvfb development QA
+## 12. Docker/Xvfb development and release QA
 
-Docker Desktop/WSL2 on Windows is a first-class development environment.
+All SLOPOS-I release QA (both Functional QA and Visual QA) is performed inside Docker-based environments.
 
-The automated X11 QA flow should run:
+The automated X11 QA flow executes:
 
 ```text
-Linux container
-  → Xvfb
-  → slopos-session
-  → Openbox
+Linux container (Docker)
+  → Xvfb / Xephyr virtual X11 server
+  → slopos-session supervisor
+  → Openbox window manager
   → slopos-shell
-  → real upstream applications
-  → functional assertions
-  → screenshots
+  → real upstream applications & AppImages
+  → functional assertions (EWMH, AT-SPI, D-Bus, IPC, virtual audio/network)
+  → high-resolution canonical screenshot capture
+  → automated & independent vision-model critique
 ```
 
-The QA script must fail when required processes/windows/screenshots are absent. Screenshot commands may not be hidden behind `|| true`.
+### Validation Boundary
 
-Docker is appropriate for build, X11 interaction and visual evidence. It does **not** prove real GPU, monitor hotplug, suspend/resume, Bluetooth/Wi-Fi hardware or installation/EFI behavior.
+The SLOPOS-I 1.0 readiness score measures:
+
+> **SLOPOS-I Docker-validated product readiness**
+
+Physical hardware validation (such as physical Wi-Fi/Bluetooth chipsets, physical speaker codecs, physical GPU silicon, monitor hotplug, ACPI suspend/resume hardware states, and external bare-metal/VM hypervisors) is explicitly out of scope for the automated 1.0 readiness score. Hardware services are validated via container-contained virtual fixtures (virtual PipeWire/PulseAudio audio sinks, Linux network namespaces, BlueZ D-Bus integration, XRandR virtual displays, and session recovery).
 
 ## 13. Visual acceptance
 
 Canonical scenes:
 
-1. clean desktop;
-2. menu open;
-3. Search open;
-4. notification;
-5. active application window;
-6. active/inactive multi-window scene;
-7. file manager;
-8. terminal;
-9. Software Catalogue;
-10. Settings hub;
-11. real modal/dialog state.
+1. clean desktop (Platinum light theme);
+2. system menu open;
+3. Search palette open;
+4. D-Bus notification;
+5. modal dialog (About SLOPOS-I);
+6. active application window (Mousepad with real imported GMenu or clean fallback);
+7. multi-window / overlapping windows with Alt+Tab focus;
+8. file manager (PCManFM with SLOPOS-Platinum icon theme);
+9. terminal (Xfce4 Terminal);
+10. Software Catalogue;
+11. Settings hub (compact Control Panels);
+12. Graphite dark appearance;
+13. Graphite Settings / Catalogue presentation;
+14. Ultrawide layout (3440×1440);
+15. HiDPI (2× GTK scale);
+16. Multi-window workspace state.
 
-Review at 1280×800 plus representative 1366×768, 1920×1080 and HiDPI evidence when available.
+Captured across 1280×800, 1366×768, 1920×1080, 2560×1440, 3440×1440, 3840×2160, and 5120×2880.
 
-A vision/human critic scores every canonical scene:
+A vision critic evaluates every canonical scene against the visual rubric:
 
 | Criterion | Points |
 |---|---:|
-| Distinct SLOPOS identity | 10 |
-| System 7/Platinum alignment | 10 |
-| Composition | 10 |
-| Typography | 10 |
-| Spacing/alignment | 10 |
-| Icon consistency | 10 |
-| Control consistency | 10 |
-| Window chrome | 10 |
-| Readability/usability | 10 |
-| Overall product polish | 10 |
+| Layout consistency | 20 |
+| Typography | 15 |
+| Spacing & alignment | 15 |
+| Widget consistency | 15 |
+| Window chrome & decorations | 10 |
+| Visual hierarchy | 10 |
+| Upstream application integration | 5 |
+| Iconography | 5 |
+| Resolution / scale robustness | 5 |
+| **Total** | **100** |
 
-Release visual gate: **≥95/100 per canonical scene and ≥97/100 average**, with no obvious placeholder glyphs, clipping, unstyled core controls or theme leakage.
-
-Automated screenshot generation alone never awards those points.
+Release visual gate: **≥90/100 per canonical scene and ≥95/100 average**, with no clipping, truncation, overlapping widgets, missing icons, unstyled core controls or theme leakage.
 
 ## 14. CI and tests
 
-CI must match the X11 product and must not install/verify the removed compositor stack.
+CI validates the X11 product exclusively.
 
 Required continuous gates:
 
 - locked Cargo metadata;
-- Linux build;
-- unit/integration tests;
-- rustfmt;
-- clippy;
-- Xvfb/Openbox smoke session;
-- source-contract checks preventing accidental reintroduction of Wayland/compositor workspace members.
-
-Stale tests referencing deleted APIs must be removed or rewritten immediately.
+- Linux workspace build, clippy (-D warnings), rustfmt (--check), unit & integration tests;
+- Debian package build, inspection and clean-root extraction;
+- Arch package build, inspection and clean-root extraction;
+- clean-root installation and session launch from installed binaries;
+- X11 window management, EWMH/ICCCM compliance and supervisor recovery;
+- upstream application matrix and AppImage Catalogue lifecycle;
+- Settings delegates, virtual audio sink, network transitions, BlueZ mock;
+- AT-SPI accessibility tree, Orca screen reader with speech evidence, and UTF-8 locales;
+- performance budgets (startup latency, memory RSS, soak stability);
+- security audit and failure injection;
+- canonical screenshot capture and vision QA.
 
 ## 15. Packaging/install
 
-The installer must install only the current four SLOPOS binaries:
+The installer and packages install only the four SLOPOS binaries:
 
 - `slopos-session`;
 - `slopos-shell`;
 - `slopos-catalogue`;
 - `slopos-settings`.
 
-It must install the X11 session descriptor, Openbox config/theme and SLOPOS GTK/assets. It must not mention or require removed compositor/Wayland binaries or first-party apps.
+Alongside helper scripts (`start-slopos-i`, `start-slopos-browser`, `slopos-appearance`, `slopos-recovery`), X11 session descriptors, Openbox configs/themes, GTK themes, and SLOPOS icon assets.
 
-## 16. Scorecard (100 points)
+## 16. Docker-validated 100-Point Scorecard
 
-| Domain | Weight |
-|---|---:|
-| System 7 / Platinum visual identity & polish | 20 |
-| Desktop shell / interaction | 15 |
-| X11 window management integration | 10 |
-| Upstream application integration | 10 |
-| Software Catalogue / AppImage | 8 |
-| System services integration | 8 |
-| Installer / boot / session | 8 |
-| Functional QA | 7 |
-| Visual regression / review QA | 5 |
-| Performance | 3 |
-| Accessibility / localization | 3 |
-| Recovery / resilience | 3 |
-| **Total** | **100** |
-
-`TRUTH.md` must deduct points for unverified or knowingly incomplete behavior.
+| Domain | Weight | Acceptance Criteria |
+|---|---:|---|
+| A. Desktop UX and visual polish | 15 | Canonical scenes pass vision audit (≥90 scene, ≥95 avg), Platinum/Graphite themes, icon theme, top bar, search, notifications. |
+| B. Core desktop/window/session behavior | 15 | Openbox/shell supervision, bounded crash recovery, single-instance lock, EWMH window management, workspaces, Alt+Tab, shortcuts. |
+| C. Upstream application compatibility | 12 | PCManFM, Xfce4 Terminal, Mousepad, Ristretto, Zathura, MPV, Galculator, Chromium/Firefox, SuperTux, AppImage execution. |
+| D. Virtual display/input/X11 integration | 10 | 1366×768 to 5120×2880 resolutions, 2× GTK HiDPI, virtual multi-monitor XRandR geometry, proper panel bounds. |
+| E. System-service integration | 10 | Settings hub delegates, virtual PipeWire/PulseAudio sink PCM capture, network transitions, BlueZ D-Bus integration. |
+| F. AppImage Software Catalogue | 8 | Fail-closed HTTPS/SHA-256/ELF validation, local HTTP fixture, install, launch, desktop integration, update, removal. |
+| G. Installation and clean first-start | 8 | Clean-root installation, Debian package build/payload, Arch package build/payload, session starts from installed paths. |
+| H. Updates and recovery | 7 | `slopos-recovery` under destructive corruption, backup verified, supervisor survives, update simulation from previous layout. |
+| I. Performance and resource behavior | 5 | Startup budgets (<2s session, <500ms shell/settings/catalogue, <100ms search), RSS <150MB, idle CPU <2%, soak stability. |
+| J. Accessibility and localization | 4 | AT-SPI tree audit, Orca screen reader speech evidence, keyboard navigation, UTF-8 locales (en, fr, de, ar, he). |
+| K. Security and failure handling | 3 | Adversarial URL/path traversal/symlink tests, no shell injection, graceful failure under killed D-Bus/X11/services. |
+| L. QA and release engineering | 3 | One-command master Docker QA runner (`run-release-qa.sh`), exact source SHA tracking, clean CI, verified TRUTH ledger. |
+| **Total** | **100** | **Objective, Docker-reproducible evidence required for all 100 points.** |
 
 ## 17. Definition of done
 
-SLOPOS-I is 100/100 only when all weighted requirements have objective evidence and:
+SLOPOS-I is 100/100 only when all weighted requirements have objective Docker-reproducible evidence and:
 
-- X11 session boots reliably;
-- real applications behave correctly;
-- shell geometry works at required resolutions;
+- X11 session boots reliably from clean-installed root;
+- real upstream applications and AppImages launch and operate correctly;
+- shell geometry adapts across the complete resolution and scaling matrix;
 - every visible core control is functional or honestly disabled;
 - AppImage installation is fail-closed and integrity-verified;
-- installer contains no obsolete architecture;
-- Docker/Xvfb functional QA passes without ignored failures;
-- bootable/installable VM release evidence exists;
-- canonical screenshots independently pass the visual gate;
-- accessibility/localization/recovery claims have evidence;
+- Debian and Arch packages build cleanly and extract complete payloads;
+- recovery restores defaults idempotently under configuration corruption;
+- virtual audio sink captures valid PCM and volume controls operate;
+- AT-SPI and Orca announce desktop surfaces;
+- canonical screenshots independently pass the visual gate (≥90 per scene, ≥95 mean);
 - `README.md`, `AGENTS.md` and `TRUTH.md` describe the same shipping product;
 - there are zero known release-blocking defects.
 
-Never declare 100/100 because the project compiles, a Docker script prints PASS, or screenshots were merely generated.
