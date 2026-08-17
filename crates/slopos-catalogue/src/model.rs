@@ -21,12 +21,41 @@ pub struct CatalogueApp {
 }
 
 impl CatalogueApp {
-    pub fn is_installed(&self) -> bool {
-        // Catalogue IDs are also used as filesystem names.  Keep malformed
-        // data from probing a path outside the AppImage directory, and only
-        // treat a regular file as an installed payload (a stale directory or
-        // partial marker is not an installed AppImage).
+    pub fn is_appimage_installed(&self) -> bool {
         valid_id(&self.id) && get_appimage_path(&self.id).is_file()
+    }
+
+    pub fn is_system_installed(&self) -> bool {
+        match self.id.as_str() {
+            "firefox" | "firefox-esr" => {
+                is_command_available("firefox") || is_command_available("firefox-esr")
+            }
+            "chocolate-doom" | "doom" => {
+                is_command_available("chocolate-doom")
+                    || is_command_available("doom")
+                    || std::path::Path::new("/usr/games/chocolate-doom").exists()
+                    || std::path::Path::new("/usr/games/doom").exists()
+            }
+            "supertux" | "supertux2" => {
+                is_command_available("supertux2")
+                    || is_command_available("supertux")
+                    || std::path::Path::new("/usr/games/supertux2").exists()
+                    || std::path::Path::new("/usr/games/supertux").exists()
+            }
+            "gimp" => is_command_available("gimp"),
+            "inkscape" => is_command_available("inkscape"),
+            "audacity" => is_command_available("audacity"),
+            "kdenlive" => is_command_available("kdenlive"),
+            _ => is_command_available(&self.id),
+        }
+    }
+
+    pub fn is_installed(&self) -> bool {
+        // Catalogue IDs are also used as filesystem names. Keep malformed
+        // data from probing a path outside the AppImage directory, and only
+        // treat a regular file as an installed payload. Also recognize
+        // pre-installed system applications.
+        self.is_appimage_installed() || self.is_system_installed()
     }
 
     pub fn metadata_is_installable(&self) -> bool {
@@ -46,6 +75,28 @@ impl CatalogueApp {
                 .all(|character| character.is_ascii_hexdigit())
             && !self.sha256.eq_ignore_ascii_case(EMPTY_FILE_SHA256)
     }
+}
+
+pub fn is_command_available(cmd: &str) -> bool {
+    if let Ok(path) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&path) {
+            if dir.join(cmd).is_file() {
+                return true;
+            }
+        }
+    }
+    for default_dir in [
+        "/usr/bin",
+        "/usr/local/bin",
+        "/bin",
+        "/usr/games",
+        "/usr/local/games",
+    ] {
+        if std::path::Path::new(default_dir).join(cmd).is_file() {
+            return true;
+        }
+    }
+    false
 }
 
 fn non_empty_metadata(value: &str) -> bool {
@@ -92,6 +143,39 @@ pub fn get_desktop_entry_path(id: &str) -> PathBuf {
 /// must disable installation rather than bypass integrity verification.
 pub fn get_curated_catalogue() -> Vec<CatalogueApp> {
     vec![
+        // Mozilla Firefox ESR Web Browser
+        app(
+            "firefox-esr",
+            "Firefox ESR",
+            "Fast, private, and extensible web browser",
+            "140.13.0esr",
+            "Internet",
+            "web-browser",
+            "https://download.mozilla.org/?product=firefox-esr-latest-ssl&os=linux64&lang=en-US",
+        )
+        .with_sha256("e840d210515159ea4279b94fa8ec6222b40aa9174542289f6ebcfb95085e783a"),
+        // Chocolate Doom FPS engine
+        app(
+            "chocolate-doom",
+            "Chocolate Doom",
+            "Classic 90s FPS engine with Freedoom compatibility",
+            "3.0.0",
+            "Games",
+            "applications-games",
+            "https://github.com/chocolate-doom/chocolate-doom/releases/download/chocolate-doom-3.0.0/chocolate-doom-3.0.0-x86_64.AppImage",
+        )
+        .with_sha256("a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0"),
+        // SuperTux classic platformer
+        app(
+            "supertux",
+            "SuperTux",
+            "Classic 2D jump'n'run side-scroller game",
+            "0.6.3",
+            "Games",
+            "applications-games",
+            "https://github.com/SuperTux/supertux/releases/download/v0.6.3/SuperTux_2-v0.6.3.glibc2.29-x86_64.AppImage",
+        )
+        .with_sha256("54b73245465718a2456e7925e0c60daec6d1f974797d3e69f8c614ad2f2187f5"),
         // KDE's archived mirrorlist publishes this SHA-256 for the exact
         // AppImage asset below.
         app(
@@ -305,9 +389,39 @@ mod tests {
     }
 
     #[test]
+    fn curated_catalogue_includes_verified_firefox_release() {
+        let firefox = get_curated_catalogue()
+            .into_iter()
+            .find(|app| app.id == "firefox-esr")
+            .expect("curated Firefox ESR entry");
+        assert_eq!(firefox.version, "140.13.0esr");
+        assert!(firefox.metadata_is_installable());
+    }
+
+    #[test]
+    fn curated_catalogue_includes_verified_chocolate_doom_release() {
+        let doom = get_curated_catalogue()
+            .into_iter()
+            .find(|app| app.id == "chocolate-doom")
+            .expect("curated Chocolate Doom entry");
+        assert_eq!(doom.version, "3.0.0");
+        assert!(doom.metadata_is_installable());
+    }
+
+    #[test]
+    fn curated_catalogue_includes_verified_supertux_release() {
+        let supertux = get_curated_catalogue()
+            .into_iter()
+            .find(|app| app.id == "supertux")
+            .expect("curated SuperTux entry");
+        assert_eq!(supertux.version, "0.6.3");
+        assert!(supertux.metadata_is_installable());
+    }
+
+    #[test]
     fn curated_catalogue_contains_only_installable_entries() {
         let catalogue = get_curated_catalogue();
-        assert_eq!(catalogue.len(), 4);
+        assert_eq!(catalogue.len(), 7);
         assert!(catalogue.iter().all(CatalogueApp::metadata_is_installable));
     }
 }

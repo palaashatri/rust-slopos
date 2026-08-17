@@ -138,8 +138,10 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
         }
         content.pack_start(&text, true, true, 0);
 
-        let button = if app.is_installed() {
+        let button = if app.is_appimage_installed() {
             Button::with_label("Remove")
+        } else if app.is_system_installed() {
+            Button::with_label("Launch")
         } else if app.metadata_is_installable() {
             Button::with_label("Install")
         } else {
@@ -148,8 +150,10 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
             button
         };
         button.set_valign(Align::Center);
-        let initial_button_name = if app.is_installed() {
+        let initial_button_name = if app.is_appimage_installed() {
             format!("Remove {}", app.name)
+        } else if app.is_system_installed() {
+            format!("Launch {}", app.name)
         } else if app.metadata_is_installable() {
             format!("Install {}", app.name)
         } else {
@@ -163,24 +167,51 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
             let state_button = button.clone();
             button.connect_clicked(move |_| {
                 state_button.set_sensitive(false);
-                let operation = if app.is_installed() {
-                    uninstall_appimage(&app).map(|_| format!("Removed {}", app.name))
-                } else {
-                    install_appimage(&app).map(|_| format!("Installed {}", app.name))
-                };
-
-                match operation {
-                    Ok(message) => {
-                        status.set_text(&message);
-                        if app.is_installed() {
-                            state_button.set_label("Remove");
-                            set_accessible_name(&state_button, &format!("Remove {}", app.name));
-                        } else {
+                if app.is_appimage_installed() {
+                    let operation =
+                        uninstall_appimage(&app).map(|_| format!("Removed {}", app.name));
+                    match operation {
+                        Ok(message) => {
+                            status.set_text(&message);
                             state_button.set_label("Install");
                             set_accessible_name(&state_button, &format!("Install {}", app.name));
                         }
+                        Err(error) => status.set_text(&format!("Error: {error}")),
                     }
-                    Err(error) => status.set_text(&format!("Error: {error}")),
+                } else if app.is_system_installed() {
+                    let launch_cmd = match app.id.as_str() {
+                        "firefox" | "firefox-esr" => "start-slopos-browser",
+                        "chocolate-doom" | "doom" => {
+                            if std::path::Path::new("/usr/games/chocolate-doom").exists() {
+                                "/usr/games/chocolate-doom"
+                            } else {
+                                "chocolate-doom"
+                            }
+                        }
+                        "supertux" | "supertux2" => {
+                            if std::path::Path::new("/usr/games/supertux2").exists() {
+                                "/usr/games/supertux2"
+                            } else {
+                                "supertux2"
+                            }
+                        }
+                        other => other,
+                    };
+                    match std::process::Command::new(launch_cmd).spawn() {
+                        Ok(_) => status.set_text(&format!("Launched {}", app.name)),
+                        Err(err) => status.set_text(&format!("Launch failed: {err}")),
+                    }
+                } else {
+                    let operation =
+                        install_appimage(&app).map(|_| format!("Installed {}", app.name));
+                    match operation {
+                        Ok(message) => {
+                            status.set_text(&message);
+                            state_button.set_label("Remove");
+                            set_accessible_name(&state_button, &format!("Remove {}", app.name));
+                        }
+                        Err(error) => status.set_text(&format!("Error: {error}")),
+                    }
                 }
                 state_button.set_sensitive(true);
             });

@@ -113,7 +113,8 @@ Mature upstream applications + verified AppImages
   - **Power**: Launches `xfce4-power-manager-settings`.
   - **GTK Theme**: Launches `lxappearance`.
   - **Keyboard & Mouse**: Launches `lxinput`.
-- **AppImage Software Catalogue (`slopos-catalogue`)**: Fail-closed AppImage software installer with:
+- **AppImage Software Catalogue (`slopos-catalogue`)**: Fail-closed application catalogue & installer featuring curated productivity and gaming software (Firefox ESR, Chocolate Doom, SuperTux, Kdenlive, Inkscape, GIMP, Audacity) with:
+  - Seamless launching of pre-installed system packages and AppImages directly from the catalogue.
   - Real HTTPS downloads with non-placeholder SHA-256 checksum verification.
   - Executable ELF header inspection and atomic `.part` download staging.
   - Automatic `~/.local/share/applications/` desktop launcher registration and clean uninstallation.
