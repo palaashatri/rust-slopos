@@ -5,31 +5,34 @@ min_width = 200
 min_height = 100
 corner_radius = 0
 
+[menubar]
+height = 26
+
 [button]
-height = 24
-min_width = 60
+height = 22
+min_width = 56
 corner_radius = 0
 
 [menu]
-item_height = 22
-min_width = 180
+item_height = 20
+min_width = 170
 max_width = 400
 
 [dock]
-icon_size = 48
-height = 64
-padding = 8
-item_spacing = 4
+icon_size = 32
+height = 54
+padding = 6
+item_spacing = 3
 
 [scrollbar]
-width = 12
+width = 14
 min_thumb_size = 24
 
 [toolbar]
-height = 32
+height = 28
 
 [spacing]
-small = 4
-medium = 8
-large = 16
-xlarge = 24
+small = 3
+medium = 7
+large = 12
+xlarge = 18

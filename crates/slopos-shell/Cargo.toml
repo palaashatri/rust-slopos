@@ -3,45 +3,25 @@ name = "slopos-shell"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+description = "SLOPOS-I X11 Desktop Shell"
 
 [[bin]]
 name = "slopos-shell"
 path = "src/main.rs"
 
-[[bin]]
-name = "slopos-lock"
-path = "src/bin/slopos-lock.rs"
-
 [dependencies]
-slopos-kit = { path = "../slopos-kit" }
-slopos-render = { path = "../slopos-render" }
-slopos-bus = { path = "../slopos-bus" }
-slopos-sdk = { path = "../slopos-sdk" }
-winit = "0.30"
+gtk = { workspace = true }
+gdk = { workspace = true }
+glib = { workspace = true }
+gio = { workspace = true }
+gdk-pixbuf = { workspace = true }
+pango = { workspace = true }
+x11rb = { workspace = true }
 serde = { workspace = true }
-
 serde_json = { workspace = true }
-image = { workspace = true }
-toml = { workspace = true }
 tokio = { workspace = true }
-thiserror = { workspace = true }
 log = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-parking_lot = { workspace = true }
-uuid = { workspace = true }
-anyhow = "1"
-libc = { workspace = true }
-futures = { workspace = true }
-
-# NetworkManager / UPower D-Bus clients (Linux only; host tests use Unavailable fallbacks).
-# Wayland layer-shell + foreign-toplevel-list clients for protocol-backed chrome / task list.
-[target.'cfg(target_os = "linux")'.dependencies]
+env_logger = { workspace = true }
 zbus = { workspace = true }
-wayland-client = { workspace = true }
-wayland-protocols = { workspace = true, features = ["client", "staging"] }
-wayland-protocols-wlr = { version = "0.3", features = ["client"] }
-wayland-backend = "0.3"
-smithay-client-toolkit = "0.19"
-calloop = "0.13"
-calloop-wayland-source = "0.3"
+walkdir = { workspace = true }
+libc = { workspace = true }

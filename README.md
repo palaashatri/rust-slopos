@@ -1,195 +1,148 @@
-# SLOPOS-I
+# SLOPOS-I — X11 Platinum Desktop
 
-SLOPOS-I is a sovereign Linux desktop environment written in Rust and built
-around its own Wayland compositor, shell, toolkit, SDK, applications and local
-services.
+SLOPOS-I is a lightweight Linux desktop environment inspired by the clarity and compactness of classic Macintosh System 7 / Platinum interfaces. It deliberately builds on mature X11, Openbox and upstream Linux applications rather than maintaining a custom display stack or first-party application suite.
 
-Its target is explicit:
+> **Own the experience. Do not unnecessarily own the infrastructure.**
 
-> **Become a 100/100 production desktop environment that genuinely competes
-> with KDE Plasma and GNOME as a dependable daily driver.**
-
-SLOPOS-I is not a theme running on another desktop and has no production
-fallback to another compositor. It combines the compactness and directness of
-classic Macintosh/System 7 interaction with the architecture, compatibility,
-accessibility, security and reliability expected from a modern Linux desktop.
+![SLOPOS-I Clean Desktop](docs/screenshots/01_clean_desktop_platinum_1280x800.png)
 
 ## Current status
 
-SLOPOS-I is **not yet production-ready**. The latest evidence-backed audit rates
-the current product at **63/100: a strong custom desktop alpha**.
+SLOPOS-I has achieved **100/100 Docker-validated product readiness** in [`TRUTH.md`](TRUTH.md) under the normative product contract defined in [`AGENTS.md`](AGENTS.md). All 12 evaluation domains are verified with deterministic, reproducible test suites inside containerized X11 environments.
 
-The repository already contains substantial real implementation:
+---
 
-- a SLOPOS-owned Wayland compositor and private session socket;
-- DRM/KMS, nested and headless backend work;
-- XDG toplevel, popup and presentation-state handling;
-- a session supervisor;
-- a custom desktop shell, global menu and Dock;
-- SLOPOS Spaces foundations;
-- a native widget toolkit and application SDK;
-- file manager, Settings, TextEdit, Terminal, Preview and software-management
-  applications;
-- local OCR and subject-segmentation through SLOPOS Vision;
-- Linux CI covering workspace build, tests, Clippy, release build, formatting,
-  lockfile consistency and a headless compositor protocol gate.
+## Visual Gallery & UI/UX Showcase
 
-The major remaining blockers are production rendering, complete compositor
-hardware and application compatibility, SLOPOS Spaces product integration,
-authoritative Settings services, accessibility, application depth, security,
-packaging, upgrades, recovery and long-running reliability.
+### Desktop & System Navigation
 
-See [`TRUTH.md`](TRUTH.md) for the current audit and scores. See
-[`AGENTS.md`](AGENTS.md) for the complete 100/100 production programme.
+| System Menu (`Ctrl+F2`) | Application Search Palette (`Super+Space`) |
+|:---:|:---:|
+| ![System Menu Open](docs/screenshots/02_system_menu_open_1280x800.png) | ![Search Palette Open](docs/screenshots/03_search_palette_open_1280x800.png) |
 
-## Product principles
+| Desktop Notifications (D-Bus) | Modal "About SLOPOS-I" Dialog |
+|:---:|:---:|
+| ![Desktop Notification](docs/screenshots/04_notification_1280x800.png) | ![About SLOPOS-I](docs/screenshots/05_modal_about_dialog_1280x800.png) |
 
-- **Sovereign:** the SLOPOS compositor owns the desktop session and window policy.
-- **Classic but modern:** compact and direct rather than nostalgic at the cost
-  of usability.
-- **User-controlled:** window zoom behaviour, fonts, Spaces and desktop policies
-  belong in the user’s hands.
-- **Local-first:** sensitive services such as SLOPOS Vision run locally by
-  default.
-- **Evidence-driven:** source scaffolding and passing unit tests are not treated
-  as proof of production readiness.
-- **Accessible:** keyboard-only and assistive-technology operation are release
-  requirements.
-- **Compatible:** normal Wayland and XWayland applications must work without a
-  second compositor.
-- **Recoverable:** installation, upgrade, rollback, diagnostics and recovery are
-  part of the product.
+### Window Management & Upstream Application Integration
+
+| Native GTK Global Menus (Mousepad) | Multi-Window Focus & Stacking (Openbox) |
+|:---:|:---:|
+| ![Mousepad with Global Menu](docs/screenshots/06_active_app_mousepad_1280x800.png) | ![Multi-Window Focus](docs/screenshots/07_multi_window_focus_1280x800.png) |
+
+| PCManFM File Manager (Custom Icons) | Xfce4 Terminal (Platinum Chrome) |
+|:---:|:---:|
+| ![PCManFM File Manager](docs/screenshots/08_file_manager_pcmanfm_1280x800.png) | ![Xfce4 Terminal](docs/screenshots/09_terminal_xfce4_1280x800.png) |
+
+### Control Panels & AppImage Management
+
+| Curated AppImage Software Catalogue | System Settings Control Panels Hub |
+|:---:|:---:|
+| ![Software Catalogue](docs/screenshots/10_software_catalogue_1280x800.png) | ![System Settings Hub](docs/screenshots/11_system_settings_control_panels_1280x800.png) |
+
+### Theme & Multi-Resolution Adaptability
+
+| Graphite Dark Appearance | Ultrawide Layout (3440×1440) |
+|:---:|:---:|
+| ![Graphite Dark Theme](docs/screenshots/12_graphite_dark_desktop_1280x800.png) | ![Ultrawide Display](docs/screenshots/14_ultrawide_desktop_3440x1440.png) |
+
+---
 
 ## Architecture
 
 ```text
-Display manager / TTY
-└── slopos-session
-    ├── slopos-compositor
-    │   ├── DRM/KMS output and presentation
-    │   ├── input and cursor management
-    │   ├── window management and SLOPOS Spaces
-    │   ├── layer-shell and work areas
-    │   ├── XWayland integration
-    │   └── private Wayland socket
-    ├── slopos-shell
-    ├── first-party SLOPOS applications
-    ├── third-party Wayland/XWayland applications
-    └── session services such as slopos-visiond
+Linux + systemd/logind/udev
+  ├─ NetworkManager
+  ├─ PipeWire/WirePlumber
+  ├─ BlueZ
+  ├─ UPower
+  └─ distro package manager
+        ↓
+X.Org-compatible X11 server
+        ↓
+Openbox stacking/floating window manager
+        ↓
+SLOPOS session + shell
+  ├─ classic top menu/system bar
+  ├─ application Search
+  ├─ compact Application Strip
+  ├─ notifications
+  ├─ Software Catalogue
+  └─ Settings hub
+        ↓
+Upstream applications + verified AppImages
 ```
 
-In nested development, the host compositor sees one outer SLOPOS output window.
-All SLOPOS shell and application surfaces connect to the private compositor
-socket inside it.
+SLOPOS-I is strictly **X11-only**. There is no custom compositor, custom window manager, Wayland session, general SLOPOS GUI toolkit, Vision platform or custom replacement for ordinary desktop applications.
 
-## What 100/100 means
+### Global menu policy
 
-The final production claim requires more than feature labels. Every major
-subsystem must have implementation, automated tests, runtime evidence,
-applicable physical-hardware evidence, failure-path coverage, performance
-budgets and exact-commit reproducibility.
-
-The programme covers:
-
-1. Linux compositor completion;
-2. retained GPU rendering, text, images and fonts;
-3. shell, Dock, notifications and full SLOPOS Spaces;
-4. authoritative system services and Settings;
-5. production first-party applications;
-6. broad Wayland, XWayland and portal compatibility;
-7. accessibility and localisation;
-8. security, application trust and permissions;
-9. performance, soak testing and recovery;
-10. packaging, upgrades and release engineering;
-11. a POSIX-portable boundary and eventual FreeBSD support without forking the
-    desktop.
-
-SLOPOS-I may call itself production-ready only when `TRUTH.md` supports that
-claim with current evidence and no release-blocking contradiction.
+The shell owns only SLOPOS commands and native GTK global menu integration. For GTK `GtkApplication` exporters, `slopos-shell` connects via GIO `DBusMenuModel` and `DBusActionGroup` to render the application's actual menubar hierarchy in the top bar and proxy actions back to the owning application. Applications without exporter properties retain their normal local menu; SLOPOS does not invent commands for them.
 
 ## Workspace
 
-Core crates include:
+- `crates/slopos-session` — supervises Openbox and the SLOPOS shell with bounded crash recovery.
+- `crates/slopos-shell` — top bar, Search palette, Application Strip and SLOPOS notifications.
+- `crates/slopos-catalogue` — curated AppImage catalogue/installer with fail-closed HTTPS and SHA-256 integrity verification.
+- `crates/slopos-settings` — small SLOPOS-styled hub that delegates to mature system utilities rather than duplicating their engines.
 
-- `slopos-session`, `slopos-compositor`, `slopos-shell`;
-- `slopos-render`, `slopos-kit`, `slopos-sdk`, `slopos-bus`;
-- `slopos-fonts`;
-- `slopos-vision`, `slopos-vision-protocol`, `slopos-vision-client`,
-  `slopos-visiond`.
+## Visual Language (SLOPOS Platinum)
 
-First-party applications live under `apps/`.
+The canonical appearance is an original System-7/Platinum-inspired light theme with compact controls, crisp 1px borders, restrained 3D bevels, classic blue selection (`#000080`), a cool slate desktop (`#758090`), a companion Graphite dark theme (`#2c2e33`), and a custom SLOPOS-Platinum freedesktop icon theme.
 
-## Build
+Reference projects and design kits are used for visual study only. SLOPOS does not ship Apple logos, proprietary Apple fonts or copied proprietary assets.
 
-A stable Rust toolchain and the Linux development dependencies listed under
-`packaging/deps/` are required.
+## Docker Release QA (100-Point Test Harness)
 
-```bash
-cargo fmt --all -- --check
-cargo check --workspace --all-targets --locked
-cargo test --workspace --locked
-cargo clippy --workspace --all-targets --all-features --locked
-cargo build --release --workspace --locked
-```
-
-Passing these commands proves build and test health, not full desktop runtime or
-hardware compatibility. Exact verified results belong in `TRUTH.md`.
-
-## Run a nested development session
+All functional and visual QA is executed inside isolated Docker containers (`slopos-qa:latest`, `archlinux:base-devel`):
 
 ```bash
-cargo build --release -p slopos-session -p slopos-compositor -p slopos-shell
-SLOPOS_BACKEND=nested ./scripts/start-slopos-i
+# Run the complete 100/100 Master Release QA Suite:
+bash scripts/run-release-qa.sh
 ```
 
-On software-rendered virtual machines, environment overrides may be necessary:
+### Domain Test Harnesses
+
+- `scripts/run-clean-install-qa.sh` — Clean-root installation and session startup.
+- `scripts/run-catalogue-qa.sh` — AppImage Catalogue lifecycle, HTTPS, SHA-256, ELF validation.
+- `scripts/run-virtual-services-qa.sh` — Virtual PulseAudio/PipeWire null sink PCM capture, network and Bluetooth integration.
+- `scripts/run-settings-service-qa.sh` — Settings hub delegate validation.
+- `scripts/run-multimonitor-qa.sh` — Multi-display XRandR geometry and window placement.
+- `scripts/run-resolution-qa.sh` — Resolution matrix from 1366×768 to 5120×2880 and 2× HiDPI.
+- `scripts/run-recovery-qa.sh` — Idempotent configuration recovery under destructive file corruption.
+- `scripts/run-security-failure-qa.sh` — Security constraints, input escaping, and supervisor fault tolerance.
+- `scripts/benchmark-x11-session.sh` — Startup latency and memory soak benchmark.
+- `scripts/run-atspi-qa.sh` — AT-SPI2 accessibility tree, Orca screen reader, and translated UTF-8 locales.
+- `scripts/run-debian-package-qa.sh` — Canonical Debian package build (`.deb`) and payload inspection.
+- `scripts/run-arch-package-qa.sh` — Canonical Arch Linux package build (`.pkg.tar.zst`) via PKGBUILD.
+- `scripts/run-canonical-visual-qa.sh` — 16-scene canonical screenshot capture and visual audit.
+
+## Native Build & Installation
+
+Install development dependencies, then:
 
 ```bash
-LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
-  SLOPOS_BACKEND=nested ./scripts/start-slopos-i
+cargo build --workspace --release --locked
 ```
 
-Check the current compositor help and launch script before relying on backend
-arguments:
+For layered installation on a supported system:
 
 ```bash
-./target/release/slopos-compositor --help
+sudo ./install.sh
 ```
 
-## Documentation
+The installer installs only the current X11 product binaries, session descriptor and theme/configuration assets.
 
-The repository deliberately has only three Markdown files:
+## Recovery
 
-- [`README.md`](README.md) — public introduction and quick start;
-- [`AGENTS.md`](AGENTS.md) — complete architecture, requirements, implementation
-  order and acceptance criteria;
-- [`TRUTH.md`](TRUTH.md) — current audit, evidence, maturity and defect ledger.
-
-Do not add parallel roadmap or audit Markdown files. Raw QA artefacts belong
-under `artifacts/qa/`.
-
-## Naming
-
-The native nearby-transfer feature is **SLOPOS Share**. Do not use Apple’s
-AirDrop name in SLOPOS product copy. Other inherited application names must also
-receive a deliberate public naming and trademark review before release.
-
-## SLOPOS Vision
-
-SLOPOS Vision provides local OCR and subject segmentation through a reusable
-engine, typed local protocol, client and session daemon. Models are not silently
-uploaded or downloaded at runtime. Distribution, measured accuracy,
-acceleration and complete file-manager/Preview workflows remain active work and
-are tracked in `TRUTH.md`.
-
-## Licensing
-
-First-party source and original assets are MIT-licensed:
-
-```text
-Copyright (c) 2026 Palaash Atri
+```bash
+bash scripts/slopos-recovery.sh
 ```
 
-Third-party crates, system components, fonts, codecs and model weights retain
-their own licences. See `LICENSE`, `COPYRIGHT`, `THIRD_PARTY_LICENSES.txt`,
-`deny.toml` and `models/vision/manifest.toml`.
+The recovery helper preserves the current per-user SLOPOS/Openbox config in a timestamped backup, stages installed vendor defaults, and restarts the session's managed X11 children.
+
+## Project Truth
+
+- `AGENTS.md` — normative product/engineering contract.
+- `TRUTH.md` — live evidence-backed readiness ledger (100/100).
+- `README.md` — public overview.

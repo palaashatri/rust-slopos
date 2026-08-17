@@ -1,6 +1,0 @@
-fmt=0
-check=0
-test=0
-build=0
-clippy=0
-overall=0

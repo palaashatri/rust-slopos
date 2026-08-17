@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=SLOPOS Web Browser
+Comment=Launch the installed upstream browser with the SLOPOS X11/GTK integration
+Exec=start-slopos-browser %U
+TryExec=start-slopos-browser
+Icon=web-browser
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;
+MimeType=text/html;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true

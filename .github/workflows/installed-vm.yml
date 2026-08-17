@@ -1,0 +1,157 @@
+name: Installed VM QA
+
+on:
+  push:
+    branches: [pivot]
+    paths:
+      - '.github/workflows/installed-vm.yml'
+      - 'packaging/vm/**'
+      - 'packaging/arch/PKGBUILD'
+      - 'packaging/debian/rules'
+      - 'packaging/iso/**'
+      - 'install.sh'
+      - 'scripts/install-session-files.sh'
+      - 'scripts/start-slopos-i'
+      - 'scripts/slopos-recovery.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installed-vm-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.sha }}
+
+jobs:
+  qemu-installed-vm:
+    name: Exact-head Arch UEFI install + X11 QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Validate VM harness syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n packaging/vm/arch-install.sh
+          bash -n packaging/vm/build-autoinstall-iso.sh
+          bash -n packaging/vm/qa-installed.sh
+          bash -n packaging/vm/run-qemu-installed-qa.sh
+          bash -n packaging/vm/qa-vm.sh
+          bash -n scripts/slopos-recovery.sh
+
+      - name: Install QEMU/UEFI host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qemu-system-x86 qemu-utils ovmf openssh-client python3 ca-certificates
+
+      - name: Generate ephemeral installed-VM QA key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/vm-qa/keys
+          ssh-keygen -q -t ed25519 -N '' -C "slopos-installed-vm-$SOURCE_SHA" \
+            -f artifacts/vm-qa/keys/qa_key
+          test -s artifacts/vm-qa/keys/qa_key
+          test -s artifacts/vm-qa/keys/qa_key.pub
+
+      - name: Build exact-head guarded autoinstall ISO on Arch
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --privileged \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --workdir /workspace \
+            --env REPO_COMMIT="$SOURCE_SHA" \
+            archlinux:base-devel \
+            bash -lc '
+              set -euo pipefail
+              pacman -Syu --noconfirm --needed \
+                archiso rsync git rust pkgconf gtk3 gdk-pixbuf2 libx11 libxrandr openssl dbus
+              git config --global --add safe.directory /workspace
+              REPO_COMMIT="$REPO_COMMIT" \
+              QA_PUBLIC_KEY_FILE=/workspace/artifacts/vm-qa/keys/qa_key.pub \
+              CARGO_TARGET_DIR=/workspace/target-vm-qa \
+              OUT_DIR=/workspace/artifacts/vm-qa/autoinstall \
+              WORK_DIR=/tmp/slopos-vm-autoinstall-work \
+                bash packaging/vm/build-autoinstall-iso.sh
+            '
+          sudo chown -R "$USER:$USER" artifacts/vm-qa target-vm-qa || true
+          test "$(cat artifacts/vm-qa/autoinstall/source-commit)" = "$SOURCE_SHA"
+          test -s artifacts/vm-qa/autoinstall/autoinstall.sha256
+          test "$(find artifacts/vm-qa/autoinstall -maxdepth 1 -name '*.iso' -size +500M | wc -l)" -eq 1
+
+      - name: Reclaim container cache before VM boot
+        run: docker system prune -af || true
+
+      - name: Install to UEFI disk, reboot and run in-guest X11 acceptance
+        id: installed-vm
+        shell: bash
+        run: |
+          set +e
+          set -o pipefail
+          ISO="$(find "$GITHUB_WORKSPACE/artifacts/vm-qa/autoinstall" -maxdepth 1 -name '*.iso' -size +500M -print -quit)"
+          AUTOINSTALL_ISO="$ISO" \
+          REPO_COMMIT="$SOURCE_SHA" \
+          SSH_KEY_PATH="$GITHUB_WORKSPACE/artifacts/vm-qa/keys/qa_key" \
+          SSH_PORT=2222 \
+          WAIT_SEC=7200 \
+          DISK_SIZE=20G \
+          VM_MEMORY_MB=4096 \
+          VM_CPUS=4 \
+          OUTPUT_DIR="$GITHUB_WORKSPACE/artifacts/vm-qa/qemu" \
+            bash packaging/vm/run-qemu-installed-qa.sh 2>&1 | tee "$RUNNER_TEMP/installed-vm.log"
+          status="${PIPESTATUS[0]}"
+          if [ "$status" -ne 0 ]; then
+            escaped="$(tail -n 80 "$RUNNER_TEMP/installed-vm.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+            echo "::error file=installed-vm.log,line=1,title=Installed VM QA failure::$escaped"
+          fi
+          exit "$status"
+
+      - name: Require exact-head installed VM evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "QEMU_INSTALLED_VM_QA_STATUS_0=$SOURCE_SHA" "$RUNNER_TEMP/installed-vm.log"
+          grep -Fqx 'INSTALLED_VM_QA_STATUS_0' "$RUNNER_TEMP/installed-vm.log"
+          guest_log=artifacts/vm-qa/qemu/installed-vm-evidence/qa-vm.log
+          grep -Fqx 'SLOPOS_X11_INSTALLED_VM_QA=PASS' "$guest_log"
+          grep -Fqx 'INSTALLED_RECOVERY_STATUS_0' "$guest_log"
+          grep -Fq "SLOPOS_SOURCE_COMMIT=$SOURCE_SHA" "$guest_log"
+          grep -Fq 'EFI_BOOT_STATUS_0=' "$guest_log"
+          python3 - <<'PY'
+          import json, os
+          path = 'artifacts/vm-qa/qemu/installed-vm-evidence/status.json'
+          with open(path, encoding='utf-8') as fh:
+              status = json.load(fh)
+          expected = os.environ['SOURCE_SHA'].lower()
+          assert status['passed'] is True, status
+          assert status['source_commit'].lower() == expected, status
+          assert status['expected_commit'].lower() == expected, status
+          PY
+          test "$(find artifacts/vm-qa/qemu/installed-vm-evidence/guest -name 'installed-session-*.png' -size +0c | wc -l)" -ge 1
+          test "$(find artifacts/vm-qa/qemu/installed-vm-evidence/guest -name 'installed-recovered-*.png' -size +0c | wc -l)" -ge 1
+          test -s artifacts/vm-qa/qemu/installed-vm-evidence/guest/recovery.log
+
+      - name: Upload installed-VM evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slopos-installed-vm-${{ env.SOURCE_SHA }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/vm-qa/qemu/
+            artifacts/vm-qa/autoinstall/autoinstall.sha256
+            artifacts/vm-qa/autoinstall/source-commit
+            ${{ runner.temp }}/installed-vm.log

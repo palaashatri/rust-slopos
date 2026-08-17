@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=SLOPOS-I
-Comment=SLOPOS-I Wayland session (install under wayland-sessions)
-Exec=start-slopos-i
-TryExec=start-slopos-i
-Type=Application
-DesktopNames=SLOPOS-I
-Keywords=SLOPOS-I;Wayland;Desktop;

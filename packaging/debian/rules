@@ -1,27 +1,51 @@
 #!/usr/bin/make -f
+
 %:
 	dh $@
+
+CARGO_TARGET_DIR ?= $(CURDIR)/.cargo-target
+export CARGO_TARGET_DIR
 
 override_dh_auto_build:
 	cargo build --release --workspace --locked
 
+override_dh_auto_test:
+	cargo test --workspace --locked
+
 override_dh_auto_install:
-	# Install binaries
-	dh_auto_install -- --release
-	install -Dm755 target/release/slopos-session debian/slopos-i/usr/bin/slopos-session
-	install -Dm755 target/release/slopos-compositor debian/slopos-i/usr/bin/slopos-compositor
-	install -Dm755 target/release/slopos-shell debian/slopos-i/usr/bin/slopos-shell
-	install -Dm755 target/release/finder debian/slopos-i/usr/bin/finder
-	install -Dm755 target/release/settings debian/slopos-i/usr/bin/settings
-	install -Dm755 target/release/textedit debian/slopos-i/usr/bin/textedit
-	install -Dm755 target/release/terminal debian/slopos-i/usr/bin/terminal
-	install -Dm755 target/release/appstore debian/slopos-i/usr/bin/appstore
+	for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do \
+		install -Dm755 $(CARGO_TARGET_DIR)/release/$$binary debian/slopos-i/usr/bin/$$binary; \
+	done
 	install -Dm755 scripts/start-slopos-i debian/slopos-i/usr/bin/start-slopos-i
-
-	# Install session files
+	install -Dm755 scripts/start-slopos-browser debian/slopos-i/usr/bin/start-slopos-browser
+	install -Dm755 scripts/install-browser-theme.sh debian/slopos-i/usr/bin/install-browser-theme.sh
+	install -Dm755 scripts/slopos-appearance debian/slopos-i/usr/bin/slopos-appearance
+	install -Dm755 scripts/slopos-recovery.sh debian/slopos-i/usr/bin/slopos-recovery
+	install -Dm644 packaging/slopos-browser.desktop debian/slopos-i/usr/share/applications/slopos-browser.desktop
 	install -Dm644 packaging/slopos-i.desktop debian/slopos-i/usr/share/xsessions/slopos-i.desktop
-	install -Dm644 packaging/slopos-i-wayland.desktop debian/slopos-i/usr/share/wayland-sessions/slopos-i.desktop
-	install -Dm644 packaging/slopos-i.service debian/slopos-i/usr/lib/systemd/user/slopos-i.service
-
-override_dh_shlibdeps:
-	# Skip automatic library dependency detection; Cargo handles it
+	install -Dm644 assets/config/openbox/rc.xml debian/slopos-i/usr/share/slopos-i/openbox/rc.xml
+	install -Dm644 assets/config/openbox/rc-graphite.xml debian/slopos-i/usr/share/slopos-i/openbox/rc-graphite.xml
+	install -Dm644 assets/config/openbox/menu.xml debian/slopos-i/usr/share/slopos-i/openbox/menu.xml
+	install -Dm644 themes/slopos-openbox/openbox-3/themerc debian/slopos-i/usr/share/themes/slopos-openbox/openbox-3/themerc
+	install -Dm644 themes/slopos-openbox-graphite/openbox-3/themerc debian/slopos-i/usr/share/themes/slopos-openbox-graphite/openbox-3/themerc
+	install -Dm644 assets/config/gtk-3.0/gtk.css debian/slopos-i/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css
+	install -Dm644 assets/config/gtk-3.0/gtk-graphite.css debian/slopos-i/usr/share/themes/slopos-gtk-graphite/gtk-3.0/gtk.css
+	install -Dm644 assets/config/gtk-3.0/settings.ini debian/slopos-i/usr/share/slopos-i/gtk-3.0/settings.ini
+	install -Dm644 assets/config/mimeapps.list debian/slopos-i/usr/share/slopos-i/mimeapps.list
+	install -Dm644 assets/slopos-logo.png debian/slopos-i/usr/share/slopos-i/slopos-logo.png
+	mkdir -p debian/slopos-i/usr/share/slopos-i/recovery
+	printf '%s\n' platinum > debian/slopos-i/usr/share/slopos-i/recovery/appearance
+	install -Dm644 assets/config/openbox/rc.xml debian/slopos-i/usr/share/slopos-i/recovery/openbox/rc.xml
+	install -Dm644 assets/config/openbox/menu.xml debian/slopos-i/usr/share/slopos-i/recovery/openbox/menu.xml
+	mkdir -p debian/slopos-i/usr/share/slopos-i/themes
+	cp -a themes/platinum debian/slopos-i/usr/share/slopos-i/themes/platinum
+	cp -a themes/graphite debian/slopos-i/usr/share/slopos-i/themes/graphite
+	mkdir -p debian/slopos-i/usr/share/icons
+	cp -a themes/platinum/icon-theme debian/slopos-i/usr/share/icons/SLOPOS-Platinum
+	mkdir -p debian/slopos-i/usr/share/slopos-i/browser
+	cp -a packaging/browser/chromium debian/slopos-i/usr/share/slopos-i/browser/chromium
+	cp -a packaging/browser/firefox debian/slopos-i/usr/share/slopos-i/browser/firefox
+	install -Dm644 README.md debian/slopos-i/usr/share/doc/slopos-i/README.md
+	install -Dm644 AGENTS.md debian/slopos-i/usr/share/doc/slopos-i/AGENTS.md
+	install -Dm644 TRUTH.md debian/slopos-i/usr/share/doc/slopos-i/TRUTH.md
+	install -Dm644 THIRD_PARTY_LICENSES.txt debian/slopos-i/usr/share/doc/slopos-i/THIRD_PARTY_LICENSES.txt

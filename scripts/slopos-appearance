@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Switch SLOPOS-I between its supported Platinum and Graphite appearances.
+set -euo pipefail
+
+usage() {
+  echo "Usage: slopos-appearance {platinum|graphite|status}" >&2
+}
+
+mode="${1:-status}"
+case "$mode" in
+  platinum|graphite|status) ;;
+  *) usage; exit 2 ;;
+esac
+
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+slopos_config="$config_home/slopos-i"
+gtk_config="$config_home/gtk-3.0"
+appearance_file="$slopos_config/appearance"
+
+if [[ "$mode" == "status" ]]; then
+  if [[ -r "$appearance_file" ]]; then
+    value="$(tr -d '[:space:]' < "$appearance_file")"
+    case "$value" in platinum|graphite) echo "$value"; exit 0 ;; esac
+  fi
+  echo platinum
+  exit 0
+fi
+
+mkdir -p "$slopos_config" "$gtk_config"
+printf '%s\n' "$mode" > "$appearance_file.tmp"
+mv -f "$appearance_file.tmp" "$appearance_file"
+
+if [[ "$mode" == "graphite" ]]; then
+  gtk_theme="slopos-gtk-graphite"
+  dark_pref=1
+  root_color="#25272B"
+else
+  gtk_theme="slopos-gtk"
+  dark_pref=0
+  root_color="#758090"
+fi
+
+cat > "$gtk_config/settings.ini.tmp" <<EOF
+[Settings]
+gtk-theme-name = $gtk_theme
+gtk-icon-theme-name = SLOPOS-Platinum
+gtk-cursor-theme-name = DMZ-White
+gtk-font-name = Liberation Sans 9
+gtk-application-prefer-dark-theme = $dark_pref
+gtk-shell-shows-menubar = 1
+gtk-shell-shows-app-menu = 0
+gtk-button-images = 1
+gtk-menu-images = 1
+gtk-xft-antialias = 1
+gtk-xft-hinting = 1
+gtk-xft-hintstyle = hintslight
+gtk-xft-rgba = rgb
+EOF
+mv -f "$gtk_config/settings.ini.tmp" "$gtk_config/settings.ini"
+
+if command -v xsetroot >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
+  xsetroot -solid "$root_color" >/dev/null 2>&1 || true
+fi
+
+# The session supervisor restarts these two children with bounded backoff. This
+# reloads shell CSS and Openbox chrome atomically instead of leaving mixed
+# light/dark desktop surfaces behind.
+if [[ "${XDG_CURRENT_DESKTOP:-}" == "SLOPOS" || "${SLOPOS_SESSION_MANAGED:-}" == "1" ]]; then
+  pkill -TERM -x slopos-shell >/dev/null 2>&1 || true
+  pkill -TERM -x openbox >/dev/null 2>&1 || true
+fi
+
+printf 'SLOPOS appearance set to %s\n' "$mode"

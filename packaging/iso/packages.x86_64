@@ -1,65 +1,55 @@
-# Base system packages for SLOPOS-I live ISO
-# Add base live packages + SLOPOS-I deps + build tools
+# Additional packages layered onto Arch Linux's official releng archiso profile.
+# Base/boot packages come from /usr/share/archiso/configs/releng.
 
-# Base system
-base
-linux
-linux-firmware
-intel-ucode
-amd-ucode
-systemd
-systemd-sysvcompat
-efibootmgr
-grub
-dosfstools
-e2fsprogs
-btrfs-progs
-xfsprogs
-
-# SLOPOS-I runtime dependencies (from packaging/deps/arch.txt)
-wayland
-wayland-protocols
-libxkbcommon
-libinput
-seatd
-libdrm
-mesa
-vulkan-icd-loader
-vulkan-swrast
-vulkan-tools
-libdisplay-info
-pixman
+# X11 desktop
+xorg-server
+xorg-xinit
+xorg-xrandr
+xorg-xsetroot
+openbox
+gtk3
 dbus
-at-spi2-core
-fontconfig
-freetype2
-ttf-dejavu
-ttf-liberation
+xdotool
+wmctrl
+
+# Display manager for the live image
+lightdm
+lightdm-gtk-greeter
+
+# SLOPOS default applications
+pcmanfm
+xfce4-terminal
+mousepad
+ristretto
+zathura
+zathura-pdf-mupdf
+mpv
+galculator
+firefox
+supertux
+
+# System integration and Settings delegates
+networkmanager
+network-manager-applet
+pavucontrol
 pipewire
 pipewire-pulse
 wireplumber
+blueman
+upower
+xfce4-power-manager
+xfce4-settings
+lxappearance
+arandr
 polkit
-xorg-xwayland
-foot
-wl-clipboard
 
-# Build tools (so ISO can build SLOPOS-I if needed)
-base-devel
-pkgconf
-rust
-git
+# Visual/runtime assets
+ttf-liberation
+ttf-dejavu
+adwaita-icon-theme
+librsvg
+
+# QA / recovery helpers
+scrot
+imagemagick
 curl
-wget
-
-# Greeter for session selection
-greetd
-tuigreet
-
-# Development tools
-vim
-nano
-htop
-man-db
-man-pages
-networkmanager
-openssh

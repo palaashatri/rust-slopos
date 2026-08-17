@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Launch the first installed upstream browser with SLOPOS's X11/GTK identity.
+# This is an integration wrapper, not a browser fork. Browser content and the
+# browser's own update/security policy remain upstream-owned.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_PREFIX="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+SLOPOS_SHARE_DIR="${SLOPOS_SHARE_DIR:-$INSTALL_PREFIX/share}"
+
+# SLOPOS is an X11-only session. Do not inherit a caller's Wayland value and
+# accidentally let an upstream browser select a different display backend.
+export XDG_SESSION_TYPE="x11"
+unset WAYLAND_DISPLAY
+export GDK_BACKEND="x11"
+export MOZ_ENABLE_WAYLAND="0"
+export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-SLOPOS}"
+export XDG_SESSION_DESKTOP="${XDG_SESSION_DESKTOP:-slopos-i}"
+export DESKTOP_SESSION="${DESKTOP_SESSION:-slopos-i}"
+if [[ -z "${GTK_THEME:-}" ]]; then
+  if [[ -d "$SLOPOS_SHARE_DIR/themes/slopos-gtk/gtk-3.0" ]] || \
+     [[ -d /usr/local/share/themes/slopos-gtk/gtk-3.0 ]] || \
+     [[ -d /usr/share/themes/slopos-gtk/gtk-3.0 ]]; then
+    export GTK_THEME="slopos-gtk"
+  fi
+fi
+
+resolve_browser() {
+  local candidate
+  if [[ -n "${SLOPOS_BROWSER:-}" ]]; then
+    if [[ "$SLOPOS_BROWSER" == */* ]]; then
+      [[ -x "$SLOPOS_BROWSER" ]] && printf '%s\n' "$SLOPOS_BROWSER" && return 0
+    elif command -v "$SLOPOS_BROWSER" >/dev/null 2>&1; then
+      command -v "$SLOPOS_BROWSER"
+      return 0
+    fi
+    return 1
+  fi
+
+  for candidate in firefox firefox-esr chromium chromium-browser google-chrome google-chrome-stable; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      command -v "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+BROWSER="$(resolve_browser)" || {
+  echo "start-slopos-browser: no supported upstream browser is installed" >&2
+  exit 1
+}
+
+browser_name="$(basename "$BROWSER")"
+browser_args=()
+case "$browser_name" in
+  chromium*|chrome*|google-chrome*)
+    # Chromium-family builds share the documented Ozone switch. Keep the
+    # browser upstream while making the session's X11 contract explicit.
+    browser_args+=("--ozone-platform=x11")
+    if [[ "${SLOPOS_BROWSER_THEME:-1}" != "0" ]]; then
+      theme_dir="${SLOPOS_BROWSER_THEME_DIR:-$SLOPOS_SHARE_DIR/slopos-i/browser/chromium}"
+      if [[ -f "$theme_dir/manifest.json" ]]; then
+        browser_args+=("--load-extension=$theme_dir")
+      fi
+    fi
+    ;;
+esac
+
+exec "$BROWSER" "${browser_args[@]}" "$@"

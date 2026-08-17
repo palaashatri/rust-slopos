@@ -1,3 +1,0 @@
-qa_exit=0
-runtime=/tmp/slopos-spaces-output-fb194e4/runtime
-data=/tmp/slopos-spaces-output-fb194e4/data

@@ -1,0 +1,88 @@
+name: Recovery QA
+
+on:
+  push:
+    branches: [pivot]
+    paths:
+      - '.github/workflows/recovery.yml'
+      - 'scripts/run-recovery-qa.sh'
+      - 'scripts/slopos-recovery.sh'
+      - 'scripts/start-slopos-i'
+      - 'install.sh'
+      - 'packaging/arch/PKGBUILD'
+      - 'packaging/debian/rules'
+      - 'packaging/iso/build-iso.sh'
+      - 'packaging/vm/qa-vm.sh'
+      - 'crates/slopos-session/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recovery-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  recovery:
+    name: Config preservation + supervisor recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Enforce shipped recovery contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/slopos-recovery.sh
+          bash -n scripts/run-recovery-qa.sh
+          bash -n install.sh
+          bash -n packaging/iso/build-iso.sh
+          for path in install.sh packaging/arch/PKGBUILD packaging/debian/rules packaging/iso/build-iso.sh; do
+            grep -Fq 'slopos-recovery' "$path"
+            grep -Fq 'share/slopos-i/recovery' "$path"
+            grep -Fq 'recovery/appearance' "$path"
+            grep -Fq 'recovery/openbox/rc.xml' "$path"
+            grep -Fq 'recovery/openbox/menu.xml' "$path"
+          done
+          grep -Fq 'DEFAULT_VENDOR_DIR="$INSTALL_PREFIX/share/slopos-i/recovery"' scripts/slopos-recovery.sh
+          grep -Fq 'slopos-recovery' packaging/vm/qa-vm.sh
+          grep -Fq 'INSTALLED_RECOVERY_STATUS_0' packaging/vm/qa-vm.sh
+      - name: Install X11/GTK recovery dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            libssl-dev libdbus-1-dev xvfb openbox x11-utils dbus-x11 \
+            x11-xserver-utils adwaita-icon-theme librsvg2-common \
+            fonts-liberation fonts-dejavu-core
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run isolated recovery acceptance
+        shell: bash
+        run: |
+          set +e
+          set -o pipefail
+          bash scripts/run-recovery-qa.sh 2>&1 | tee "$RUNNER_TEMP/recovery.log"
+          status="${PIPESTATUS[0]}"
+          if [ "$status" -ne 0 ]; then
+            escaped="$(tail -n 80 "$RUNNER_TEMP/recovery.log" | tr '\r\n' '  ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+            echo "::error file=recovery.log,line=1,title=Recovery QA failure::$escaped"
+          fi
+          exit "$status"
+      - name: Require recovery evidence markers
+        run: |
+          grep -Fqx 'RECOVERY_EXISTING_SUPERVISOR_STATUS_0' "$RUNNER_TEMP/recovery.log"
+          grep -Fqx 'RECOVERY_PATH_SAFETY_STATUS_0' "$RUNNER_TEMP/recovery.log"
+          grep -Fqx 'RECOVERY_NEW_SUPERVISOR_STATUS_0' "$RUNNER_TEMP/recovery.log"
+          grep -Fqx 'SLOPOS_RECOVERY_QA_STATUS_0' "$RUNNER_TEMP/recovery.log"
+      - name: Upload recovery diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slopos-recovery-${{ github.sha }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: ${{ runner.temp }}/recovery.log

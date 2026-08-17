@@ -1,45 +1,33 @@
 #!/usr/bin/env bash
 # install-session-files.sh — install greeter/session packaging under PREFIX.
-#
-# Copies packaging desktops + start-slopos-i (and optional systemd user unit)
-# into an FHS layout matching SessionPackagingLayout::under_prefix:
-#
-#   $PREFIX/share/wayland-sessions/slopos-i.desktop
-#   $PREFIX/share/xsessions/slopos-i.desktop
-#   $PREFIX/bin/start-slopos-i
-#   $PREFIX/lib/systemd/user/slopos-i.service
-#
-# Usage:
-#   ./scripts/install-session-files.sh [--dry-run] [--prefix PREFIX]
-#
-# Defaults:
-#   PREFIX=/usr/local
-#
-# Does NOT claim a live display manager was configured or tested. After install,
-# pick SLOPOS-I on the greeter on a real seat to prove §12 criterion 1.
+# Copyright (c) 2026 Palaash Atri
+# SPDX-License-Identifier: MIT
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PREFIX="/usr/local"
+SESSION_DIR=""
 DRY_RUN=0
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--dry-run] [--prefix PREFIX] [-h|--help]
+Usage: $(basename "$0") [--dry-run] [--prefix PREFIX] [--session-dir DIR] [-h|--help]
 
-Install SLOPOS-I session files for display-manager greeters.
+Install SLOPOS-I X11 session files for display-manager greeters.
 
   --dry-run       Print actions without writing files
   --prefix PATH   Install prefix (default: /usr/local)
+  --session-dir DIR
+                  X11 session descriptor directory (default: PREFIX/share/xsessions)
   -h, --help      Show this help
 
-Artifacts (from repo):
-  packaging/slopos-i-wayland.desktop → \$PREFIX/share/wayland-sessions/slopos-i.desktop
-  packaging/slopos-i.desktop         → \$PREFIX/share/xsessions/slopos-i.desktop
-  scripts/start-slopos-i             → \$PREFIX/bin/start-slopos-i
-  packaging/slopos-i.service         → \$PREFIX/lib/systemd/user/slopos-i.service
+Artifacts:
+  packaging/slopos-i.desktop → \$SESSION_DIR/slopos-i.desktop
+  scripts/start-slopos-i     → \$PREFIX/bin/start-slopos-i
 
-Note: Exec=start-slopos-i requires \$PREFIX/bin on PATH for the greeter user.
+The installed session descriptor uses \$PREFIX/bin/slopos-session for both
+Exec and TryExec so custom-prefix installs remain discoverable by display
+managers whose environment does not include that prefix.
 EOF
 }
 
@@ -53,9 +41,9 @@ while [[ $# -gt 0 ]]; do
       PREFIX="${2:?--prefix requires a path}"
       shift 2
       ;;
-    --prefix=*)
-      PREFIX="${1#--prefix=}"
-      shift
+    --session-dir)
+      SESSION_DIR="${2:?--session-dir requires a path}"
+      shift 2
       ;;
     -h|--help)
       usage
@@ -69,48 +57,62 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-WAYLAND_SRC="$ROOT/packaging/slopos-i-wayland.desktop"
 XSESSION_SRC="$ROOT/packaging/slopos-i.desktop"
 START_SRC="$ROOT/scripts/start-slopos-i"
-SERVICE_SRC="$ROOT/packaging/slopos-i.service"
 
-WAYLAND_DST="$PREFIX/share/wayland-sessions/slopos-i.desktop"
-XSESSION_DST="$PREFIX/share/xsessions/slopos-i.desktop"
+if [[ -z "$SESSION_DIR" ]]; then
+  SESSION_DIR="$PREFIX/share/xsessions"
+fi
+XSESSION_DST="$SESSION_DIR/slopos-i.desktop"
 START_DST="$PREFIX/bin/start-slopos-i"
-SERVICE_DST="$PREFIX/lib/systemd/user/slopos-i.service"
-
-for src in "$WAYLAND_SRC" "$XSESSION_SRC" "$START_SRC" "$SERVICE_SRC"; do
-  if [[ ! -f "$src" ]]; then
-    echo "install-session-files: missing source: $src" >&2
-    exit 1
-  fi
-done
 
 run_install() {
   local mode="$1" src="$2" dst="$3"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "DRY-RUN install -Dm${mode} $src $dst"
   else
+    mkdir -p "$(dirname "$dst")"
     install -Dm"${mode}" "$src" "$dst"
     echo "installed $dst"
   fi
 }
 
+install_session_descriptor() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo "DRY-RUN install -Dm644 $XSESSION_SRC $XSESSION_DST (Exec=$PREFIX/bin/slopos-session)"
+    return
+  fi
+
+  mkdir -p "$(dirname "$XSESSION_DST")"
+  local temporary
+  local saw_exec=0
+  local saw_tryexec=0
+  temporary="$(mktemp "${XSESSION_DST}.XXXXXX")"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      Exec=*)
+        saw_exec=1
+        printf 'Exec=%s\n' "$PREFIX/bin/slopos-session"
+        ;;
+      TryExec=*)
+        saw_tryexec=1
+        printf 'TryExec=%s\n' "$PREFIX/bin/slopos-session"
+        ;;
+      *) printf '%s\n' "$line" ;;
+    esac
+  done < "$XSESSION_SRC" > "$temporary"
+  if [[ "$saw_exec" -ne 1 || "$saw_tryexec" -ne 1 ]]; then
+    rm -f -- "$temporary"
+    echo "install-session-files: source descriptor must contain Exec= and TryExec=" >&2
+    return 1
+  fi
+  chmod 644 "$temporary"
+  mv -f "$temporary" "$XSESSION_DST"
+  echo "installed $XSESSION_DST"
+}
+
 echo "install-session-files: PREFIX=$PREFIX dry_run=$DRY_RUN"
-echo "install-session-files: source tree=$ROOT"
-echo "install-session-files: note — packaging only; live greeter login not verified by this script"
-
-run_install 644 "$WAYLAND_SRC" "$WAYLAND_DST"
-run_install 644 "$XSESSION_SRC" "$XSESSION_DST"
+install_session_descriptor
 run_install 755 "$START_SRC" "$START_DST"
-run_install 644 "$SERVICE_SRC" "$SERVICE_DST"
 
-echo
-if [[ "$DRY_RUN" -eq 1 ]]; then
-  echo "install-session-files: dry-run complete (no files written)"
-else
-  echo "install-session-files: install complete under $PREFIX"
-  echo "install-session-files: ensure $PREFIX/bin is on PATH for greeter sessions"
-  echo "install-session-files: log out and select SLOPOS-I on a real DM to prove session start"
-fi
-exit 0
+echo "install-session-files: install complete under $PREFIX"

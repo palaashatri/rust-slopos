@@ -1,0 +1,70 @@
+name: Hardware QA Contract
+
+on:
+  push:
+    branches: [pivot]
+    paths:
+      - '.github/workflows/hardware-qa-contract.yml'
+      - 'scripts/run-hardware-qa.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hardware-qa-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Safe-by-default hardware evidence harness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Validate shell syntax and safety defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/run-hardware-qa.sh
+          grep -Fq 'MUTATE_AUDIO="${SLOPOS_HARDWARE_QA_MUTATE_AUDIO:-0}"' scripts/run-hardware-qa.sh
+          grep -Fq 'MUTATE_BLUETOOTH="${SLOPOS_HARDWARE_QA_MUTATE_BLUETOOTH:-0}"' scripts/run-hardware-qa.sh
+          grep -Fq 'SUSPEND_RESUME="${SLOPOS_HARDWARE_QA_SUSPEND_RESUME:-0}"' scripts/run-hardware-qa.sh
+          grep -Fq 'SLOPOS_HARDWARE_QA_EXPECTED_COMMIT' scripts/run-hardware-qa.sh
+          grep -Fq 'HARDWARE_SOURCE_COMMIT_STATUS_0=' scripts/run-hardware-qa.sh
+          grep -Fq 'HARDWARE_DISPLAY_STATUS_0=' scripts/run-hardware-qa.sh
+          grep -Fq 'HARDWARE_NETWORK_STATUS_0' scripts/run-hardware-qa.sh
+          grep -Fq 'HARDWARE_AUDIO_STATUS_0=' scripts/run-hardware-qa.sh
+          grep -Fq 'HARDWARE_SUSPEND_RESUME_STATUS_0' scripts/run-hardware-qa.sh
+          grep -Fq 'SLOPOS_HARDWARE_QA_STATUS_0' scripts/run-hardware-qa.sh
+      - name: Prove destructive operations are opt-in guarded
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('scripts/run-hardware-qa.sh').read_text()
+          checks = {
+              'audio mutation': (
+                  'if [[ "$MUTATE_AUDIO" == 1 ]]',
+                  'pactl set-sink-mute "$default_sink" "$target_mute"',
+              ),
+              'bluetooth mutation': (
+                  'if [[ "$MUTATE_BLUETOOTH" == 1 ]]',
+                  'bluetoothctl power "$target_power"',
+              ),
+              'suspend': (
+                  'if [[ "$SUSPEND_RESUME" == 1 ]]',
+                  'systemctl suspend',
+              ),
+          }
+          for name, (guard, operation) in checks.items():
+              guard_pos = text.find(guard)
+              assert guard_pos >= 0, f'missing {name} opt-in guard'
+              operation_pos = text.find(operation, guard_pos)
+              assert operation_pos > guard_pos, f'{name} operation is not below its opt-in guard'
+          assert 'audio_restore_pending=1' in text
+          assert 'bluetooth_restore_pending=1' in text
+          assert 'trap cleanup EXIT' in text
+          PY

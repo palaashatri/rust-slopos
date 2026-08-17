@@ -1,5 +1,9 @@
-# Ubuntu build dependencies (for cargo build --release --workspace)
-# Note: Rust installed via rustup (Ubuntu's rustc is often too old)
+# Ubuntu build dependencies for the X11/GTK3 Rust workspace
 build-essential
 pkg-config
 curl
+libgtk-3-dev
+libx11-dev
+libxrandr-dev
+libssl-dev
+libdbus-1-dev

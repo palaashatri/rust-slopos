@@ -1,1 +1,0 @@
-remote_log=/home/ubuntu/qa-spaces-app-policy-5f1867a-r2.4ncefF
