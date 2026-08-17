@@ -20,6 +20,7 @@ override_dh_auto_install:
 	install -Dm755 scripts/start-slopos-browser debian/slopos-i/usr/bin/start-slopos-browser
 	install -Dm755 scripts/install-browser-theme.sh debian/slopos-i/usr/bin/install-browser-theme.sh
 	install -Dm755 scripts/slopos-appearance debian/slopos-i/usr/bin/slopos-appearance
+	install -Dm755 scripts/slopos-recovery.sh debian/slopos-i/usr/bin/slopos-recovery
 	install -Dm644 packaging/slopos-browser.desktop debian/slopos-i/usr/share/applications/slopos-browser.desktop
 	install -Dm644 packaging/slopos-i.desktop debian/slopos-i/usr/share/xsessions/slopos-i.desktop
 	install -Dm644 assets/config/openbox/rc.xml debian/slopos-i/usr/share/slopos-i/openbox/rc.xml
@@ -32,6 +33,10 @@ override_dh_auto_install:
 	install -Dm644 assets/config/gtk-3.0/settings.ini debian/slopos-i/usr/share/slopos-i/gtk-3.0/settings.ini
 	install -Dm644 assets/config/mimeapps.list debian/slopos-i/usr/share/slopos-i/mimeapps.list
 	install -Dm644 assets/slopos-logo.png debian/slopos-i/usr/share/slopos-i/slopos-logo.png
+	mkdir -p debian/slopos-i/usr/share/slopos-i/recovery
+	printf '%s\n' platinum > debian/slopos-i/usr/share/slopos-i/recovery/appearance
+	install -Dm644 assets/config/openbox/rc.xml debian/slopos-i/usr/share/slopos-i/recovery/openbox/rc.xml
+	install -Dm644 assets/config/openbox/menu.xml debian/slopos-i/usr/share/slopos-i/recovery/openbox/menu.xml
 	mkdir -p debian/slopos-i/usr/share/slopos-i/themes
 	cp -a themes/platinum debian/slopos-i/usr/share/slopos-i/themes/platinum
 	cp -a themes/graphite debian/slopos-i/usr/share/slopos-i/themes/graphite
