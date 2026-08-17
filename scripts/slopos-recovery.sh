@@ -3,7 +3,7 @@
 #
 # Recovery is deliberately bounded: preserve the user's configuration, stage
 # vendor defaults when they are installed, and restart only the session
-# children that the existing supervisor owns.  Killing the supervisor itself
+# children that the existing supervisor owns. Killing the supervisor itself
 # would leave the desktop stopped while this script claimed recovery had
 # completed.
 set -euo pipefail
@@ -12,11 +12,21 @@ echo "=========================================================="
 echo " SLOPOS-I Session Recovery & Configuration Reset"
 echo "=========================================================="
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_PREFIX="$(cd "$SCRIPT_DIR/.." && pwd)"
+DEFAULT_VENDOR_DIR="$INSTALL_PREFIX/share/slopos-i/recovery"
+# Retain the old /etc location only as a compatibility fallback for early
+# development installs. Current packages place bounded recovery defaults under
+# their own prefix so custom-prefix installs never write unrelated /etc state.
+if [[ ! -d "$DEFAULT_VENDOR_DIR" && -d /etc/slopos-i ]]; then
+  DEFAULT_VENDOR_DIR=/etc/slopos-i
+fi
+
 HOME_DIR="${HOME:-/root}"
 CONFIG_DIR="$HOME_DIR/.config/slopos-i"
 OPENBOX_DIR="$HOME_DIR/.config/openbox"
 CONFIG_PARENT="$HOME_DIR/.config"
-VENDOR_DIR="${SLOPOS_VENDOR_CONFIG_DIR:-/etc/slopos-i}"
+VENDOR_DIR="${SLOPOS_VENDOR_CONFIG_DIR:-$DEFAULT_VENDOR_DIR}"
 BACKUP_DIR="${SLOPOS_RECOVERY_BACKUP_DIR:-$HOME_DIR/slopos-config-backup-$(date +%Y%m%d-%H%M%S)-$$}"
 RECOVERY_LOG="${SLOPOS_RECOVERY_LOG:-${TMPDIR:-/tmp}/slopos-recovery-session-$(id -u).log}"
 
@@ -38,6 +48,13 @@ case "$BACKUP_DIR" in
     exit 2
     ;;
 esac
+case "$VENDOR_DIR" in
+  /*) ;;
+  *)
+    echo "slopos-recovery: vendor defaults must use an absolute path: '$VENDOR_DIR'" >&2
+    exit 2
+    ;;
+esac
 if [[ -L "$CONFIG_PARENT" ]]; then
   echo "slopos-recovery: refusing a symlinked config parent: $CONFIG_PARENT" >&2
   exit 2
@@ -53,7 +70,7 @@ start_session=""
 if [[ -z "$session_pid" ]]; then
   start_session="$(command -v start-slopos-i || true)"
   if [[ -z "$start_session" ]]; then
-    for candidate in /usr/local/bin/start-slopos-i /usr/bin/start-slopos-i; do
+    for candidate in "$INSTALL_PREFIX/bin/start-slopos-i" /usr/local/bin/start-slopos-i /usr/bin/start-slopos-i; do
       if [[ -x "$candidate" ]]; then
         start_session="$candidate"
         break
@@ -84,8 +101,8 @@ fi
 echo "[2/3] Staging installed vendor defaults"
 mkdir -p "$CONFIG_DIR" "$OPENBOX_DIR"
 if [[ -d "$VENDOR_DIR" ]]; then
-  # The vendor directory is optional on development checkouts.  Copy its
-  # contents only when present; an empty config is an honest reset state.
+  # Recovery defaults are deliberately bounded user configuration, not a copy
+  # of the full system share tree.
   if [[ -d "$VENDOR_DIR/openbox" ]]; then
     cp -a "$VENDOR_DIR/openbox/." "$OPENBOX_DIR/"
   fi
@@ -113,12 +130,12 @@ old_wm_pid="$(pid_for openbox)"
 old_shell_pid="$(pid_for slopos-shell)"
 
 if [[ -n "$session_pid" ]]; then
-  # slopos-session owns and respawns these children.  Keep it alive so its
+  # slopos-session owns and respawns these children. Keep it alive so its
   # backoff/health policy remains in force and no duplicate supervisor starts.
   [[ -z "$old_wm_pid" ]] || kill -TERM "$old_wm_pid"
   [[ -z "$old_shell_pid" ]] || kill -TERM "$old_shell_pid"
 else
-  # A manually launched child may survive after a supervisor crash.  Stop it
+  # A manually launched child may survive after a supervisor crash. Stop it
   # before starting the replacement so recovery cannot create duplicate shell
   # or window-manager instances.
   [[ -z "$old_wm_pid" ]] || kill -TERM "$old_wm_pid"
