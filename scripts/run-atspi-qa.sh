@@ -141,10 +141,23 @@ dbus-run-session -- bash -c '
   xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null
   xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null
 
-  # Ctrl+F2 is the keyboard path into the classic menu bar. Exercise the real
-  # Openbox binding and first prove that the shortcut reached the shell. The
-  # keyboard-open path preselects its first item, so Return must activate the
-  # About command without a pointer or an extra navigation keystroke.
+  # Ctrl+F2 is owned directly by the shell through a passive X11 grab. Wait
+  # until that grab is installed before injecting the real keyboard sequence,
+  # then require the keyboard-opened GTK menu to activate its selected first
+  # command with Return. No pointer interaction is permitted in this path.
+  shortcut_ready=0
+  for _ in $(seq 1 30); do
+    if grep -Fq "SLOPOS_SYSTEM_MENU_SHORTCUT_READY" /tmp/slopos-atspi-session.log; then
+      shortcut_ready=1
+      break
+    fi
+    sleep 0.25
+  done
+  if [[ "$shortcut_ready" != 1 ]]; then
+    echo "SLOPOS shell did not register its Ctrl+F2 X11 shortcut" >&2
+    tail -n 80 /tmp/slopos-atspi-session.log 2>/dev/null || true
+    exit 1
+  fi
   xdotool key --clearmodifiers ctrl+F2
   menu_shortcut_ok=0
   for _ in $(seq 1 20); do
@@ -155,8 +168,8 @@ dbus-run-session -- bash -c '
     sleep 0.25
   done
   if [[ "$menu_shortcut_ok" != 1 ]]; then
-    echo "Ctrl+F2 did not reach the SLOPOS system-menu signal bridge" >&2
-    grep -n "C-F2\|SIGUSR2\|USR2" assets/config/openbox/rc.xml /tmp/slopos-atspi-session.log 2>/dev/null || true
+    echo "Ctrl+F2 did not reach the shell-owned SLOPOS system-menu shortcut" >&2
+    tail -n 80 /tmp/slopos-atspi-session.log 2>/dev/null || true
     exit 1
   fi
   xdotool key --clearmodifiers Return
