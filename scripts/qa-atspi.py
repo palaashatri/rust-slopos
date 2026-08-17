@@ -12,7 +12,7 @@ from gi.repository import Atspi, GLib
 
 
 EXPECTED_NAMES = {
-    "SLOPOS top bar",
+    "SLOPOS top menu bar",
     "SLOPOS application strip",
     "SLOPOS application search",
     "Application search field",
