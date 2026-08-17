@@ -71,9 +71,9 @@ jobs:
             archlinux:base-devel \
             bash -lc '
               set -euo pipefail
-              git config --global --add safe.directory /workspace
               pacman -Syu --noconfirm --needed \
                 archiso rsync git rust pkgconf gtk3 gdk-pixbuf2 libx11 libxrandr openssl dbus
+              git config --global --add safe.directory /workspace
               REPO_COMMIT="$REPO_COMMIT" \
               QA_PUBLIC_KEY_FILE=/workspace/artifacts/vm-qa/keys/qa_key.pub \
               CARGO_TARGET_DIR=/workspace/target-vm-qa \
