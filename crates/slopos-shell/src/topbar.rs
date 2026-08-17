@@ -223,6 +223,8 @@ impl TopBar {
         window.add(&main_box);
         window.show_all();
 
+        install_topbar_fullscreen_manager(&window);
+
         install_live_updates(
             &active_title_label,
             &global_menu_host,
@@ -1375,6 +1377,29 @@ fn refresh_global_menu(
 fn current_active_window_id() -> Option<u32> {
     command_output("xdotool", &["getactivewindow"])
         .and_then(|value| value.trim().parse::<u32>().ok())
+}
+
+fn is_active_window_fullscreen() -> bool {
+    let Some(id) = current_active_window_id() else {
+        return false;
+    };
+    let Some(prop) = command_output("xprop", &["-id", &id.to_string(), "_NET_WM_STATE"]) else {
+        return false;
+    };
+    prop.contains("_NET_WM_STATE_FULLSCREEN")
+}
+
+fn install_topbar_fullscreen_manager(window: &Window) {
+    let window_c = window.clone();
+    glib::timeout_add_local(Duration::from_millis(250), move || {
+        let is_fs = is_active_window_fullscreen();
+        if is_fs && window_c.is_visible() {
+            window_c.set_visible(false);
+        } else if !is_fs && !window_c.is_visible() {
+            window_c.set_visible(true);
+        }
+        glib::ControlFlow::Continue
+    });
 }
 
 fn is_shell_surface(title: &str) -> bool {

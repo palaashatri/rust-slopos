@@ -389,10 +389,13 @@ sleep 0.5
 
 # 12. Graphite Dark Desktop & 13. Graphite Settings Presentation
 bash scripts/slopos-appearance graphite >/dev/null 2>&1 || true
-sleep 1
+pkill -TERM -x slopos-shell 2>/dev/null || true
+sleep 0.5
+SLOPOS_APPEARANCE=graphite ./target/release/slopos-shell >/tmp/vis-shell-graphite.log 2>&1 &
+sleep 1.5
 capture_screen "12_graphite_dark_desktop_1280x800.png"
 
-./target/release/slopos-settings >/dev/null 2>&1 &
+SLOPOS_APPEARANCE=graphite ./target/release/slopos-settings >/dev/null 2>&1 &
 SET_PID=$!
 sleep 1
 SET_WIN="$(xdotool search --onlyvisible --name '^System Settings$' | tail -n 1)"
@@ -403,6 +406,9 @@ kill "$SET_PID" 2>/dev/null || true
 # --- OLED Dark Appearance Scenes ---
 # 34. OLED Dark Desktop & 35. OLED Settings Presentation
 bash scripts/slopos-appearance oled >/dev/null 2>&1 || true
+pkill -TERM -x slopos-shell 2>/dev/null || true
+sleep 0.5
+SLOPOS_APPEARANCE=oled ./target/release/slopos-shell >/tmp/vis-shell-oled.log 2>&1 &
 sleep 1.5
 capture_screen "34_oled_dark_desktop_1280x800.png"
 
@@ -417,7 +423,10 @@ sleep 0.5
 
 # Reset appearance to Platinum
 bash scripts/slopos-appearance platinum >/dev/null 2>&1 || true
+pkill -TERM -x slopos-shell 2>/dev/null || true
 sleep 0.5
+SLOPOS_APPEARANCE=platinum ./target/release/slopos-shell >/dev/null 2>&1 &
+sleep 1
 
 # --- Wallpapers Showcase ---
 # 30. Classic System Gray Dither Wallpaper
@@ -602,6 +611,58 @@ if command -v thunderbird >/dev/null 2>&1; then
   kill "$TB_PID" 2>/dev/null || true
   sleep 0.5
 fi
+
+# 46. Fullscreen Video / Game Experience (MPV Fullscreen with Top Bar & Dock Auto-Hidden)
+if command -v mpv >/dev/null 2>&1; then
+  mpv --player-operation-mode=pseudo-gui --fs --idle=yes >/dev/null 2>&1 &
+  MPV_PID=$!
+  sleep 2
+  MPV_WIN="$(xdotool search --onlyvisible --class mpv | tail -n 1 || true)"
+  if [[ -n "$MPV_WIN" ]]; then
+    xdotool windowactivate --sync "$MPV_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "46_fullscreen_video_mpv_1280x800.png"
+  fi
+  kill "$MPV_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
+# 47. Dock Dodge & Maximized Window Behavior (Auto-Hide Dock)
+mkdir -p "$HOME/.config/slopos-i"
+printf '1\n' > "$HOME/.config/slopos-i/dock_dodge"
+if command -v mousepad >/dev/null 2>&1; then
+  mousepad /workspace/README.md >/dev/null 2>&1 &
+  DODGE_PID=$!
+  sleep 2
+  DODGE_WIN="$(xdotool search --onlyvisible --class Mousepad | tail -n 1 || true)"
+  if [[ -n "$DODGE_WIN" ]]; then
+    xdotool windowactivate --sync "$DODGE_WIN" 2>/dev/null || true
+    xdotool windowsize "$DODGE_WIN" 1280 750 2>/dev/null || true
+    xdotool windowmove "$DODGE_WIN" 0 26 2>/dev/null || true
+    sleep 0.5
+    capture_screen "47_dock_dodge_maximized_1280x800.png"
+  fi
+  kill "$DODGE_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+printf '0\n' > "$HOME/.config/slopos-i/dock_dodge"
+
+# 48. Custom Colors & Fonts Studio (Windows XP Style Personalization)
+./target/release/slopos-settings --appearance >/dev/null 2>&1 &
+STUDIO_PID=$!
+sleep 1.5
+for _ in $(seq 1 40); do
+  if xdotool search --onlyvisible --name '.*Appearance.*' >/dev/null 2>&1; then break; fi
+  sleep 0.1
+done
+STUDIO_WIN="$(xdotool search --onlyvisible --name '.*Appearance.*' | tail -n 1 || true)"
+if [[ -n "$STUDIO_WIN" ]]; then
+  xdotool windowactivate --sync "$STUDIO_WIN" 2>/dev/null || true
+  sleep 0.5
+  capture_screen "48_custom_color_font_studio_1280x800.png"
+fi
+kill "$STUDIO_PID" 2>/dev/null || true
+sleep 0.5
 
 kill -TERM "$SESSION_90_PID" "$XVFB_90_PID" 2>/dev/null || true
 pkill -TERM -x slopos-shell 2>/dev/null || true

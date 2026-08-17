@@ -97,12 +97,33 @@ extern "C" fn launcher_signal_handler(_sig: libc::c_int) {
 }
 
 fn current_appearance() -> &'static str {
+    if let Ok(env_app) = std::env::var("SLOPOS_APPEARANCE") {
+        let v = env_app.trim();
+        if v.eq_ignore_ascii_case("custom") {
+            return "custom";
+        }
+        if v.eq_ignore_ascii_case("oled") {
+            return "oled";
+        }
+        if v.eq_ignore_ascii_case("graphite") {
+            return "graphite";
+        }
+        if v.eq_ignore_ascii_case("classic") {
+            return "classic";
+        }
+        if v.eq_ignore_ascii_case("platinum") {
+            return "platinum";
+        }
+    }
     let config_home = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
     if let Some(config_home) = config_home {
         if let Ok(value) = std::fs::read_to_string(config_home.join("slopos-i/appearance")) {
             let v = value.trim();
+            if v.eq_ignore_ascii_case("custom") {
+                return "custom";
+            }
             if v.eq_ignore_ascii_case("oled") {
                 return "oled";
             }
@@ -133,6 +154,15 @@ fn load_css_theme() {
     };
 
     let mut css_paths = Vec::new();
+    let config_home = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+    if let Some(ref config_home) = config_home {
+        let user_css = config_home.join("gtk-3.0/gtk.css");
+        if user_css.exists() {
+            css_paths.push(user_css);
+        }
+    }
     if let Ok(share_dir) = std::env::var("SLOPOS_SHARE_DIR") {
         css_paths.push(
             PathBuf::from(share_dir)
@@ -167,7 +197,7 @@ fn load_css_theme() {
                     StyleContext::add_provider_for_screen(
                         &screen,
                         &provider,
-                        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+                        gtk::STYLE_PROVIDER_PRIORITY_USER,
                     );
                     log::info!(
                         "Loaded SLOPOS {} GTK CSS from {}",

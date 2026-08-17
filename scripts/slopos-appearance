@@ -8,7 +8,7 @@ usage() {
 
 mode="${1:-status}"
 case "$mode" in
-  classic|platinum|graphite|oled|status) ;;
+  classic|platinum|graphite|oled|custom|status) ;;
   *) usage; exit 2 ;;
 esac
 
@@ -20,7 +20,7 @@ appearance_file="$slopos_config/appearance"
 if [[ "$mode" == "status" ]]; then
   if [[ -r "$appearance_file" ]]; then
     value="$(tr -d '[:space:]' < "$appearance_file")"
-    case "$value" in classic|platinum|graphite|oled) echo "$value"; exit 0 ;; esac
+    case "$value" in classic|platinum|graphite|oled|custom) echo "$value"; exit 0 ;; esac
   fi
   echo platinum
   exit 0
@@ -30,7 +30,29 @@ mkdir -p "$slopos_config" "$gtk_config"
 printf '%s\n' "$mode" > "$appearance_file.tmp"
 mv -f "$appearance_file.tmp" "$appearance_file"
 
-if [[ "$mode" == "oled" ]]; then
+font_name="Liberation Sans 9"
+if [[ -f "$slopos_config/font" ]]; then
+  saved_font="$(cat "$slopos_config/font" | tr -d '\r\n')"
+  if [[ -n "$saved_font" ]]; then
+    font_name="$saved_font"
+  fi
+elif [[ -f "$gtk_config/settings.ini" ]]; then
+  ini_font="$(grep -E '^gtk-font-name\s*=' "$gtk_config/settings.ini" | head -n1 | cut -d= -f2- | sed 's/^[[:space:]]*//')"
+  if [[ -n "$ini_font" ]]; then
+    font_name="$ini_font"
+  fi
+fi
+
+if [[ "$mode" == "custom" ]]; then
+  gtk_theme="slopos-gtk"
+  css_name="custom-theme.css"
+  rc_name="rc.xml"
+  dark_pref=0
+  root_color="#758090"
+  if [[ -f "$slopos_config/root_color" ]]; then
+    root_color="$(cat "$slopos_config/root_color" | tr -d '\r\n')"
+  fi
+elif [[ "$mode" == "oled" ]]; then
   gtk_theme="slopos-gtk-oled"
   css_name="gtk-oled.css"
   rc_name="rc-oled.xml"
@@ -61,7 +83,7 @@ cat > "$gtk_config/settings.ini.tmp" <<EOF
 gtk-theme-name = $gtk_theme
 gtk-icon-theme-name = SLOPOS-Platinum
 gtk-cursor-theme-name = DMZ-White
-gtk-font-name = Liberation Sans 9
+gtk-font-name = $font_name
 gtk-application-prefer-dark-theme = $dark_pref
 gtk-shell-shows-menubar = 1
 gtk-shell-shows-app-menu = 0
@@ -74,16 +96,20 @@ gtk-xft-rgba = rgb
 EOF
 mv -f "$gtk_config/settings.ini.tmp" "$gtk_config/settings.ini"
 
-for candidate_css in \
-  "$HOME/.themes/$gtk_theme/gtk-3.0/gtk.css" \
-  "/usr/local/share/themes/$gtk_theme/gtk-3.0/gtk.css" \
-  "/usr/share/themes/$gtk_theme/gtk-3.0/gtk.css" \
-  "assets/config/gtk-3.0/$css_name"; do
-  if [[ -f "$candidate_css" ]]; then
-    cp -f "$candidate_css" "$gtk_config/gtk.css"
-    break
-  fi
-done
+if [[ "$mode" == "custom" && -f "$slopos_config/custom-theme.css" ]]; then
+  cp -f "$slopos_config/custom-theme.css" "$gtk_config/gtk.css"
+else
+  for candidate_css in \
+    "$HOME/.themes/$gtk_theme/gtk-3.0/gtk.css" \
+    "/usr/local/share/themes/$gtk_theme/gtk-3.0/gtk.css" \
+    "/usr/share/themes/$gtk_theme/gtk-3.0/gtk.css" \
+    "assets/config/gtk-3.0/$css_name"; do
+    if [[ -f "$candidate_css" ]]; then
+      cp -f "$candidate_css" "$gtk_config/gtk.css"
+      break
+    fi
+  done
+fi
 
 openbox_config="$config_home/openbox"
 mkdir -p "$openbox_config"

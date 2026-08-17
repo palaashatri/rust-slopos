@@ -211,6 +211,7 @@ impl Dock {
 
         window.add(&dock_box);
         window.show_all();
+        install_dock_visibility_manager(&window, screen_height);
         Rc::new(Self { _window: window })
     }
 }
@@ -366,4 +367,83 @@ fn screen_geometry() -> (i32, i32) {
         }
     }
     (1280, 800)
+}
+
+fn command_output(program: &str, args: &[&str]) -> Option<String> {
+    let output = Command::new(program).args(args).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if text.is_empty() {
+        None
+    } else {
+        Some(text)
+    }
+}
+
+fn is_dock_dodge_enabled() -> bool {
+    let config_home = env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+    if let Some(config_home) = config_home {
+        let flag_file = config_home.join("slopos-i/dock_dodge");
+        if let Ok(content) = std::fs::read_to_string(flag_file) {
+            let t = content.trim();
+            return t == "1" || t.eq_ignore_ascii_case("true") || t.eq_ignore_ascii_case("yes");
+        }
+    }
+    false
+}
+
+fn check_window_and_dodge_state() -> (bool, bool) {
+    let Some(id_text) = command_output("xdotool", &["getactivewindow"]) else {
+        return (false, false);
+    };
+    let Ok(id) = id_text.trim().parse::<u64>() else {
+        return (false, false);
+    };
+    let Some(prop) = command_output("xprop", &["-id", &id.to_string(), "_NET_WM_STATE"]) else {
+        return (false, false);
+    };
+    let is_fullscreen = prop.contains("_NET_WM_STATE_FULLSCREEN");
+    let is_maximized = prop.contains("_NET_WM_STATE_MAXIMIZED_VERT")
+        || prop.contains("_NET_WM_STATE_MAXIMIZED_HORZ");
+    let dodge_enabled = is_dock_dodge_enabled();
+    (is_fullscreen, dodge_enabled && is_maximized)
+}
+
+fn is_pointer_near_bottom(screen_height: i32) -> bool {
+    if let Some(loc) = command_output("xdotool", &["getmouselocation"]) {
+        for part in loc.split_whitespace() {
+            if let Some(y_str) = part.strip_prefix("y:") {
+                if let Ok(y) = y_str.parse::<i32>() {
+                    return y >= (screen_height - 18);
+                }
+            }
+        }
+    }
+    false
+}
+
+fn install_dock_visibility_manager(window: &Window, screen_height: i32) {
+    let window_c = window.clone();
+    glib::timeout_add_local(std::time::Duration::from_millis(250), move || {
+        let (fullscreen, dodge) = check_window_and_dodge_state();
+        if fullscreen {
+            if window_c.is_visible() {
+                window_c.set_visible(false);
+            }
+        } else if dodge {
+            let pointer_near_bottom = is_pointer_near_bottom(screen_height);
+            if pointer_near_bottom && !window_c.is_visible() {
+                window_c.set_visible(true);
+            } else if !pointer_near_bottom && window_c.is_visible() {
+                window_c.set_visible(false);
+            }
+        } else if !window_c.is_visible() {
+            window_c.set_visible(true);
+        }
+        glib::ControlFlow::Continue
+    });
 }

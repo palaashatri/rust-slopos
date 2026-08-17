@@ -15,7 +15,7 @@ headerbar, .titlebar { min-height: 24px; padding: 2px 4px; background-image: lin
 headerbar .title,.titlebar .title { font-weight:bold; font-size:12px; color:#ffffff; }
 window.csd,window.solid-csd,window.csd decoration { border-radius:0; box-shadow:none; }
 
-.slopos-topbar { min-height:26px; background-image:linear-gradient(to bottom,#1c1d22,#0a0a0c); border-bottom:1px solid #2a2c33; box-shadow:inset 0 1px #3a3c45; }
+.slopos-topbar { min-height:26px; background-color:#000000; background-image:none; border-bottom:1px solid #3a3c45; box-shadow:none; }
 .slopos-topbar label,.slopos-active-app { color:@slopos_text; }
 .slopos-active-app { font-weight:bold; padding:0 4px; color:#ffffff; }
 .slopos-topbar button,.slopos-menubar-control,.slopos-logo-btn { min-height:20px; padding:1px 5px; background-image:none; background-color:transparent; border:0; box-shadow:none; }
@@ -78,10 +78,10 @@ toolbar { padding:2px; background-color:#0f1013; border-bottom:1px solid @slopos
 scrollbar { min-width:14px; min-height:14px; background-color:#0a0a0c; }
 scrollbar slider { min-width:10px; min-height:24px; background-color:#2a2c33; border:1px solid #000000; }
 
-.slopos-dock-container { padding:4px 6px; background-image:linear-gradient(to bottom,#1c1d22,#0a0a0c); border-style:solid; border-width:2px; border-top-color:#3a3c45; border-left-color:#3a3c45; border-right-color:#000000; border-bottom-color:#000000; box-shadow:3px 3px rgba(0,0,0,.85); }
-.slopos-dock-label { min-width:30px; padding:1px 2px; color:#ffffff; font-size:9px; font-weight:bold; }
-.slopos-dock-btn { min-width:42px; min-height:40px; margin:0 1px; padding:2px; background-image:linear-gradient(to bottom,#22242a,#111216); }
-.slopos-dock-btn:hover { background-image:none; background-color:#30333b; }
+.slopos-dock-container { padding:4px 6px; background-color:#000000; background-image:none; border-style:solid; border-width:2px; border-top-color:#3a3c45; border-left-color:#3a3c45; border-right-color:#000000; border-bottom-color:#000000; box-shadow:4px 4px rgba(0,0,0,.9); }
+.slopos-dock-label { min-width:30px; padding:1px 2px; color:#ffffff; font-size:9px; font-weight:bold; background-color:#0a0a0c; border:1px solid #2a2c33; }
+.slopos-dock-btn { min-width:42px; min-height:40px; margin:0 1px; padding:2px; background-color:#0a0a0c; background-image:none; border:1px solid #2a2c33; }
+.slopos-dock-btn:hover { background-color:@slopos_highlight; border-color:#3b82f6; }
 .slopos-dock-separator { min-width:1px; margin:4px; background-color:@slopos_mid; }
 .slopos-launcher-window { background-color:transparent; }
 .slopos-launcher { padding:9px; background-color:@slopos_face; border:2px solid #3a3c45; box-shadow:4px 4px rgba(0,0,0,.9); }

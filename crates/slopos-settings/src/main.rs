@@ -3,16 +3,22 @@
 //! SLOPOS owns the coherent control-panel entry point while mature upstream
 //! X11/Linux utilities perform hardware and service mutation.
 
+use gdk::RGBA;
 use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
-    Align, Box as GtkBox, Button, Dialog, DialogFlags, Grid, IconSize, Image, Label, Orientation,
-    RadioButton, ResponseType, Window, WindowPosition, WindowType,
+    Align, Box as GtkBox, Button, CheckButton, ColorButton, ComboBoxText, Dialog, DialogFlags,
+    FileChooserAction, FileChooserDialog, FileFilter, FontButton, Grid, IconSize, Image, Label,
+    Orientation, RadioButton, ResponseType, ScrolledWindow, Separator, Window, WindowPosition,
+    WindowType,
 };
+use std::cell::RefCell;
 use std::env;
+use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
+use std::rc::Rc;
 
 struct ControlPanel<'a> {
     icon_file: &'a str,
@@ -261,7 +267,7 @@ fn control_panel_button(panel: &ControlPanel<'_>, parent: &Window) -> Button {
 
 fn show_appearance_dialog(parent: &Window) {
     let dialog = Dialog::with_buttons(
-        Some("Appearance"),
+        Some("Appearance, Colors & Fonts"),
         Some(parent),
         DialogFlags::MODAL | DialogFlags::DESTROY_WITH_PARENT,
         &[
@@ -270,22 +276,23 @@ fn show_appearance_dialog(parent: &Window) {
         ],
     );
     dialog.set_default_response(ResponseType::Accept);
+    dialog.set_default_size(520, 560);
     set_accessible_name(&dialog, "SLOPOS appearance chooser");
 
     let content = dialog.content_area();
-    content.set_spacing(8);
-    content.set_margin_start(12);
-    content.set_margin_end(12);
-    content.set_margin_top(10);
-    content.set_margin_bottom(10);
+    content.set_spacing(10);
+    content.set_margin_start(16);
+    content.set_margin_end(16);
+    content.set_margin_top(12);
+    content.set_margin_bottom(12);
 
-    let heading = Label::new(Some("Desktop Appearance"));
+    let heading = Label::new(Some("Desktop Appearance & Personalization Studio"));
     heading.set_xalign(0.0);
     heading.style_context().add_class("slopos-control-title");
     content.pack_start(&heading, false, false, 0);
 
     let explanation = Label::new(Some(
-        "Choose between Classic Macintosh (System 6/7 monochrome), Platinum (classic light), Graphite (dark), and OLED Dark (pure black contrast).",
+        "Select an authentic SLOPOS theme or customize global RGB colors and UI typography (Windows XP style).",
     ));
     explanation.set_xalign(0.0);
     explanation.set_line_wrap(true);
@@ -294,44 +301,223 @@ fn show_appearance_dialog(parent: &Window) {
         .add_class("slopos-secondary-text");
     content.pack_start(&explanation, false, false, 0);
 
-    let classic = RadioButton::with_label("Classic Macintosh — System 6/7 monochrome");
-    let platinum = RadioButton::with_label_from_widget(&classic, "Platinum — classic light");
-    let graphite = RadioButton::with_label_from_widget(&classic, "Graphite — dark");
-    let oled = RadioButton::with_label_from_widget(&classic, "OLED Dark — pure black contrast");
+    let scrolled = ScrolledWindow::new(gtk::Adjustment::NONE, gtk::Adjustment::NONE);
+    scrolled.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+    scrolled.set_min_content_height(380);
+
+    let inner_box = GtkBox::new(Orientation::Vertical, 10);
+
+    // Section 1: Themes
+    let sec1_label = Label::new(Some("Theme Preset:"));
+    sec1_label.set_xalign(0.0);
+    sec1_label.style_context().add_class("slopos-result-title");
+    inner_box.pack_start(&sec1_label, false, false, 0);
+
+    let platinum = RadioButton::with_label("Platinum — classic light");
+    let classic =
+        RadioButton::with_label_from_widget(&platinum, "Classic Macintosh — System 6/7 monochrome");
+    let graphite = RadioButton::with_label_from_widget(&platinum, "Graphite — dark");
+    let oled = RadioButton::with_label_from_widget(&platinum, "OLED Dark — pure black contrast");
+    let custom =
+        RadioButton::with_label_from_widget(&platinum, "Custom Colors & Fonts — Personal Studio");
+
     match current_appearance() {
         "oled" => oled.set_active(true),
         "graphite" => graphite.set_active(true),
         "classic" => classic.set_active(true),
+        "custom" => custom.set_active(true),
         _ => platinum.set_active(true),
     }
-    content.pack_start(&classic, false, false, 0);
-    content.pack_start(&platinum, false, false, 0);
-    content.pack_start(&graphite, false, false, 0);
-    content.pack_start(&oled, false, false, 0);
+
+    inner_box.pack_start(&platinum, false, false, 0);
+    inner_box.pack_start(&classic, false, false, 0);
+    inner_box.pack_start(&graphite, false, false, 0);
+    inner_box.pack_start(&oled, false, false, 0);
+    inner_box.pack_start(&custom, false, false, 0);
+
+    inner_box.pack_start(&Separator::new(Orientation::Horizontal), false, false, 2);
+
+    // Section 2: Color Studio
+    let sec2_label = Label::new(Some("Global RGB Color Palette (Windows XP Style):"));
+    sec2_label.set_xalign(0.0);
+    sec2_label.style_context().add_class("slopos-result-title");
+    inner_box.pack_start(&sec2_label, false, false, 0);
+
+    let color_grid = Grid::new();
+    color_grid.set_row_spacing(6);
+    color_grid.set_column_spacing(12);
+
+    let accent_btn = ColorButton::new();
+    accent_btn.set_rgba(&hex_to_rgba("#000080"));
+    let accent_label = Label::new(Some("Accent / Selection Color:"));
+    accent_label.set_xalign(0.0);
+    color_grid.attach(&accent_label, 0, 0, 1, 1);
+    color_grid.attach(&accent_btn, 1, 0, 1, 1);
+
+    let sel_text_btn = ColorButton::new();
+    sel_text_btn.set_rgba(&hex_to_rgba("#FFFFFF"));
+    let sel_text_label = Label::new(Some("Selection Text Color:"));
+    sel_text_label.set_xalign(0.0);
+    color_grid.attach(&sel_text_label, 0, 1, 1, 1);
+    color_grid.attach(&sel_text_btn, 1, 1, 1, 1);
+
+    let face_btn = ColorButton::new();
+    face_btn.set_rgba(&hex_to_rgba("#D9D9D9"));
+    let face_label = Label::new(Some("Window & Panel Surface:"));
+    face_label.set_xalign(0.0);
+    color_grid.attach(&face_label, 0, 2, 1, 1);
+    color_grid.attach(&face_btn, 1, 2, 1, 1);
+
+    let text_btn = ColorButton::new();
+    text_btn.set_rgba(&hex_to_rgba("#000000"));
+    let text_label = Label::new(Some("Main Text Color:"));
+    text_label.set_xalign(0.0);
+    color_grid.attach(&text_label, 0, 3, 1, 1);
+    color_grid.attach(&text_btn, 1, 3, 1, 1);
+
+    let root_btn = ColorButton::new();
+    root_btn.set_rgba(&hex_to_rgba("#758090"));
+    let root_label = Label::new(Some("Desktop Background:"));
+    root_label.set_xalign(0.0);
+    color_grid.attach(&root_label, 0, 4, 1, 1);
+    color_grid.attach(&root_btn, 1, 4, 1, 1);
+
+    inner_box.pack_start(&color_grid, false, false, 0);
+
+    // Quick Accent Swatches
+    let swatch_box = GtkBox::new(Orientation::Horizontal, 4);
+    let swatch_label = Label::new(Some("Quick Accents:"));
+    swatch_label
+        .style_context()
+        .add_class("slopos-secondary-text");
+    swatch_box.pack_start(&swatch_label, false, false, 0);
+
+    let swatches = [
+        ("#000080", "Navy"),
+        ("#2563EB", "Azure"),
+        ("#008080", "Teal"),
+        ("#5C616C", "Slate"),
+        ("#7B1FA2", "Purple"),
+        ("#B71C1C", "Crimson"),
+        ("#1B5E20", "Forest"),
+        ("#F57F17", "Amber"),
+    ];
+    for (hex, name) in swatches {
+        let btn = Button::with_label(name);
+        let hex_s = hex.to_string();
+        let accent_c = accent_btn.clone();
+        let custom_c = custom.clone();
+        btn.connect_clicked(move |_| {
+            accent_c.set_rgba(&hex_to_rgba(&hex_s));
+            custom_c.set_active(true);
+        });
+        swatch_box.pack_start(&btn, false, false, 0);
+    }
+    inner_box.pack_start(&swatch_box, false, false, 0);
+
+    inner_box.pack_start(&Separator::new(Orientation::Horizontal), false, false, 2);
+
+    // Section 3: Typography / Fonts
+    let sec3_label = Label::new(Some("User Interface Typography:"));
+    sec3_label.set_xalign(0.0);
+    sec3_label.style_context().add_class("slopos-result-title");
+    inner_box.pack_start(&sec3_label, false, false, 0);
+
+    let font_box = GtkBox::new(Orientation::Horizontal, 8);
+    let font_label = Label::new(Some("Interface Font & Size:"));
+    let font_btn = FontButton::new();
+    font_btn.set_font(&get_current_font());
+    font_box.pack_start(&font_label, false, false, 0);
+    font_box.pack_start(&font_btn, true, true, 0);
+    inner_box.pack_start(&font_box, false, false, 0);
+
+    inner_box.pack_start(&Separator::new(Orientation::Horizontal), false, false, 2);
+
+    // Section 4: Dock & Desktop Behaviors
+    let sec4_label = Label::new(Some("Dock & Window Management:"));
+    sec4_label.set_xalign(0.0);
+    sec4_label.style_context().add_class("slopos-result-title");
+    inner_box.pack_start(&sec4_label, false, false, 0);
+
+    let dodge_check = CheckButton::with_label(
+        "Dodge maximized windows (auto-hide dock when active window is maximized)",
+    );
+    dodge_check.set_active(is_dock_dodge_enabled());
+    inner_box.pack_start(&dodge_check, false, false, 0);
+
+    scrolled.add(&inner_box);
+    content.pack_start(&scrolled, true, true, 0);
 
     dialog.show_all();
     let response = dialog.run();
     if response == ResponseType::Accept {
-        let mode = if oled.is_active() {
-            "oled"
-        } else if graphite.is_active() {
-            "graphite"
-        } else if classic.is_active() {
-            "classic"
-        } else {
-            "platinum"
-        };
-        if let Some(helper) = appearance_helper() {
-            match Command::new(helper).arg(mode).spawn() {
-                Ok(_) => {
-                    dialog.close();
-                    gtk::main_quit();
-                    return;
-                }
-                Err(error) => log::warn!("Failed to switch appearance: {error}"),
+        set_dock_dodge_enabled(dodge_check.is_active());
+        let font_chosen = font_btn
+            .font()
+            .map(|f| f.to_string())
+            .unwrap_or_else(|| "Liberation Sans 9".into());
+
+        // Save chosen font
+        let config_home = env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+        if let Some(ref config_home) = config_home {
+            let dir = config_home.join("slopos-i");
+            let _ = fs::create_dir_all(&dir);
+            let _ = fs::write(dir.join("font"), format!("{}\n", font_chosen.as_str()));
+        }
+
+        if custom.is_active() {
+            let accent_hex = rgba_to_hex(&accent_btn.rgba());
+            let sel_text_hex = rgba_to_hex(&sel_text_btn.rgba());
+            let face_hex = rgba_to_hex(&face_btn.rgba());
+            let text_hex = rgba_to_hex(&text_btn.rgba());
+            let root_hex = rgba_to_hex(&root_btn.rgba());
+
+            if let Some(ref config_home) = config_home {
+                let gtk_dir = config_home.join("gtk-3.0");
+                let _ = fs::create_dir_all(&gtk_dir);
+                let custom_css = generate_custom_theme_css(
+                    &accent_hex,
+                    &sel_text_hex,
+                    &face_hex,
+                    &text_hex,
+                    font_chosen.as_str(),
+                );
+                let _ = fs::write(gtk_dir.join("gtk.css"), &custom_css);
+                let _ = fs::write(config_home.join("slopos-i/custom-theme.css"), &custom_css);
+                let _ = fs::write(
+                    config_home.join("slopos-i/root_color"),
+                    format!("{root_hex}\n"),
+                );
+            }
+
+            if let Some(helper) = appearance_helper() {
+                let _ = Command::new(helper).arg("custom").spawn();
             }
         } else {
-            log::warn!("slopos-appearance helper is unavailable");
+            let mode = if oled.is_active() {
+                "oled"
+            } else if graphite.is_active() {
+                "graphite"
+            } else if classic.is_active() {
+                "classic"
+            } else {
+                "platinum"
+            };
+
+            if let Some(helper) = appearance_helper() {
+                match Command::new(helper).arg(mode).spawn() {
+                    Ok(_) => {
+                        dialog.close();
+                        gtk::main_quit();
+                        return;
+                    }
+                    Err(error) => log::warn!("Failed to switch appearance: {error}"),
+                }
+            } else {
+                log::warn!("slopos-appearance helper is unavailable");
+            }
         }
     }
     dialog.close();
@@ -349,22 +535,23 @@ fn show_wallpaper_dialog(parent: &Window) {
         ],
     );
     dialog.set_default_response(ResponseType::Accept);
+    dialog.set_default_size(540, 520);
     set_accessible_name(&dialog, "SLOPOS wallpaper chooser");
 
     let content = dialog.content_area();
     content.set_spacing(8);
-    content.set_margin_start(12);
-    content.set_margin_end(12);
+    content.set_margin_start(14);
+    content.set_margin_end(14);
     content.set_margin_top(10);
     content.set_margin_bottom(10);
 
-    let heading = Label::new(Some("Desktop Wallpaper & Patterns"));
+    let heading = Label::new(Some("Desktop Wallpaper & Background Patterns"));
     heading.set_xalign(0.0);
     heading.style_context().add_class("slopos-control-title");
     content.pack_start(&heading, false, false, 0);
 
     let explanation = Label::new(Some(
-        "Select an authentic retro background pattern or choose a custom image:",
+        "Choose an authentic retro background pattern or select your own custom image from disk:",
     ));
     explanation.set_xalign(0.0);
     explanation
@@ -372,59 +559,202 @@ fn show_wallpaper_dialog(parent: &Window) {
         .add_class("slopos-secondary-text");
     content.pack_start(&explanation, false, false, 0);
 
-    let wp1 = RadioButton::with_label("01 Classic System Gray — 50% 1-Bit Dither");
-    let wp2 =
-        RadioButton::with_label_from_widget(&wp1, "02 Platinum Cool Slate — Fine Matrix (#758090)");
-    let wp3 =
-        RadioButton::with_label_from_widget(&wp1, "03 Vintage Mac Blue — Classic Tweed (#3A5F8B)");
-    let wp4 = RadioButton::with_label_from_widget(
-        &wp1,
-        "04 Retro Teal Grid — 90s Desktop Matrix (#008080)",
-    );
-    let wp5 = RadioButton::with_label_from_widget(
-        &wp1,
-        "05 OLED Pure Dark — Obsidian Constellation (#000000)",
-    );
-    wp2.set_active(true);
+    let scrolled = ScrolledWindow::new(gtk::Adjustment::NONE, gtk::Adjustment::NONE);
+    scrolled.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+    scrolled.set_min_content_height(280);
 
-    content.pack_start(&wp1, false, false, 0);
-    content.pack_start(&wp2, false, false, 0);
-    content.pack_start(&wp3, false, false, 0);
-    content.pack_start(&wp4, false, false, 0);
-    content.pack_start(&wp5, false, false, 0);
+    let wp_grid = GtkBox::new(Orientation::Vertical, 6);
+
+    let wp_items = [
+        (
+            "01_classic_system_gray.png",
+            "01 Classic System Gray",
+            "50% 1-Bit Monochrome Dither Pattern",
+        ),
+        (
+            "02_platinum_cool_slate.png",
+            "02 Platinum Cool Slate",
+            "Fine Matrix Slate Grid (#758090)",
+        ),
+        (
+            "03_vintage_mac_blue.png",
+            "03 Vintage Mac Blue",
+            "Classic System 8/9 Blue Tweed Pattern (#3A5F8B)",
+        ),
+        (
+            "04_retro_teal_grid.png",
+            "04 Retro Teal Grid",
+            "1990s Desktop Teal Geometric Matrix (#008080)",
+        ),
+        (
+            "05_oled_pure_dark.png",
+            "05 OLED Pure Dark",
+            "Pure Black Obsidian Constellation (#000000)",
+        ),
+    ];
+
+    let wp_radios: Rc<RefCell<Vec<(RadioButton, String)>>> = Rc::new(RefCell::new(Vec::new()));
+    let custom_path: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
+
+    let mut first_radio: Option<RadioButton> = None;
+
+    for (idx, (file, title, desc)) in wp_items.iter().enumerate() {
+        let row_box = GtkBox::new(Orientation::Horizontal, 10);
+        row_box.style_context().add_class("slopos-catalogue-row");
+        row_box.set_margin_top(2);
+        row_box.set_margin_bottom(2);
+
+        if let Some(path) = find_wallpaper_path(file) {
+            if let Ok(pixbuf) = Pixbuf::from_file_at_scale(&path, 72, 45, false) {
+                let img = Image::from_pixbuf(Some(&pixbuf));
+                row_box.pack_start(&img, false, false, 2);
+            }
+        }
+
+        let label_box = GtkBox::new(Orientation::Vertical, 2);
+        let title_lbl = Label::new(Some(*title));
+        title_lbl.set_xalign(0.0);
+        title_lbl.style_context().add_class("slopos-result-title");
+        let desc_lbl = Label::new(Some(*desc));
+        desc_lbl.set_xalign(0.0);
+        desc_lbl.style_context().add_class("slopos-secondary-text");
+        label_box.pack_start(&title_lbl, false, false, 0);
+        label_box.pack_start(&desc_lbl, false, false, 0);
+
+        let radio = if let Some(ref first) = first_radio {
+            RadioButton::with_label_from_widget(first, "")
+        } else {
+            let r = RadioButton::with_label("");
+            first_radio = Some(r.clone());
+            r
+        };
+
+        if idx == 1 {
+            radio.set_active(true);
+        }
+
+        row_box.pack_start(&radio, false, false, 0);
+        row_box.pack_start(&label_box, true, true, 0);
+
+        wp_radios.borrow_mut().push((radio, (*file).to_string()));
+        wp_grid.pack_start(&row_box, false, false, 0);
+    }
+
+    // Custom File Row
+    let custom_row = GtkBox::new(Orientation::Horizontal, 10);
+    custom_row.style_context().add_class("slopos-catalogue-row");
+    custom_row.set_margin_top(2);
+    custom_row.set_margin_bottom(2);
+
+    let custom_radio = RadioButton::with_label_from_widget(first_radio.as_ref().unwrap(), "");
+    let custom_label = Label::new(Some("Custom Image File…"));
+    custom_label.set_xalign(0.0);
+    custom_label
+        .style_context()
+        .add_class("slopos-result-title");
+
+    let browse_btn = Button::with_label("Browse Image…");
+    let custom_label_c = custom_label.clone();
+    let custom_radio_c = custom_radio.clone();
+    let custom_path_c = custom_path.clone();
+    let dialog_parent = dialog.clone();
+
+    browse_btn.connect_clicked(move |_| {
+        let file_chooser = FileChooserDialog::with_buttons(
+            Some("Choose Wallpaper Image"),
+            Some(&dialog_parent),
+            FileChooserAction::Open,
+            &[
+                ("Cancel", ResponseType::Cancel),
+                ("Open", ResponseType::Accept),
+            ],
+        );
+        let filter = FileFilter::new();
+        filter.set_name(Some("Image files (PNG, JPG, SVG, BMP, WEBP)"));
+        filter.add_mime_type("image/png");
+        filter.add_mime_type("image/jpeg");
+        filter.add_mime_type("image/jpg");
+        filter.add_mime_type("image/bmp");
+        filter.add_mime_type("image/svg+xml");
+        filter.add_mime_type("image/webp");
+        filter.add_pattern("*.png");
+        filter.add_pattern("*.jpg");
+        filter.add_pattern("*.jpeg");
+        filter.add_pattern("*.bmp");
+        filter.add_pattern("*.svg");
+        filter.add_pattern("*.webp");
+        file_chooser.add_filter(filter);
+
+        if file_chooser.run() == ResponseType::Accept {
+            if let Some(file_path) = file_chooser.filename() {
+                let path_str = file_path.to_string_lossy().to_string();
+                custom_label_c.set_text(&format!(
+                    "Custom: {}",
+                    file_path.file_name().unwrap_or_default().to_string_lossy()
+                ));
+                *custom_path_c.borrow_mut() = Some(path_str);
+                custom_radio_c.set_active(true);
+            }
+        }
+        file_chooser.close();
+    });
+
+    custom_row.pack_start(&custom_radio, false, false, 0);
+    custom_row.pack_start(&custom_label, true, true, 0);
+    custom_row.pack_start(&browse_btn, false, false, 0);
+
+    wp_radios
+        .borrow_mut()
+        .push((custom_radio, "custom".to_string()));
+    wp_grid.pack_start(&custom_row, false, false, 0);
+
+    scrolled.add(&wp_grid);
+    content.pack_start(&scrolled, true, true, 0);
 
     let mode_box = GtkBox::new(Orientation::Horizontal, 8);
     let mode_label = Label::new(Some("Display Mode:"));
-    let mode_combo = gtk::ComboBoxText::new();
-    mode_combo.append(Some("fill"), "Fill / Stretch");
+    let mode_combo = ComboBoxText::new();
+    mode_combo.append(Some("fill"), "Fill / Stretch (Default)");
     mode_combo.append(Some("tile"), "Tile Pattern");
     mode_combo.append(Some("center"), "Center");
+    mode_combo.append(Some("max"), "Max / Fit to Screen");
     mode_combo.set_active(Some(0));
     mode_box.pack_start(&mode_label, false, false, 0);
     mode_box.pack_start(&mode_combo, true, true, 0);
     content.pack_start(&mode_box, false, false, 0);
 
+    let dodge_check = CheckButton::with_label(
+        "Dodge maximized windows (auto-hide dock when active window is maximized)",
+    );
+    dodge_check.set_active(is_dock_dodge_enabled());
+    content.pack_start(&dodge_check, false, false, 0);
+
     dialog.show_all();
     let response = dialog.run();
     if response == ResponseType::Accept {
-        let chosen_file = if wp1.is_active() {
-            "01_classic_system_gray.png"
-        } else if wp2.is_active() {
-            "02_platinum_cool_slate.png"
-        } else if wp3.is_active() {
-            "03_vintage_mac_blue.png"
-        } else if wp4.is_active() {
-            "04_retro_teal_grid.png"
-        } else {
-            "05_oled_pure_dark.png"
-        };
+        set_dock_dodge_enabled(dodge_check.is_active());
+
+        let mut chosen_file = "02_platinum_cool_slate.png".to_string();
+        for (radio, file_name) in wp_radios.borrow().iter() {
+            if radio.is_active() {
+                if file_name == "custom" {
+                    if let Some(ref custom_img) = *custom_path.borrow() {
+                        chosen_file = custom_img.clone();
+                    }
+                } else {
+                    chosen_file = file_name.clone();
+                }
+                break;
+            }
+        }
+
         let mode = mode_combo.active_id().unwrap_or_else(|| "fill".into());
         let _ = Command::new("scripts/slopos-wallpaper")
-            .args(["set", chosen_file, "--mode", mode.as_str()])
+            .args(["set", &chosen_file, "--mode", mode.as_str()])
             .spawn()
             .or_else(|_| {
                 Command::new("slopos-wallpaper")
-                    .args(["set", chosen_file, "--mode", mode.as_str()])
+                    .args(["set", &chosen_file, "--mode", mode.as_str()])
                     .spawn()
             });
     } else if response == ResponseType::Other(1) {
@@ -634,9 +964,190 @@ where
     accessible.set_name(name);
 }
 
+fn rgba_to_hex(rgba: &RGBA) -> String {
+    format!(
+        "#{:02x}{:02x}{:02x}",
+        (rgba.red() * 255.0).round() as u8,
+        (rgba.green() * 255.0).round() as u8,
+        (rgba.blue() * 255.0).round() as u8
+    )
+}
+
+fn hex_to_rgba(hex: &str) -> RGBA {
+    let hex = hex.trim().trim_start_matches('#');
+    if hex.len() == 6 {
+        if let (Ok(r), Ok(g), Ok(b)) = (
+            u8::from_str_radix(&hex[0..2], 16),
+            u8::from_str_radix(&hex[2..4], 16),
+            u8::from_str_radix(&hex[4..6], 16),
+        ) {
+            return RGBA::new(r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0, 1.0);
+        }
+    }
+    RGBA::new(0.0, 0.0, 0.5, 1.0)
+}
+
+fn is_dock_dodge_enabled() -> bool {
+    let config_home = env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+    if let Some(config_home) = config_home {
+        let flag_file = config_home.join("slopos-i/dock_dodge");
+        if let Ok(content) = fs::read_to_string(flag_file) {
+            let t = content.trim();
+            return t == "1" || t.eq_ignore_ascii_case("true") || t.eq_ignore_ascii_case("yes");
+        }
+    }
+    false
+}
+
+fn set_dock_dodge_enabled(enabled: bool) {
+    let config_home = env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+    if let Some(config_home) = config_home {
+        let dir = config_home.join("slopos-i");
+        let _ = fs::create_dir_all(&dir);
+        let flag_file = dir.join("dock_dodge");
+        let _ = fs::write(flag_file, if enabled { "1\n" } else { "0\n" });
+    }
+}
+
+fn get_current_font() -> String {
+    let config_home = env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+    if let Some(ref config_home) = config_home {
+        if let Ok(content) = fs::read_to_string(config_home.join("slopos-i/font")) {
+            let t = content.trim().to_string();
+            if !t.is_empty() {
+                return t;
+            }
+        }
+        if let Ok(content) = fs::read_to_string(config_home.join("gtk-3.0/settings.ini")) {
+            for line in content.lines() {
+                if let Some(rest) = line.trim().strip_prefix("gtk-font-name") {
+                    if let Some(val) = rest.strip_prefix('=').or_else(|| rest.strip_prefix(" =")) {
+                        let f = val.trim().to_string();
+                        if !f.is_empty() {
+                            return f;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    "Liberation Sans 9".to_string()
+}
+
+fn find_wallpaper_path(filename: &str) -> Option<PathBuf> {
+    let candidates = [
+        PathBuf::from(format!("assets/wallpapers/{filename}")),
+        PathBuf::from(format!("/usr/local/share/slopos-i/wallpapers/{filename}")),
+        PathBuf::from(format!("/usr/share/slopos-i/wallpapers/{filename}")),
+    ];
+    candidates.into_iter().find(|cand| cand.is_file())
+}
+
+fn is_dark_color(hex: &str) -> bool {
+    let hex = hex.trim().trim_start_matches('#');
+    if hex.len() == 6 {
+        if let (Ok(r), Ok(g), Ok(b)) = (
+            u8::from_str_radix(&hex[0..2], 16),
+            u8::from_str_radix(&hex[2..4], 16),
+            u8::from_str_radix(&hex[4..6], 16),
+        ) {
+            let luma = 0.299 * (r as f64) + 0.587 * (g as f64) + 0.114 * (b as f64);
+            return luma < 128.0;
+        }
+    }
+    false
+}
+
+fn generate_custom_theme_css(
+    accent_hex: &str,
+    accent_text_hex: &str,
+    face_hex: &str,
+    text_hex: &str,
+    font_name: &str,
+) -> String {
+    let is_dark = is_dark_color(face_hex);
+    let border_light = if is_dark { "#3a3c45" } else { "#ffffff" };
+    let border_mid = if is_dark { "#2a2c33" } else { "#b0b0b0" };
+    let border_dark = if is_dark { "#000000" } else { "#606060" };
+    let secondary_text = if is_dark { "#9ca3af" } else { "#707070" };
+    let entry_bg = if is_dark { "#0a0a0c" } else { "#ffffff" };
+    let entry_fg = if is_dark { "#ffffff" } else { "#000000" };
+    let list_bg = if is_dark { "#050505" } else { "#ffffff" };
+    let list_fg = if is_dark { "#ffffff" } else { "#000000" };
+
+    format!(
+        r#"/* SLOPOS-I Custom User Theme — Personal Color & Typography Studio */
+@define-color slopos_face {face_hex};
+@define-color slopos_face_dark {face_hex};
+@define-color slopos_light {border_light};
+@define-color slopos_highlight {accent_hex};
+@define-color slopos_shadow {border_dark};
+@define-color slopos_mid {border_mid};
+@define-color slopos_text {text_hex};
+@define-color slopos_disabled #888888;
+@define-color slopos_warning #f59e0b;
+
+* {{ font: {font_name}; color: @slopos_text; border-radius: 0; }}
+window, .background, dialog {{ background-color: @slopos_face; color: @slopos_text; }}
+headerbar, .titlebar {{ min-height: 24px; padding: 2px 4px; background-color: @slopos_face; border-bottom: 1px solid @slopos_mid; }}
+headerbar .title, .titlebar .title {{ font-weight: bold; color: @slopos_text; }}
+window.csd, window.solid-csd, window.csd decoration {{ border-radius: 0; box-shadow: none; }}
+
+.slopos-topbar {{ min-height: 26px; background-color: @slopos_face; border-bottom: 1px solid @slopos_mid; }}
+.slopos-topbar label, .slopos-active-app {{ color: @slopos_text; }}
+.slopos-active-app {{ font-weight: bold; padding: 0 4px; color: @slopos_text; }}
+.slopos-topbar button, .slopos-menubar-control, .slopos-logo-btn {{ min-height: 20px; padding: 1px 5px; background: transparent; border: 0; }}
+.slopos-topbar button:hover, .slopos-topbar button:checked, .slopos-menu-bar menuitem:hover {{ background-color: @slopos_highlight; }}
+.slopos-topbar button:hover label, .slopos-topbar button:checked label, .slopos-menu-bar menuitem:hover label {{ color: {accent_text_hex}; }}
+.slopos-menu-bar {{ background: transparent; border: 0; }}
+.slopos-menu-bar menuitem {{ min-height: 18px; padding: 3px 7px; }}
+menubar {{ min-height: 22px; padding: 0 2px; background-color: @slopos_face; border-bottom: 1px solid @slopos_mid; }}
+menubar > menuitem:hover, menubar > menuitem:focus, menubar > menuitem:selected {{ background-color: @slopos_highlight; color: {accent_text_hex}; }}
+menubar > menuitem:hover label, menubar > menuitem:focus label, menubar > menuitem:selected label {{ color: {accent_text_hex}; }}
+
+menu, popover.background {{ background-color: @slopos_face; border: 2px solid @slopos_shadow; box-shadow: 3px 3px rgba(0,0,0,.35); padding: 2px; }}
+menu menuitem {{ min-height: 18px; padding: 3px 18px 3px 8px; }}
+menu menuitem:hover, menu menuitem:focus, menu menuitem:selected {{ background-color: @slopos_highlight; color: {accent_text_hex}; }}
+menu menuitem:hover label, menu menuitem:focus label, menu menuitem:selected label {{ color: {accent_text_hex}; }}
+
+button {{ min-height: 22px; padding: 3px 9px; background-color: @slopos_face; border-style: solid; border-width: 1px 2px 2px 1px; border-top-color: @slopos_light; border-left-color: @slopos_light; border-right-color: @slopos_shadow; border-bottom-color: @slopos_shadow; }}
+button:hover {{ background-color: @slopos_highlight; color: {accent_text_hex}; }}
+button:active, button:checked {{ border-width: 2px 1px 1px 2px; border-top-color: @slopos_shadow; border-left-color: @slopos_shadow; border-right-color: @slopos_light; border-bottom-color: @slopos_light; }}
+button:focus {{ box-shadow: inset 0 0 0 1px @slopos_highlight; }}
+
+entry {{ min-height: 24px; padding: 2px 5px; background-color: {entry_bg}; color: {entry_fg}; border: 1px solid @slopos_shadow; }}
+entry:focus {{ border-color: @slopos_highlight; }}
+
+list, listbox, treeview, textview {{ background-color: {list_bg}; color: {list_fg}; }}
+row:selected {{ background-color: @slopos_highlight; color: {accent_text_hex}; }}
+row:selected label {{ color: {accent_text_hex}; }}
+
+.slopos-dock-container {{ padding: 4px 6px; background-color: @slopos_face; border-style: solid; border-width: 2px; border-top-color: @slopos_light; border-left-color: @slopos_light; border-right-color: @slopos_shadow; border-bottom-color: @slopos_shadow; box-shadow: 3px 3px rgba(0,0,0,.35); }}
+.slopos-dock-label {{ min-width: 30px; padding: 1px 2px; color: @slopos_text; font-size: 9px; font-weight: bold; }}
+.slopos-dock-btn {{ min-width: 42px; min-height: 40px; margin: 0 1px; padding: 2px; background-color: @slopos_face; border: 1px solid @slopos_mid; }}
+.slopos-dock-btn:hover {{ background-color: @slopos_highlight; }}
+.slopos-launcher {{ padding: 9px; background-color: @slopos_face; border: 2px solid @slopos_shadow; box-shadow: 4px 4px rgba(0,0,0,.45); }}
+.slopos-notification, .slopos-alert-box {{ padding: 9px; background-color: @slopos_face; border: 2px solid @slopos_shadow; box-shadow: 4px 4px rgba(0,0,0,.45); }}
+.slopos-window-body {{ padding: 10px; background-color: @slopos_face; }}
+.slopos-panel-title {{ font-weight: bold; font-size: 15px; color: @slopos_text; }}
+.slopos-panel-subtitle {{ color: {secondary_text}; font-size: 11px; }}
+.slopos-control-panel {{ min-height: 64px; padding: 6px 8px; background-color: @slopos_face; border-top-color: @slopos_light; border-left-color: @slopos_light; border-right-color: @slopos_shadow; border-bottom-color: @slopos_shadow; }}
+"#
+    )
+}
+
 fn current_appearance() -> &'static str {
     if let Ok(env_appearance) = env::var("SLOPOS_APPEARANCE") {
         let v = env_appearance.trim();
+        if v.eq_ignore_ascii_case("custom") {
+            return "custom";
+        }
         if v.eq_ignore_ascii_case("oled") {
             return "oled";
         }
@@ -646,6 +1157,9 @@ fn current_appearance() -> &'static str {
         if v.eq_ignore_ascii_case("classic") {
             return "classic";
         }
+        if v.eq_ignore_ascii_case("platinum") {
+            return "platinum";
+        }
     }
     let config_home = env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
@@ -653,6 +1167,9 @@ fn current_appearance() -> &'static str {
     if let Some(config_home) = config_home {
         if let Ok(value) = std::fs::read_to_string(config_home.join("slopos-i/appearance")) {
             let v = value.trim();
+            if v.eq_ignore_ascii_case("custom") {
+                return "custom";
+            }
             if v.eq_ignore_ascii_case("oled") {
                 return "oled";
             }

@@ -93,7 +93,7 @@ Mature upstream applications + verified AppImages
 
 ---
 
-### 4. Quadruple Appearance System
+### 4. Quadruple Appearance System & Windows XP-Style Custom RGB Color Studio
 
 | Classic Macintosh Desktop (6-Stripe Titlebars) | Classic System Menu (Inverted Black Selection) |
 |:---:|:---:|
@@ -107,6 +107,10 @@ Mature upstream applications + verified AppImages
 |:---:|:---:|
 | ![OLED Dark Desktop](docs/screenshots/34_oled_dark_desktop_1280x800.png) | ![OLED Dark Settings](docs/screenshots/35_oled_dark_settings_1280x800.png) |
 
+| Custom Colors & Fonts Studio (Windows XP Style) | Desktop & Wallpaper Chooser with Previews |
+|:---:|:---:|
+| ![Custom Color & Font Studio](docs/screenshots/48_custom_color_font_studio_1280x800.png) | ![Wallpaper Chooser Dialog](docs/screenshots/33_wallpaper_chooser_dialog_1280x800.png) |
+
 1. **Classic Macintosh (System 6/7)**:
    - Iconic 6-stripe horizontal pinstripe titlebars with centered white cutout title box.
    - 4px rounded-rectangle push buttons with 1px black outline.
@@ -118,13 +122,28 @@ Mature upstream applications + verified AppImages
    - Muted slate desktop background (`#758090`).
 3. **Graphite (Dark)**:
    - Sleek dark charcoal surfaces (`#25272B` to `#2C2E33`) with high-contrast active window frames.
-4. **OLED Dark (Pure Black)**:
-   - True deep black (`#000000`) surfaces optimized for OLED panels and battery longevity.
+4. **OLED Dark (Pure Black `#000000`)**:
+   - True deep pitch-black (`#000000`) surfaces across all windows, top bar, and Application Strip dock.
    - Crisp `#3A3C45` borders with vibrant high-contrast `#2563EB` selection accents and pure white typography.
+5. **Windows XP-Style Custom RGB Color & Typography Studio**:
+   - Complete RGB color customization for Accent/Selection Color, Selection Text Color, Window & Panel Surface, Main Text Color, and Desktop Background.
+   - 8 Quick Accent color swatches (Navy, Azure, Teal, Slate, Purple, Crimson, Forest, Amber).
+   - User interface font family and size chooser with system-wide instant application.
 
 ---
 
-### 5. Hardware Configuration & System Service Controls
+### 5. True Fullscreen & Dock Dodge Window Management
+
+| True Fullscreen Video & Gaming (MPV/VLC/Games) | Dock Dodge on Maximized Windows |
+|:---:|:---:|
+| ![True Fullscreen Video](docs/screenshots/46_fullscreen_video_mpv_1280x800.png) | ![Dock Dodge Maximized](docs/screenshots/47_dock_dodge_maximized_1280x800.png) |
+
+- **True Fullscreen Experience**: When any video player (MPV, VLC), game (Doom, SuperTux), or web browser enters fullscreen (`_NET_WM_STATE_FULLSCREEN`), both the top menu bar and bottom Application Strip dock automatically unmap and hide, delivering a 100% unobstructed full-screen experience.
+- **Dock Dodge / Autohide**: When enabled in Control Panels, the Application Strip dock automatically dodges (slides down) when the active window is maximized, maximizing usable screen real estate. Hovering near the bottom 18px of the screen smoothly brings the dock back into view.
+
+---
+
+### 6. Hardware Configuration & System Service Controls
 
 | Date & Time Settings GUI | Network & Wi-Fi Connections GUI |
 |:---:|:---:|
@@ -141,7 +160,7 @@ Mature upstream applications + verified AppImages
 
 ---
 
-### 6. Upstream Applications & Software Catalogue Matrix
+### 7. Upstream Applications & Software Catalogue Matrix
 
 | GNU Image Manipulation Program (GIMP) | Inkscape Vector Graphics Editor |
 |:---:|:---:|
@@ -175,7 +194,7 @@ Mature upstream applications + verified AppImages
 
 ---
 
-### 7. Multi-Resolution & Scale Robustness
+### 8. Multi-Resolution & Scale Robustness
 
 | Ultrawide Layout (3440×1440) | HiDPI 2× Scale Layout (2560×1600) |
 |:---:|:---:|
