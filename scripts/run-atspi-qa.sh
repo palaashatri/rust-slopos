@@ -142,9 +142,10 @@ dbus-run-session -- bash -c '
   xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null
 
   # Ctrl+F2 is owned directly by the shell through a passive X11 grab. Wait
-  # until that grab is installed before injecting the real keyboard sequence,
-  # then require the keyboard-opened GTK menu to activate its selected first
-  # command with Return. No pointer interaction is permitted in this path.
+  # until that grab is installed before injecting the real keyboard sequence.
+  # The shell emits KEYBOARD_READY only after GTK has mapped the popup and an
+  # idle callback has selected the first command, avoiding a synthetic-input
+  # race between popup creation and keyboard-grab readiness.
   shortcut_ready=0
   for _ in $(seq 1 30); do
     if grep -Fq "SLOPOS_SYSTEM_MENU_SHORTCUT_READY" /tmp/slopos-atspi-session.log; then
@@ -159,16 +160,16 @@ dbus-run-session -- bash -c '
     exit 1
   fi
   xdotool key --clearmodifiers ctrl+F2
-  menu_shortcut_ok=0
-  for _ in $(seq 1 20); do
-    if grep -Fq "SLOPOS_SYSTEM_MENU_KEYBOARD_OPENED" /tmp/slopos-atspi-session.log; then
-      menu_shortcut_ok=1
+  menu_ready=0
+  for _ in $(seq 1 30); do
+    if grep -Fq "SLOPOS_SYSTEM_MENU_KEYBOARD_READY" /tmp/slopos-atspi-session.log; then
+      menu_ready=1
       break
     fi
     sleep 0.25
   done
-  if [[ "$menu_shortcut_ok" != 1 ]]; then
-    echo "Ctrl+F2 did not reach the shell-owned SLOPOS system-menu shortcut" >&2
+  if [[ "$menu_ready" != 1 ]]; then
+    echo "Ctrl+F2 did not produce a mapped and keyboard-ready SLOPOS system menu" >&2
     tail -n 80 /tmp/slopos-atspi-session.log 2>/dev/null || true
     exit 1
   fi
@@ -182,7 +183,7 @@ dbus-run-session -- bash -c '
     sleep 0.25
   done
   if [[ "$menu_keyboard_ok" != 1 ]]; then
-    echo "Ctrl+F2 opened the system menu, but Return did not activate its selected item" >&2
+    echo "Ctrl+F2 produced a keyboard-ready system menu, but Return did not activate its selected item" >&2
     tail -n 80 /tmp/slopos-atspi-session.log 2>/dev/null || true
     exit 1
   fi
