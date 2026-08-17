@@ -140,6 +140,31 @@ dbus-run-session -- bash -c '
   done
   xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null
   xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null
+
+  # Ctrl+F2 is the keyboard path into the classic menu bar. Exercise the real
+  # Openbox binding, select the first menu command and require the About dialog
+  # to appear. This proves the menu bar is usable without pointer access.
+  xdotool key --clearmodifiers ctrl+F2
+  sleep 0.4
+  xdotool key --clearmodifiers Down Return
+  menu_keyboard_ok=0
+  for _ in $(seq 1 20); do
+    if xdotool search --onlyvisible --name "^About SLOPOS-I$" >/dev/null 2>&1; then
+      menu_keyboard_ok=1
+      break
+    fi
+    sleep 0.25
+  done
+  if [[ "$menu_keyboard_ok" != 1 ]]; then
+    echo "Ctrl+F2 did not open and activate the SLOPOS system menu" >&2
+    xwininfo -root -tree 2>/dev/null || true
+    exit 1
+  fi
+  about_window="$(xdotool search --onlyvisible --name "^About SLOPOS-I$" | tail -n 1)"
+  xdotool windowactivate --sync "$about_window"
+  xdotool key --clearmodifiers Escape
+  echo "SLOPOS_SYSTEM_MENU_KEYBOARD_STATUS_0"
+
   env GTK_MODULES=gail:atk-bridge GDK_BACKEND=x11 ./target/release/slopos-settings >/tmp/slopos-atspi-settings.log 2>&1 &
   SETTINGS_PID=$!
   env GTK_MODULES=gail:atk-bridge GDK_BACKEND=x11 ./target/release/slopos-catalogue >/tmp/slopos-atspi-catalogue.log 2>&1 &
