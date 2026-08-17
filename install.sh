@@ -143,6 +143,16 @@ install -Dm644 assets/config/gtk-3.0/gtk-graphite.css \
   "$PREFIX/share/themes/slopos-gtk-graphite/gtk-3.0/gtk.css"
 install -Dm644 assets/config/gtk-3.0/gtk-oled.css \
   "$PREFIX/share/themes/slopos-gtk-oled/gtk-3.0/gtk.css"
+
+install -Dm644 themes/platinum/gtk-2.0/gtkrc \
+  "$PREFIX/share/themes/slopos-gtk/gtk-2.0/gtkrc"
+install -Dm644 themes/high-contrast/gtk-2.0/gtkrc \
+  "$PREFIX/share/themes/slopos-gtk-classic/gtk-2.0/gtkrc"
+install -Dm644 themes/graphite/gtk-2.0/gtkrc \
+  "$PREFIX/share/themes/slopos-gtk-graphite/gtk-2.0/gtkrc"
+install -Dm644 themes/oled-graphite/gtk-2.0/gtkrc \
+  "$PREFIX/share/themes/slopos-gtk-oled/gtk-2.0/gtkrc"
+
 if [[ -f assets/config/gtk-3.0/settings.ini ]]; then
   install -Dm644 assets/config/gtk-3.0/settings.ini \
     "$PREFIX/share/slopos-i/gtk-3.0/settings.ini"

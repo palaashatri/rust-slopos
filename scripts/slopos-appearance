@@ -96,8 +96,38 @@ gtk-xft-rgba = rgb
 EOF
 mv -f "$gtk_config/settings.ini.tmp" "$gtk_config/settings.ini"
 
+# GTK2 Runtime Configuration (for PCManFM, GIMP, and GTK2 applications)
+cat > "$HOME/.gtkrc-2.0.tmp" <<EOF
+# SLOPOS-I GTK2 Runtime Configuration
+gtk-theme-name = "$gtk_theme"
+gtk-icon-theme-name = "SLOPOS-Platinum"
+gtk-font-name = "$font_name"
+gtk-cursor-theme-name = "DMZ-White"
+gtk-button-images = 1
+gtk-menu-images = 1
+gtk-toolbar-style = GTK_TOOLBAR_ICONS
+EOF
+mv -f "$HOME/.gtkrc-2.0.tmp" "$HOME/.gtkrc-2.0"
+
+# Ensure user icon theme directory is populated
+mkdir -p "$HOME/.icons/SLOPOS-Platinum" "$HOME/.local/share/icons/SLOPOS-Platinum"
+for cand_icon in \
+  "themes/platinum/icon-theme" \
+  "/usr/local/share/icons/SLOPOS-Platinum" \
+  "/usr/share/icons/SLOPOS-Platinum"; do
+  if [[ -d "$cand_icon" ]]; then
+    cp -a "$cand_icon"/* "$HOME/.icons/SLOPOS-Platinum/" 2>/dev/null || true
+    cp -a "$cand_icon"/* "$HOME/.local/share/icons/SLOPOS-Platinum/" 2>/dev/null || true
+    break
+  fi
+done
+
 if [[ "$mode" == "custom" && -f "$slopos_config/custom-theme.css" ]]; then
   cp -f "$slopos_config/custom-theme.css" "$gtk_config/gtk.css"
+  if [[ -f "$slopos_config/custom-theme.gtkrc" ]]; then
+    mkdir -p "$HOME/.themes/slopos-gtk/gtk-2.0"
+    cp -f "$slopos_config/custom-theme.gtkrc" "$HOME/.themes/slopos-gtk/gtk-2.0/gtkrc"
+  fi
 else
   for candidate_css in \
     "$HOME/.themes/$gtk_theme/gtk-3.0/gtk.css" \
@@ -127,6 +157,27 @@ for ob_theme in slopos-openbox slopos-openbox-classic slopos-openbox-graphite sl
       break
     fi
   done
+done
+
+# Ensure GTK2 and GTK3 theme directories in ~/.themes
+for theme_spec in "slopos-gtk:themes/platinum:assets/config/gtk-3.0/gtk.css" \
+                  "slopos-gtk-classic:themes/high-contrast:assets/config/gtk-3.0/gtk-classic.css" \
+                  "slopos-gtk-graphite:themes/graphite:assets/config/gtk-3.0/gtk-graphite.css" \
+                  "slopos-gtk-oled:themes/oled-graphite:assets/config/gtk-3.0/gtk-oled.css"; do
+  th_name="$(echo "$theme_spec" | cut -d: -f1)"
+  th_dir="$(echo "$theme_spec" | cut -d: -f2)"
+  th_css="$(echo "$theme_spec" | cut -d: -f3)"
+  mkdir -p "$HOME/.themes/$th_name/gtk-2.0" "$HOME/.themes/$th_name/gtk-3.0"
+  if [[ -f "$th_dir/gtk-2.0/gtkrc" ]]; then
+    cp -f "$th_dir/gtk-2.0/gtkrc" "$HOME/.themes/$th_name/gtk-2.0/gtkrc"
+  elif [[ -f "/usr/share/themes/$th_name/gtk-2.0/gtkrc" ]]; then
+    cp -f "/usr/share/themes/$th_name/gtk-2.0/gtkrc" "$HOME/.themes/$th_name/gtk-2.0/gtkrc"
+  fi
+  if [[ -f "$th_css" ]]; then
+    cp -f "$th_css" "$HOME/.themes/$th_name/gtk-3.0/gtk.css"
+  elif [[ -f "/usr/share/themes/$th_name/gtk-3.0/gtk.css" ]]; then
+    cp -f "/usr/share/themes/$th_name/gtk-3.0/gtk.css" "$HOME/.themes/$th_name/gtk-3.0/gtk.css"
+  fi
 done
 
 openbox_config="$config_home/openbox"

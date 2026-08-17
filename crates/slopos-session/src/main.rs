@@ -97,6 +97,7 @@ fn main() {
 
     configure_session_environment();
     install_signal_handlers();
+    sync_theme_assets();
     apply_desktop_fallback();
 
     let shell_exe =
@@ -275,8 +276,45 @@ fn resolve_openbox_menu() -> Option<PathBuf> {
         .and_then(|path| path.canonicalize().ok().or(Some(path)))
 }
 
+fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    if !dst.exists() {
+        std::fs::create_dir_all(dst)?;
+    }
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if file_type.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            let _ = std::fs::copy(&src_path, &dst_path);
+        }
+    }
+    Ok(())
+}
+
 fn sync_theme_assets() {
     let home = env::var_os("HOME").map(PathBuf::from);
+    let app = appearance();
+    let gtk_theme = match app.as_str() {
+        "oled" => "slopos-gtk-oled",
+        "graphite" => "slopos-gtk-graphite",
+        "classic" => "slopos-gtk-classic",
+        _ => "slopos-gtk",
+    };
+
+    // Ensure GTK2 runtime configuration exists
+    if let Some(ref h) = home {
+        let gtkrc_file = h.join(".gtkrc-2.0");
+        let content = format!(
+            "# SLOPOS-I GTK2 Runtime Configuration\ngtk-theme-name = \"{}\"\ngtk-icon-theme-name = \"SLOPOS-Platinum\"\ngtk-font-name = \"Liberation Sans 9\"\ngtk-cursor-theme-name = \"DMZ-White\"\ngtk-button-images = 1\ngtk-menu-images = 1\ngtk-toolbar-style = GTK_TOOLBAR_ICONS\n",
+            gtk_theme
+        );
+        let _ = std::fs::write(&gtkrc_file, content);
+    }
+
+    // Sync Openbox themes
     for ob_theme in [
         "slopos-openbox",
         "slopos-openbox-classic",
@@ -323,6 +361,85 @@ fn sync_theme_assets() {
             if std::fs::create_dir_all(&sys_dir).is_ok() {
                 let _ = std::fs::copy(&src, sys_dir.join("themerc"));
             }
+        }
+    }
+
+    // Sync GTK2 and GTK3 themes
+    let theme_mappings = [
+        (
+            "slopos-gtk",
+            "themes/platinum/gtk-2.0/gtkrc",
+            "assets/config/gtk-3.0/gtk.css",
+        ),
+        (
+            "slopos-gtk-classic",
+            "themes/high-contrast/gtk-2.0/gtkrc",
+            "assets/config/gtk-3.0/gtk-classic.css",
+        ),
+        (
+            "slopos-gtk-graphite",
+            "themes/graphite/gtk-2.0/gtkrc",
+            "assets/config/gtk-3.0/gtk-graphite.css",
+        ),
+        (
+            "slopos-gtk-oled",
+            "themes/oled-graphite/gtk-2.0/gtkrc",
+            "assets/config/gtk-3.0/gtk-oled.css",
+        ),
+    ];
+
+    for (th_name, gtk2_rel, gtk3_rel) in theme_mappings {
+        let mut gtk2_candidates = Vec::new();
+        let mut gtk3_candidates = Vec::new();
+        if let Ok(cwd) = env::current_dir() {
+            gtk2_candidates.push(cwd.join(gtk2_rel));
+            gtk3_candidates.push(cwd.join(gtk3_rel));
+        }
+        if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+            gtk2_candidates
+                .push(PathBuf::from(&share_dir).join(format!("themes/{th_name}/gtk-2.0/gtkrc")));
+            gtk3_candidates
+                .push(PathBuf::from(&share_dir).join(format!("themes/{th_name}/gtk-3.0/gtk.css")));
+        }
+        gtk2_candidates.extend([
+            PathBuf::from(gtk2_rel),
+            PathBuf::from(format!("/usr/local/share/themes/{th_name}/gtk-2.0/gtkrc")),
+            PathBuf::from(format!("/usr/share/themes/{th_name}/gtk-2.0/gtkrc")),
+        ]);
+        gtk3_candidates.extend([
+            PathBuf::from(gtk3_rel),
+            PathBuf::from(format!("/usr/local/share/themes/{th_name}/gtk-3.0/gtk.css")),
+            PathBuf::from(format!("/usr/share/themes/{th_name}/gtk-3.0/gtk.css")),
+        ]);
+
+        if let Some(src2) = gtk2_candidates.into_iter().find(|p| p.is_file()) {
+            if let Some(ref h) = home {
+                let dest = h.join(".themes").join(th_name).join("gtk-2.0");
+                let _ = std::fs::create_dir_all(&dest);
+                let _ = std::fs::copy(&src2, dest.join("gtkrc"));
+            }
+        }
+        if let Some(src3) = gtk3_candidates.into_iter().find(|p| p.is_file()) {
+            if let Some(ref h) = home {
+                let dest = h.join(".themes").join(th_name).join("gtk-3.0");
+                let _ = std::fs::create_dir_all(&dest);
+                let _ = std::fs::copy(&src3, dest.join("gtk.css"));
+            }
+        }
+    }
+
+    // Sync Icon theme
+    if let Some(ref h) = home {
+        let dest_icons = h.join(".icons/SLOPOS-Platinum");
+        let dest_local_icons = h.join(".local/share/icons/SLOPOS-Platinum");
+        let icon_srcs = [
+            PathBuf::from("themes/platinum/icon-theme"),
+            PathBuf::from("/usr/local/share/icons/SLOPOS-Platinum"),
+            PathBuf::from("/usr/share/icons/SLOPOS-Platinum"),
+        ];
+        if let Some(src) = icon_srcs.iter().find(|p| p.is_dir()) {
+            let _ = copy_dir_recursive(src, &dest_icons);
+            let _ = copy_dir_recursive(src, &dest_local_icons);
         }
     }
 }

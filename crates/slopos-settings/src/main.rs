@@ -687,12 +687,23 @@ fn show_appearance_dialog(parent: &Window) {
                     &text_hex,
                     font_chosen.as_str(),
                 );
+                let custom_gtk2 =
+                    generate_custom_gtk2_rc(&accent_hex, &sel_text_hex, &face_hex, &text_hex);
                 let _ = fs::write(gtk_dir.join("gtk.css"), &custom_css);
                 let _ = fs::write(config_home.join("slopos-i/custom-theme.css"), &custom_css);
+                let _ = fs::write(
+                    config_home.join("slopos-i/custom-theme.gtkrc"),
+                    &custom_gtk2,
+                );
                 let _ = fs::write(
                     config_home.join("slopos-i/root_color"),
                     format!("{root_hex}\n"),
                 );
+                if let Some(home) = env::var_os("HOME").map(PathBuf::from) {
+                    let th_gtk2 = home.join(".themes/slopos-gtk/gtk-2.0");
+                    let _ = fs::create_dir_all(&th_gtk2);
+                    let _ = fs::write(th_gtk2.join("gtkrc"), &custom_gtk2);
+                }
             }
 
             if let Some(helper) = appearance_helper() {
@@ -1331,6 +1342,122 @@ row:selected label {{ color: {accent_text_hex}; }}
 .slopos-panel-title {{ font-weight: bold; font-size: 15px; color: @slopos_text; }}
 .slopos-panel-subtitle {{ color: {secondary_text}; font-size: 11px; }}
 .slopos-control-panel {{ min-height: 64px; padding: 6px 8px; background-color: @slopos_face; border-top-color: @slopos_light; border-left-color: @slopos_light; border-right-color: @slopos_shadow; border-bottom-color: @slopos_shadow; }}
+"#
+    )
+}
+
+fn generate_custom_gtk2_rc(
+    accent_hex: &str,
+    accent_text_hex: &str,
+    face_hex: &str,
+    text_hex: &str,
+) -> String {
+    let is_dark = is_dark_color(face_hex);
+    let base_color = if is_dark { "#1E1F22" } else { "#FFFFFF" };
+    let prelight_btn = if is_dark { "#3A3D42" } else { "#E8E8E8" };
+    let active_btn = if is_dark { "#1E1F22" } else { "#C0C0C0" };
+    let disabled_fg = if is_dark { "#666666" } else { "#808080" };
+
+    format!(
+        r#"# SLOPOS-I Custom GTK2 Theme
+gtk-color-scheme = "fg_color:{text_hex}\nbg_color:{face_hex}\nbase_color:{base_color}\ntext_color:{text_hex}\nselected_bg_color:{accent_hex}\nselected_fg_color:{accent_text_hex}\ntooltip_bg_color:{face_hex}\ntooltip_fg_color:{text_hex}"
+
+style "default" {{
+  xthickness = 2
+  ythickness = 2
+
+  GtkButton::default_border = {{ 0, 0, 0, 0 }}
+  GtkButton::default_outside_border = {{ 0, 0, 0, 0 }}
+  GtkButton::inner_border = {{ 2, 2, 1, 1 }}
+  GtkWidget::focus_padding = 0
+
+  GtkTreeView::odd_row_color = "{base_color}"
+  GtkTreeView::even_row_color = "{face_hex}"
+  GtkTreeView::row_ending_details = 0
+
+  GtkMenu::horizontal_padding = 2
+  GtkMenu::vertical_padding = 2
+
+  fg[NORMAL]        = @fg_color
+  fg[PRELIGHT]      = @fg_color
+  fg[ACTIVE]        = @fg_color
+  fg[SELECTED]      = @selected_fg_color
+  fg[INSENSITIVE]   = "{disabled_fg}"
+
+  bg[NORMAL]        = @bg_color
+  bg[PRELIGHT]      = "{prelight_btn}"
+  bg[ACTIVE]        = "{active_btn}"
+  bg[SELECTED]      = @selected_bg_color
+  bg[INSENSITIVE]   = @bg_color
+
+  base[NORMAL]      = @base_color
+  base[PRELIGHT]    = @base_color
+  base[ACTIVE]      = @selected_bg_color
+  base[SELECTED]    = @selected_bg_color
+  base[INSENSITIVE] = "{face_hex}"
+
+  text[NORMAL]      = @text_color
+  text[PRELIGHT]    = @text_color
+  text[ACTIVE]      = @selected_fg_color
+  text[SELECTED]    = @selected_fg_color
+  text[INSENSITIVE] = "{disabled_fg}"
+}}
+
+style "menu" {{
+  xthickness = 2
+  ythickness = 2
+  bg[NORMAL] = "{face_hex}"
+}}
+
+style "menu_item" {{
+  xthickness = 4
+  ythickness = 3
+  bg[PRELIGHT] = @selected_bg_color
+  fg[PRELIGHT] = @selected_fg_color
+  text[PRELIGHT] = @selected_fg_color
+}}
+
+style "button" {{
+  xthickness = 3
+  ythickness = 3
+  bg[NORMAL]   = "{face_hex}"
+  bg[PRELIGHT] = "{prelight_btn}"
+  bg[ACTIVE]   = "{active_btn}"
+}}
+
+style "toolbar" {{
+  xthickness = 2
+  ythickness = 2
+  bg[NORMAL] = "{face_hex}"
+}}
+
+style "treeview" {{
+  xthickness = 2
+  ythickness = 2
+  base[NORMAL] = "{base_color}"
+  text[NORMAL] = "{text_hex}"
+  base[SELECTED] = @selected_bg_color
+  text[SELECTED] = @selected_fg_color
+}}
+
+style "entry" {{
+  xthickness = 2
+  ythickness = 2
+  base[NORMAL] = "{base_color}"
+  text[NORMAL] = "{text_hex}"
+}}
+
+class "GtkWidget" style "default"
+class "GtkMenu" style "menu"
+class "GtkMenuItem" style "menu_item"
+class "GtkItem" style "menu_item"
+class "GtkButton" style "button"
+class "GtkToolbar" style "toolbar"
+class "GtkTreeView" style "treeview"
+class "GtkIconView" style "treeview"
+class "GtkEntry" style "entry"
+widget_class "*<GtkMenu>*" style "menu"
+widget_class "*<GtkMenuItem>*" style "menu_item"
 "#
     )
 }

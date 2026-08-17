@@ -76,6 +76,9 @@ cp "$REPO_ROOT/themes/slopos-openbox-graphite/openbox-3/themerc" "/usr/share/the
 cp "$REPO_ROOT/themes/slopos-openbox-oled/openbox-3/themerc" "/usr/share/themes/slopos-openbox-oled/openbox-3/themerc" 2>/dev/null || true
 
 mkdir -p "$HOME/.themes/slopos-gtk/gtk-3.0" "$HOME/.themes/slopos-gtk-classic/gtk-3.0" "$HOME/.themes/slopos-gtk-graphite/gtk-3.0" "$HOME/.themes/slopos-gtk-oled/gtk-3.0" "$HOME/.config/gtk-3.0"
+mkdir -p "$HOME/.themes/slopos-gtk/gtk-2.0" "$HOME/.themes/slopos-gtk-classic/gtk-2.0" "$HOME/.themes/slopos-gtk-graphite/gtk-2.0" "$HOME/.themes/slopos-gtk-oled/gtk-2.0"
+mkdir -p "/usr/share/themes/slopos-gtk/gtk-2.0" "/usr/share/themes/slopos-gtk-classic/gtk-2.0" "/usr/share/themes/slopos-gtk-graphite/gtk-2.0" "/usr/share/themes/slopos-gtk-oled/gtk-2.0" 2>/dev/null || true
+
 cp "$REPO_ROOT/assets/config/gtk-3.0/gtk.css" "$HOME/.themes/slopos-gtk/gtk-3.0/gtk.css"
 cp "$REPO_ROOT/assets/config/gtk-3.0/gtk-classic.css" "$HOME/.themes/slopos-gtk-classic/gtk-3.0/gtk.css"
 cp "$REPO_ROOT/assets/config/gtk-3.0/gtk-graphite.css" "$HOME/.themes/slopos-gtk-graphite/gtk-3.0/gtk.css"
@@ -83,8 +86,31 @@ cp "$REPO_ROOT/assets/config/gtk-3.0/gtk-oled.css" "$HOME/.themes/slopos-gtk-ole
 cp "$REPO_ROOT/assets/config/gtk-3.0/gtk.css" "$HOME/.config/gtk-3.0/gtk.css"
 cp "$REPO_ROOT/assets/config/gtk-3.0/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
 
-mkdir -p "$HOME/.local/share/icons" "$HOME/.local/share/file-manager/actions" "$HOME/.local/share/applications"
-cp -a "$REPO_ROOT/themes/platinum/icon-theme" "$HOME/.local/share/icons/SLOPOS-Platinum"
+cp "$REPO_ROOT/themes/platinum/gtk-2.0/gtkrc" "$HOME/.themes/slopos-gtk/gtk-2.0/gtkrc"
+cp "$REPO_ROOT/themes/high-contrast/gtk-2.0/gtkrc" "$HOME/.themes/slopos-gtk-classic/gtk-2.0/gtkrc"
+cp "$REPO_ROOT/themes/graphite/gtk-2.0/gtkrc" "$HOME/.themes/slopos-gtk-graphite/gtk-2.0/gtkrc"
+cp "$REPO_ROOT/themes/oled-graphite/gtk-2.0/gtkrc" "$HOME/.themes/slopos-gtk-oled/gtk-2.0/gtkrc"
+cp "$REPO_ROOT/themes/platinum/gtk-2.0/gtkrc" "/usr/share/themes/slopos-gtk/gtk-2.0/gtkrc" 2>/dev/null || true
+cp "$REPO_ROOT/themes/high-contrast/gtk-2.0/gtkrc" "/usr/share/themes/slopos-gtk-classic/gtk-2.0/gtkrc" 2>/dev/null || true
+cp "$REPO_ROOT/themes/graphite/gtk-2.0/gtkrc" "/usr/share/themes/slopos-gtk-graphite/gtk-2.0/gtkrc" 2>/dev/null || true
+cp "$REPO_ROOT/themes/oled-graphite/gtk-2.0/gtkrc" "/usr/share/themes/slopos-gtk-oled/gtk-2.0/gtkrc" 2>/dev/null || true
+
+cat > "$HOME/.gtkrc-2.0" <<EOF
+# SLOPOS-I GTK2 Configuration
+gtk-theme-name="slopos-gtk"
+gtk-icon-theme-name="SLOPOS-Platinum"
+gtk-font-name="Liberation Sans 9"
+gtk-cursor-theme-name="DMZ-White"
+gtk-button-images=1
+gtk-menu-images=1
+gtk-toolbar-style=GTK_TOOLBAR_ICONS
+EOF
+
+mkdir -p "$HOME/.icons/SLOPOS-Platinum" "$HOME/.local/share/icons/SLOPOS-Platinum" "/usr/share/icons/SLOPOS-Platinum"
+cp -a "$REPO_ROOT/themes/platinum/icon-theme/"* "$HOME/.icons/SLOPOS-Platinum/"
+cp -a "$REPO_ROOT/themes/platinum/icon-theme/"* "$HOME/.local/share/icons/SLOPOS-Platinum/"
+cp -a "$REPO_ROOT/themes/platinum/icon-theme/"* "/usr/share/icons/SLOPOS-Platinum/" 2>/dev/null || true
+mkdir -p "$HOME/.local/share/file-manager/actions" "$HOME/.local/share/applications"
 cp -a "$REPO_ROOT/assets/file-manager/actions/"* "$HOME/.local/share/file-manager/actions/" 2>/dev/null || true
 cp -a "$REPO_ROOT/assets/applications/"* "$HOME/.local/share/applications/" 2>/dev/null || true
 
