@@ -1,6 +1,14 @@
 name: Installed VM QA
 
 on:
+  push:
+    branches: [pivot]
+    paths:
+      - '.github/workflows/installed-vm.yml'
+      - 'packaging/vm/**'
+      - 'install.sh'
+      - 'scripts/install-session-files.sh'
+      - 'scripts/start-slopos-i'
   workflow_dispatch:
 
 permissions:
