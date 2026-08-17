@@ -1,0 +1,52 @@
+# SLOPOS Classic Macintosh (System 6/7) Openbox Theme
+# 1-bit / monochrome 6-stripe titlebar and classic window chrome
+
+padding.width: 2
+padding.height: 2
+border.width: 1
+window.active.border.color: #000000
+window.inactive.border.color: #808080
+
+# Active window titlebar: 6-stripe pattern
+window.active.title.bg: vertical
+window.active.title.bg.color: #000000
+window.active.title.bg.colorTo: #FFFFFF
+window.active.title.bg.interlaced: true
+
+window.active.label.bg: flat solid
+window.active.label.bg.color: #FFFFFF
+window.active.label.text.color: #000000
+window.active.label.text.font: shadow=off
+
+# Inactive window: clean flat white/light gray
+window.inactive.title.bg: flat solid
+window.inactive.title.bg.color: #FFFFFF
+window.inactive.label.bg: flat solid
+window.inactive.label.bg.color: #FFFFFF
+window.inactive.label.text.color: #707070
+
+# Classic square window buttons
+window.active.button.unpressed.bg: flat solid
+window.active.button.unpressed.bg.color: #FFFFFF
+window.active.button.pressed.bg: flat solid
+window.active.button.pressed.bg.color: #000000
+window.active.button.unpressed.image.color: #000000
+window.active.button.pressed.image.color: #FFFFFF
+
+window.inactive.button.unpressed.bg: flat solid
+window.inactive.button.unpressed.bg.color: #FFFFFF
+window.inactive.button.unpressed.image.color: #707070
+
+# Classic menus
+menu.border.color: #000000
+menu.border.width: 1
+menu.title.bg: flat solid
+menu.title.bg.color: #FFFFFF
+menu.title.text.color: #000000
+menu.items.bg: flat solid
+menu.items.bg.color: #FFFFFF
+menu.items.text.color: #000000
+menu.items.disabled.text.color: #707070
+menu.items.active.bg: flat solid
+menu.items.active.bg.color: #000000
+menu.items.active.text.color: #FFFFFF

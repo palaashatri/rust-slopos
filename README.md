@@ -46,11 +46,19 @@ SLOPOS-I has achieved **100/100 Docker-validated product readiness** in [`TRUTH.
 |:---:|:---:|
 | ![Software Catalogue](docs/screenshots/10_software_catalogue_1280x800.png) | ![System Settings Hub](docs/screenshots/11_system_settings_control_panels_1280x800.png) |
 
-### Theme & Multi-Resolution Adaptability
+### Dual Appearances & Classic Macintosh (System 6/7) Grammar
 
-| Graphite Dark Appearance | Ultrawide Layout (3440×1440) |
+| Classic Macintosh Desktop (6-Stripe Titlebars) | Classic System Menu (Inverted Black Selection) |
 |:---:|:---:|
-| ![Graphite Dark Theme](docs/screenshots/12_graphite_dark_desktop_1280x800.png) | ![Ultrawide Display](docs/screenshots/14_ultrawide_desktop_3440x1440.png) |
+| ![Classic Mac Desktop](docs/screenshots/19_classic_mac_desktop_1280x800.png) | ![Classic System Menu](docs/screenshots/20_classic_mac_system_menu_1280x800.png) |
+
+| Classic Modal Dialog (Thick Default Button Ring) | Graphite Dark Appearance |
+|:---:|:---:|
+| ![Classic About Modal](docs/screenshots/21_classic_mac_about_dialog_1280x800.png) | ![Graphite Dark Theme](docs/screenshots/12_graphite_dark_desktop_1280x800.png) |
+
+| Ultrawide Layout (3440×1440) | HiDPI 2× Scale Layout (2560×1600) |
+|:---:|:---:|
+| ![Ultrawide Display](docs/screenshots/14_ultrawide_desktop_3440x1440.png) | ![HiDPI Scale 2x](docs/screenshots/15_hidpi_scale2_2560x1600.png) |
 
 ---
 

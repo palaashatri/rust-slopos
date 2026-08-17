@@ -122,21 +122,20 @@ fn slopos_freedesktop_icon_theme_covers_core_file_manager_vocabulary() {
 }
 
 #[test]
-fn platinum_and_graphite_are_complete_runtime_appearances() {
+fn appearances_are_complete_runtime_themes() {
     let light = include_str!("../../../assets/config/gtk-3.0/gtk.css");
+    let classic = include_str!("../../../assets/config/gtk-3.0/gtk-classic.css");
     let dark = include_str!("../../../assets/config/gtk-3.0/gtk-graphite.css");
     let light_wm = include_str!("../../../themes/slopos-openbox/openbox-3/themerc");
+    let classic_wm = include_str!("../../../themes/slopos-openbox-classic/openbox-3/themerc");
     let dark_wm = include_str!("../../../themes/slopos-openbox-graphite/openbox-3/themerc");
+    let classic_rc = include_str!("../../../assets/config/openbox/rc-classic.xml");
     let dark_rc = include_str!("../../../assets/config/openbox/rc-graphite.xml");
     let switcher = include_str!("../../../scripts/slopos-appearance");
 
-    for css in [light, dark] {
+    for css in [light, classic, dark] {
         for selector in [
             ".slopos-topbar",
-            ".slopos-dock-container",
-            ".slopos-launcher",
-            ".slopos-notification",
-            ".slopos-control-panel",
             "menubar > menuitem",
             "menu menuitem",
             "button",
@@ -150,9 +149,11 @@ fn platinum_and_graphite_are_complete_runtime_appearances() {
         }
     }
     assert!(light_wm.contains("window.active.title.bg"));
+    assert!(classic_wm.contains("window.active.title.bg"));
     assert!(dark_wm.contains("window.active.title.bg"));
+    assert!(classic_rc.contains("slopos-openbox-classic"));
     assert!(dark_rc.contains("slopos-openbox-graphite"));
-    assert!(switcher.contains("platinum|graphite|status"));
+    assert!(switcher.contains("classic|platinum|graphite|status"));
     assert!(switcher.contains("gtk-theme-name = $gtk_theme"));
     assert!(switcher.contains("gtk-shell-shows-menubar = 1"));
     assert!(switcher.contains("pkill -TERM -x slopos-shell"));

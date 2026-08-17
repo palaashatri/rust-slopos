@@ -86,6 +86,20 @@ install -Dm755 "$ROOT/scripts/slopos-recovery.sh" "config/includes.chroot/usr/bi
 install -Dm644 "$ROOT/packaging/slopos-i.desktop" "config/includes.chroot/usr/share/xsessions/slopos-i.desktop"
 install -Dm644 "$ROOT/packaging/slopos-browser.desktop" "config/includes.chroot/usr/share/applications/slopos-browser.desktop"
 
+# Copy openbox configs and themes
+install -Dm644 "$ROOT/assets/config/openbox/rc.xml" "config/includes.chroot/usr/share/slopos-i/openbox/rc.xml"
+install -Dm644 "$ROOT/assets/config/openbox/rc-classic.xml" "config/includes.chroot/usr/share/slopos-i/openbox/rc-classic.xml"
+install -Dm644 "$ROOT/assets/config/openbox/rc-graphite.xml" "config/includes.chroot/usr/share/slopos-i/openbox/rc-graphite.xml"
+install -Dm644 "$ROOT/assets/config/openbox/menu.xml" "config/includes.chroot/usr/share/slopos-i/openbox/menu.xml"
+
+install -Dm644 "$ROOT/themes/slopos-openbox/openbox-3/themerc" "config/includes.chroot/usr/share/themes/slopos-openbox/openbox-3/themerc"
+install -Dm644 "$ROOT/themes/slopos-openbox-classic/openbox-3/themerc" "config/includes.chroot/usr/share/themes/slopos-openbox-classic/openbox-3/themerc"
+install -Dm644 "$ROOT/themes/slopos-openbox-graphite/openbox-3/themerc" "config/includes.chroot/usr/share/themes/slopos-openbox-graphite/openbox-3/themerc"
+
+install -Dm644 "$ROOT/assets/config/gtk-3.0/gtk.css" "config/includes.chroot/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css"
+install -Dm644 "$ROOT/assets/config/gtk-3.0/gtk-classic.css" "config/includes.chroot/usr/share/themes/slopos-gtk-classic/gtk-3.0/gtk.css"
+install -Dm644 "$ROOT/assets/config/gtk-3.0/gtk-graphite.css" "config/includes.chroot/usr/share/themes/slopos-gtk-graphite/gtk-3.0/gtk.css"
+
 # Copy themes and icon theme
 cp -a "$ROOT/themes/platinum" "config/includes.chroot/usr/share/slopos-i/themes/platinum"
 cp -a "$ROOT/themes/graphite" "config/includes.chroot/usr/share/slopos-i/themes/graphite"

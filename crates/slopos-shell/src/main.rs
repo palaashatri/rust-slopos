@@ -102,8 +102,12 @@ fn current_appearance() -> &'static str {
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
     if let Some(config_home) = config_home {
         if let Ok(value) = std::fs::read_to_string(config_home.join("slopos-i/appearance")) {
-            if value.trim().eq_ignore_ascii_case("graphite") {
+            let v = value.trim();
+            if v.eq_ignore_ascii_case("graphite") {
                 return "graphite";
+            }
+            if v.eq_ignore_ascii_case("classic") {
+                return "classic";
             }
         }
     }
@@ -111,16 +115,16 @@ fn current_appearance() -> &'static str {
 }
 
 fn load_css_theme() {
-    let graphite = current_appearance() == "graphite";
-    let installed_theme = if graphite {
-        "slopos-gtk-graphite"
-    } else {
-        "slopos-gtk"
+    let appearance = current_appearance();
+    let installed_theme = match appearance {
+        "graphite" => "slopos-gtk-graphite",
+        "classic" => "slopos-gtk-classic",
+        _ => "slopos-gtk",
     };
-    let source_css = if graphite {
-        "assets/config/gtk-3.0/gtk-graphite.css"
-    } else {
-        "assets/config/gtk-3.0/gtk.css"
+    let source_css = match appearance {
+        "graphite" => "assets/config/gtk-3.0/gtk-graphite.css",
+        "classic" => "assets/config/gtk-3.0/gtk-classic.css",
+        _ => "assets/config/gtk-3.0/gtk.css",
     };
 
     let mut css_paths = Vec::new();

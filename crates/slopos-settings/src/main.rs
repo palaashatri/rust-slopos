@@ -257,7 +257,7 @@ fn show_appearance_dialog(parent: &Window) {
     content.pack_start(&heading, false, false, 0);
 
     let explanation = Label::new(Some(
-        "Platinum is the canonical light appearance. Graphite is the complete dark counterpart.",
+        "Choose between Classic Macintosh (System 6/7 monochrome & 6-stripe pinstripes), Platinum (classic light), and Graphite (dark).",
     ));
     explanation.set_xalign(0.0);
     explanation.set_line_wrap(true);
@@ -266,13 +266,15 @@ fn show_appearance_dialog(parent: &Window) {
         .add_class("slopos-secondary-text");
     content.pack_start(&explanation, false, false, 0);
 
-    let platinum = RadioButton::with_label("Platinum — classic light");
-    let graphite = RadioButton::with_label_from_widget(&platinum, "Graphite — dark");
-    if current_appearance() == "graphite" {
-        graphite.set_active(true);
-    } else {
-        platinum.set_active(true);
+    let classic = RadioButton::with_label("Classic Macintosh — System 6/7 monochrome");
+    let platinum = RadioButton::with_label_from_widget(&classic, "Platinum — classic light");
+    let graphite = RadioButton::with_label_from_widget(&classic, "Graphite — dark");
+    match current_appearance() {
+        "graphite" => graphite.set_active(true),
+        "classic" => classic.set_active(true),
+        _ => platinum.set_active(true),
     }
+    content.pack_start(&classic, false, false, 0);
     content.pack_start(&platinum, false, false, 0);
     content.pack_start(&graphite, false, false, 0);
 
@@ -281,6 +283,8 @@ fn show_appearance_dialog(parent: &Window) {
     if response == ResponseType::Accept {
         let mode = if graphite.is_active() {
             "graphite"
+        } else if classic.is_active() {
+            "classic"
         } else {
             "platinum"
         };
@@ -423,8 +427,12 @@ fn current_appearance() -> &'static str {
         .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
     if let Some(config_home) = config_home {
         if let Ok(value) = std::fs::read_to_string(config_home.join("slopos-i/appearance")) {
-            if value.trim().eq_ignore_ascii_case("graphite") {
+            let v = value.trim();
+            if v.eq_ignore_ascii_case("graphite") {
                 return "graphite";
+            }
+            if v.eq_ignore_ascii_case("classic") {
+                return "classic";
             }
         }
     }
@@ -432,16 +440,16 @@ fn current_appearance() -> &'static str {
 }
 
 fn load_css_theme() {
-    let graphite = current_appearance() == "graphite";
-    let installed_theme = if graphite {
-        "slopos-gtk-graphite"
-    } else {
-        "slopos-gtk"
+    let appearance = current_appearance();
+    let installed_theme = match appearance {
+        "graphite" => "slopos-gtk-graphite",
+        "classic" => "slopos-gtk-classic",
+        _ => "slopos-gtk",
     };
-    let source_css = if graphite {
-        "assets/config/gtk-3.0/gtk-graphite.css"
-    } else {
-        "assets/config/gtk-3.0/gtk.css"
+    let source_css = match appearance {
+        "graphite" => "assets/config/gtk-3.0/gtk-graphite.css",
+        "classic" => "assets/config/gtk-3.0/gtk-classic.css",
+        _ => "assets/config/gtk-3.0/gtk.css",
     };
     let mut css_paths = Vec::new();
     if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {

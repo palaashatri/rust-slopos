@@ -75,14 +75,19 @@ install -Dm644 packaging/slopos-browser.desktop \
   "$ROOTFS/usr/local/share/applications/slopos-browser.desktop"
 install -Dm644 packaging/slopos-i.desktop "$ROOTFS/usr/share/xsessions/slopos-i.desktop"
 install -Dm644 assets/config/openbox/rc.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc.xml"
+install -Dm644 assets/config/openbox/rc-classic.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc-classic.xml"
 install -Dm644 assets/config/openbox/rc-graphite.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc-graphite.xml"
 install -Dm644 assets/config/openbox/menu.xml "$ROOTFS/usr/local/share/slopos-i/openbox/menu.xml"
 install -Dm644 themes/slopos-openbox/openbox-3/themerc \
   "$ROOTFS/usr/local/share/themes/slopos-openbox/openbox-3/themerc"
+install -Dm644 themes/slopos-openbox-classic/openbox-3/themerc \
+  "$ROOTFS/usr/local/share/themes/slopos-openbox-classic/openbox-3/themerc"
 install -Dm644 themes/slopos-openbox-graphite/openbox-3/themerc \
   "$ROOTFS/usr/local/share/themes/slopos-openbox-graphite/openbox-3/themerc"
 install -Dm644 assets/config/gtk-3.0/gtk.css \
   "$ROOTFS/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css"
+install -Dm644 assets/config/gtk-3.0/gtk-classic.css \
+  "$ROOTFS/usr/local/share/themes/slopos-gtk-classic/gtk-3.0/gtk.css"
 install -Dm644 assets/config/gtk-3.0/gtk-graphite.css \
   "$ROOTFS/usr/local/share/themes/slopos-gtk-graphite/gtk-3.0/gtk.css"
 install -Dm644 assets/config/gtk-3.0/settings.ini \

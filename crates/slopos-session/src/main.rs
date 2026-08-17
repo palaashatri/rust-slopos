@@ -186,22 +186,23 @@ fn appearance() -> String {
         let path = config_home.join("slopos-i/appearance");
         if let Ok(value) = std::fs::read_to_string(path) {
             let value = value.trim().to_ascii_lowercase();
-            if value == "graphite" || value == "platinum" {
+            if value == "graphite" || value == "platinum" || value == "classic" {
                 return value;
             }
         }
     }
     match env::var("SLOPOS_APPEARANCE") {
         Ok(value) if value.eq_ignore_ascii_case("graphite") => "graphite".to_string(),
+        Ok(value) if value.eq_ignore_ascii_case("classic") => "classic".to_string(),
         _ => "platinum".to_string(),
     }
 }
 
 fn apply_desktop_fallback() {
-    let color = if appearance() == "graphite" {
-        "#25272B"
-    } else {
-        "#758090"
+    let color = match appearance().as_str() {
+        "graphite" => "#25272B",
+        "classic" => "#808080",
+        _ => "#758090",
     };
     if let Err(error) = Command::new("xsetroot").args(["-solid", color]).status() {
         log::debug!("xsetroot is unavailable: {error}");
@@ -253,10 +254,10 @@ fn resolve_openbox_config() -> Option<PathBuf> {
         }
     }
 
-    let file_name = if appearance() == "graphite" {
-        "rc-graphite.xml"
-    } else {
-        "rc.xml"
+    let file_name = match appearance().as_str() {
+        "graphite" => "rc-graphite.xml",
+        "classic" => "rc-classic.xml",
+        _ => "rc.xml",
     };
     let mut candidates = Vec::new();
     if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {

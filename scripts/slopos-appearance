@@ -3,12 +3,12 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: slopos-appearance {platinum|graphite|status}" >&2
+  echo "Usage: slopos-appearance {classic|platinum|graphite|status}" >&2
 }
 
 mode="${1:-status}"
 case "$mode" in
-  platinum|graphite|status) ;;
+  classic|platinum|graphite|status) ;;
   *) usage; exit 2 ;;
 esac
 
@@ -20,7 +20,7 @@ appearance_file="$slopos_config/appearance"
 if [[ "$mode" == "status" ]]; then
   if [[ -r "$appearance_file" ]]; then
     value="$(tr -d '[:space:]' < "$appearance_file")"
-    case "$value" in platinum|graphite) echo "$value"; exit 0 ;; esac
+    case "$value" in classic|platinum|graphite) echo "$value"; exit 0 ;; esac
   fi
   echo platinum
   exit 0
@@ -34,6 +34,10 @@ if [[ "$mode" == "graphite" ]]; then
   gtk_theme="slopos-gtk-graphite"
   dark_pref=1
   root_color="#25272B"
+elif [[ "$mode" == "classic" ]]; then
+  gtk_theme="slopos-gtk-classic"
+  dark_pref=0
+  root_color="#808080"
 else
   gtk_theme="slopos-gtk"
   dark_pref=0

@@ -241,6 +241,54 @@ pkill -TERM -x slopos-shell 2>/dev/null || true
 pkill -TERM -x openbox 2>/dev/null || true
 sleep 1
 
+# --- SECTION 1B: Classic Macintosh (System 6/7) Appearance Scenes ---
+DISPLAY=:92
+export DISPLAY
+Xvfb "$DISPLAY" -screen 0 1280x800x24 -nolisten tcp >/tmp/vis-xvfb-92.log 2>&1 &
+XVFB_92_PID=$!
+sleep 1
+xsetroot -solid "#808080"
+SLOPOS_APPEARANCE="classic"
+export SLOPOS_APPEARANCE
+
+mkdir -p "$HOME/.config/slopos-i"
+printf '%s\n' "classic" > "$HOME/.config/slopos-i/appearance"
+
+dbus-run-session -- ./target/release/slopos-session >/tmp/vis-session-92.log 2>&1 &
+SESSION_92_PID=$!
+sleep 2
+
+for _ in $(seq 1 40); do
+  if xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null 2>&1; then break; fi
+  sleep 0.25
+done
+
+# 19. Classic Mac Clean Desktop
+capture_screen "19_classic_mac_desktop_1280x800.png"
+
+# 20. Classic Mac System Menu Open (Inverted Black)
+pkill -USR2 -x slopos-shell
+sleep 0.5
+scrot -zo "$OUT_DIR/20_classic_mac_system_menu_1280x800.png"
+echo "Captured: 20_classic_mac_system_menu_1280x800.png"
+
+# 21. Classic Mac Modal Dialog with Signature Default Button Ring
+xdotool key Return
+for _ in $(seq 1 40); do
+  if xdotool search --onlyvisible --name '^About SLOPOS-I$' >/dev/null 2>&1; then break; fi
+  sleep 0.1
+done
+capture_screen "21_classic_mac_about_dialog_1280x800.png"
+xdotool key Return
+sleep 0.3
+
+kill -TERM "$SESSION_92_PID" "$XVFB_92_PID" 2>/dev/null || true
+pkill -TERM -x slopos-shell 2>/dev/null || true
+pkill -TERM -x openbox 2>/dev/null || true
+unset SLOPOS_APPEARANCE
+rm -f "$HOME/.config/slopos-i/appearance"
+sleep 1
+
 # --- SECTION 2: Ultrawide Layout (3440x1440) ---
 DISPLAY=:96
 export DISPLAY

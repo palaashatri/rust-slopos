@@ -524,15 +524,19 @@ fn build_system_menu() -> Menu {
 
     let appearance = MenuItem::with_label("Appearance");
     let appearance_menu = Menu::new();
+    let classic = MenuItem::with_label("Classic Macintosh (System 6/7)");
     let platinum = MenuItem::with_label("Platinum (Light)");
     let graphite = MenuItem::with_label("Graphite (Dark)");
     if resolve_program("slopos-appearance").is_some() {
+        classic.connect_activate(|_| spawn_resolved("slopos-appearance", &["classic"]));
         platinum.connect_activate(|_| spawn_resolved("slopos-appearance", &["platinum"]));
         graphite.connect_activate(|_| spawn_resolved("slopos-appearance", &["graphite"]));
     } else {
+        classic.set_sensitive(false);
         platinum.set_sensitive(false);
         graphite.set_sensitive(false);
     }
+    appearance_menu.append(&classic);
     appearance_menu.append(&platinum);
     appearance_menu.append(&graphite);
     appearance_menu.show_all();
