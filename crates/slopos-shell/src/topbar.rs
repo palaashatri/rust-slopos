@@ -19,6 +19,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 const LOCK_COMMANDS: &[(&str, &[&str])] = &[
+    ("loginctl", &["lock-session"]),
+    ("xflock4", &[]),
     ("xdg-screensaver", &["lock"]),
     ("light-locker-command", &["-l"]),
     ("dm-tool", &["lock"]),
