@@ -3,34 +3,34 @@ padding.width: 3
 padding.height: 3
 border.width: 1
 window.active.border.color: #3A3C45
-window.inactive.border.color: #1A1B1F
+window.inactive.border.color: #202226
 window.active.title.bg: flat gradient vertical
-window.active.title.bg.color: #1A1B1F
-window.active.title.bg.colorTo: #0A0A0C
+window.active.title.bg.color: #121316
+window.active.title.bg.colorTo: #000000
 window.active.label.bg: parentrelative
 window.active.label.text.color: #FFFFFF
 window.active.label.text.font: shadow=off
 window.inactive.title.bg: flat solid
-window.inactive.title.bg.color: #0F1012
+window.inactive.title.bg.color: #050505
 window.inactive.label.bg: parentrelative
 window.inactive.label.text.color: #717680
 window.active.button.unpressed.bg: raised solid
-window.active.button.unpressed.bg.color: #22242A
+window.active.button.unpressed.bg.color: #18191E
 window.active.button.pressed.bg: sunken solid
-window.active.button.pressed.bg.color: #0A0A0C
+window.active.button.pressed.bg.color: #000000
 window.active.button.unpressed.image.color: #FFFFFF
 window.active.button.pressed.image.color: #FFFFFF
 window.inactive.button.unpressed.bg: flat solid
-window.inactive.button.unpressed.bg.color: #0F1012
+window.inactive.button.unpressed.bg.color: #050505
 window.inactive.button.unpressed.image.color: #555861
 menu.border.color: #3A3C45
 menu.border.width: 2
 menu.title.bg: flat gradient vertical
-menu.title.bg.color: #1A1B1F
-menu.title.bg.colorTo: #0A0A0C
+menu.title.bg.color: #121316
+menu.title.bg.colorTo: #000000
 menu.title.text.color: #FFFFFF
 menu.items.bg: flat solid
-menu.items.bg.color: #0A0A0C
+menu.items.bg.color: #000000
 menu.items.text.color: #FFFFFF
 menu.items.disabled.text.color: #717680
 menu.items.active.bg: flat solid

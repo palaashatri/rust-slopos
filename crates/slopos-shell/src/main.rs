@@ -63,7 +63,10 @@ fn acquire_instance_guard() -> Result<File, String> {
         .unwrap_or_else(std::env::temp_dir);
     std::fs::create_dir_all(&runtime_dir)
         .map_err(|error| format!("create runtime directory: {error}"))?;
-    let lock_path = runtime_dir.join("slopos-shell.lock");
+    let display_suffix = std::env::var("DISPLAY")
+        .unwrap_or_default()
+        .replace(':', "_");
+    let lock_path = runtime_dir.join(format!("slopos-shell{display_suffix}.lock"));
     let file = OpenOptions::new()
         .create(true)
         .truncate(false)

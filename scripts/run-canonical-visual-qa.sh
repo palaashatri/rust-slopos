@@ -30,7 +30,7 @@ rm -f "$OUT_DIR"/*.png "$OUT_DIR"/manifest.json "$OUT_DIR"/evidence-manifest.txt
 export DEBIAN_FRONTEND=noninteractive
 export GDK_BACKEND=x11
 export SLOPOS_QA_NO_WELCOME=1
-export SLOPOS_OPENBOX_CONFIG="${SLOPOS_OPENBOX_CONFIG:-$REPO_ROOT/assets/config/openbox/rc.xml}"
+unset SLOPOS_OPENBOX_CONFIG
 
 SOURCE_COMMIT="${SOURCE_SHA:-$(git -C "$REPO_ROOT" rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)}"
 STARTED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -51,6 +51,9 @@ if ! command -v chocolate-doom >/dev/null 2>&1 && ! command -v doom >/dev/null 2
 fi
 
 export PATH="/usr/games:$PATH"
+export XDG_CURRENT_DESKTOP=SLOPOS
+export SLOPOS_SESSION_MANAGED=1
+export XDG_SESSION_DESKTOP=slopos
 
 # Enable VLC execution in container environment
 sed -i "s/geteuid/getppid/" /usr/bin/vlc 2>/dev/null || true
@@ -62,10 +65,15 @@ dbus-daemon --system --fork >/dev/null 2>&1 || true
 
 # Set up user theme and icon assets
 mkdir -p "$HOME/.themes/slopos-openbox/openbox-3" "$HOME/.themes/slopos-openbox-classic/openbox-3" "$HOME/.themes/slopos-openbox-graphite/openbox-3" "$HOME/.themes/slopos-openbox-oled/openbox-3"
+mkdir -p "/usr/share/themes/slopos-openbox/openbox-3" "/usr/share/themes/slopos-openbox-classic/openbox-3" "/usr/share/themes/slopos-openbox-graphite/openbox-3" "/usr/share/themes/slopos-openbox-oled/openbox-3" 2>/dev/null || true
 cp "$REPO_ROOT/themes/slopos-openbox/openbox-3/themerc" "$HOME/.themes/slopos-openbox/openbox-3/themerc"
 cp "$REPO_ROOT/themes/slopos-openbox-classic/openbox-3/themerc" "$HOME/.themes/slopos-openbox-classic/openbox-3/themerc"
 cp "$REPO_ROOT/themes/slopos-openbox-graphite/openbox-3/themerc" "$HOME/.themes/slopos-openbox-graphite/openbox-3/themerc"
 cp "$REPO_ROOT/themes/slopos-openbox-oled/openbox-3/themerc" "$HOME/.themes/slopos-openbox-oled/openbox-3/themerc"
+cp "$REPO_ROOT/themes/slopos-openbox/openbox-3/themerc" "/usr/share/themes/slopos-openbox/openbox-3/themerc" 2>/dev/null || true
+cp "$REPO_ROOT/themes/slopos-openbox-classic/openbox-3/themerc" "/usr/share/themes/slopos-openbox-classic/openbox-3/themerc" 2>/dev/null || true
+cp "$REPO_ROOT/themes/slopos-openbox-graphite/openbox-3/themerc" "/usr/share/themes/slopos-openbox-graphite/openbox-3/themerc" 2>/dev/null || true
+cp "$REPO_ROOT/themes/slopos-openbox-oled/openbox-3/themerc" "/usr/share/themes/slopos-openbox-oled/openbox-3/themerc" 2>/dev/null || true
 
 mkdir -p "$HOME/.themes/slopos-gtk/gtk-3.0" "$HOME/.themes/slopos-gtk-classic/gtk-3.0" "$HOME/.themes/slopos-gtk-graphite/gtk-3.0" "$HOME/.themes/slopos-gtk-oled/gtk-3.0" "$HOME/.config/gtk-3.0"
 cp "$REPO_ROOT/assets/config/gtk-3.0/gtk.css" "$HOME/.themes/slopos-gtk/gtk-3.0/gtk.css"
@@ -384,49 +392,46 @@ sleep 1
 SET_WIN="$(xdotool search --onlyvisible --name '^System Settings$' | tail -n 1)"
 xdotool windowactivate --sync "$SET_WIN"
 capture_screen "11_system_settings_control_panels_1280x800.png"
-kill "$SET_PID" 2>/dev/null || true
-sleep 0.5
+kill -9 "$SET_PID" 2>/dev/null || true
+pkill -9 -f "slopos-settings" 2>/dev/null || true
+sleep 1
 
 # 12. Graphite Dark Desktop & 13. Graphite Settings Presentation
 bash scripts/slopos-appearance graphite >/dev/null 2>&1 || true
-pkill -TERM -x slopos-shell 2>/dev/null || true
-sleep 0.5
-SLOPOS_APPEARANCE=graphite ./target/release/slopos-shell >/tmp/vis-shell-graphite.log 2>&1 &
-sleep 1.5
+sleep 3
 capture_screen "12_graphite_dark_desktop_1280x800.png"
 
-SLOPOS_APPEARANCE=graphite ./target/release/slopos-settings >/dev/null 2>&1 &
+./target/release/slopos-settings >/dev/null 2>&1 &
 SET_PID=$!
-sleep 1
+sleep 2
 SET_WIN="$(xdotool search --onlyvisible --name '^System Settings$' | tail -n 1)"
-xdotool windowactivate --sync "$SET_WIN"
+xdotool windowactivate --sync "$SET_WIN" 2>/dev/null || true
+sleep 1
 capture_screen "13_graphite_settings_1280x800.png"
-kill "$SET_PID" 2>/dev/null || true
+kill -9 "$SET_PID" 2>/dev/null || true
+pkill -9 -f "slopos-settings" 2>/dev/null || true
+sleep 1
 
 # --- OLED Dark Appearance Scenes ---
 # 34. OLED Dark Desktop & 35. OLED Settings Presentation
 bash scripts/slopos-appearance oled >/dev/null 2>&1 || true
-pkill -TERM -x slopos-shell 2>/dev/null || true
-sleep 0.5
-SLOPOS_APPEARANCE=oled ./target/release/slopos-shell >/tmp/vis-shell-oled.log 2>&1 &
-sleep 1.5
+sleep 3
 capture_screen "34_oled_dark_desktop_1280x800.png"
 
-SLOPOS_APPEARANCE=oled ./target/release/slopos-settings >/dev/null 2>&1 &
+./target/release/slopos-settings >/dev/null 2>&1 &
 SET_PID=$!
-sleep 1.5
+sleep 2
 SET_WIN="$(xdotool search --onlyvisible --name '^System Settings$' | tail -n 1)"
-xdotool windowactivate --sync "$SET_WIN"
+xdotool windowactivate --sync "$SET_WIN" 2>/dev/null || true
+sleep 1
 capture_screen "35_oled_dark_settings_1280x800.png"
-kill "$SET_PID" 2>/dev/null || true
-sleep 0.5
+kill -9 "$SET_PID" 2>/dev/null || true
+pkill -9 -f "slopos-settings" 2>/dev/null || true
+sleep 1
 
 # Reset appearance to Platinum
 bash scripts/slopos-appearance platinum >/dev/null 2>&1 || true
-pkill -TERM -x slopos-shell 2>/dev/null || true
-sleep 0.5
-SLOPOS_APPEARANCE=platinum ./target/release/slopos-shell >/dev/null 2>&1 &
-sleep 1
+sleep 3
 
 # --- Wallpapers Showcase ---
 # 30. Classic System Gray Dither Wallpaper
@@ -612,11 +617,11 @@ if command -v thunderbird >/dev/null 2>&1; then
   sleep 0.5
 fi
 
-# 46. Fullscreen Video / Game Experience (MPV Fullscreen with Top Bar & Dock Auto-Hidden)
+# 46. Fullscreen Video / Game Experience (MPV Fullscreen Video Playback with Top Bar & Dock Auto-Hidden)
 if command -v mpv >/dev/null 2>&1; then
-  mpv --player-operation-mode=pseudo-gui --fs --idle=yes >/dev/null 2>&1 &
+  mpv --fs --loop-file=inf assets/wallpapers/03_vintage_mac_blue.png >/dev/null 2>&1 &
   MPV_PID=$!
-  sleep 2
+  sleep 2.5
   MPV_WIN="$(xdotool search --onlyvisible --class mpv | tail -n 1 || true)"
   if [[ -n "$MPV_WIN" ]]; then
     xdotool windowactivate --sync "$MPV_WIN" 2>/dev/null || true
@@ -637,10 +642,11 @@ if command -v mousepad >/dev/null 2>&1; then
   DODGE_WIN="$(xdotool search --onlyvisible --class Mousepad | tail -n 1 || true)"
   if [[ -n "$DODGE_WIN" ]]; then
     xdotool windowactivate --sync "$DODGE_WIN" 2>/dev/null || true
-    xdotool windowsize "$DODGE_WIN" 1280 750 2>/dev/null || true
-    xdotool windowmove "$DODGE_WIN" 0 26 2>/dev/null || true
-    sleep 0.5
-    capture_screen "47_dock_dodge_maximized_1280x800.png"
+    wmctrl -i -r "$DODGE_WIN" -b add,maximized_vert,maximized_horz 2>/dev/null || xdotool key "Alt+F10" || true
+    xdotool mousemove 640 400
+    sleep 1
+    scrot -zo "$OUT_DIR/47_dock_dodge_maximized_1280x800.png"
+    echo "Captured: 47_dock_dodge_maximized_1280x800.png"
   fi
   kill "$DODGE_PID" 2>/dev/null || true
   sleep 0.5

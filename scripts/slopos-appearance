@@ -111,6 +111,24 @@ else
   done
 fi
 
+# Ensure theme directory structure in HOME/.themes and system share
+mkdir -p "$HOME/.themes"
+for ob_theme in slopos-openbox slopos-openbox-classic slopos-openbox-graphite slopos-openbox-oled; do
+  mkdir -p "$HOME/.themes/$ob_theme/openbox-3"
+  for cand_themerc in \
+    "themes/$ob_theme/openbox-3/themerc" \
+    "/usr/local/share/themes/$ob_theme/openbox-3/themerc" \
+    "/usr/share/themes/$ob_theme/openbox-3/themerc"; do
+    if [[ -f "$cand_themerc" ]]; then
+      cp -f "$cand_themerc" "$HOME/.themes/$ob_theme/openbox-3/themerc"
+      if mkdir -p "/usr/share/themes/$ob_theme/openbox-3" 2>/dev/null; then
+        cp -f "$cand_themerc" "/usr/share/themes/$ob_theme/openbox-3/themerc" 2>/dev/null || true
+      fi
+      break
+    fi
+  done
+done
+
 openbox_config="$config_home/openbox"
 mkdir -p "$openbox_config"
 for candidate_rc in \
@@ -127,11 +145,16 @@ if command -v xsetroot >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
   xsetroot -solid "$root_color" >/dev/null 2>&1 || true
 fi
 
-# The session supervisor restarts these two children with bounded backoff. This
-# reloads shell CSS and Openbox chrome atomically instead of leaving mixed
-# light/dark desktop surfaces behind.
+# Reconfigure running Openbox so all window decorations immediately adapt
+if command -v openbox >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
+  openbox --reconfigure >/dev/null 2>&1 || true
+fi
+
+# Always restart slopos-shell so topbar and dock reload with the new CSS
+pkill -TERM -x slopos-shell >/dev/null 2>&1 || true
+
+# If managed by session supervisor, also give openbox a clean reload
 if [[ "${XDG_CURRENT_DESKTOP:-}" == "SLOPOS" || "${SLOPOS_SESSION_MANAGED:-}" == "1" ]]; then
-  pkill -TERM -x slopos-shell >/dev/null 2>&1 || true
   pkill -TERM -x openbox >/dev/null 2>&1 || true
 fi
 

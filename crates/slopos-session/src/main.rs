@@ -261,24 +261,103 @@ fn resolve_openbox_menu() -> Option<PathBuf> {
             candidates.push(prefix.join("share/slopos-i/openbox").join("menu.xml"));
         }
     }
+    if let Ok(cwd) = env::current_dir() {
+        candidates.push(cwd.join("assets/config/openbox/menu.xml"));
+    }
     candidates.extend([
         PathBuf::from("assets/config/openbox/menu.xml"),
         PathBuf::from("/usr/local/share/slopos-i/openbox/menu.xml"),
         PathBuf::from("/usr/share/slopos-i/openbox/menu.xml"),
     ]);
-    candidates.into_iter().find(|path| path.exists())
+    candidates
+        .into_iter()
+        .find(|path| path.exists())
+        .and_then(|path| path.canonicalize().ok().or(Some(path)))
 }
 
-fn spawn_openbox(config: Option<&Path>) -> Option<Child> {
+fn sync_theme_assets() {
+    let home = env::var_os("HOME").map(PathBuf::from);
+    for ob_theme in [
+        "slopos-openbox",
+        "slopos-openbox-classic",
+        "slopos-openbox-graphite",
+        "slopos-openbox-oled",
+    ] {
+        let mut candidates = Vec::new();
+        if let Ok(cwd) = env::current_dir() {
+            candidates.push(cwd.join("themes").join(ob_theme).join("openbox-3/themerc"));
+        }
+        if let Ok(executable) = env::current_exe() {
+            if let Some(prefix) = executable.parent().and_then(Path::parent) {
+                candidates.push(
+                    prefix
+                        .join("share/themes")
+                        .join(ob_theme)
+                        .join("openbox-3/themerc"),
+                );
+            }
+        }
+        if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+            candidates.push(
+                PathBuf::from(share_dir)
+                    .join("themes")
+                    .join(ob_theme)
+                    .join("openbox-3/themerc"),
+            );
+        }
+        candidates.extend([
+            PathBuf::from(format!("themes/{ob_theme}/openbox-3/themerc")),
+            PathBuf::from(format!(
+                "/usr/local/share/themes/{ob_theme}/openbox-3/themerc"
+            )),
+            PathBuf::from(format!("/usr/share/themes/{ob_theme}/openbox-3/themerc")),
+        ]);
+
+        if let Some(src) = candidates.into_iter().find(|p| p.is_file()) {
+            if let Some(ref h) = home {
+                let dest_dir = h.join(".themes").join(ob_theme).join("openbox-3");
+                let _ = std::fs::create_dir_all(&dest_dir);
+                let _ = std::fs::copy(&src, dest_dir.join("themerc"));
+            }
+            let sys_dir = PathBuf::from(format!("/usr/share/themes/{ob_theme}/openbox-3"));
+            if std::fs::create_dir_all(&sys_dir).is_ok() {
+                let _ = std::fs::copy(&src, sys_dir.join("themerc"));
+            }
+        }
+    }
+}
+
+fn sync_openbox_config() -> Option<PathBuf> {
+    let config_home = env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+    if let Some(config_home) = config_home {
+        let target_dir = config_home.join("openbox");
+        let target = target_dir.join("rc.xml");
+        if let Some(source) = resolve_openbox_config() {
+            let _ = std::fs::create_dir_all(&target_dir);
+            let _ = std::fs::copy(&source, &target);
+        }
+        if target.exists() {
+            return target.canonicalize().ok().or(Some(target));
+        }
+    }
+    resolve_openbox_config()
+}
+
+fn spawn_openbox(_config: Option<&Path>) -> Option<Child> {
+    sync_theme_assets();
     sync_openbox_menu();
+    let config_path = sync_openbox_config();
     let mut command = Command::new("openbox");
     command.arg("--replace");
-    if let Some(path) = config {
+    if let Some(ref path) = config_path {
         command.arg("--config-file").arg(path);
     }
     match command.spawn() {
         Ok(child) => {
-            let suffix = config
+            let suffix = config_path
+                .as_ref()
                 .map(|path| format!(" with {}", path.display()))
                 .unwrap_or_default();
             log::info!("Spawned Openbox{suffix}");
@@ -311,7 +390,7 @@ fn resolve_openbox_config() -> Option<PathBuf> {
     if let Ok(value) = env::var("SLOPOS_OPENBOX_CONFIG") {
         let path = PathBuf::from(value);
         if path.exists() {
-            return Some(path);
+            return path.canonicalize().ok().or(Some(path));
         }
     }
 
@@ -334,12 +413,18 @@ fn resolve_openbox_config() -> Option<PathBuf> {
             candidates.push(prefix.join("share/slopos-i/openbox").join(file_name));
         }
     }
+    if let Ok(cwd) = env::current_dir() {
+        candidates.push(cwd.join("assets/config/openbox").join(file_name));
+    }
     candidates.extend([
         PathBuf::from("assets/config/openbox").join(file_name),
         PathBuf::from("/usr/local/share/slopos-i/openbox").join(file_name),
         PathBuf::from("/usr/share/slopos-i/openbox").join(file_name),
     ]);
-    candidates.into_iter().find(|path| path.exists())
+    candidates
+        .into_iter()
+        .find(|path| path.exists())
+        .and_then(|path| path.canonicalize().ok().or(Some(path)))
 }
 
 fn configure_install_prefix_environment() {
