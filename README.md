@@ -85,13 +85,24 @@ Mature upstream applications + verified AppImages
 |:---:|:---:|
 | ![Xfce4 Terminal](docs/screenshots/09_terminal_xfce4_1280x800.png) | ![Mozilla Firefox](docs/screenshots/23_web_browser_firefox_1280x800.png) |
 
-| Classic Doom (Freedoom Phase 2 & Game Menu) | Multi-Window Focus & Stacking (Openbox) |
+| Classic Doom (Freedoom Phase 2 & Game Menu) | Galculator (Scientific & Basic Calculator) |
 |:---:|:---:|
-| ![Classic Doom](docs/screenshots/24_game_doom_freedoom_1280x800.png) | ![Multi-Window Focus](docs/screenshots/07_multi_window_focus_1280x800.png) |
+| ![Classic Doom](docs/screenshots/24_game_doom_freedoom_1280x800.png) | ![Galculator](docs/screenshots/27_calculator_galculator_1280x800.png) |
+
+| Ristretto Image Viewer (Platinum Chrome) | Zathura Document Viewer (Clean Fallback) |
+|:---:|:---:|
+| ![Ristretto](docs/screenshots/28_image_viewer_ristretto_1280x800.png) | ![Zathura](docs/screenshots/29_document_viewer_zathura_1280x800.png) |
+
+| Desktop Right-Click Menu (Open With Submenu) | File Manager Context Menu (Desktop Folder) |
+|:---:|:---:|
+| ![Desktop Right Click Menu](docs/screenshots/25_desktop_right_click_context_menu_1280x800.png) | ![File Manager Context Menu](docs/screenshots/26_file_manager_right_click_context_menu_1280x800.png) |
 
 - **Openbox Window Manager**: True stacking and floating window manager supporting 4 virtual workspaces, predictable click-to-focus, `Alt+Tab` window cycling, and crisp Platinum/Classic borders.
+- **Desktop Context Menu & Right-Click Functionality**:
+  - Full right-click root desktop menu with **New Folder**, **New Text Document**, **Display Settings...**, **Desktop Preferences...**, **System Settings Hub**, **Software Catalogue**, and nested **Open With...** submenus (Mousepad, Ristretto, Zathura, Firefox, MPV).
+  - Ability to create, open, edit, and organize files and folders directly on the desktop (`~/Desktop`).
 - **Universal Global Menubar Integration**:
-  - Live active-window tracking: `slopos-shell` dynamically renders tailored, high-contrast, fully functional topbar menus (`File`, `Edit`, `View`, `Terminal`/`Bookmarks`/`Search`/`Special`, `Help`, etc.) for every focused application (Terminal, PCManFM, Mousepad, Web Browsers, Calculators, Document Viewers, Control Panels, and the Desktop).
+  - Live active-window tracking: `slopos-shell` dynamically renders tailored, high-contrast, fully functional topbar menus (`File`, `Edit`, `View`, `Terminal`/`Bookmarks`/`Search`/`Special`/`Game`, `Help`, etc.) for every focused application (Terminal, PCManFM, Mousepad, Web Browsers, Calculators, Document Viewers, Games, Control Panels, and the Desktop).
   - GIO D-Bus / GMenu support: Native `GtkApplication` programs seamlessly export live D-Bus action hierarchies directly into the top bar.
   - Zero fake menus: Every menu item routes real key combinations or window actions directly to the focused target window.
 - **Freedesktop Icon Theme (`SLOPOS-Platinum`)**: Full custom icon theme providing tailored classic icons for folders, text files, archives, disks, trash, and standard desktop actions.

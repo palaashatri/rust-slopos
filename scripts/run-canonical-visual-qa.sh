@@ -167,6 +167,15 @@ capture_screen "18_modal_switch_user_dialog_1280x800.png"
 xdotool key Escape
 sleep 0.3
 
+# 25. Desktop Right-Click Context Menu (Open With Submenu)
+xdotool mousemove 400 250 click 3
+sleep 0.5
+xdotool mousemove 450 380
+sleep 0.5
+capture_screen "25_desktop_right_click_context_menu_1280x800.png"
+xdotool mousemove 100 100 click 1
+sleep 0.5
+
 # 3. Search Palette Open
 pkill -USR1 -x slopos-shell
 for _ in $(seq 1 40); do
@@ -217,6 +226,21 @@ PCMAN_WIN="$(xdotool search --onlyvisible --class pcmanfm | tail -n 1)"
 xdotool windowactivate --sync "$PCMAN_WIN"
 capture_screen "08_file_manager_pcmanfm_1280x800.png"
 kill "$PCMAN_PID" 2>/dev/null || true
+sleep 0.5
+
+# 26. File Manager Right-Click Context Menu
+mkdir -p "$HOME/Desktop/Projects" "$HOME/Desktop/Documents"
+touch "$HOME/Desktop/ReadMe.txt" "$HOME/Desktop/Notes.md"
+pcmanfm "$HOME/Desktop" >/dev/null 2>&1 &
+PCMAN_DESK_PID=$!
+sleep 1
+PCMAN_DESK_WIN="$(xdotool search --onlyvisible --class pcmanfm | tail -n 1)"
+xdotool windowactivate --sync "$PCMAN_DESK_WIN"
+sleep 0.5
+xdotool mousemove 500 350 click 3
+sleep 0.5
+capture_screen "26_file_manager_right_click_context_menu_1280x800.png"
+kill "$PCMAN_DESK_PID" 2>/dev/null || true
 sleep 0.5
 
 # 9. Terminal (Xfce4 Terminal)
@@ -281,6 +305,51 @@ if command -v chocolate-doom >/dev/null 2>&1 || command -v doom >/dev/null 2>&1 
     capture_screen "24_game_doom_freedoom_1280x800.png"
   fi
   kill "$DOOM_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
+# 27. Calculator (Galculator)
+if command -v galculator >/dev/null 2>&1; then
+  galculator >/dev/null 2>&1 &
+  CALC_PID=$!
+  sleep 1
+  CALC_WIN="$(xdotool search --onlyvisible --class galculator | tail -n 1 || true)"
+  if [[ -n "$CALC_WIN" ]]; then
+    xdotool windowactivate --sync "$CALC_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "27_calculator_galculator_1280x800.png"
+  fi
+  kill "$CALC_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
+# 28. Image Viewer (Ristretto)
+if command -v ristretto >/dev/null 2>&1; then
+  ristretto >/dev/null 2>&1 &
+  IMG_PID=$!
+  sleep 1
+  IMG_WIN="$(xdotool search --onlyvisible --class ristretto | tail -n 1 || true)"
+  if [[ -n "$IMG_WIN" ]]; then
+    xdotool windowactivate --sync "$IMG_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "28_image_viewer_ristretto_1280x800.png"
+  fi
+  kill "$IMG_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
+# 29. Document Viewer (Zathura)
+if command -v zathura >/dev/null 2>&1; then
+  zathura >/dev/null 2>&1 &
+  DOC_PID=$!
+  sleep 1
+  DOC_WIN="$(xdotool search --onlyvisible --class zathura | tail -n 1 || true)"
+  if [[ -n "$DOC_WIN" ]]; then
+    xdotool windowactivate --sync "$DOC_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "29_document_viewer_zathura_1280x800.png"
+  fi
+  kill "$DOC_PID" 2>/dev/null || true
   sleep 0.5
 fi
 

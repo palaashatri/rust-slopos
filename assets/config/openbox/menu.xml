@@ -1,24 +1,69 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <openbox_menu xmlns="http://openbox.org/3.4/menu">
-  <menu id="root-menu" label="SLOPOS">
-    <item label="Files (PCManFM)">
-      <action name="Execute"><command>pcmanfm</command></action>
-    </item>
-    <item label="Terminal">
-      <action name="Execute"><command>xfce4-terminal</command></action>
-    </item>
-    <item label="Text Editor">
+  <menu id="open-with-menu" label="Open With…">
+    <item label="Text Editor (Mousepad)">
       <action name="Execute"><command>mousepad</command></action>
     </item>
-    <item label="Web Browser">
+    <item label="Image Viewer (Ristretto)">
+      <action name="Execute"><command>ristretto</command></action>
+    </item>
+    <item label="Document Viewer (Zathura)">
+      <action name="Execute"><command>zathura</command></action>
+    </item>
+    <item label="Web Browser (Firefox)">
       <action name="Execute"><command>start-slopos-browser</command></action>
     </item>
+    <item label="Media Player (MPV)">
+      <action name="Execute"><command>mpv</command></action>
+    </item>
+  </menu>
+
+  <menu id="root-menu" label="SLOPOS">
+    <item label="New Folder">
+      <action name="Execute"><command>bash -c "mkdir -p ~/Desktop/'New Folder' &amp;&amp; pcmanfm ~/Desktop"</command></action>
+    </item>
+    <item label="New Text Document">
+      <action name="Execute"><command>bash -c "mkdir -p ~/Desktop &amp;&amp; touch ~/Desktop/'Untitled.txt' &amp;&amp; mousepad ~/Desktop/'Untitled.txt'"</command></action>
+    </item>
     <separator/>
-    <item label="AppImage Catalogue">
+    <item label="File Manager (PCManFM)">
+      <action name="Execute"><command>pcmanfm</command></action>
+    </item>
+    <item label="Terminal (Xfce4 Terminal)">
+      <action name="Execute"><command>xfce4-terminal</command></action>
+    </item>
+    <item label="Text Editor (Mousepad)">
+      <action name="Execute"><command>mousepad</command></action>
+    </item>
+    <item label="Web Browser (Firefox)">
+      <action name="Execute"><command>start-slopos-browser</command></action>
+    </item>
+    <item label="Calculator (Galculator)">
+      <action name="Execute"><command>galculator</command></action>
+    </item>
+    <menu id="open-with-menu"/>
+    <separator/>
+    <item label="Display Settings…">
+      <action name="Execute"><command>arandr</command></action>
+    </item>
+    <item label="Desktop Preferences…">
+      <action name="Execute"><command>pcmanfm --desktop-pref</command></action>
+    </item>
+    <item label="System Settings Hub">
+      <action name="Execute"><command>slopos-settings</command></action>
+    </item>
+    <item label="Software Catalogue">
       <action name="Execute"><command>slopos-catalogue</command></action>
     </item>
-    <item label="System Settings">
-      <action name="Execute"><command>slopos-settings</command></action>
+    <separator/>
+    <item label="Search Applications (Super+Space)">
+      <action name="Execute"><command>pkill -USR1 -x slopos-shell</command></action>
+    </item>
+    <item label="Next Workspace">
+      <action name="DesktopNext"><wrap>yes</wrap></action>
+    </item>
+    <item label="Previous Workspace">
+      <action name="DesktopPrevious"><wrap>yes</wrap></action>
     </item>
     <separator/>
     <item label="Log Out">

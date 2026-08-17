@@ -209,7 +209,46 @@ fn apply_desktop_fallback() {
     }
 }
 
+fn sync_openbox_menu() {
+    let config_home = env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+    if let Some(config_home) = config_home {
+        let target_dir = config_home.join("openbox");
+        let target = target_dir.join("menu.xml");
+        if !target.exists() {
+            if let Some(source) = resolve_openbox_menu() {
+                let _ = std::fs::create_dir_all(&target_dir);
+                let _ = std::fs::copy(source, target);
+            }
+        }
+    }
+}
+
+fn resolve_openbox_menu() -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+        candidates.push(
+            PathBuf::from(share_dir)
+                .join("slopos-i/openbox")
+                .join("menu.xml"),
+        );
+    }
+    if let Ok(executable) = env::current_exe() {
+        if let Some(prefix) = executable.parent().and_then(Path::parent) {
+            candidates.push(prefix.join("share/slopos-i/openbox").join("menu.xml"));
+        }
+    }
+    candidates.extend([
+        PathBuf::from("assets/config/openbox/menu.xml"),
+        PathBuf::from("/usr/local/share/slopos-i/openbox/menu.xml"),
+        PathBuf::from("/usr/share/slopos-i/openbox/menu.xml"),
+    ]);
+    candidates.into_iter().find(|path| path.exists())
+}
+
 fn spawn_openbox(config: Option<&Path>) -> Option<Child> {
+    sync_openbox_menu();
     let mut command = Command::new("openbox");
     command.arg("--replace");
     if let Some(path) = config {
