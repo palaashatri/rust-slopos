@@ -21,9 +21,36 @@ use std::time::Duration;
 const LOCK_COMMANDS: &[(&str, &[&str])] = &[
     ("loginctl", &["lock-session"]),
     ("xflock4", &[]),
-    ("xdg-screensaver", &["lock"]),
     ("light-locker-command", &["-l"]),
     ("dm-tool", &["lock"]),
+    ("xdg-screensaver", &["lock"]),
+    ("slock", &[]),
+    ("i3lock", &["-c", "758090"]),
+];
+
+const SWITCH_USER_COMMANDS: &[(&str, &[&str])] = &[
+    ("dm-tool", &["switch-to-greeter"]),
+    ("gdmflexiserver", &[]),
+    ("kdmctl", &["reserve"]),
+    ("loginctl", &["activate-session"]),
+];
+
+const SUSPEND_COMMANDS: &[(&str, &[&str])] = &[
+    ("systemctl", &["suspend"]),
+    ("loginctl", &["suspend"]),
+    ("pm-suspend", &[]),
+];
+
+const REBOOT_COMMANDS: &[(&str, &[&str])] = &[
+    ("systemctl", &["reboot"]),
+    ("loginctl", &["reboot"]),
+    ("reboot", &[]),
+];
+
+const POWEROFF_COMMANDS: &[(&str, &[&str])] = &[
+    ("systemctl", &["poweroff"]),
+    ("loginctl", &["poweroff"]),
+    ("poweroff", &[]),
 ];
 
 static OPEN_SYSTEM_MENU: AtomicBool = AtomicBool::new(false);
@@ -514,30 +541,73 @@ fn build_system_menu() -> Menu {
     menu.append(&SeparatorMenuItem::new());
 
     let lock = MenuItem::with_label("Lock Screen");
-    if let Some((program, args)) = lock_command() {
+    if let Some((program, args)) = resolve_first_command(LOCK_COMMANDS) {
         lock.connect_activate(move |_| spawn_resolved(program, args));
     } else {
-        lock.set_sensitive(false);
+        lock.connect_activate(|_| {
+            show_message(
+                "Lock Screen",
+                "No screen locker utility found.\nInstall loginctl, light-locker, xflock4, slock, or i3lock.",
+            );
+        });
     }
     menu.append(&lock);
 
-    let logout = MenuItem::with_label("Log Out…");
-    if env::var_os("SLOPOS_SESSION_MANAGED").is_some() {
-        logout.connect_activate(|_| {
-            confirm_action("Log Out", "End the current SLOPOS session?", || unsafe {
-                libc::kill(libc::getppid(), libc::SIGTERM);
+    let switch_user = MenuItem::with_label("Switch User…");
+    if let Some((program, args)) = resolve_first_command(SWITCH_USER_COMMANDS) {
+        switch_user.connect_activate(move |_| {
+            confirm_action(
+                "Switch User",
+                "Switch to the login screen for another user?",
+                move || spawn_resolved(program, args),
+            );
+        });
+    } else {
+        switch_user.connect_activate(|_| {
+            show_message(
+                "Switch User",
+                "No display manager switch utility found.\nInstall dm-tool (LightDM), gdmflexiserver (GDM), or loginctl.",
+            );
+        });
+    }
+    menu.append(&switch_user);
+
+    let sleep = MenuItem::with_label("Sleep");
+    if let Some((program, args)) = resolve_first_command(SUSPEND_COMMANDS) {
+        sleep.connect_activate(move |_| {
+            confirm_action("Sleep", "Put this computer to sleep now?", move || {
+                spawn_resolved(program, args)
             });
         });
     } else {
-        logout.set_sensitive(false);
+        sleep.set_sensitive(false);
     }
+    menu.append(&sleep);
+
+    let logout = MenuItem::with_label("Log Out…");
+    logout.connect_activate(|_| {
+        confirm_action("Log Out", "End the current SLOPOS session?", || {
+            if env::var_os("SLOPOS_SESSION_MANAGED").is_some() {
+                unsafe {
+                    libc::kill(libc::getppid(), libc::SIGTERM);
+                }
+            } else if let Some((program, args)) = resolve_first_command(&[
+                ("loginctl", &["terminate-session", "self"]),
+                ("loginctl", &["terminate-user", ""]),
+            ]) {
+                spawn_resolved(program, args);
+            } else {
+                std::process::exit(0);
+            }
+        });
+    });
     menu.append(&logout);
 
     let restart = MenuItem::with_label("Restart…");
-    if resolve_program("systemctl").is_some() {
-        restart.connect_activate(|_| {
-            confirm_action("Restart", "Restart this computer now?", || {
-                spawn_resolved("systemctl", &["reboot"])
+    if let Some((program, args)) = resolve_first_command(REBOOT_COMMANDS) {
+        restart.connect_activate(move |_| {
+            confirm_action("Restart", "Restart this computer now?", move || {
+                spawn_resolved(program, args);
             });
         });
     } else {
@@ -546,10 +616,10 @@ fn build_system_menu() -> Menu {
     menu.append(&restart);
 
     let shutdown = MenuItem::with_label("Shut Down…");
-    if resolve_program("systemctl").is_some() {
-        shutdown.connect_activate(|_| {
-            confirm_action("Shut Down", "Shut down this computer now?", || {
-                spawn_resolved("systemctl", &["poweroff"])
+    if let Some((program, args)) = resolve_first_command(POWEROFF_COMMANDS) {
+        shutdown.connect_activate(move |_| {
+            confirm_action("Shut Down", "Shut down this computer now?", move || {
+                spawn_resolved(program, args);
             });
         });
     } else {
@@ -610,8 +680,10 @@ fn platinum_dialog(title: &str, message: &str, buttons: &[(&str, ResponseType)])
     dialog
 }
 
-fn lock_command() -> Option<(&'static str, &'static [&'static str])> {
-    for &(program, args) in LOCK_COMMANDS {
+fn resolve_first_command(
+    candidates: &[(&'static str, &'static [&'static str])],
+) -> Option<(&'static str, &'static [&'static str])> {
+    for &(program, args) in candidates {
         if resolve_program(program).is_some() {
             return Some((program, args));
         }

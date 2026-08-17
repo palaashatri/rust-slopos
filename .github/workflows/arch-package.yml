@@ -2,7 +2,7 @@ name: Arch Package QA
 
 on:
   push:
-    branches: [pivot]
+    branches: [main, pivot]
     paths:
       - '.github/workflows/arch-package.yml'
       - 'Cargo.toml'
