@@ -42,6 +42,17 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential dpkg-dev debhelper cargo pkg-config \
             libgtk-3-dev libx11-dev libxrandr-dev libssl-dev libdbus-1-dev
+      - name: Stage canonical Debian build metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e debian
+          cp -a packaging/debian debian
+          test -s debian/changelog
+          test -s debian/control
+          test -x debian/rules
+          test ! -e debian/compat
+          grep -Fq 'debhelper-compat (= 13)' debian/control
       - name: Build binary package from exact checkout
         shell: bash
         run: |
