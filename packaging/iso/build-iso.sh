@@ -69,23 +69,43 @@ done
 install -Dm755 scripts/start-slopos-i "$ROOTFS/usr/local/bin/start-slopos-i"
 install -Dm755 scripts/start-slopos-browser "$ROOTFS/usr/local/bin/start-slopos-browser"
 install -Dm755 scripts/install-browser-theme.sh "$ROOTFS/usr/local/bin/install-browser-theme.sh"
+install -Dm755 scripts/slopos-appearance "$ROOTFS/usr/local/bin/slopos-appearance"
+install -Dm755 scripts/slopos-recovery.sh "$ROOTFS/usr/local/bin/slopos-recovery"
 install -Dm644 packaging/slopos-browser.desktop \
   "$ROOTFS/usr/local/share/applications/slopos-browser.desktop"
 install -Dm644 packaging/slopos-i.desktop "$ROOTFS/usr/share/xsessions/slopos-i.desktop"
 install -Dm644 assets/config/openbox/rc.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc.xml"
+install -Dm644 assets/config/openbox/rc-graphite.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc-graphite.xml"
 install -Dm644 assets/config/openbox/menu.xml "$ROOTFS/usr/local/share/slopos-i/openbox/menu.xml"
 install -Dm644 themes/slopos-openbox/openbox-3/themerc \
   "$ROOTFS/usr/local/share/themes/slopos-openbox/openbox-3/themerc"
+install -Dm644 themes/slopos-openbox-graphite/openbox-3/themerc \
+  "$ROOTFS/usr/local/share/themes/slopos-openbox-graphite/openbox-3/themerc"
 install -Dm644 assets/config/gtk-3.0/gtk.css \
   "$ROOTFS/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css"
+install -Dm644 assets/config/gtk-3.0/gtk-graphite.css \
+  "$ROOTFS/usr/local/share/themes/slopos-gtk-graphite/gtk-3.0/gtk.css"
 install -Dm644 assets/config/gtk-3.0/settings.ini \
   "$ROOTFS/usr/local/share/slopos-i/gtk-3.0/settings.ini"
 install -Dm644 assets/config/mimeapps.list \
   "$ROOTFS/usr/local/share/slopos-i/mimeapps.list"
 install -Dm644 assets/slopos-logo.png \
   "$ROOTFS/usr/local/share/slopos-i/slopos-logo.png"
+
+# Ship a deliberately bounded reset payload. Recovery returns the user to the
+# known-good Platinum configuration without copying unrelated system files.
+mkdir -p "$ROOTFS/usr/local/share/slopos-i/recovery"
+printf '%s\n' platinum >"$ROOTFS/usr/local/share/slopos-i/recovery/appearance"
+install -Dm644 assets/config/openbox/rc.xml \
+  "$ROOTFS/usr/local/share/slopos-i/recovery/openbox/rc.xml"
+install -Dm644 assets/config/openbox/menu.xml \
+  "$ROOTFS/usr/local/share/slopos-i/recovery/openbox/menu.xml"
+
 mkdir -p "$ROOTFS/usr/local/share/slopos-i/themes"
 cp -a themes/platinum "$ROOTFS/usr/local/share/slopos-i/themes/platinum"
+cp -a themes/graphite "$ROOTFS/usr/local/share/slopos-i/themes/graphite"
+mkdir -p "$ROOTFS/usr/local/share/icons"
+cp -a themes/platinum/icon-theme "$ROOTFS/usr/local/share/icons/SLOPOS-Platinum"
 mkdir -p "$ROOTFS/usr/local/share/slopos-i/browser"
 cp -a packaging/browser/chromium "$ROOTFS/usr/local/share/slopos-i/browser/chromium"
 cp -a packaging/browser/firefox "$ROOTFS/usr/local/share/slopos-i/browser/firefox"
@@ -101,6 +121,8 @@ file_permissions["/usr/local/bin/slopos-settings"]="0:0:755"
 file_permissions["/usr/local/bin/start-slopos-i"]="0:0:755"
 file_permissions["/usr/local/bin/start-slopos-browser"]="0:0:755"
 file_permissions["/usr/local/bin/install-browser-theme.sh"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-appearance"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-recovery"]="0:0:755"
 EOF
 
 # Materialize the live account during image construction as well as at boot.
@@ -154,7 +176,10 @@ chmod 0755 \
   /usr/local/bin/slopos-catalogue \
   /usr/local/bin/slopos-settings \
   /usr/local/bin/start-slopos-i \
-  /usr/local/bin/start-slopos-browser
+  /usr/local/bin/start-slopos-browser \
+  /usr/local/bin/install-browser-theme.sh \
+  /usr/local/bin/slopos-appearance \
+  /usr/local/bin/slopos-recovery
 if [[ -f /etc/lightdm/lightdm.conf ]]; then
   sed -i \
     -e 's|^#greeter-session=.*|greeter-session=lightdm-gtk-greeter|' \
