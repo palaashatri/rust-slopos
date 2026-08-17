@@ -15,6 +15,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 const LOCK_COMMANDS: &[(&str, &[&str])] = &[
@@ -22,6 +23,8 @@ const LOCK_COMMANDS: &[(&str, &[&str])] = &[
     ("light-locker-command", &["-l"]),
     ("dm-tool", &["lock"]),
 ];
+
+static OPEN_SYSTEM_MENU: AtomicBool = AtomicBool::new(false);
 
 pub struct TopBar {
     _window: Window,
@@ -55,7 +58,7 @@ impl TopBar {
 
         let system_button = Button::new();
         system_button.style_context().add_class("slopos-logo-btn");
-        system_button.set_tooltip_text(Some("SLOPOS menu"));
+        system_button.set_tooltip_text(Some("SLOPOS menu (Ctrl+F2)"));
         set_accessible_name(&system_button, "SLOPOS menu");
         if let Some(mark) = load_slopos_mark() {
             system_button.set_image(Some(&mark));
@@ -73,6 +76,7 @@ impl TopBar {
                 None,
             );
         });
+        install_system_menu_signal_bridge(&system_button, &system_menu);
         main_box.pack_start(&system_button, false, false, 0);
 
         let active_title_label = Label::new(Some("SLOPOS Desktop"));
@@ -202,6 +206,30 @@ impl TopBar {
             _clock_label: clock_label,
         })
     }
+}
+
+fn install_system_menu_signal_bridge(button: &Button, menu: &Menu) {
+    unsafe {
+        libc::signal(libc::SIGUSR2, system_menu_signal_handler as *const () as usize);
+    }
+
+    let button = button.clone();
+    let menu = menu.clone();
+    glib::timeout_add_local(Duration::from_millis(80), move || {
+        if OPEN_SYSTEM_MENU.swap(false, Ordering::SeqCst) {
+            menu.popup_at_widget(
+                &button,
+                gdk::Gravity::SouthWest,
+                gdk::Gravity::NorthWest,
+                None,
+            );
+        }
+        glib::ControlFlow::Continue
+    });
+}
+
+extern "C" fn system_menu_signal_handler(_sig: libc::c_int) {
+    OPEN_SYSTEM_MENU.store(true, Ordering::SeqCst);
 }
 
 #[allow(clippy::too_many_arguments)]
