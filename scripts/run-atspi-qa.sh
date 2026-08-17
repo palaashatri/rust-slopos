@@ -142,11 +142,24 @@ dbus-run-session -- bash -c '
   xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null
 
   # Ctrl+F2 is the keyboard path into the classic menu bar. Exercise the real
-  # Openbox binding, select the first menu command and require the About dialog
-  # to appear. This proves the menu bar is usable without pointer access.
+  # Openbox binding and first prove that the shortcut reached the shell. The
+  # keyboard-open path preselects its first item, so Return must activate the
+  # About command without a pointer or an extra navigation keystroke.
   xdotool key --clearmodifiers ctrl+F2
-  sleep 0.4
-  xdotool key --clearmodifiers Down Return
+  menu_shortcut_ok=0
+  for _ in $(seq 1 20); do
+    if grep -Fq "SLOPOS_SYSTEM_MENU_KEYBOARD_OPENED" /tmp/slopos-atspi-session.log; then
+      menu_shortcut_ok=1
+      break
+    fi
+    sleep 0.25
+  done
+  if [[ "$menu_shortcut_ok" != 1 ]]; then
+    echo "Ctrl+F2 did not reach the SLOPOS system-menu signal bridge" >&2
+    grep -n "C-F2\|SIGUSR2\|USR2" assets/config/openbox/rc.xml /tmp/slopos-atspi-session.log 2>/dev/null || true
+    exit 1
+  fi
+  xdotool key --clearmodifiers Return
   menu_keyboard_ok=0
   for _ in $(seq 1 20); do
     if xdotool search --onlyvisible --name "^About SLOPOS-I$" >/dev/null 2>&1; then
@@ -156,8 +169,8 @@ dbus-run-session -- bash -c '
     sleep 0.25
   done
   if [[ "$menu_keyboard_ok" != 1 ]]; then
-    echo "Ctrl+F2 did not open and activate the SLOPOS system menu" >&2
-    xwininfo -root -tree 2>/dev/null || true
+    echo "Ctrl+F2 opened the system menu, but Return did not activate its selected item" >&2
+    tail -n 80 /tmp/slopos-atspi-session.log 2>/dev/null || true
     exit 1
   fi
   about_window="$(xdotool search --onlyvisible --name "^About SLOPOS-I$" | tail -n 1)"
