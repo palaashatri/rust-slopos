@@ -4,9 +4,49 @@ SLOPOS-I is a lightweight Linux desktop environment inspired by the clarity and 
 
 > **Own the experience. Do not unnecessarily own the infrastructure.**
 
+![SLOPOS-I Clean Desktop](docs/screenshots/01_clean_desktop_platinum_1280x800.png)
+
 ## Current status
 
 SLOPOS-I has achieved **100/100 Docker-validated product readiness** in [`TRUTH.md`](TRUTH.md) under the normative product contract defined in [`AGENTS.md`](AGENTS.md). All 12 evaluation domains are verified with deterministic, reproducible test suites inside containerized X11 environments.
+
+---
+
+## Visual Gallery & UI/UX Showcase
+
+### Desktop & System Navigation
+
+| System Menu (`Ctrl+F2`) | Application Search Palette (`Super+Space`) |
+|:---:|:---:|
+| ![System Menu Open](docs/screenshots/02_system_menu_open_1280x800.png) | ![Search Palette Open](docs/screenshots/03_search_palette_open_1280x800.png) |
+
+| Desktop Notifications (D-Bus) | Modal "About SLOPOS-I" Dialog |
+|:---:|:---:|
+| ![Desktop Notification](docs/screenshots/04_notification_1280x800.png) | ![About SLOPOS-I](docs/screenshots/05_modal_about_dialog_1280x800.png) |
+
+### Window Management & Upstream Application Integration
+
+| Native GTK Global Menus (Mousepad) | Multi-Window Focus & Stacking (Openbox) |
+|:---:|:---:|
+| ![Mousepad with Global Menu](docs/screenshots/06_active_app_mousepad_1280x800.png) | ![Multi-Window Focus](docs/screenshots/07_multi_window_focus_1280x800.png) |
+
+| PCManFM File Manager (Custom Icons) | Xfce4 Terminal (Platinum Chrome) |
+|:---:|:---:|
+| ![PCManFM File Manager](docs/screenshots/08_file_manager_pcmanfm_1280x800.png) | ![Xfce4 Terminal](docs/screenshots/09_terminal_xfce4_1280x800.png) |
+
+### Control Panels & AppImage Management
+
+| Curated AppImage Software Catalogue | System Settings Control Panels Hub |
+|:---:|:---:|
+| ![Software Catalogue](docs/screenshots/10_software_catalogue_1280x800.png) | ![System Settings Hub](docs/screenshots/11_system_settings_control_panels_1280x800.png) |
+
+### Theme & Multi-Resolution Adaptability
+
+| Graphite Dark Appearance | Ultrawide Layout (3440×1440) |
+|:---:|:---:|
+| ![Graphite Dark Theme](docs/screenshots/12_graphite_dark_desktop_1280x800.png) | ![Ultrawide Display](docs/screenshots/14_ultrawide_desktop_3440x1440.png) |
+
+---
 
 ## Architecture
 
@@ -37,7 +77,7 @@ SLOPOS-I is strictly **X11-only**. There is no custom compositor, custom window 
 
 ### Global menu policy
 
-The shell owns only SLOPOS commands and native GTK global menu integration. For GTK `GtkApplication` exporters, `slopos-shell` connects via GIO `DBusMenuModel` and `DBusActionGroup` to render the application's actual menubar hierarchy and proxy actions back to the owning application. Applications without exporter properties retain their normal local menu; SLOPOS does not invent commands for them.
+The shell owns only SLOPOS commands and native GTK global menu integration. For GTK `GtkApplication` exporters, `slopos-shell` connects via GIO `DBusMenuModel` and `DBusActionGroup` to render the application's actual menubar hierarchy in the top bar and proxy actions back to the owning application. Applications without exporter properties retain their normal local menu; SLOPOS does not invent commands for them.
 
 ## Workspace
 
