@@ -18,6 +18,24 @@
     </item>
   </menu>
 
+  <menu id="wallpapers-menu" label="Desktop Wallpapers">
+    <item label="01 Classic System Gray (Dither)">
+      <action name="Execute"><command>slopos-wallpaper set 01_classic_system_gray.png</command></action>
+    </item>
+    <item label="02 Platinum Cool Slate (Grid)">
+      <action name="Execute"><command>slopos-wallpaper set 02_platinum_cool_slate.png</command></action>
+    </item>
+    <item label="03 Vintage Mac Blue (Tweed)">
+      <action name="Execute"><command>slopos-wallpaper set 03_vintage_mac_blue.png</command></action>
+    </item>
+    <item label="04 Retro Teal Grid (Matrix)">
+      <action name="Execute"><command>slopos-wallpaper set 04_retro_teal_grid.png</command></action>
+    </item>
+    <item label="05 OLED Pure Dark (Constellation)">
+      <action name="Execute"><command>slopos-wallpaper set 05_oled_pure_dark.png</command></action>
+    </item>
+  </menu>
+
   <menu id="root-menu" label="SLOPOS">
     <item label="New Folder">
       <action name="Execute"><command>bash -c "mkdir -p ~/Desktop/'New Folder' &amp;&amp; pcmanfm ~/Desktop"</command></action>
@@ -42,12 +60,22 @@
       <action name="Execute"><command>galculator</command></action>
     </item>
     <menu id="open-with-menu"/>
+    <menu id="wallpapers-menu"/>
     <separator/>
+    <item label="Desktop &amp; Wallpaper…">
+      <action name="Execute"><command>slopos-settings --wallpaper</command></action>
+    </item>
+    <item label="Date &amp; Time Settings…">
+      <action name="Execute"><command>slopos-settings --datetime</command></action>
+    </item>
     <item label="Display Settings…">
       <action name="Execute"><command>arandr</command></action>
     </item>
-    <item label="Desktop Preferences…">
-      <action name="Execute"><command>pcmanfm --desktop-pref</command></action>
+    <item label="Volume &amp; Audio…">
+      <action name="Execute"><command>pavucontrol</command></action>
+    </item>
+    <item label="Network Connections…">
+      <action name="Execute"><command>nm-connection-editor</command></action>
     </item>
     <item label="System Settings Hub">
       <action name="Execute"><command>slopos-settings</command></action>

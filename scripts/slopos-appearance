@@ -3,12 +3,12 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: slopos-appearance {classic|platinum|graphite|status}" >&2
+  echo "Usage: slopos-appearance {classic|platinum|graphite|oled|status}" >&2
 }
 
 mode="${1:-status}"
 case "$mode" in
-  classic|platinum|graphite|status) ;;
+  classic|platinum|graphite|oled|status) ;;
   *) usage; exit 2 ;;
 esac
 
@@ -20,7 +20,7 @@ appearance_file="$slopos_config/appearance"
 if [[ "$mode" == "status" ]]; then
   if [[ -r "$appearance_file" ]]; then
     value="$(tr -d '[:space:]' < "$appearance_file")"
-    case "$value" in classic|platinum|graphite) echo "$value"; exit 0 ;; esac
+    case "$value" in classic|platinum|graphite|oled) echo "$value"; exit 0 ;; esac
   fi
   echo platinum
   exit 0
@@ -30,16 +30,28 @@ mkdir -p "$slopos_config" "$gtk_config"
 printf '%s\n' "$mode" > "$appearance_file.tmp"
 mv -f "$appearance_file.tmp" "$appearance_file"
 
-if [[ "$mode" == "graphite" ]]; then
+if [[ "$mode" == "oled" ]]; then
+  gtk_theme="slopos-gtk-oled"
+  css_name="gtk-oled.css"
+  rc_name="rc-oled.xml"
+  dark_pref=1
+  root_color="#000000"
+elif [[ "$mode" == "graphite" ]]; then
   gtk_theme="slopos-gtk-graphite"
+  css_name="gtk-graphite.css"
+  rc_name="rc-graphite.xml"
   dark_pref=1
   root_color="#25272B"
 elif [[ "$mode" == "classic" ]]; then
   gtk_theme="slopos-gtk-classic"
+  css_name="gtk-classic.css"
+  rc_name="rc-classic.xml"
   dark_pref=0
   root_color="#808080"
 else
   gtk_theme="slopos-gtk"
+  css_name="gtk.css"
+  rc_name="rc.xml"
   dark_pref=0
   root_color="#758090"
 fi
@@ -61,6 +73,29 @@ gtk-xft-hintstyle = hintslight
 gtk-xft-rgba = rgb
 EOF
 mv -f "$gtk_config/settings.ini.tmp" "$gtk_config/settings.ini"
+
+for candidate_css in \
+  "$HOME/.themes/$gtk_theme/gtk-3.0/gtk.css" \
+  "/usr/local/share/themes/$gtk_theme/gtk-3.0/gtk.css" \
+  "/usr/share/themes/$gtk_theme/gtk-3.0/gtk.css" \
+  "assets/config/gtk-3.0/$css_name"; do
+  if [[ -f "$candidate_css" ]]; then
+    cp -f "$candidate_css" "$gtk_config/gtk.css"
+    break
+  fi
+done
+
+openbox_config="$config_home/openbox"
+mkdir -p "$openbox_config"
+for candidate_rc in \
+  "/usr/local/share/slopos-i/openbox/$rc_name" \
+  "/usr/share/slopos-i/openbox/$rc_name" \
+  "assets/config/openbox/$rc_name"; do
+  if [[ -f "$candidate_rc" ]]; then
+    cp -f "$candidate_rc" "$openbox_config/rc.xml"
+    break
+  fi
+done
 
 if command -v xsetroot >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
   xsetroot -solid "$root_color" >/dev/null 2>&1 || true

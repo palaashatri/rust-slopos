@@ -1,0 +1,102 @@
+/* SLOPOS-I OLED Dark GTK3 theme: Pure Black / High Contrast OLED. */
+@define-color slopos_face #000000;
+@define-color slopos_face_dark #050505;
+@define-color slopos_light #ffffff;
+@define-color slopos_highlight #2563eb;
+@define-color slopos_shadow #000000;
+@define-color slopos_mid #2a2c33;
+@define-color slopos_text #ffffff;
+@define-color slopos_disabled #6b7280;
+@define-color slopos_warning #f59e0b;
+
+* { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; font-size: 12px; color: @slopos_text; border-radius: 0; }
+window, .background, dialog { background-color: @slopos_face; color: @slopos_text; }
+headerbar, .titlebar { min-height: 24px; padding: 2px 4px; background-image: linear-gradient(to bottom,#1c1d22,#0a0a0c); border:0; border-bottom:1px solid #2a2c33; box-shadow:inset 0 1px #3a3c45; }
+headerbar .title,.titlebar .title { font-weight:bold; font-size:12px; color:#ffffff; }
+window.csd,window.solid-csd,window.csd decoration { border-radius:0; box-shadow:none; }
+
+.slopos-topbar { min-height:26px; background-image:linear-gradient(to bottom,#1c1d22,#0a0a0c); border-bottom:1px solid #2a2c33; box-shadow:inset 0 1px #3a3c45; }
+.slopos-topbar label,.slopos-active-app { color:@slopos_text; }
+.slopos-active-app { font-weight:bold; padding:0 4px; color:#ffffff; }
+.slopos-topbar button,.slopos-menubar-control,.slopos-logo-btn { min-height:20px; padding:1px 5px; background-image:none; background-color:transparent; border:0; box-shadow:none; }
+.slopos-logo-btn { min-width:22px; font-weight:bold; }
+.slopos-topbar button:hover,.slopos-topbar button:checked,.slopos-menu-bar menuitem:hover { background-color:@slopos_highlight; }
+.slopos-topbar button:hover label,.slopos-topbar button:checked label,.slopos-menu-bar menuitem:hover label { color:#fff; }
+.slopos-menu-bar { background-color:transparent; border:0; box-shadow:none; }
+.slopos-menu-bar menuitem { min-height:18px; padding:3px 7px; }
+menubar { min-height:22px; padding:0 2px; background-color:@slopos_face; border-bottom:1px solid @slopos_mid; }
+menubar > menuitem { min-height:18px; padding:2px 7px; }
+menubar > menuitem:hover,menubar > menuitem:focus,menubar > menuitem:selected { background-color:@slopos_highlight; color:#fff; }
+menubar > menuitem:hover label,menubar > menuitem:focus label,menubar > menuitem:selected label { color:#fff; }
+
+menu,popover.background { background-color:#0a0a0c; border:2px solid #3a3c45; box-shadow:3px 3px rgba(0,0,0,.85); padding:2px; }
+menu menuitem { min-height:18px; padding:3px 18px 3px 8px; }
+menu menuitem:hover,menu menuitem:focus,menu menuitem:selected { background-color:@slopos_highlight; color:#fff; }
+menu menuitem:hover label,menu menuitem:focus label,menu menuitem:selected label { color:#fff; }
+menu menuitem:disabled,menubar > menuitem:disabled,menu menuitem:disabled label,menubar > menuitem:disabled label { color:@slopos_disabled; }
+menu separator { min-height:1px; margin:3px 4px; background-color:@slopos_mid; }
+
+button { min-height:22px; padding:3px 9px; background-image:linear-gradient(to bottom,#22242a,#111216); border-style:solid; border-top-width:1px; border-left-width:1px; border-right-width:2px; border-bottom-width:2px; border-top-color:#3a3c45; border-left-color:#3a3c45; border-right-color:#000000; border-bottom-color:#000000; box-shadow:inset -1px -1px #0a0a0c; }
+button:hover { background-image:linear-gradient(to bottom,#30333b,#181a1f); }
+button:active,button:checked { background-image:none; background-color:#0a0a0c; border-top-width:2px; border-left-width:2px; border-right-width:1px; border-bottom-width:1px; border-top-color:#000000; border-left-color:#000000; border-right-color:#3a3c45; border-bottom-color:#3a3c45; }
+button:disabled { color:@slopos_disabled; background-image:none; background-color:#111216; }
+button:disabled label,.slopos-control-panel:disabled .slopos-control-title,.slopos-control-panel:disabled .slopos-secondary-text { color:@slopos_disabled; }
+button:disabled image { opacity:.45; }
+button:focus,check:focus,radio:focus,scale:focus,switch:focus,row:focus { box-shadow:inset 0 0 0 1px #3b82f6; }
+button.default { border:2px solid #ffffff; }
+
+entry,spinbutton entry { min-height:24px; padding:2px 5px; background-color:#0a0a0c; color:@slopos_text; border-style:solid; border-top-width:2px; border-left-width:2px; border-right-width:1px; border-bottom-width:1px; border-top-color:#000000; border-left-color:#000000; border-right-color:#3a3c45; border-bottom-color:#3a3c45; }
+entry:focus,spinbutton entry:focus { border-color:#3b82f6; }
+entry:disabled { background-color:#111216; color:@slopos_disabled; }
+check,radio { min-width:13px; min-height:13px; margin:2px 5px 2px 2px; background-color:#0a0a0c; border:1px solid #3a3c45; }
+check:checked,radio:checked { background-color:@slopos_highlight; color:#fff; }
+radio { border-radius:50%; }
+switch { min-width:42px; min-height:18px; background-color:#111216; border:1px solid #3a3c45; }
+switch:checked { background-color:@slopos_highlight; }
+switch slider { min-width:17px; min-height:16px; background-color:#3a3c45; border:1px solid #000000; }
+combobox button { min-height:24px; padding:2px 7px; }
+scale trough { min-height:5px; background-color:#0a0a0c; border:1px solid #3a3c45; }
+scale slider { min-width:14px; min-height:18px; background-image:linear-gradient(to bottom,#30333b,#181a1f); border:1px solid #000000; }
+progressbar trough { min-height:13px; background-color:#0a0a0c; border:1px solid #3a3c45; }
+progressbar progress { min-height:11px; background-color:@slopos_highlight; }
+
+list,listbox,treeview,textview { background-color:#000000; color:@slopos_text; }
+row { min-height:26px; }
+row:selected { background-color:@slopos_highlight; color:#fff; }
+row:selected label,row:selected .slopos-secondary-text { color:#fff; }
+.slopos-list-frame { background-color:#000000; border:1px solid #2a2c33; }
+.slopos-list-row { border-bottom:1px solid #1c1d22; }
+.slopos-result-title,.slopos-control-title { font-weight:bold; color:#ffffff; }
+.slopos-secondary-text { color:#9ca3af; font-size:11px; }
+.slopos-warning-text { color:@slopos_warning; font-size:11px; font-weight:bold; }
+notebook > header { background-color:@slopos_face; border-bottom:1px solid @slopos_mid; }
+notebook > header tab { padding:4px 8px; }
+notebook > header tab:checked { background-color:#1c1d22; border:1px solid @slopos_mid; }
+frame,frame > border { border:1px solid @slopos_mid; }
+separator { min-height:1px; min-width:1px; background-color:@slopos_mid; }
+toolbar { padding:2px; background-color:#0f1013; border-bottom:1px solid @slopos_mid; }
+scrollbar { min-width:14px; min-height:14px; background-color:#0a0a0c; }
+scrollbar slider { min-width:10px; min-height:24px; background-color:#2a2c33; border:1px solid #000000; }
+
+.slopos-dock-container { padding:4px 6px; background-image:linear-gradient(to bottom,#1c1d22,#0a0a0c); border-style:solid; border-width:2px; border-top-color:#3a3c45; border-left-color:#3a3c45; border-right-color:#000000; border-bottom-color:#000000; box-shadow:3px 3px rgba(0,0,0,.85); }
+.slopos-dock-label { min-width:30px; padding:1px 2px; color:#ffffff; font-size:9px; font-weight:bold; }
+.slopos-dock-btn { min-width:42px; min-height:40px; margin:0 1px; padding:2px; background-image:linear-gradient(to bottom,#22242a,#111216); }
+.slopos-dock-btn:hover { background-image:none; background-color:#30333b; }
+.slopos-dock-separator { min-width:1px; margin:4px; background-color:@slopos_mid; }
+.slopos-launcher-window { background-color:transparent; }
+.slopos-launcher { padding:9px; background-color:@slopos_face; border:2px solid #3a3c45; box-shadow:4px 4px rgba(0,0,0,.9); }
+.slopos-dialog-title { padding:2px 4px 5px; font-weight:bold; border-bottom:1px solid @slopos_mid; }
+.slopos-notification,.slopos-alert-box { padding:9px; background-color:#0a0a0c; border:2px solid #3a3c45; box-shadow:4px 4px rgba(0,0,0,.9); }
+.slopos-notification-title { font-weight:bold; }
+.slopos-window-body { padding:10px; background-color:@slopos_face; }
+.slopos-panel-title { font-weight:bold; font-size:15px; color:#ffffff; }
+.slopos-panel-subtitle { color:#9ca3af; font-size:11px; }
+.slopos-section { padding:7px; background-color:#0a0a0c; border:1px solid @slopos_mid; }
+.slopos-catalogue-row,.slopos-preference-row { background-color:#0a0a0c; border-bottom:1px solid #1c1d22; }
+.slopos-control-panel { min-height:64px; padding:6px 8px; background-image:linear-gradient(to bottom,#1c1d22,#0a0a0c); border-top-color:#3a3c45; border-left-color:#3a3c45; border-right-color:#000000; border-bottom-color:#000000; }
+.slopos-control-panel:hover { background-image:linear-gradient(to bottom,#2b2d35,#14151a); }
+.slopos-control-panel:disabled { background-image:none; background-color:#0a0a0c; }
+.slopos-statusbar { padding:3px 6px; font-size:11px; background-color:#050505; border-top:1px solid @slopos_mid; }
+tooltip { padding:3px 5px; background-color:#0a0a0c; color:@slopos_text; border:1px solid #3a3c45; box-shadow:2px 2px rgba(0,0,0,.8); }
+tooltip label { color:@slopos_text; }
+selection,entry selection,textview selection { background-color:@slopos_highlight; color:#fff; }

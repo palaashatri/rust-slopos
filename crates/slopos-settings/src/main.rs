@@ -40,6 +40,28 @@ fn main() {
         glib::Propagation::Proceed
     });
 
+    let args: Vec<String> = env::args().collect();
+    if args.iter().any(|a| {
+        a == "--datetime" || a == "--panel=datetime" || a == "date-time" || a == "datetime"
+    }) {
+        show_datetime_dialog(&window);
+        return;
+    }
+    if args
+        .iter()
+        .any(|a| a == "--wallpaper" || a == "--panel=wallpaper" || a == "wallpaper")
+    {
+        show_wallpaper_dialog(&window);
+        return;
+    }
+    if args
+        .iter()
+        .any(|a| a == "--appearance" || a == "--panel=appearance" || a == "appearance")
+    {
+        show_appearance_dialog(&window);
+        return;
+    }
+
     let body = GtkBox::new(Orientation::Vertical, 6);
     body.style_context().add_class("slopos-window-body");
 
@@ -218,6 +240,12 @@ fn control_panel_button(panel: &ControlPanel<'_>, parent: &Window) -> Button {
     if panel.built_in && panel.title == "Appearance" {
         let parent = parent.clone();
         button.connect_clicked(move |_| show_appearance_dialog(&parent));
+    } else if panel.built_in && panel.title.contains("Desktop") {
+        let parent = parent.clone();
+        button.connect_clicked(move |_| show_wallpaper_dialog(&parent));
+    } else if panel.built_in && panel.title.contains("Date") {
+        let parent = parent.clone();
+        button.connect_clicked(move |_| show_datetime_dialog(&parent));
     } else if let Some((program, args)) = selected {
         button.connect_clicked(move |_| {
             if let Err(error) = Command::new(&program).args(&args).spawn() {
@@ -257,7 +285,7 @@ fn show_appearance_dialog(parent: &Window) {
     content.pack_start(&heading, false, false, 0);
 
     let explanation = Label::new(Some(
-        "Choose between Classic Macintosh (System 6/7 monochrome & 6-stripe pinstripes), Platinum (classic light), and Graphite (dark).",
+        "Choose between Classic Macintosh (System 6/7 monochrome), Platinum (classic light), Graphite (dark), and OLED Dark (pure black contrast).",
     ));
     explanation.set_xalign(0.0);
     explanation.set_line_wrap(true);
@@ -269,7 +297,9 @@ fn show_appearance_dialog(parent: &Window) {
     let classic = RadioButton::with_label("Classic Macintosh — System 6/7 monochrome");
     let platinum = RadioButton::with_label_from_widget(&classic, "Platinum — classic light");
     let graphite = RadioButton::with_label_from_widget(&classic, "Graphite — dark");
+    let oled = RadioButton::with_label_from_widget(&classic, "OLED Dark — pure black contrast");
     match current_appearance() {
+        "oled" => oled.set_active(true),
         "graphite" => graphite.set_active(true),
         "classic" => classic.set_active(true),
         _ => platinum.set_active(true),
@@ -277,11 +307,14 @@ fn show_appearance_dialog(parent: &Window) {
     content.pack_start(&classic, false, false, 0);
     content.pack_start(&platinum, false, false, 0);
     content.pack_start(&graphite, false, false, 0);
+    content.pack_start(&oled, false, false, 0);
 
     dialog.show_all();
     let response = dialog.run();
     if response == ResponseType::Accept {
-        let mode = if graphite.is_active() {
+        let mode = if oled.is_active() {
+            "oled"
+        } else if graphite.is_active() {
             "graphite"
         } else if classic.is_active() {
             "classic"
@@ -292,9 +325,6 @@ fn show_appearance_dialog(parent: &Window) {
             match Command::new(helper).arg(mode).spawn() {
                 Ok(_) => {
                     dialog.close();
-                    // Settings itself was styled at process startup. Close it
-                    // after applying so reopening is guaranteed to use the new
-                    // complete theme rather than a mixed old/new palette.
                     gtk::main_quit();
                     return;
                 }
@@ -302,6 +332,189 @@ fn show_appearance_dialog(parent: &Window) {
             }
         } else {
             log::warn!("slopos-appearance helper is unavailable");
+        }
+    }
+    dialog.close();
+}
+
+fn show_wallpaper_dialog(parent: &Window) {
+    let dialog = Dialog::with_buttons(
+        Some("Desktop & Wallpaper"),
+        Some(parent),
+        DialogFlags::MODAL | DialogFlags::DESTROY_WITH_PARENT,
+        &[
+            ("Preferences…", ResponseType::Other(1)),
+            ("Cancel", ResponseType::Cancel),
+            ("Apply", ResponseType::Accept),
+        ],
+    );
+    dialog.set_default_response(ResponseType::Accept);
+    set_accessible_name(&dialog, "SLOPOS wallpaper chooser");
+
+    let content = dialog.content_area();
+    content.set_spacing(8);
+    content.set_margin_start(12);
+    content.set_margin_end(12);
+    content.set_margin_top(10);
+    content.set_margin_bottom(10);
+
+    let heading = Label::new(Some("Desktop Wallpaper & Patterns"));
+    heading.set_xalign(0.0);
+    heading.style_context().add_class("slopos-control-title");
+    content.pack_start(&heading, false, false, 0);
+
+    let explanation = Label::new(Some(
+        "Select an authentic retro background pattern or choose a custom image:",
+    ));
+    explanation.set_xalign(0.0);
+    explanation
+        .style_context()
+        .add_class("slopos-secondary-text");
+    content.pack_start(&explanation, false, false, 0);
+
+    let wp1 = RadioButton::with_label("01 Classic System Gray — 50% 1-Bit Dither");
+    let wp2 =
+        RadioButton::with_label_from_widget(&wp1, "02 Platinum Cool Slate — Fine Matrix (#758090)");
+    let wp3 =
+        RadioButton::with_label_from_widget(&wp1, "03 Vintage Mac Blue — Classic Tweed (#3A5F8B)");
+    let wp4 = RadioButton::with_label_from_widget(
+        &wp1,
+        "04 Retro Teal Grid — 90s Desktop Matrix (#008080)",
+    );
+    let wp5 = RadioButton::with_label_from_widget(
+        &wp1,
+        "05 OLED Pure Dark — Obsidian Constellation (#000000)",
+    );
+    wp2.set_active(true);
+
+    content.pack_start(&wp1, false, false, 0);
+    content.pack_start(&wp2, false, false, 0);
+    content.pack_start(&wp3, false, false, 0);
+    content.pack_start(&wp4, false, false, 0);
+    content.pack_start(&wp5, false, false, 0);
+
+    let mode_box = GtkBox::new(Orientation::Horizontal, 8);
+    let mode_label = Label::new(Some("Display Mode:"));
+    let mode_combo = gtk::ComboBoxText::new();
+    mode_combo.append(Some("fill"), "Fill / Stretch");
+    mode_combo.append(Some("tile"), "Tile Pattern");
+    mode_combo.append(Some("center"), "Center");
+    mode_combo.set_active(Some(0));
+    mode_box.pack_start(&mode_label, false, false, 0);
+    mode_box.pack_start(&mode_combo, true, true, 0);
+    content.pack_start(&mode_box, false, false, 0);
+
+    dialog.show_all();
+    let response = dialog.run();
+    if response == ResponseType::Accept {
+        let chosen_file = if wp1.is_active() {
+            "01_classic_system_gray.png"
+        } else if wp2.is_active() {
+            "02_platinum_cool_slate.png"
+        } else if wp3.is_active() {
+            "03_vintage_mac_blue.png"
+        } else if wp4.is_active() {
+            "04_retro_teal_grid.png"
+        } else {
+            "05_oled_pure_dark.png"
+        };
+        let mode = mode_combo.active_id().unwrap_or_else(|| "fill".into());
+        let _ = Command::new("scripts/slopos-wallpaper")
+            .args(["set", chosen_file, "--mode", mode.as_str()])
+            .spawn()
+            .or_else(|_| {
+                Command::new("slopos-wallpaper")
+                    .args(["set", chosen_file, "--mode", mode.as_str()])
+                    .spawn()
+            });
+    } else if response == ResponseType::Other(1) {
+        let _ = Command::new("pcmanfm").arg("--desktop-pref").spawn();
+    }
+    dialog.close();
+}
+
+fn show_datetime_dialog(parent: &Window) {
+    let dialog = Dialog::with_buttons(
+        Some("Date & Time Settings"),
+        Some(parent),
+        DialogFlags::MODAL | DialogFlags::DESTROY_WITH_PARENT,
+        &[
+            ("Cancel", ResponseType::Cancel),
+            ("Apply", ResponseType::Accept),
+        ],
+    );
+    dialog.set_default_response(ResponseType::Accept);
+    set_accessible_name(&dialog, "SLOPOS date and time settings");
+
+    let content = dialog.content_area();
+    content.set_spacing(8);
+    content.set_margin_start(12);
+    content.set_margin_end(12);
+    content.set_margin_top(10);
+    content.set_margin_bottom(10);
+
+    let heading = Label::new(Some("System Date & Time"));
+    heading.set_xalign(0.0);
+    heading.style_context().add_class("slopos-control-title");
+    content.pack_start(&heading, false, false, 0);
+
+    let current_dt = Command::new("date")
+        .arg("+%A, %B %d, %Y — %H:%M:%S (%Z)")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .unwrap_or_else(|| "Current System Time".into());
+    let current_label = Label::new(Some(current_dt.trim()));
+    current_label.set_xalign(0.0);
+    current_label
+        .style_context()
+        .add_class("slopos-secondary-text");
+    content.pack_start(&current_label, false, false, 0);
+
+    content.pack_start(
+        &gtk::Separator::new(Orientation::Horizontal),
+        false,
+        false,
+        0,
+    );
+
+    let tz_box = GtkBox::new(Orientation::Horizontal, 8);
+    let tz_label = Label::new(Some("Timezone:"));
+    let tz_combo = gtk::ComboBoxText::new();
+    tz_combo.append(Some("UTC"), "UTC (Coordinated Universal Time)");
+    tz_combo.append(Some("America/New_York"), "America/New York (EST/EDT)");
+    tz_combo.append(Some("America/Chicago"), "America/Chicago (CST/CDT)");
+    tz_combo.append(Some("America/Denver"), "America/Denver (MST/MDT)");
+    tz_combo.append(Some("America/Los_Angeles"), "America/Los Angeles (PST/PDT)");
+    tz_combo.append(Some("Europe/London"), "Europe/London (GMT/BST)");
+    tz_combo.append(Some("Europe/Paris"), "Europe/Paris (CET/CEST)");
+    tz_combo.append(Some("Europe/Berlin"), "Europe/Berlin (CET/CEST)");
+    tz_combo.append(Some("Asia/Tokyo"), "Asia/Tokyo (JST)");
+    tz_combo.append(Some("Asia/Kolkata"), "Asia/Kolkata (IST)");
+    tz_combo.append(Some("Australia/Sydney"), "Australia/Sydney (AEST)");
+    tz_combo.set_active(Some(0));
+    tz_box.pack_start(&tz_label, false, false, 0);
+    tz_box.pack_start(&tz_combo, true, true, 0);
+    content.pack_start(&tz_box, false, false, 0);
+
+    let ntp_check = gtk::CheckButton::with_label(
+        "Synchronize clock automatically via Network Time Protocol (NTP)",
+    );
+    ntp_check.set_active(true);
+    content.pack_start(&ntp_check, false, false, 0);
+
+    dialog.show_all();
+    let response = dialog.run();
+    if response == ResponseType::Accept {
+        if let Some(tz) = tz_combo.active_id() {
+            let _ = Command::new("timedatectl")
+                .args(["set-timezone", tz.as_str()])
+                .status();
+        }
+        if ntp_check.is_active() {
+            let _ = Command::new("timedatectl")
+                .args(["set-ntp", "true"])
+                .status();
         }
     }
     dialog.close();
@@ -422,12 +635,27 @@ where
 }
 
 fn current_appearance() -> &'static str {
+    if let Ok(env_appearance) = env::var("SLOPOS_APPEARANCE") {
+        let v = env_appearance.trim();
+        if v.eq_ignore_ascii_case("oled") {
+            return "oled";
+        }
+        if v.eq_ignore_ascii_case("graphite") {
+            return "graphite";
+        }
+        if v.eq_ignore_ascii_case("classic") {
+            return "classic";
+        }
+    }
     let config_home = env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
     if let Some(config_home) = config_home {
         if let Ok(value) = std::fs::read_to_string(config_home.join("slopos-i/appearance")) {
             let v = value.trim();
+            if v.eq_ignore_ascii_case("oled") {
+                return "oled";
+            }
             if v.eq_ignore_ascii_case("graphite") {
                 return "graphite";
             }
@@ -442,11 +670,13 @@ fn current_appearance() -> &'static str {
 fn load_css_theme() {
     let appearance = current_appearance();
     let installed_theme = match appearance {
+        "oled" => "slopos-gtk-oled",
         "graphite" => "slopos-gtk-graphite",
         "classic" => "slopos-gtk-classic",
         _ => "slopos-gtk",
     };
     let source_css = match appearance {
+        "oled" => "assets/config/gtk-3.0/gtk-oled.css",
         "graphite" => "assets/config/gtk-3.0/gtk-graphite.css",
         "classic" => "assets/config/gtk-3.0/gtk-classic.css",
         _ => "assets/config/gtk-3.0/gtk.css",

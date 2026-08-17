@@ -205,15 +205,19 @@ impl TopBar {
         );
         let battery_label = Label::new(None);
         battery_box.pack_start(&battery_label, false, false, 0);
-        status_box.pack_start(&battery_box, false, false, 0);
-
+        let clock_button = Button::new();
+        clock_button
+            .style_context()
+            .add_class("slopos-menubar-control");
         let initial_clock =
             command_output("date", &["+%H:%M"]).unwrap_or_else(|| "--:--".to_string());
         let clock_label = Label::new(Some(&initial_clock));
         clock_label.style_context().add_class("slopos-clock");
-        clock_label.set_tooltip_text(Some("Local time"));
-        set_accessible_name(&clock_label, "Local time");
-        status_box.pack_start(&clock_label, false, false, 2);
+        clock_button.add(&clock_label);
+        clock_button.set_tooltip_text(Some("Local time (Click for Date & Time Settings)"));
+        set_accessible_name(&clock_button, "Date and time settings");
+        clock_button.connect_clicked(|_| spawn_resolved("slopos-settings", &["--datetime"]));
+        status_box.pack_start(&clock_button, false, false, 2);
 
         main_box.pack_end(&status_box, false, false, 0);
         window.add(&main_box);
@@ -1489,18 +1493,22 @@ fn build_system_menu() -> Menu {
     let classic = MenuItem::with_label("Classic Macintosh (System 6/7)");
     let platinum = MenuItem::with_label("Platinum (Light)");
     let graphite = MenuItem::with_label("Graphite (Dark)");
+    let oled = MenuItem::with_label("OLED Dark (Pure Black)");
     if resolve_program("slopos-appearance").is_some() {
         classic.connect_activate(|_| spawn_resolved("slopos-appearance", &["classic"]));
         platinum.connect_activate(|_| spawn_resolved("slopos-appearance", &["platinum"]));
         graphite.connect_activate(|_| spawn_resolved("slopos-appearance", &["graphite"]));
+        oled.connect_activate(|_| spawn_resolved("slopos-appearance", &["oled"]));
     } else {
         classic.set_sensitive(false);
         platinum.set_sensitive(false);
         graphite.set_sensitive(false);
+        oled.set_sensitive(false);
     }
     appearance_menu.append(&classic);
     appearance_menu.append(&platinum);
     appearance_menu.append(&graphite);
+    appearance_menu.append(&oled);
     appearance_menu.show_all();
     appearance.set_submenu(Some(&appearance_menu));
     menu.append(&appearance);

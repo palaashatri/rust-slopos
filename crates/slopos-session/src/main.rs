@@ -1,6 +1,7 @@
 //! SLOPOS-I X11 session supervisor.
 
 use std::env;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -183,23 +184,44 @@ fn appearance() -> String {
         .map(PathBuf::from)
         .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
     if let Some(config_home) = config_home {
-        let path = config_home.join("slopos-i/appearance");
-        if let Ok(value) = std::fs::read_to_string(path) {
-            let value = value.trim().to_ascii_lowercase();
-            if value == "graphite" || value == "platinum" || value == "classic" {
-                return value;
+        if let Ok(value) = fs::read_to_string(config_home.join("slopos-i/appearance")) {
+            let v = value.trim();
+            if v.eq_ignore_ascii_case("oled") {
+                return "oled".to_string();
+            }
+            if v.eq_ignore_ascii_case("graphite") {
+                return "graphite".to_string();
+            }
+            if v.eq_ignore_ascii_case("classic") {
+                return "classic".to_string();
             }
         }
     }
-    match env::var("SLOPOS_APPEARANCE") {
-        Ok(value) if value.eq_ignore_ascii_case("graphite") => "graphite".to_string(),
-        Ok(value) if value.eq_ignore_ascii_case("classic") => "classic".to_string(),
-        _ => "platinum".to_string(),
-    }
+    "platinum".to_string()
 }
 
 fn apply_desktop_fallback() {
+    let config_home = env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+
+    if let Some(config_home) = &config_home {
+        let wallpaper_file = config_home.join("slopos-i/wallpaper");
+        if let Ok(path) = fs::read_to_string(wallpaper_file) {
+            let path = path.trim();
+            if Path::new(path).is_file()
+                && Command::new("feh")
+                    .args(["--bg-fill", path])
+                    .status()
+                    .is_ok()
+            {
+                return;
+            }
+        }
+    }
+
     let color = match appearance().as_str() {
+        "oled" => "#000000",
         "graphite" => "#25272B",
         "classic" => "#808080",
         _ => "#758090",
@@ -294,6 +316,7 @@ fn resolve_openbox_config() -> Option<PathBuf> {
     }
 
     let file_name = match appearance().as_str() {
+        "oled" => "rc-oled.xml",
         "graphite" => "rc-graphite.xml",
         "classic" => "rc-classic.xml",
         _ => "rc.xml",

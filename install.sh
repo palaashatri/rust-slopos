@@ -115,6 +115,7 @@ install -Dm755 scripts/start-slopos-i "$PREFIX/bin/start-slopos-i"
 install -Dm755 scripts/start-slopos-browser "$PREFIX/bin/start-slopos-browser"
 install -Dm755 scripts/install-browser-theme.sh "$PREFIX/bin/install-browser-theme.sh"
 install -Dm755 scripts/slopos-appearance "$PREFIX/bin/slopos-appearance"
+install -Dm755 scripts/slopos-wallpaper "$PREFIX/bin/slopos-wallpaper"
 install -Dm755 scripts/slopos-recovery.sh "$PREFIX/bin/slopos-recovery"
 install -Dm644 packaging/slopos-browser.desktop "$PREFIX/share/applications/slopos-browser.desktop"
 
@@ -123,6 +124,7 @@ bash scripts/install-session-files.sh --prefix "$PREFIX" --session-dir "$XSESSIO
 install -Dm644 assets/config/openbox/rc.xml "$PREFIX/share/slopos-i/openbox/rc.xml"
 install -Dm644 assets/config/openbox/rc-classic.xml "$PREFIX/share/slopos-i/openbox/rc-classic.xml"
 install -Dm644 assets/config/openbox/rc-graphite.xml "$PREFIX/share/slopos-i/openbox/rc-graphite.xml"
+install -Dm644 assets/config/openbox/rc-oled.xml "$PREFIX/share/slopos-i/openbox/rc-oled.xml"
 install -Dm644 assets/config/openbox/menu.xml "$PREFIX/share/slopos-i/openbox/menu.xml"
 install -Dm644 themes/slopos-openbox/openbox-3/themerc \
   "$PREFIX/share/themes/slopos-openbox/openbox-3/themerc"
@@ -130,6 +132,8 @@ install -Dm644 themes/slopos-openbox-classic/openbox-3/themerc \
   "$PREFIX/share/themes/slopos-openbox-classic/openbox-3/themerc"
 install -Dm644 themes/slopos-openbox-graphite/openbox-3/themerc \
   "$PREFIX/share/themes/slopos-openbox-graphite/openbox-3/themerc"
+install -Dm644 themes/slopos-openbox-oled/openbox-3/themerc \
+  "$PREFIX/share/themes/slopos-openbox-oled/openbox-3/themerc"
 
 install -Dm644 assets/config/gtk-3.0/gtk.css \
   "$PREFIX/share/themes/slopos-gtk/gtk-3.0/gtk.css"
@@ -137,11 +141,19 @@ install -Dm644 assets/config/gtk-3.0/gtk-classic.css \
   "$PREFIX/share/themes/slopos-gtk-classic/gtk-3.0/gtk.css"
 install -Dm644 assets/config/gtk-3.0/gtk-graphite.css \
   "$PREFIX/share/themes/slopos-gtk-graphite/gtk-3.0/gtk.css"
+install -Dm644 assets/config/gtk-3.0/gtk-oled.css \
+  "$PREFIX/share/themes/slopos-gtk-oled/gtk-3.0/gtk.css"
 if [[ -f assets/config/gtk-3.0/settings.ini ]]; then
   install -Dm644 assets/config/gtk-3.0/settings.ini \
     "$PREFIX/share/slopos-i/gtk-3.0/settings.ini"
 fi
 install -Dm644 assets/config/mimeapps.list "$PREFIX/share/slopos-i/mimeapps.list"
+
+# Install retro wallpapers
+mkdir -p "$PREFIX/share/slopos-i/wallpapers"
+if [[ -d assets/wallpapers ]]; then
+  cp -a assets/wallpapers/* "$PREFIX/share/slopos-i/wallpapers/"
+fi
 
 # Recovery defaults are intentionally a tiny user-config reset payload rather
 # than a copy of the whole system share tree. Reset always returns to Platinum.

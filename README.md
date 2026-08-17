@@ -19,9 +19,10 @@ SLOPOS-I delivers a coherent, deliberate operating system experience while deleg
 ```text
 Linux + systemd/logind/udev
   ├─ NetworkManager (nm-connection-editor)
-  ├─ PipeWire / WirePlumber (pavucontrol)
-  ├─ BlueZ (blueman)
+  ├─ PipeWire / PulseAudio (pavucontrol)
+  ├─ BlueZ (blueman-manager)
   ├─ UPower (xfce4-power-manager)
+  ├─ systemd-timesyncd / timedatectl (slopos-settings --datetime)
   └─ distro package manager (pacman / apt)
         ↓
 X.Org-compatible X11 server
@@ -32,6 +33,7 @@ SLOPOS session supervisor (slopos-session)
   ├─ top menu/system bar (slopos-shell)
   ├─ application Search palette (Super+Space)
   ├─ compact Application Strip
+  ├─ desktop wallpaper engine (slopos-wallpaper)
   ├─ freedesktop D-Bus notifications
   ├─ Software Catalogue (slopos-catalogue)
   └─ Control Panels hub (slopos-settings)
@@ -41,7 +43,7 @@ Mature upstream applications + verified AppImages
 
 ---
 
-## Visual Gallery & UI/UX Showcase
+## Complete Visual Gallery & UI/UX Showcase
 
 ### 1. Desktop & System Navigation
 
@@ -49,119 +51,131 @@ Mature upstream applications + verified AppImages
 |:---:|:---:|
 | ![System Menu Open](docs/screenshots/02_system_menu_open_1280x800.png) | ![Search Palette Open](docs/screenshots/03_search_palette_open_1280x800.png) |
 
-- **Top Bar (`slopos-shell`)**: 22px fixed top system bar containing the SLOPOS mark, active window focus tracking label, dynamic global application menu host, and live system status indicators.
+- **Top Bar (`slopos-shell`)**: 22px fixed top system bar containing the SLOPOS mark, active window focus tracking label, dynamic global application menu host, and live system status indicators (Audio, Network, Battery, Local Time).
 - **System Menu**: Triggered by clicking the mark at the top-left or pressing `Ctrl+F2`. Provides immediate access to *About SLOPOS-I*, *Control Panels…*, *Appearance* submenu, *Lock Screen*, *Switch User…*, *Sleep*, *Log Out…*, *Restart…*, and *Shut Down…*.
 - **Application Search Palette (`Super+Space`)**: Fast keyboard-driven fuzzy launcher that parses all XDG desktop entries across the system, ranking exact name matches above description keywords. Dismissible with `Escape`.
 
 ---
 
-### 2. Session Controls & Power Management
+### 2. Desktop Right-Click & Context Menus
 
-| Shut Down Confirmation Dialog | Restart Confirmation Dialog |
-|:---:|:---:|
-| ![Shut Down Dialog](docs/screenshots/17_modal_shutdown_dialog_1280x800.png) | ![Restart Dialog](docs/screenshots/22_modal_restart_dialog_1280x800.png) |
-
-| Switch User / Lock Greeter Dialog | Desktop Notifications (D-Bus) |
-|:---:|:---:|
-| ![Switch User Dialog](docs/screenshots/18_modal_switch_user_dialog_1280x800.png) | ![Desktop Notification](docs/screenshots/04_notification_1280x800.png) |
-
-- **Safe Confirmation Modals**: Power and session actions open clean Platinum/Classic confirmation dialogs before invoking system actions. Default actions respond to `Return`, while `Escape` safely cancels.
-- **Session Integrations**:
-  - **Lock Screen**: Seamlessly interfaces with `loginctl lock-session`, `light-locker`, `xflock4`, `dm-tool lock`, `slock`, or `i3lock`.
-  - **Switch User**: Calls `dm-tool switch-to-greeter`, `gdmflexiserver`, or `loginctl`.
-  - **Sleep**: Dispatches `systemctl suspend` or `loginctl suspend`.
-  - **Restart / Shut Down**: Dispatches `systemctl reboot` and `systemctl poweroff`.
-- **Desktop Notifications**: Freedesktop-compliant D-Bus notification daemon (`org.freedesktop.Notifications`) rendering auto-wrapping text banners below the top bar with urgency levels and automatic timeout dismissal.
-
----
-
-### 3. Window Management & Upstream Application Integration
-
-| Native GTK Global Menus (Mousepad) | PCManFM File Manager (Custom Icons) |
-|:---:|:---:|
-| ![Mousepad with Global Menu](docs/screenshots/06_active_app_mousepad_1280x800.png) | ![PCManFM File Manager](docs/screenshots/08_file_manager_pcmanfm_1280x800.png) |
-
-| Xfce4 Terminal (Platinum Chrome) | Mozilla Firefox (Native Titlebar & Global Menu) |
-|:---:|:---:|
-| ![Xfce4 Terminal](docs/screenshots/09_terminal_xfce4_1280x800.png) | ![Mozilla Firefox](docs/screenshots/23_web_browser_firefox_1280x800.png) |
-
-| Classic Doom (Freedoom Phase 2 & Game Menu) | Galculator (Scientific & Basic Calculator) |
-|:---:|:---:|
-| ![Classic Doom](docs/screenshots/24_game_doom_freedoom_1280x800.png) | ![Galculator](docs/screenshots/27_calculator_galculator_1280x800.png) |
-
-| Ristretto Image Viewer (Platinum Chrome) | Zathura Document Viewer (Clean Fallback) |
-|:---:|:---:|
-| ![Ristretto](docs/screenshots/28_image_viewer_ristretto_1280x800.png) | ![Zathura](docs/screenshots/29_document_viewer_zathura_1280x800.png) |
-
-| Desktop Right-Click Menu (Open With Submenu) | File Manager Context Menu (Desktop Folder) |
+| Desktop Right-Click Menu (Submenus & Shortcuts) | File Manager Context Menu (Desktop Folder) |
 |:---:|:---:|
 | ![Desktop Right Click Menu](docs/screenshots/25_desktop_right_click_context_menu_1280x800.png) | ![File Manager Context Menu](docs/screenshots/26_file_manager_right_click_context_menu_1280x800.png) |
 
-- **Openbox Window Manager**: True stacking and floating window manager supporting 4 virtual workspaces, predictable click-to-focus, `Alt+Tab` window cycling, and crisp Platinum/Classic borders.
-- **Desktop Context Menu & Right-Click Functionality**:
-  - Full right-click root desktop menu with **New Folder**, **New Text Document**, **Display Settings...**, **Desktop Preferences...**, **System Settings Hub**, **Software Catalogue**, and nested **Open With...** submenus (Mousepad, Ristretto, Zathura, Firefox, MPV).
-  - Ability to create, open, edit, and organize files and folders directly on the desktop (`~/Desktop`).
-- **Universal Global Menubar Integration**:
-  - Live active-window tracking: `slopos-shell` dynamically renders tailored, high-contrast, fully functional topbar menus (`File`, `Edit`, `View`, `Terminal`/`Bookmarks`/`Search`/`Special`/`Game`, `Help`, etc.) for every focused application (Terminal, PCManFM, Mousepad, Web Browsers, Calculators, Document Viewers, Games, Control Panels, and the Desktop).
-  - GIO D-Bus / GMenu support: Native `GtkApplication` programs seamlessly export live D-Bus action hierarchies directly into the top bar.
-  - Zero fake menus: Every menu item routes real key combinations or window actions directly to the focused target window.
-- **Freedesktop Icon Theme (`SLOPOS-Platinum`)**: Full custom icon theme providing tailored classic icons for folders, text files, archives, disks, trash, and standard desktop actions.
+- **Desktop Right-Click Menu**:
+  - **New Folder**: Instantly creates a new directory on `~/Desktop` and opens it in PCManFM.
+  - **New Text Document**: Creates `~/Desktop/Untitled.txt` and opens it directly in Mousepad.
+  - **Open With… Submenu**: Fast access to Mousepad, Ristretto, Zathura, Firefox, and MPV.
+  - **Desktop Wallpapers Submenu**: Instant preset switching between authentic retro patterns (Classic Gray, Platinum Slate, Vintage Blue, Retro Teal, OLED Pure Dark).
+  - **Direct System Controls**: Quick links to *Desktop & Wallpaper…*, *Date & Time Settings…*, *Display Settings…*, *Volume & Audio…*, *Network Connections…*, *System Settings Hub*, and *Software Catalogue*.
 
 ---
 
-### 4. Control Panels & AppImage Management
+### 3. Desktop Wallpaper Engine & Retro Wallpapers Showcase
 
-| Curated AppImage Software Catalogue | System Settings Control Panels Hub |
+| Classic System Gray (50% 1-Bit Dither) | Vintage Mac Blue (Classic Tweed) |
 |:---:|:---:|
-| ![Software Catalogue](docs/screenshots/10_software_catalogue_1280x800.png) | ![System Settings Hub](docs/screenshots/11_system_settings_control_panels_1280x800.png) |
+| ![Classic Gray Wallpaper](docs/screenshots/30_wallpaper_classic_system_gray_1280x800.png) | ![Vintage Blue Wallpaper](docs/screenshots/31_wallpaper_vintage_mac_blue_1280x800.png) |
 
-- **System Settings Hub (`slopos-settings`)**: Compact 640×390 Platinum Control Panels grid delegating to mature upstream configuration utilities:
-  - **Desktop Appearance**: Built-in 3-way radio switcher between *Classic Macintosh*, *Platinum Light*, and *Graphite Dark*.
-  - **Displays**: Launches `arandr` or `lxrandr`.
-  - **Sound**: Launches `pavucontrol`.
-  - **Network**: Launches `nm-connection-editor`.
-  - **Bluetooth**: Launches `blueman-manager`.
-  - **Power**: Launches `xfce4-power-manager-settings`.
-  - **GTK Theme**: Launches `lxappearance`.
-  - **Keyboard & Mouse**: Launches `lxinput`.
-- **AppImage Software Catalogue (`slopos-catalogue`)**: Fail-closed application catalogue & installer featuring curated productivity and gaming software (Firefox ESR, Chocolate Doom, SuperTux, Kdenlive, Inkscape, GIMP, Audacity) with:
-  - Seamless launching of pre-installed system packages and AppImages directly from the catalogue.
-  - Real HTTPS downloads with non-placeholder SHA-256 checksum verification.
-  - Executable ELF header inspection and atomic `.part` download staging.
-  - Automatic `~/.local/share/applications/` desktop launcher registration and clean uninstallation.
+| Retro Teal Grid (90s Matrix) | Desktop & Wallpaper Chooser GUI |
+|:---:|:---:|
+| ![Retro Teal Wallpaper](docs/screenshots/32_wallpaper_retro_teal_grid_1280x800.png) | ![Wallpaper Chooser Dialog](docs/screenshots/33_wallpaper_chooser_dialog_1280x800.png) |
+
+- **Original Retro Wallpaper Collection**:
+  1. `01_classic_system_gray.png`: Classic System 6/7 50% 1-bit monochrome checkerboard dither.
+  2. `02_platinum_cool_slate.png`: Canonical Platinum cool slate (`#758090`) fine matrix grid.
+  3. `03_vintage_mac_blue.png`: Classic Mac OS 8/9 vintage blue tweed pattern (`#3A5F8B`).
+  4. `04_retro_teal_grid.png`: 1990s retro desktop teal matrix (`#008080`).
+  5. `05_oled_pure_dark.png`: OLED obsidian constellation (`#000000`).
+- **Wallpaper Management (`slopos-wallpaper`)**: CLI and GUI tool allowing users to get, set, list, and apply background images with `fill`, `tile`, or `center` modes.
+- **Session Persistence**: Active wallpaper choice is saved to `~/.config/slopos-i/wallpaper` and automatically restored by `slopos-session` on login.
 
 ---
 
-### 5. Triple Appearance System
+### 4. Quadruple Appearance System
 
 | Classic Macintosh Desktop (6-Stripe Titlebars) | Classic System Menu (Inverted Black Selection) |
 |:---:|:---:|
 | ![Classic Mac Desktop](docs/screenshots/19_classic_mac_desktop_1280x800.png) | ![Classic System Menu](docs/screenshots/20_classic_mac_system_menu_1280x800.png) |
 
-| Classic Modal Dialog (Thick Default Button Ring) | Platinum About Dialog (Canonical 3D Bevels) |
+| Platinum Light Appearance (Canonical) | Graphite Dark Theme Presentation |
 |:---:|:---:|
-| ![Classic About Modal](docs/screenshots/21_classic_mac_about_dialog_1280x800.png) | ![Platinum About Modal](docs/screenshots/05_modal_about_dialog_1280x800.png) |
+| ![Platinum Light](docs/screenshots/01_clean_desktop_platinum_1280x800.png) | ![Graphite Dark](docs/screenshots/12_graphite_dark_desktop_1280x800.png) |
 
-| Graphite Dark Desktop Appearance | Graphite Settings Presentation |
+| OLED Pure Dark Desktop (`#000000`) | OLED Dark Settings Presentation |
 |:---:|:---:|
-| ![Graphite Dark Theme](docs/screenshots/12_graphite_dark_desktop_1280x800.png) | ![Graphite Settings](docs/screenshots/13_graphite_settings_1280x800.png) |
+| ![OLED Dark Desktop](docs/screenshots/34_oled_dark_desktop_1280x800.png) | ![OLED Dark Settings](docs/screenshots/35_oled_dark_settings_1280x800.png) |
 
 1. **Classic Macintosh (System 6/7)**:
    - Iconic 6-stripe horizontal pinstripe titlebars with centered white cutout title box.
    - 4px rounded-rectangle push buttons with 1px black outline.
    - Distinctive 3px thick rounded outer ring on default modal buttons (`Return` action).
    - Inverted pure black (`#000000`) hover and selection highlights with pure white (`#FFFFFF`) text.
-   - 50% checkerboard stippled scrollbar tracks.
 2. **Platinum (Light - Canonical Default)**:
    - System 7/8 Platinum neutral gray face (`#D9D9D9` to `#DDDDDD`) with restrained 1px raised/sunken 3D bevels.
    - Classic navy selection (`#000080`) with white text.
    - Muted slate desktop background (`#758090`).
 3. **Graphite (Dark)**:
-   - Sleek dark charcoal surfaces (`#25272B` to `#2C2E33`) with high-contrast active window frames and dark system dialogs.
+   - Sleek dark charcoal surfaces (`#25272B` to `#2C2E33`) with high-contrast active window frames.
+4. **OLED Dark (Pure Black)**:
+   - True deep black (`#000000`) surfaces optimized for OLED panels and battery longevity.
+   - Crisp `#3A3C45` borders with vibrant high-contrast `#2563EB` selection accents and pure white typography.
 
 ---
 
-### 6. Multi-Resolution & Scale Robustness
+### 5. Hardware Configuration & System Service Controls
+
+| Date & Time Settings GUI | Network & Wi-Fi Connections GUI |
+|:---:|:---:|
+| ![Date and Time Settings](docs/screenshots/36_datetime_control_panel_1280x800.png) | ![Network Connections](docs/screenshots/37_network_wifi_gui_1280x800.png) |
+
+| Volume Control & Mixer GUI (PulseAudio/PipeWire) | Bluetooth Devices GUI (BlueZ) |
+|:---:|:---:|
+| ![Volume Control Mixer](docs/screenshots/39_sound_audio_pavucontrol_1280x800.png) | ![Bluetooth Devices](docs/screenshots/38_bluetooth_gui_1280x800.png) |
+
+- **Date & Time Control Panel**: Accessible by clicking the top bar clock, via System Settings, or from the desktop context menu. Displays active system time, timezone selector, and Network Time Protocol (NTP) toggle.
+- **Network Connections (`nm-connection-editor`)**: Full Wi-Fi, Ethernet, VPN, and cellular profile configuration.
+- **Sound & Volume Mixer (`pavucontrol`)**: Live audio playback/recording levels, output device switching, and per-application volume sliders.
+- **Bluetooth Manager (`blueman-manager`)**: Bluetooth adapter pairing, audio sink connection, and device management.
+
+---
+
+### 6. Upstream Applications & Software Catalogue Matrix
+
+| GNU Image Manipulation Program (GIMP) | Inkscape Vector Graphics Editor |
+|:---:|:---:|
+| ![GIMP](docs/screenshots/40_app_gimp_1280x800.png) | ![Inkscape](docs/screenshots/41_app_inkscape_1280x800.png) |
+
+| VLC Media Player (Platinum Frame) | LibreOffice Writer (Word Processor) |
+|:---:|:---:|
+| ![VLC Media Player](docs/screenshots/42_app_vlc_media_player_1280x800.png) | ![LibreOffice Writer](docs/screenshots/43_app_libreoffice_writer_1280x800.png) |
+
+| SuperTux Classic 2D Platformer | Classic Doom (Freedoom Phase 2) |
+|:---:|:---:|
+| ![SuperTux](docs/screenshots/44_app_supertux_1280x800.png) | ![Classic Doom](docs/screenshots/24_game_doom_freedoom_1280x800.png) |
+
+| Mozilla Firefox (Native Titlebar & Global Menu) | PCManFM File Manager (Custom Icons) |
+|:---:|:---:|
+| ![Mozilla Firefox](docs/screenshots/23_web_browser_firefox_1280x800.png) | ![PCManFM File Manager](docs/screenshots/08_file_manager_pcmanfm_1280x800.png) |
+
+| Mousepad (Native GTK Global Menu) | Xfce4 Terminal (Platinum Chrome) |
+|:---:|:---:|
+| ![Mousepad Text Editor](docs/screenshots/06_active_app_mousepad_1280x800.png) | ![Xfce4 Terminal](docs/screenshots/09_terminal_xfce4_1280x800.png) |
+
+| Galculator (Scientific & Basic Calculator) | Ristretto Image Viewer |
+|:---:|:---:|
+| ![Galculator](docs/screenshots/27_calculator_galculator_1280x800.png) | ![Ristretto](docs/screenshots/28_image_viewer_ristretto_1280x800.png) |
+
+| Zathura Document Viewer | Curated AppImage Software Catalogue |
+|:---:|:---:|
+| ![Zathura Document Viewer](docs/screenshots/29_document_viewer_zathura_1280x800.png) | ![Software Catalogue](docs/screenshots/10_software_catalogue_1280x800.png) |
+
+- **Curated AppImage Software Catalogue (`slopos-catalogue`)**: Fail-closed application installer with cryptographic SHA-256 verification and atomic installation for productivity and creative tools.
+
+---
+
+### 7. Multi-Resolution & Scale Robustness
 
 | Ultrawide Layout (3440×1440) | HiDPI 2× Scale Layout (2560×1600) |
 |:---:|:---:|
@@ -171,7 +185,7 @@ Mature upstream applications + verified AppImages
 |:---:|:---:|
 | ![Multi-Window Workspace](docs/screenshots/16_workspace_multi_window_1920x1080.png) | ![Standard Baseline](docs/screenshots/01_clean_desktop_platinum_1280x800.png) |
 
-- **Geometry Adaptability**: Seamless execution across display resolutions from 1280×800 and 1366×768 up to 3440×1440 Ultrawide, 3840×2160 4K, and 5120×2880 5K without clipped widgets or hardcoded coordinates.
+- **Geometry Adaptability**: Seamless execution across display resolutions from 1280×800 and 1366×768 up to 3440×1440 Ultrawide, 3840×2160 4K, and 5120×2880 5K.
 - **HiDPI Support**: Full integer scaling (`GDK_SCALE=2`) with crisp typography and properly scaled bevels.
 
 ---
@@ -198,15 +212,13 @@ Mature upstream applications + verified AppImages
 - **`crates/slopos-session`**: Lightweight session supervisor that launches and monitors Openbox and `slopos-shell` with bounded crash recovery and appearance synchronization.
 - **`crates/slopos-shell`**: Desktop chrome containing the top system bar, GIO D-Bus global menu host, live system status tray, `Super+Space` application search palette, bottom Application Strip, and freedesktop notifications.
 - **`crates/slopos-catalogue`**: Graphical AppImage software catalogue with fail-closed cryptographic validation, atomic extraction, and desktop integration.
-- **`crates/slopos-settings`**: Compact SLOPOS-styled Control Panels hub delegating to native system utilities and housing the built-in appearance switcher.
+- **`crates/slopos-settings`**: Compact SLOPOS-styled Control Panels hub delegating to native system utilities and housing the built-in appearance switcher, wallpaper chooser, and date/time configuration.
 
 ---
 
 ## Installation & Building
 
 ### Native Build from Source
-
-Install development dependencies (`gtk3`, `openbox`, `libx11`, `libxrandr`, `openssl`, `dbus`, `cargo`), then:
 
 ```bash
 cargo build --workspace --release --locked
@@ -229,6 +241,19 @@ slopos-appearance platinum
 
 # Switch to Graphite Dark
 slopos-appearance graphite
+
+# Switch to OLED Dark (Pure Black)
+slopos-appearance oled
+```
+
+### Wallpaper Management via CLI
+
+```bash
+# Set wallpaper with fill mode
+slopos-wallpaper set 03_vintage_mac_blue.png --mode fill
+
+# List available retro wallpapers
+slopos-wallpaper list
 ```
 
 ### Configuration Recovery
@@ -246,7 +271,7 @@ slopos-recovery
 # Run the complete master Docker QA test harness:
 bash scripts/run-release-qa.sh
 
-# Run the 22-scene canonical visual capture and audit suite:
+# Run the 44-scene canonical visual capture and audit suite:
 bash scripts/run-canonical-visual-qa.sh
 ```
 

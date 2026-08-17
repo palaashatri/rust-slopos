@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://openbox.org/3.4/rc file:///usr/share/openbox/rc.xsd">
+  <resistance><strength>10</strength><screen_edge_strength>20</screen_edge_strength></resistance>
+  <focus><focusNew>yes</focusNew><followMouse>no</followMouse><focusLast>yes</focusLast><underMouse>no</underMouse><focusDelay>150</focusDelay><raiseOnFocus>no</raiseOnFocus></focus>
+  <placement><policy>Smart</policy><center>yes</center></placement>
+  <theme>
+    <name>slopos-openbox-oled</name><titleLayout>CLMI</titleLayout><keepBorder>yes</keepBorder><animateIconify>no</animateIconify>
+    <font place="ActiveWindow"><name>Liberation Sans</name><size>9</size><weight>Bold</weight></font>
+    <font place="InactiveWindow"><name>Liberation Sans</name><size>9</size><weight>Normal</weight></font>
+    <font place="MenuHeader"><name>Liberation Sans</name><size>9</size><weight>Bold</weight></font>
+    <font place="MenuItem"><name>Liberation Sans</name><size>9</size><weight>Normal</weight></font>
+  </theme>
+  <margins><top>26</top><bottom>60</bottom><left>0</left><right>0</right></margins>
+  <desktops><number>4</number><firstdefault>1</firstdefault><name>Desktop 1</name><name>Desktop 2</name><name>Desktop 3</name><name>Desktop 4</name></desktops>
+  <keyboard>
+    <keybind key="A-Tab"><action name="NextWindow"><finalactions><action name="Focus"/><action name="Raise"/><action name="Unshade"/></finalactions></action></keybind>
+    <keybind key="W-space"><action name="Execute"><command>pkill -USR1 -x slopos-shell</command></action></keybind>
+    <keybind key="W-q"><action name="Close"/></keybind>
+    <keybind key="W-m"><action name="Iconify"/></keybind>
+    <keybind key="W-f"><action name="ToggleMaximize"/></keybind>
+    <keybind key="W-Left"><action name="DesktopLeft"><wrap>yes</wrap></action></keybind>
+    <keybind key="W-Right"><action name="DesktopRight"><wrap>yes</wrap></action></keybind>
+  </keyboard>
+  <mouse>
+    <dragThreshold>8</dragThreshold>
+    <doubleClickTime>400</doubleClickTime>
+    <context name="Frame">
+      <mousebind button="A-Left" action="Press"><action name="Focus"/><action name="Raise"/></mousebind>
+      <mousebind button="A-Left" action="Click"><action name="Unshade"/></mousebind>
+      <mousebind button="A-Left" action="Drag"><action name="Move"/></mousebind>
+      <mousebind button="A-Right" action="Press"><action name="Focus"/><action name="Raise"/><action name="Unshade"/></mousebind>
+      <mousebind button="A-Right" action="Drag"><action name="Resize"/></mousebind>
+    </context>
+    <context name="Titlebar">
+      <mousebind button="Left" action="Press"><action name="Focus"/><action name="Raise"/></mousebind>
+      <mousebind button="Left" action="Drag"><action name="Move"/></mousebind>
+      <mousebind button="Left" action="DoubleClick"><action name="ToggleMaximize"/></mousebind>
+    </context>
+    <context name="Close">
+      <mousebind button="Left" action="Press"><action name="Focus"/><action name="Raise"/><action name="Unshade"/></mousebind>
+      <mousebind button="Left" action="Click"><action name="Close"/></mousebind>
+    </context>
+    <context name="Maximize">
+      <mousebind button="Left" action="Press"><action name="Focus"/><action name="Raise"/><action name="Unshade"/></mousebind>
+      <mousebind button="Left" action="Click"><action name="ToggleMaximize"/></mousebind>
+    </context>
+    <context name="Iconify">
+      <mousebind button="Left" action="Press"><action name="Focus"/><action name="Raise"/><action name="Unshade"/></mousebind>
+      <mousebind button="Left" action="Click"><action name="Iconify"/></mousebind>
+    </context>
+    <context name="Root">
+      <mousebind button="Right" action="Press">
+        <action name="ShowMenu"><menu>root-menu</menu></action>
+      </mousebind>
+      <mousebind button="Middle" action="Press">
+        <action name="ShowMenu"><menu>client-list-combined-menu</menu></action>
+      </mousebind>
+    </context>
+  </mouse>
+  <applications>
+    <application class="*">
+      <decor>yes</decor>
+    </application>
+  </applications>
+</openbox_config>

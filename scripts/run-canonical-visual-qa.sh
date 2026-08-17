@@ -50,16 +50,28 @@ if ! command -v chocolate-doom >/dev/null 2>&1 && ! command -v doom >/dev/null 2
   fi
 fi
 
+export PATH="/usr/games:$PATH"
+
+# Enable VLC execution in container environment
+sed -i "s/geteuid/getppid/" /usr/bin/vlc 2>/dev/null || true
+
+# Start system dbus and NetworkManager for Network Settings GUI
+mkdir -p /var/run/dbus
+dbus-daemon --system --fork >/dev/null 2>&1 || true
+/usr/sbin/NetworkManager >/dev/null 2>&1 &
+
 # Set up user theme and icon assets
-mkdir -p "$HOME/.themes/slopos-openbox/openbox-3" "$HOME/.themes/slopos-openbox-classic/openbox-3" "$HOME/.themes/slopos-openbox-graphite/openbox-3"
+mkdir -p "$HOME/.themes/slopos-openbox/openbox-3" "$HOME/.themes/slopos-openbox-classic/openbox-3" "$HOME/.themes/slopos-openbox-graphite/openbox-3" "$HOME/.themes/slopos-openbox-oled/openbox-3"
 cp "$REPO_ROOT/themes/slopos-openbox/openbox-3/themerc" "$HOME/.themes/slopos-openbox/openbox-3/themerc"
 cp "$REPO_ROOT/themes/slopos-openbox-classic/openbox-3/themerc" "$HOME/.themes/slopos-openbox-classic/openbox-3/themerc"
 cp "$REPO_ROOT/themes/slopos-openbox-graphite/openbox-3/themerc" "$HOME/.themes/slopos-openbox-graphite/openbox-3/themerc"
+cp "$REPO_ROOT/themes/slopos-openbox-oled/openbox-3/themerc" "$HOME/.themes/slopos-openbox-oled/openbox-3/themerc"
 
-mkdir -p "$HOME/.themes/slopos-gtk/gtk-3.0" "$HOME/.themes/slopos-gtk-classic/gtk-3.0" "$HOME/.themes/slopos-gtk-graphite/gtk-3.0" "$HOME/.config/gtk-3.0"
+mkdir -p "$HOME/.themes/slopos-gtk/gtk-3.0" "$HOME/.themes/slopos-gtk-classic/gtk-3.0" "$HOME/.themes/slopos-gtk-graphite/gtk-3.0" "$HOME/.themes/slopos-gtk-oled/gtk-3.0" "$HOME/.config/gtk-3.0"
 cp "$REPO_ROOT/assets/config/gtk-3.0/gtk.css" "$HOME/.themes/slopos-gtk/gtk-3.0/gtk.css"
 cp "$REPO_ROOT/assets/config/gtk-3.0/gtk-classic.css" "$HOME/.themes/slopos-gtk-classic/gtk-3.0/gtk.css"
 cp "$REPO_ROOT/assets/config/gtk-3.0/gtk-graphite.css" "$HOME/.themes/slopos-gtk-graphite/gtk-3.0/gtk.css"
+cp "$REPO_ROOT/assets/config/gtk-3.0/gtk-oled.css" "$HOME/.themes/slopos-gtk-oled/gtk-3.0/gtk.css"
 cp "$REPO_ROOT/assets/config/gtk-3.0/gtk.css" "$HOME/.config/gtk-3.0/gtk.css"
 cp "$REPO_ROOT/assets/config/gtk-3.0/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
 
@@ -386,8 +398,193 @@ xdotool windowactivate --sync "$SET_WIN"
 capture_screen "13_graphite_settings_1280x800.png"
 kill "$SET_PID" 2>/dev/null || true
 
-# Reset appearance
+# --- OLED Dark Appearance Scenes ---
+# 34. OLED Dark Desktop & 35. OLED Settings Presentation
+bash scripts/slopos-appearance oled >/dev/null 2>&1 || true
+sleep 1.5
+capture_screen "34_oled_dark_desktop_1280x800.png"
+
+SLOPOS_APPEARANCE=oled ./target/release/slopos-settings >/dev/null 2>&1 &
+SET_PID=$!
+sleep 1.5
+SET_WIN="$(xdotool search --onlyvisible --name '^System Settings$' | tail -n 1)"
+xdotool windowactivate --sync "$SET_WIN"
+capture_screen "35_oled_dark_settings_1280x800.png"
+kill "$SET_PID" 2>/dev/null || true
+sleep 0.5
+
+# Reset appearance to Platinum
 bash scripts/slopos-appearance platinum >/dev/null 2>&1 || true
+sleep 0.5
+
+# --- Wallpapers Showcase ---
+# 30. Classic System Gray Dither Wallpaper
+bash scripts/slopos-wallpaper set 01_classic_system_gray.png --mode fill >/dev/null 2>&1 || true
+sleep 0.5
+capture_screen "30_wallpaper_classic_system_gray_1280x800.png"
+
+# 31. Vintage Mac Blue Tweed Wallpaper
+bash scripts/slopos-wallpaper set 03_vintage_mac_blue.png --mode fill >/dev/null 2>&1 || true
+sleep 0.5
+capture_screen "31_wallpaper_vintage_mac_blue_1280x800.png"
+
+# 32. Retro Teal Grid Wallpaper
+bash scripts/slopos-wallpaper set 04_retro_teal_grid.png --mode fill >/dev/null 2>&1 || true
+sleep 0.5
+capture_screen "32_wallpaper_retro_teal_grid_1280x800.png"
+
+# 33. Desktop & Wallpaper Chooser Dialog
+./target/release/slopos-settings --wallpaper >/dev/null 2>&1 &
+WP_PID=$!
+sleep 1
+WP_WIN="$(xdotool search --onlyvisible --name '^Desktop & Wallpaper$' | tail -n 1 || true)"
+if [[ -n "$WP_WIN" ]]; then
+  xdotool windowactivate --sync "$WP_WIN" 2>/dev/null || true
+  sleep 0.5
+  capture_screen "33_wallpaper_chooser_dialog_1280x800.png"
+fi
+kill "$WP_PID" 2>/dev/null || true
+sleep 0.5
+
+# Restore default platinum wallpaper
+bash scripts/slopos-wallpaper set 02_platinum_cool_slate.png --mode fill >/dev/null 2>&1 || true
+sleep 0.5
+
+# 36. Date & Time Settings GUI
+./target/release/slopos-settings --datetime >/dev/null 2>&1 &
+DT_PID=$!
+sleep 1
+DT_WIN="$(xdotool search --onlyvisible --name '^Date & Time Settings$' | tail -n 1 || true)"
+if [[ -n "$DT_WIN" ]]; then
+  xdotool windowactivate --sync "$DT_WIN" 2>/dev/null || true
+  sleep 0.5
+  capture_screen "36_datetime_control_panel_1280x800.png"
+fi
+kill "$DT_PID" 2>/dev/null || true
+sleep 0.5
+
+# 37. Network & Wi-Fi Connections GUI (nm-connection-editor)
+if command -v nm-connection-editor >/dev/null 2>&1; then
+  nm-connection-editor >/dev/null 2>&1 &
+  NET_PID=$!
+  sleep 1
+  NET_WIN="$(xdotool search --onlyvisible --class nm-connection-editor | tail -n 1 || true)"
+  if [[ -n "$NET_WIN" ]]; then
+    xdotool windowactivate --sync "$NET_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "37_network_wifi_gui_1280x800.png"
+  fi
+  kill "$NET_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
+# 38. Bluetooth Devices GUI (blueman-manager)
+if command -v blueman-manager >/dev/null 2>&1; then
+  blueman-manager >/dev/null 2>&1 &
+  BLUE_PID=$!
+  sleep 1
+  BLUE_WIN="$(xdotool search --onlyvisible --class blueman-manager | tail -n 1 || true)"
+  if [[ -n "$BLUE_WIN" ]]; then
+    xdotool windowactivate --sync "$BLUE_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "38_bluetooth_gui_1280x800.png"
+  fi
+  kill "$BLUE_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
+# 39. Sound & Audio Volume Mixer GUI (pavucontrol)
+if command -v pavucontrol >/dev/null 2>&1; then
+  pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1 || true
+  sleep 1
+  pavucontrol >/dev/null 2>&1 &
+  SND_PID=$!
+  sleep 2
+  SND_WIN="$(xdotool search --onlyvisible --class pavucontrol | tail -n 1 || true)"
+  if [[ -n "$SND_WIN" ]]; then
+    xdotool windowactivate --sync "$SND_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "39_sound_audio_pavucontrol_1280x800.png"
+  fi
+  kill "$SND_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
+# 40. GIMP Image Editor
+if command -v gimp >/dev/null 2>&1; then
+  gimp --no-splash >/dev/null 2>&1 &
+  GIMP_PID=$!
+  sleep 3
+  GIMP_WIN="$(xdotool search --onlyvisible --class gimp | tail -n 1 || true)"
+  if [[ -n "$GIMP_WIN" ]]; then
+    xdotool windowactivate --sync "$GIMP_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "40_app_gimp_1280x800.png"
+  fi
+  kill "$GIMP_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
+# 41. Inkscape Vector Graphics Editor
+if command -v inkscape >/dev/null 2>&1; then
+  inkscape >/dev/null 2>&1 &
+  INK_PID=$!
+  sleep 3
+  INK_WIN="$(xdotool search --onlyvisible --class inkscape | tail -n 1 || true)"
+  if [[ -n "$INK_WIN" ]]; then
+    xdotool windowactivate --sync "$INK_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "41_app_inkscape_1280x800.png"
+  fi
+  kill "$INK_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
+# 42. VLC Media Player
+if command -v vlc >/dev/null 2>&1; then
+  vlc --no-video-title-show >/dev/null 2>&1 &
+  VLC_PID=$!
+  sleep 2
+  VLC_WIN="$(xdotool search --onlyvisible --class vlc | tail -n 1 || true)"
+  if [[ -n "$VLC_WIN" ]]; then
+    xdotool windowactivate --sync "$VLC_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "42_app_vlc_media_player_1280x800.png"
+  fi
+  kill "$VLC_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
+# 43. LibreOffice Writer
+if command -v libreoffice >/dev/null 2>&1; then
+  libreoffice --writer --nologo >/dev/null 2>&1 &
+  LIB_PID=$!
+  sleep 3
+  LIB_WIN="$(xdotool search --onlyvisible --class soffice.bin | tail -n 1 || xdotool search --onlyvisible --class libreoffice | tail -n 1 || true)"
+  if [[ -n "$LIB_WIN" ]]; then
+    xdotool windowactivate --sync "$LIB_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "43_app_libreoffice_writer_1280x800.png"
+  fi
+  kill "$LIB_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
+# 44. SuperTux Classic 2D Game
+if command -v supertux2 >/dev/null 2>&1 || command -v /usr/games/supertux2 >/dev/null 2>&1; then
+  ST_BIN="$(command -v supertux2 2>/dev/null || echo /usr/games/supertux2)"
+  "$ST_BIN" --geometry 640x480 >/dev/null 2>&1 &
+  ST_PID=$!
+  sleep 3
+  ST_WIN="$(xdotool search --onlyvisible --class supertux2 | tail -n 1 || xdotool search --onlyvisible --name '.*SuperTux.*' | tail -n 1 || true)"
+  if [[ -n "$ST_WIN" ]]; then
+    xdotool windowactivate --sync "$ST_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "44_app_supertux_1280x800.png"
+  fi
+  kill "$ST_PID" 2>/dev/null || true
+  sleep 0.5
+fi
 
 kill -TERM "$SESSION_90_PID" "$XVFB_90_PID" 2>/dev/null || true
 pkill -TERM -x slopos-shell 2>/dev/null || true

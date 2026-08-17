@@ -126,14 +126,17 @@ fn appearances_are_complete_runtime_themes() {
     let light = include_str!("../../../assets/config/gtk-3.0/gtk.css");
     let classic = include_str!("../../../assets/config/gtk-3.0/gtk-classic.css");
     let dark = include_str!("../../../assets/config/gtk-3.0/gtk-graphite.css");
+    let oled = include_str!("../../../assets/config/gtk-3.0/gtk-oled.css");
     let light_wm = include_str!("../../../themes/slopos-openbox/openbox-3/themerc");
     let classic_wm = include_str!("../../../themes/slopos-openbox-classic/openbox-3/themerc");
     let dark_wm = include_str!("../../../themes/slopos-openbox-graphite/openbox-3/themerc");
+    let oled_wm = include_str!("../../../themes/slopos-openbox-oled/openbox-3/themerc");
     let classic_rc = include_str!("../../../assets/config/openbox/rc-classic.xml");
     let dark_rc = include_str!("../../../assets/config/openbox/rc-graphite.xml");
+    let oled_rc = include_str!("../../../assets/config/openbox/rc-oled.xml");
     let switcher = include_str!("../../../scripts/slopos-appearance");
 
-    for css in [light, classic, dark] {
+    for css in [light, classic, dark, oled] {
         for selector in [
             ".slopos-topbar",
             "menubar > menuitem",
@@ -151,9 +154,11 @@ fn appearances_are_complete_runtime_themes() {
     assert!(light_wm.contains("window.active.title.bg"));
     assert!(classic_wm.contains("window.active.title.bg"));
     assert!(dark_wm.contains("window.active.title.bg"));
+    assert!(oled_wm.contains("window.active.title.bg"));
     assert!(classic_rc.contains("slopos-openbox-classic"));
     assert!(dark_rc.contains("slopos-openbox-graphite"));
-    assert!(switcher.contains("classic|platinum|graphite|status"));
+    assert!(oled_rc.contains("slopos-openbox-oled"));
+    assert!(switcher.contains("classic|platinum|graphite|oled|status"));
     assert!(switcher.contains("gtk-theme-name = $gtk_theme"));
     assert!(switcher.contains("gtk-shell-shows-menubar = 1"));
     assert!(switcher.contains("pkill -TERM -x slopos-shell"));

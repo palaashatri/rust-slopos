@@ -72,12 +72,16 @@ capture() {
 mkdir -p "$XDG_CONFIG_HOME/gtk-3.0" "$XDG_DATA_HOME/icons" "$HOME/.themes"
 cp "$ROOT/assets/config/gtk-3.0/settings.ini" "$XDG_CONFIG_HOME/gtk-3.0/settings.ini"
 cp -a "$ROOT/themes/platinum/icon-theme" "$XDG_DATA_HOME/icons/SLOPOS-Platinum"
-mkdir -p "$HOME/.themes/slopos-gtk/gtk-3.0" "$HOME/.themes/slopos-gtk-graphite/gtk-3.0"
+mkdir -p "$HOME/.themes/slopos-gtk/gtk-3.0" "$HOME/.themes/slopos-gtk-classic/gtk-3.0" "$HOME/.themes/slopos-gtk-graphite/gtk-3.0" "$HOME/.themes/slopos-gtk-oled/gtk-3.0"
 cp "$ROOT/assets/config/gtk-3.0/gtk.css" "$HOME/.themes/slopos-gtk/gtk-3.0/gtk.css"
+cp "$ROOT/assets/config/gtk-3.0/gtk-classic.css" "$HOME/.themes/slopos-gtk-classic/gtk-3.0/gtk.css"
 cp "$ROOT/assets/config/gtk-3.0/gtk-graphite.css" "$HOME/.themes/slopos-gtk-graphite/gtk-3.0/gtk.css"
-mkdir -p "$HOME/.themes/slopos-openbox/openbox-3" "$HOME/.themes/slopos-openbox-graphite/openbox-3"
+cp "$ROOT/assets/config/gtk-3.0/gtk-oled.css" "$HOME/.themes/slopos-gtk-oled/gtk-3.0/gtk.css"
+mkdir -p "$HOME/.themes/slopos-openbox/openbox-3" "$HOME/.themes/slopos-openbox-classic/openbox-3" "$HOME/.themes/slopos-openbox-graphite/openbox-3" "$HOME/.themes/slopos-openbox-oled/openbox-3"
 cp "$ROOT/themes/slopos-openbox/openbox-3/themerc" "$HOME/.themes/slopos-openbox/openbox-3/themerc"
+cp "$ROOT/themes/slopos-openbox-classic/openbox-3/themerc" "$HOME/.themes/slopos-openbox-classic/openbox-3/themerc"
 cp "$ROOT/themes/slopos-openbox-graphite/openbox-3/themerc" "$HOME/.themes/slopos-openbox-graphite/openbox-3/themerc"
+cp "$ROOT/themes/slopos-openbox-oled/openbox-3/themerc" "$HOME/.themes/slopos-openbox-oled/openbox-3/themerc"
 
 required_icons=(
   folder user-home user-desktop text-x-generic drive-harddisk user-trash
