@@ -375,23 +375,36 @@ fn detect_app_kind(title: &str, wm_class: &str) -> AppKind {
     {
         AppKind::TextEditor
     } else if lower_class.contains("firefox")
+        || lower_title.contains("firefox")
+        || lower_class.contains("mozilla")
+        || lower_title.contains("mozilla")
         || lower_class.contains("chromium")
+        || lower_title.contains("chromium")
         || lower_class.contains("chrome")
+        || lower_title.contains("chrome")
         || lower_class.contains("browser")
+        || lower_title.contains("browser")
     {
         AppKind::Browser
-    } else if lower_class.contains("galculator") || lower_class.contains("calc") {
+    } else if lower_class.contains("galculator")
+        || lower_class.contains("calc")
+        || lower_title.contains("calculator")
+        || lower_title.contains("galculator")
+    {
         AppKind::Calculator
     } else if lower_class.contains("ristretto")
         || lower_class.contains("viewnior")
         || lower_class.contains("gimp")
         || lower_class.contains("inkscape")
         || lower_class.contains("image")
+        || lower_title.contains("image")
     {
         AppKind::ImageViewer
     } else if lower_class.contains("zathura")
         || lower_class.contains("evince")
         || lower_class.contains("pdf")
+        || lower_title.contains("document")
+        || lower_title.ends_with(".pdf")
     {
         AppKind::DocumentViewer
     } else if title.is_empty() || title == "SLOPOS Desktop" {

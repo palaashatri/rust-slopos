@@ -38,6 +38,12 @@ STARTED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 # Build fresh release binaries
 cargo build --release --workspace --locked
 
+if ! command -v firefox >/dev/null 2>&1 && ! command -v firefox-esr >/dev/null 2>&1; then
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get update -qq && apt-get install -y -qq firefox-esr >/dev/null 2>&1 || true
+  fi
+fi
+
 # Set up user theme and icon assets
 mkdir -p "$HOME/.themes/slopos-openbox/openbox-3" "$HOME/.themes/slopos-openbox-classic/openbox-3" "$HOME/.themes/slopos-openbox-graphite/openbox-3"
 cp "$REPO_ROOT/themes/slopos-openbox/openbox-3/themerc" "$HOME/.themes/slopos-openbox/openbox-3/themerc"
@@ -216,6 +222,34 @@ xdotool windowactivate --sync "$TERM_WIN"
 capture_screen "09_terminal_xfce4_1280x800.png"
 kill "$TERM_PID" 2>/dev/null || true
 sleep 0.5
+
+# 23. Web Browser (Firefox with SLOPOS window decorations)
+if command -v firefox >/dev/null 2>&1 || command -v firefox-esr >/dev/null 2>&1; then
+  FF_BIN="$(command -v firefox || command -v firefox-esr)"
+  FF_PROF="/tmp/slopos-qa-ff-prof"
+  rm -rf "$FF_PROF"
+  mkdir -p "$FF_PROF"
+  bash scripts/install-browser-theme.sh firefox "$FF_PROF" >/dev/null 2>&1 || true
+  cat >>"$FF_PROF/user.js" <<'EOF'
+user_pref("browser.aboutwelcome.enabled", false);
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("datareporting.policy.dataSubmissionEnabled", false);
+user_pref("toolkit.telemetry.enabled", false);
+user_pref("browser.tabs.inTitlebar", 0);
+EOF
+  MOZ_ENABLE_WAYLAND=0 MOZ_DISABLE_CONTENT_SANDBOX=1 GTK_THEME=slopos-gtk \
+    "$FF_BIN" --no-remote --new-instance --profile "$FF_PROF" "about:blank" >/dev/null 2>&1 &
+  FF_PID=$!
+  sleep 4
+  FF_WIN="$(xdotool search --onlyvisible --class firefox | tail -n 1 || xdotool search --onlyvisible --name ".*Firefox.*" | tail -n 1 || true)"
+  if [[ -n "$FF_WIN" ]]; then
+    xdotool windowactivate --sync "$FF_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "23_web_browser_firefox_1280x800.png"
+  fi
+  kill "$FF_PID" 2>/dev/null || true
+  sleep 0.5
+fi
 
 # 10. Software Catalogue
 ./target/release/slopos-catalogue >/dev/null 2>&1 &

@@ -77,13 +77,17 @@ Mature upstream applications + verified AppImages
 
 ### 3. Window Management & Upstream Application Integration
 
-| Native GTK Global Menus (Mousepad) | Multi-Window Focus & Stacking (Openbox) |
+| Native GTK Global Menus (Mousepad) | PCManFM File Manager (Custom Icons) |
 |:---:|:---:|
-| ![Mousepad with Global Menu](docs/screenshots/06_active_app_mousepad_1280x800.png) | ![Multi-Window Focus](docs/screenshots/07_multi_window_focus_1280x800.png) |
+| ![Mousepad with Global Menu](docs/screenshots/06_active_app_mousepad_1280x800.png) | ![PCManFM File Manager](docs/screenshots/08_file_manager_pcmanfm_1280x800.png) |
 
-| PCManFM File Manager (Custom Icons) | Xfce4 Terminal (Platinum Chrome) |
+| Xfce4 Terminal (Platinum Chrome) | Mozilla Firefox (Native Titlebar & Global Menu) |
 |:---:|:---:|
-| ![PCManFM File Manager](docs/screenshots/08_file_manager_pcmanfm_1280x800.png) | ![Xfce4 Terminal](docs/screenshots/09_terminal_xfce4_1280x800.png) |
+| ![Xfce4 Terminal](docs/screenshots/09_terminal_xfce4_1280x800.png) | ![Mozilla Firefox](docs/screenshots/23_web_browser_firefox_1280x800.png) |
+
+| Multi-Window Focus & Stacking (Openbox) | Multi-Window Workspace (1920×1080) |
+|:---:|:---:|
+| ![Multi-Window Focus](docs/screenshots/07_multi_window_focus_1280x800.png) | ![Multi-Window Workspace](docs/screenshots/16_workspace_multi_window_1920x1080.png) |
 
 - **Openbox Window Manager**: True stacking and floating window manager supporting 4 virtual workspaces, predictable click-to-focus, `Alt+Tab` window cycling, and crisp Platinum/Classic borders.
 - **Universal Global Menubar Integration**:

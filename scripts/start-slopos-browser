@@ -65,6 +65,10 @@ case "$browser_name" in
       fi
     fi
     ;;
+  firefox*|firefox-esr*)
+    export MOZ_ENABLE_WAYLAND="0"
+    export MOZ_GTK_TITLEBAR_DECORATION="system"
+    ;;
 esac
 
 exec "$BROWSER" "${browser_args[@]}" "$@"

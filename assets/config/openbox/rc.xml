@@ -30,4 +30,9 @@
     <keybind key="W-Left"><action name="DesktopLeft"><wrap>yes</wrap></action></keybind>
     <keybind key="W-Right"><action name="DesktopRight"><wrap>yes</wrap></action></keybind>
   </keyboard>
+  <applications>
+    <application class="*">
+      <decor>yes</decor>
+    </application>
+  </applications>
 </openbox_config>
