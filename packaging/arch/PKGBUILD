@@ -42,6 +42,7 @@ package() {
   install -Dm755 scripts/start-slopos-browser "$pkgdir/usr/bin/start-slopos-browser"
   install -Dm755 scripts/install-browser-theme.sh "$pkgdir/usr/bin/install-browser-theme.sh"
   install -Dm755 scripts/slopos-appearance "$pkgdir/usr/bin/slopos-appearance"
+  install -Dm755 scripts/slopos-recovery.sh "$pkgdir/usr/bin/slopos-recovery"
   install -Dm644 packaging/slopos-browser.desktop "$pkgdir/usr/share/applications/slopos-browser.desktop"
 
   install -Dm644 packaging/slopos-i.desktop "$pkgdir/usr/share/xsessions/slopos-i.desktop"
@@ -60,6 +61,12 @@ package() {
     "$pkgdir/usr/share/slopos-i/gtk-3.0/settings.ini"
   install -Dm644 assets/config/mimeapps.list "$pkgdir/usr/share/slopos-i/mimeapps.list"
   install -Dm644 assets/slopos-logo.png "$pkgdir/usr/share/slopos-i/slopos-logo.png"
+
+  mkdir -p "$pkgdir/usr/share/slopos-i/recovery"
+  printf '%s\n' platinum >"$pkgdir/usr/share/slopos-i/recovery/appearance"
+  install -Dm644 assets/config/openbox/rc.xml "$pkgdir/usr/share/slopos-i/recovery/openbox/rc.xml"
+  install -Dm644 assets/config/openbox/menu.xml "$pkgdir/usr/share/slopos-i/recovery/openbox/menu.xml"
+
   mkdir -p "$pkgdir/usr/share/slopos-i/themes"
   cp -a themes/platinum "$pkgdir/usr/share/slopos-i/themes/platinum"
   cp -a themes/graphite "$pkgdir/usr/share/slopos-i/themes/graphite"
