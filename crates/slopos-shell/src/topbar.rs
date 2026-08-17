@@ -1396,7 +1396,9 @@ fn install_topbar_fullscreen_manager(window: &Window) {
         if is_fs && window_c.is_visible() {
             window_c.set_visible(false);
         } else if !is_fs && !window_c.is_visible() {
+            window_c.move_(0, 0);
             window_c.set_visible(true);
+            window_c.move_(0, 0);
         }
         glib::ControlFlow::Continue
     });
