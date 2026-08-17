@@ -75,8 +75,10 @@ cp "$REPO_ROOT/assets/config/gtk-3.0/gtk-oled.css" "$HOME/.themes/slopos-gtk-ole
 cp "$REPO_ROOT/assets/config/gtk-3.0/gtk.css" "$HOME/.config/gtk-3.0/gtk.css"
 cp "$REPO_ROOT/assets/config/gtk-3.0/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
 
-mkdir -p "$HOME/.local/share/icons"
+mkdir -p "$HOME/.local/share/icons" "$HOME/.local/share/file-manager/actions" "$HOME/.local/share/applications"
 cp -a "$REPO_ROOT/themes/platinum/icon-theme" "$HOME/.local/share/icons/SLOPOS-Platinum"
+cp -a "$REPO_ROOT/assets/file-manager/actions/"* "$HOME/.local/share/file-manager/actions/" 2>/dev/null || true
+cp -a "$REPO_ROOT/assets/applications/"* "$HOME/.local/share/applications/" 2>/dev/null || true
 
 capture_screen() {
   local filename="$1"

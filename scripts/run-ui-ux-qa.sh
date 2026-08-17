@@ -68,10 +68,11 @@ capture() {
   test -s "$OUT/$name.png"
 }
 
-# Install the exact source-tree appearance into this isolated user profile.
-mkdir -p "$XDG_CONFIG_HOME/gtk-3.0" "$XDG_DATA_HOME/icons" "$HOME/.themes"
+mkdir -p "$XDG_CONFIG_HOME/gtk-3.0" "$XDG_DATA_HOME/icons" "$XDG_DATA_HOME/file-manager/actions" "$XDG_DATA_HOME/applications" "$HOME/.themes"
 cp "$ROOT/assets/config/gtk-3.0/settings.ini" "$XDG_CONFIG_HOME/gtk-3.0/settings.ini"
 cp -a "$ROOT/themes/platinum/icon-theme" "$XDG_DATA_HOME/icons/SLOPOS-Platinum"
+cp -a "$ROOT/assets/file-manager/actions/"* "$XDG_DATA_HOME/file-manager/actions/" 2>/dev/null || true
+cp -a "$ROOT/assets/applications/"* "$XDG_DATA_HOME/applications/" 2>/dev/null || true
 mkdir -p "$HOME/.themes/slopos-gtk/gtk-3.0" "$HOME/.themes/slopos-gtk-classic/gtk-3.0" "$HOME/.themes/slopos-gtk-graphite/gtk-3.0" "$HOME/.themes/slopos-gtk-oled/gtk-3.0"
 cp "$ROOT/assets/config/gtk-3.0/gtk.css" "$HOME/.themes/slopos-gtk/gtk-3.0/gtk.css"
 cp "$ROOT/assets/config/gtk-3.0/gtk-classic.css" "$HOME/.themes/slopos-gtk-classic/gtk-3.0/gtk.css"

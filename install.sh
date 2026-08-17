@@ -148,6 +148,10 @@ if [[ -f assets/config/gtk-3.0/settings.ini ]]; then
     "$PREFIX/share/slopos-i/gtk-3.0/settings.ini"
 fi
 install -Dm644 assets/config/mimeapps.list "$PREFIX/share/slopos-i/mimeapps.list"
+install -Dm644 assets/file-manager/actions/set-wallpaper.desktop \
+  "$PREFIX/share/file-manager/actions/set-wallpaper.desktop"
+install -Dm644 assets/applications/slopos-set-wallpaper.desktop \
+  "$PREFIX/share/applications/slopos-set-wallpaper.desktop"
 
 # Install retro wallpapers
 mkdir -p "$PREFIX/share/slopos-i/wallpapers"
