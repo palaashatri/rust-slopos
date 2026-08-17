@@ -265,6 +265,60 @@ fn control_panel_button(panel: &ControlPanel<'_>, parent: &Window) -> Button {
     button
 }
 
+fn get_preset_default_colors(
+    preset: &str,
+) -> (
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+) {
+    match preset {
+        "classic" => ("#000000", "#FFFFFF", "#FFFFFF", "#000000", "#555555"),
+        "graphite" => ("#2B5B84", "#FFFFFF", "#2B2D30", "#F0F0F0", "#202226"),
+        "oled" => ("#000000", "#FFFFFF", "#000000", "#FFFFFF", "#000000"),
+        _ => ("#000080", "#FFFFFF", "#D9D9D9", "#000000", "#758090"),
+    }
+}
+
+fn load_theme_preview_image(name: &str) -> Image {
+    let filename = format!("preview-{name}.png");
+    let mut candidates = Vec::new();
+    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+        candidates.push(
+            PathBuf::from(share_dir.clone())
+                .join("themes")
+                .join(&filename),
+        );
+        candidates.push(
+            PathBuf::from(share_dir)
+                .join("slopos-i/themes")
+                .join(&filename),
+        );
+    }
+    if let Ok(executable) = env::current_exe() {
+        if let Some(prefix) = executable.parent().and_then(std::path::Path::parent) {
+            candidates.push(prefix.join("share/slopos-i/themes").join(&filename));
+            candidates.push(prefix.join("assets/themes").join(&filename));
+        }
+    }
+    candidates.extend([
+        PathBuf::from(format!("assets/themes/{filename}")),
+        PathBuf::from(format!("/usr/local/share/slopos-i/themes/{filename}")),
+        PathBuf::from(format!("/usr/share/slopos-i/themes/{filename}")),
+    ]);
+
+    for path in candidates {
+        if path.is_file() {
+            if let Ok(pixbuf) = Pixbuf::from_file_at_scale(&path, 92, 58, true) {
+                return Image::from_pixbuf(Some(&pixbuf));
+            }
+        }
+    }
+    Image::from_icon_name(Some("preferences-desktop-theme"), IconSize::Dialog)
+}
+
 fn show_appearance_dialog(parent: &Window) {
     let dialog = Dialog::with_buttons(
         Some("Appearance, Colors & Fonts"),
@@ -276,15 +330,15 @@ fn show_appearance_dialog(parent: &Window) {
         ],
     );
     dialog.set_default_response(ResponseType::Accept);
-    dialog.set_default_size(520, 560);
+    dialog.set_default_size(620, 680);
     set_accessible_name(&dialog, "SLOPOS appearance chooser");
 
     let content = dialog.content_area();
-    content.set_spacing(10);
-    content.set_margin_start(16);
-    content.set_margin_end(16);
-    content.set_margin_top(12);
-    content.set_margin_bottom(12);
+    content.set_spacing(4);
+    content.set_margin_start(10);
+    content.set_margin_end(10);
+    content.set_margin_top(6);
+    content.set_margin_bottom(6);
 
     let heading = Label::new(Some("Desktop Appearance & Personalization Studio"));
     heading.set_xalign(0.0);
@@ -292,7 +346,7 @@ fn show_appearance_dialog(parent: &Window) {
     content.pack_start(&heading, false, false, 0);
 
     let explanation = Label::new(Some(
-        "Select an authentic SLOPOS theme or customize global RGB colors and UI typography (Windows XP style).",
+        "Select an authentic SLOPOS theme preset below with live visual preview, or customize individual RGB colors and typography (Windows XP style).",
     ));
     explanation.set_xalign(0.0);
     explanation.set_line_wrap(true);
@@ -303,37 +357,91 @@ fn show_appearance_dialog(parent: &Window) {
 
     let scrolled = ScrolledWindow::new(gtk::Adjustment::NONE, gtk::Adjustment::NONE);
     scrolled.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
-    scrolled.set_min_content_height(380);
+    scrolled.set_min_content_height(530);
 
-    let inner_box = GtkBox::new(Orientation::Vertical, 10);
+    let inner_box = GtkBox::new(Orientation::Vertical, 4);
 
-    // Section 1: Themes
-    let sec1_label = Label::new(Some("Theme Preset:"));
+    // Section 1: Themes with Visual Pictures
+    let theme_header_box = GtkBox::new(Orientation::Horizontal, 8);
+    let sec1_label = Label::new(Some("Theme Presets:"));
     sec1_label.set_xalign(0.0);
     sec1_label.style_context().add_class("slopos-result-title");
-    inner_box.pack_start(&sec1_label, false, false, 0);
+    theme_header_box.pack_start(&sec1_label, true, true, 0);
 
-    let platinum = RadioButton::with_label("Platinum — classic light");
-    let classic =
-        RadioButton::with_label_from_widget(&platinum, "Classic Macintosh — System 6/7 monochrome");
-    let graphite = RadioButton::with_label_from_widget(&platinum, "Graphite — dark");
-    let oled = RadioButton::with_label_from_widget(&platinum, "OLED Dark — pure black contrast");
-    let custom =
-        RadioButton::with_label_from_widget(&platinum, "Custom Colors & Fonts — Personal Studio");
+    let reset_defaults_btn = Button::with_label("Reset Theme Defaults");
+    reset_defaults_btn.set_tooltip_text(Some(
+        "Reset color palette to selected theme preset defaults",
+    ));
+    theme_header_box.pack_end(&reset_defaults_btn, false, false, 0);
+    inner_box.pack_start(&theme_header_box, false, false, 0);
 
-    match current_appearance() {
-        "oled" => oled.set_active(true),
-        "graphite" => graphite.set_active(true),
-        "classic" => classic.set_active(true),
-        "custom" => custom.set_active(true),
-        _ => platinum.set_active(true),
+    let platinum_radio = RadioButton::with_label("Platinum");
+    let classic_radio = RadioButton::with_label_from_widget(&platinum_radio, "Classic Macintosh");
+    let graphite_radio = RadioButton::with_label_from_widget(&platinum_radio, "Graphite");
+    let oled_radio = RadioButton::with_label_from_widget(&platinum_radio, "OLED Dark");
+
+    let preset_cards = [
+        (
+            "platinum",
+            "Platinum — classic light",
+            "Classic Light (System 7)",
+            platinum_radio.clone(),
+        ),
+        (
+            "classic",
+            "Classic Macintosh — System 6/7 monochrome",
+            "System 6/7 Monochrome",
+            classic_radio.clone(),
+        ),
+        (
+            "graphite",
+            "Graphite — dark",
+            "Graphite Dark",
+            graphite_radio.clone(),
+        ),
+        (
+            "oled",
+            "OLED Dark — pure black contrast",
+            "OLED Pure Black",
+            oled_radio.clone(),
+        ),
+    ];
+
+    let presets_grid = Grid::new();
+    presets_grid.set_row_spacing(4);
+    presets_grid.set_column_spacing(6);
+    presets_grid.set_hexpand(true);
+
+    for (idx, (id, title, desc, radio)) in preset_cards.iter().enumerate() {
+        let card = GtkBox::new(Orientation::Horizontal, 6);
+        card.style_context().add_class("slopos-control-panel");
+        card.set_margin_start(1);
+        card.set_margin_end(1);
+        card.set_margin_top(1);
+        card.set_margin_bottom(1);
+
+        let img = load_theme_preview_image(id);
+        card.pack_start(&img, false, false, 0);
+
+        let info_box = GtkBox::new(Orientation::Vertical, 1);
+        info_box.set_valign(gtk::Align::Center);
+        radio.set_label(title);
+        info_box.pack_start(radio, false, false, 0);
+
+        let desc_label = Label::new(Some(*desc));
+        desc_label.set_xalign(0.0);
+        desc_label
+            .style_context()
+            .add_class("slopos-secondary-text");
+        info_box.pack_start(&desc_label, false, false, 0);
+
+        card.pack_start(&info_box, true, true, 0);
+
+        let col = (idx % 2) as i32;
+        let row = (idx / 2) as i32;
+        presets_grid.attach(&card, col, row, 1, 1);
     }
-
-    inner_box.pack_start(&platinum, false, false, 0);
-    inner_box.pack_start(&classic, false, false, 0);
-    inner_box.pack_start(&graphite, false, false, 0);
-    inner_box.pack_start(&oled, false, false, 0);
-    inner_box.pack_start(&custom, false, false, 0);
+    inner_box.pack_start(&presets_grid, false, false, 0);
 
     inner_box.pack_start(&Separator::new(Orientation::Horizontal), false, false, 2);
 
@@ -384,6 +492,73 @@ fn show_appearance_dialog(parent: &Window) {
 
     inner_box.pack_start(&color_grid, false, false, 0);
 
+    // Wire radio buttons to preset defaults
+    let wire_preset = |radio: &RadioButton, preset_id: &'static str| {
+        let accent_c = accent_btn.clone();
+        let sel_text_c = sel_text_btn.clone();
+        let face_c = face_btn.clone();
+        let text_c = text_btn.clone();
+        let root_c = root_btn.clone();
+        radio.connect_toggled(move |btn| {
+            if btn.is_active() {
+                let colors = get_preset_default_colors(preset_id);
+                accent_c.set_rgba(&hex_to_rgba(colors.0));
+                sel_text_c.set_rgba(&hex_to_rgba(colors.1));
+                face_c.set_rgba(&hex_to_rgba(colors.2));
+                text_c.set_rgba(&hex_to_rgba(colors.3));
+                root_c.set_rgba(&hex_to_rgba(colors.4));
+            }
+        });
+    };
+
+    wire_preset(&platinum_radio, "platinum");
+    wire_preset(&classic_radio, "classic");
+    wire_preset(&graphite_radio, "graphite");
+    wire_preset(&oled_radio, "oled");
+
+    // Initial state based on current appearance
+    let cur_app = current_appearance();
+    match cur_app {
+        "oled" => oled_radio.set_active(true),
+        "graphite" => graphite_radio.set_active(true),
+        "classic" => classic_radio.set_active(true),
+        _ => platinum_radio.set_active(true),
+    }
+    let init_colors = get_preset_default_colors(cur_app);
+    accent_btn.set_rgba(&hex_to_rgba(init_colors.0));
+    sel_text_btn.set_rgba(&hex_to_rgba(init_colors.1));
+    face_btn.set_rgba(&hex_to_rgba(init_colors.2));
+    text_btn.set_rgba(&hex_to_rgba(init_colors.3));
+    root_btn.set_rgba(&hex_to_rgba(init_colors.4));
+
+    // Reset Theme Defaults button handler
+    {
+        let clas_c = classic_radio.clone();
+        let grap_c = graphite_radio.clone();
+        let oled_c = oled_radio.clone();
+        let accent_c = accent_btn.clone();
+        let sel_text_c = sel_text_btn.clone();
+        let face_c = face_btn.clone();
+        let text_c = text_btn.clone();
+        let root_c = root_btn.clone();
+        reset_defaults_btn.connect_clicked(move |_| {
+            let colors = if oled_c.is_active() {
+                get_preset_default_colors("oled")
+            } else if grap_c.is_active() {
+                get_preset_default_colors("graphite")
+            } else if clas_c.is_active() {
+                get_preset_default_colors("classic")
+            } else {
+                get_preset_default_colors("platinum")
+            };
+            accent_c.set_rgba(&hex_to_rgba(colors.0));
+            sel_text_c.set_rgba(&hex_to_rgba(colors.1));
+            face_c.set_rgba(&hex_to_rgba(colors.2));
+            text_c.set_rgba(&hex_to_rgba(colors.3));
+            root_c.set_rgba(&hex_to_rgba(colors.4));
+        });
+    }
+
     // Quick Accent Swatches
     let swatch_box = GtkBox::new(Orientation::Horizontal, 4);
     let swatch_label = Label::new(Some("Quick Accents:"));
@@ -406,10 +581,8 @@ fn show_appearance_dialog(parent: &Window) {
         let btn = Button::with_label(name);
         let hex_s = hex.to_string();
         let accent_c = accent_btn.clone();
-        let custom_c = custom.clone();
         btn.connect_clicked(move |_| {
             accent_c.set_rgba(&hex_to_rgba(&hex_s));
-            custom_c.set_active(true);
         });
         swatch_box.pack_start(&btn, false, false, 0);
     }
@@ -467,13 +640,43 @@ fn show_appearance_dialog(parent: &Window) {
             let _ = fs::write(dir.join("font"), format!("{}\n", font_chosen.as_str()));
         }
 
-        if custom.is_active() {
-            let accent_hex = rgba_to_hex(&accent_btn.rgba());
-            let sel_text_hex = rgba_to_hex(&sel_text_btn.rgba());
-            let face_hex = rgba_to_hex(&face_btn.rgba());
-            let text_hex = rgba_to_hex(&text_btn.rgba());
-            let root_hex = rgba_to_hex(&root_btn.rgba());
+        let mode = if oled_radio.is_active() {
+            "oled"
+        } else if graphite_radio.is_active() {
+            "graphite"
+        } else if classic_radio.is_active() {
+            "classic"
+        } else {
+            "platinum"
+        };
+        let def_colors = get_preset_default_colors(mode);
 
+        let accent_hex = rgba_to_hex(&accent_btn.rgba());
+        let sel_text_hex = rgba_to_hex(&sel_text_btn.rgba());
+        let face_hex = rgba_to_hex(&face_btn.rgba());
+        let text_hex = rgba_to_hex(&text_btn.rgba());
+        let root_hex = rgba_to_hex(&root_btn.rgba());
+
+        let colors_match_preset = accent_hex.eq_ignore_ascii_case(def_colors.0)
+            && sel_text_hex.eq_ignore_ascii_case(def_colors.1)
+            && face_hex.eq_ignore_ascii_case(def_colors.2)
+            && text_hex.eq_ignore_ascii_case(def_colors.3)
+            && root_hex.eq_ignore_ascii_case(def_colors.4);
+
+        if colors_match_preset {
+            if let Some(helper) = appearance_helper() {
+                match Command::new(helper).arg(mode).spawn() {
+                    Ok(_) => {
+                        dialog.close();
+                        gtk::main_quit();
+                        return;
+                    }
+                    Err(error) => log::warn!("Failed to switch appearance: {error}"),
+                }
+            } else {
+                log::warn!("slopos-appearance helper is unavailable");
+            }
+        } else {
             if let Some(ref config_home) = config_home {
                 let gtk_dir = config_home.join("gtk-3.0");
                 let _ = fs::create_dir_all(&gtk_dir);
@@ -494,29 +697,6 @@ fn show_appearance_dialog(parent: &Window) {
 
             if let Some(helper) = appearance_helper() {
                 let _ = Command::new(helper).arg("custom").spawn();
-            }
-        } else {
-            let mode = if oled.is_active() {
-                "oled"
-            } else if graphite.is_active() {
-                "graphite"
-            } else if classic.is_active() {
-                "classic"
-            } else {
-                "platinum"
-            };
-
-            if let Some(helper) = appearance_helper() {
-                match Command::new(helper).arg(mode).spawn() {
-                    Ok(_) => {
-                        dialog.close();
-                        gtk::main_quit();
-                        return;
-                    }
-                    Err(error) => log::warn!("Failed to switch appearance: {error}"),
-                }
-            } else {
-                log::warn!("slopos-appearance helper is unavailable");
             }
         }
     }

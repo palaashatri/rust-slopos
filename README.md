@@ -125,7 +125,10 @@ Mature upstream applications + verified AppImages
 4. **OLED Dark (Pure Black `#000000`)**:
    - True deep pitch-black (`#000000`) surfaces across all windows, top bar, and Application Strip dock.
    - Crisp `#3A3C45` borders with vibrant high-contrast `#2563EB` selection accents and pure white typography.
-5. **Windows XP-Style Custom RGB Color & Typography Studio**:
+5. **Windows XP-Style Personalization & Color Studio with Visual Preset Cards**:
+   - 2×2 visual theme preset selector cards with high-fidelity preview thumbnails (`Platinum`, `Classic Macintosh`, `Graphite`, `OLED Dark`).
+   - Seamless direct customization (Windows XP style): selecting any preset loads its canonical defaults into the RGB color pickers, where any color can be customized directly without requiring an artificial "Custom" mode.
+   - "Reset Theme Defaults" button to instantly restore the active preset's canonical palette at any time.
    - Complete RGB color customization for Accent/Selection Color, Selection Text Color, Window & Panel Surface, Main Text Color, and Desktop Background.
    - 8 Quick Accent color swatches (Navy, Azure, Teal, Slate, Purple, Crimson, Forest, Amber).
    - User interface font family and size chooser with system-wide instant application.

@@ -159,6 +159,12 @@ if [[ -d assets/wallpapers ]]; then
   cp -a assets/wallpapers/* "$PREFIX/share/slopos-i/wallpapers/"
 fi
 
+# Install theme preview thumbnails
+mkdir -p "$PREFIX/share/slopos-i/themes"
+if [[ -d assets/themes ]]; then
+  cp -a assets/themes/* "$PREFIX/share/slopos-i/themes/"
+fi
+
 # Recovery defaults are intentionally a tiny user-config reset payload rather
 # than a copy of the whole system share tree. Reset always returns to Platinum.
 mkdir -p "$PREFIX/share/slopos-i/recovery"
