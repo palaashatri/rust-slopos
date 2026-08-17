@@ -14,6 +14,8 @@ REPO_URL="${REPO_URL:-https://github.com/palaashatri/rust-slopos.git}"
 REPO_COMMIT="${REPO_COMMIT:-}"
 HOST_HTTP="${HOST_HTTP:-http://10.0.2.2:8000}"
 GUEST_TARGET_DIR="${CARGO_TARGET_DIR:-/home/$USERNAME/.cache/slopos-i/cargo-target}"
+PREBUILT_DIR="${PREBUILT_DIR:-}"
+QA_PUBLIC_KEY_FILE="${QA_PUBLIC_KEY_FILE:-}"
 
 case "$GUEST_TARGET_DIR" in
   /*) ;;
@@ -35,6 +37,53 @@ fi
 if [[ ! "$REPO_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
   echo "REPO_COMMIT must be a full 40-character commit SHA" >&2
   exit 2
+fi
+
+USE_PREBUILT=0
+if [[ -n "$PREBUILT_DIR" ]]; then
+  case "$PREBUILT_DIR" in
+    /*) ;;
+    *) echo "PREBUILT_DIR must be absolute: $PREBUILT_DIR" >&2; exit 2 ;;
+  esac
+  test -d "$PREBUILT_DIR" || {
+    echo "PREBUILT_DIR does not exist: $PREBUILT_DIR" >&2
+    exit 2
+  }
+  test -s "$PREBUILT_DIR/source-commit" || {
+    echo "PREBUILT_DIR is missing source-commit" >&2
+    exit 2
+  }
+  PREBUILT_COMMIT="$(tr -d '\r\n' < "$PREBUILT_DIR/source-commit")"
+  [[ "$PREBUILT_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]] || {
+    echo "PREBUILT_DIR/source-commit is not a full commit SHA" >&2
+    exit 2
+  }
+  [[ "${PREBUILT_COMMIT,,}" == "${REPO_COMMIT,,}" ]] || {
+    echo "Prebuilt commit $PREBUILT_COMMIT does not match requested $REPO_COMMIT" >&2
+    exit 2
+  }
+  for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+    test -x "$PREBUILT_DIR/$binary" || {
+      echo "PREBUILT_DIR is missing executable $binary" >&2
+      exit 2
+    }
+  done
+  USE_PREBUILT=1
+fi
+
+if [[ -n "$QA_PUBLIC_KEY_FILE" ]]; then
+  case "$QA_PUBLIC_KEY_FILE" in
+    /*) ;;
+    *) echo "QA_PUBLIC_KEY_FILE must be absolute: $QA_PUBLIC_KEY_FILE" >&2; exit 2 ;;
+  esac
+  test -s "$QA_PUBLIC_KEY_FILE" || {
+    echo "QA public key is missing: $QA_PUBLIC_KEY_FILE" >&2
+    exit 2
+  }
+  grep -Eq '^(ssh-ed25519|ecdsa-sha2-[^ ]+|ssh-rsa) [A-Za-z0-9+/=]+' "$QA_PUBLIC_KEY_FILE" || {
+    echo "QA public key has an unsupported format: $QA_PUBLIC_KEY_FILE" >&2
+    exit 2
+  }
 fi
 
 partition_path() {
@@ -68,8 +117,12 @@ mkdir -p /mnt/boot
 mount "$ESP_PART" /mnt/boot
 
 echo "=== install base system, X11 and representative desktop applications ==="
+build_packages=()
+if [[ "$USE_PREBUILT" -eq 0 ]]; then
+  build_packages=(base-devel rust pkgconf)
+fi
 pacstrap -K /mnt \
-  base linux linux-firmware networkmanager sudo git curl base-devel rust pkgconf \
+  base linux linux-firmware networkmanager sudo git curl "${build_packages[@]}" \
   xorg-server xorg-xinit xorg-xrandr xorg-xsetroot xorg-xdpyinfo openbox \
   gtk3 libx11 libxrandr openssl dbus librsvg \
   ttf-dejavu ttf-liberation \
@@ -118,13 +171,35 @@ ExecStart=-/sbin/agetty --noclear --autologin $USERNAME %I \$TERM
 EOF
 CHROOT
 
-if curl -fsS "$HOST_HTTP/qa_key.pub" -o /tmp/slopos-qa-key 2>/dev/null; then
+USER_UID="$(arch-chroot /mnt id -u "$USERNAME")"
+USER_GID="$(arch-chroot /mnt id -g "$USERNAME")"
+
+key_source=""
+if [[ -n "$QA_PUBLIC_KEY_FILE" ]]; then
+  key_source="$QA_PUBLIC_KEY_FILE"
+elif curl -fsS "$HOST_HTTP/qa_key.pub" -o /tmp/slopos-qa-key 2>/dev/null; then
+  if grep -Eq '^(ssh-ed25519|ecdsa-sha2-[^ ]+|ssh-rsa) [A-Za-z0-9+/=]+' /tmp/slopos-qa-key; then
+    key_source=/tmp/slopos-qa-key
+  else
+    echo "WARNING: host-provided QA key has an unsupported format; SSH key provisioning skipped" >&2
+  fi
+fi
+if [[ -n "$key_source" ]]; then
   install -d -m700 "/mnt/home/$USERNAME/.ssh"
-  install -m600 /tmp/slopos-qa-key "/mnt/home/$USERNAME/.ssh/authorized_keys"
-  chown -R 1000:1000 "/mnt/home/$USERNAME/.ssh"
+  install -m600 "$key_source" "/mnt/home/$USERNAME/.ssh/authorized_keys"
+  chown -R "$USER_UID:$USER_GID" "/mnt/home/$USERNAME/.ssh"
 fi
 
-echo "=== clone, pin, build and install current X11 product ==="
+if [[ "$USE_PREBUILT" -eq 1 ]]; then
+  echo "=== stage exact-commit prebuilt release binaries ==="
+  install -d "/mnt$GUEST_TARGET_DIR/release"
+  for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+    install -m755 "$PREBUILT_DIR/$binary" "/mnt$GUEST_TARGET_DIR/release/$binary"
+  done
+  chown -R "$USER_UID:$USER_GID" "/mnt$GUEST_TARGET_DIR"
+fi
+
+echo "=== clone, pin, verify and install current X11 product ==="
 arch-chroot /mnt /bin/bash -euo pipefail <<CHROOT
 runuser -u '$USERNAME' -- bash -lc '
   set -euo pipefail
@@ -137,8 +212,14 @@ runuser -u '$USERNAME' -- bash -lc '
   cd ~/slopos-i
   export CARGO_TARGET_DIR="$GUEST_TARGET_DIR"
   mkdir -p "\$CARGO_TARGET_DIR"
-  cargo build --release --workspace --locked
-  cargo test --release --workspace --locked
+  if [[ "$USE_PREBUILT" == "1" ]]; then
+    for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+      test -x "\$CARGO_TARGET_DIR/release/\$binary"
+    done
+  else
+    cargo build --release --workspace --locked
+    cargo test --release --workspace --locked
+  fi
 '
 cd "/home/$USERNAME/slopos-i"
 CARGO_TARGET_DIR="$GUEST_TARGET_DIR" ./install.sh --no-deps --no-build --distro arch
@@ -155,6 +236,10 @@ fi
 EOF
 chown '$USERNAME:$USERNAME' "/home/$USERNAME/.xinitrc" "/home/$USERNAME/.bash_profile"
 CHROOT
+
+if [[ "$USE_PREBUILT" -eq 1 ]]; then
+  echo "SLOPOS_PREBUILT_INSTALL_STATUS_0=$REPO_COMMIT"
+fi
 
 echo "=== installation complete ==="
 echo "Pinned source commit: $REPO_COMMIT"
