@@ -344,6 +344,7 @@ enum AppKind {
     Calculator,
     ImageViewer,
     DocumentViewer,
+    Game,
     Generic,
 }
 
@@ -407,6 +408,13 @@ fn detect_app_kind(title: &str, wm_class: &str) -> AppKind {
         || lower_title.ends_with(".pdf")
     {
         AppKind::DocumentViewer
+    } else if lower_class.contains("doom")
+        || lower_title.contains("doom")
+        || lower_class.contains("supertux")
+        || lower_title.contains("supertux")
+        || lower_class.contains("game")
+    {
+        AppKind::Game
     } else if title.is_empty() || title == "SLOPOS Desktop" {
         AppKind::Desktop
     } else {
@@ -1115,6 +1123,53 @@ fn build_tailored_menubar(kind: AppKind, window_id: Option<u64>) -> MenuBar {
                                 "About Viewer",
                                 "High-performance document and image viewer for SLOPOS-I.",
                             );
+                        })),
+                    ),
+                ],
+            );
+        }
+        AppKind::Game => {
+            add_menu_section(
+                &bar,
+                "Game",
+                vec![
+                    ("New Game", Some(send_key_action(window_id, "F2"))),
+                    ("Save Game", Some(send_key_action(window_id, "F6"))),
+                    ("Load Game", Some(send_key_action(window_id, "F9"))),
+                    ("---", None),
+                    ("End Game", Some(send_key_action(window_id, "F7"))),
+                    ("Quit Game", Some(send_key_action(window_id, "F10"))),
+                ],
+            );
+            add_menu_section(
+                &bar,
+                "Options",
+                vec![
+                    ("Sound Volume", Some(send_key_action(window_id, "F4"))),
+                    ("Controls", Some(send_key_action(window_id, "F3"))),
+                ],
+            );
+            add_menu_section(
+                &bar,
+                "View",
+                vec![
+                    (
+                        "Full Screen",
+                        Some(send_key_action(window_id, "Alt+Return")),
+                    ),
+                    ("Detail Level", Some(send_key_action(window_id, "F5"))),
+                    ("Automap", Some(send_key_action(window_id, "Tab"))),
+                ],
+            );
+            add_menu_section(
+                &bar,
+                "Help",
+                vec![
+                    ("Help", Some(send_key_action(window_id, "F1"))),
+                    (
+                        "About Game",
+                        Some(Box::new(|| {
+                            show_message("About Game", "Native X11 game running under SLOPOS-I.");
                         })),
                     ),
                 ],

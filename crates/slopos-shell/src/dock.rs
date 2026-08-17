@@ -153,8 +153,16 @@ impl Dock {
             &dock_box,
             "game.svg",
             "applications-games-symbolic",
-            "SuperTux",
+            "Games",
             &[
+                LaunchSpec {
+                    program: "chocolate-doom",
+                    args: &[],
+                },
+                LaunchSpec {
+                    program: "doom",
+                    args: &[],
+                },
                 LaunchSpec {
                     program: "supertux2",
                     args: &[],

@@ -44,6 +44,12 @@ if ! command -v firefox >/dev/null 2>&1 && ! command -v firefox-esr >/dev/null 2
   fi
 fi
 
+if ! command -v chocolate-doom >/dev/null 2>&1 && ! command -v doom >/dev/null 2>&1; then
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get update -qq && apt-get install -y -qq chocolate-doom freedoom >/dev/null 2>&1 || true
+  fi
+fi
+
 # Set up user theme and icon assets
 mkdir -p "$HOME/.themes/slopos-openbox/openbox-3" "$HOME/.themes/slopos-openbox-classic/openbox-3" "$HOME/.themes/slopos-openbox-graphite/openbox-3"
 cp "$REPO_ROOT/themes/slopos-openbox/openbox-3/themerc" "$HOME/.themes/slopos-openbox/openbox-3/themerc"
@@ -248,6 +254,33 @@ EOF
     capture_screen "23_web_browser_firefox_1280x800.png"
   fi
   kill "$FF_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
+# 24. Game (Chocolate Doom + Freedoom Phase 2)
+if command -v chocolate-doom >/dev/null 2>&1 || command -v doom >/dev/null 2>&1 || [[ -x /usr/games/chocolate-doom ]]; then
+  DOOM_BIN="$(command -v chocolate-doom 2>/dev/null || command -v doom 2>/dev/null || printf '%s' /usr/games/chocolate-doom)"
+  IWAD=""
+  for candidate_wad in /usr/share/games/doom/freedoom2.wad /usr/share/games/doom/freedoom1.wad /usr/share/doom/freedoom2.wad; do
+    if [[ -f "$candidate_wad" ]]; then
+      IWAD="$candidate_wad"
+      break
+    fi
+  done
+  doom_args=("-window" "-geometry" "640x480" "-nosound" "-nomusic")
+  if [[ -n "$IWAD" ]]; then
+    doom_args+=("-iwad" "$IWAD")
+  fi
+  "$DOOM_BIN" "${doom_args[@]}" >/dev/null 2>&1 &
+  DOOM_PID=$!
+  sleep 4
+  DOOM_WIN="$(xdotool search --onlyvisible --class "chocolate-doom" | tail -n 1 || xdotool search --onlyvisible --name ".*Doom.*" | tail -n 1 || true)"
+  if [[ -n "$DOOM_WIN" ]]; then
+    xdotool windowactivate --sync "$DOOM_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "24_game_doom_freedoom_1280x800.png"
+  fi
+  kill "$DOOM_PID" 2>/dev/null || true
   sleep 0.5
 fi
 

@@ -85,9 +85,9 @@ Mature upstream applications + verified AppImages
 |:---:|:---:|
 | ![Xfce4 Terminal](docs/screenshots/09_terminal_xfce4_1280x800.png) | ![Mozilla Firefox](docs/screenshots/23_web_browser_firefox_1280x800.png) |
 
-| Multi-Window Focus & Stacking (Openbox) | Multi-Window Workspace (1920×1080) |
+| Classic Doom (Freedoom Phase 2 & Game Menu) | Multi-Window Focus & Stacking (Openbox) |
 |:---:|:---:|
-| ![Multi-Window Focus](docs/screenshots/07_multi_window_focus_1280x800.png) | ![Multi-Window Workspace](docs/screenshots/16_workspace_multi_window_1920x1080.png) |
+| ![Classic Doom](docs/screenshots/24_game_doom_freedoom_1280x800.png) | ![Multi-Window Focus](docs/screenshots/07_multi_window_focus_1280x800.png) |
 
 - **Openbox Window Manager**: True stacking and floating window manager supporting 4 virtual workspaces, predictable click-to-focus, `Alt+Tab` window cycling, and crisp Platinum/Classic borders.
 - **Universal Global Menubar Integration**:
