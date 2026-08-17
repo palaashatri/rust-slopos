@@ -2,7 +2,7 @@ name: Debian Package QA
 
 on:
   push:
-    branches: [pivot]
+    branches: [main, pivot]
     paths:
       - '.github/workflows/debian-package.yml'
       - 'Cargo.toml'

@@ -2,7 +2,7 @@ name: Recovery QA
 
 on:
   push:
-    branches: [pivot]
+    branches: [main, pivot]
     paths:
       - '.github/workflows/recovery.yml'
       - 'scripts/run-recovery-qa.sh'
