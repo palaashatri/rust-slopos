@@ -2,7 +2,7 @@ name: Hardware QA Contract
 
 on:
   push:
-    branches: [pivot]
+    branches: [main]
     paths:
       - '.github/workflows/hardware-qa-contract.yml'
       - 'scripts/run-hardware-qa.sh'

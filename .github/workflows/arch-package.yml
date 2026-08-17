@@ -2,7 +2,7 @@ name: Arch Package QA
 
 on:
   push:
-    branches: [main, pivot]
+    branches: [main]
     paths:
       - '.github/workflows/arch-package.yml'
       - 'Cargo.toml'
@@ -55,7 +55,7 @@ jobs:
 
               rm -rf /tmp/slopos-package-src.git /tmp/slopos-pkg
               git clone --bare /workspace /tmp/slopos-package-src.git
-              test "$(git --git-dir=/tmp/slopos-package-src.git rev-parse refs/heads/pivot)" = "$SOURCE_SHA"
+              test "$(git --git-dir=/tmp/slopos-package-src.git rev-parse refs/heads/main)" = "$SOURCE_SHA"
               git config --global protocol.file.allow always
 
               mkdir -p /tmp/slopos-pkg
@@ -63,7 +63,7 @@ jobs:
               sed -i \
                 "s#rust-slopos::git+https://github.com/palaashatri/rust-slopos.git#rust-slopos::git+file:///tmp/slopos-package-src.git#" \
                 /tmp/slopos-pkg/PKGBUILD
-              grep -Fq "git+file:///tmp/slopos-package-src.git#branch=pivot" /tmp/slopos-pkg/PKGBUILD
+              grep -Fq "git+file:///tmp/slopos-package-src.git#branch=main" /tmp/slopos-pkg/PKGBUILD
 
               useradd -m builder
               chown -R builder:builder /tmp/slopos-pkg /tmp/slopos-package-src.git

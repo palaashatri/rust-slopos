@@ -2,7 +2,7 @@ name: Installed VM QA
 
 on:
   push:
-    branches: [pivot]
+    branches: [main]
     paths:
       - '.github/workflows/installed-vm.yml'
       - 'packaging/vm/**'

@@ -18,7 +18,7 @@ optdepends=('firefox: web browser' 'lightdm: graphical display manager')
 provides=('slopos-i')
 conflicts=('slopos-i')
 options=(!debug)
-source=('rust-slopos::git+https://github.com/palaashatri/rust-slopos.git#branch=pivot')
+source=('rust-slopos::git+https://github.com/palaashatri/rust-slopos.git#branch=main')
 sha256sums=('SKIP')
 
 pkgver() {

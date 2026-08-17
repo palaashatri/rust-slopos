@@ -1,7 +1,7 @@
 # TRUTH.md — SLOPOS-I Factual Audit & Readiness Ledger
 
 **Audit date:** 2026-08-17  
-**Branch:** `pivot`  
+**Branch:** `main`  
 **Current code-evidence anchor:** `d8a2f9f769228be1e39a5b5c06d504d4a108ce5e`  
 **QA Contract:** SLOPOS-I Docker-Validated Product Readiness (AGENTS.md Section 12 & 16)  
 **Overall Readiness Score:** **100 / 100**
