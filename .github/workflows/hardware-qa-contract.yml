@@ -46,13 +46,25 @@ jobs:
           from pathlib import Path
           text = Path('scripts/run-hardware-qa.sh').read_text()
           checks = {
-              'audio mutation': ('if [[ "$MUTATE_AUDIO" == 1 ]]', 'pactl set-sink-mute'),
-              'bluetooth mutation': ('if [[ "$MUTATE_BLUETOOTH" == 1 ]]', 'bluetoothctl power'),
-              'suspend': ('if [[ "$SUSPEND_RESUME" == 1 ]]', 'systemctl suspend'),
+              'audio mutation': (
+                  'if [[ "$MUTATE_AUDIO" == 1 ]]',
+                  'pactl set-sink-mute "$default_sink" "$target_mute"',
+              ),
+              'bluetooth mutation': (
+                  'if [[ "$MUTATE_BLUETOOTH" == 1 ]]',
+                  'bluetoothctl power "$target_power"',
+              ),
+              'suspend': (
+                  'if [[ "$SUSPEND_RESUME" == 1 ]]',
+                  'systemctl suspend',
+              ),
           }
           for name, (guard, operation) in checks.items():
-              g = text.find(guard)
-              o = text.find(operation)
-              assert g >= 0, f'missing {name} opt-in guard'
-              assert o > g, f'{name} operation appears before its opt-in guard'
+              guard_pos = text.find(guard)
+              assert guard_pos >= 0, f'missing {name} opt-in guard'
+              operation_pos = text.find(operation, guard_pos)
+              assert operation_pos > guard_pos, f'{name} operation is not below its opt-in guard'
+          assert 'audio_restore_pending=1' in text
+          assert 'bluetooth_restore_pending=1' in text
+          assert 'trap cleanup EXIT' in text
           PY
