@@ -114,6 +114,30 @@ capture_screen "05_modal_about_dialog_1280x800.png"
 xdotool key Return
 sleep 0.3
 
+# 17. Modal Dialog (Shut Down)
+pkill -USR2 -x slopos-shell
+sleep 0.3
+xdotool key Up Return
+for _ in $(seq 1 40); do
+  if xdotool search --onlyvisible --name '^Shut Down$' >/dev/null 2>&1; then break; fi
+  sleep 0.1
+done
+capture_screen "17_modal_shutdown_dialog_1280x800.png"
+xdotool key Escape
+sleep 0.3
+
+# 18. Modal Dialog (Switch User)
+pkill -USR2 -x slopos-shell
+sleep 0.3
+xdotool key Down Down Down Down Down Down Return
+for _ in $(seq 1 40); do
+  if xdotool search --onlyvisible --name '^Switch User$' >/dev/null 2>&1; then break; fi
+  sleep 0.1
+done
+capture_screen "18_modal_switch_user_dialog_1280x800.png"
+xdotool key Escape
+sleep 0.3
+
 # 3. Search Palette Open
 pkill -USR1 -x slopos-shell
 for _ in $(seq 1 40); do

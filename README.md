@@ -24,6 +24,12 @@ SLOPOS-I has achieved **100/100 Docker-validated product readiness** in [`TRUTH.
 |:---:|:---:|
 | ![Desktop Notification](docs/screenshots/04_notification_1280x800.png) | ![About SLOPOS-I](docs/screenshots/05_modal_about_dialog_1280x800.png) |
 
+### Session Controls & Multi-User Management
+
+| Shut Down Confirmation Dialog | Switch User Confirmation Dialog |
+|:---:|:---:|
+| ![Shut Down Dialog](docs/screenshots/17_modal_shutdown_dialog_1280x800.png) | ![Switch User Dialog](docs/screenshots/18_modal_switch_user_dialog_1280x800.png) |
+
 ### Window Management & Upstream Application Integration
 
 | Native GTK Global Menus (Mousepad) | Multi-Window Focus & Stacking (Openbox) |
