@@ -1,5 +1,5 @@
-# SLOPOS-I Graphite GTK2 Theme — Sleek Dark Charcoal
-gtk-color-scheme = "fg_color:#F0F0F0\nbg_color:#2B2D30\nbase_color:#1E1F22\ntext_color:#F0F0F0\nselected_bg_color:#2B5B84\nselected_fg_color:#FFFFFF\ntooltip_bg_color:#1E1F22\ntooltip_fg_color:#F0F0F0"
+# SLOPOS-I Graphite GTK2 Theme — Sleek Dark Charcoal with Black Borders
+gtk-color-scheme = "fg_color:#F0F0F0\nbg_color:#2B2D30\nbase_color:#1E1F22\ntext_color:#F0F0F0\nselected_bg_color:#627DBA\nselected_fg_color:#FFFFFF\ntooltip_bg_color:#1E1F22\ntooltip_fg_color:#F0F0F0"
 
 style "default" {
   xthickness = 2
@@ -21,7 +21,7 @@ style "default" {
   fg[PRELIGHT]      = @fg_color
   fg[ACTIVE]        = @fg_color
   fg[SELECTED]      = @selected_fg_color
-  fg[INSENSITIVE]   = "#777777"
+  fg[INSENSITIVE]   = "#858890"
 
   bg[NORMAL]        = @bg_color
   bg[PRELIGHT]      = "#3A3D42"
@@ -39,14 +39,14 @@ style "default" {
   text[PRELIGHT]    = @text_color
   text[ACTIVE]      = @selected_fg_color
   text[SELECTED]    = @selected_fg_color
-  text[INSENSITIVE] = "#777777"
+  text[INSENSITIVE] = "#858890"
 }
 
 style "menu" {
   xthickness = 3
   ythickness = 3
-  bg[NORMAL] = "#25272B"
-  bg[INSENSITIVE] = "#25272B"
+  bg[NORMAL] = "#24262A"
+  bg[INSENSITIVE] = "#24262A"
 }
 
 style "menu_item" {

@@ -275,9 +275,9 @@ fn get_preset_default_colors(
     &'static str,
 ) {
     match preset {
-        "classic" => ("#000000", "#FFFFFF", "#FFFFFF", "#000000", "#555555"),
-        "graphite" => ("#2B5B84", "#FFFFFF", "#2B2D30", "#F0F0F0", "#202226"),
-        "oled" => ("#000000", "#FFFFFF", "#000000", "#FFFFFF", "#000000"),
+        "classic" => ("#000000", "#FFFFFF", "#FFFFFF", "#000000", "#808080"),
+        "graphite" => ("#627DBA", "#FFFFFF", "#2B2D31", "#F0F0F0", "#202226"),
+        "oled" => ("#2563EB", "#FFFFFF", "#000000", "#FFFFFF", "#000000"),
         _ => ("#000080", "#FFFFFF", "#D9D9D9", "#000000", "#758090"),
     }
 }

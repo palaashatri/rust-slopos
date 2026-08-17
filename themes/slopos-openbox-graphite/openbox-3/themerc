@@ -1,9 +1,9 @@
-# SLOPOS Graphite Openbox theme
+# SLOPOS Graphite Openbox theme with Crisp Black Borders
 padding.width: 3
 padding.height: 3
 border.width: 1
-window.active.border.color: #050506
-window.inactive.border.color: #202226
+window.active.border.color: #000000
+window.inactive.border.color: #000000
 window.active.title.bg: flat gradient vertical
 window.active.title.bg.color: #51545B
 window.active.title.bg.colorTo: #303238
@@ -13,7 +13,7 @@ window.active.label.text.font: shadow=off
 window.inactive.title.bg: flat solid
 window.inactive.title.bg.color: #292B30
 window.inactive.label.bg: parentrelative
-window.inactive.label.text.color: #A9ABB1
+window.inactive.label.text.color: #8C8F96
 window.active.button.unpressed.bg: raised solid
 window.active.button.unpressed.bg.color: #44474E
 window.active.button.pressed.bg: sunken solid
@@ -22,8 +22,16 @@ window.active.button.unpressed.image.color: #F0F0F0
 window.active.button.pressed.image.color: #FFFFFF
 window.inactive.button.unpressed.bg: flat solid
 window.inactive.button.unpressed.bg.color: #292B30
-window.inactive.button.unpressed.image.color: #8C8F96
-menu.border.color: #050506
+window.inactive.button.unpressed.image.color: #6C6F76
+window.active.handle.bg: flat solid
+window.active.handle.bg.color: #000000
+window.inactive.handle.bg: flat solid
+window.inactive.handle.bg.color: #000000
+window.active.grip.bg: flat solid
+window.active.grip.bg.color: #000000
+window.inactive.grip.bg: flat solid
+window.inactive.grip.bg.color: #000000
+menu.border.color: #000000
 menu.border.width: 2
 menu.title.bg: flat gradient vertical
 menu.title.bg.color: #4B4E55
@@ -32,7 +40,7 @@ menu.title.text.color: #F4F4F4
 menu.items.bg: flat solid
 menu.items.bg.color: #24262A
 menu.items.text.color: #F0F0F0
-menu.items.disabled.text.color: #A9ABB1
+menu.items.disabled.text.color: #858890
 menu.items.active.bg: flat solid
 menu.items.active.bg.color: #627DBA
 menu.items.active.text.color: #FFFFFF
