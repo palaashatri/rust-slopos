@@ -103,8 +103,10 @@ OVMF_VARS="${ovmf[1]}"
 cp "$OVMF_VARS" "$VARS_COPY"
 
 ACCEL=tcg
+CPU_MODEL=max
 if [[ -c /dev/kvm && -r /dev/kvm && -w /dev/kvm ]] && qemu-system-x86_64 -accel help 2>/dev/null | grep -qx kvm; then
   ACCEL=kvm
+  CPU_MODEL=host
 fi
 
 cleanup() {
@@ -135,6 +137,7 @@ trap cleanup EXIT
 printf '%s\n' "$REPO_COMMIT" > "$OUTPUT_DIR/source-commit"
 sha256sum "$AUTOINSTALL_ISO" | tee "$OUTPUT_DIR/autoinstall-iso.sha256"
 echo "QEMU_ACCEL=$ACCEL" | tee "$OUTPUT_DIR/qemu-environment.txt"
+echo "QEMU_CPU_MODEL=$CPU_MODEL" | tee -a "$OUTPUT_DIR/qemu-environment.txt"
 echo "QEMU_OVMF_CODE=$OVMF_CODE" | tee -a "$OUTPUT_DIR/qemu-environment.txt"
 echo "QEMU_MEMORY_MB=$VM_MEMORY_MB" | tee -a "$OUTPUT_DIR/qemu-environment.txt"
 echo "QEMU_CPUS=$VM_CPUS" | tee -a "$OUTPUT_DIR/qemu-environment.txt"
@@ -147,7 +150,7 @@ qemu-system-x86_64 \
   -name slopos-installed-qa \
   -machine q35 \
   -accel "$ACCEL" \
-  -cpu max \
+  -cpu "$CPU_MODEL" \
   -m "$VM_MEMORY_MB" \
   -smp "$VM_CPUS" \
   -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
