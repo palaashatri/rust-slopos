@@ -71,6 +71,7 @@ jobs:
             archlinux:base-devel \
             bash -lc '
               set -euo pipefail
+              git config --global --add safe.directory /workspace
               pacman -Syu --noconfirm --needed \
                 archiso rsync git rust pkgconf gtk3 gdk-pixbuf2 libx11 libxrandr openssl dbus
               REPO_COMMIT="$REPO_COMMIT" \
