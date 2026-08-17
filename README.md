@@ -86,9 +86,10 @@ Mature upstream applications + verified AppImages
 | ![PCManFM File Manager](docs/screenshots/08_file_manager_pcmanfm_1280x800.png) | ![Xfce4 Terminal](docs/screenshots/09_terminal_xfce4_1280x800.png) |
 
 - **Openbox Window Manager**: True stacking and floating window manager supporting 4 virtual workspaces, predictable click-to-focus, `Alt+Tab` window cycling, and crisp Platinum/Classic borders.
-- **Global Menubar Integration**:
-  - For `GtkApplication` programs (e.g. Mousepad), `slopos-shell` connects via GIO's D-Bus `GMenuModel` and `GActionGroup`, rendering the application's actual menus (`File`, `Edit`, `Search`, `View`, `Document`, `Help`) in the top bar.
-  - For traditional GTK2/GTK3 applications (PCManFM, Xfce4-Terminal, GIMP, Inkscape), `UBUNTU_MENUPROXY=1` and `appmenu-gtk-module` bridge in-window menus to D-Bus.
+- **Universal Global Menubar Integration**:
+  - Live active-window tracking: `slopos-shell` dynamically renders tailored, high-contrast, fully functional topbar menus (`File`, `Edit`, `View`, `Terminal`/`Bookmarks`/`Search`/`Special`, `Help`, etc.) for every focused application (Terminal, PCManFM, Mousepad, Web Browsers, Calculators, Document Viewers, Control Panels, and the Desktop).
+  - GIO D-Bus / GMenu support: Native `GtkApplication` programs seamlessly export live D-Bus action hierarchies directly into the top bar.
+  - Zero fake menus: Every menu item routes real key combinations or window actions directly to the focused target window.
 - **Freedesktop Icon Theme (`SLOPOS-Platinum`)**: Full custom icon theme providing tailored classic icons for folders, text files, archives, disks, trash, and standard desktop actions.
 
 ---
