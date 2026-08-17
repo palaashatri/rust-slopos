@@ -223,6 +223,10 @@ fn install_system_menu_signal_bridge(button: &Button, menu: &Menu) {
                 gdk::Gravity::NorthWest,
                 None,
             );
+            // A keyboard-opened classic menu must immediately own a current
+            // item so Return works without a pointer or an extra Down press.
+            menu.select_first(true);
+            log::info!("SLOPOS_SYSTEM_MENU_KEYBOARD_OPENED");
         }
         glib::ControlFlow::Continue
     });
