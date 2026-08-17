@@ -122,9 +122,13 @@ Mature upstream applications + verified AppImages
 |:---:|:---:|
 | ![Classic Mac Desktop](docs/screenshots/19_classic_mac_desktop_1280x800.png) | ![Classic System Menu](docs/screenshots/20_classic_mac_system_menu_1280x800.png) |
 
-| Classic Modal Dialog (Thick Default Button Ring) | Graphite Dark Appearance |
+| Classic Modal Dialog (Thick Default Button Ring) | Platinum About Dialog (Canonical 3D Bevels) |
 |:---:|:---:|
-| ![Classic About Modal](docs/screenshots/21_classic_mac_about_dialog_1280x800.png) | ![Graphite Dark Theme](docs/screenshots/12_graphite_dark_desktop_1280x800.png) |
+| ![Classic About Modal](docs/screenshots/21_classic_mac_about_dialog_1280x800.png) | ![Platinum About Modal](docs/screenshots/05_modal_about_dialog_1280x800.png) |
+
+| Graphite Dark Desktop Appearance | Graphite Settings Presentation |
+|:---:|:---:|
+| ![Graphite Dark Theme](docs/screenshots/12_graphite_dark_desktop_1280x800.png) | ![Graphite Settings](docs/screenshots/13_graphite_settings_1280x800.png) |
 
 1. **Classic Macintosh (System 6/7)**:
    - Iconic 6-stripe horizontal pinstripe titlebars with centered white cutout title box.
@@ -147,9 +151,9 @@ Mature upstream applications + verified AppImages
 |:---:|:---:|
 | ![Ultrawide Display](docs/screenshots/14_ultrawide_desktop_3440x1440.png) | ![HiDPI Scale 2x](docs/screenshots/15_hidpi_scale2_2560x1600.png) |
 
-| Multi-Window Stacking Workspace State (1920×1080) | About SLOPOS-I Modal Dialog (1280×800) |
+| Multi-Window Stacking Workspace State (1920×1080) | Standard Resolution Baseline (1280×800) |
 |:---:|:---:|
-| ![Multi-Window Workspace](docs/screenshots/16_workspace_multi_window_1920x1080.png) | ![About SLOPOS-I](docs/screenshots/05_modal_about_dialog_1280x800.png) |
+| ![Multi-Window Workspace](docs/screenshots/16_workspace_multi_window_1920x1080.png) | ![Standard Baseline](docs/screenshots/01_clean_desktop_platinum_1280x800.png) |
 
 - **Geometry Adaptability**: Seamless execution across display resolutions from 1280×800 and 1366×768 up to 3440×1440 Ultrawide, 3840×2160 4K, and 5120×2880 5K without clipped widgets or hardcoded coordinates.
 - **HiDPI Support**: Full integer scaling (`GDK_SCALE=2`) with crisp typography and properly scaled bevels.
