@@ -210,7 +210,10 @@ impl TopBar {
 
 fn install_system_menu_signal_bridge(button: &Button, menu: &Menu) {
     unsafe {
-        libc::signal(libc::SIGUSR2, system_menu_signal_handler as *const () as usize);
+        libc::signal(
+            libc::SIGUSR2,
+            system_menu_signal_handler as *const () as usize,
+        );
     }
 
     let button = button.clone();
