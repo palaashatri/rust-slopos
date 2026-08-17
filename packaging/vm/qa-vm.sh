@@ -12,7 +12,7 @@ step() { printf '\n=== [%s] %s ===\n' "$(date +%H:%M:%S)" "$*"; }
 fail() { echo "ERROR: $*" >&2; exit 1; }
 
 step "installed release assets"
-for binary in slopos-session slopos-shell slopos-catalogue slopos-settings start-slopos-i; do
+for binary in slopos-session slopos-shell slopos-catalogue slopos-settings start-slopos-i slopos-recovery; do
   command -v "$binary" >/dev/null 2>&1 || fail "$binary is not installed"
 done
 session_asset=""
@@ -29,10 +29,15 @@ for asset in \
   /usr/local/share/slopos-i/openbox/rc.xml \
   /usr/local/share/slopos-i/mimeapps.list \
   /usr/local/share/slopos-i/slopos-logo.png \
+  /usr/local/share/slopos-i/recovery/appearance \
+  /usr/local/share/slopos-i/recovery/openbox/rc.xml \
+  /usr/local/share/slopos-i/recovery/openbox/menu.xml \
   /usr/local/share/themes/slopos-openbox/openbox-3/themerc \
   /usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css; do
   test -s "$asset" || fail "missing installed asset: $asset"
 done
+grep -Fqx platinum /usr/local/share/slopos-i/recovery/appearance ||
+  fail "installed recovery default does not reset to Platinum"
 for obsolete_session in \
   /usr/share/wayland-sessions/slopos-i.desktop \
   /usr/local/share/wayland-sessions/slopos-i.desktop; do
@@ -83,9 +88,6 @@ echo "screen=${screen_width}x${screen_height}"
 # Record the active mode's refresh-rate token when the X11 driver exposes it.
 # This is diagnostic evidence only; it does not claim physical high-refresh or
 # VRR support, which requires a real monitor and GPU-backed run.
-# Use awk for the mode walk instead of nested sed ranges.  GNU sed rejects
-# the nested-brace form used by older versions, which would silently turn a
-# real active mode into an "unknown" refresh diagnostic.
 current_mode_line="$(awk '
   / connected / && !seen { in_output=1; seen=1; next }
   in_output && /^[^[:space:]]/ { exit }
@@ -93,10 +95,6 @@ current_mode_line="$(awk '
 ' <<<"$XRANDR_CURRENT")"
 refresh_token="$(grep -oE '[0-9]+([.][0-9]+)?\*' <<<"$current_mode_line" | head -1 | tr -d '*' || true)"
 echo "X11_ACTIVE_REFRESH_HZ=${refresh_token:-unknown}"
-# Keep the full rate list as diagnostic evidence too.  A real XRandR driver
-# may advertise several modes on the connected output; recording them makes a
-# later high-refresh review reproducible without pretending that Xvfb or a VM
-# proves physical panel timing, VRR, or GPU bandwidth.
 available_refresh_hz="$(awk '
   / connected / && !seen { in_output=1; seen=1; next }
   in_output && /^[^[:space:]]/ { exit }
@@ -147,10 +145,10 @@ fi
 step "settings and catalogue windows"
 slopos-settings >"$QA/settings.log" 2>&1 & SETTINGS_PID=$!
 slopos-catalogue >"$QA/catalogue.log" 2>&1 & CATALOGUE_PID=$!
-cleanup() {
+cleanup_apps() {
   kill "${SETTINGS_PID:-}" "${CATALOGUE_PID:-}" 2>/dev/null || true
 }
-trap cleanup EXIT
+trap cleanup_apps EXIT
 for _ in $(seq 1 40); do
   xdotool search --onlyvisible --name '^System Settings$' >/dev/null 2>&1 && break
   sleep 0.1
@@ -166,6 +164,53 @@ step "capture VM evidence"
 command -v scrot >/dev/null 2>&1 || fail "scrot is required for VM evidence"
 scrot -z "$QA/installed-session-${screen_width}x${screen_height}.png"
 test -s "$QA/installed-session-${screen_width}x${screen_height}.png" || fail "VM screenshot is missing or empty"
+
+# Close ordinary application windows before intentionally restarting shell
+# infrastructure so recovery failures cannot be hidden behind unrelated apps.
+cleanup_apps
+wait "${SETTINGS_PID:-}" 2>/dev/null || true
+wait "${CATALOGUE_PID:-}" 2>/dev/null || true
+SETTINGS_PID=""
+CATALOGUE_PID=""
+trap - EXIT
+
+step "installed configuration recovery"
+recovery_backup="$QA/recovery-backup"
+rm -rf "$recovery_backup"
+mkdir -p "$HOME/.config/slopos-i"
+printf '%s\n' graphite >"$HOME/.config/slopos-i/appearance"
+printf '%s\n' preserve-installed-user-state >"$HOME/.config/slopos-i/qa-user-marker"
+supervisor_before="$(pgrep -xo slopos-session)"
+wm_before="$(pgrep -xo openbox)"
+shell_before="$(pgrep -xo slopos-shell)"
+test -n "$supervisor_before" && test -n "$wm_before" && test -n "$shell_before" ||
+  fail "cannot capture pre-recovery process identities"
+SLOPOS_RECOVERY_BACKUP_DIR="$recovery_backup" slopos-recovery | tee "$QA/recovery.log"
+grep -Fqx 'SLOPOS_RECOVERY_STATUS_0' "$QA/recovery.log" || fail "installed recovery marker missing"
+supervisor_after="$(pgrep -xo slopos-session)"
+wm_after="$(pgrep -xo openbox)"
+shell_after="$(pgrep -xo slopos-shell)"
+test "$supervisor_after" = "$supervisor_before" || fail "installed recovery replaced the healthy session supervisor"
+test "$wm_after" != "$wm_before" || fail "installed recovery did not replace Openbox"
+test "$shell_after" != "$shell_before" || fail "installed recovery did not replace the shell"
+test "$(pgrep -xc slopos-session)" -eq 1 || fail "installed recovery created duplicate supervisors"
+test "$(pgrep -xc openbox)" -eq 1 || fail "installed recovery created duplicate Openbox processes"
+test "$(pgrep -xc slopos-shell)" -eq 1 || fail "installed recovery created duplicate shells"
+grep -Fqx graphite "$recovery_backup/slopos-i/appearance" || fail "recovery did not preserve previous appearance"
+grep -Fqx preserve-installed-user-state "$recovery_backup/slopos-i/qa-user-marker" || fail "recovery did not preserve user config"
+grep -Fqx platinum "$HOME/.config/slopos-i/appearance" || fail "recovery did not stage Platinum reset state"
+for _ in $(seq 1 80); do
+  if xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null 2>&1 \
+     && xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.1
+done
+xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null || fail "top bar did not recover"
+xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null || fail "application strip did not recover"
+scrot -z "$QA/installed-recovered-${screen_width}x${screen_height}.png"
+test -s "$QA/installed-recovered-${screen_width}x${screen_height}.png" || fail "recovery screenshot is missing or empty"
+echo "INSTALLED_RECOVERY_STATUS_0"
 
 step "source/install contract"
 source_root="${SLOPOS_SOURCE_ROOT:-$HOME/slopos-i}"
@@ -194,6 +239,7 @@ shipping_files=(
   install.sh
   scripts/start-slopos-i
   scripts/install-session-files.sh
+  scripts/slopos-recovery.sh
   packaging/slopos-i.desktop
   packaging/slopos-browser.desktop
   packaging/arch/PKGBUILD
