@@ -385,16 +385,42 @@ fn current_appearance() -> &'static str {
 fn load_css_theme() {
     let appearance = current_appearance();
     let installed_theme = match appearance {
+        "oled" => "slopos-gtk-oled",
         "graphite" => "slopos-gtk-graphite",
         "classic" => "slopos-gtk-classic",
         _ => "slopos-gtk",
     };
     let source_css = match appearance {
+        "oled" => "assets/config/gtk-3.0/gtk-oled.css",
         "graphite" => "assets/config/gtk-3.0/gtk-graphite.css",
         "classic" => "assets/config/gtk-3.0/gtk-classic.css",
         _ => "assets/config/gtk-3.0/gtk.css",
     };
     let mut css_paths = Vec::new();
+    let config_home = env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+    if let Some(ref config_home) = config_home {
+        let app_user_css = match appearance {
+            "oled" => config_home.join("gtk-3.0/gtk-oled.css"),
+            "graphite" => config_home.join("gtk-3.0/gtk-graphite.css"),
+            "classic" => config_home.join("gtk-3.0/gtk-classic.css"),
+            _ => config_home.join("gtk-3.0/gtk.css"),
+        };
+        if app_user_css.exists() {
+            css_paths.push(app_user_css);
+        }
+    }
+    css_paths.extend([
+        PathBuf::from(format!(
+            "/usr/share/themes/{installed_theme}/gtk-3.0/gtk.css"
+        )),
+        PathBuf::from(format!(
+            "/usr/local/share/themes/{installed_theme}/gtk-3.0/gtk.css"
+        )),
+        PathBuf::from(source_css),
+        PathBuf::from(format!("/etc/slopos-i/gtk-3.0/{installed_theme}.css")),
+    ]);
     if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
         css_paths.push(
             PathBuf::from(share_dir)
@@ -403,15 +429,6 @@ fn load_css_theme() {
                 .join("gtk-3.0/gtk.css"),
         );
     }
-    css_paths.extend([
-        PathBuf::from(source_css),
-        PathBuf::from(format!(
-            "/usr/local/share/themes/{installed_theme}/gtk-3.0/gtk.css"
-        )),
-        PathBuf::from(format!(
-            "/usr/share/themes/{installed_theme}/gtk-3.0/gtk.css"
-        )),
-    ]);
     for path in css_paths {
         if !path.exists() {
             continue;

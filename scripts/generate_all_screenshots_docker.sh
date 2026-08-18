@@ -156,7 +156,27 @@ class XSession:
 
         shutil.copy(f"{REPO_ROOT}/assets/config/gtk-3.0/{gtk_css}", f"{cfg}/gtk-3.0/gtk.css")
         shutil.copy(f"{REPO_ROOT}/assets/config/gtk-3.0/{gtk_css}", f"{cfg}/gtk-3.0/{gtk_css}")
-        shutil.copy(f"{REPO_ROOT}/assets/config/gtk-3.0/settings.ini", f"{cfg}/gtk-3.0/settings.ini")
+        
+        is_dark = 1 if self.appearance in ["graphite", "oled"] else 0
+        theme_name = f"slopos-gtk-{self.appearance}" if self.appearance != "platinum" else "slopos-gtk"
+        with open(f"{cfg}/gtk-3.0/settings.ini", "w") as f:
+            f.write(f"""[Settings]
+gtk-theme-name = {theme_name}
+gtk-icon-theme-name = SLOPOS-Platinum
+gtk-cursor-theme-name = DMZ-White
+gtk-font-name = Liberation Sans 9
+gtk-application-prefer-dark-theme = {is_dark}
+gtk-shell-shows-menubar = 1
+gtk-shell-shows-app-menu = 0
+gtk-button-images = 1
+gtk-menu-images = 1
+gtk-enable-event-sounds = 1
+gtk-enable-input-feedback-sounds = 1
+gtk-xft-antialias = 1
+gtk-xft-hinting = 1
+gtk-xft-hintstyle = hintslight
+gtk-xft-rgba = rgb
+""")
 
         # Openbox config with selected theme
         with open(f"{REPO_ROOT}/assets/config/openbox/rc.xml") as f:
@@ -455,10 +475,10 @@ time.sleep(0.4)
 s.capture("36_datetime_control_panel_1280x800.png")
 s.clean_client_windows()
 
-# 37 Network GUI
-p_net = s.spawn(["nm-connection-editor"])
+# 37 Network & Wi-Fi GUI
+p_net = s.spawn(["slopos-settings", "--network"])
 time.sleep(0.8)
-run("xdotool search --onlyvisible --class nm-connection-editor | tail -1 | xargs -I{} xdotool windowsize {} 520 400 windowmove {} 180 90 windowactivate {}", env=s.env)
+run("xdotool search --onlyvisible --name 'Network & Wi-Fi' | tail -1 | xargs -I{} xdotool windowsize {} 520 440 windowmove {} 180 80 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("37_network_wifi_gui_1280x800.png")
 s.clean_client_windows()
@@ -471,10 +491,10 @@ time.sleep(0.4)
 s.capture("38_bluetooth_gui_1280x800.png")
 s.clean_client_windows()
 
-# 39 Sound Audio Pavucontrol
-p_snd = s.spawn(["pavucontrol"])
+# 39 Sound Audio & Volume Control
+p_snd = s.spawn(["slopos-settings", "--sound"])
 time.sleep(0.8)
-run("xdotool search --onlyvisible --class pavucontrol | tail -1 | xargs -I{} xdotool windowsize {} 580 420 windowmove {} 170 80 windowactivate {}", env=s.env)
+run("xdotool search --onlyvisible --name 'Sound & Volume' | tail -1 | xargs -I{} xdotool windowsize {} 520 440 windowmove {} 180 80 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("39_sound_audio_pavucontrol_1280x800.png")
 s.clean_client_windows()
@@ -539,7 +559,7 @@ with open(f"{s.home}/.config/slopos-i/dock_dodge", "w") as f:
     f.write("1\n")
 p_dodge = s.spawn(["mousepad", f"{REPO_ROOT}/README.md"])
 time.sleep(1.0)
-run("xdotool search --onlyvisible --class mousepad | tail -1 | xargs -I{} wmctrl -i -r {} -b add,maximized_vert,maximized_horz", env=s.env)
+run("xdotool search --onlyvisible --class mousepad | tail -1 | xargs -I{} xdotool windowsize {} 1280 748 windowmove {} 0 52 windowactivate {}", env=s.env)
 run("xdotool mousemove 640 400", env=s.env)
 time.sleep(0.6)
 s.capture("47_dock_dodge_maximized_1280x800.png")
