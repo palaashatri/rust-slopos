@@ -1,7 +1,16 @@
 //! SLOPOS-I top menu and system bar.
+//!
+//! Event-driven status, global menu hosting, and desktop integration
+//! powered by x11rb and system service adapters without subprocess polling.
 
-use crate::gmenu::{self, GtkMenuExporter};
 use crate::launcher::Launcher;
+use crate::menu::gmenu::{self, GtkMenuExporter};
+use crate::services::audio;
+use crate::services::clock;
+use crate::services::network;
+use crate::services::power;
+use crate::services::session;
+use crate::x11::{MonitorModel, X11Event};
 use gdk_pixbuf::{InterpType, Pixbuf};
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
@@ -11,53 +20,21 @@ use gtk::{
 };
 use std::cell::{Cell, RefCell};
 use std::env;
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-const LOCK_COMMANDS: &[(&str, &[&str])] = &[
-    ("loginctl", &["lock-session"]),
-    ("xflock4", &[]),
-    ("light-locker-command", &["-l"]),
-    ("dm-tool", &["lock"]),
-    ("xdg-screensaver", &["lock"]),
-    ("slock", &[]),
-    ("i3lock", &["-c", "758090"]),
-];
-
-const SWITCH_USER_COMMANDS: &[(&str, &[&str])] = &[
-    ("dm-tool", &["switch-to-greeter"]),
-    ("gdmflexiserver", &[]),
-    ("kdmctl", &["reserve"]),
-];
-
-const SUSPEND_COMMANDS: &[(&str, &[&str])] = &[
-    ("systemctl", &["suspend"]),
-    ("loginctl", &["suspend"]),
-    ("pm-suspend", &[]),
-];
-
-const REBOOT_COMMANDS: &[(&str, &[&str])] = &[
-    ("systemctl", &["reboot"]),
-    ("loginctl", &["reboot"]),
-    ("reboot", &[]),
-];
-
-const POWEROFF_COMMANDS: &[(&str, &[&str])] = &[
-    ("systemctl", &["poweroff"]),
-    ("loginctl", &["poweroff"]),
-    ("poweroff", &[]),
-];
-
 static OPEN_SYSTEM_MENU: AtomicBool = AtomicBool::new(false);
 
 pub struct TopBar {
-    _window: Window,
-    _active_title_label: Label,
+    window: Window,
+    active_title_label: Label,
     _clock_label: Label,
+    global_menu_host: GtkBox,
+    active_menu_state: RefCell<Option<GtkMenuExporter>>,
+    current_active_window: Cell<Option<u32>>,
 }
 
 impl TopBar {
@@ -158,10 +135,11 @@ impl TopBar {
             false,
             0,
         );
-        let audio_label = Label::new(Some("—"));
+        let initial_audio = audio::audio_label_text(audio::query_audio_state().as_ref());
+        let audio_label = Label::new(Some(&initial_audio));
         audio_box.pack_start(&audio_label, false, false, 0);
         audio_button.add(&audio_box);
-        if resolve_program("pavucontrol").is_some() {
+        if session::resolve_program("pavucontrol").is_some() {
             audio_button.set_tooltip_text(Some("Open sound controls"));
             audio_button.connect_clicked(|_| spawn_resolved("pavucontrol", &[]));
         } else {
@@ -182,10 +160,11 @@ impl TopBar {
             false,
             0,
         );
-        let network_label = Label::new(Some("—"));
+        let initial_net = network::network_label_text(&network::query_network_status());
+        let network_label = Label::new(Some(&initial_net));
         network_box.pack_start(&network_label, false, false, 0);
         network_button.add(&network_box);
-        if resolve_program("nm-connection-editor").is_some() {
+        if session::resolve_program("nm-connection-editor").is_some() {
             network_button.set_tooltip_text(Some("Open network connections"));
             network_button.connect_clicked(|_| spawn_resolved("nm-connection-editor", &[]));
         } else {
@@ -202,15 +181,18 @@ impl TopBar {
             false,
             0,
         );
-        let battery_label = Label::new(None);
+        let battery_state = power::query_battery_state();
+        let battery_text = power::battery_label_text(battery_state.as_ref()).unwrap_or_default();
+        let battery_label = Label::new(Some(&battery_text));
         battery_box.pack_start(&battery_label, false, false, 0);
+        battery_box.set_visible(battery_state.is_some());
+        status_box.pack_start(&battery_box, false, false, 0);
 
         let clock_button = Button::new();
         clock_button
             .style_context()
             .add_class("slopos-menubar-control");
-        let initial_clock =
-            command_output("date", &["+%H:%M"]).unwrap_or_else(|| "--:--".to_string());
+        let initial_clock = clock::current_time_str();
         let clock_label = Label::new(Some(&initial_clock));
         clock_label.style_context().add_class("slopos-clock");
         clock_button.add(&clock_label);
@@ -223,22 +205,148 @@ impl TopBar {
         window.add(&main_box);
         window.show_all();
 
-        install_topbar_fullscreen_manager(&window);
-        install_live_updates(
-            &active_title_label,
-            &global_menu_host,
-            &clock_label,
-            &audio_label,
-            &network_label,
-            &battery_box,
-            &battery_label,
-        );
+        let topbar = Rc::new(Self {
+            window,
+            active_title_label,
+            _clock_label: clock_label.clone(),
+            global_menu_host,
+            active_menu_state: RefCell::new(None),
+            current_active_window: Cell::new(None),
+        });
 
-        Rc::new(Self {
-            _window: window,
-            _active_title_label: active_title_label,
-            _clock_label: clock_label,
-        })
+        // In-process local clock ticker (every 1 second, no subprocess spawned)
+        glib::timeout_add_seconds_local(1, move || {
+            clock_label.set_text(&clock::current_time_str());
+            glib::ControlFlow::Continue
+        });
+
+        // Periodic status update ticker for hardware/system metrics (every 5 seconds)
+        let audio_label_c = audio_label.clone();
+        let network_label_c = network_label.clone();
+        let battery_box_c = battery_box.clone();
+        let battery_label_c = battery_label.clone();
+        glib::timeout_add_seconds_local(5, move || {
+            let a_state = audio::query_audio_state();
+            audio_label_c.set_text(&audio::audio_label_text(a_state.as_ref()));
+
+            let n_state = network::query_network_status();
+            network_label_c.set_text(&network::network_label_text(&n_state));
+
+            let b_state = power::query_battery_state();
+            if let Some(b_text) = power::battery_label_text(b_state.as_ref()) {
+                battery_label_c.set_text(&b_text);
+                battery_box_c.set_visible(true);
+            } else {
+                battery_label_c.set_text("");
+                battery_box_c.set_visible(false);
+            }
+            glib::ControlFlow::Continue
+        });
+
+        topbar
+    }
+
+    pub fn handle_x11_event(&self, event: &X11Event) {
+        match event {
+            X11Event::ActiveWindowChanged {
+                window_id,
+                title,
+                is_fullscreen,
+                ..
+            } => {
+                self.current_active_window.set(*window_id);
+                if is_shell_surface(title) || window_id.is_none() {
+                    self.show_desktop_state();
+                } else {
+                    let display_title = if title.is_empty() {
+                        "SLOPOS Desktop".to_string()
+                    } else {
+                        compact_title(title)
+                    };
+                    self.active_title_label.set_text(&display_title);
+                    let exporter = window_id.and_then(gmenu::detect);
+                    self.refresh_global_menu(exporter);
+                }
+
+                self.set_fullscreen_visibility(*is_fullscreen);
+            }
+            X11Event::WindowStateChanged {
+                window_id,
+                is_fullscreen,
+                ..
+            } => {
+                if self.current_active_window.get() == Some(*window_id) {
+                    self.set_fullscreen_visibility(*is_fullscreen);
+                }
+            }
+            X11Event::WindowTitleChanged { window_id, title } => {
+                if self.current_active_window.get() == Some(*window_id) && !is_shell_surface(title)
+                {
+                    self.active_title_label.set_text(&compact_title(title));
+                }
+            }
+            X11Event::MonitorsChanged { model } => {
+                self.reposition_for_monitors(model);
+            }
+            _ => {}
+        }
+    }
+
+    fn show_desktop_state(&self) {
+        self.active_title_label.set_text("SLOPOS Desktop");
+        self.refresh_global_menu(None);
+    }
+
+    fn set_fullscreen_visibility(&self, is_fullscreen: bool) {
+        if is_fullscreen && self.window.is_visible() {
+            self.window.set_visible(false);
+        } else if !is_fullscreen && !self.window.is_visible() {
+            self.window.move_(0, 0);
+            self.window.set_visible(true);
+            self.window.move_(0, 0);
+        }
+    }
+
+    fn reposition_for_monitors(&self, model: &MonitorModel) {
+        if let Some(primary) = model.primary() {
+            self.window.resize(primary.scaled_width(), 26);
+            self.window.move_(primary.x, primary.y);
+        }
+    }
+
+    fn refresh_global_menu(&self, next: Option<GtkMenuExporter>) {
+        if *self.active_menu_state.borrow() == next {
+            return;
+        }
+
+        for child in self.global_menu_host.children() {
+            self.global_menu_host.remove(&child);
+        }
+        self.global_menu_host.hide();
+        *self.active_menu_state.borrow_mut() = None;
+
+        let Some(exporter) = next else {
+            return;
+        };
+        if self.current_active_window.get() != Some(exporter.window_id) {
+            return;
+        }
+
+        match gmenu::build_menu_bar(&exporter) {
+            Ok(menu_bar) => {
+                self.global_menu_host.pack_start(&menu_bar, false, false, 0);
+                self.global_menu_host.show_all();
+                log::info!(
+                    "Imported GTK global menubar bus={} path={}",
+                    exporter.bus_name,
+                    exporter.menu_path
+                );
+                *self.active_menu_state.borrow_mut() = Some(exporter);
+            }
+            Err(error) => {
+                log::warn!("Could not import focused application's GTK menu: {error}");
+            }
+        }
     }
 }
 
@@ -284,165 +392,6 @@ extern "C" fn system_menu_signal_handler(_sig: libc::c_int) {
     OPEN_SYSTEM_MENU.store(true, Ordering::SeqCst);
 }
 
-#[allow(clippy::too_many_arguments)]
-fn install_live_updates(
-    active_title: &Label,
-    global_menu_host: &GtkBox,
-    clock: &Label,
-    audio: &Label,
-    network: &Label,
-    battery_box: &GtkBox,
-    battery: &Label,
-) {
-    let active_title = active_title.clone();
-    let global_menu_host = global_menu_host.clone();
-    let active_menu_state: Rc<RefCell<Option<GtkMenuExporter>>> = Rc::new(RefCell::new(None));
-    glib::timeout_add_local(Duration::from_millis(300), move || {
-        update_active_window(&active_title, &global_menu_host, &active_menu_state);
-        glib::ControlFlow::Continue
-    });
-
-    let clock = clock.clone();
-    glib::timeout_add_seconds_local(1, move || {
-        if let Some(local_time) = command_output("date", &["+%H:%M"]) {
-            clock.set_text(&local_time);
-        }
-        glib::ControlFlow::Continue
-    });
-
-    let audio = audio.clone();
-    let network = network.clone();
-    let battery_box = battery_box.clone();
-    let battery = battery.clone();
-    battery_box.set_visible(current_battery_state().is_some());
-    glib::timeout_add_seconds_local(5, move || {
-        audio.set_text(&current_volume().unwrap_or_else(|| "—".to_string()));
-        network.set_text(&current_network_state());
-        if let Some(value) = current_battery_state() {
-            battery.set_text(&value);
-            battery_box.set_visible(true);
-        } else {
-            battery.set_text("");
-            battery_box.set_visible(false);
-        }
-        glib::ControlFlow::Continue
-    });
-}
-
-fn update_active_window(
-    label: &Label,
-    global_menu_host: &GtkBox,
-    active_menu_state: &RefCell<Option<GtkMenuExporter>>,
-) {
-    let Some(id_text) = command_output("xdotool", &["getactivewindow"]) else {
-        show_desktop_state(label, global_menu_host, active_menu_state);
-        return;
-    };
-    let Ok(id) = id_text.trim().parse::<u64>() else {
-        show_desktop_state(label, global_menu_host, active_menu_state);
-        return;
-    };
-    let Some(title) = command_output("xdotool", &["getwindowname", &id.to_string()]) else {
-        show_desktop_state(label, global_menu_host, active_menu_state);
-        return;
-    };
-
-    if is_shell_surface(&title) {
-        show_desktop_state(label, global_menu_host, active_menu_state);
-        return;
-    }
-
-    if title.is_empty() {
-        label.set_text("SLOPOS Desktop");
-    } else {
-        label.set_text(&compact_title(&title));
-    }
-
-    let exporter = u32::try_from(id).ok().and_then(gmenu::detect);
-    refresh_global_menu(global_menu_host, active_menu_state, exporter);
-}
-
-fn show_desktop_state(
-    label: &Label,
-    global_menu_host: &GtkBox,
-    active_menu_state: &RefCell<Option<GtkMenuExporter>>,
-) {
-    label.set_text("SLOPOS Desktop");
-    refresh_global_menu(global_menu_host, active_menu_state, None);
-}
-
-fn refresh_global_menu(
-    host: &GtkBox,
-    current: &RefCell<Option<GtkMenuExporter>>,
-    next: Option<GtkMenuExporter>,
-) {
-    if current.borrow().as_ref() == next.as_ref() {
-        return;
-    }
-
-    for child in host.children() {
-        host.remove(&child);
-    }
-    host.hide();
-    *current.borrow_mut() = None;
-
-    let Some(exporter) = next else {
-        return;
-    };
-    if current_active_window_id() != Some(exporter.window_id) {
-        return;
-    }
-
-    match gmenu::build_menu_bar(&exporter) {
-        Ok(menu_bar) => {
-            host.pack_start(&menu_bar, false, false, 0);
-            host.show_all();
-            log::info!(
-                "Imported GTK global menubar bus={} path={}",
-                exporter.bus_name,
-                exporter.menu_path
-            );
-            *current.borrow_mut() = Some(exporter);
-        }
-        Err(error) => {
-            // Do not guess application commands. The upstream application's
-            // own local menu remains authoritative when export integration
-            // cannot be established.
-            log::warn!("Could not import focused application's GTK menu: {error}");
-        }
-    }
-}
-
-fn current_active_window_id() -> Option<u32> {
-    command_output("xdotool", &["getactivewindow"])
-        .and_then(|value| value.trim().parse::<u32>().ok())
-}
-
-fn is_active_window_fullscreen() -> bool {
-    let Some(id) = current_active_window_id() else {
-        return false;
-    };
-    let Some(prop) = command_output("xprop", &["-id", &id.to_string(), "_NET_WM_STATE"]) else {
-        return false;
-    };
-    prop.contains("_NET_WM_STATE_FULLSCREEN")
-}
-
-fn install_topbar_fullscreen_manager(window: &Window) {
-    let window_c = window.clone();
-    glib::timeout_add_local(Duration::from_millis(250), move || {
-        let is_fs = is_active_window_fullscreen();
-        if is_fs && window_c.is_visible() {
-            window_c.set_visible(false);
-        } else if !is_fs && !window_c.is_visible() {
-            window_c.move_(0, 0);
-            window_c.set_visible(true);
-            window_c.move_(0, 0);
-        }
-        glib::ControlFlow::Continue
-    });
-}
-
 fn is_shell_surface(title: &str) -> bool {
     matches!(
         title.trim(),
@@ -451,98 +400,54 @@ fn is_shell_surface(title: &str) -> bool {
 }
 
 fn compact_title(title: &str) -> String {
-    let title = title.trim();
-    if title.chars().count() <= 24 {
-        return title.to_string();
+    let t = title.trim();
+    if t.is_empty() {
+        return "SLOPOS Desktop".to_string();
     }
-    let mut value = title.chars().take(23).collect::<String>();
-    value.push('…');
-    value
-}
-
-fn current_volume() -> Option<String> {
-    let text = command_output("wpctl", &["get-volume", "@DEFAULT_AUDIO_SINK@"])?;
-    if text.contains("[MUTED]") {
-        return Some("Muted".to_string());
-    }
-    let value = text
-        .split_whitespace()
-        .find_map(|part| part.parse::<f64>().ok())?;
-    Some(format!("{}%", (value * 100.0).round() as i32))
-}
-
-fn current_network_state() -> String {
-    match command_output("nmcli", &["-t", "-f", "STATE", "general"]) {
-        Some(value) if value.to_ascii_lowercase().starts_with("connected") => "Online".to_string(),
-        Some(_) => "Offline".to_string(),
-        None => "—".to_string(),
-    }
-}
-
-fn current_battery_state() -> Option<String> {
-    for name in ["BAT0", "BAT1"] {
-        let path = format!("/sys/class/power_supply/{name}/capacity");
-        if let Ok(value) = fs::read_to_string(path) {
-            return Some(format!("{}%", value.trim()));
+    if let Some(pos) = t.rfind(" — ") {
+        let app = t[pos + 3..].trim();
+        if !app.is_empty() {
+            return app.to_string();
         }
     }
-    None
+    if let Some(pos) = t.rfind(" - ") {
+        let app = t[pos + 3..].trim();
+        if !app.is_empty() {
+            return app.to_string();
+        }
+    }
+    t.chars().take(28).collect()
 }
 
 fn screen_geometry() -> (i32, i32) {
-    let Some(output) = command_output("xrandr", &["--current"]) else {
-        return (1280, 800);
-    };
-    for line in output.lines() {
-        let Some(after_current) = line.split("current ").nth(1) else {
-            continue;
-        };
-        let Some(dimensions) = after_current.split(',').next() else {
-            continue;
-        };
-        let mut parts = dimensions.split('x').map(str::trim);
-        let (Some(width), Some(height)) = (parts.next(), parts.next()) else {
-            continue;
-        };
-        if let (Ok(width), Ok(height)) = (width.parse::<i32>(), height.parse::<i32>()) {
-            let scale = ui_scale();
-            return ((width / scale).max(1), (height / scale).max(1));
-        }
-    }
-    (1280, 800)
-}
-
-fn ui_scale() -> i32 {
-    env::var("GDK_SCALE")
-        .ok()
-        .and_then(|value| value.parse::<i32>().ok())
-        .filter(|scale| *scale > 0)
-        .unwrap_or(1)
-}
-
-fn command_output(program: &str, args: &[&str]) -> Option<String> {
-    let output = Command::new(program).args(args).output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    gdk::Display::default()
+        .and_then(|disp| {
+            disp.primary_monitor()
+                .or_else(|| disp.monitor(0))
+                .map(|mon| {
+                    let rect = mon.geometry();
+                    (rect.width().max(1), rect.height().max(1))
+                })
+        })
+        .unwrap_or((1280, 800))
 }
 
 fn build_system_menu() -> Menu {
     let menu = Menu::new();
+    menu.style_context().add_class("slopos-system-menu");
 
-    let about = MenuItem::with_label("About SLOPOS-I");
+    let about = MenuItem::with_label("About SLOPOS-I…");
     about.connect_activate(|_| {
         show_message(
             "About SLOPOS-I",
-            "SLOPOS-I\nAn original X11 desktop environment for Linux",
-        )
+            "SLOPOS-I Desktop Environment\n\nRelease: 0.1.0-alpha\nPlatform: X11 / Linux\nLicense: MIT\n\nAn original, consumer-ready Linux desktop.",
+        );
     });
     menu.append(&about);
     menu.append(&SeparatorMenuItem::new());
 
     let settings = MenuItem::with_label("Control Panels…");
-    if resolve_program("slopos-settings").is_some() {
+    if session::resolve_program("slopos-settings").is_some() {
         settings.connect_activate(|_| spawn_resolved("slopos-settings", &[]));
     } else {
         settings.set_sensitive(false);
@@ -550,7 +455,7 @@ fn build_system_menu() -> Menu {
     menu.append(&settings);
 
     let catalogue = MenuItem::with_label("Software…");
-    if resolve_program("slopos-catalogue").is_some() {
+    if session::resolve_program("slopos-catalogue").is_some() {
         catalogue.connect_activate(|_| spawn_resolved("slopos-catalogue", &[]));
     } else {
         catalogue.set_sensitive(false);
@@ -563,7 +468,7 @@ fn build_system_menu() -> Menu {
     let platinum = MenuItem::with_label("Platinum Light");
     let graphite = MenuItem::with_label("Graphite Dark");
     let oled = MenuItem::with_label("OLED Dark");
-    if resolve_program("slopos-appearance").is_some() {
+    if session::resolve_program("slopos-appearance").is_some() {
         classic.connect_activate(|_| spawn_resolved("slopos-appearance", &["classic"]));
         platinum.connect_activate(|_| spawn_resolved("slopos-appearance", &["platinum"]));
         graphite.connect_activate(|_| spawn_resolved("slopos-appearance", &["graphite"]));
@@ -578,14 +483,24 @@ fn build_system_menu() -> Menu {
     appearance_menu.append(&platinum);
     appearance_menu.append(&graphite);
     appearance_menu.append(&oled);
-    appearance_menu.show_all();
     appearance.set_submenu(Some(&appearance_menu));
     menu.append(&appearance);
+
+    let wallpaper = MenuItem::with_label("Desktop Wallpaper…");
+    if session::resolve_program("slopos-settings").is_some() {
+        wallpaper.connect_activate(|_| spawn_resolved("slopos-settings", &["--wallpaper"]));
+    } else {
+        wallpaper.set_sensitive(false);
+    }
+    menu.append(&wallpaper);
+
     menu.append(&SeparatorMenuItem::new());
 
     let lock = MenuItem::with_label("Lock Screen");
-    if let Some((program, args)) = resolve_first_command(LOCK_COMMANDS) {
-        lock.connect_activate(move |_| spawn_resolved(program, args));
+    if session::can_lock_screen() {
+        lock.connect_activate(|_| {
+            session::lock_screen();
+        });
     } else {
         lock.set_sensitive(false);
         lock.set_tooltip_text(Some("No supported screen locker is installed"));
@@ -593,38 +508,36 @@ fn build_system_menu() -> Menu {
     menu.append(&lock);
 
     let switch_user = MenuItem::with_label("Switch User…");
-    if let Some((program, args)) = resolve_first_command(SWITCH_USER_COMMANDS) {
-        switch_user.connect_activate(move |_| {
-            confirm_action(
-                "Switch User",
-                "Switch to the login screen for another user?",
-                move || spawn_resolved(program, args),
-            );
+    if session::can_switch_user() {
+        switch_user.connect_activate(|_| {
+            session::switch_user();
         });
     } else {
         switch_user.set_sensitive(false);
-        switch_user.set_tooltip_text(Some("No supported display-manager switch utility is installed"));
+        switch_user.set_tooltip_text(Some(
+            "No supported display-manager switch utility is installed",
+        ));
     }
     menu.append(&switch_user);
 
     let sleep = MenuItem::with_label("Sleep");
-    if let Some((program, args)) = resolve_first_command(SUSPEND_COMMANDS) {
-        sleep.connect_activate(move |_| {
-            confirm_action("Sleep", "Put this computer to sleep now?", move || {
-                spawn_resolved(program, args)
-            });
+    if session::can_suspend() {
+        sleep.connect_activate(|_| {
+            session::suspend_system();
         });
     } else {
         sleep.set_sensitive(false);
+        sleep.set_tooltip_text(Some("Suspend is not supported on this host"));
     }
     menu.append(&sleep);
 
     let logout = MenuItem::with_label("Log Out…");
     logout.connect_activate(|_| {
-        confirm_action("Log Out", "End the current SLOPOS session?", || {
-            if env::var_os("SLOPOS_SESSION_MANAGED").is_some() {
-                unsafe {
-                    libc::kill(libc::getppid(), libc::SIGTERM);
+        confirm_action("Log Out", "Log out of SLOPOS-I now?", || {
+            if let Some(session_ctl) = session::resolve_program("slopos-session") {
+                if let Err(error) = Command::new(&session_ctl).arg("--logout").spawn() {
+                    log::warn!("Failed to invoke session logout: {error}");
+                    std::process::exit(0);
                 }
             } else {
                 std::process::exit(0);
@@ -634,10 +547,10 @@ fn build_system_menu() -> Menu {
     menu.append(&logout);
 
     let restart = MenuItem::with_label("Restart…");
-    if let Some((program, args)) = resolve_first_command(REBOOT_COMMANDS) {
-        restart.connect_activate(move |_| {
-            confirm_action("Restart", "Restart this computer now?", move || {
-                spawn_resolved(program, args);
+    if session::can_reboot() {
+        restart.connect_activate(|_| {
+            confirm_action("Restart", "Restart this computer now?", || {
+                session::reboot_system();
             });
         });
     } else {
@@ -646,10 +559,10 @@ fn build_system_menu() -> Menu {
     menu.append(&restart);
 
     let shutdown = MenuItem::with_label("Shut Down…");
-    if let Some((program, args)) = resolve_first_command(POWEROFF_COMMANDS) {
-        shutdown.connect_activate(move |_| {
-            confirm_action("Shut Down", "Shut down this computer now?", move || {
-                spawn_resolved(program, args);
+    if session::can_poweroff() {
+        shutdown.connect_activate(|_| {
+            confirm_action("Shut Down", "Shut down this computer now?", || {
+                session::poweroff_system();
             });
         });
     } else {
@@ -710,53 +623,14 @@ fn slopos_dialog(title: &str, message: &str, buttons: &[(&str, ResponseType)]) -
     dialog
 }
 
-fn resolve_first_command(
-    candidates: &[(&'static str, &'static [&'static str])],
-) -> Option<(&'static str, &'static [&'static str])> {
-    for &(program, args) in candidates {
-        if resolve_program(program).is_some() {
-            return Some((program, args));
-        }
-    }
-    None
-}
-
 fn spawn_resolved(program: &str, args: &[&str]) {
-    let Some(path) = resolve_program(program) else {
+    let Some(path) = session::resolve_program(program) else {
         log::warn!("Cannot launch {program}: command not found");
         return;
     };
     if let Err(error) = Command::new(&path).args(args).spawn() {
         log::warn!("Failed to launch {}: {error}", path.display());
     }
-}
-
-fn resolve_program(program: &str) -> Option<PathBuf> {
-    if program.starts_with("slopos-") {
-        if let Ok(executable) = env::current_exe() {
-            if let Some(parent) = executable.parent() {
-                let sibling = parent.join(program);
-                if sibling.is_file() {
-                    return Some(sibling);
-                }
-            }
-        }
-        let local = PathBuf::from("scripts").join(program);
-        if local.is_file() {
-            return Some(local);
-        }
-    }
-
-    let path = Path::new(program);
-    if path.components().count() > 1 {
-        return path.is_file().then(|| path.to_path_buf());
-    }
-
-    env::var_os("PATH").and_then(|paths| {
-        env::split_paths(&paths)
-            .map(|directory| directory.join(program))
-            .find(|candidate| candidate.is_file())
-    })
 }
 
 fn set_accessible_name<W>(widget: &W, name: &str)
@@ -803,10 +677,7 @@ fn load_slopos_mark_sized(size: i32) -> Option<Image> {
                 let scaled = mark.scale_simple(size, size, InterpType::Bilinear)?;
                 Some(Image::from_pixbuf(Some(&scaled)))
             }
-            Err(error) => {
-                log::warn!("Failed to load SLOPOS mark from {path}: {error}");
-                None
-            }
+            Err(_) => None,
         }
     })
 }
