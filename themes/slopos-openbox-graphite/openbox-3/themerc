@@ -1,46 +1,49 @@
-# SLOPOS Graphite Openbox theme with Crisp Black Borders
-padding.width: 3
+# SLOPOS Graphite Openbox theme
+padding.width: 4
 padding.height: 3
 border.width: 1
-window.active.border.color: #000000
-window.inactive.border.color: #000000
+window.active.border.color: #383B42
+window.inactive.border.color: #26282D
 window.active.title.bg: flat gradient vertical
-window.active.title.bg.color: #51545B
-window.active.title.bg.colorTo: #303238
+window.active.title.bg.color: #383C44
+window.active.title.bg.colorTo: #282B30
 window.active.label.bg: parentrelative
-window.active.label.text.color: #F4F4F4
+window.active.label.text.color: #E8EAED
 window.active.label.text.font: shadow=off
 window.inactive.title.bg: flat solid
-window.inactive.title.bg.color: #292B30
+window.inactive.title.bg.color: #202226
 window.inactive.label.bg: parentrelative
-window.inactive.label.text.color: #8C8F96
-window.active.button.unpressed.bg: raised solid
-window.active.button.unpressed.bg.color: #44474E
-window.active.button.pressed.bg: sunken solid
-window.active.button.pressed.bg.color: #202226
-window.active.button.unpressed.image.color: #F0F0F0
+window.inactive.label.text.color: #7B8089
+window.active.button.unpressed.bg: flat gradient vertical
+window.active.button.unpressed.bg.color: #454952
+window.active.button.unpressed.bg.colorTo: #2D3036
+window.active.button.pressed.bg: flat gradient vertical
+window.active.button.pressed.bg.color: #222428
+window.active.button.pressed.bg.colorTo: #33363D
+window.active.button.unpressed.image.color: #E0E3E8
 window.active.button.pressed.image.color: #FFFFFF
 window.inactive.button.unpressed.bg: flat solid
-window.inactive.button.unpressed.bg.color: #292B30
-window.inactive.button.unpressed.image.color: #6C6F76
+window.inactive.button.unpressed.bg.color: #202226
+window.inactive.button.unpressed.image.color: #60646D
 window.active.handle.bg: flat solid
-window.active.handle.bg.color: #000000
+window.active.handle.bg.color: #282B30
 window.inactive.handle.bg: flat solid
-window.inactive.handle.bg.color: #000000
+window.inactive.handle.bg.color: #202226
 window.active.grip.bg: flat solid
-window.active.grip.bg.color: #000000
+window.active.grip.bg.color: #383C44
 window.inactive.grip.bg: flat solid
-window.inactive.grip.bg.color: #000000
-menu.border.color: #000000
-menu.border.width: 2
+window.inactive.grip.bg.color: #26282D
+menu.border.color: #383B42
+menu.border.width: 1
 menu.title.bg: flat gradient vertical
-menu.title.bg.color: #4B4E55
-menu.title.bg.colorTo: #303238
-menu.title.text.color: #F4F4F4
+menu.title.bg.color: #383C44
+menu.title.bg.colorTo: #282B30
+menu.title.text.color: #E8EAED
 menu.items.bg: flat solid
-menu.items.bg.color: #24262A
-menu.items.text.color: #F0F0F0
-menu.items.disabled.text.color: #858890
+menu.items.bg.color: #1E2024
+menu.items.text.color: #E8EAED
+menu.items.disabled.text.color: #6E727A
 menu.items.active.bg: flat solid
-menu.items.active.bg.color: #627DBA
+menu.items.active.bg.color: #4A76B8
 menu.items.active.text.color: #FFFFFF
+
