@@ -1,7 +1,6 @@
 //! SLOPOS-I X11 desktop shell entry point.
 
 mod app_finder;
-mod appmenu;
 mod dock;
 mod gmenu;
 mod launcher;
