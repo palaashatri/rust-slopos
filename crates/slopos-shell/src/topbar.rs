@@ -292,16 +292,14 @@ impl TopBar {
         if is_fullscreen && self.window.is_visible() {
             self.window.set_visible(false);
         } else if !is_fullscreen && !self.window.is_visible() {
-            self.window.move_(0, 0);
             self.window.set_visible(true);
-            self.window.move_(0, 0);
         }
     }
 
     fn reposition_for_monitors(&self, model: &MonitorModel) {
         if let Some(primary) = model.primary() {
-            self.window.resize(primary.scaled_width(), 26);
-            self.window.move_(primary.x, primary.y);
+            self.window.resize(primary.gdk_width(), 26);
+            self.window.move_(primary.gdk_x(), primary.gdk_y());
         }
     }
 

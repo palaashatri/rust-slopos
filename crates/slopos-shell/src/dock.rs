@@ -4,7 +4,7 @@
 
 use crate::launcher::Launcher;
 use crate::services::session;
-use crate::x11::{MonitorModel, X11Event};
+use crate::x11::{Monitor, MonitorModel, X11Event};
 use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
@@ -12,7 +12,7 @@ use gtk::{
     Box as GtkBox, Button, IconSize, Image, Label, Orientation, Separator, Window, WindowPosition,
     WindowType,
 };
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -22,7 +22,7 @@ pub struct Dock {
     window: Window,
     is_active_fullscreen: Cell<bool>,
     is_active_maximized: Cell<bool>,
-    current_monitor_height: Cell<i32>,
+    primary_monitor: RefCell<Option<Monitor>>,
 }
 
 #[derive(Clone, Copy)]
@@ -218,7 +218,7 @@ impl Dock {
             window,
             is_active_fullscreen: Cell::new(false),
             is_active_maximized: Cell::new(false),
-            current_monitor_height: Cell::new(screen_height),
+            primary_monitor: RefCell::new(None),
         })
     }
 
@@ -278,9 +278,17 @@ impl Dock {
 
         let is_visible = self.window.is_visible();
         if near_bottom && !is_visible {
-            let (sw, sh) = screen_geometry();
-            self.window
-                .move_((sw - 540).max(0) / 2, (sh - 54 - 6).max(28));
+            if let Some(primary) = self.primary_monitor.borrow().as_ref() {
+                let width = 540;
+                let height = 54;
+                let x = primary.gdk_x() + (primary.gdk_width() - width).max(0) / 2;
+                let y = primary.gdk_y() + (primary.gdk_height() - height - 6).max(28);
+                self.window.move_(x, y);
+            } else {
+                let (sw, sh) = screen_geometry();
+                self.window
+                    .move_((sw - 540).max(0) / 2, (sh - 54 - 6).max(28));
+            }
             self.window.set_keep_above(true);
             self.window.set_visible(true);
             self.window.present();
@@ -291,11 +299,11 @@ impl Dock {
 
     fn reposition_for_monitors(&self, model: &MonitorModel) {
         if let Some(primary) = model.primary() {
+            *self.primary_monitor.borrow_mut() = Some(primary.clone());
             let width = 540;
             let height = 54;
-            self.current_monitor_height.set(primary.scaled_height());
-            let x = primary.x + (primary.scaled_width() - width).max(0) / 2;
-            let y = primary.y + (primary.scaled_height() - height - 6).max(28);
+            let x = primary.gdk_x() + (primary.gdk_width() - width).max(0) / 2;
+            let y = primary.gdk_y() + (primary.gdk_height() - height - 6).max(28);
             self.window.move_(x, y);
         }
     }

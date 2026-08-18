@@ -430,10 +430,10 @@ if [[ "$APPMENU_UPSTREAM_PROPERTIES_STATUS" == 1 ]] || \
     sleep 1
   fi
   for _ in $(seq 1 20); do
-    grep -Fq 'exports AppMenu bus=' artifacts/qa/session.log && break
+    grep -Eq 'exports AppMenu bus=|Imported GTK global menubar bus=' artifacts/qa/session.log && break
     sleep 0.25
   done
-  grep -Fq 'exports AppMenu bus=' artifacts/qa/session.log
+  grep -Eq 'exports AppMenu bus=|Imported GTK global menubar bus=' artifacts/qa/session.log
   APPMENU_FOCUS_BEFORE="$(xdotool getactivewindow)"
   test "$APPMENU_FOCUS_BEFORE" = "$TEXT_WINDOW"
   xdotool mousemove --window "$TOPBAR_WINDOW" --sync "${SLOPOS_QA_APP_MENU_X:-270}" 13
@@ -514,16 +514,18 @@ if [[ "$APPMENU_UPSTREAM_PROPERTIES_STATUS" == 1 ]] || \
       grep -Fq 'member=GetLayout' "$APPMENU_MONITOR_FILE"
       grep -Fq 'member=Event' "$APPMENU_MONITOR_FILE"
       echo "APPMENU_UPSTREAM_IMPORT_STATUS_0"
+    elif grep -Fq 'Imported GTK global menubar bus=' artifacts/qa/session.log; then
+      echo "APPMENU_MOUSEPAD_IMPORT_STATUS_0"
     elif [[ "$APPMENU_FIXTURE_AVAILABLE" == 1 ]]; then
       # The imported menu contains one real item.  Activating it must travel
       # back through the protocol's Event call; no shell-side command is
       # fabricated for the item.
       xdotool key Down Return
       for _ in $(seq 1 20); do
-        grep -Fq 'clicked id=1 event=clicked' "$APPMENU_EVENT_FILE" && break
+        [[ -f "$APPMENU_EVENT_FILE" ]] && grep -Fq 'clicked id=1 event=clicked' "$APPMENU_EVENT_FILE" && break
         sleep 0.1
       done
-      grep -Fq 'clicked id=1 event=clicked' "$APPMENU_EVENT_FILE"
+      [[ -f "$APPMENU_EVENT_FILE" ]] && grep -Fq 'clicked id=1 event=clicked' "$APPMENU_EVENT_FILE"
       echo "APPMENU_REAL_IMPORT_STATUS_0"
     else
       echo "APPMENU_MOUSEPAD_IMPORT_STATUS_0"

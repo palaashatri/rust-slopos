@@ -72,37 +72,39 @@ fn main() {
     body.pack_end(&status, false, false, 0);
 
     window.add(&body);
-
     let apps = Rc::new(RefCell::new(get_curated_catalogue()));
-    render_apps(&list, &apps.borrow(), "", &status);
+    render_apps(&list, &apps, &search, &status);
 
     let apps_ref = apps.clone();
     let list_ref = list.clone();
+    let search_ref = search.clone();
     let status_ref = status.clone();
-    search.connect_changed(move |entry| {
-        render_apps(
-            &list_ref,
-            &apps_ref.borrow(),
-            &entry.text().to_lowercase(),
-            &status_ref,
-        );
+    search.connect_changed(move |_| {
+        render_apps(&list_ref, &apps_ref, &search_ref, &status_ref);
     });
 
     window.show_all();
     gtk::main();
 }
 
-fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Label) {
+fn render_apps(
+    list: &ListBox,
+    apps: &Rc<RefCell<Vec<CatalogueApp>>>,
+    search: &Entry,
+    status: &Label,
+) {
     for child in list.children() {
         list.remove(&child);
     }
 
+    let query = search.text().to_lowercase();
+    let apps_snapshot = apps.borrow().clone();
     let mut shown = 0usize;
-    for app in apps {
+    for app in &apps_snapshot {
         if !query.is_empty()
-            && !app.name.to_lowercase().contains(query)
-            && !app.summary.to_lowercase().contains(query)
-            && !app.category.to_lowercase().contains(query)
+            && !app.name.to_lowercase().contains(&query)
+            && !app.summary.to_lowercase().contains(&query)
+            && !app.category.to_lowercase().contains(&query)
         {
             continue;
         }
@@ -159,9 +161,10 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
             let app_c = app.clone();
             let status_c = status.clone();
             let list_c = list.clone();
-            let apps_c = apps.to_vec();
-            let query_s = query.to_string();
+            let apps_c = apps.clone();
+            let search_c = search.clone();
             let remove_btn_c = remove_btn.clone();
+
             remove_btn.connect_clicked(move |_| {
                 remove_btn_c.set_sensitive(false);
                 status_c.set_text(&format!("Removing {}…", app_c.name));
@@ -170,7 +173,7 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
                 let status_inner = status_c.clone();
                 let list_inner = list_c.clone();
                 let apps_inner = apps_c.clone();
-                let query_inner = query_s.clone();
+                let search_inner = search_c.clone();
                 let remove_btn_inner = remove_btn_c.clone();
 
                 #[allow(deprecated)]
@@ -179,8 +182,9 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
                 rx.attach(None, move |res| {
                     match res {
                         Ok(_) => {
+                            *apps_inner.borrow_mut() = get_curated_catalogue();
                             status_inner.set_text(&format!("Removed {app_name}"));
-                            render_apps(&list_inner, &apps_inner, &query_inner, &status_inner);
+                            render_apps(&list_inner, &apps_inner, &search_inner, &status_inner);
                         }
                         Err(err) => {
                             status_inner.set_text(&format!("Error: {err}"));
@@ -214,8 +218,8 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
             let app_c = app.clone();
             let status_c = status.clone();
             let list_c = list.clone();
-            let apps_c = apps.to_vec();
-            let query_s = query.to_string();
+            let apps_c = apps.clone();
+            let search_c = search.clone();
             let install_btn_c = install_btn.clone();
             install_btn.connect_clicked(move |_| {
                 install_btn_c.set_sensitive(false);
@@ -225,7 +229,7 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
                 let status_inner = status_c.clone();
                 let list_inner = list_c.clone();
                 let apps_inner = apps_c.clone();
-                let query_inner = query_s.clone();
+                let search_inner = search_c.clone();
 
                 #[allow(deprecated)]
                 let (tx, rx) =
@@ -233,12 +237,13 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
                 rx.attach(None, move |res| {
                     match res {
                         Ok(_) => {
+                            *apps_inner.borrow_mut() = get_curated_catalogue();
                             status_inner.set_text(&format!("Installed {app_name}"));
-                            render_apps(&list_inner, &apps_inner, &query_inner, &status_inner);
+                            render_apps(&list_inner, &apps_inner, &search_inner, &status_inner);
                         }
                         Err(err) => {
                             status_inner.set_text(&format!("Install error: {err}"));
-                            render_apps(&list_inner, &apps_inner, &query_inner, &status_inner);
+                            render_apps(&list_inner, &apps_inner, &search_inner, &status_inner);
                         }
                     }
                     glib::ControlFlow::Break

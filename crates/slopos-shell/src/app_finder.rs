@@ -179,7 +179,7 @@ fn app_order(left: &DesktopApp, right: &DesktopApp) -> Ordering {
         .then_with(|| left.terminal.cmp(&right.terminal))
 }
 
-fn application_dirs() -> Vec<PathBuf> {
+pub(crate) fn application_dirs() -> Vec<PathBuf> {
     application_dirs_from_data_dirs(std::env::var_os("XDG_DATA_DIRS").as_deref())
 }
 
