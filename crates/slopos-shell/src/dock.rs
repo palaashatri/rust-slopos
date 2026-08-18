@@ -93,6 +93,7 @@ impl Dock {
         window.set_keep_above(true);
         window.set_skip_taskbar_hint(true);
         window.set_skip_pager_hint(true);
+        window.connect_delete_event(|_, _| glib::Propagation::Stop);
         set_accessible_name(&window, "SLOPOS application strip");
 
         let pos = current_dock_position();
@@ -506,7 +507,8 @@ impl Dock {
                 self.window.set_visible(false);
             }
         } else if !self.window.is_visible() {
-            self.window.set_visible(true);
+            self.window.show_all();
+            self.window.present();
             self.window.set_keep_above(true);
         }
     }
@@ -658,7 +660,9 @@ fn matches_pinned(win: &WindowInfo, item: &PinnedItem) -> bool {
                 || inst == "firefox"
                 || c.contains("browser")
                 || c == "chromium"
-                || c == "chrome"))
+                || c == "chrome"
+                || c == "navigator"
+                || inst == "navigator"))
         || (id == "games"
             && (c.contains("doom")
                 || c.contains("supertux")

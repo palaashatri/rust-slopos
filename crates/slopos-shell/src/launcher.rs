@@ -69,6 +69,10 @@ impl Launcher {
             let _ = cr.paint();
             glib::Propagation::Proceed
         });
+        window.connect_delete_event(|win, _| {
+            win.hide();
+            glib::Propagation::Stop
+        });
         set_accessible_name(&window, "SLOPOS application search");
 
         let main_box = GtkBox::new(Orientation::Vertical, 6);
