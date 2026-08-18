@@ -1,5 +1,5 @@
-/* SLOPOS-I Classic Macintosh (System 6/7) GTK3 Theme
- * Inspired by the Classic Macintosh UI Kit (1-bit / monochrome & dithered System 6/7 grammar)
+/* SLOPOS-I Classic Contrast GTK3 Theme
+ * Deliberately sharp monochrome styling with dithered, high-contrast surfaces.
  */
 
 @define-color classic_white #ffffff;
@@ -23,7 +23,7 @@ dialog {
   color: @classic_black;
 }
 
-/* Classic Macintosh 6-stripe Titlebar for Client-Side Decorated windows */
+/* Striped high-contrast titlebar for client-side decorated windows. */
 headerbar,
 .titlebar {
   min-height: 22px;
@@ -69,7 +69,7 @@ window.csd decoration {
   border: 1px solid @classic_black;
 }
 
-/* Top System Menu Bar (Classic 22px white bar with black bottom border) */
+/* Top system menu bar. */
 .slopos-topbar {
   min-height: 24px;
   background-color: @classic_white;
@@ -103,7 +103,7 @@ window.csd decoration {
   font-weight: bold;
 }
 
-/* Inverted Pure Black Selection for Menu Items */
+/* Inverted selection for menu items. */
 .slopos-topbar button:hover,
 .slopos-topbar button:checked,
 .slopos-menu-bar menuitem:hover {
@@ -129,7 +129,7 @@ window.csd decoration {
   padding: 2px 8px;
 }
 
-/* Native Menubars */
+/* Native menubars. */
 menubar {
   min-height: 22px;
   padding: 0 2px;
@@ -156,7 +156,7 @@ menubar > menuitem:selected label {
   color: @classic_white;
 }
 
-/* Dropdown Menus with Solid 2px Drop Shadow */
+/* Dropdown menus with solid offset shadow. */
 menu,
 popover.background {
   background-color: @classic_white;
@@ -199,7 +199,7 @@ menu separator {
   background-color: @classic_black;
 }
 
-/* Classic Macintosh Rounded-Corner Push Buttons */
+/* Compact rounded push buttons within the high-contrast theme. */
 button {
   min-height: 22px;
   padding: 3px 12px;
@@ -232,7 +232,7 @@ button:disabled {
   background-color: @classic_white;
 }
 
-/* Signature Classic Macintosh Thick Double Ring Default Button */
+/* Strong default-action ring. */
 button.suggested-action,
 dialog button.suggested-action,
 button:default {
@@ -248,7 +248,6 @@ button:default:active {
   color: @classic_white;
 }
 
-/* Text Entries */
 entry {
   min-height: 22px;
   padding: 2px 6px;
@@ -269,7 +268,6 @@ entry selection {
   color: @classic_white;
 }
 
-/* Lists and Tables */
 list,
 treeview,
 .view {
@@ -289,7 +287,6 @@ treeview:selected label {
   color: @classic_white;
 }
 
-/* Scrollbars with 50% Stippled Track */
 scrollbar {
   background-image: radial-gradient(@classic_black 15%, transparent 16%),
                     radial-gradient(@classic_black 15%, transparent 16%);
@@ -315,7 +312,6 @@ scrollbar slider:active {
   background-color: @classic_black;
 }
 
-/* Checkboxes and Radio Buttons */
 checkbutton check,
 radiobutton radio {
   min-width: 14px;
@@ -338,7 +334,6 @@ radiobutton radio:checked {
   box-shadow: inset 0 0 0 3px @classic_white;
 }
 
-/* Alert Dialogs & Modals */
 .slopos-alert-box {
   padding: 10px;
   background-color: @classic_white;
@@ -349,7 +344,6 @@ dialog {
   box-shadow: 3px 3px 0 @classic_black;
 }
 
-/* Shell Application Strip / Dock */
 .slopos-dock {
   background-color: @classic_white;
   border: 1px solid @classic_black;
@@ -372,7 +366,6 @@ dialog {
   background-color: @classic_black;
 }
 
-/* Search Palette Modal */
 .slopos-search-window {
   background-color: @classic_white;
   border: 2px solid @classic_black;
