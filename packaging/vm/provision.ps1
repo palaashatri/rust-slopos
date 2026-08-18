@@ -1,0 +1,131 @@
+# Drive the unattended Arch install in the SLOPOS-I VM.
+#
+# archiso autologins to root on tty1. We serve arch-install.sh from the host
+# and type a single curl|bash line into the guest via keyboard scancodes;
+# everything after that is scripted inside the guest.
+param(
+    [string]$VmName    = "slopos-i-arch",
+    [string]$ScriptDir = "$PSScriptRoot",
+    [int]$HttpPort     = 8000,
+    [int]$BootWaitSec  = 75,
+    [int]$SshPort      = 2222,
+    [string]$RepoCommit = "",
+    [switch]$SkipStart
+)
+
+$ErrorActionPreference = "Stop"
+$VBox = "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe"
+$http = $null
+
+if ([string]::IsNullOrWhiteSpace($RepoCommit)) {
+    $git = Get-Command git.exe -ErrorAction SilentlyContinue
+    if (-not $git) { throw "git.exe is required to derive the exact source commit" }
+    $repoRoot = (Resolve-Path (Join-Path $ScriptDir "..\..")).Path
+    $RepoCommit = (& $git.Source -C $repoRoot rev-parse HEAD).Trim()
+}
+if ($RepoCommit -notmatch '^[0-9a-fA-F]{40}$') {
+    throw "RepoCommit must be a full 40-character commit SHA"
+}
+if ($SshPort -lt 1 -or $SshPort -gt 65535) {
+    throw "SshPort must be between 1 and 65535"
+}
+if ($HttpPort -lt 1 -or $HttpPort -gt 65535) {
+    throw "HttpPort must be between 1 and 65535"
+}
+$installerPath = Join-Path $ScriptDir "arch-install.sh"
+if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
+    throw "Arch installer script not found: $installerPath"
+}
+$installerSha256 = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($installerSha256 -notmatch '^[0-9a-f]{64}$') {
+    throw "Unable to calculate a valid SHA-256 for $installerPath"
+}
+
+# --- PS/2 set-1 scancodes for the ASCII we need ------------------------------
+$Map = @{
+    '1'=0x02;'2'=0x03;'3'=0x04;'4'=0x05;'5'=0x06;'6'=0x07;'7'=0x08;'8'=0x09;'9'=0x0A;'0'=0x0B
+    '-'=0x0C;'='=0x0D;'q'=0x10;'w'=0x11;'e'=0x12;'r'=0x13;'t'=0x14;'y'=0x15;'u'=0x16;'i'=0x17
+    'o'=0x18;'p'=0x19;'['=0x1A;']'=0x1B;'a'=0x1E;'s'=0x1F;'d'=0x20;'f'=0x21;'g'=0x22;'h'=0x23
+    'j'=0x24;'k'=0x25;'l'=0x26;';'=0x27;"'"=0x28;'`'=0x29;'\'=0x2B;'z'=0x2C;'x'=0x2D;'c'=0x2E
+    'v'=0x2F;'b'=0x30;'n'=0x31;'m'=0x32;','=0x33;'.'=0x34;'/'=0x35;' '=0x39
+}
+# Characters that need Shift
+$Shifted = @{
+    '!'='1';'@'='2';'#'='3';'$'='4';'%'='5';'^'='6';'&'='7';'*'='8';'('='9';')'='0'
+    '_'='-';'+'='=';'{'='[';'}'=']';':'=';';'"'="'";'~'='`';'|'='\';'<'=',';'>'='.';'?'='/'
+}
+
+function Send-Scancodes([int[]]$codes) {
+    if ($codes.Count -eq 0) { return }
+    $hex = ($codes | ForEach-Object { '{0:x2}' -f $_ })
+    & $VBox controlvm $VmName keyboardputscancode @hex | Out-Null
+}
+
+function Send-Text([string]$text) {
+    foreach ($ch in $text.ToCharArray()) {
+        $c = [string]$ch
+        if ($c -cmatch '^[A-Z]$') {
+            $base = $Map[$c.ToLower()]
+            Send-Scancodes @(0x2A, $base, ($base -bor 0x80), 0xAA)   # shift down, key, key up, shift up
+        } elseif ($Shifted.ContainsKey($c)) {
+            $base = $Map[$Shifted[$c]]
+            Send-Scancodes @(0x2A, $base, ($base -bor 0x80), 0xAA)
+        } elseif ($Map.ContainsKey($c)) {
+            $base = $Map[$c]
+            Send-Scancodes @($base, ($base -bor 0x80))
+        } else {
+            Write-Warning "no scancode for '$c' - skipped"
+        }
+        Start-Sleep -Milliseconds 12
+    }
+}
+
+function Send-Enter { Send-Scancodes @(0x1C, 0x9C) }
+
+# --- serve the installer from the host --------------------------------------
+Write-Host "Serving $ScriptDir on port $HttpPort (guest reaches it at 10.0.2.2)"
+$http = Start-Process -FilePath "python" `
+    -ArgumentList "-m", "http.server", "$HttpPort", "--bind", "0.0.0.0", "--directory", "`"$ScriptDir`"" `
+    -PassThru -WindowStyle Hidden
+Start-Sleep -Seconds 2
+if ($http.HasExited) { throw "Host HTTP server exited before provisioning started" }
+
+try {
+    if (-not $SkipStart) {
+        Write-Host "Starting VM headless"
+        & $VBox startvm $VmName --type headless | Out-Null
+    }
+
+    Write-Host "Waiting ${BootWaitSec}s for the archiso live environment to reach a root prompt"
+    Start-Sleep -Seconds $BootWaitSec
+    & $VBox controlvm $VmName screenshotpng "$ScriptDir\boot-prompt.png" 2>$null | Out-Null
+
+    # Wake the console, then type the one bootstrap line.
+    Send-Enter
+    Start-Sleep -Seconds 2
+    # The installer is served over the VM's host-only NAT path.  Fail closed
+    # on HTTP errors, verify the exact host bytes, and syntax-check before
+    # executing so a truncated/error-page download can never become a shell
+    # script.  Both digests are generated from validated hexadecimal values.
+    $cmd = "curl --fail --silent --show-error --location http://10.0.2.2:$HttpPort/arch-install.sh -o /root/i.sh && printf '%s  /root/i.sh\n' '$installerSha256' | sha256sum -c - && bash -n /root/i.sh && set -o pipefail && REPO_COMMIT=$RepoCommit bash /root/i.sh 2>&1 | tee /root/install.log"
+    Write-Host "Typing bootstrap: $cmd"
+    Send-Text $cmd
+    Send-Enter
+
+    Write-Host ""
+    Write-Host "Pinned source commit: $RepoCommit"
+    Write-Host "Installer SHA-256: $installerSha256"
+    Write-Host "Install is running inside the guest (pacstrap + cargo build; expect 20-40 min)."
+    Write-Host "Watch it with:"
+    Write-Host "  & '$VBox' controlvm $VmName screenshotpng shot.png"
+    Write-Host "When it reboots, SSH becomes available:  ssh -p $SshPort retro@127.0.0.1  (password: retro)"
+    $qaScript = Join-Path $ScriptDir "qa-installed.ps1"
+    Write-Host "Deterministic post-reboot QA (requires packaging/vm/qa_key):"
+    Write-Host "  pwsh -File '$qaScript' -VmName '$VmName' -SshPort $SshPort -ExpectedCommit $RepoCommit -SshKeyPath '$ScriptDir\qa_key'"
+}
+finally {
+    if ($http -and -not $http.HasExited) {
+        Stop-Process -Id $http.Id -Force
+        Write-Host "Stopped host HTTP server pid $($http.Id)"
+    }
+}

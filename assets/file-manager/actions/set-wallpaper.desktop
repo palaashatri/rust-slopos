@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Action
+Name=Use as Desktop Background
+Tooltip=Set this image as the SLOPOS desktop wallpaper
+Icon=desktop
+Profiles=on_images;
+
+[X-Action-Profile on_images]
+MimeTypes=image/png;image/jpeg;image/jpg;image/bmp;image/svg+xml;image/gif;image/webp;
+Exec=slopos-wallpaper set %f --mode fill
+SelectionCount=1

@@ -1,0 +1,32 @@
+# SLOPOS-I runtime dependencies for Debian/Ubuntu-family systems
+# X11-only product stack
+xorg
+openbox
+dbus-x11
+pcmanfm
+xfce4-terminal
+mousepad
+ristretto
+zathura
+mpv
+galculator
+network-manager
+network-manager-gnome
+pavucontrol
+pipewire
+pipewire-pulse
+wireplumber
+blueman
+upower
+xfce4-power-manager
+xfce4-settings
+lxappearance
+arandr
+x11-xserver-utils
+xdotool
+wmctrl
+adwaita-icon-theme
+librsvg2-common
+fonts-liberation
+fonts-dejavu-core
+supertux

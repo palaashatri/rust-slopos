@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# start-slopos-i — XDG launcher for the X11-only SLOPOS-I desktop.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_PREFIX="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+export SLOPOS_INSTALL_PREFIX="$INSTALL_PREFIX"
+
+export XDG_SESSION_TYPE="x11"
+export XDG_CURRENT_DESKTOP="SLOPOS"
+export XDG_SESSION_DESKTOP="slopos-i"
+export DESKTOP_SESSION="slopos-i"
+
+if [ -d "$INSTALL_PREFIX/bin" ]; then
+  case ":${PATH:-}:" in
+    *":$INSTALL_PREFIX/bin:"*) ;;
+    *) export PATH="$INSTALL_PREFIX/bin:${PATH:-}" ;;
+  esac
+fi
+
+if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
+  export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+fi
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
+
+SLOPOS_SHARE_DIR="$INSTALL_PREFIX/share"
+if [ -d "$SLOPOS_SHARE_DIR" ]; then
+  export SLOPOS_SHARE_DIR
+  case ":${XDG_DATA_DIRS:-}:" in
+    *":$SLOPOS_SHARE_DIR:"*) ;;
+    *) export XDG_DATA_DIRS="$SLOPOS_SHARE_DIR:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" ;;
+  esac
+  SLOPOS_CONFIG_DIR="$SLOPOS_SHARE_DIR/slopos-i"
+  case ":${XDG_CONFIG_DIRS:-}:" in
+    *":$SLOPOS_CONFIG_DIR:"*) ;;
+    *) export XDG_CONFIG_DIRS="$SLOPOS_CONFIG_DIR:${XDG_CONFIG_DIRS:-/etc/xdg}" ;;
+  esac
+fi
+
+appearance_file="${XDG_CONFIG_HOME:-$HOME/.config}/slopos-i/appearance"
+appearance="platinum"
+if [ -r "$appearance_file" ]; then
+  configured="$(tr -d '[:space:]' < "$appearance_file")"
+  case "$configured" in
+    graphite|platinum) appearance="$configured" ;;
+  esac
+fi
+export SLOPOS_APPEARANCE="$appearance"
+
+if [ "$appearance" = "graphite" ]; then
+  if [ -d "$SLOPOS_SHARE_DIR/themes/slopos-gtk-graphite/gtk-3.0" ] || \
+     [ -d /usr/local/share/themes/slopos-gtk-graphite/gtk-3.0 ] || \
+     [ -d /usr/share/themes/slopos-gtk-graphite/gtk-3.0 ]; then
+    export GTK_THEME="slopos-gtk-graphite"
+  fi
+elif [ "$appearance" = "classic" ]; then
+  if [ -d "$SLOPOS_SHARE_DIR/themes/slopos-gtk-classic/gtk-3.0" ] || \
+     [ -d /usr/local/share/themes/slopos-gtk-classic/gtk-3.0 ] || \
+     [ -d /usr/share/themes/slopos-gtk-classic/gtk-3.0 ]; then
+    export GTK_THEME="slopos-gtk-classic"
+  fi
+else
+  if [ -d "$SLOPOS_SHARE_DIR/themes/slopos-gtk/gtk-3.0" ] || \
+     [ -d /usr/local/share/themes/slopos-gtk/gtk-3.0 ] || \
+     [ -d /usr/share/themes/slopos-gtk/gtk-3.0 ]; then
+    export GTK_THEME="slopos-gtk"
+  fi
+fi
+
+# Enable GTK and AppMenu proxy modules so traditional GTK applications (PCManFM, Xfce4-Terminal, GIMP, etc.)
+# export their menus to the SLOPOS top bar.
+export UBUNTU_MENUPROXY=1
+if [ -n "${GTK_MODULES:-}" ]; then
+  case ":$GTK_MODULES:" in
+    *":appmenu-gtk-module:"*) ;;
+    *) export GTK_MODULES="$GTK_MODULES:appmenu-gtk-module" ;;
+  esac
+else
+  export GTK_MODULES="appmenu-gtk-module"
+fi
+
+resolve_bin() {
+  local name="$1"
+  local candidate
+  for candidate in \
+    "$SCRIPT_DIR/$name" \
+    "$INSTALL_PREFIX/bin/$name" \
+    "./target/release/$name" \
+    "./target/debug/$name" \
+    "$HOME/.local/bin/$name" \
+    "/usr/local/bin/$name" \
+    "/usr/bin/$name"
+  do
+    if [ -x "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  if command -v "$name" >/dev/null 2>&1; then
+    command -v "$name"
+    return 0
+  fi
+  return 1
+}
+
+SESSION_BIN="$(resolve_bin slopos-session)" || {
+  echo "start-slopos-i: slopos-session binary not found" >&2
+  exit 1
+}
+
+echo "Starting SLOPOS-I X11 desktop session ($appearance)..."
+exec "$SESSION_BIN" "$@"

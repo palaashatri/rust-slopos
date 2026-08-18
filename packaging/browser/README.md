@@ -1,0 +1,64 @@
+# SLOPOS-I upstream browser integration
+
+SLOPOS-I does not fork or patch Firefox, Chromium or Chrome. The integration
+is layered in three deliberately bounded pieces:
+
+1. `start-slopos-i` exports the normal X11 desktop identity and
+   `GTK_THEME=slopos-gtk`, clears Wayland display inheritance, and selects the
+   X11 backend. Browsers therefore inherit the SLOPOS GTK theme for native file
+   pickers, permission dialogs, menus and other GTK-backed surfaces, and they
+   see the SLOPOS XDG desktop identity and icon/data paths.
+2. `chromium/manifest.json` is an optional unpacked Chromium/Chrome theme. The
+   `start-slopos-browser` wrapper loads it for Chromium-family binaries and
+   adds the documented X11 Ozone flag. Chromium/Chrome still own their tab
+   strips and browser behavior.
+3. `firefox/userChrome.css` and `firefox/user.js` are an opt-in profile
+   integration for Firefox. The wrapper disables Firefox's Wayland backend;
+   run `scripts/install-browser-theme.sh firefox /absolute/profile` to back up
+   an existing `userChrome.css`, enable the supported stylesheet preference,
+   and add the SLOPOS frame/toolbar rules.
+
+The helper never rewrites a browser binary, web content, or a user's profile
+unless the user explicitly supplies a profile path. Firefox's `manifest.json`
+is a reference for a signed upstream theme; it is not force-installed because
+Firefox requires signed add-ons for normal distribution. Chromium's theme is
+loaded through its documented extension mechanism, not a custom browser build.
+
+The packaged `slopos-browser.desktop` entry is the default HTML/HTTP(S)
+launcher and is also used by the Openbox menu. SLOPOS Search routes discovered
+raw Firefox/Chromium desktop entries through `start-slopos-browser` when that
+helper is available, preserving the selected upstream executable through
+`SLOPOS_BROWSER`; if the helper is absent, the original desktop command remains
+the fallback.
+
+## Scope and limits
+
+Browser pages remain site-controlled. Browser-owned UI differs by engine and
+release, so no-fork integration can align colors, borders, GTK dialogs and
+desktop identity but cannot guarantee that every tab/omnibox surface matches
+the SLOPOS shell. Upstream browser updates remain authoritative.
+
+For an explicit profile install:
+
+```bash
+scripts/install-browser-theme.sh chromium /absolute/chromium-profile
+# The same unpacked theme works for Google Chrome and other Chromium-family
+# builds; the command name is only used to select the profile integration.
+scripts/install-browser-theme.sh google-chrome /absolute/chrome-profile
+scripts/install-browser-theme.sh firefox /absolute/firefox-profile
+```
+
+Packaged installations expose the same helper as `install-browser-theme.sh`
+in the SLOPOS `bin` directory. It resolves the shipped theme resources from
+the installed `share/slopos-i/browser` tree, so profile integration remains
+available without a source checkout.
+
+The Chromium profile install prints a launch command using
+`SLOPOS_BROWSER_THEME_DIR`; Firefox must be restarted after the profile files
+are changed.
+
+Profile safety is explicit: an existing `slopos-browser-theme` directory is
+moved to a timestamped backup before the Chromium theme is refreshed, and an
+existing Firefox `toolkit.legacyUserProfileCustomizations.stylesheets` setting
+is normalized to `true` only after its original `user.js` is backed up. The
+installer never recursively deletes profile data.

@@ -1,0 +1,47 @@
+[Icon Theme]
+Name=SLOPOS Platinum
+Comment=Original classic Macintosh-inspired SLOPOS-I icon theme
+Inherits=hicolor,Adwaita
+Directories=scalable/apps,scalable/actions,scalable/devices,scalable/mimetypes,scalable/places,scalable/status
+
+[scalable/apps]
+Size=48
+MinSize=16
+MaxSize=128
+Type=Scalable
+Context=Applications
+
+[scalable/actions]
+Size=48
+MinSize=16
+MaxSize=128
+Type=Scalable
+Context=Actions
+
+[scalable/devices]
+Size=48
+MinSize=16
+MaxSize=128
+Type=Scalable
+Context=Devices
+
+[scalable/mimetypes]
+Size=48
+MinSize=16
+MaxSize=128
+Type=Scalable
+Context=MimeTypes
+
+[scalable/places]
+Size=48
+MinSize=16
+MaxSize=128
+Type=Scalable
+Context=Places
+
+[scalable/status]
+Size=48
+MinSize=16
+MaxSize=128
+Type=Scalable
+Context=Status
