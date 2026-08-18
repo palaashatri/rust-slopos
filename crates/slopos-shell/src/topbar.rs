@@ -18,7 +18,7 @@ use gtk::{
 };
 use std::cell::{Cell, RefCell};
 use std::env;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -35,6 +35,7 @@ pub struct TopBar {
     battery_box: GtkBox,
     battery_label: Label,
     global_menu_host: GtkBox,
+    launcher: Rc<Launcher>,
     active_menu_state: RefCell<Option<GtkMenuExporter>>,
     current_active_window: Cell<Option<u32>>,
 }
@@ -212,9 +213,12 @@ impl TopBar {
             battery_box,
             battery_label,
             global_menu_host,
+            launcher,
             active_menu_state: RefCell::new(None),
             current_active_window: Cell::new(None),
         });
+
+        topbar.show_desktop_state();
 
         // In-process local clock ticker (every 1 second, zero I/O or subprocesses)
         glib::timeout_add_seconds_local(1, move || {
@@ -256,7 +260,7 @@ impl TopBar {
                     };
                     self.active_title_label.set_text(&display_title);
                     let exporter = window_id.and_then(gmenu::detect);
-                    self.refresh_global_menu(exporter);
+                    self.refresh_global_menu(exporter, *window_id, &display_title);
                 }
 
                 self.set_fullscreen_visibility(*is_fullscreen);
@@ -285,7 +289,15 @@ impl TopBar {
 
     fn show_desktop_state(&self) {
         self.active_title_label.set_text("SLOPOS Desktop");
-        self.refresh_global_menu(None);
+        self.current_active_window.set(None);
+        *self.active_menu_state.borrow_mut() = None;
+        for child in self.global_menu_host.children() {
+            self.global_menu_host.remove(&child);
+        }
+        let desktop_menu = build_desktop_menu_bar(self.launcher.clone());
+        self.global_menu_host
+            .pack_start(&desktop_menu, false, false, 0);
+        self.global_menu_host.show_all();
     }
 
     fn set_fullscreen_visibility(&self, is_fullscreen: bool) {
@@ -303,38 +315,51 @@ impl TopBar {
         }
     }
 
-    fn refresh_global_menu(&self, next: Option<GtkMenuExporter>) {
-        if *self.active_menu_state.borrow() == next {
-            return;
+    fn refresh_global_menu(
+        &self,
+        next: Option<GtkMenuExporter>,
+        window_id: Option<u32>,
+        app_title: &str,
+    ) {
+        if let Some(ref exporter) = next {
+            if *self.active_menu_state.borrow() == Some(exporter.clone()) {
+                return;
+            }
         }
 
         for child in self.global_menu_host.children() {
             self.global_menu_host.remove(&child);
         }
-        self.global_menu_host.hide();
         *self.active_menu_state.borrow_mut() = None;
 
-        let Some(exporter) = next else {
-            return;
-        };
-        if self.current_active_window.get() != Some(exporter.window_id) {
-            return;
+        if let Some(exporter) = next {
+            match gmenu::build_menu_bar(&exporter) {
+                Ok(menu_bar) => {
+                    self.global_menu_host.pack_start(&menu_bar, false, false, 0);
+                    self.global_menu_host.show_all();
+                    log::info!(
+                        "Imported GTK global menubar bus={} path={}",
+                        exporter.bus_name,
+                        exporter.menu_path
+                    );
+                    *self.active_menu_state.borrow_mut() = Some(exporter);
+                    return;
+                }
+                Err(error) => {
+                    log::warn!("Could not import focused application's GTK menu: {error}");
+                }
+            }
         }
 
-        match gmenu::build_menu_bar(&exporter) {
-            Ok(menu_bar) => {
-                self.global_menu_host.pack_start(&menu_bar, false, false, 0);
-                self.global_menu_host.show_all();
-                log::info!(
-                    "Imported GTK global menubar bus={} path={}",
-                    exporter.bus_name,
-                    exporter.menu_path
-                );
-                *self.active_menu_state.borrow_mut() = Some(exporter);
-            }
-            Err(error) => {
-                log::warn!("Could not import focused application's GTK menu: {error}");
-            }
+        if let Some(win_id) = window_id {
+            let win_menu = build_window_action_menu_bar(win_id, app_title);
+            self.global_menu_host.pack_start(&win_menu, false, false, 0);
+            self.global_menu_host.show_all();
+        } else {
+            let desktop_menu = build_desktop_menu_bar(self.launcher.clone());
+            self.global_menu_host
+                .pack_start(&desktop_menu, false, false, 0);
+            self.global_menu_host.show_all();
         }
     }
 }
@@ -419,6 +444,257 @@ fn screen_geometry() -> (i32, i32) {
                 })
         })
         .unwrap_or((1280, 800))
+}
+
+fn build_desktop_menu_bar(launcher: Rc<Launcher>) -> gtk::MenuBar {
+    let bar = gtk::MenuBar::new();
+    bar.style_context().add_class("slopos-menu-bar");
+
+    // File
+    let file_item = MenuItem::with_label("File");
+    let file_menu = Menu::new();
+    let new_folder = MenuItem::with_label("New Folder");
+    new_folder.connect_activate(|_| {
+        if let Ok(home) = env::var("HOME") {
+            let desktop = PathBuf::from(home).join("Desktop");
+            let target = if desktop.is_dir() {
+                desktop.join("Untitled Folder")
+            } else if let Ok(h) = env::var("HOME") {
+                PathBuf::from(h).join("Untitled Folder")
+            } else {
+                PathBuf::from("/tmp/Untitled Folder")
+            };
+            let _ = std::fs::create_dir_all(target);
+        }
+    });
+    file_menu.append(&new_folder);
+
+    let open_files = MenuItem::with_label("Open File Manager…");
+    open_files.connect_activate(|_| spawn_resolved("pcmanfm", &[]));
+    file_menu.append(&open_files);
+
+    let new_doc = MenuItem::with_label("New Text Document…");
+    new_doc.connect_activate(|_| spawn_resolved("mousepad", &[]));
+    file_menu.append(&new_doc);
+
+    let open_term = MenuItem::with_label("Open Terminal…");
+    open_term.connect_activate(|_| spawn_resolved("xfce4-terminal", &[]));
+    file_menu.append(&open_term);
+
+    file_menu.append(&SeparatorMenuItem::new());
+    let find_apps = MenuItem::with_label("Find Applications… (Super+Space)");
+    let launcher_ref = launcher.clone();
+    find_apps.connect_activate(move |_| launcher_ref.toggle());
+    file_menu.append(&find_apps);
+
+    file_menu.show_all();
+    file_item.set_submenu(Some(&file_menu));
+    bar.append(&file_item);
+
+    // Edit
+    let edit_item = MenuItem::with_label("Edit");
+    let edit_menu = Menu::new();
+    let cut = MenuItem::with_label("Cut (Ctrl+X)");
+    cut.connect_activate(|_| {
+        spawn_resolved("xdotool", &["key", "ctrl+x"]);
+    });
+    edit_menu.append(&cut);
+    let copy = MenuItem::with_label("Copy (Ctrl+C)");
+    copy.connect_activate(|_| {
+        spawn_resolved("xdotool", &["key", "ctrl+c"]);
+    });
+    edit_menu.append(&copy);
+    let paste = MenuItem::with_label("Paste (Ctrl+V)");
+    paste.connect_activate(|_| {
+        spawn_resolved("xdotool", &["key", "ctrl+v"]);
+    });
+    edit_menu.append(&paste);
+    let select_all = MenuItem::with_label("Select All (Ctrl+A)");
+    select_all.connect_activate(|_| {
+        spawn_resolved("xdotool", &["key", "ctrl+a"]);
+    });
+    edit_menu.append(&select_all);
+    edit_menu.show_all();
+    edit_item.set_submenu(Some(&edit_menu));
+    bar.append(&edit_item);
+
+    // View
+    let view_item = MenuItem::with_label("View");
+    let view_menu = Menu::new();
+    let refresh = MenuItem::with_label("Refresh Desktop (F5)");
+    refresh.connect_activate(|_| {
+        spawn_resolved("xdotool", &["key", "F5"]);
+    });
+    view_menu.append(&refresh);
+    view_menu.append(&SeparatorMenuItem::new());
+    let settings = MenuItem::with_label("Control Panels…");
+    settings.connect_activate(|_| spawn_resolved("slopos-settings", &[]));
+    view_menu.append(&settings);
+    let catalogue = MenuItem::with_label("Software Catalogue…");
+    catalogue.connect_activate(|_| spawn_resolved("slopos-catalogue", &[]));
+    view_menu.append(&catalogue);
+    view_menu.show_all();
+    view_item.set_submenu(Some(&view_menu));
+    bar.append(&view_item);
+
+    // Special
+    let special_item = MenuItem::with_label("Special");
+    let special_menu = Menu::new();
+    let cleanup = MenuItem::with_label("Clean Up Desktop");
+    cleanup.connect_activate(|_| {
+        spawn_resolved("xdotool", &["key", "ctrl+r"]);
+    });
+    special_menu.append(&cleanup);
+    let empty_trash = MenuItem::with_label("Empty Trash");
+    empty_trash.connect_activate(|_| {
+        if let Ok(home) = env::var("HOME") {
+            let trash = PathBuf::from(home).join(".local/share/Trash");
+            let files_dir = trash.join("files");
+            let info_dir = trash.join("info");
+            let _ = std::fs::remove_dir_all(&files_dir);
+            let _ = std::fs::remove_dir_all(&info_dir);
+            let _ = std::fs::create_dir_all(&files_dir);
+            let _ = std::fs::create_dir_all(&info_dir);
+        }
+        let _ = Command::new("trash-empty").spawn();
+    });
+    special_menu.append(&empty_trash);
+    special_menu.append(&SeparatorMenuItem::new());
+    let lock = MenuItem::with_label("Lock Screen");
+    lock.connect_activate(|_| {
+        session::lock_screen();
+    });
+    special_menu.append(&lock);
+    let switch_user = MenuItem::with_label("Switch User…");
+    switch_user.connect_activate(|_| {
+        session::switch_user();
+    });
+    special_menu.append(&switch_user);
+    let sleep = MenuItem::with_label("Sleep");
+    sleep.connect_activate(|_| {
+        session::suspend_system();
+    });
+    special_menu.append(&sleep);
+    let restart = MenuItem::with_label("Restart…");
+    restart.connect_activate(|_| {
+        confirm_action("Restart", "Restart this computer now?", || {
+            session::reboot_system();
+        });
+    });
+    special_menu.append(&restart);
+    let shutdown = MenuItem::with_label("Shut Down…");
+    shutdown.connect_activate(|_| {
+        confirm_action("Shut Down", "Shut down this computer now?", || {
+            session::poweroff_system();
+        });
+    });
+    special_menu.append(&shutdown);
+    special_menu.show_all();
+    special_item.set_submenu(Some(&special_menu));
+    bar.append(&special_item);
+
+    // Help
+    let help_item = MenuItem::with_label("Help");
+    let help_menu = Menu::new();
+    let about = MenuItem::with_label("About SLOPOS-I…");
+    about.connect_activate(|_| {
+        show_message(
+            "About SLOPOS-I",
+            "SLOPOS-I Desktop Environment\n\nRelease: 0.1.0-alpha\nPlatform: X11 / Linux\nLicense: MIT\n\nAn original, consumer-ready Linux desktop.",
+        );
+    });
+    help_menu.append(&about);
+    help_menu.show_all();
+    help_item.set_submenu(Some(&help_menu));
+    bar.append(&help_item);
+
+    bar.show_all();
+    bar
+}
+
+fn build_window_action_menu_bar(window_id: u32, app_title: &str) -> gtk::MenuBar {
+    let bar = gtk::MenuBar::new();
+    bar.style_context().add_class("slopos-menu-bar");
+
+    // File
+    let file_item = MenuItem::with_label("File");
+    let file_menu = Menu::new();
+    let close_win = MenuItem::with_label("Close Window (Super+Q)");
+    close_win.connect_activate(move |_| {
+        crate::x11::windows::send_close_window(window_id);
+    });
+    file_menu.append(&close_win);
+    file_menu.show_all();
+    file_item.set_submenu(Some(&file_menu));
+    bar.append(&file_item);
+
+    // Edit
+    let edit_item = MenuItem::with_label("Edit");
+    let edit_menu = Menu::new();
+    let cut = MenuItem::with_label("Cut (Ctrl+X)");
+    cut.connect_activate(|_| {
+        spawn_resolved("xdotool", &["key", "ctrl+x"]);
+    });
+    edit_menu.append(&cut);
+    let copy = MenuItem::with_label("Copy (Ctrl+C)");
+    copy.connect_activate(|_| {
+        spawn_resolved("xdotool", &["key", "ctrl+c"]);
+    });
+    edit_menu.append(&copy);
+    let paste = MenuItem::with_label("Paste (Ctrl+V)");
+    paste.connect_activate(|_| {
+        spawn_resolved("xdotool", &["key", "ctrl+v"]);
+    });
+    edit_menu.append(&paste);
+    let select_all = MenuItem::with_label("Select All (Ctrl+A)");
+    select_all.connect_activate(|_| {
+        spawn_resolved("xdotool", &["key", "ctrl+a"]);
+    });
+    edit_menu.append(&select_all);
+    edit_menu.show_all();
+    edit_item.set_submenu(Some(&edit_menu));
+    bar.append(&edit_item);
+
+    // Window
+    let win_item = MenuItem::with_label("Window");
+    let win_menu = Menu::new();
+    let minimize = MenuItem::with_label("Minimize (Super+M)");
+    minimize.connect_activate(move |_| {
+        crate::x11::windows::send_minimize_window(window_id);
+    });
+    win_menu.append(&minimize);
+    let maximize = MenuItem::with_label("Maximize (Super+F)");
+    maximize.connect_activate(move |_| {
+        crate::x11::windows::send_toggle_maximize_window(window_id);
+    });
+    win_menu.append(&maximize);
+    let close = MenuItem::with_label("Close (Super+Q)");
+    close.connect_activate(move |_| {
+        crate::x11::windows::send_close_window(window_id);
+    });
+    win_menu.append(&close);
+    win_menu.show_all();
+    win_item.set_submenu(Some(&win_menu));
+    bar.append(&win_item);
+
+    // Help
+    let help_item = MenuItem::with_label("Help");
+    let help_menu = Menu::new();
+    let title_owned = app_title.to_string();
+    let about = MenuItem::with_label(&format!("About {title_owned}…"));
+    about.connect_activate(move |_| {
+        show_message(
+            &format!("About {title_owned}"),
+            &format!("{title_owned}\n\nRunning on SLOPOS-I Desktop Environment."),
+        );
+    });
+    help_menu.append(&about);
+    help_menu.show_all();
+    help_item.set_submenu(Some(&help_menu));
+    bar.append(&help_item);
+
+    bar.show_all();
+    bar
 }
 
 fn build_system_menu() -> Menu {

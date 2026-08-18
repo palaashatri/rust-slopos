@@ -1,6 +1,7 @@
 //! Client window metadata and EWMH state queries.
 
 use super::atoms::Atoms;
+use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{AtomEnum, ConnectionExt, Window};
 use x11rb::rust_connection::RustConnection;
 
@@ -122,4 +123,95 @@ pub fn get_window_state(conn: &RustConnection, window: Window, atoms: &Atoms) ->
     }
 
     (is_fullscreen, is_max_vert && is_max_horz)
+}
+
+pub fn close_window(conn: &RustConnection, window: Window, atoms: &Atoms) {
+    use x11rb::protocol::xproto::{ClientMessageEvent, EventMask};
+    let event = ClientMessageEvent {
+        response_type: x11rb::protocol::xproto::CLIENT_MESSAGE_EVENT,
+        format: 32,
+        sequence: 0,
+        window,
+        type_: atoms.net_close_window,
+        data: [0, 0, 0, 0, 0].into(),
+    };
+    let root = conn.setup().roots[0].root;
+    let _ = conn.send_event(
+        false,
+        root,
+        EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY,
+        event,
+    );
+    let _ = conn.flush();
+}
+
+pub fn minimize_window(conn: &RustConnection, window: Window, atoms: &Atoms) {
+    use x11rb::protocol::xproto::{ClientMessageEvent, EventMask};
+    let event = ClientMessageEvent {
+        response_type: x11rb::protocol::xproto::CLIENT_MESSAGE_EVENT,
+        format: 32,
+        sequence: 0,
+        window,
+        type_: atoms.wm_change_state,
+        data: [3 /* IconicState */, 0, 0, 0, 0].into(),
+    };
+    let root = conn.setup().roots[0].root;
+    let _ = conn.send_event(
+        false,
+        root,
+        EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY,
+        event,
+    );
+    let _ = conn.flush();
+}
+
+pub fn toggle_maximize_window(conn: &RustConnection, window: Window, atoms: &Atoms) {
+    use x11rb::protocol::xproto::{ClientMessageEvent, EventMask};
+    let event = ClientMessageEvent {
+        response_type: x11rb::protocol::xproto::CLIENT_MESSAGE_EVENT,
+        format: 32,
+        sequence: 0,
+        window,
+        type_: atoms.net_wm_state,
+        data: [
+            2, /* _NET_WM_STATE_TOGGLE */
+            atoms.net_wm_state_maximized_vert,
+            atoms.net_wm_state_maximized_horz,
+            1, /* source indication: normal application */
+            0,
+        ]
+        .into(),
+    };
+    let root = conn.setup().roots[0].root;
+    let _ = conn.send_event(
+        false,
+        root,
+        EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY,
+        event,
+    );
+    let _ = conn.flush();
+}
+
+pub fn send_close_window(window: Window) {
+    if let Ok((conn, _)) = RustConnection::connect(None) {
+        if let Ok(atoms) = Atoms::intern(&conn) {
+            close_window(&conn, window, &atoms);
+        }
+    }
+}
+
+pub fn send_minimize_window(window: Window) {
+    if let Ok((conn, _)) = RustConnection::connect(None) {
+        if let Ok(atoms) = Atoms::intern(&conn) {
+            minimize_window(&conn, window, &atoms);
+        }
+    }
+}
+
+pub fn send_toggle_maximize_window(window: Window) {
+    if let Ok((conn, _)) = RustConnection::connect(None) {
+        if let Ok(atoms) = Atoms::intern(&conn) {
+            toggle_maximize_window(&conn, window, &atoms);
+        }
+    }
 }
