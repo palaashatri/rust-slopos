@@ -180,6 +180,10 @@ impl Launcher {
         }
     }
 
+    pub fn get_apps(&self) -> Arc<Vec<DesktopApp>> {
+        self.state.borrow().apps.clone()
+    }
+
     pub fn show(&self) {
         self.search_entry.set_text("");
         self.filter_apps("");

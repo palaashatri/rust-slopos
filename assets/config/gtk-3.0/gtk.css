@@ -517,6 +517,24 @@ scrollbar button {
   background-color: @slopos_border;
 }
 
+.slopos-dock-indicator {
+  min-width: 4px;
+  min-height: 4px;
+  max-width: 4px;
+  max-height: 4px;
+  margin: 1px auto 0 auto;
+  border-radius: 2px;
+  background-color: transparent;
+}
+
+.slopos-dock-indicator.is-running {
+  background-color: rgba(90, 98, 112, 0.85);
+}
+
+.slopos-dock-indicator.is-active {
+  background-color: @slopos_accent;
+}
+
 window.slopos-dock-window,
 window.slopos-launcher-window,
 window.slopos-notification-window,

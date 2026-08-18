@@ -46,23 +46,25 @@ fn main() {
     let launcher = Launcher::new();
     install_launcher_signal_bridge(launcher.clone());
 
+    let topbar = TopBar::new(launcher.clone());
+    shortcuts::install_system_menu_shortcut();
+    let dock = Dock::new(launcher.clone());
+
     // Initialize the persistent background application index worker
     #[allow(deprecated)]
     let (app_index_sender, app_index_receiver) =
         glib::MainContext::channel(glib::Priority::default());
     let launcher_c = launcher.clone();
+    let dock_index = dock.clone();
     app_index_receiver.attach(None, move |update| {
         launcher_c.update_index(update);
+        dock_index.rebuild_items();
         glib::ControlFlow::Continue
     });
 
     let _app_index = AppIndex::start(move |update| {
         let _ = app_index_sender.send(update);
     });
-
-    let topbar = TopBar::new(launcher.clone());
-    shortcuts::install_system_menu_shortcut();
-    let dock = Dock::new(launcher);
 
     // Initialize the persistent event-driven D-Bus and audio monitor
     #[allow(deprecated)]

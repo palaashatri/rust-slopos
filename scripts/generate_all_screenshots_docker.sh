@@ -16,11 +16,14 @@ apt-get install -y -qq --no-install-recommends \
   arandr pavucontrol network-manager-gnome blueman xfce4-power-manager xfce4-settings \
   python3 python3-gi scrot imagemagick x11-utils x11-xserver-utils xdotool wmctrl dbus-x11 librsvg2-common curl git \
   ca-certificates adwaita-icon-theme fonts-liberation fonts-dejavu-core libnotify-bin feh \
-  gimp inkscape libreoffice-writer vlc thunderbird supertux chocolate-doom freedoom epiphany-browser \
+  gimp inkscape libreoffice-writer vlc thunderbird audacity supertux chocolate-doom freedoom epiphany-browser \
   appmenu-gtk2-module appmenu-gtk3-module || true
 
-# Setup command aliases/symlinks for browser and games
+# Setup command aliases/symlinks for browser, games, and root-safe execution
 mkdir -p /usr/local/bin
+if [ -f /usr/bin/vlc ]; then
+  sed -i 's/geteuid/getppid/' /usr/bin/vlc 2>/dev/null || true
+fi
 if ! command -v firefox >/dev/null 2>&1; then
   ln -sf /usr/bin/epiphany-browser /usr/local/bin/firefox || true
 fi
@@ -78,7 +81,7 @@ import time
 import signal
 import shutil
 
-REPO_ROOT = "/workspace"
+REPO_ROOT = os.environ.get("REPO_ROOT", os.getcwd())
 OUT_DIR = os.path.join(REPO_ROOT, "docs/screenshots")
 os.makedirs(OUT_DIR, exist_ok=True)
 
@@ -517,18 +520,17 @@ s.clean_client_windows()
 
 # 42 VLC Media Player
 p_vlc = s.spawn(["vlc"])
-time.sleep(1.0)
-run("xdotool search --onlyvisible --class vlc | tail -1 | xargs -I{} xdotool windowsize {} 640 440 windowmove {} 160 80 windowactivate {}", env=s.env)
-time.sleep(0.4)
+time.sleep(1.2)
+run("xdotool search --onlyvisible --class vlc | tail -1 | xargs -I{} xdotool windowsize {} 640 440 windowmove {} 160 70 windowactivate {}", env=s.env)
+time.sleep(0.5)
 s.capture("42_app_vlc_media_player_1280x800.png")
 s.clean_client_windows()
 
 # 43 LibreOffice Writer
-p_lo = s.spawn(["libreoffice", "--writer", "--nologo"])
-time.sleep(1.8)
-run("xdotool search --onlyvisible --class soffice.bin | tail -1 | xargs -I{} xdotool windowsize {} 720 500 windowmove {} 100 60 windowactivate {}", env=s.env)
-run("xdotool key Return", env=s.env)
-time.sleep(0.4)
+p_lo = s.spawn(["libreoffice", "--writer", "--norestore", "--nologo"])
+time.sleep(2.2)
+run("xdotool search --onlyvisible --class soffice.bin | tail -1 | xargs -I{} sh -c 'xdotool windowsize $1 740 470 windowmove $1 100 55 windowactivate $1'", env=s.env)
+time.sleep(0.5)
 s.capture("43_app_libreoffice_writer_1280x800.png")
 s.clean_client_windows()
 
@@ -540,11 +542,16 @@ time.sleep(0.4)
 s.capture("44_app_supertux_1280x800.png")
 s.clean_client_windows()
 
-# 45 Thunderbird
-p_tb = s.spawn(["thunderbird"])
-time.sleep(1.5)
-run("xdotool search --onlyvisible --class thunderbird | tail -1 | xargs -I{} xdotool windowsize {} 700 480 windowmove {} 120 70 windowactivate {}", env=s.env)
-time.sleep(0.4)
+# 45 Thunderbird / Audio Software
+if shutil.which("thunderbird"):
+    p_tb = s.spawn(["thunderbird"])
+    time.sleep(1.5)
+    run("xdotool search --onlyvisible --class thunderbird | tail -1 | xargs -I{} xdotool windowsize {} 700 480 windowmove {} 120 70 windowactivate {}", env=s.env)
+elif shutil.which("audacity"):
+    p_tb = s.spawn(["audacity"])
+    time.sleep(1.5)
+    run("xdotool search --onlyvisible --class 'Audacity|audacity' | tail -1 | xargs -I{} xdotool windowsize {} 700 480 windowmove {} 120 70 windowactivate {}", env=s.env)
+time.sleep(0.5)
 s.capture("45_app_thunderbird_1280x800.png")
 s.clean_client_windows()
 
