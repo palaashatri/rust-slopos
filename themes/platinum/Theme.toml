@@ -2,7 +2,7 @@ name = "SLOPOS Platinum"
 identifier = "com.slopos.theme.platinum"
 version = "1.1"
 author = "SLOPOS-I"
-description = "Original compact Platinum-style theme inspired by classic Macintosh interface grammar"
+description = "Original compact SLOPOS-I light theme with layered neutral surfaces and crisp desktop ergonomics"
 is_dark = false
 accent = "#000080"
 
