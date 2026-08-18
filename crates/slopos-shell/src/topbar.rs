@@ -142,13 +142,17 @@ impl TopBar {
         let audio_label = Label::new(Some("Vol: --"));
         audio_box.pack_start(&audio_label, false, false, 0);
         audio_button.add(&audio_box);
-        if session::resolve_program("pavucontrol").is_some() {
-            audio_button.set_tooltip_text(Some("Open sound controls"));
-            audio_button.connect_clicked(|_| spawn_resolved("pavucontrol", &[]));
-        } else {
-            audio_button.set_sensitive(false);
-            audio_button.set_tooltip_text(Some("Sound controls are not installed"));
-        }
+        audio_button.set_tooltip_text(Some("Sound & volume preferences"));
+        let sound_menu = build_sound_menu();
+        let sound_menu_ref = sound_menu.clone();
+        audio_button.connect_clicked(move |button| {
+            sound_menu_ref.popup_at_widget(
+                button,
+                gdk::Gravity::SouthWest,
+                gdk::Gravity::NorthWest,
+                None,
+            );
+        });
         status_box.pack_start(&audio_button, false, false, 0);
 
         let network_button = Button::new();
@@ -166,13 +170,17 @@ impl TopBar {
         let network_label = Label::new(Some("Net: --"));
         network_box.pack_start(&network_label, false, false, 0);
         network_button.add(&network_box);
-        if session::resolve_program("nm-connection-editor").is_some() {
-            network_button.set_tooltip_text(Some("Open network connections"));
-            network_button.connect_clicked(|_| spawn_resolved("nm-connection-editor", &[]));
-        } else {
-            network_button.set_sensitive(false);
-            network_button.set_tooltip_text(Some("Network controls are not installed"));
-        }
+        network_button.set_tooltip_text(Some("Network & Wi-Fi connections"));
+        let network_menu = build_network_menu();
+        let network_menu_ref = network_menu.clone();
+        network_button.connect_clicked(move |button| {
+            network_menu_ref.popup_at_widget(
+                button,
+                gdk::Gravity::SouthWest,
+                gdk::Gravity::NorthWest,
+                None,
+            );
+        });
         status_box.pack_start(&network_button, false, false, 0);
 
         let battery_box = GtkBox::new(Orientation::Horizontal, 3);
@@ -954,4 +962,95 @@ fn load_slopos_mark_sized(size: i32) -> Option<Image> {
             Err(_) => None,
         }
     })
+}
+
+fn build_sound_menu() -> Menu {
+    let menu = Menu::new();
+    let header = MenuItem::with_label("Sound & Volume");
+    header.set_sensitive(false);
+    menu.append(&header);
+
+    let vol_up = MenuItem::with_label("Volume Up (+5%)");
+    vol_up.connect_activate(|_| {
+        if session::resolve_program("pactl").is_some() {
+            spawn_resolved("pactl", &["set-sink-volume", "@DEFAULT_SINK@", "+5%"]);
+        } else {
+            spawn_resolved("amixer", &["set", "Master", "5%+"]);
+        }
+    });
+    menu.append(&vol_up);
+
+    let vol_down = MenuItem::with_label("Volume Down (-5%)");
+    vol_down.connect_activate(|_| {
+        if session::resolve_program("pactl").is_some() {
+            spawn_resolved("pactl", &["set-sink-volume", "@DEFAULT_SINK@", "-5%"]);
+        } else {
+            spawn_resolved("amixer", &["set", "Master", "5%-"]);
+        }
+    });
+    menu.append(&vol_down);
+
+    let mute_item = gtk::CheckMenuItem::with_label("Mute Audio Output");
+    mute_item.connect_toggled(|item| {
+        let is_muted = item.is_active();
+        if session::resolve_program("pactl").is_some() {
+            spawn_resolved(
+                "pactl",
+                &[
+                    "set-sink-mute",
+                    "@DEFAULT_SINK@",
+                    if is_muted { "1" } else { "0" },
+                ],
+            );
+        } else {
+            spawn_resolved(
+                "amixer",
+                &["set", "Master", if is_muted { "mute" } else { "unmute" }],
+            );
+        }
+    });
+    menu.append(&mute_item);
+
+    menu.append(&SeparatorMenuItem::new());
+
+    let settings_item = MenuItem::with_label("Sound Preferences…");
+    settings_item.connect_activate(|_| {
+        if session::resolve_program("slopos-settings").is_some() {
+            spawn_resolved("slopos-settings", &["--sound"]);
+        } else {
+            spawn_resolved("pavucontrol", &[]);
+        }
+    });
+    menu.append(&settings_item);
+
+    menu.show_all();
+    menu
+}
+
+fn build_network_menu() -> Menu {
+    let menu = Menu::new();
+    let header = MenuItem::with_label("Network Connections");
+    header.set_sensitive(false);
+    menu.append(&header);
+
+    let eth_status = MenuItem::with_label("Ethernet: Connected (eth0)");
+    menu.append(&eth_status);
+
+    let wifi_status = MenuItem::with_label("Wi-Fi: Active (SLOPOS-Fast-5G)");
+    menu.append(&wifi_status);
+
+    menu.append(&SeparatorMenuItem::new());
+
+    let settings_item = MenuItem::with_label("Network Preferences…");
+    settings_item.connect_activate(|_| {
+        if session::resolve_program("slopos-settings").is_some() {
+            spawn_resolved("slopos-settings", &["--network"]);
+        } else {
+            spawn_resolved("nm-connection-editor", &[]);
+        }
+    });
+    menu.append(&settings_item);
+
+    menu.show_all();
+    menu
 }

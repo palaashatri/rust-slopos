@@ -286,6 +286,66 @@ fn filter_apps_internal(
         }
         hbox.pack_start(&labels, true, true, 0);
         row.add(&hbox);
+        let app_ctx = app.clone();
+        let win_ctx = window.clone();
+        row.connect_button_press_event(move |row_widget, event| {
+            if event.button() == 3 {
+                let menu = gtk::Menu::new();
+                let launch_item = gtk::MenuItem::with_label(&format!("Launch {}", app_ctx.name));
+                let app_l = app_ctx.clone();
+                let win_l = win_ctx.clone();
+                launch_item.connect_activate(move |_| {
+                    let _ = spawn_app(&app_l);
+                    win_l.hide();
+                });
+                menu.append(&launch_item);
+
+                let pin_item = gtk::MenuItem::with_label("Pin to Dock");
+                let app_p = app_ctx.clone();
+                pin_item.connect_activate(move |_| {
+                    let icon_name = if let Some(f) = role_icon_file(&app_p) {
+                        f.to_string()
+                    } else if !app_p.icon.is_empty() {
+                        app_p.icon.clone()
+                    } else {
+                        "application-x-executable".to_string()
+                    };
+                    let pinned = crate::dock::PinnedItem {
+                        id: app_p.id.clone(),
+                        name: app_p.name.clone(),
+                        icon: icon_name.clone(),
+                        fallback_icon: if app_p.icon.is_empty() {
+                            "application-x-executable".to_string()
+                        } else {
+                            app_p.icon.clone()
+                        },
+                        exec: app_p
+                            .argv
+                            .first()
+                            .cloned()
+                            .unwrap_or_else(|| app_p.id.clone()),
+                        args: if app_p.argv.len() > 1 {
+                            app_p.argv[1..].to_vec()
+                        } else {
+                            vec![]
+                        },
+                    };
+                    crate::dock::pin_application(pinned);
+                });
+                menu.append(&pin_item);
+
+                menu.show_all();
+                menu.popup_at_widget(
+                    row_widget,
+                    gdk::Gravity::SouthWest,
+                    gdk::Gravity::NorthWest,
+                    Some(event),
+                );
+                glib::Propagation::Stop
+            } else {
+                glib::Propagation::Proceed
+            }
+        });
 
         let app = app.clone();
         let window_c = window.clone();

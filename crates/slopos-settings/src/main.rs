@@ -14,7 +14,10 @@ use gtk::{
     Align, Box as GtkBox, Button, Grid, IconSize, Image, Label, Orientation, Window,
     WindowPosition, WindowType,
 };
-use panels::{show_appearance_dialog, show_datetime_dialog, show_wallpaper_dialog};
+use panels::{
+    show_appearance_dialog, show_datetime_dialog, show_network_dialog, show_sound_dialog,
+    show_wallpaper_dialog,
+};
 use providers::availability::command_exists;
 use std::env;
 use std::path::Path;
@@ -36,6 +39,8 @@ pub enum BuiltInPanel {
     Appearance,
     Desktop,
     DateTime,
+    Sound,
+    Network,
 }
 
 fn main() {
@@ -83,6 +88,22 @@ fn main() {
         show_appearance_dialog(&window);
         return;
     }
+    if args
+        .iter()
+        .any(|arg| matches!(arg.as_str(), "--sound" | "--panel=sound" | "sound"))
+    {
+        show_sound_dialog(&window);
+        return;
+    }
+    if args.iter().any(|arg| {
+        matches!(
+            arg.as_str(),
+            "--network" | "--panel=network" | "network" | "--wifi" | "wifi"
+        )
+    }) {
+        show_network_dialog(&window);
+        return;
+    }
 
     let body = GtkBox::new(Orientation::Vertical, 8);
     body.style_context().add_class("slopos-window-body");
@@ -128,7 +149,7 @@ fn main() {
             title: "Sound",
             description: "Input, output and volume",
             candidates: &[("pavucontrol", &[])],
-            built_in: BuiltInPanel::None,
+            built_in: BuiltInPanel::Sound,
         },
         ControlPanel {
             icon_file: "network.svg",
@@ -136,7 +157,7 @@ fn main() {
             title: "Network",
             description: "Wi-Fi and Ethernet",
             candidates: &[("nm-connection-editor", &[])],
-            built_in: BuiltInPanel::None,
+            built_in: BuiltInPanel::Network,
         },
         ControlPanel {
             icon_file: "bluetooth.svg",
@@ -273,6 +294,14 @@ fn control_panel_button(panel: &ControlPanel<'_>, parent: &Window) -> Button {
         BuiltInPanel::DateTime => {
             let parent = parent.clone();
             button.connect_clicked(move |_| show_datetime_dialog(&parent));
+        }
+        BuiltInPanel::Sound => {
+            let parent = parent.clone();
+            button.connect_clicked(move |_| show_sound_dialog(&parent));
+        }
+        BuiltInPanel::Network => {
+            let parent = parent.clone();
+            button.connect_clicked(move |_| show_network_dialog(&parent));
         }
         BuiltInPanel::None => {
             if let Some((program, args)) = selected {
