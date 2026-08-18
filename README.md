@@ -92,7 +92,7 @@ The Software Catalogue is for curated **AppImage** applications. It is separate 
 
 ### Appearance and wallpaper
 
-Use **System Settings → Appearance** to choose an appearance and customize supported colors and typography. Use the desktop/wallpaper controls to choose a background.
+Use **System Settings → Appearance** to choose the SLOPOS-I appearance, interface font and Application Strip behavior. Use **System Settings → Desktop** to choose a bundled background or your own image.
 
 ## Recovery
 
