@@ -1,6 +1,6 @@
 [Icon Theme]
 Name=SLOPOS Platinum
-Comment=Original classic Macintosh-inspired SLOPOS-I icon theme
+Comment=Original compact SLOPOS-I icon theme
 Inherits=hicolor,Adwaita
 Directories=scalable/apps,scalable/actions,scalable/devices,scalable/mimetypes,scalable/places,scalable/status
 
