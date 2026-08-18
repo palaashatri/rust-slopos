@@ -357,10 +357,6 @@ fn sync_theme_assets() {
                 let _ = std::fs::create_dir_all(&dest_dir);
                 let _ = std::fs::copy(&src, dest_dir.join("themerc"));
             }
-            let sys_dir = PathBuf::from(format!("/usr/share/themes/{ob_theme}/openbox-3"));
-            if std::fs::create_dir_all(&sys_dir).is_ok() {
-                let _ = std::fs::copy(&src, sys_dir.join("themerc"));
-            }
         }
     }
 
@@ -607,4 +603,32 @@ fn prepend_env_path(variable: &str, directory: &Path, default: &str) {
 
 extern "C" fn sig_handler(_sig: libc::c_int) {
     RUNNING.store(false, Ordering::SeqCst);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn managed_child_initial_state() {
+        let child = ManagedChild::new("test-child", None);
+        assert_eq!(child.fast_failures, 0);
+        assert_eq!(child.name, "test-child");
+    }
+
+    #[test]
+    fn managed_child_records_exponential_backoff() {
+        let mut child = ManagedChild::new("test-child", None);
+        for i in 1..MAX_FAST_FAILURES {
+            let res = child.record_failure("test crash".to_string());
+            assert!(
+                res.is_ok(),
+                "failure {i} should be handled with restart delay"
+            );
+            assert_eq!(child.fast_failures, i);
+        }
+        // Exceeding MAX_FAST_FAILURES must return Err and stop unbounded loops
+        let err = child.record_failure("test crash".to_string());
+        assert!(err.is_err(), "exceeding max fast failures must error");
+    }
 }
