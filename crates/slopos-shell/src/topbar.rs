@@ -1,4 +1,4 @@
-//! SLOPOS-I classic Macintosh-style top menu/system bar.
+//! SLOPOS-I top menu and system bar.
 
 use crate::gmenu::{self, GtkMenuExporter};
 use crate::launcher::Launcher;
@@ -6,8 +6,8 @@ use gdk_pixbuf::{InterpType, Pixbuf};
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
-    Align, Box as GtkBox, Button, Dialog, DialogFlags, IconSize, Image, Label, Menu, MenuBar,
-    MenuItem, Orientation, ResponseType, SeparatorMenuItem, Window, WindowPosition, WindowType,
+    Align, Box as GtkBox, Button, Dialog, DialogFlags, IconSize, Image, Label, Menu, MenuItem,
+    Orientation, ResponseType, SeparatorMenuItem, Window, WindowPosition, WindowType,
 };
 use std::cell::{Cell, RefCell};
 use std::env;
@@ -32,7 +32,6 @@ const SWITCH_USER_COMMANDS: &[(&str, &[&str])] = &[
     ("dm-tool", &["switch-to-greeter"]),
     ("gdmflexiserver", &[]),
     ("kdmctl", &["reserve"]),
-    ("loginctl", &["activate-session"]),
 ];
 
 const SUSPEND_COMMANDS: &[(&str, &[&str])] = &[
@@ -205,6 +204,7 @@ impl TopBar {
         );
         let battery_label = Label::new(None);
         battery_box.pack_start(&battery_label, false, false, 0);
+
         let clock_button = Button::new();
         clock_button
             .style_context()
@@ -224,7 +224,6 @@ impl TopBar {
         window.show_all();
 
         install_topbar_fullscreen_manager(&window);
-
         install_live_updates(
             &active_title_label,
             &global_menu_host,
@@ -257,7 +256,6 @@ fn install_system_menu_signal_bridge(button: &Button, menu: &Menu) {
         if !map_pending.replace(false) {
             return;
         }
-
         let menu = menu.clone();
         glib::idle_add_local_once(move || {
             menu.select_first(true);
@@ -298,7 +296,7 @@ fn install_live_updates(
 ) {
     let active_title = active_title.clone();
     let global_menu_host = global_menu_host.clone();
-    let active_menu_state: Rc<RefCell<Option<ActiveMenuState>>> = Rc::new(RefCell::new(None));
+    let active_menu_state: Rc<RefCell<Option<GtkMenuExporter>>> = Rc::new(RefCell::new(None));
     glib::timeout_add_local(Duration::from_millis(300), move || {
         update_active_window(&active_title, &global_menu_host, &active_menu_state);
         glib::ControlFlow::Continue
@@ -331,942 +329,10 @@ fn install_live_updates(
     });
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum ActiveMenuState {
-    Exporter(GtkMenuExporter),
-    Tailored {
-        window_id: Option<u64>,
-        kind: AppKind,
-    },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum AppKind {
-    Desktop,
-    Terminal,
-    FileManager,
-    TextEditor,
-    Browser,
-    Calculator,
-    ImageViewer,
-    DocumentViewer,
-    Game,
-    Generic,
-}
-
-fn detect_app_kind(title: &str, wm_class: &str) -> AppKind {
-    let lower_title = title.to_ascii_lowercase();
-    let lower_class = wm_class.to_ascii_lowercase();
-
-    if lower_class.contains("terminal")
-        || lower_title.contains("terminal")
-        || lower_class.contains("xterm")
-        || lower_class.contains("kitty")
-        || lower_class.contains("alacritty")
-    {
-        AppKind::Terminal
-    } else if lower_class.contains("pcmanfm")
-        || lower_class.contains("nautilus")
-        || lower_class.contains("thunar")
-        || lower_class.contains("dolphin")
-        || lower_title.contains("workspace")
-        || lower_title.contains("folder")
-        || lower_class.contains("file")
-    {
-        AppKind::FileManager
-    } else if lower_class.contains("mousepad")
-        || lower_class.contains("gedit")
-        || lower_class.contains("leafpad")
-        || lower_title.ends_with(" - mousepad")
-        || lower_class.contains("editor")
-    {
-        AppKind::TextEditor
-    } else if lower_class.contains("firefox")
-        || lower_title.contains("firefox")
-        || lower_class.contains("mozilla")
-        || lower_title.contains("mozilla")
-        || lower_class.contains("chromium")
-        || lower_title.contains("chromium")
-        || lower_class.contains("chrome")
-        || lower_title.contains("chrome")
-        || lower_class.contains("browser")
-        || lower_title.contains("browser")
-    {
-        AppKind::Browser
-    } else if lower_class.contains("galculator")
-        || lower_class.contains("calc")
-        || lower_title.contains("calculator")
-        || lower_title.contains("galculator")
-    {
-        AppKind::Calculator
-    } else if lower_class.contains("ristretto")
-        || lower_class.contains("viewnior")
-        || lower_class.contains("gimp")
-        || lower_class.contains("inkscape")
-        || lower_class.contains("image")
-        || lower_title.contains("image")
-    {
-        AppKind::ImageViewer
-    } else if lower_class.contains("zathura")
-        || lower_class.contains("evince")
-        || lower_class.contains("pdf")
-        || lower_title.contains("document")
-        || lower_title.ends_with(".pdf")
-    {
-        AppKind::DocumentViewer
-    } else if lower_class.contains("doom")
-        || lower_title.contains("doom")
-        || lower_class.contains("supertux")
-        || lower_title.contains("supertux")
-        || lower_class.contains("game")
-    {
-        AppKind::Game
-    } else if title.is_empty() || title == "SLOPOS Desktop" {
-        AppKind::Desktop
-    } else {
-        AppKind::Generic
-    }
-}
-
-fn send_key_action(window_id: Option<u64>, key_combo: &'static str) -> Box<dyn Fn() + 'static> {
-    Box::new(move || {
-        if let Some(id) = window_id {
-            let _ = Command::new("xdotool")
-                .args(["key", "--window", &id.to_string(), key_combo])
-                .spawn();
-        } else {
-            let _ = Command::new("xdotool").args(["key", key_combo]).spawn();
-        }
-    })
-}
-
-fn window_management_action(
-    window_id: Option<u64>,
-    action: &'static str,
-) -> Box<dyn Fn() + 'static> {
-    Box::new(move || {
-        if let Some(id) = window_id {
-            match action {
-                "close" => {
-                    let _ = Command::new("xdotool")
-                        .args(["windowclose", &id.to_string()])
-                        .spawn();
-                }
-                "minimize" => {
-                    let _ = Command::new("xdotool")
-                        .args(["windowminimize", &id.to_string()])
-                        .spawn();
-                }
-                "maximize" => {
-                    let _ = Command::new("wmctrl")
-                        .args([
-                            "-i",
-                            "-r",
-                            &id.to_string(),
-                            "-b",
-                            "toggle,maximized_vert,maximized_horz",
-                        ])
-                        .spawn();
-                }
-                _ => {}
-            }
-        }
-    })
-}
-
-type MenuItemCallback = Box<dyn Fn() + 'static>;
-type MenuItemSpec = (&'static str, Option<MenuItemCallback>);
-
-fn add_menu_section(bar: &MenuBar, label: &str, items: Vec<MenuItemSpec>) {
-    let root_item = MenuItem::with_label(label);
-    let menu = Menu::new();
-    for (item_label, callback) in items {
-        if item_label == "---" {
-            menu.append(&SeparatorMenuItem::new());
-        } else {
-            let item = MenuItem::with_label(item_label);
-            if let Some(cb) = callback {
-                item.connect_activate(move |_| cb());
-            } else {
-                item.set_sensitive(false);
-            }
-            menu.append(&item);
-        }
-    }
-    menu.show_all();
-    root_item.set_submenu(Some(&menu));
-    bar.append(&root_item);
-}
-
-fn build_tailored_menubar(kind: AppKind, window_id: Option<u64>) -> MenuBar {
-    let bar = MenuBar::new();
-    bar.style_context().add_class("slopos-menu-bar");
-
-    match kind {
-        AppKind::Desktop => {
-            add_menu_section(
-                &bar,
-                "File",
-                vec![
-                    (
-                        "New Folder",
-                        Some(Box::new(|| {
-                            let _ = Command::new("xdotool")
-                                .args(["key", "ctrl+shift+n"])
-                                .spawn();
-                        })),
-                    ),
-                    (
-                        "Open…",
-                        Some(Box::new(|| {
-                            let _ = Command::new("xdotool").args(["key", "ctrl+o"]).spawn();
-                        })),
-                    ),
-                    ("---", None),
-                    (
-                        "Close Window",
-                        Some(Box::new(|| {
-                            let _ = Command::new("xdotool").args(["key", "ctrl+w"]).spawn();
-                        })),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Edit",
-                vec![
-                    (
-                        "Undo",
-                        Some(Box::new(|| {
-                            let _ = Command::new("xdotool").args(["key", "ctrl+z"]).spawn();
-                        })),
-                    ),
-                    ("---", None),
-                    (
-                        "Cut",
-                        Some(Box::new(|| {
-                            let _ = Command::new("xdotool").args(["key", "ctrl+x"]).spawn();
-                        })),
-                    ),
-                    (
-                        "Copy",
-                        Some(Box::new(|| {
-                            let _ = Command::new("xdotool").args(["key", "ctrl+c"]).spawn();
-                        })),
-                    ),
-                    (
-                        "Paste",
-                        Some(Box::new(|| {
-                            let _ = Command::new("xdotool").args(["key", "ctrl+v"]).spawn();
-                        })),
-                    ),
-                    (
-                        "Select All",
-                        Some(Box::new(|| {
-                            let _ = Command::new("xdotool").args(["key", "ctrl+a"]).spawn();
-                        })),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "View",
-                vec![
-                    ("By Name", Some(Box::new(|| {}))),
-                    ("By Date", Some(Box::new(|| {}))),
-                    ("By Size", Some(Box::new(|| {}))),
-                    ("---", None),
-                    (
-                        "Refresh Desktop",
-                        Some(Box::new(|| {
-                            let _ = Command::new("xdotool").args(["key", "F5"]).spawn();
-                        })),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Special",
-                vec![
-                    (
-                        "Clean Up Desktop",
-                        Some(Box::new(|| {
-                            let _ = Command::new("xdotool").args(["key", "ctrl+r"]).spawn();
-                        })),
-                    ),
-                    (
-                        "Empty Trash",
-                        Some(Box::new(|| {
-                            let _ = Command::new("trash-empty").spawn();
-                        })),
-                    ),
-                    ("---", None),
-                    (
-                        "Restart…",
-                        Some(Box::new(|| {
-                            if let Some((program, args)) = resolve_first_command(REBOOT_COMMANDS) {
-                                confirm_action(
-                                    "Restart",
-                                    "Are you sure you want to restart the system?",
-                                    move || spawn_resolved(program, args),
-                                );
-                            }
-                        })),
-                    ),
-                    (
-                        "Shut Down…",
-                        Some(Box::new(|| {
-                            if let Some((program, args)) = resolve_first_command(POWEROFF_COMMANDS)
-                            {
-                                confirm_action(
-                                    "Shut Down",
-                                    "Are you sure you want to shut down the system?",
-                                    move || spawn_resolved(program, args),
-                                );
-                            }
-                        })),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Help",
-                vec![
-                    (
-                        "SLOPOS-I Help",
-                        Some(Box::new(|| {
-                            show_message(
-                                "SLOPOS-I Help",
-                                "SLOPOS-I is a lightweight classic X11 desktop environment.\n\nShortcuts:\nSuper+Space: Application Search\nCtrl+F2: System Menu\nAlt+Tab: Switch Windows\nSuper+Q: Close Window",
-                            );
-                        })),
-                    ),
-                    (
-                        "About SLOPOS-I",
-                        Some(Box::new(|| {
-                            show_message(
-                                "About SLOPOS-I",
-                                "SLOPOS-I\nX11 Macintosh-inspired desktop",
-                            );
-                        })),
-                    ),
-                ],
-            );
-        }
-        AppKind::Terminal => {
-            add_menu_section(
-                &bar,
-                "File",
-                vec![
-                    (
-                        "New Window",
-                        Some(send_key_action(window_id, "ctrl+shift+n")),
-                    ),
-                    ("New Tab", Some(send_key_action(window_id, "ctrl+shift+t"))),
-                    ("---", None),
-                    (
-                        "Close Tab",
-                        Some(send_key_action(window_id, "ctrl+shift+w")),
-                    ),
-                    (
-                        "Close Window",
-                        Some(send_key_action(window_id, "ctrl+shift+q")),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Edit",
-                vec![
-                    ("Copy", Some(send_key_action(window_id, "ctrl+shift+c"))),
-                    ("Paste", Some(send_key_action(window_id, "ctrl+shift+v"))),
-                    (
-                        "Select All",
-                        Some(send_key_action(window_id, "ctrl+shift+a")),
-                    ),
-                    ("---", None),
-                    ("Find…", Some(send_key_action(window_id, "ctrl+shift+f"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "View",
-                vec![
-                    ("Zoom In", Some(send_key_action(window_id, "ctrl+plus"))),
-                    ("Zoom Out", Some(send_key_action(window_id, "ctrl+minus"))),
-                    ("Normal Size", Some(send_key_action(window_id, "ctrl+0"))),
-                    ("---", None),
-                    ("Full Screen", Some(send_key_action(window_id, "F11"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Terminal",
-                vec![
-                    (
-                        "Clear Scrollback",
-                        Some(send_key_action(window_id, "ctrl+shift+k")),
-                    ),
-                    (
-                        "Reset and Clear",
-                        Some(send_key_action(window_id, "ctrl+l")),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Tabs",
-                vec![
-                    (
-                        "Previous Tab",
-                        Some(send_key_action(window_id, "ctrl+Page_Up")),
-                    ),
-                    (
-                        "Next Tab",
-                        Some(send_key_action(window_id, "ctrl+Page_Down")),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Help",
-                vec![
-                    ("Terminal Help", Some(send_key_action(window_id, "F1"))),
-                    (
-                        "About Terminal",
-                        Some(Box::new(|| {
-                            show_message(
-                            "About Terminal",
-                            "Xfce4 Terminal is the high-performance X11 terminal emulator for SLOPOS-I.",
-                        );
-                        })),
-                    ),
-                ],
-            );
-        }
-        AppKind::FileManager => {
-            add_menu_section(
-                &bar,
-                "File",
-                vec![
-                    ("New Window", Some(send_key_action(window_id, "ctrl+n"))),
-                    ("New Tab", Some(send_key_action(window_id, "ctrl+t"))),
-                    (
-                        "New Folder",
-                        Some(send_key_action(window_id, "ctrl+shift+n")),
-                    ),
-                    ("---", None),
-                    ("Properties", Some(send_key_action(window_id, "alt+Return"))),
-                    ("Close Window", Some(send_key_action(window_id, "ctrl+w"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Edit",
-                vec![
-                    ("Cut", Some(send_key_action(window_id, "ctrl+x"))),
-                    ("Copy", Some(send_key_action(window_id, "ctrl+c"))),
-                    ("Paste", Some(send_key_action(window_id, "ctrl+v"))),
-                    ("Select All", Some(send_key_action(window_id, "ctrl+a"))),
-                    ("---", None),
-                    (
-                        "Preferences",
-                        Some(send_key_action(window_id, "ctrl+shift+p")),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "View",
-                vec![
-                    ("Icon View", Some(send_key_action(window_id, "ctrl+1"))),
-                    ("Compact View", Some(send_key_action(window_id, "ctrl+2"))),
-                    (
-                        "Detailed List View",
-                        Some(send_key_action(window_id, "ctrl+4")),
-                    ),
-                    ("---", None),
-                    (
-                        "Show Hidden Files",
-                        Some(send_key_action(window_id, "ctrl+h")),
-                    ),
-                    ("Reload", Some(send_key_action(window_id, "ctrl+r"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Bookmarks",
-                vec![
-                    ("Home Folder", Some(send_key_action(window_id, "alt+Home"))),
-                    (
-                        "Documents",
-                        Some(Box::new(|| {
-                            let home = env::var("HOME").unwrap_or_default();
-                            let _ = Command::new("pcmanfm")
-                                .arg(format!("{home}/Documents"))
-                                .spawn();
-                        })),
-                    ),
-                    (
-                        "Downloads",
-                        Some(Box::new(|| {
-                            let home = env::var("HOME").unwrap_or_default();
-                            let _ = Command::new("pcmanfm")
-                                .arg(format!("{home}/Downloads"))
-                                .spawn();
-                        })),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Go",
-                vec![
-                    ("Back", Some(send_key_action(window_id, "alt+Left"))),
-                    ("Forward", Some(send_key_action(window_id, "alt+Right"))),
-                    ("Parent Folder", Some(send_key_action(window_id, "alt+Up"))),
-                    ("---", None),
-                    ("Location Bar…", Some(send_key_action(window_id, "ctrl+l"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Tools",
-                vec![
-                    ("Open Terminal Here", Some(send_key_action(window_id, "F4"))),
-                    (
-                        "Find Files…",
-                        Some(send_key_action(window_id, "ctrl+shift+f")),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Help",
-                vec![
-                    ("File Manager Help", Some(send_key_action(window_id, "F1"))),
-                    (
-                        "About File Manager",
-                        Some(Box::new(|| {
-                            show_message(
-                                "About File Manager",
-                                "PCManFM is the lightweight, mature X11 file manager for SLOPOS-I.",
-                            );
-                        })),
-                    ),
-                ],
-            );
-        }
-        AppKind::TextEditor => {
-            add_menu_section(
-                &bar,
-                "File",
-                vec![
-                    ("New", Some(send_key_action(window_id, "ctrl+n"))),
-                    ("Open…", Some(send_key_action(window_id, "ctrl+o"))),
-                    ("Save", Some(send_key_action(window_id, "ctrl+s"))),
-                    ("Save As…", Some(send_key_action(window_id, "ctrl+shift+s"))),
-                    ("---", None),
-                    ("Close", Some(send_key_action(window_id, "ctrl+w"))),
-                    ("Quit", Some(send_key_action(window_id, "ctrl+q"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Edit",
-                vec![
-                    ("Undo", Some(send_key_action(window_id, "ctrl+z"))),
-                    ("Redo", Some(send_key_action(window_id, "ctrl+shift+z"))),
-                    ("---", None),
-                    ("Cut", Some(send_key_action(window_id, "ctrl+x"))),
-                    ("Copy", Some(send_key_action(window_id, "ctrl+c"))),
-                    ("Paste", Some(send_key_action(window_id, "ctrl+v"))),
-                    ("Select All", Some(send_key_action(window_id, "ctrl+a"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Search",
-                vec![
-                    ("Find…", Some(send_key_action(window_id, "ctrl+f"))),
-                    ("Find Next", Some(send_key_action(window_id, "F3"))),
-                    ("Replace…", Some(send_key_action(window_id, "ctrl+r"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "View",
-                vec![
-                    ("Line Numbers", Some(send_key_action(window_id, "ctrl+l"))),
-                    ("Word Wrap", Some(send_key_action(window_id, "ctrl+w"))),
-                    ("---", None),
-                    ("Zoom In", Some(send_key_action(window_id, "ctrl+plus"))),
-                    ("Zoom Out", Some(send_key_action(window_id, "ctrl+minus"))),
-                    ("Normal Size", Some(send_key_action(window_id, "ctrl+0"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Document",
-                vec![
-                    ("Line Endings", Some(Box::new(|| {}))),
-                    ("Filetype", Some(Box::new(|| {}))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Help",
-                vec![
-                    ("Editor Help", Some(send_key_action(window_id, "F1"))),
-                    (
-                        "About Mousepad",
-                        Some(Box::new(|| {
-                            show_message(
-                                "About Mousepad",
-                                "Mousepad is the classic fast text editor for SLOPOS-I.",
-                            );
-                        })),
-                    ),
-                ],
-            );
-        }
-        AppKind::Browser => {
-            add_menu_section(
-                &bar,
-                "File",
-                vec![
-                    ("New Window", Some(send_key_action(window_id, "ctrl+n"))),
-                    ("New Tab", Some(send_key_action(window_id, "ctrl+t"))),
-                    (
-                        "New Private Window",
-                        Some(send_key_action(window_id, "ctrl+shift+p")),
-                    ),
-                    ("---", None),
-                    ("Open File…", Some(send_key_action(window_id, "ctrl+o"))),
-                    ("Save Page As…", Some(send_key_action(window_id, "ctrl+s"))),
-                    ("Close Tab", Some(send_key_action(window_id, "ctrl+w"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Edit",
-                vec![
-                    ("Undo", Some(send_key_action(window_id, "ctrl+z"))),
-                    ("Redo", Some(send_key_action(window_id, "ctrl+y"))),
-                    ("---", None),
-                    ("Cut", Some(send_key_action(window_id, "ctrl+x"))),
-                    ("Copy", Some(send_key_action(window_id, "ctrl+c"))),
-                    ("Paste", Some(send_key_action(window_id, "ctrl+v"))),
-                    ("Select All", Some(send_key_action(window_id, "ctrl+a"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "View",
-                vec![
-                    ("Zoom In", Some(send_key_action(window_id, "ctrl+plus"))),
-                    ("Zoom Out", Some(send_key_action(window_id, "ctrl+minus"))),
-                    ("Normal Size", Some(send_key_action(window_id, "ctrl+0"))),
-                    ("Full Screen", Some(send_key_action(window_id, "F11"))),
-                    ("---", None),
-                    ("Reload", Some(send_key_action(window_id, "ctrl+r"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "History",
-                vec![
-                    ("Back", Some(send_key_action(window_id, "alt+Left"))),
-                    ("Forward", Some(send_key_action(window_id, "alt+Right"))),
-                    ("---", None),
-                    (
-                        "Show All History",
-                        Some(send_key_action(window_id, "ctrl+h")),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Bookmarks",
-                vec![
-                    (
-                        "Bookmark Current Tab",
-                        Some(send_key_action(window_id, "ctrl+d")),
-                    ),
-                    (
-                        "Show All Bookmarks",
-                        Some(send_key_action(window_id, "ctrl+shift+o")),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Tools",
-                vec![
-                    ("Downloads", Some(send_key_action(window_id, "ctrl+j"))),
-                    (
-                        "Web Developer Tools",
-                        Some(send_key_action(window_id, "F12")),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Help",
-                vec![
-                    ("Browser Help", Some(send_key_action(window_id, "F1"))),
-                    (
-                        "About Web Browser",
-                        Some(Box::new(|| {
-                            show_message(
-                                "About Web Browser",
-                                "Standard secure web browser for SLOPOS-I.",
-                            );
-                        })),
-                    ),
-                ],
-            );
-        }
-        AppKind::Calculator => {
-            add_menu_section(
-                &bar,
-                "File",
-                vec![
-                    (
-                        "Copy Calculation",
-                        Some(send_key_action(window_id, "ctrl+c")),
-                    ),
-                    ("Paste", Some(send_key_action(window_id, "ctrl+v"))),
-                    ("---", None),
-                    ("Close", Some(send_key_action(window_id, "ctrl+w"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Edit",
-                vec![
-                    ("Clear All", Some(send_key_action(window_id, "Escape"))),
-                    ("Undo", Some(send_key_action(window_id, "ctrl+z"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "View",
-                vec![
-                    ("Basic Mode", Some(send_key_action(window_id, "ctrl+1"))),
-                    (
-                        "Scientific Mode",
-                        Some(send_key_action(window_id, "ctrl+2")),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Help",
-                vec![
-                    ("Calculator Help", Some(send_key_action(window_id, "F1"))),
-                    (
-                        "About Calculator",
-                        Some(Box::new(|| {
-                            show_message(
-                                "About Calculator",
-                                "Galculator scientific and basic calculator for SLOPOS-I.",
-                            );
-                        })),
-                    ),
-                ],
-            );
-        }
-        AppKind::ImageViewer | AppKind::DocumentViewer => {
-            add_menu_section(
-                &bar,
-                "File",
-                vec![
-                    ("Open…", Some(send_key_action(window_id, "ctrl+o"))),
-                    ("Save As…", Some(send_key_action(window_id, "ctrl+shift+s"))),
-                    ("---", None),
-                    ("Close", Some(send_key_action(window_id, "ctrl+w"))),
-                    ("Quit", Some(send_key_action(window_id, "ctrl+q"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Edit",
-                vec![
-                    ("Copy", Some(send_key_action(window_id, "ctrl+c"))),
-                    ("Select All", Some(send_key_action(window_id, "ctrl+a"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "View",
-                vec![
-                    ("Zoom In", Some(send_key_action(window_id, "ctrl+plus"))),
-                    ("Zoom Out", Some(send_key_action(window_id, "ctrl+minus"))),
-                    ("Original Size", Some(send_key_action(window_id, "ctrl+0"))),
-                    ("Full Screen", Some(send_key_action(window_id, "F11"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Go",
-                vec![
-                    ("Previous Page", Some(send_key_action(window_id, "Page_Up"))),
-                    ("Next Page", Some(send_key_action(window_id, "Page_Down"))),
-                    ("First Page", Some(send_key_action(window_id, "Home"))),
-                    ("Last Page", Some(send_key_action(window_id, "End"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Help",
-                vec![
-                    ("Help", Some(send_key_action(window_id, "F1"))),
-                    (
-                        "About Viewer",
-                        Some(Box::new(|| {
-                            show_message(
-                                "About Viewer",
-                                "High-performance document and image viewer for SLOPOS-I.",
-                            );
-                        })),
-                    ),
-                ],
-            );
-        }
-        AppKind::Game => {
-            add_menu_section(
-                &bar,
-                "Game",
-                vec![
-                    ("New Game", Some(send_key_action(window_id, "F2"))),
-                    ("Save Game", Some(send_key_action(window_id, "F6"))),
-                    ("Load Game", Some(send_key_action(window_id, "F9"))),
-                    ("---", None),
-                    ("End Game", Some(send_key_action(window_id, "F7"))),
-                    ("Quit Game", Some(send_key_action(window_id, "F10"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Options",
-                vec![
-                    ("Sound Volume", Some(send_key_action(window_id, "F4"))),
-                    ("Controls", Some(send_key_action(window_id, "F3"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "View",
-                vec![
-                    (
-                        "Full Screen",
-                        Some(send_key_action(window_id, "Alt+Return")),
-                    ),
-                    ("Detail Level", Some(send_key_action(window_id, "F5"))),
-                    ("Automap", Some(send_key_action(window_id, "Tab"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Help",
-                vec![
-                    ("Help", Some(send_key_action(window_id, "F1"))),
-                    (
-                        "About Game",
-                        Some(Box::new(|| {
-                            show_message("About Game", "Native X11 game running under SLOPOS-I.");
-                        })),
-                    ),
-                ],
-            );
-        }
-        AppKind::Generic => {
-            add_menu_section(
-                &bar,
-                "File",
-                vec![
-                    ("New", Some(send_key_action(window_id, "ctrl+n"))),
-                    ("Open…", Some(send_key_action(window_id, "ctrl+o"))),
-                    ("Save", Some(send_key_action(window_id, "ctrl+s"))),
-                    ("---", None),
-                    (
-                        "Close Window",
-                        Some(window_management_action(window_id, "close")),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Edit",
-                vec![
-                    ("Undo", Some(send_key_action(window_id, "ctrl+z"))),
-                    ("Redo", Some(send_key_action(window_id, "ctrl+y"))),
-                    ("---", None),
-                    ("Cut", Some(send_key_action(window_id, "ctrl+x"))),
-                    ("Copy", Some(send_key_action(window_id, "ctrl+c"))),
-                    ("Paste", Some(send_key_action(window_id, "ctrl+v"))),
-                    ("Select All", Some(send_key_action(window_id, "ctrl+a"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "View",
-                vec![
-                    ("Zoom In", Some(send_key_action(window_id, "ctrl+plus"))),
-                    ("Zoom Out", Some(send_key_action(window_id, "ctrl+minus"))),
-                    ("Full Screen", Some(send_key_action(window_id, "F11"))),
-                    ("---", None),
-                    ("Refresh", Some(send_key_action(window_id, "F5"))),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Window",
-                vec![
-                    (
-                        "Minimize",
-                        Some(window_management_action(window_id, "minimize")),
-                    ),
-                    (
-                        "Maximize",
-                        Some(window_management_action(window_id, "maximize")),
-                    ),
-                    (
-                        "Next Window",
-                        Some(Box::new(|| {
-                            let _ = Command::new("xdotool").args(["key", "alt+Tab"]).spawn();
-                        })),
-                    ),
-                ],
-            );
-            add_menu_section(
-                &bar,
-                "Help",
-                vec![
-                    ("Help", Some(send_key_action(window_id, "F1"))),
-                    (
-                        "About SLOPOS-I",
-                        Some(Box::new(|| {
-                            show_message(
-                                "About SLOPOS-I",
-                                "SLOPOS-I\nX11 Macintosh-inspired desktop",
-                            );
-                        })),
-                    ),
-                ],
-            );
-        }
-    }
-
-    bar.show_all();
-    bar
-}
-
 fn update_active_window(
     label: &Label,
     global_menu_host: &GtkBox,
-    active_menu_state: &RefCell<Option<ActiveMenuState>>,
+    active_menu_state: &RefCell<Option<GtkMenuExporter>>,
 ) {
     let Some(id_text) = command_output("xdotool", &["getactivewindow"]) else {
         show_desktop_state(label, global_menu_host, active_menu_state);
@@ -1285,91 +351,64 @@ fn update_active_window(
         show_desktop_state(label, global_menu_host, active_menu_state);
         return;
     }
+
     if title.is_empty() {
         label.set_text("SLOPOS Desktop");
     } else {
-        let compact = compact_title(&title);
-        label.set_text(&compact);
+        label.set_text(&compact_title(&title));
     }
 
-    let next_state = if let Some(exporter) = u32::try_from(id).ok().and_then(gmenu::detect) {
-        ActiveMenuState::Exporter(exporter)
-    } else {
-        let wm_class =
-            command_output("xdotool", &["getwindowclassname", &id.to_string()]).unwrap_or_default();
-        let kind = detect_app_kind(&title, &wm_class);
-        ActiveMenuState::Tailored {
-            window_id: Some(id),
-            kind,
-        }
-    };
-
-    refresh_global_menu(global_menu_host, active_menu_state, next_state);
+    let exporter = u32::try_from(id).ok().and_then(gmenu::detect);
+    refresh_global_menu(global_menu_host, active_menu_state, exporter);
 }
 
 fn show_desktop_state(
     label: &Label,
     global_menu_host: &GtkBox,
-    active_menu_state: &RefCell<Option<ActiveMenuState>>,
+    active_menu_state: &RefCell<Option<GtkMenuExporter>>,
 ) {
     label.set_text("SLOPOS Desktop");
-    refresh_global_menu(
-        global_menu_host,
-        active_menu_state,
-        ActiveMenuState::Tailored {
-            window_id: None,
-            kind: AppKind::Desktop,
-        },
-    );
+    refresh_global_menu(global_menu_host, active_menu_state, None);
 }
 
 fn refresh_global_menu(
     host: &GtkBox,
-    current: &RefCell<Option<ActiveMenuState>>,
-    next_state: ActiveMenuState,
+    current: &RefCell<Option<GtkMenuExporter>>,
+    next: Option<GtkMenuExporter>,
 ) {
-    if current.borrow().as_ref() == Some(&next_state) {
+    if current.borrow().as_ref() == next.as_ref() {
         return;
     }
+
     for child in host.children() {
         host.remove(&child);
     }
-    *current.borrow_mut() = Some(next_state.clone());
+    host.hide();
+    *current.borrow_mut() = None;
 
-    match next_state {
-        ActiveMenuState::Exporter(ref exporter) => {
-            if current_active_window_id() != Some(exporter.window_id) {
-                host.hide();
-                return;
-            }
-            match gmenu::build_menu_bar(exporter) {
-                Ok(menu_bar) => {
-                    host.pack_start(&menu_bar, false, false, 0);
-                    host.show_all();
-                    log::info!(
-                        "Imported GTK global menubar bus={} path={}",
-                        exporter.bus_name,
-                        exporter.menu_path
-                    );
-                }
-                Err(error) => {
-                    log::warn!("Could not import focused application's GTK menu: {error}");
-                    let wm_class = command_output(
-                        "xdotool",
-                        &["getwindowclassname", &exporter.window_id.to_string()],
-                    )
-                    .unwrap_or_default();
-                    let kind = detect_app_kind("", &wm_class);
-                    let bar = build_tailored_menubar(kind, Some(exporter.window_id as u64));
-                    host.pack_start(&bar, false, false, 0);
-                    host.show_all();
-                }
-            }
-        }
-        ActiveMenuState::Tailored { window_id, kind } => {
-            let bar = build_tailored_menubar(kind, window_id);
-            host.pack_start(&bar, false, false, 0);
+    let Some(exporter) = next else {
+        return;
+    };
+    if current_active_window_id() != Some(exporter.window_id) {
+        return;
+    }
+
+    match gmenu::build_menu_bar(&exporter) {
+        Ok(menu_bar) => {
+            host.pack_start(&menu_bar, false, false, 0);
             host.show_all();
+            log::info!(
+                "Imported GTK global menubar bus={} path={}",
+                exporter.bus_name,
+                exporter.menu_path
+            );
+            *current.borrow_mut() = Some(exporter);
+        }
+        Err(error) => {
+            // Do not guess application commands. The upstream application's
+            // own local menu remains authoritative when export integration
+            // cannot be established.
+            log::warn!("Could not import focused application's GTK menu: {error}");
         }
     }
 }
@@ -1494,7 +533,10 @@ fn build_system_menu() -> Menu {
 
     let about = MenuItem::with_label("About SLOPOS-I");
     about.connect_activate(|_| {
-        show_message("About SLOPOS-I", "SLOPOS-I\nX11 Macintosh-inspired desktop")
+        show_message(
+            "About SLOPOS-I",
+            "SLOPOS-I\nAn original X11 desktop environment for Linux",
+        )
     });
     menu.append(&about);
     menu.append(&SeparatorMenuItem::new());
@@ -1517,10 +559,10 @@ fn build_system_menu() -> Menu {
 
     let appearance = MenuItem::with_label("Appearance");
     let appearance_menu = Menu::new();
-    let classic = MenuItem::with_label("Classic Macintosh (System 6/7)");
-    let platinum = MenuItem::with_label("Platinum (Light)");
-    let graphite = MenuItem::with_label("Graphite (Dark)");
-    let oled = MenuItem::with_label("OLED Dark (Pure Black)");
+    let classic = MenuItem::with_label("Classic Contrast");
+    let platinum = MenuItem::with_label("Platinum Light");
+    let graphite = MenuItem::with_label("Graphite Dark");
+    let oled = MenuItem::with_label("OLED Dark");
     if resolve_program("slopos-appearance").is_some() {
         classic.connect_activate(|_| spawn_resolved("slopos-appearance", &["classic"]));
         platinum.connect_activate(|_| spawn_resolved("slopos-appearance", &["platinum"]));
@@ -1545,12 +587,8 @@ fn build_system_menu() -> Menu {
     if let Some((program, args)) = resolve_first_command(LOCK_COMMANDS) {
         lock.connect_activate(move |_| spawn_resolved(program, args));
     } else {
-        lock.connect_activate(|_| {
-            show_message(
-                "Lock Screen",
-                "No screen locker utility found.\nInstall loginctl, light-locker, xflock4, slock, or i3lock.",
-            );
-        });
+        lock.set_sensitive(false);
+        lock.set_tooltip_text(Some("No supported screen locker is installed"));
     }
     menu.append(&lock);
 
@@ -1564,12 +602,8 @@ fn build_system_menu() -> Menu {
             );
         });
     } else {
-        switch_user.connect_activate(|_| {
-            show_message(
-                "Switch User",
-                "No display manager switch utility found.\nInstall dm-tool (LightDM), gdmflexiserver (GDM), or loginctl.",
-            );
-        });
+        switch_user.set_sensitive(false);
+        switch_user.set_tooltip_text(Some("No supported display-manager switch utility is installed"));
     }
     menu.append(&switch_user);
 
@@ -1592,11 +626,6 @@ fn build_system_menu() -> Menu {
                 unsafe {
                     libc::kill(libc::getppid(), libc::SIGTERM);
                 }
-            } else if let Some((program, args)) = resolve_first_command(&[
-                ("loginctl", &["terminate-session", "self"]),
-                ("loginctl", &["terminate-user", ""]),
-            ]) {
-                spawn_resolved(program, args);
             } else {
                 std::process::exit(0);
             }
@@ -1632,7 +661,7 @@ fn build_system_menu() -> Menu {
 }
 
 fn show_message(title: &str, message: &str) {
-    let dialog = platinum_dialog(title, message, &[("Close", ResponseType::Close)]);
+    let dialog = slopos_dialog(title, message, &[("Close", ResponseType::Close)]);
     dialog.connect_response(|dialog, _| dialog.close());
     dialog.show_all();
 }
@@ -1641,7 +670,7 @@ fn confirm_action<F>(title: &str, message: &str, action: F)
 where
     F: Fn() + 'static,
 {
-    let dialog = platinum_dialog(
+    let dialog = slopos_dialog(
         title,
         message,
         &[("No", ResponseType::No), ("Yes", ResponseType::Yes)],
@@ -1655,7 +684,7 @@ where
     dialog.show_all();
 }
 
-fn platinum_dialog(title: &str, message: &str, buttons: &[(&str, ResponseType)]) -> Dialog {
+fn slopos_dialog(title: &str, message: &str, buttons: &[(&str, ResponseType)]) -> Dialog {
     let button_specs = buttons.to_vec();
     let dialog = Dialog::with_buttons(
         Some(title),
