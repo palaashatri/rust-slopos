@@ -35,6 +35,19 @@ impl Dock {
     pub fn new(launcher: Rc<Launcher>) -> Rc<Self> {
         let window = Window::new(WindowType::Toplevel);
         window.set_title("SLOPOS Application Strip");
+        window.set_app_paintable(true);
+        if let Some(screen) = gtk::prelude::GtkWindowExt::screen(&window) {
+            if let Some(visual) = screen.rgba_visual() {
+                window.set_visual(Some(&visual));
+            }
+        }
+        window.style_context().add_class("slopos-dock-window");
+        window.connect_draw(|_, cr| {
+            cr.set_source_rgba(0.0, 0.0, 0.0, 0.0);
+            cr.set_operator(gtk::cairo::Operator::Source);
+            let _ = cr.paint();
+            glib::Propagation::Proceed
+        });
         let (screen_width, screen_height) = screen_geometry();
         let width = 540;
         let height = 54;
