@@ -20,6 +20,7 @@ pub struct Launcher {
     list_box: ListBox,
     status_label: Label,
     all_apps: Rc<RefCell<Vec<DesktopApp>>>,
+    index_sender: glib::Sender<Vec<DesktopApp>>,
 }
 
 impl Launcher {
@@ -91,12 +92,37 @@ impl Launcher {
         window.add(&main_box);
         let all_apps = Rc::new(RefCell::new(scan_desktop_apps()));
 
+        #[allow(deprecated)]
+        let (index_sender, index_receiver) =
+            glib::MainContext::channel::<Vec<DesktopApp>>(glib::Priority::default());
+        let all_apps_c = all_apps.clone();
+        let search_entry_c = search_entry.clone();
+        let window_c = window.clone();
+        let list_box_c = list_box.clone();
+        let status_label_c = status_label.clone();
+
+        index_receiver.attach(None, move |fresh_apps| {
+            *all_apps_c.borrow_mut() = fresh_apps;
+            if window_c.is_visible() {
+                let query = search_entry_c.text().to_lowercase();
+                filter_apps_internal(
+                    &list_box_c,
+                    &status_label_c,
+                    &window_c,
+                    &all_apps_c.borrow(),
+                    &query,
+                );
+            }
+            glib::ControlFlow::Continue
+        });
+
         let launcher = Rc::new(Self {
             window,
             search_entry,
             list_box,
             status_label,
             all_apps,
+            index_sender,
         });
         launcher.setup_events();
         launcher
@@ -147,81 +173,27 @@ impl Launcher {
     }
 
     pub fn show(&self) {
-        *self.all_apps.borrow_mut() = scan_desktop_apps();
         self.search_entry.set_text("");
         self.filter_apps("");
         self.window.show_all();
         self.window.present();
         self.search_entry.grab_focus();
+
+        let sender = self.index_sender.clone();
+        std::thread::spawn(move || {
+            let fresh_apps = scan_desktop_apps();
+            let _ = sender.send(fresh_apps);
+        });
     }
 
     fn filter_apps(&self, query: &str) {
-        for child in self.list_box.children() {
-            self.list_box.remove(&child);
-        }
-
-        let matches = ranked_app_matches(&self.all_apps.borrow(), query);
-        let count = matches.len();
-        for app in matches.iter() {
-            let row = ListBoxRow::new();
-            row.style_context().add_class("slopos-list-row");
-            let accessible_name = if app.comment.is_empty() {
-                app.name.clone()
-            } else {
-                format!("{} — {}", app.name, app.comment)
-            };
-            set_accessible_name(&row, &accessible_name);
-            row.set_tooltip_text(Some(&accessible_name));
-            let hbox = GtkBox::new(Orientation::Horizontal, 9);
-            hbox.set_margin_start(7);
-            hbox.set_margin_end(7);
-            hbox.set_margin_top(4);
-            hbox.set_margin_bottom(4);
-
-            let icon = load_launcher_icon(app);
-            icon.style_context().add_class("slopos-result-icon");
-            hbox.pack_start(&icon, false, false, 0);
-
-            let labels = GtkBox::new(Orientation::Vertical, 1);
-            let title = Label::new(Some(&app.name));
-            title.set_xalign(0.0);
-            title.set_single_line_mode(true);
-            title.set_ellipsize(pango::EllipsizeMode::End);
-            title.set_hexpand(true);
-            title.style_context().add_class("slopos-result-title");
-            labels.pack_start(&title, false, false, 0);
-            if !app.comment.is_empty() {
-                let description = Label::new(Some(&app.comment));
-                description.set_xalign(0.0);
-                description.set_single_line_mode(true);
-                description.set_ellipsize(pango::EllipsizeMode::End);
-                description.set_hexpand(true);
-                description
-                    .style_context()
-                    .add_class("slopos-secondary-text");
-                labels.pack_start(&description, false, false, 0);
-            }
-            hbox.pack_start(&labels, true, true, 0);
-            row.add(&hbox);
-
-            let app = app.clone();
-            let window = self.window.clone();
-            row.connect_activate(move |_| {
-                if let Err(error) = spawn_app(&app) {
-                    log::warn!("Failed to launch {}: {error}", app.name);
-                }
-                window.hide();
-            });
-            self.list_box.add(&row);
-        }
-
-        self.status_label
-            .set_text(&format!("{count} matching applications"));
-        self.list_box.show_all();
-
-        if let Some(first) = self.first_row() {
-            self.list_box.select_row(Some(&first));
-        }
+        filter_apps_internal(
+            &self.list_box,
+            &self.status_label,
+            &self.window,
+            &self.all_apps.borrow(),
+            query,
+        );
     }
 
     fn launch_selected_or_first(&self) {
@@ -255,6 +227,84 @@ impl Launcher {
             .unwrap_or(0) as isize;
         let next = (current + direction).clamp(0, rows.len() as isize - 1) as usize;
         self.list_box.select_row(Some(&rows[next]));
+    }
+}
+
+fn filter_apps_internal(
+    list_box: &ListBox,
+    status_label: &Label,
+    window: &Window,
+    all_apps: &[DesktopApp],
+    query: &str,
+) {
+    for child in list_box.children() {
+        list_box.remove(&child);
+    }
+
+    let matches = ranked_app_matches(all_apps, query);
+    let count = matches.len();
+    for app in matches.iter() {
+        let row = ListBoxRow::new();
+        row.style_context().add_class("slopos-list-row");
+        let accessible_name = if app.comment.is_empty() {
+            app.name.clone()
+        } else {
+            format!("{} — {}", app.name, app.comment)
+        };
+        set_accessible_name(&row, &accessible_name);
+        row.set_tooltip_text(Some(&accessible_name));
+        let hbox = GtkBox::new(Orientation::Horizontal, 9);
+        hbox.set_margin_start(7);
+        hbox.set_margin_end(7);
+        hbox.set_margin_top(4);
+        hbox.set_margin_bottom(4);
+
+        let icon = load_launcher_icon(app);
+        icon.style_context().add_class("slopos-result-icon");
+        hbox.pack_start(&icon, false, false, 0);
+
+        let labels = GtkBox::new(Orientation::Vertical, 1);
+        let title = Label::new(Some(&app.name));
+        title.set_xalign(0.0);
+        title.set_single_line_mode(true);
+        title.set_ellipsize(pango::EllipsizeMode::End);
+        title.set_hexpand(true);
+        title.style_context().add_class("slopos-result-title");
+        labels.pack_start(&title, false, false, 0);
+        if !app.comment.is_empty() {
+            let description = Label::new(Some(&app.comment));
+            description.set_xalign(0.0);
+            description.set_single_line_mode(true);
+            description.set_ellipsize(pango::EllipsizeMode::End);
+            description.set_hexpand(true);
+            description
+                .style_context()
+                .add_class("slopos-secondary-text");
+            labels.pack_start(&description, false, false, 0);
+        }
+        hbox.pack_start(&labels, true, true, 0);
+        row.add(&hbox);
+
+        let app = app.clone();
+        let window_c = window.clone();
+        row.connect_activate(move |_| {
+            if let Err(error) = spawn_app(&app) {
+                log::warn!("Failed to launch {}: {error}", app.name);
+            }
+            window_c.hide();
+        });
+        list_box.add(&row);
+    }
+
+    status_label.set_text(&format!("{count} matching applications"));
+    list_box.show_all();
+
+    if let Some(first) = list_box
+        .children()
+        .first()
+        .and_then(|widget| widget.clone().downcast::<ListBoxRow>().ok())
+    {
+        list_box.select_row(Some(&first));
     }
 }
 

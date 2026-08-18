@@ -4,7 +4,7 @@
 
 use crate::launcher::Launcher;
 use crate::services::session;
-use crate::x11::{pointer, MonitorModel, X11Connection, X11Event};
+use crate::x11::{MonitorModel, X11Event};
 use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
@@ -17,7 +17,6 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
-use std::time::Duration;
 
 pub struct Dock {
     window: Window,
@@ -215,24 +214,12 @@ impl Dock {
         window.add(&dock_box);
         window.show_all();
 
-        let dock = Rc::new(Self {
+        Rc::new(Self {
             window,
             is_active_fullscreen: Cell::new(false),
             is_active_maximized: Cell::new(false),
             current_monitor_height: Cell::new(screen_height),
-        });
-
-        // Background edge reveal check when dodge is enabled
-        let dock_weak = Rc::downgrade(&dock);
-        glib::timeout_add_local(Duration::from_millis(100), move || {
-            let Some(dock) = dock_weak.upgrade() else {
-                return glib::ControlFlow::Break;
-            };
-            dock.check_edge_reveal();
-            glib::ControlFlow::Continue
-        });
-
-        dock
+        })
     }
 
     pub fn handle_x11_event(&self, event: &X11Event) {
@@ -258,6 +245,9 @@ impl Dock {
             X11Event::MonitorsChanged { model } => {
                 self.reposition_for_monitors(model);
             }
+            X11Event::PointerEdgeChanged { near_bottom } => {
+                self.handle_pointer_edge(*near_bottom);
+            }
             _ => {}
         }
     }
@@ -278,7 +268,7 @@ impl Dock {
         }
     }
 
-    fn check_edge_reveal(&self) {
+    fn handle_pointer_edge(&self, near_bottom: bool) {
         if self.is_active_fullscreen.get() {
             return;
         }
@@ -287,23 +277,15 @@ impl Dock {
         }
 
         let is_visible = self.window.is_visible();
-        let screen_height = self.current_monitor_height.get();
-
-        if let Ok(conn) = X11Connection::connect() {
-            let root = conn.root();
-            let near_bottom =
-                pointer::is_pointer_near_bottom(conn.raw_conn(), root, screen_height, is_visible);
-
-            if near_bottom && !is_visible {
-                let (sw, sh) = screen_geometry();
-                self.window
-                    .move_((sw - 540).max(0) / 2, (sh - 54 - 6).max(28));
-                self.window.set_keep_above(true);
-                self.window.set_visible(true);
-                self.window.present();
-            } else if !near_bottom && is_visible {
-                self.window.set_visible(false);
-            }
+        if near_bottom && !is_visible {
+            let (sw, sh) = screen_geometry();
+            self.window
+                .move_((sw - 540).max(0) / 2, (sh - 54 - 6).max(28));
+            self.window.set_keep_above(true);
+            self.window.set_visible(true);
+            self.window.present();
+        } else if !near_bottom && is_visible {
+            self.window.set_visible(false);
         }
     }
 

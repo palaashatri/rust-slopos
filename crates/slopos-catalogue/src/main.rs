@@ -164,16 +164,36 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
             let remove_btn_c = remove_btn.clone();
             remove_btn.connect_clicked(move |_| {
                 remove_btn_c.set_sensitive(false);
-                match uninstall_appimage(&app_c) {
-                    Ok(_) => {
-                        status_c.set_text(&format!("Removed {}", app_c.name));
-                        render_apps(&list_c, &apps_c, &query_s, &status_c);
+                status_c.set_text(&format!("Removing {}…", app_c.name));
+                let app_inner = app_c.clone();
+                let app_name = app_c.name.clone();
+                let status_inner = status_c.clone();
+                let list_inner = list_c.clone();
+                let apps_inner = apps_c.clone();
+                let query_inner = query_s.clone();
+                let remove_btn_inner = remove_btn_c.clone();
+
+                #[allow(deprecated)]
+                let (tx, rx) =
+                    glib::MainContext::channel::<Result<(), String>>(glib::Priority::default());
+                rx.attach(None, move |res| {
+                    match res {
+                        Ok(_) => {
+                            status_inner.set_text(&format!("Removed {app_name}"));
+                            render_apps(&list_inner, &apps_inner, &query_inner, &status_inner);
+                        }
+                        Err(err) => {
+                            status_inner.set_text(&format!("Error: {err}"));
+                            remove_btn_inner.set_sensitive(true);
+                        }
                     }
-                    Err(err) => {
-                        status_c.set_text(&format!("Error: {err}"));
-                        remove_btn_c.set_sensitive(true);
-                    }
-                }
+                    glib::ControlFlow::Break
+                });
+
+                std::thread::spawn(move || {
+                    let res = uninstall_appimage(&app_inner);
+                    let _ = tx.send(res);
+                });
             });
             button_box.pack_start(&remove_btn, false, false, 0);
         } else if app.is_system_installed() {
@@ -206,27 +226,27 @@ fn render_apps(list: &ListBox, apps: &[CatalogueApp], query: &str, status: &Labe
                 let list_inner = list_c.clone();
                 let apps_inner = apps_c.clone();
                 let query_inner = query_s.clone();
-                let (tx, rx) = std::sync::mpsc::channel();
+
+                #[allow(deprecated)]
+                let (tx, rx) =
+                    glib::MainContext::channel::<Result<(), String>>(glib::Priority::default());
+                rx.attach(None, move |res| {
+                    match res {
+                        Ok(_) => {
+                            status_inner.set_text(&format!("Installed {app_name}"));
+                            render_apps(&list_inner, &apps_inner, &query_inner, &status_inner);
+                        }
+                        Err(err) => {
+                            status_inner.set_text(&format!("Install error: {err}"));
+                            render_apps(&list_inner, &apps_inner, &query_inner, &status_inner);
+                        }
+                    }
+                    glib::ControlFlow::Break
+                });
+
                 std::thread::spawn(move || {
                     let res = install_appimage(&app_inner);
                     let _ = tx.send(res);
-                });
-                glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
-                    if let Ok(res) = rx.try_recv() {
-                        match res {
-                            Ok(_) => {
-                                status_inner.set_text(&format!("Installed {app_name}"));
-                                render_apps(&list_inner, &apps_inner, &query_inner, &status_inner);
-                            }
-                            Err(err) => {
-                                status_inner.set_text(&format!("Install error: {err}"));
-                                render_apps(&list_inner, &apps_inner, &query_inner, &status_inner);
-                            }
-                        }
-                        glib::ControlFlow::Break
-                    } else {
-                        glib::ControlFlow::Continue
-                    }
                 });
             });
             button_box.pack_start(&install_btn, false, false, 0);
