@@ -9,23 +9,31 @@ cd "$REPO_ROOT"
 echo "=== Installing dependencies for complete visual screenshot capture ==="
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
+apt-get install -y -qq software-properties-common curl
+
+# Add Mozilla Team PPA for real Firefox and Thunderbird native .deb packages
+add-apt-repository -y ppa:mozillateam/ppa
+cat << 'EOF' > /etc/apt/preferences.d/mozilla-firefox
+Package: *
+Pin: release o=LP-PPA-mozillateam
+Pin-Priority: 1001
+EOF
+apt-get update -qq
+
 apt-get install -y -qq --no-install-recommends \
   build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
   libssl-dev libdbus-1-dev libpulse-dev \
   xvfb openbox picom pcmanfm xfce4-terminal mousepad ristretto zathura mpv galculator \
   arandr pavucontrol network-manager-gnome blueman xfce4-power-manager xfce4-settings \
-  python3 python3-gi scrot imagemagick x11-utils x11-xserver-utils xdotool wmctrl dbus-x11 librsvg2-common curl git \
+  python3 python3-gi scrot imagemagick x11-utils x11-xserver-utils xdotool wmctrl dbus-x11 librsvg2-common git \
   ca-certificates adwaita-icon-theme fonts-liberation fonts-dejavu-core libnotify-bin feh \
-  gimp inkscape libreoffice-writer vlc thunderbird audacity supertux chocolate-doom freedoom epiphany-browser \
+  gimp inkscape libreoffice-writer vlc firefox thunderbird supertux chocolate-doom freedoom \
   appmenu-gtk2-module appmenu-gtk3-module || true
 
 # Setup command aliases/symlinks for browser, games, and root-safe execution
 mkdir -p /usr/local/bin
 if [ -f /usr/bin/vlc ]; then
   sed -i 's/geteuid/getppid/' /usr/bin/vlc 2>/dev/null || true
-fi
-if ! command -v firefox >/dev/null 2>&1; then
-  ln -sf /usr/bin/epiphany-browser /usr/local/bin/firefox || true
 fi
 if ! command -v supertux >/dev/null 2>&1 && command -v supertux2 >/dev/null 2>&1; then
   ln -sf /usr/games/supertux2 /usr/local/bin/supertux || true
@@ -38,7 +46,7 @@ fi
 
 echo "=== Installing stable Rust via rustup if needed ==="
 if ! command -v cargo >/dev/null 2>&1; then
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
   export PATH="$HOME/.cargo/bin:$PATH"
 fi
 
@@ -126,6 +134,9 @@ class XSession:
             "GDK_SCALE": str(self.scale),
             "GTK_MODULES": "appmenu-gtk-module",
             "UBUNTU_MENUPROXY": "1",
+            "MOZ_DISABLE_CONTENT_SANDBOX": "1",
+            "MOZ_DISABLE_GMP_SANDBOX": "1",
+            "MOZ_DISABLE_RDD_SANDBOX": "1",
             "PATH": f"/usr/local/bin:/usr/games:{REPO_ROOT}/scripts:{REPO_ROOT}/target/release:{self.env.get('PATH', '')}",
         })
 
@@ -135,7 +146,28 @@ class XSession:
         os.makedirs(f"{cfg}/openbox", exist_ok=True)
         os.makedirs(f"{cfg}/slopos-i", exist_ok=True)
         with open(f"{cfg}/slopos-i/appearance", "w") as f:
-            f.write(self.appearance)
+            f.write(f"{self.appearance}\n")
+
+        # Setup Firefox profile
+        ff_prof = f"{self.home}/.mozilla/firefox/qa.default"
+        os.makedirs(ff_prof, exist_ok=True)
+        with open(f"{self.home}/.mozilla/firefox/profiles.ini", "w") as f:
+            f.write("[Profile0]\nName=qa\nIsRelative=1\nPath=qa.default\nDefault=1\n\n[General]\nStartWithLastProfile=1\nVersion=2\n")
+        prefs_content = (
+            'user_pref("browser.shell.checkDefaultBrowser", false);\n'
+            'user_pref("datareporting.policy.dataSubmissionPolicyAccepted", true);\n'
+            'user_pref("browser.tabs.warnOnClose", false);\n'
+            'user_pref("browser.tabs.inTitlebar", 0);\n'
+            'user_pref("browser.tabs.drawInTitlebar", false);\n'
+            'user_pref("security.sandbox.content.level", 0);\n'
+            'user_pref("security.sandbox.warn_unsupported_configuration", false);\n'
+            'user_pref("browser.startup.homepage", "https://example.com");\n'
+            'user_pref("browser.startup.page", 1);\n'
+        )
+        with open(f"{ff_prof}/user.js", "w") as f:
+            f.write(prefs_content)
+        with open(f"{ff_prof}/prefs.js", "w") as f:
+            f.write(prefs_content)
 
         gtk_css = "gtk.css"
         ob_theme = "slopos-openbox"
@@ -250,7 +282,7 @@ gtk-xft-rgba = rgb
                 if len(parts) >= 4:
                     wid = parts[0]
                     title = parts[3]
-                    if "SLOPOS Top Bar" not in title and "SLOPOS Application Strip" not in title:
+                    if not any(k in title for k in ["SLOPOS Top Bar", "SLOPOS Application Strip", "SLOPOS Search"]):
                         run(f"wmctrl -i -c {wid}", env=self.env)
         except Exception:
             pass
@@ -419,10 +451,10 @@ s.capture("11_system_settings_control_panels_1280x800.png")
 s.clean_client_windows()
 
 # 23 Web Browser Firefox
-p_ff = s.spawn(["firefox", "https://example.com"])
-time.sleep(1.2)
-run("xdotool search --onlyvisible --class 'epiphany|firefox' | tail -1 | xargs -I{} xdotool windowsize {} 700 500 windowmove {} 100 60 windowactivate {}", env=s.env)
-time.sleep(0.4)
+p_ff = s.spawn(["firefox", "--no-remote", "-P", "qa", "https://example.com"])
+time.sleep(4.5)
+run("WID=$(xdotool search --onlyvisible --class firefox | tail -1); if [ -n \"$WID\" ]; then wmctrl -i -r $WID -b remove,fullscreen,maximized_vert,maximized_horz; sleep 0.2; xdotool windowsize $WID 740 480 windowmove $WID 100 55 windowactivate $WID; fi", env=s.env)
+time.sleep(0.6)
 s.capture("23_web_browser_firefox_1280x800.png")
 s.clean_client_windows()
 
@@ -528,9 +560,9 @@ s.clean_client_windows()
 
 # 43 LibreOffice Writer
 p_lo = s.spawn(["libreoffice", "--writer", "--norestore", "--nologo"])
-time.sleep(2.2)
-run("xdotool search --onlyvisible --class soffice.bin | tail -1 | xargs -I{} sh -c 'xdotool windowsize $1 740 470 windowmove $1 100 55 windowactivate $1'", env=s.env)
-time.sleep(0.5)
+time.sleep(3.0)
+run("WID=$(xdotool search --onlyvisible --class 'soffice|libreoffice' | tail -1); if [ -n \"$WID\" ]; then wmctrl -i -r $WID -b remove,fullscreen,maximized_vert,maximized_horz; sleep 0.2; xdotool windowsize $WID 720 450 windowmove $WID 120 55 windowactivate $WID; fi", env=s.env)
+time.sleep(0.6)
 s.capture("43_app_libreoffice_writer_1280x800.png")
 s.clean_client_windows()
 
@@ -542,16 +574,11 @@ time.sleep(0.4)
 s.capture("44_app_supertux_1280x800.png")
 s.clean_client_windows()
 
-# 45 Thunderbird / Audio Software
-if shutil.which("thunderbird"):
-    p_tb = s.spawn(["thunderbird"])
-    time.sleep(1.5)
-    run("xdotool search --onlyvisible --class thunderbird | tail -1 | xargs -I{} xdotool windowsize {} 700 480 windowmove {} 120 70 windowactivate {}", env=s.env)
-elif shutil.which("audacity"):
-    p_tb = s.spawn(["audacity"])
-    time.sleep(1.5)
-    run("xdotool search --onlyvisible --class 'Audacity|audacity' | tail -1 | xargs -I{} xdotool windowsize {} 700 480 windowmove {} 120 70 windowactivate {}", env=s.env)
-time.sleep(0.5)
+# 45 Thunderbird (Mail & Calendar)
+p_tb = s.spawn(["thunderbird", "--no-remote"])
+time.sleep(4.0)
+run("WID=$(xdotool search --onlyvisible --class 'thunderbird|Thunderbird' | tail -1); if [ -n \"$WID\" ]; then wmctrl -i -r $WID -b remove,fullscreen,maximized_vert,maximized_horz; sleep 0.2; xdotool windowsize $WID 740 480 windowmove $WID 100 55 windowactivate $WID; fi", env=s.env)
+time.sleep(0.6)
 s.capture("45_app_thunderbird_1280x800.png")
 s.clean_client_windows()
 
@@ -566,12 +593,13 @@ with open(f"{s.home}/.config/slopos-i/dock_dodge", "w") as f:
     f.write("1\n")
 p_dodge = s.spawn(["mousepad", f"{REPO_ROOT}/README.md"])
 time.sleep(1.5)
-run("xdotool search --sync --onlyvisible --class mousepad | tail -1 | xargs -I{} xdotool windowactivate --sync {} windowsize {} 1280 696 windowmove {} 0 78", env=s.env)
+run("wmctrl -r 'Mousepad' -b add,maximized_vert,maximized_horz", env=s.env)
+run("wmctrl -a 'Mousepad'", env=s.env)
 time.sleep(0.8)
 s.capture("47_dock_dodge_maximized_1280x800.png")
 
 # 49 Dock Dodge Hover Overlap
-run("xdotool mousemove 640 798", env=s.env)
+run("xdotool mousemove 640 799", env=s.env)
 time.sleep(0.6)
 s.capture("49_dock_dodge_hover_overlap_1280x800.png")
 s.clean_client_windows()

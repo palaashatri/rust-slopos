@@ -54,6 +54,7 @@ impl TopBar {
         window.set_accept_focus(false);
         window.set_skip_taskbar_hint(true);
         window.set_skip_pager_hint(true);
+        window.connect_delete_event(|_, _| glib::Propagation::Stop);
         set_accessible_name(&window, "SLOPOS top menu bar");
         window.style_context().add_class("slopos-topbar");
 
@@ -310,10 +311,13 @@ impl TopBar {
     }
 
     fn set_fullscreen_visibility(&self, is_fullscreen: bool) {
-        if is_fullscreen && self.window.is_visible() {
-            self.window.set_visible(false);
-        } else if !is_fullscreen && !self.window.is_visible() {
-            self.window.set_visible(true);
+        if is_fullscreen {
+            if self.window.is_visible() {
+                self.window.hide();
+            }
+        } else if !self.window.is_visible() {
+            self.window.show_all();
+            self.window.present();
         }
     }
 
@@ -427,14 +431,14 @@ fn compact_title(title: &str) -> String {
     if t.is_empty() {
         return "SLOPOS Desktop".to_string();
     }
-    if let Some(pos) = t.rfind(" — ") {
-        let app = t[pos + 3..].trim();
+    if let Some((_, app)) = t.rsplit_once(" — ") {
+        let app = app.trim();
         if !app.is_empty() {
             return app.to_string();
         }
     }
-    if let Some(pos) = t.rfind(" - ") {
-        let app = t[pos + 3..].trim();
+    if let Some((_, app)) = t.rsplit_once(" - ") {
+        let app = app.trim();
         if !app.is_empty() {
             return app.to_string();
         }
@@ -1054,3 +1058,35 @@ fn build_network_menu() -> Menu {
     menu.show_all();
     menu
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compact_title_em_dash() {
+        assert_eq!(
+            compact_title("Example Domain — Mozilla Firefox"),
+            "Mozilla Firefox"
+        );
+        assert_eq!(
+            compact_title("Inbox (3) — Mozilla Thunderbird"),
+            "Mozilla Thunderbird"
+        );
+    }
+
+    #[test]
+    fn test_compact_title_regular_dash() {
+        assert_eq!(
+            compact_title("Untitled Document 1 - Mousepad"),
+            "Mousepad"
+        );
+    }
+
+    #[test]
+    fn test_compact_title_fallback() {
+        assert_eq!(compact_title(""), "SLOPOS Desktop");
+        assert_eq!(compact_title("Calculator"), "Calculator");
+    }
+}
+
