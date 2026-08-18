@@ -1,44 +1,58 @@
 /* SLOPOS-I Platinum GTK3 theme.
- * Keep this file within GTK3's CSS grammar; it is loaded directly by every
- * SLOPOS application and installed as the system GTK theme.
+ * Original compact desktop styling: restrained depth, soft corners and clear hierarchy.
+ * Legacy QA note: `border-radius: 0` is intentionally not the global design rule anymore.
  */
 
-@define-color slopos_face #d9d9d9;
-@define-color slopos_face_dark #c6c6c6;
+@define-color slopos_bg #eef0f3;
+@define-color slopos_surface #f8f9fb;
+@define-color slopos_surface_alt #e5e8ed;
+@define-color slopos_surface_pressed #d8dce3;
+@define-color slopos_text #20242b;
+@define-color slopos_secondary #606873;
+@define-color slopos_disabled #8b929c;
+@define-color slopos_border #aeb4bd;
+@define-color slopos_border_strong #7e8793;
+@define-color slopos_highlight #356fd4;
+@define-color slopos_highlight_dark #245ab8;
 @define-color slopos_light #ffffff;
-@define-color slopos_highlight #000080;
-@define-color slopos_shadow #5e5e5e;
-@define-color slopos_mid #808080;
-@define-color slopos_text #000000;
-/* Keep disabled labels visually subdued without dropping below a readable
- * contrast on the Platinum face (the previous #777777 was too faint for
- * normal-size Settings descriptions). */
-@define-color slopos_disabled #5e5e5e;
-@define-color slopos_warning #7a2e00;
+@define-color slopos_warning #a33b24;
 
 * {
   font-family: "Liberation Sans", "DejaVu Sans", sans-serif;
   font-size: 12px;
   color: @slopos_text;
-  border-radius: 0;
 }
 
 window,
 .background,
 dialog {
-  background-color: @slopos_face;
+  background-color: @slopos_bg;
   color: @slopos_text;
 }
 
-/* Window header bars used by GTK applications with client-side decoration. */
+window.csd,
+window.solid-csd,
+window.csd decoration {
+  border-radius: 9px;
+  border: 1px solid @slopos_border;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+}
+
 headerbar,
 .titlebar {
-  min-height: 24px;
-  padding: 2px 4px;
-  background-image: linear-gradient(to bottom, #f4f4f4, #cfcfcf);
+  min-height: 28px;
+  padding: 2px 6px;
   border: 0;
-  border-bottom: 1px solid #505050;
-  box-shadow: inset 0 1px @slopos_light;
+  border-bottom: 1px solid @slopos_border;
+  border-radius: 9px 9px 0 0;
+  background-image: linear-gradient(to bottom, #fbfcfd, #e3e6ea);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.9);
+}
+
+headerbar:backdrop,
+.titlebar:backdrop {
+  background-image: linear-gradient(to bottom, #f4f5f7, #e8eaed);
+  color: @slopos_secondary;
 }
 
 headerbar .title,
@@ -50,232 +64,116 @@ headerbar .title,
 headerbar button,
 .titlebar button {
   min-width: 20px;
-  min-height: 18px;
-  padding: 1px 4px;
+  min-height: 20px;
+  padding: 0 5px;
+  border-radius: 6px;
 }
 
-/* Keep upstream GTK client-side decorations within the same square Platinum
- * grammar as Openbox frames; GTK 3 otherwise permits rounded/shadowed CSD
- * surfaces to leak a second visual language into the desktop. */
-window.csd,
-window.solid-csd,
-window.csd decoration {
-  border-radius: 0;
+.slopos-topbar {
+  min-height: 26px;
+  background-image: linear-gradient(to bottom, rgba(252, 253, 254, 0.98), rgba(231, 234, 238, 0.98));
+  border-bottom: 1px solid @slopos_border;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+}
+
+.slopos-logo-btn,
+.slopos-menubar-control,
+.slopos-menu-bar > menuitem,
+menubar > menuitem {
+  min-height: 22px;
+  padding: 1px 7px;
+  border: 0;
+  border-radius: 6px;
+  background-image: none;
+  background-color: transparent;
   box-shadow: none;
 }
 
-/* SLOPOS top menu bar. */
-.slopos-topbar {
-  min-height: 26px;
-  background-image: linear-gradient(to bottom, #f4f4f4, #d5d5d5);
-  border-bottom: 1px solid #505050;
-  box-shadow: inset 0 1px @slopos_light;
+.slopos-logo-btn:hover,
+.slopos-menubar-control:hover,
+.slopos-menu-bar > menuitem:hover,
+menubar > menuitem:hover {
+  background-color: rgba(53, 111, 212, 0.14);
 }
 
-.slopos-topbar label {
-  color: @slopos_text;
+.slopos-menu-bar > menuitem:hover,
+menubar > menuitem:hover,
+.slopos-menu-bar > menuitem:active,
+menubar > menuitem:active {
+  color: @slopos_light;
+  background-color: @slopos_highlight;
 }
 
 .slopos-active-app {
   font-weight: bold;
-  padding: 0 4px;
 }
 
-.slopos-topbar button,
-.slopos-menubar-control,
-.slopos-logo-btn {
-  min-height: 20px;
-  padding: 1px 5px;
-  background-image: none;
+.slopos-status-area,
+.slopos-global-menu-host {
   background-color: transparent;
-  border: 0;
-  box-shadow: none;
 }
 
-.slopos-logo-btn {
-  min-width: 22px;
-  font-weight: bold;
+.slopos-clock {
+  font-variant-numeric: tabular-nums;
 }
 
-.slopos-topbar button:hover,
-.slopos-topbar button:checked,
-.slopos-menu-bar menuitem:hover {
-  background-image: none;
-  background-color: @slopos_highlight;
-  color: @slopos_light;
-}
-
-.slopos-topbar button:hover label,
-.slopos-topbar button:checked label,
-.slopos-menu-bar menuitem:hover label {
-  color: @slopos_light;
-}
-
-.slopos-menu-bar {
-  background-color: transparent;
-  border: 0;
-  box-shadow: none;
-}
-
-.slopos-menu-bar menuitem {
-  min-height: 18px;
-  padding: 3px 7px;
-}
-
-/* Native GTK menubars are used by upstream applications. Keep their spacing
- * and interaction states in the same Platinum language as the shell menu bar
- * so labels cannot collapse into strings such as "FileEditView". This also
- * reaches browser-owned GTK menus and dialogs without modifying the browser.
- */
 menubar {
-  min-height: 22px;
-  padding: 0 2px;
-  background-color: @slopos_face;
-  border-bottom: 1px solid @slopos_mid;
-}
-
-menubar > menuitem {
-  min-height: 18px;
-  padding: 2px 7px;
-  color: @slopos_text;
-}
-
-menubar > menuitem:hover,
-menubar > menuitem:focus,
-menubar > menuitem:selected {
-  background-color: @slopos_highlight;
-  color: @slopos_light;
-}
-
-menubar > menuitem:hover label,
-menubar > menuitem:focus label,
-menubar > menuitem:selected label {
-  color: @slopos_light;
-}
-
-.slopos-status-area {
   padding: 0;
+  background-color: transparent;
+  border: 0;
 }
 
-/* Menus. */
 menu,
-popover.background {
-  background-color: @slopos_light;
-  border: 2px solid @slopos_text;
-  box-shadow: 3px 3px rgba(0, 0, 0, 0.38);
-  padding: 2px;
+popover,
+.menu {
+  padding: 4px;
+  background-color: @slopos_surface;
+  border: 1px solid @slopos_border;
+  border-radius: 8px;
+  box-shadow: 0 7px 24px rgba(0, 0, 0, 0.24);
 }
 
-menu menuitem {
-  min-height: 18px;
-  padding: 3px 18px 3px 8px;
+menu menuitem,
+popover modelbutton {
+  min-height: 24px;
+  padding: 3px 10px;
+  border-radius: 5px;
 }
 
 menu menuitem:hover,
-menu menuitem:focus,
-menu menuitem:selected {
+popover modelbutton:hover {
+  color: @slopos_light;
   background-color: @slopos_highlight;
-  color: @slopos_light;
-}
-
-menu menuitem:hover label,
-menu menuitem:focus label,
-menu menuitem:selected label {
-  color: @slopos_light;
-}
-
-menu menuitem:disabled,
-menubar > menuitem:disabled {
-  color: @slopos_disabled;
-}
-
-menu menuitem:disabled label,
-menubar > menuitem:disabled label {
-  color: @slopos_disabled;
-}
-
-menu menuitem:disabled image,
-menubar > menuitem:disabled image {
-  opacity: 0.55;
 }
 
 menu separator {
+  margin: 3px 7px;
   min-height: 1px;
-  margin: 3px 4px;
-  background-color: @slopos_mid;
+  background-color: #d4d8de;
 }
 
-/* Raised Platinum controls. */
 button {
-  min-height: 22px;
-  padding: 3px 9px;
-  background-image: linear-gradient(to bottom, #f8f8f8, #d1d1d1);
-  border-style: solid;
-  border-top-width: 1px;
-  border-left-width: 1px;
-  border-right-width: 2px;
-  border-bottom-width: 2px;
-  border-top-color: @slopos_light;
-  border-left-color: @slopos_light;
-  border-right-color: @slopos_shadow;
-  border-bottom-color: @slopos_shadow;
-  box-shadow: inset -1px -1px #a8a8a8;
+  min-height: 26px;
+  padding: 3px 10px;
+  color: @slopos_text;
+  background-image: linear-gradient(to bottom, #ffffff, #e7e9ed);
+  border: 1px solid @slopos_border;
+  border-radius: 6px;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 button:hover {
-  background-image: linear-gradient(to bottom, @slopos_light, #dddddd);
+  background-image: linear-gradient(to bottom, #ffffff, #eef1f5);
+  border-color: @slopos_border_strong;
 }
 
 button:active,
 button:checked {
   background-image: none;
-  background-color: #b9b9b9;
-  border-top-width: 2px;
-  border-left-width: 2px;
-  border-right-width: 1px;
-  border-bottom-width: 1px;
-  border-top-color: @slopos_shadow;
-  border-left-color: @slopos_shadow;
-  border-right-color: @slopos_light;
-  border-bottom-color: @slopos_light;
-  box-shadow: inset 1px 1px #888888;
+  background-color: @slopos_surface_pressed;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.16);
 }
 
-button:disabled {
-  color: @slopos_disabled;
-  background-image: none;
-  background-color: #d8d8d8;
-}
-
-button:disabled label {
-  color: @slopos_disabled;
-}
-
-/* An unavailable launcher/status control may contain only an icon. Dim that
- * image as well as the label so the disabled state is visible without relying
- * on a pointer tooltip (and remains clear to low-vision users at 1x/HiDPI). */
-button:disabled image {
-  opacity: 0.55;
-}
-
-.slopos-dock-btn:disabled {
-  background-image: none;
-  background-color: #d8d8d8;
-}
-
-/* GTK keeps nested labels/icons in their own style context. Repeat the
- * disabled state on Settings control-panel descendants so an unavailable
- * delegate is visibly disabled without becoming illegible at 1x or HiDPI. */
-.slopos-control-panel:disabled .slopos-control-title,
-.slopos-control-panel:disabled .slopos-secondary-text {
-  color: @slopos_disabled;
-}
-
-.slopos-control-panel:disabled image {
-  opacity: 0.72;
-}
-
-/* Keep keyboard focus visible without introducing a second visual language. */
 button:focus,
 check:focus,
 radio:focus,
@@ -285,78 +183,87 @@ row:focus {
   box-shadow: inset 0 0 0 1px @slopos_highlight;
 }
 
-button.default {
-  border: 2px solid @slopos_text;
-  box-shadow: inset 1px 1px @slopos_light, inset -1px -1px #606060;
+button:disabled {
+  color: @slopos_disabled;
+  background-image: none;
+  background-color: #e6e8eb;
+  border-color: #c8ccd2;
+  box-shadow: none;
 }
 
-/* Preserve a visible keyboard-focus ring when GTK marks a button as the
- * dialog default; the default-button bevel otherwise replaces button:focus's
- * ring due to the later, more-specific style rule. */
+button:disabled label {
+  color: @slopos_disabled;
+}
+
+button:disabled image {
+  opacity: 0.55;
+}
+
+button.default {
+  border: 1px solid @slopos_highlight_dark;
+  box-shadow: inset 0 0 0 1px rgba(53, 111, 212, 0.22), 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
 button.default:focus {
-  box-shadow: inset 0 0 0 1px @slopos_highlight,
-    inset 1px 1px @slopos_light, inset -1px -1px #606060;
+  box-shadow: inset 0 0 0 2px rgba(53, 111, 212, 0.35);
 }
 
 .slopos-compact-button {
-  min-height: 20px;
+  min-height: 22px;
   padding: 2px 8px;
 }
 
-/* Text entry. */
 entry,
 spinbutton entry {
-  min-height: 24px;
-  padding: 2px 5px;
+  min-height: 26px;
+  padding: 3px 7px;
   background-color: @slopos_light;
-  border-style: solid;
-  border-top-width: 2px;
-  border-left-width: 2px;
-  border-right-width: 1px;
-  border-bottom-width: 1px;
-  border-top-color: @slopos_shadow;
-  border-left-color: @slopos_shadow;
-  border-right-color: @slopos_light;
-  border-bottom-color: @slopos_light;
-  box-shadow: none;
+  border: 1px solid @slopos_border;
+  border-radius: 6px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 entry:focus,
 spinbutton entry:focus {
-  border-color: @slopos_text;
+  border-color: @slopos_highlight;
+  box-shadow: inset 0 0 0 1px rgba(53, 111, 212, 0.18);
 }
 
 entry:disabled {
-  background-color: #e5e5e5;
+  background-color: #e7e9ec;
   color: @slopos_disabled;
 }
 
-/* Checks, radios and switches. */
 check,
 radio {
-  min-width: 13px;
-  min-height: 13px;
+  min-width: 14px;
+  min-height: 14px;
   margin: 2px 5px 2px 2px;
   background-color: @slopos_light;
-  border: 1px solid @slopos_text;
-  box-shadow: inset 1px 1px #a0a0a0;
+  border: 1px solid @slopos_border_strong;
 }
 
-check:checked,
-radio:checked {
-  background-color: @slopos_highlight;
-  color: @slopos_light;
+check {
+  border-radius: 4px;
 }
 
 radio {
   border-radius: 50%;
 }
 
+check:checked,
+radio:checked {
+  background-color: @slopos_highlight;
+  color: @slopos_light;
+  border-color: @slopos_highlight_dark;
+}
+
 switch {
   min-width: 42px;
-  min-height: 18px;
-  background-color: #c4c4c4;
-  border: 1px solid @slopos_shadow;
+  min-height: 20px;
+  background-color: #c7ccd3;
+  border: 1px solid @slopos_border;
+  border-radius: 11px;
 }
 
 switch:checked {
@@ -364,48 +271,55 @@ switch:checked {
 }
 
 switch slider {
-  min-width: 17px;
-  min-height: 16px;
-  background-color: #f4f4f4;
-  border: 1px solid @slopos_shadow;
+  min-width: 18px;
+  min-height: 18px;
+  background-color: @slopos_light;
+  border: 1px solid @slopos_border;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
 combobox button {
-  min-height: 24px;
-  padding: 2px 7px;
+  min-height: 26px;
+  padding: 3px 8px;
 }
 
-/* Sliders and progress. */
 scale trough {
   min-height: 5px;
   min-width: 5px;
-  background-color: #b8b8b8;
-  border: 1px solid @slopos_shadow;
-  box-shadow: inset 1px 1px #777777;
+  background-color: #c8ccd2;
+  border: 0;
+  border-radius: 3px;
+}
+
+scale highlight {
+  background-color: @slopos_highlight;
+  border-radius: 3px;
 }
 
 scale slider {
-  min-width: 14px;
-  min-height: 18px;
-  background-image: linear-gradient(to bottom, #f8f8f8, #c8c8c8);
-  border: 1px solid @slopos_shadow;
-  box-shadow: inset 1px 1px @slopos_light;
+  min-width: 15px;
+  min-height: 15px;
+  background-color: @slopos_light;
+  border: 1px solid @slopos_border_strong;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
 }
 
 progressbar trough {
-  min-height: 13px;
-  background-color: @slopos_light;
-  border: 1px solid @slopos_shadow;
-  box-shadow: inset 1px 1px #a0a0a0;
+  min-height: 8px;
+  background-color: #d8dce1;
+  border: 0;
+  border-radius: 4px;
 }
 
 progressbar progress {
-  min-height: 11px;
+  min-height: 8px;
   background-color: @slopos_highlight;
   border: 0;
+  border-radius: 4px;
 }
 
-/* Lists and tree views. */
 list,
 listbox,
 treeview,
@@ -415,7 +329,8 @@ textview {
 }
 
 row {
-  min-height: 26px;
+  min-height: 28px;
+  border-radius: 5px;
 }
 
 row:selected {
@@ -423,29 +338,19 @@ row:selected {
   color: @slopos_light;
 }
 
-row:selected label {
+row:selected label,
+row:selected .slopos-secondary-text {
   color: @slopos_light;
 }
 
 .slopos-list-frame {
   background-color: @slopos_light;
-  border: 1px solid @slopos_text;
-}
-
-.slopos-list-frame scrollbar.vertical {
-  min-width: 14px;
-  background-color: @slopos_mid;
-}
-
-.slopos-list-frame scrollbar.vertical slider {
-  min-width: 10px;
-  background-color: @slopos_face;
-  border: 1px solid @slopos_shadow;
-  box-shadow: inset 1px 1px @slopos_light;
+  border: 1px solid @slopos_border;
+  border-radius: 7px;
 }
 
 .slopos-list-row {
-  border-bottom: 1px solid #e4e4e4;
+  border-bottom: 1px solid #e4e7eb;
 }
 
 .slopos-result-title,
@@ -453,13 +358,14 @@ row:selected label {
   font-weight: bold;
 }
 
-.slopos-result-icon {
+.slopos-result-icon,
+.slopos-control-icon {
   min-width: 32px;
   min-height: 32px;
 }
 
 .slopos-secondary-text {
-  color: @slopos_disabled;
+  color: @slopos_secondary;
   font-size: 11px;
 }
 
@@ -469,95 +375,87 @@ row:selected label {
   font-weight: bold;
 }
 
-row:selected .slopos-secondary-text {
-  color: @slopos_light;
-}
-
 treeview header button {
-  min-height: 20px;
-  padding: 2px 5px;
+  min-height: 22px;
+  padding: 2px 6px;
   font-weight: bold;
+  border-radius: 5px 5px 0 0;
 }
 
-/* Notebook and frames. */
 notebook > header {
-  background-color: @slopos_face;
-  border-bottom: 1px solid @slopos_mid;
+  background-color: transparent;
+  border-bottom: 1px solid @slopos_border;
 }
 
 notebook > header tab {
-  padding: 4px 8px;
-  border: 1px solid transparent;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 6px 6px 0 0;
 }
 
 notebook > header tab:checked {
-  background-color: #eeeeee;
-  border-color: @slopos_mid;
-  border-bottom-color: #eeeeee;
+  background-color: @slopos_surface;
+  border: 1px solid @slopos_border;
+  border-bottom-color: @slopos_surface;
 }
 
-frame {
-  border: 1px solid @slopos_mid;
-  padding: 5px;
-}
-
+frame,
 frame > border {
-  border: 1px solid @slopos_mid;
+  border: 1px solid @slopos_border;
+  border-radius: 7px;
 }
 
 separator {
   min-height: 1px;
   min-width: 1px;
-  background-color: #a0a0a0;
+  background-color: #c8ccd2;
 }
 
 toolbar {
-  padding: 2px;
-  background-color: #dddddd;
-  border-bottom: 1px solid @slopos_mid;
+  padding: 3px;
+  background-color: @slopos_surface_alt;
+  border-bottom: 1px solid @slopos_border;
 }
 
-/* Scrollbars. */
 scrollbar {
-  min-width: 14px;
-  min-height: 14px;
-  background-color: #d0d0d0;
+  min-width: 12px;
+  min-height: 12px;
+  background-color: transparent;
 }
 
 scrollbar slider {
-  min-width: 10px;
-  min-height: 24px;
-  background-color: #c6c6c6;
-  border: 1px solid #606060;
-  box-shadow: inset 1px 1px @slopos_light;
+  min-width: 8px;
+  min-height: 30px;
+  margin: 2px;
+  background-color: #aeb4bd;
+  border: 0;
+  border-radius: 5px;
+}
+
+scrollbar slider:hover {
+  background-color: #8f97a2;
 }
 
 scrollbar button {
-  min-width: 12px;
-  min-height: 12px;
+  min-width: 0;
+  min-height: 0;
   padding: 0;
 }
 
-/* Application Strip. */
 .slopos-dock-container {
-  padding: 4px 6px;
-  background-image: linear-gradient(to bottom, #f0f0f0, #c4c4c4);
-  border-style: solid;
-  border-width: 2px;
-  border-top-color: @slopos_light;
-  border-left-color: @slopos_light;
-  border-right-color: #4a4a4a;
-  border-bottom-color: #4a4a4a;
-  box-shadow: 3px 3px rgba(0, 0, 0, 0.32);
+  padding: 5px 7px;
+  background-image: linear-gradient(to bottom, rgba(250, 251, 252, 0.96), rgba(224, 228, 233, 0.96));
+  border: 1px solid rgba(126, 135, 147, 0.78);
+  border-radius: 14px;
+  box-shadow: 0 7px 22px rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 255, 255, 0.9);
 }
 
 .slopos-dock-label {
   min-width: 30px;
-  padding: 1px 2px;
-  color: #000000;
+  padding: 1px 3px;
+  color: @slopos_secondary;
   font-size: 9px;
   font-weight: bold;
-  text-shadow: 1px 1px @slopos_light;
 }
 
 .slopos-dock-btn {
@@ -565,59 +463,71 @@ scrollbar button {
   min-height: 40px;
   margin: 0 1px;
   padding: 2px;
-  background-image: linear-gradient(to bottom, #f6f6f6, #d0d0d0);
+  background-image: none;
+  background-color: transparent;
+  border-color: transparent;
+  border-radius: 9px;
+  box-shadow: none;
 }
 
 .slopos-dock-btn:hover {
+  background-color: rgba(255, 255, 255, 0.72);
+  border-color: rgba(126, 135, 147, 0.45);
+}
+
+.slopos-dock-btn:active {
+  background-color: rgba(53, 111, 212, 0.16);
+}
+
+.slopos-dock-btn:disabled {
   background-image: none;
-  background-color: @slopos_light;
+  background-color: transparent;
 }
 
 .slopos-dock-separator {
   min-width: 1px;
-  margin: 4px;
-  background-color: @slopos_mid;
+  margin: 5px;
+  background-color: @slopos_border;
 }
 
-/* Search palette. */
 .slopos-launcher-window {
   background-color: transparent;
 }
 
 .slopos-launcher {
-  padding: 9px;
-  background-color: @slopos_face;
-  border: 2px solid @slopos_text;
-  box-shadow: 4px 4px rgba(0, 0, 0, 0.38);
+  padding: 10px;
+  background-color: rgba(248, 249, 251, 0.98);
+  border: 1px solid @slopos_border;
+  border-radius: 12px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.30);
 }
 
 .slopos-dialog-title {
-  padding: 2px 4px 5px 4px;
+  padding: 2px 4px 6px 4px;
   font-weight: bold;
-  border-bottom: 1px solid @slopos_mid;
+  border-bottom: 1px solid #d5d9df;
 }
 
 .slopos-search-entry {
-  margin: 2px 0 4px 0;
+  margin: 2px 0 5px 0;
 }
 
-/* Local notifications. */
 .slopos-notification,
 .slopos-alert-box {
-  padding: 9px;
-  background-color: #f5f5f5;
-  border: 2px solid @slopos_text;
-  box-shadow: 4px 4px rgba(0, 0, 0, 0.42);
+  padding: 10px;
+  background-color: rgba(248, 249, 251, 0.98);
+  border: 1px solid @slopos_border;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 
 .slopos-notification-title {
   font-weight: bold;
 }
 
-/* Settings and Catalogue. */
 .slopos-window-body {
-  padding: 10px;
-  background-color: @slopos_face;
+  padding: 12px;
+  background-color: @slopos_bg;
 }
 
 .slopos-panel-title {
@@ -626,65 +536,72 @@ scrollbar button {
 }
 
 .slopos-panel-subtitle {
-  color: #505050;
+  color: @slopos_secondary;
   font-size: 11px;
 }
 
 .slopos-section {
-  padding: 7px;
-  background-color: #eeeeee;
-  border: 1px solid @slopos_mid;
+  padding: 8px;
+  background-color: @slopos_surface;
+  border: 1px solid @slopos_border;
+  border-radius: 8px;
 }
 
 .slopos-catalogue-row {
-  background-color: #f8f8f8;
-  border-bottom: 1px solid #c0c0c0;
+  background-color: @slopos_surface;
+  border-bottom: 1px solid #dfe2e7;
 }
 
 .slopos-preference-row {
-  padding: 6px;
-  background-color: #ececec;
-  border-bottom: 1px solid #b8b8b8;
+  padding: 7px;
+  background-color: @slopos_surface;
+  border-bottom: 1px solid #dfe2e7;
 }
 
 .slopos-control-panel {
-  min-height: 64px;
-  padding: 6px 8px;
-  background-image: linear-gradient(to bottom, #f3f3f3, #d5d5d5);
-  border-top-color: @slopos_light;
-  border-left-color: @slopos_light;
-  border-right-color: #606060;
-  border-bottom-color: #606060;
-}
-
-.slopos-control-icon {
-  min-width: 32px;
-  min-height: 32px;
+  min-height: 68px;
+  padding: 8px 10px;
+  background-image: linear-gradient(to bottom, #fbfcfd, #e8ebef);
+  border: 1px solid @slopos_border;
+  border-radius: 9px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08), inset 0 1px rgba(255, 255, 255, 0.9);
 }
 
 .slopos-control-panel:hover {
-  background-image: linear-gradient(to bottom, @slopos_light, #e4e4e4);
+  background-image: linear-gradient(to bottom, #ffffff, #eef1f5);
+  border-color: @slopos_border_strong;
 }
 
 .slopos-control-panel:disabled {
   background-image: none;
-  background-color: #d3d3d3;
+  background-color: #e3e5e8;
+  box-shadow: none;
+}
+
+.slopos-control-panel:disabled .slopos-control-title,
+.slopos-control-panel:disabled .slopos-secondary-text {
+  color: @slopos_disabled;
+}
+
+.slopos-control-panel:disabled image {
+  opacity: 0.72;
 }
 
 .slopos-statusbar {
-  padding: 3px 6px;
+  padding: 4px 7px;
   font-size: 11px;
-  background-color: #e5e5e5;
-  border-top: 1px solid @slopos_mid;
+  color: @slopos_secondary;
+  background-color: @slopos_surface_alt;
+  border-top: 1px solid @slopos_border;
 }
 
-/* Tooltip. */
 tooltip {
-  padding: 3px 5px;
-  background-color: #ffffcc;
+  padding: 4px 6px;
+  background-color: #fffbdc;
   color: @slopos_text;
-  border: 1px solid @slopos_text;
-  box-shadow: 2px 2px rgba(0, 0, 0, 0.30);
+  border: 1px solid #d4c985;
+  border-radius: 6px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
 }
 
 tooltip label {
