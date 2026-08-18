@@ -48,6 +48,19 @@ fn main() {
     shortcuts::install_system_menu_shortcut();
     let dock = Dock::new(launcher);
 
+    // Initialize the background system service monitor (audio, network, power)
+    #[allow(deprecated)]
+    let (status_sender, status_receiver) = glib::MainContext::channel(glib::Priority::default());
+    let topbar_status = topbar.clone();
+    status_receiver.attach(None, move |status| {
+        topbar_status.update_system_status(&status);
+        glib::ControlFlow::Continue
+    });
+
+    let _system_monitor = services::SystemMonitor::start(Duration::from_secs(3), move |status| {
+        let _ = status_sender.send(status);
+    });
+
     // Initialize the event-driven X11 integration layer
     #[allow(deprecated)]
     let (event_sender, event_receiver) = glib::MainContext::channel(glib::Priority::default());

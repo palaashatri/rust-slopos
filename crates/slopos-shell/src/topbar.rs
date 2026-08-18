@@ -5,11 +5,9 @@
 
 use crate::launcher::Launcher;
 use crate::menu::gmenu::{self, GtkMenuExporter};
-use crate::services::audio;
 use crate::services::clock;
-use crate::services::network;
-use crate::services::power;
 use crate::services::session;
+use crate::services::SystemStatus;
 use crate::x11::{MonitorModel, X11Event};
 use gdk_pixbuf::{InterpType, Pixbuf};
 use gtk::atk::prelude::AtkObjectExt;
@@ -32,6 +30,10 @@ pub struct TopBar {
     window: Window,
     active_title_label: Label,
     _clock_label: Label,
+    audio_label: Label,
+    network_label: Label,
+    battery_box: GtkBox,
+    battery_label: Label,
     global_menu_host: GtkBox,
     active_menu_state: RefCell<Option<GtkMenuExporter>>,
     current_active_window: Cell<Option<u32>>,
@@ -135,8 +137,7 @@ impl TopBar {
             false,
             0,
         );
-        let initial_audio = audio::audio_label_text(audio::query_audio_state().as_ref());
-        let audio_label = Label::new(Some(&initial_audio));
+        let audio_label = Label::new(Some("Vol: --"));
         audio_box.pack_start(&audio_label, false, false, 0);
         audio_button.add(&audio_box);
         if session::resolve_program("pavucontrol").is_some() {
@@ -160,8 +161,7 @@ impl TopBar {
             false,
             0,
         );
-        let initial_net = network::network_label_text(&network::query_network_status());
-        let network_label = Label::new(Some(&initial_net));
+        let network_label = Label::new(Some("Net: --"));
         network_box.pack_start(&network_label, false, false, 0);
         network_button.add(&network_box);
         if session::resolve_program("nm-connection-editor").is_some() {
@@ -181,11 +181,9 @@ impl TopBar {
             false,
             0,
         );
-        let battery_state = power::query_battery_state();
-        let battery_text = power::battery_label_text(battery_state.as_ref()).unwrap_or_default();
-        let battery_label = Label::new(Some(&battery_text));
+        let battery_label = Label::new(Some(""));
         battery_box.pack_start(&battery_label, false, false, 0);
-        battery_box.set_visible(battery_state.is_some());
+        battery_box.set_visible(false);
         status_box.pack_start(&battery_box, false, false, 0);
 
         let clock_button = Button::new();
@@ -209,41 +207,34 @@ impl TopBar {
             window,
             active_title_label,
             _clock_label: clock_label.clone(),
+            audio_label,
+            network_label,
+            battery_box,
+            battery_label,
             global_menu_host,
             active_menu_state: RefCell::new(None),
             current_active_window: Cell::new(None),
         });
 
-        // In-process local clock ticker (every 1 second, no subprocess spawned)
+        // In-process local clock ticker (every 1 second, zero I/O or subprocesses)
         glib::timeout_add_seconds_local(1, move || {
             clock_label.set_text(&clock::current_time_str());
             glib::ControlFlow::Continue
         });
 
-        // Periodic status update ticker for hardware/system metrics (every 5 seconds)
-        let audio_label_c = audio_label.clone();
-        let network_label_c = network_label.clone();
-        let battery_box_c = battery_box.clone();
-        let battery_label_c = battery_label.clone();
-        glib::timeout_add_seconds_local(5, move || {
-            let a_state = audio::query_audio_state();
-            audio_label_c.set_text(&audio::audio_label_text(a_state.as_ref()));
-
-            let n_state = network::query_network_status();
-            network_label_c.set_text(&network::network_label_text(&n_state));
-
-            let b_state = power::query_battery_state();
-            if let Some(b_text) = power::battery_label_text(b_state.as_ref()) {
-                battery_label_c.set_text(&b_text);
-                battery_box_c.set_visible(true);
-            } else {
-                battery_label_c.set_text("");
-                battery_box_c.set_visible(false);
-            }
-            glib::ControlFlow::Continue
-        });
-
         topbar
+    }
+
+    pub fn update_system_status(&self, status: &SystemStatus) {
+        self.audio_label.set_text(&status.audio_text);
+        self.network_label.set_text(&status.network_text);
+        if let Some(battery_text) = &status.battery_text {
+            self.battery_label.set_text(battery_text);
+            self.battery_box.set_visible(true);
+        } else {
+            self.battery_label.set_text("");
+            self.battery_box.set_visible(false);
+        }
     }
 
     pub fn handle_x11_event(&self, event: &X11Event) {
