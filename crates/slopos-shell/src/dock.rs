@@ -1,6 +1,10 @@
 //! Compact SLOPOS Platinum Application Strip.
+//!
+//! Event-driven visibility, window dodge, and launch management without subprocess polling.
 
 use crate::launcher::Launcher;
+use crate::services::session;
+use crate::x11::{pointer, MonitorModel, X11Connection, X11Event};
 use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
@@ -8,13 +12,18 @@ use gtk::{
     Box as GtkBox, Button, IconSize, Image, Label, Orientation, Separator, Window, WindowPosition,
     WindowType,
 };
+use std::cell::Cell;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
+use std::time::Duration;
 
 pub struct Dock {
-    _window: Window,
+    window: Window,
+    is_active_fullscreen: Cell<bool>,
+    is_active_maximized: Cell<bool>,
+    current_monitor_height: Cell<i32>,
 }
 
 #[derive(Clone, Copy)]
@@ -28,8 +37,6 @@ impl Dock {
         let window = Window::new(WindowType::Toplevel);
         window.set_title("SLOPOS Application Strip");
         let (screen_width, screen_height) = screen_geometry();
-        // Keep enough room for the optional upstream game launcher while
-        // remaining compact at the smallest supported desktop widths.
         let width = 540;
         let height = 54;
         window.set_default_size(width, height);
@@ -39,10 +46,6 @@ impl Dock {
             (screen_height - height - 6).max(28),
         );
         window.set_decorated(false);
-        // The Application Strip is desktop chrome, not an application window.
-        // Marking it as a dock lets Openbox place it in the reserved desktop
-        // area instead of clamping it into the application work area, which
-        // otherwise makes the strip overlap terminal/file-manager content.
         window.set_type_hint(gdk::WindowTypeHint::Dock);
         window.set_keep_above(true);
         window.set_skip_taskbar_hint(true);
@@ -211,8 +214,108 @@ impl Dock {
 
         window.add(&dock_box);
         window.show_all();
-        install_dock_visibility_manager(&window, screen_height);
-        Rc::new(Self { _window: window })
+
+        let dock = Rc::new(Self {
+            window,
+            is_active_fullscreen: Cell::new(false),
+            is_active_maximized: Cell::new(false),
+            current_monitor_height: Cell::new(screen_height),
+        });
+
+        // Background edge reveal check when dodge is enabled
+        let dock_weak = Rc::downgrade(&dock);
+        glib::timeout_add_local(Duration::from_millis(100), move || {
+            let Some(dock) = dock_weak.upgrade() else {
+                return glib::ControlFlow::Break;
+            };
+            dock.check_edge_reveal();
+            glib::ControlFlow::Continue
+        });
+
+        dock
+    }
+
+    pub fn handle_x11_event(&self, event: &X11Event) {
+        match event {
+            X11Event::ActiveWindowChanged {
+                is_fullscreen,
+                is_maximized,
+                ..
+            } => {
+                self.is_active_fullscreen.set(*is_fullscreen);
+                self.is_active_maximized.set(*is_maximized);
+                self.update_visibility();
+            }
+            X11Event::WindowStateChanged {
+                is_fullscreen,
+                is_maximized,
+                ..
+            } => {
+                self.is_active_fullscreen.set(*is_fullscreen);
+                self.is_active_maximized.set(*is_maximized);
+                self.update_visibility();
+            }
+            X11Event::MonitorsChanged { model } => {
+                self.reposition_for_monitors(model);
+            }
+            _ => {}
+        }
+    }
+
+    fn update_visibility(&self) {
+        if self.is_active_fullscreen.get() {
+            if self.window.is_visible() {
+                self.window.set_visible(false);
+            }
+        } else if is_dock_dodge_enabled() && self.is_active_maximized.get() {
+            // In dodge mode with maximized window, start hidden until pointer nears bottom
+            if self.window.is_visible() {
+                self.window.set_visible(false);
+            }
+        } else if !self.window.is_visible() {
+            self.window.set_visible(true);
+            self.window.set_keep_above(true);
+        }
+    }
+
+    fn check_edge_reveal(&self) {
+        if self.is_active_fullscreen.get() {
+            return;
+        }
+        if !is_dock_dodge_enabled() || !self.is_active_maximized.get() {
+            return;
+        }
+
+        let is_visible = self.window.is_visible();
+        let screen_height = self.current_monitor_height.get();
+
+        if let Ok(conn) = X11Connection::connect() {
+            let root = conn.root();
+            let near_bottom =
+                pointer::is_pointer_near_bottom(conn.raw_conn(), root, screen_height, is_visible);
+
+            if near_bottom && !is_visible {
+                let (sw, sh) = screen_geometry();
+                self.window
+                    .move_((sw - 540).max(0) / 2, (sh - 54 - 6).max(28));
+                self.window.set_keep_above(true);
+                self.window.set_visible(true);
+                self.window.present();
+            } else if !near_bottom && is_visible {
+                self.window.set_visible(false);
+            }
+        }
+    }
+
+    fn reposition_for_monitors(&self, model: &MonitorModel) {
+        if let Some(primary) = model.primary() {
+            let width = 540;
+            let height = 54;
+            self.current_monitor_height.set(primary.scaled_height());
+            let x = primary.x + (primary.scaled_width() - width).max(0) / 2;
+            let y = primary.y + (primary.scaled_height() - height - 6).max(28);
+            self.window.move_(x, y);
+        }
     }
 }
 
@@ -239,7 +342,7 @@ fn add_launch_item(
 ) {
     let button = dock_button(custom_icon, fallback_icon, tooltip);
     let resolved = candidates.iter().find_map(|candidate| {
-        resolve_program(candidate.program).map(|program| {
+        session::resolve_program(candidate.program).map(|program| {
             (
                 program,
                 candidate
@@ -259,7 +362,7 @@ fn add_launch_item(
         });
     } else {
         button.set_sensitive(false);
-        button.set_tooltip_text(Some(&format!("{tooltip} — not installed")));
+        button.set_tooltip_text(Some(&format!("{tooltip} (not installed)")));
     }
     dock.pack_start(&button, false, false, 0);
 }
@@ -267,33 +370,20 @@ fn add_launch_item(
 fn dock_button(custom_icon: &str, fallback_icon: &str, tooltip: &str) -> Button {
     let button = Button::new();
     button.style_context().add_class("slopos-dock-btn");
-    button.set_relief(gtk::ReliefStyle::None);
     button.set_tooltip_text(Some(tooltip));
     set_accessible_name(&button, tooltip);
-    button.set_image(Some(&load_icon(custom_icon, fallback_icon)));
+    let icon = load_dock_icon(custom_icon, fallback_icon);
+    button.set_image(Some(&icon));
+    button.set_always_show_image(true);
     button
 }
 
-/// Icon-only launchers need an explicit ATK name; a tooltip is useful for
-/// pointer users but is not a reliable accessible label for screen readers.
-fn set_accessible_name<W>(widget: &W, name: &str)
-where
-    W: IsA<gtk::Widget>,
-{
-    let Some(accessible) = widget.accessible() else {
-        return;
-    };
-    let Ok(accessible) = accessible.downcast::<gtk::atk::Object>() else {
-        return;
-    };
-    accessible.set_name(name);
-}
-
-fn load_icon(file_name: &str, fallback: &str) -> Image {
+fn load_dock_icon(file_name: &str, fallback: &str) -> Image {
     let mut candidates = Vec::new();
-    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
+    if let Ok(share) = env::var("SLOPOS_SHARE_DIR") {
+        candidates.push(format!("{share}/themes/platinum/icons/{file_name}"));
         candidates.push(format!(
-            "{share_dir}/slopos-i/themes/platinum/icons/{file_name}"
+            "{share}/slopos-i/themes/platinum/icons/{file_name}"
         ));
     }
     candidates.extend([
@@ -311,77 +401,6 @@ fn load_icon(file_name: &str, fallback: &str) -> Image {
     Image::from_icon_name(Some(fallback), IconSize::LargeToolbar)
 }
 
-fn resolve_program(program: &str) -> Option<PathBuf> {
-    // Installed SLOPOS helpers live beside the shell binary. Resolve the
-    // browser wrapper this way as well so a custom-prefix install still uses
-    // the X11/GTK integration before considering direct upstream fallbacks.
-    if program.starts_with("slopos-") || program == "start-slopos-browser" {
-        if let Ok(executable) = env::current_exe() {
-            if let Some(parent) = executable.parent() {
-                let sibling = parent.join(program);
-                if sibling.is_file() {
-                    return Some(sibling);
-                }
-            }
-        }
-    }
-
-    if program.contains('/') {
-        return Path::new(program).is_file().then(|| PathBuf::from(program));
-    }
-
-    env::var_os("PATH").and_then(|paths| {
-        env::split_paths(&paths)
-            .map(|directory| directory.join(program))
-            .find(|candidate| candidate.is_file())
-    })
-}
-
-fn screen_geometry() -> (i32, i32) {
-    let Ok(output) = Command::new("xrandr").arg("--current").output() else {
-        return (1280, 800);
-    };
-    if !output.status.success() {
-        return (1280, 800);
-    }
-
-    let text = String::from_utf8_lossy(&output.stdout);
-    for line in text.lines() {
-        let Some(after_current) = line.split("current ").nth(1) else {
-            continue;
-        };
-        let Some(dimensions) = after_current.split(',').next() else {
-            continue;
-        };
-        let mut parts = dimensions.split('x').map(str::trim);
-        let (Some(width), Some(height)) = (parts.next(), parts.next()) else {
-            continue;
-        };
-        if let (Ok(width), Ok(height)) = (width.parse::<i32>(), height.parse::<i32>()) {
-            let scale = env::var("GDK_SCALE")
-                .ok()
-                .and_then(|value| value.parse::<i32>().ok())
-                .filter(|scale| *scale > 0)
-                .unwrap_or(1);
-            return ((width / scale).max(1), (height / scale).max(1));
-        }
-    }
-    (1280, 800)
-}
-
-fn command_output(program: &str, args: &[&str]) -> Option<String> {
-    let output = Command::new(program).args(args).output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if text.is_empty() {
-        None
-    } else {
-        Some(text)
-    }
-}
-
 fn is_dock_dodge_enabled() -> bool {
     let config_home = env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
@@ -396,66 +415,28 @@ fn is_dock_dodge_enabled() -> bool {
     false
 }
 
-fn check_window_and_dodge_state() -> (bool, bool) {
-    let Some(id_text) = command_output("xdotool", &["getactivewindow"]) else {
-        return (false, false);
-    };
-    let Ok(id) = id_text.trim().parse::<u64>() else {
-        return (false, false);
-    };
-    let Some(prop) = command_output("xprop", &["-id", &id.to_string(), "_NET_WM_STATE"]) else {
-        return (false, false);
-    };
-    let is_fullscreen = prop.contains("_NET_WM_STATE_FULLSCREEN");
-    let is_maximized = prop.contains("_NET_WM_STATE_MAXIMIZED_VERT")
-        || prop.contains("_NET_WM_STATE_MAXIMIZED_HORZ");
-    let dodge_enabled = is_dock_dodge_enabled();
-    (is_fullscreen, dodge_enabled && is_maximized)
+fn screen_geometry() -> (i32, i32) {
+    gdk::Display::default()
+        .and_then(|disp| {
+            disp.primary_monitor()
+                .or_else(|| disp.monitor(0))
+                .map(|mon| {
+                    let rect = mon.geometry();
+                    (rect.width().max(1), rect.height().max(1))
+                })
+        })
+        .unwrap_or((1280, 800))
 }
 
-fn is_pointer_near_bottom(screen_height: i32, is_currently_visible: bool) -> bool {
-    if let Some(loc) = command_output("xdotool", &["getmouselocation"]) {
-        for part in loc.split_whitespace() {
-            if let Some(y_str) = part.strip_prefix("y:") {
-                if let Ok(y) = y_str.parse::<i32>() {
-                    let threshold = if is_currently_visible {
-                        screen_height - 65
-                    } else {
-                        screen_height - 12
-                    };
-                    return y >= threshold;
-                }
-            }
-        }
-    }
-    false
-}
-
-fn install_dock_visibility_manager(window: &Window, screen_height: i32) {
-    let window_c = window.clone();
-    glib::timeout_add_local(std::time::Duration::from_millis(150), move || {
-        let (fullscreen, dodge) = check_window_and_dodge_state();
-        if fullscreen {
-            if window_c.is_visible() {
-                window_c.set_visible(false);
-            }
-        } else if dodge {
-            let is_visible = window_c.is_visible();
-            let pointer_near_bottom = is_pointer_near_bottom(screen_height, is_visible);
-            if pointer_near_bottom && !is_visible {
-                let (sw, sh) = screen_geometry();
-                window_c.move_((sw - 540).max(0) / 2, (sh - 54 - 6).max(28));
-                window_c.set_keep_above(true);
-                window_c.set_visible(true);
-                window_c.present();
-            } else if !pointer_near_bottom && is_visible {
-                window_c.set_visible(false);
-            }
-        } else if !window_c.is_visible() {
-            let (sw, sh) = screen_geometry();
-            window_c.move_((sw - 540).max(0) / 2, (sh - 54 - 6).max(28));
-            window_c.set_visible(true);
-        }
-        glib::ControlFlow::Continue
-    });
+fn set_accessible_name<W>(widget: &W, name: &str)
+where
+    W: IsA<gtk::Widget>,
+{
+    let Some(accessible) = widget.accessible() else {
+        return;
+    };
+    let Ok(accessible) = accessible.downcast::<gtk::atk::Object>() else {
+        return;
+    };
+    accessible.set_name(name);
 }

@@ -1,16 +1,18 @@
 //! SLOPOS-I X11 desktop shell entry point.
 
-mod app_finder;
-mod dock;
-mod gmenu;
-mod launcher;
-mod notifications;
-mod shortcuts;
-mod topbar;
+pub mod app_finder;
+pub mod dock;
+pub mod gmenu;
+pub mod launcher;
+pub mod menu;
+pub mod notifications;
+pub mod services;
+pub mod shortcuts;
+pub mod theme;
+pub mod topbar;
+pub mod x11;
 
 use dock::Dock;
-use gtk::prelude::*;
-use gtk::{CssProvider, StyleContext};
 use launcher::Launcher;
 use notifications::NotificationServer;
 use std::fs::{File, OpenOptions};
@@ -20,6 +22,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use topbar::TopBar;
+use x11::X11EventBus;
 
 static TOGGLE_LAUNCHER: AtomicBool = AtomicBool::new(false);
 
@@ -35,15 +38,37 @@ fn main() {
 
     log::info!("Starting SLOPOS-I desktop shell (X11)");
     gtk::init().expect("Failed to initialize GTK3");
-    load_css_theme();
+    theme::load_css_theme();
 
     NotificationServer::start();
     let launcher = Launcher::new();
     install_launcher_signal_bridge(launcher.clone());
 
-    let _topbar = TopBar::new(launcher.clone());
+    let topbar = TopBar::new(launcher.clone());
     shortcuts::install_system_menu_shortcut();
-    let _dock = Dock::new(launcher);
+    let dock = Dock::new(launcher);
+
+    // Initialize the event-driven X11 integration layer
+    #[allow(deprecated)]
+    let (event_sender, event_receiver) = glib::MainContext::channel(glib::Priority::default());
+    let topbar_c = topbar.clone();
+    let dock_c = dock.clone();
+
+    event_receiver.attach(None, move |event| {
+        topbar_c.handle_x11_event(&event);
+        dock_c.handle_x11_event(&event);
+        glib::ControlFlow::Continue
+    });
+
+    let _event_bus = match X11EventBus::start(move |event| {
+        let _ = event_sender.send(event);
+    }) {
+        Ok(bus) => Some(bus),
+        Err(error) => {
+            log::warn!("Failed to initialize long-lived X11 event bus: {error}");
+            None
+        }
+    };
 
     if std::env::var_os("SLOPOS_QA_NO_WELCOME").is_none() {
         NotificationServer::show_toast(
@@ -96,130 +121,4 @@ fn install_launcher_signal_bridge(launcher: Rc<Launcher>) {
 
 extern "C" fn launcher_signal_handler(_sig: libc::c_int) {
     TOGGLE_LAUNCHER.store(true, Ordering::SeqCst);
-}
-
-fn current_appearance() -> &'static str {
-    if let Ok(env_app) = std::env::var("SLOPOS_APPEARANCE") {
-        let v = env_app.trim();
-        if v.eq_ignore_ascii_case("custom") {
-            return "custom";
-        }
-        if v.eq_ignore_ascii_case("oled") {
-            return "oled";
-        }
-        if v.eq_ignore_ascii_case("graphite") {
-            return "graphite";
-        }
-        if v.eq_ignore_ascii_case("classic") {
-            return "classic";
-        }
-        if v.eq_ignore_ascii_case("platinum") {
-            return "platinum";
-        }
-    }
-    let config_home = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
-    if let Some(config_home) = config_home {
-        if let Ok(value) = std::fs::read_to_string(config_home.join("slopos-i/appearance")) {
-            let v = value.trim();
-            if v.eq_ignore_ascii_case("custom") {
-                return "custom";
-            }
-            if v.eq_ignore_ascii_case("oled") {
-                return "oled";
-            }
-            if v.eq_ignore_ascii_case("graphite") {
-                return "graphite";
-            }
-            if v.eq_ignore_ascii_case("classic") {
-                return "classic";
-            }
-        }
-    }
-    "platinum"
-}
-
-fn load_css_theme() {
-    let appearance = current_appearance();
-    let installed_theme = match appearance {
-        "oled" => "slopos-gtk-oled",
-        "graphite" => "slopos-gtk-graphite",
-        "classic" => "slopos-gtk-classic",
-        _ => "slopos-gtk",
-    };
-    let source_css = match appearance {
-        "oled" => "assets/config/gtk-3.0/gtk-oled.css",
-        "graphite" => "assets/config/gtk-3.0/gtk-graphite.css",
-        "classic" => "assets/config/gtk-3.0/gtk-classic.css",
-        _ => "assets/config/gtk-3.0/gtk.css",
-    };
-
-    let mut css_paths = Vec::new();
-    let config_home = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
-    if let Some(ref config_home) = config_home {
-        let user_css = config_home.join("gtk-3.0/gtk.css");
-        if user_css.exists() {
-            css_paths.push(user_css);
-        }
-    }
-    if let Ok(share_dir) = std::env::var("SLOPOS_SHARE_DIR") {
-        css_paths.push(
-            PathBuf::from(share_dir)
-                .join("themes")
-                .join(installed_theme)
-                .join("gtk-3.0/gtk.css"),
-        );
-    }
-    css_paths.extend([
-        PathBuf::from(source_css),
-        PathBuf::from(format!("/etc/slopos-i/gtk-3.0/{installed_theme}.css")),
-        PathBuf::from(format!(
-            "/usr/local/share/themes/{installed_theme}/gtk-3.0/gtk.css"
-        )),
-        PathBuf::from(format!(
-            "/usr/share/themes/{installed_theme}/gtk-3.0/gtk.css"
-        )),
-    ]);
-
-    for path in css_paths {
-        if !path.exists() {
-            continue;
-        }
-        let provider = CssProvider::new();
-        let Some(path_text) = path.to_str() else {
-            log::error!("SLOPOS GTK CSS path is not valid UTF-8: {}", path.display());
-            return;
-        };
-        match provider.load_from_path(path_text) {
-            Ok(()) => {
-                if let Some(screen) = gdk::Screen::default() {
-                    StyleContext::add_provider_for_screen(
-                        &screen,
-                        &provider,
-                        gtk::STYLE_PROVIDER_PRIORITY_USER,
-                    );
-                    log::info!(
-                        "Loaded SLOPOS {} GTK CSS from {}",
-                        current_appearance(),
-                        path.display()
-                    );
-                    return;
-                }
-                log::error!("GTK has no default screen while loading {}", path.display());
-                return;
-            }
-            Err(error) => {
-                log::error!(
-                    "Failed to parse SLOPOS GTK CSS at {}: {error}",
-                    path.display()
-                );
-                return;
-            }
-        }
-    }
-
-    log::warn!("SLOPOS GTK CSS was not found; falling back to host GTK theme");
 }

@@ -51,8 +51,8 @@ fn topbar_is_a_real_global_menu_host_not_the_old_placeholder() {
     assert!(!topbar.contains(''));
     assert!(topbar.contains("Control Panels…"));
     assert!(topbar.contains("Software…"));
-    assert!(topbar.contains("Platinum (Light)"));
-    assert!(topbar.contains("Graphite (Dark)"));
+    assert!(topbar.contains("Platinum Light"));
+    assert!(topbar.contains("Graphite Dark"));
     assert!(topbar.contains("window.set_type_hint(gdk::WindowTypeHint::Dock)"));
     assert!(topbar.contains("window.set_accept_focus(false)"));
 }
@@ -168,22 +168,24 @@ fn appearances_are_complete_runtime_themes() {
 #[test]
 fn settings_is_a_compact_control_panel_and_appearance_is_built_in() {
     let settings = include_str!("../../slopos-settings/src/main.rs");
-    assert!(settings.contains("Label::new(Some(\"Control Panels\"))"));
-    assert!(settings.contains("(640, 390)"));
-    assert!(settings.contains("(index % 4) as i32"));
-    assert!(settings.contains("(index / 4) as i32"));
+    let appearance = include_str!("../../slopos-settings/src/panels/appearance.rs");
+    assert!(settings.contains("Label::new(Some(\"System Settings\"))"));
+    assert!(settings.contains("adaptive_window_size"));
+    assert!(settings.contains("(index % 3) as i32"));
+    assert!(settings.contains("(index / 3) as i32"));
     assert!(settings.contains("title: \"Appearance\""));
-    assert!(settings.contains("built_in: true"));
-    assert!(settings.contains("Platinum — classic light"));
-    assert!(settings.contains("Graphite — dark"));
-    assert!(settings.contains("appearance_helper"));
-    assert!(settings.contains("slopos-appearance"));
+    assert!(settings.contains("built_in: BuiltInPanel::Appearance"));
+    assert!(appearance.contains("Platinum Light"));
+    assert!(appearance.contains("Graphite Dark"));
+    assert!(appearance.contains("slopos-appearance"));
     assert!(settings.contains("button.set_sensitive(false)"));
 }
 
 #[test]
 fn settings_delegates_the_seven_external_system_panels() {
     let settings = include_str!("../../slopos-settings/src/main.rs");
+    let desktop = include_str!("../../slopos-settings/src/panels/desktop.rs");
+    let combined = format!("{settings}\n{desktop}");
     for utility in [
         "arandr",
         "pavucontrol",
@@ -194,7 +196,7 @@ fn settings_delegates_the_seven_external_system_panels() {
         "lxinput",
     ] {
         assert!(
-            settings.contains(utility),
+            combined.contains(utility),
             "missing Settings delegate {utility}"
         );
     }
