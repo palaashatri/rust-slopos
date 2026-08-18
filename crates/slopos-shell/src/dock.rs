@@ -2,10 +2,13 @@
 //!
 //! Event-driven visibility, configurable placement (bottom/left/right),
 //! orientation (horizontal/vertical), alignment (center/start/end),
-//! application pinning, and window dodge without subprocess polling.
+//! application pinning, dynamic running application tracking, and window dodge
+//! without subprocess polling.
 
+use crate::app_finder::DesktopApp;
 use crate::launcher::Launcher;
 use crate::services::session;
+use crate::x11::windows::{self, WindowInfo};
 use crate::x11::{Monitor, MonitorModel, X11Event};
 use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
@@ -46,6 +49,16 @@ pub struct PinnedItem {
     pub args: Vec<String>,
 }
 
+#[derive(Clone, Debug)]
+struct UnpinnedAppInfo {
+    id: String,
+    name: String,
+    icon: String,
+    fallback_icon: String,
+    exec: String,
+    window_ids: Vec<u32>,
+}
+
 pub struct Dock {
     window: Window,
     launcher: Rc<Launcher>,
@@ -53,6 +66,8 @@ pub struct Dock {
     is_active_maximized: Cell<bool>,
     primary_monitor: RefCell<Option<Monitor>>,
     container_box: RefCell<GtkBox>,
+    running_windows: RefCell<Vec<WindowInfo>>,
+    active_window_id: Cell<Option<u32>>,
 }
 
 impl Dock {
@@ -99,6 +114,8 @@ impl Dock {
             is_active_maximized: Cell::new(false),
             primary_monitor: RefCell::new(None),
             container_box: RefCell::new(dock_box),
+            running_windows: RefCell::new(Vec::new()),
+            active_window_id: Cell::new(None),
         });
 
         dock.rebuild_items();
@@ -108,16 +125,18 @@ impl Dock {
         dock
     }
 
-    pub fn rebuild_items(&self) {
+    pub fn rebuild_items(self: &Rc<Self>) {
         let pos = current_dock_position();
         let container = self.container_box.borrow();
         for child in container.children() {
             container.remove(&child);
         }
 
-        let sep_orientation = match pos {
-            DockPosition::Bottom => Orientation::Vertical,
-            DockPosition::Left | DockPosition::Right => Orientation::Horizontal,
+        let (sep_orientation, indicator_orientation) = match pos {
+            DockPosition::Bottom => (Orientation::Vertical, Orientation::Vertical),
+            DockPosition::Left | DockPosition::Right => {
+                (Orientation::Horizontal, Orientation::Horizontal)
+            }
         };
 
         // Apps label
@@ -146,23 +165,229 @@ impl Dock {
             },
         );
 
-        // Pinned Items
-        let items = load_pinned_items();
-        for item in &items {
-            add_pinned_dock_item(&container, item);
+        let pinned_items = load_pinned_items();
+        let running_windows = self.running_windows.borrow();
+        let all_apps = self.launcher.get_apps();
+        let active_id = self.active_window_id.get();
+
+        // 1. Pinned Items
+        for item in &pinned_items {
+            let matched: Vec<&WindowInfo> = running_windows
+                .iter()
+                .filter(|w| matches_pinned(w, item))
+                .collect();
+            let is_running = !matched.is_empty();
+            let is_active = matched.iter().any(|w| Some(w.window_id) == active_id);
+            let first_win_id = matched.first().map(|w| w.window_id);
+
+            self.add_pinned_dock_item(
+                &container,
+                item,
+                is_running,
+                is_active,
+                first_win_id,
+                indicator_orientation,
+            );
         }
 
-        // Separator before Trash
+        // 2. Unpinned Running Applications
+        let unpinned_groups = group_unpinned_windows(&running_windows, &pinned_items, &all_apps);
+        if !unpinned_groups.is_empty() {
+            let running_separator = Separator::new(sep_orientation);
+            running_separator
+                .style_context()
+                .add_class("slopos-dock-separator");
+            container.pack_start(&running_separator, false, false, 1);
+
+            for unpinned in &unpinned_groups {
+                let is_active = unpinned.window_ids.iter().any(|id| Some(*id) == active_id);
+                self.add_unpinned_dock_item(&container, unpinned, is_active, indicator_orientation);
+            }
+        }
+
+        // 3. Separator before Trash
         let end_separator = Separator::new(sep_orientation);
         end_separator
             .style_context()
             .add_class("slopos-dock-separator");
         container.pack_start(&end_separator, false, false, 1);
 
-        // Trash
+        // 4. Trash
         add_trash_item(&container);
 
         container.show_all();
+    }
+
+    fn add_pinned_dock_item(
+        self: &Rc<Self>,
+        dock: &GtkBox,
+        item: &PinnedItem,
+        is_running: bool,
+        is_active: bool,
+        running_win_id: Option<u32>,
+        indicator_orientation: Orientation,
+    ) {
+        let button = dock_button(&item.icon, &item.fallback_icon, &item.name);
+        let exec = item.exec.clone();
+        let args = item.args.clone();
+        let item_id = item.id.clone();
+        let item_name = item.name.clone();
+        let dock_weak = Rc::downgrade(self);
+
+        button.connect_button_press_event(move |btn, event| {
+            if event.button() == 3 {
+                // Right-click context menu
+                let menu = Menu::new();
+                let open_item = MenuItem::with_label(&format!("Open {}", item_name));
+                let exec_c = exec.clone();
+                let args_c = args.clone();
+                open_item.connect_activate(move |_| {
+                    if let Some(resolved) = session::resolve_program(&exec_c) {
+                        let _ = Command::new(resolved).args(&args_c).spawn();
+                    } else {
+                        let _ = Command::new(&exec_c).args(&args_c).spawn();
+                    }
+                });
+                menu.append(&open_item);
+
+                let unpin_item = MenuItem::with_label("Remove from Dock");
+                let unpin_id = item_id.clone();
+                let dock_w = dock_weak.clone();
+                unpin_item.connect_activate(move |_| {
+                    unpin_application(&unpin_id);
+                    if let Some(dock) = dock_w.upgrade() {
+                        dock.rebuild_items();
+                        dock.reposition();
+                    }
+                });
+                menu.append(&unpin_item);
+
+                if let Some(win_id) = running_win_id {
+                    let close_item = MenuItem::with_label(&format!("Close {}", item_name));
+                    close_item.connect_activate(move |_| {
+                        windows::send_close_window(win_id);
+                    });
+                    menu.append(&close_item);
+                }
+
+                menu.append(&SeparatorMenuItem::new());
+                let pref_item = MenuItem::with_label("Desktop & Dock Settings…");
+                pref_item.connect_activate(|_| {
+                    let _ = Command::new("slopos-settings").arg("--desktop").spawn();
+                });
+                menu.append(&pref_item);
+
+                menu.show_all();
+                menu.popup_at_widget(
+                    btn,
+                    gdk::Gravity::SouthWest,
+                    gdk::Gravity::NorthWest,
+                    Some(event),
+                );
+                glib::Propagation::Stop
+            } else {
+                glib::Propagation::Proceed
+            }
+        });
+
+        let exec_launch = item.exec.clone();
+        let args_launch = item.args.clone();
+        button.connect_clicked(move |_| {
+            if let Some(win_id) = running_win_id {
+                if is_active {
+                    windows::send_minimize_window(win_id);
+                } else {
+                    windows::send_activate_window(win_id);
+                }
+            } else if let Some(resolved) = session::resolve_program(&exec_launch) {
+                if let Err(error) = Command::new(&resolved).args(&args_launch).spawn() {
+                    log::warn!("Failed to launch {}: {error}", resolved.display());
+                }
+            } else if let Ok(child) = Command::new(&exec_launch).args(&args_launch).spawn() {
+                log::info!("Spawned {}", exec_launch);
+                let _ = child.id();
+            }
+        });
+
+        let item_box = create_dock_item_box(&button, is_running, is_active, indicator_orientation);
+        dock.pack_start(&item_box, false, false, 0);
+    }
+
+    fn add_unpinned_dock_item(
+        self: &Rc<Self>,
+        dock: &GtkBox,
+        unpinned: &UnpinnedAppInfo,
+        is_active: bool,
+        indicator_orientation: Orientation,
+    ) {
+        let button = dock_button(&unpinned.icon, &unpinned.fallback_icon, &unpinned.name);
+        let unpinned_info = unpinned.clone();
+        let dock_weak = Rc::downgrade(self);
+        let primary_win_id = unpinned.window_ids.first().copied().unwrap_or(0);
+
+        button.connect_button_press_event(move |btn, event| {
+            if event.button() == 3 {
+                let menu = Menu::new();
+
+                let pin_item = MenuItem::with_label("Pin to Dock");
+                let item_to_pin = PinnedItem {
+                    id: unpinned_info.id.clone(),
+                    name: unpinned_info.name.clone(),
+                    icon: unpinned_info.icon.clone(),
+                    fallback_icon: unpinned_info.fallback_icon.clone(),
+                    exec: unpinned_info.exec.clone(),
+                    args: vec![],
+                };
+                let dock_w = dock_weak.clone();
+                pin_item.connect_activate(move |_| {
+                    pin_application(item_to_pin.clone());
+                    if let Some(dock) = dock_w.upgrade() {
+                        dock.rebuild_items();
+                        dock.reposition();
+                    }
+                });
+                menu.append(&pin_item);
+
+                if primary_win_id != 0 {
+                    let close_item = MenuItem::with_label(&format!("Close {}", unpinned_info.name));
+                    close_item.connect_activate(move |_| {
+                        windows::send_close_window(primary_win_id);
+                    });
+                    menu.append(&close_item);
+                }
+
+                menu.append(&SeparatorMenuItem::new());
+                let pref_item = MenuItem::with_label("Desktop & Dock Settings…");
+                pref_item.connect_activate(|_| {
+                    let _ = Command::new("slopos-settings").arg("--desktop").spawn();
+                });
+                menu.append(&pref_item);
+
+                menu.show_all();
+                menu.popup_at_widget(
+                    btn,
+                    gdk::Gravity::SouthWest,
+                    gdk::Gravity::NorthWest,
+                    Some(event),
+                );
+                glib::Propagation::Stop
+            } else {
+                glib::Propagation::Proceed
+            }
+        });
+
+        button.connect_clicked(move |_| {
+            if primary_win_id != 0 {
+                if is_active {
+                    windows::send_minimize_window(primary_win_id);
+                } else {
+                    windows::send_activate_window(primary_win_id);
+                }
+            }
+        });
+
+        let item_box = create_dock_item_box(&button, true, is_active, indicator_orientation);
+        dock.pack_start(&item_box, false, false, 0);
     }
 
     pub fn reposition(&self) {
@@ -181,7 +406,14 @@ impl Dock {
                 (w, h, 0, 0)
             };
 
-        let items_count = load_pinned_items().len() + 3; // search + items + trash + label
+        let pinned_count = load_pinned_items().len();
+        let running_windows = self.running_windows.borrow();
+        let all_apps = self.launcher.get_apps();
+        let unpinned_count =
+            group_unpinned_windows(&running_windows, &load_pinned_items(), &all_apps).len();
+        let unpinned_sep = if unpinned_count > 0 { 1 } else { 0 };
+        let items_count = pinned_count + unpinned_count + unpinned_sep + 3; // search + items + trash + label
+
         match pos {
             DockPosition::Bottom => {
                 let width = (items_count as i32 * 46 + 60).min(screen_width - 24);
@@ -222,15 +454,18 @@ impl Dock {
         }
     }
 
-    pub fn handle_x11_event(&self, event: &X11Event) {
+    pub fn handle_x11_event(self: &Rc<Self>, event: &X11Event) {
         match event {
             X11Event::ActiveWindowChanged {
+                window_id,
                 is_fullscreen,
                 is_maximized,
                 ..
             } => {
                 self.is_active_fullscreen.set(*is_fullscreen);
                 self.is_active_maximized.set(*is_maximized);
+                self.active_window_id.set(*window_id);
+                self.rebuild_items();
                 self.update_visibility();
             }
             X11Event::WindowStateChanged {
@@ -241,6 +476,17 @@ impl Dock {
                 self.is_active_fullscreen.set(*is_fullscreen);
                 self.is_active_maximized.set(*is_maximized);
                 self.update_visibility();
+            }
+            X11Event::ClientListChanged { windows } => {
+                *self.running_windows.borrow_mut() = windows.clone();
+                self.rebuild_items();
+                self.reposition();
+            }
+            X11Event::WindowTitleChanged { window_id, title } => {
+                let mut wins = self.running_windows.borrow_mut();
+                if let Some(win) = wins.iter_mut().find(|w| w.window_id == *window_id) {
+                    win.title = title.clone();
+                }
             }
             X11Event::MonitorsChanged { model } => {
                 self.reposition_for_monitors(model);
@@ -306,70 +552,6 @@ fn add_action_item<F>(
     dock.pack_start(&button, false, false, 0);
 }
 
-fn add_pinned_dock_item(dock: &GtkBox, item: &PinnedItem) {
-    let button = dock_button(&item.icon, &item.fallback_icon, &item.name);
-    let exec = item.exec.clone();
-    let args = item.args.clone();
-    let item_id = item.id.clone();
-    let item_name = item.name.clone();
-
-    button.connect_button_press_event(move |btn, event| {
-        if event.button() == 3 {
-            // Right-click context menu
-            let menu = Menu::new();
-            let open_item = MenuItem::with_label(&format!("Open {}", item_name));
-            let exec_c = exec.clone();
-            let args_c = args.clone();
-            open_item.connect_activate(move |_| {
-                if let Some(resolved) = session::resolve_program(&exec_c) {
-                    let _ = Command::new(resolved).args(&args_c).spawn();
-                }
-            });
-            menu.append(&open_item);
-
-            let unpin_item = MenuItem::with_label("Remove from Dock");
-            let unpin_id = item_id.clone();
-            unpin_item.connect_activate(move |_| {
-                unpin_application(&unpin_id);
-            });
-            menu.append(&unpin_item);
-
-            menu.append(&SeparatorMenuItem::new());
-            let pref_item = MenuItem::with_label("Desktop & Dock Settings…");
-            pref_item.connect_activate(|_| {
-                let _ = Command::new("slopos-settings").arg("--desktop").spawn();
-            });
-            menu.append(&pref_item);
-
-            menu.show_all();
-            menu.popup_at_widget(
-                btn,
-                gdk::Gravity::SouthWest,
-                gdk::Gravity::NorthWest,
-                Some(event),
-            );
-            glib::Propagation::Stop
-        } else {
-            glib::Propagation::Proceed
-        }
-    });
-
-    let exec_launch = item.exec.clone();
-    let args_launch = item.args.clone();
-    button.connect_clicked(move |_| {
-        if let Some(resolved) = session::resolve_program(&exec_launch) {
-            if let Err(error) = Command::new(&resolved).args(&args_launch).spawn() {
-                log::warn!("Failed to launch {}: {error}", resolved.display());
-            }
-        } else if let Ok(child) = Command::new(&exec_launch).args(&args_launch).spawn() {
-            log::info!("Spawned {}", exec_launch);
-            let _ = child.id();
-        }
-    });
-
-    dock.pack_start(&button, false, false, 0);
-}
-
 fn add_trash_item(dock: &GtkBox) {
     let button = dock_button("trash.svg", "user-trash-symbolic", "Trash");
     button.connect_clicked(|_| {
@@ -378,6 +560,26 @@ fn add_trash_item(dock: &GtkBox) {
         }
     });
     dock.pack_start(&button, false, false, 0);
+}
+
+fn create_dock_item_box(
+    button: &Button,
+    is_running: bool,
+    is_active: bool,
+    orientation: Orientation,
+) -> GtkBox {
+    let item_box = GtkBox::new(orientation, 1);
+    item_box.pack_start(button, false, false, 0);
+
+    let indicator = GtkBox::new(Orientation::Horizontal, 0);
+    indicator.style_context().add_class("slopos-dock-indicator");
+    if is_active {
+        indicator.style_context().add_class("is-active");
+    } else if is_running {
+        indicator.style_context().add_class("is-running");
+    }
+    item_box.pack_start(&indicator, false, false, 0);
+    item_box
 }
 
 fn dock_button(custom_icon: &str, fallback_icon: &str, tooltip: &str) -> Button {
@@ -393,16 +595,20 @@ fn dock_button(custom_icon: &str, fallback_icon: &str, tooltip: &str) -> Button 
 
 fn load_dock_icon(file_name: &str, fallback: &str) -> Image {
     let mut candidates = Vec::new();
+    let svg_name = if file_name.ends_with(".svg") || file_name.ends_with(".png") {
+        file_name.to_string()
+    } else {
+        format!("{file_name}.svg")
+    };
+
     if let Ok(share) = env::var("SLOPOS_SHARE_DIR") {
-        candidates.push(format!("{share}/themes/platinum/icons/{file_name}"));
-        candidates.push(format!(
-            "{share}/slopos-i/themes/platinum/icons/{file_name}"
-        ));
+        candidates.push(format!("{share}/themes/platinum/icons/{svg_name}"));
+        candidates.push(format!("{share}/slopos-i/themes/platinum/icons/{svg_name}"));
     }
     candidates.extend([
-        format!("themes/platinum/icons/{file_name}"),
-        format!("/usr/local/share/slopos-i/themes/platinum/icons/{file_name}"),
-        format!("/usr/share/slopos-i/themes/platinum/icons/{file_name}"),
+        format!("themes/platinum/icons/{svg_name}"),
+        format!("/usr/local/share/slopos-i/themes/platinum/icons/{svg_name}"),
+        format!("/usr/share/slopos-i/themes/platinum/icons/{svg_name}"),
     ]);
     for path in candidates {
         if Path::new(&path).exists() {
@@ -411,7 +617,160 @@ fn load_dock_icon(file_name: &str, fallback: &str) -> Image {
             }
         }
     }
+
+    if let Some(theme) = gtk::IconTheme::default() {
+        let clean_name = file_name
+            .strip_suffix(".svg")
+            .or_else(|| file_name.strip_suffix(".png"))
+            .unwrap_or(file_name);
+        if theme.has_icon(clean_name) {
+            if let Ok(Some(pixbuf)) =
+                theme.load_icon(clean_name, 32, gtk::IconLookupFlags::FORCE_SIZE)
+            {
+                return Image::from_pixbuf(Some(&pixbuf));
+            }
+        }
+    }
+
     Image::from_icon_name(Some(fallback), IconSize::LargeToolbar)
+}
+
+fn matches_pinned(win: &WindowInfo, item: &PinnedItem) -> bool {
+    let c = win.class_name.to_ascii_lowercase();
+    let inst = win.instance_name.to_ascii_lowercase();
+    let exec = item.exec.to_ascii_lowercase();
+    let id = item.id.to_ascii_lowercase();
+
+    c == exec
+        || inst == exec
+        || c == id
+        || inst == id
+        || (id == "pcmanfm" && (c == "pcmanfm" || inst == "pcmanfm"))
+        || (id == "terminal"
+            && (c.contains("terminal") || inst.contains("terminal") || c == "xfce4-terminal"))
+        || (id == "textedit"
+            && (c == "mousepad"
+                || inst == "mousepad"
+                || c.contains("textedit")
+                || c.contains("gedit")))
+        || (id == "browser"
+            && (c == "firefox"
+                || inst == "firefox"
+                || c.contains("browser")
+                || c == "chromium"
+                || c == "chrome"))
+        || (id == "games"
+            && (c.contains("doom")
+                || c.contains("supertux")
+                || inst.contains("doom")
+                || inst.contains("supertux")))
+        || (id == "catalogue" && (c == "slopos-catalogue" || inst == "slopos-catalogue"))
+        || (id == "settings" && (c == "slopos-settings" || inst == "slopos-settings"))
+}
+
+fn group_unpinned_windows(
+    windows: &[WindowInfo],
+    pinned: &[PinnedItem],
+    apps: &[DesktopApp],
+) -> Vec<UnpinnedAppInfo> {
+    let mut groups: Vec<UnpinnedAppInfo> = Vec::new();
+
+    for win in windows {
+        if pinned.iter().any(|p| matches_pinned(win, p)) {
+            continue;
+        }
+
+        let c = win.class_name.to_ascii_lowercase();
+        let inst = win.instance_name.to_ascii_lowercase();
+        if c.is_empty() && inst.is_empty() {
+            continue;
+        }
+
+        let matched = apps.iter().find(|a| {
+            let aid = a.id.to_ascii_lowercase();
+            let stem = aid.strip_suffix(".desktop").unwrap_or(&aid);
+
+            stem == c
+                || stem == inst
+                || a.name.to_ascii_lowercase() == c
+                || a.name.to_ascii_lowercase() == inst
+                || a.argv.first().map(|arg| {
+                    Path::new(arg)
+                        .file_name()
+                        .and_then(|f| f.to_str())
+                        .unwrap_or(arg)
+                        .to_ascii_lowercase()
+                }) == Some(c.clone())
+                || a.argv.first().map(|arg| {
+                    Path::new(arg)
+                        .file_name()
+                        .and_then(|f| f.to_str())
+                        .unwrap_or(arg)
+                        .to_ascii_lowercase()
+                }) == Some(inst.clone())
+        });
+
+        let (app_id, app_name, app_icon, app_exec) = if let Some(app) = matched {
+            (
+                app.id
+                    .strip_suffix(".desktop")
+                    .unwrap_or(&app.id)
+                    .to_string(),
+                app.name.clone(),
+                app.icon.clone(),
+                app.argv
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| win.instance_name.clone()),
+            )
+        } else {
+            let fallback_name = if !win.class_name.is_empty() {
+                capitalize_words(&win.class_name)
+            } else if !win.instance_name.is_empty() {
+                capitalize_words(&win.instance_name)
+            } else {
+                "Application".to_string()
+            };
+            (
+                win.instance_name.clone(),
+                fallback_name,
+                win.instance_name.clone(),
+                win.instance_name.clone(),
+            )
+        };
+
+        if let Some(existing) = groups
+            .iter_mut()
+            .find(|g| g.id == app_id || g.name == app_name)
+        {
+            existing.window_ids.push(win.window_id);
+        } else {
+            groups.push(UnpinnedAppInfo {
+                id: app_id,
+                name: app_name,
+                icon: app_icon,
+                fallback_icon: "application-x-executable-symbolic".into(),
+                exec: app_exec,
+                window_ids: vec![win.window_id],
+            });
+        }
+    }
+
+    groups
+}
+
+fn capitalize_words(s: &str) -> String {
+    s.split(['-', '_', ' '])
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let mut c = part.chars();
+            match c.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 pub fn default_pinned_items() -> Vec<PinnedItem> {
@@ -613,4 +972,131 @@ where
         return;
     };
     accessible.set_name(name);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_matches_pinned() {
+        let pinned = default_pinned_items();
+        let pcmanfm_pinned = pinned.iter().find(|p| p.id == "pcmanfm").unwrap();
+        let terminal_pinned = pinned.iter().find(|p| p.id == "terminal").unwrap();
+        let mousepad_pinned = pinned.iter().find(|p| p.id == "textedit").unwrap();
+        let browser_pinned = pinned.iter().find(|p| p.id == "browser").unwrap();
+
+        let win_pcmanfm = WindowInfo {
+            window_id: 1,
+            title: "Home - File Manager".into(),
+            class_name: "Pcmanfm".into(),
+            instance_name: "pcmanfm".into(),
+            is_fullscreen: false,
+            is_maximized: false,
+        };
+        assert!(matches_pinned(&win_pcmanfm, pcmanfm_pinned));
+        assert!(!matches_pinned(&win_pcmanfm, terminal_pinned));
+
+        let win_term = WindowInfo {
+            window_id: 2,
+            title: "Terminal".into(),
+            class_name: "Xfce4-terminal".into(),
+            instance_name: "xfce4-terminal".into(),
+            is_fullscreen: false,
+            is_maximized: false,
+        };
+        assert!(matches_pinned(&win_term, terminal_pinned));
+
+        let win_mousepad = WindowInfo {
+            window_id: 3,
+            title: "Untitled - Mousepad".into(),
+            class_name: "Mousepad".into(),
+            instance_name: "mousepad".into(),
+            is_fullscreen: false,
+            is_maximized: false,
+        };
+        assert!(matches_pinned(&win_mousepad, mousepad_pinned));
+
+        let win_firefox = WindowInfo {
+            window_id: 4,
+            title: "Mozilla Firefox".into(),
+            class_name: "Firefox".into(),
+            instance_name: "Navigator".into(),
+            is_fullscreen: false,
+            is_maximized: false,
+        };
+        assert!(matches_pinned(&win_firefox, browser_pinned));
+    }
+
+    #[test]
+    fn test_group_unpinned_windows() {
+        let pinned = default_pinned_items();
+        let apps = vec![
+            DesktopApp {
+                id: "gimp.desktop".into(),
+                name: "GNU Image Manipulation Program".into(),
+                argv: vec!["gimp-2.10".into()],
+                icon: "gimp".into(),
+                comment: "Image editor".into(),
+                terminal: false,
+            },
+            DesktopApp {
+                id: "vlc.desktop".into(),
+                name: "VLC media player".into(),
+                argv: vec!["vlc".into()],
+                icon: "vlc".into(),
+                comment: "Media player".into(),
+                terminal: false,
+            },
+        ];
+
+        let windows = vec![
+            WindowInfo {
+                window_id: 101,
+                title: "GNU Image Manipulation Program".into(),
+                class_name: "Gimp-2.10".into(),
+                instance_name: "gimp-2.10".into(),
+                is_fullscreen: false,
+                is_maximized: false,
+            },
+            WindowInfo {
+                window_id: 102,
+                title: "VLC media player".into(),
+                class_name: "vlc".into(),
+                instance_name: "vlc".into(),
+                is_fullscreen: false,
+                is_maximized: false,
+            },
+            WindowInfo {
+                window_id: 103,
+                title: "Custom Utility".into(),
+                class_name: "custom-utility".into(),
+                instance_name: "custom-utility".into(),
+                is_fullscreen: false,
+                is_maximized: false,
+            },
+        ];
+
+        let unpinned = group_unpinned_windows(&windows, &pinned, &apps);
+        assert_eq!(unpinned.len(), 3);
+
+        let gimp_item = unpinned.iter().find(|u| u.id == "gimp").unwrap();
+        assert_eq!(gimp_item.name, "GNU Image Manipulation Program");
+        assert_eq!(gimp_item.icon, "gimp");
+        assert_eq!(gimp_item.window_ids, vec![101]);
+
+        let vlc_item = unpinned.iter().find(|u| u.id == "vlc").unwrap();
+        assert_eq!(vlc_item.name, "VLC media player");
+        assert_eq!(vlc_item.window_ids, vec![102]);
+
+        let custom_item = unpinned.iter().find(|u| u.id == "custom-utility").unwrap();
+        assert_eq!(custom_item.name, "Custom Utility");
+        assert_eq!(custom_item.window_ids, vec![103]);
+    }
+
+    #[test]
+    fn test_capitalize_words() {
+        assert_eq!(capitalize_words("galculator"), "Galculator");
+        assert_eq!(capitalize_words("custom-tool_name"), "Custom Tool Name");
+    }
 }

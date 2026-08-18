@@ -35,6 +35,9 @@ pub enum X11Event {
         window_id: u32,
         title: String,
     },
+    ClientListChanged {
+        windows: Vec<super::windows::WindowInfo>,
+    },
     DesktopChanged {
         desktop: u32,
     },
@@ -108,7 +111,7 @@ impl X11EventBus {
                 }
                 let _ = conn.flush();
 
-                // Emit initial active window state
+                // Emit initial active window state and client list
                 let mut current_active: Option<Window> =
                     ewmh::get_active_window(conn, root, &atoms);
                 if let Some(win) = current_active {
@@ -132,6 +135,9 @@ impl X11EventBus {
                         is_maximized: false,
                     });
                 }
+                callback(X11Event::ClientListChanged {
+                    windows: fetch_client_list(conn, root, &atoms),
+                });
 
                 while running_clone.load(Ordering::Relaxed) {
                     let event = match conn.poll_for_event() {
@@ -162,7 +168,14 @@ impl X11EventBus {
                             }
                             Event::PropertyNotify(pn) => {
                                 if pn.window == root {
-                                    if pn.atom == atoms.net_active_window {
+                                    if pn.atom == atoms.net_client_list {
+                                        callback(X11Event::ClientListChanged {
+                                            windows: fetch_client_list(conn, root, &atoms),
+                                        });
+                                    } else if pn.atom == atoms.net_active_window {
+                                        callback(X11Event::ClientListChanged {
+                                            windows: fetch_client_list(conn, root, &atoms),
+                                        });
                                         let new_active =
                                             ewmh::get_active_window(conn, root, &atoms);
                                         if new_active != current_active {
@@ -281,4 +294,20 @@ fn edge_trigger_geometry(monitors: &MonitorModel) -> (i32, i32, i32, i32) {
     } else {
         (0, 797, 1280, 3)
     }
+}
+
+fn fetch_client_list(
+    conn: &x11rb::rust_connection::RustConnection,
+    root: Window,
+    atoms: &super::atoms::Atoms,
+) -> Vec<windows::WindowInfo> {
+    let clients = ewmh::get_client_list(conn, root, atoms);
+    let mut infos = Vec::new();
+    for win in clients {
+        let info = windows::get_window_info(conn, win, atoms);
+        if !windows::is_shell_surface(&info.title, &info.class_name) {
+            infos.push(info);
+        }
+    }
+    infos
 }

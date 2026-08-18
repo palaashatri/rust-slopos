@@ -192,6 +192,34 @@ pub fn toggle_maximize_window(conn: &RustConnection, window: Window, atoms: &Ato
     let _ = conn.flush();
 }
 
+pub fn activate_window(conn: &RustConnection, window: Window, atoms: &Atoms) {
+    use x11rb::protocol::xproto::{ClientMessageEvent, EventMask};
+    let event = ClientMessageEvent {
+        response_type: x11rb::protocol::xproto::CLIENT_MESSAGE_EVENT,
+        format: 32,
+        sequence: 0,
+        window,
+        type_: atoms.net_active_window,
+        data: [1 /* source indication: application */, 0, 0, 0, 0].into(),
+    };
+    let root = conn.setup().roots[0].root;
+    let _ = conn.send_event(
+        false,
+        root,
+        EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY,
+        event,
+    );
+    let _ = conn.flush();
+}
+
+pub fn send_activate_window(window: Window) {
+    if let Ok((conn, _)) = RustConnection::connect(None) {
+        if let Ok(atoms) = Atoms::intern(&conn) {
+            activate_window(&conn, window, &atoms);
+        }
+    }
+}
+
 pub fn send_close_window(window: Window) {
     if let Ok((conn, _)) = RustConnection::connect(None) {
         if let Ok(atoms) = Atoms::intern(&conn) {
@@ -214,4 +242,13 @@ pub fn send_toggle_maximize_window(window: Window) {
             toggle_maximize_window(&conn, window, &atoms);
         }
     }
+}
+
+pub fn is_shell_surface(title: &str, class_name: &str) -> bool {
+    let t = title.trim();
+    let c = class_name.trim().to_ascii_lowercase();
+    matches!(
+        t,
+        "SLOPOS Top Bar" | "SLOPOS Application Strip" | "SLOPOS Search" | "SLOPOS Notification"
+    ) || c == "slopos-shell"
 }
