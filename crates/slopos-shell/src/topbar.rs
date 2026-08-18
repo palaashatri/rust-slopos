@@ -94,9 +94,9 @@ impl TopBar {
         active_title_label.set_halign(Align::Start);
         active_title_label.set_xalign(0.0);
         active_title_label.set_ellipsize(pango::EllipsizeMode::End);
-        active_title_label.set_size_request(130, -1);
+        active_title_label.set_max_width_chars(28);
         set_accessible_name(&active_title_label, "Active application");
-        main_box.pack_start(&active_title_label, false, false, 7);
+        main_box.pack_start(&active_title_label, false, false, 5);
 
         let global_menu_host = GtkBox::new(Orientation::Horizontal, 0);
         global_menu_host

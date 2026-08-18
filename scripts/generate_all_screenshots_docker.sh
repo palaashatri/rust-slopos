@@ -12,7 +12,7 @@ apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
   build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
   libssl-dev libdbus-1-dev libpulse-dev \
-  xvfb openbox pcmanfm xfce4-terminal mousepad ristretto zathura mpv galculator \
+  xvfb openbox picom pcmanfm xfce4-terminal mousepad ristretto zathura mpv galculator \
   arandr pavucontrol network-manager-gnome blueman xfce4-power-manager xfce4-settings \
   python3 python3-gi scrot imagemagick x11-utils x11-xserver-utils xdotool wmctrl dbus-x11 librsvg2-common curl git \
   ca-certificates adwaita-icon-theme fonts-liberation fonts-dejavu-core libnotify-bin feh \

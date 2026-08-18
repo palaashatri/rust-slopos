@@ -46,6 +46,12 @@ impl Launcher {
     pub fn new() -> Rc<Self> {
         let window = Window::new(WindowType::Toplevel);
         window.set_title("SLOPOS Search");
+        window.set_app_paintable(true);
+        if let Some(screen) = gtk::prelude::GtkWindowExt::screen(&window) {
+            if let Some(visual) = screen.rgba_visual() {
+                window.set_visual(Some(&visual));
+            }
+        }
         let (screen_width, screen_height) = screen_geometry();
         let (window_width, window_height) = adaptive_window_size(screen_width, screen_height);
         window.set_default_size(560, 450);
@@ -57,6 +63,12 @@ impl Launcher {
         window.set_keep_above(true);
         window.set_skip_taskbar_hint(true);
         window.style_context().add_class("slopos-launcher-window");
+        window.connect_draw(|_, cr| {
+            cr.set_source_rgba(0.0, 0.0, 0.0, 0.0);
+            cr.set_operator(gtk::cairo::Operator::Source);
+            let _ = cr.paint();
+            glib::Propagation::Proceed
+        });
         set_accessible_name(&window, "SLOPOS application search");
 
         let main_box = GtkBox::new(Orientation::Vertical, 6);

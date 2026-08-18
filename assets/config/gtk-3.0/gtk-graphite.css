@@ -490,8 +490,16 @@ scrollbar button {
   background-color: @slopos_border;
 }
 
-.slopos-launcher-window {
+window.slopos-dock-window,
+window.slopos-launcher-window,
+window.slopos-notification-window,
+.slopos-dock-window,
+.slopos-launcher-window,
+.slopos-notification-window {
   background-color: transparent;
+  background-image: none;
+  border: 0;
+  box-shadow: none;
 }
 
 .slopos-launcher {

@@ -104,6 +104,7 @@ fn main() {
         resolve_sibling("slopos-shell").unwrap_or_else(|| PathBuf::from("slopos-shell"));
     let initial_openbox_config = resolve_openbox_config();
     let mut wm = ManagedChild::new("Openbox", spawn_openbox(initial_openbox_config.as_deref()));
+    let mut compositor = ManagedChild::new("X11 compositor", spawn_compositor());
     thread::sleep(Duration::from_millis(150));
     apply_desktop_fallback();
     let mut shell = ManagedChild::new("SLOPOS shell", spawn_path(&shell_exe, &[]));
@@ -131,6 +132,18 @@ fn main() {
             }
         }
 
+        match compositor.poll() {
+            Ok(true) => {
+                if let Err(error) = compositor.replace(spawn_compositor()) {
+                    log::warn!("{error}");
+                }
+            }
+            Ok(false) => {}
+            Err(error) => {
+                log::warn!("{error}");
+            }
+        }
+
         match shell.poll() {
             Ok(true) => {
                 if let Err(error) = shell.replace(spawn_path(&shell_exe, &[])) {
@@ -149,6 +162,7 @@ fn main() {
     log::info!("Stopping SLOPOS-I session");
     shell.stop();
     wm.stop();
+    compositor.stop();
 }
 
 fn configure_session_environment() {
@@ -510,6 +524,64 @@ fn spawn_path(path: &Path, args: &[&str]) -> Option<Child> {
             None
         }
     }
+}
+
+fn resolve_program(name: &str) -> Option<PathBuf> {
+    if let Some(paths) = env::var_os("PATH") {
+        for path in env::split_paths(&paths) {
+            let candidate = path.join(name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+fn spawn_compositor() -> Option<Child> {
+    if env::var("SLOPOS_NO_COMPOSITOR").is_ok() {
+        return None;
+    }
+    for prog in ["picom", "compton", "xcompmgr"] {
+        if let Some(path) = resolve_program(prog) {
+            let mut cmd = Command::new(&path);
+            if prog == "picom" {
+                cmd.args([
+                    "--backend",
+                    "xrender",
+                    "--shadow",
+                    "--shadow-radius",
+                    "10",
+                    "--shadow-opacity",
+                    "0.22",
+                    "--shadow-offset-x",
+                    "-5",
+                    "--shadow-offset-y",
+                    "-5",
+                    "--shadow-exclude",
+                    "window_type = 'dock' || class_g = 'slopos-shell'",
+                    "--fade-in-step",
+                    "0.08",
+                    "--fade-out-step",
+                    "0.08",
+                ]);
+            } else if prog == "compton" {
+                cmd.args(["-b", "--shadow"]);
+            } else {
+                cmd.args(["-c"]);
+            }
+            match cmd.spawn() {
+                Ok(child) => {
+                    log::info!("Started X11 compositor: {prog}");
+                    return Some(child);
+                }
+                Err(err) => {
+                    log::warn!("Could not start compositor {prog}: {err}");
+                }
+            }
+        }
+    }
+    None
 }
 
 fn resolve_sibling(name: &str) -> Option<PathBuf> {
