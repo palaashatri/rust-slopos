@@ -1,4 +1,4 @@
-name: Live ISO Build & Release Artifacts
+name: Live Image Build & Release Artifacts
 
 on:
   push:
@@ -34,6 +34,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
       - name: Build Arch Live ISO in container
         shell: bash
         run: |
@@ -49,26 +52,36 @@ jobs:
               pacman -Syu --noconfirm --needed \
                 archiso git rust pkgconf gtk3 gdk-pixbuf2 libx11 libxrandr openssl dbus rsync systemd
               git config --global --add safe.directory /workspace
-              bash /workspace/packaging/iso/build-iso.sh
-            ' || {
-              echo "NOTE: Containerized archiso requires privileged loopback setup on host; fallback packaging verification passed."
-            }
+              OUT_DIR=/workspace/artifacts/iso \
+                WORK_DIR=/tmp/slopos-archiso-work \
+                bash /workspace/packaging/iso/build-iso.sh
+            '
+          sudo chown -R "$USER:$USER" artifacts/iso || true
+          mapfile -t images < <(find artifacts/iso -maxdepth 1 -type f -name '*.iso' -size +100M -print)
+          test "${#images[@]}" -ge 1
+          sha256sum "${images[@]}" > artifacts/iso/ARCH-SHA256SUMS
+          printf '%s\n' "$GITHUB_SHA" > artifacts/iso/arch-source-commit
 
-      - name: Upload Arch ISO Artifacts
-        if: always()
+      - name: Upload Arch ISO artifact
         uses: actions/upload-artifact@v4
         with:
-          name: slopos-arch-iso-${{ github.sha }}
-          if-no-files-found: ignore
+          name: slopos-arch-x86_64-iso-${{ github.sha }}
+          if-no-files-found: error
           retention-days: 14
-          path: artifacts/iso/
+          path: |
+            artifacts/iso/*.iso
+            artifacts/iso/ARCH-SHA256SUMS
+            artifacts/iso/arch-source-commit
 
   build-debian-iso:
-    name: Debian/Ubuntu amd64 Live ISO
+    name: Debian x86_64 Live ISO
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+
+      - name: Confirm exact source revision
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
 
       - name: Install ISO build tools
         run: |
@@ -81,15 +94,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo bash packaging/iso/build-debian-iso.sh || {
-            echo "Debian live-build completed or staged."
-          }
+          OUT_DIR="$GITHUB_WORKSPACE/artifacts/iso" \
+            WORK_DIR="$RUNNER_TEMP/slopos-debian-live-work" \
+            sudo -E bash packaging/iso/build-debian-iso.sh
+          test -s artifacts/iso/slopos-i-debian-live-amd64.iso
+          test -s artifacts/iso/slopos-i-debian-live-amd64.iso.sha256
+          sha256sum --check artifacts/iso/slopos-i-debian-live-amd64.iso.sha256
+          printf '%s\n' "$GITHUB_SHA" > artifacts/iso/debian-source-commit
 
-      - name: Upload Debian ISO Artifacts
-        if: always()
+      - name: Upload Debian ISO artifact
         uses: actions/upload-artifact@v4
         with:
-          name: slopos-debian-iso-${{ github.sha }}
-          if-no-files-found: ignore
+          name: slopos-debian-x86_64-iso-${{ github.sha }}
+          if-no-files-found: error
           retention-days: 14
-          path: artifacts/iso/
+          path: |
+            artifacts/iso/slopos-i-debian-live-amd64.iso
+            artifacts/iso/slopos-i-debian-live-amd64.iso.sha256
+            artifacts/iso/debian-source-commit
