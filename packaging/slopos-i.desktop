@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=SLOPOS-I
-Comment=SLOPOS-I Macintosh-Inspired X11 Desktop Environment
+Comment=Original SLOPOS-I X11 Desktop Environment
 Exec=slopos-session
 TryExec=slopos-session
 Icon=desktop-environment
