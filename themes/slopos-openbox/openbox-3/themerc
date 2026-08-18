@@ -1,53 +1,47 @@
 # SLOPOS Platinum Openbox theme
 
-padding.width: 3
+padding.width: 4
 padding.height: 3
 border.width: 1
-window.active.border.color: #000000
-window.inactive.border.color: #808080
+window.active.border.color: #5A6270
+window.inactive.border.color: #B0B5BD
 
-# Keep the active frame's Platinum bevel, but use a smooth gradient so title
-# text remains legible at 1x and HiDPI instead of competing with dense stripes.
-# Keep the title fill flat so Openbox does not draw the raised-bevel scanline
-# pattern that turns active upstream windows into black/white stripes at 1x.
-# The Platinum bevel is supplied by the one-pixel frame border and buttons;
-# title text needs a clean gradient for legibility across Xvfb and real X11.
+# Platinum active window title gradient
 window.active.title.bg: flat gradient vertical
-window.active.title.bg.color: #F0F0F0
-window.active.title.bg.colorTo: #CFCFCF
+window.active.title.bg.color: #F4F5F7
+window.active.title.bg.colorTo: #D8DCE3
 window.active.label.bg: parentrelative
-window.active.label.text.color: #000000
+window.active.label.text.color: #1A1D20
 window.active.label.text.font: shadow=off
 
 window.inactive.title.bg: flat solid
-window.inactive.title.bg.color: #C8C8C8
+window.inactive.title.bg.color: #E2E5EB
 window.inactive.label.bg: parentrelative
-window.inactive.label.text.color: #707070
+window.inactive.label.text.color: #7A808C
 
-window.active.button.unpressed.bg: raised solid
-window.active.button.unpressed.bg.color: #D9D9D9
-window.active.button.pressed.bg: sunken solid
-window.active.button.pressed.bg.color: #A8A8A8
-window.active.button.unpressed.image.color: #000000
-window.active.button.pressed.image.color: #000000
+window.active.button.unpressed.bg: flat gradient vertical
+window.active.button.unpressed.bg.color: #FFFFFF
+window.active.button.unpressed.bg.colorTo: #D0D5DD
+window.active.button.pressed.bg: flat gradient vertical
+window.active.button.pressed.bg.color: #B8BCC6
+window.active.button.pressed.bg.colorTo: #D0D5DD
+window.active.button.unpressed.image.color: #2D3139
+window.active.button.pressed.image.color: #1A1D20
 window.inactive.button.unpressed.bg: flat solid
-window.inactive.button.unpressed.bg.color: #C8C8C8
-window.inactive.button.unpressed.image.color: #777777
+window.inactive.button.unpressed.bg.color: #E2E5EB
+window.inactive.button.unpressed.image.color: #8C93A0
 
-menu.border.color: #000000
-menu.border.width: 2
-# Keep menu headers on the same legible Platinum gradient as active frames;
-# interlaced fills turn compact labels into noisy black/white stripes at 1x.
+menu.border.color: #5A6270
+menu.border.width: 1
 menu.title.bg: flat gradient vertical
-menu.title.bg.color: #F0F0F0
-menu.title.bg.colorTo: #D0D0D0
-menu.title.text.color: #000000
+menu.title.bg.color: #F4F5F7
+menu.title.bg.colorTo: #D8DCE3
+menu.title.text.color: #1A1D20
 menu.items.bg: flat solid
 menu.items.bg.color: #FFFFFF
-menu.items.text.color: #000000
-# Match the Platinum GTK disabled-text token on white menus (the prior
-# #888888 was too low-contrast for compact 9px labels).
-menu.items.disabled.text.color: #5E5E5E
+menu.items.text.color: #1A1D20
+menu.items.disabled.text.color: #7A808C
 menu.items.active.bg: flat solid
-menu.items.active.bg.color: #000080
+menu.items.active.bg.color: #3B71CA
 menu.items.active.text.color: #FFFFFF
+
