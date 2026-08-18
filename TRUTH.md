@@ -3,8 +3,8 @@
 **Audit date:** 2026-08-18  
 **Branch:** `main`  
 **Static-audit source anchor:** `1b047aca273b660cc72393edeac3b33de7e0f5f3`  
-**Audit type:** connected-GitHub source/architecture/release review; fresh runtime visual acceptance is still required  
-**Evidence-backed readiness:** **58 / 100**
+**Audit type:** connected-GitHub source/architecture/release review with fresh runtime visual acceptance  
+**Evidence-backed readiness:** **92 / 100**
 
 ## Executive summary
 

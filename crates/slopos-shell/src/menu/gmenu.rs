@@ -20,17 +20,29 @@ pub struct GtkMenuExporter {
 
 pub fn detect(window_id: Window) -> Option<GtkMenuExporter> {
     let (connection, _) = RustConnection::connect(None).ok()?;
-    let unique_atom = intern_atom(&connection, b"_GTK_UNIQUE_BUS_NAME")?;
-    let menubar_atom = intern_atom(&connection, b"_GTK_MENUBAR_OBJECT_PATH")?;
-    let app_menu_atom = intern_atom(&connection, b"_GTK_APP_MENU_OBJECT_PATH")?;
-    let application_atom = intern_atom(&connection, b"_GTK_APPLICATION_OBJECT_PATH")?;
-    let window_atom = intern_atom(&connection, b"_GTK_WINDOW_OBJECT_PATH")?;
+    let unique_atom = intern_atom(&connection, b"_GTK_UNIQUE_BUS_NAME");
+    let appmenu_service_atom = intern_atom(&connection, b"_KDE_NET_WM_APPMENU_SERVICE_NAME");
+    let menubar_atom = intern_atom(&connection, b"_GTK_MENUBAR_OBJECT_PATH");
+    let app_menu_atom = intern_atom(&connection, b"_GTK_APP_MENU_OBJECT_PATH");
+    let appmenu_path_atom = intern_atom(&connection, b"_KDE_NET_WM_APPMENU_OBJECT_PATH");
+    let application_atom = intern_atom(&connection, b"_GTK_APPLICATION_OBJECT_PATH");
+    let window_atom = intern_atom(&connection, b"_GTK_WINDOW_OBJECT_PATH");
 
-    let bus_name = read_property(&connection, window_id, unique_atom)?;
-    let menu_path = read_property(&connection, window_id, menubar_atom)
-        .or_else(|| read_property(&connection, window_id, app_menu_atom))?;
-    let app_action_path = read_property(&connection, window_id, application_atom);
-    let window_action_path = read_property(&connection, window_id, window_atom);
+    let bus_name = unique_atom
+        .and_then(|atom| read_property(&connection, window_id, atom))
+        .or_else(|| {
+            appmenu_service_atom.and_then(|atom| read_property(&connection, window_id, atom))
+        })?;
+    let menu_path = menubar_atom
+        .and_then(|atom| read_property(&connection, window_id, atom))
+        .or_else(|| app_menu_atom.and_then(|atom| read_property(&connection, window_id, atom)))
+        .or_else(|| {
+            appmenu_path_atom.and_then(|atom| read_property(&connection, window_id, atom))
+        })?;
+    let app_action_path =
+        application_atom.and_then(|atom| read_property(&connection, window_id, atom));
+    let window_action_path =
+        window_atom.and_then(|atom| read_property(&connection, window_id, atom));
 
     if !valid_bus_name(&bus_name) || !valid_object_path(&menu_path) {
         return None;
@@ -42,9 +54,6 @@ pub fn detect(window_id: Window) -> Option<GtkMenuExporter> {
             .as_deref()
             .is_some_and(|path| !valid_object_path(path))
     {
-        return None;
-    }
-    if app_action_path.is_none() && window_action_path.is_none() {
         return None;
     }
 
@@ -101,17 +110,26 @@ fn read_property(connection: &RustConnection, window: Window, atom: u32) -> Opti
 }
 
 fn valid_bus_name(value: &str) -> bool {
-    if value.len() > 255 {
+    if value.is_empty() || value.len() > 255 {
         return false;
     }
-    let Some(body) = value.strip_prefix(':') else {
-        return false;
-    };
-    let mut components = body.split('.');
-    let (Some(first), Some(second)) = (components.next(), components.next()) else {
-        return false;
-    };
-    valid_bus_component(first) && valid_bus_component(second) && components.all(valid_bus_component)
+    if let Some(body) = value.strip_prefix(':') {
+        let mut components = body.split('.');
+        let (Some(first), Some(second)) = (components.next(), components.next()) else {
+            return false;
+        };
+        valid_bus_component(first)
+            && valid_bus_component(second)
+            && components.all(valid_bus_component)
+    } else {
+        let mut components = value.split('.');
+        let (Some(first), Some(second)) = (components.next(), components.next()) else {
+            return false;
+        };
+        valid_bus_component(first)
+            && valid_bus_component(second)
+            && components.all(valid_bus_component)
+    }
 }
 
 fn valid_bus_component(value: &str) -> bool {
@@ -147,7 +165,9 @@ mod tests {
     #[test]
     fn validates_gtk_exporter_addresses() {
         assert!(valid_bus_name(":1.42"));
-        assert!(!valid_bus_name("org.example.App"));
+        assert!(valid_bus_name("org.example.App"));
+        assert!(!valid_bus_name(""));
+        assert!(!valid_bus_name("invalid"));
         assert!(valid_object_path("/org/gtk/Test/menus/MenuBar"));
         // GTK window action groups routinely use a numeric terminal path
         // component (for example /windows/0), which is valid D-Bus syntax.

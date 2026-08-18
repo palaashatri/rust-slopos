@@ -24,6 +24,8 @@ pub struct Atoms {
     pub gtk_app_menu_object_path: Atom,
     pub gtk_application_object_path: Atom,
     pub gtk_window_object_path: Atom,
+    pub net_close_window: Atom,
+    pub wm_change_state: Atom,
 }
 
 impl Atoms {
@@ -50,6 +52,8 @@ impl Atoms {
         let gtk_application_object_path =
             conn.intern_atom(false, b"_GTK_APPLICATION_OBJECT_PATH")?;
         let gtk_window_object_path = conn.intern_atom(false, b"_GTK_WINDOW_OBJECT_PATH")?;
+        let net_close_window = conn.intern_atom(false, b"_NET_CLOSE_WINDOW")?;
+        let wm_change_state = conn.intern_atom(false, b"WM_CHANGE_STATE")?;
 
         Ok(Self {
             net_active_window: net_active_window.reply()?.atom,
@@ -71,6 +75,8 @@ impl Atoms {
             gtk_app_menu_object_path: gtk_app_menu_object_path.reply()?.atom,
             gtk_application_object_path: gtk_application_object_path.reply()?.atom,
             gtk_window_object_path: gtk_window_object_path.reply()?.atom,
+            net_close_window: net_close_window.reply()?.atom,
+            wm_change_state: wm_change_state.reply()?.atom,
         })
     }
 }

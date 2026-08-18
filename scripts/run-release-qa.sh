@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-SOURCE_SHA="$(git rev-parse HEAD)"
+SOURCE_SHA="${SOURCE_SHA:-$(git rev-parse HEAD 2>/dev/null || printf '%s' unknown)}"
 STARTED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 OUT_DIR="$REPO_ROOT/artifacts/qa/release"
 REPORT_FILE="$OUT_DIR/report.md"
