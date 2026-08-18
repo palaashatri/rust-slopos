@@ -4,8 +4,8 @@ use crate::providers::availability::command_exists;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
-    Adjustment, Box as GtkBox, CheckButton, ComboBoxText, Dialog, DialogFlags, Frame, Label,
-    Orientation, ResponseType, SpinButton, Window,
+    Adjustment, Align, Box as GtkBox, Calendar, CheckButton, ComboBoxText, Dialog, DialogFlags,
+    Frame, Image, Label, Orientation, ResponseType, SpinButton, Window,
 };
 use std::process::Command;
 
@@ -20,185 +20,234 @@ pub fn show_datetime_dialog(parent: &Window) {
         ],
     );
     dialog.set_default_response(ResponseType::Accept);
-    dialog.set_default_size(440, 360);
+    dialog.set_default_size(520, 480);
     set_accessible_name(&dialog, "SLOPOS date and time settings");
 
     let content = dialog.content_area();
-    content.set_spacing(10);
-    content.set_margin_start(14);
-    content.set_margin_end(14);
-    content.set_margin_top(12);
-    content.set_margin_bottom(12);
+    content.set_spacing(12);
+    content.set_margin_start(16);
+    content.set_margin_end(16);
+    content.set_margin_top(14);
+    content.set_margin_bottom(14);
 
     let now = glib::DateTime::now_local().ok();
-    let current = if let Some(ref dt) = now {
-        dt.format("%A, %B %e, %Y — %H:%M:%S (%Z)")
+
+    // 1. Header Card with Live Digital Time Readout
+    let header_card = GtkBox::new(Orientation::Horizontal, 12);
+    header_card.style_context().add_class("slopos-section");
+    header_card.set_margin_bottom(4);
+
+    let clock_icon = Image::from_icon_name(
+        Some("preferences-system-time-symbolic"),
+        gtk::IconSize::Dialog,
+    );
+    clock_icon.set_valign(Align::Center);
+    header_card.pack_start(&clock_icon, false, false, 4);
+
+    let header_text = GtkBox::new(Orientation::Vertical, 2);
+    header_text.set_valign(Align::Center);
+
+    let time_text = if let Some(ref dt) = now {
+        dt.format("%H:%M:%S")
             .map(|g| g.to_string())
-            .unwrap_or_else(|_| "Current system time unavailable".to_string())
+            .unwrap_or_else(|_| "12:00:00".to_string())
     } else {
-        "Current system time unavailable".to_string()
+        "12:00:00".to_string()
     };
-    let current_label = Label::new(Some(current.trim()));
-    current_label.set_xalign(0.0);
-    current_label
+    let live_time_label = Label::new(Some(&time_text));
+    live_time_label.set_xalign(0.0);
+    live_time_label
         .style_context()
-        .add_class("slopos-control-title");
-    content.pack_start(&current_label, false, false, 0);
+        .add_class("slopos-panel-title");
+    header_text.pack_start(&live_time_label, false, false, 0);
 
-    let ntp = CheckButton::with_label("Set time automatically using network time (NTP)");
+    let date_text = if let Some(ref dt) = now {
+        dt.format("%A, %B %e, %Y (%Z)")
+            .map(|g| g.to_string())
+            .unwrap_or_else(|_| "".to_string())
+    } else {
+        String::new()
+    };
+    let live_date_label = Label::new(Some(&date_text));
+    live_date_label.set_xalign(0.0);
+    live_date_label
+        .style_context()
+        .add_class("slopos-panel-subtitle");
+    header_text.pack_start(&live_date_label, false, false, 0);
+
+    header_card.pack_start(&header_text, true, true, 0);
+    content.pack_start(&header_card, false, false, 0);
+
+    // 2. Automatic NTP Checkbox
+    let ntp_box = GtkBox::new(Orientation::Vertical, 2);
+    let ntp = CheckButton::with_label("Set date and time automatically (Network Time / NTP)");
     ntp.set_active(true);
-    content.pack_start(&ntp, false, false, 0);
+    let ntp_sub = Label::new(Some(
+        "Keeps system clock accurate using internet time servers (timedatectl).",
+    ));
+    ntp_sub.set_xalign(0.0);
+    ntp_sub.set_margin_start(24);
+    ntp_sub.style_context().add_class("slopos-secondary-text");
+    ntp_box.pack_start(&ntp, false, false, 0);
+    ntp_box.pack_start(&ntp_sub, false, false, 0);
+    content.pack_start(&ntp_box, false, false, 0);
 
-    // Manual Date & Time configuration frame
-    let manual_frame = Frame::new(Some("Manual Time & Date Adjustments"));
+    // 3. Manual Adjustment Section
+    let manual_frame = Frame::new(Some("Manual Adjustments"));
     manual_frame.style_context().add_class("slopos-section");
-    let manual_box = GtkBox::new(Orientation::Vertical, 8);
-    manual_box.set_margin_start(8);
-    manual_box.set_margin_end(8);
+    let manual_box = GtkBox::new(Orientation::Horizontal, 14);
+    manual_box.set_margin_start(10);
+    manual_box.set_margin_end(10);
     manual_box.set_margin_top(8);
     manual_box.set_margin_bottom(8);
 
-    // Time row: HH : MM : SS
-    let time_row = GtkBox::new(Orientation::Horizontal, 6);
-    time_row.pack_start(&Label::new(Some("Time (24h):")), false, false, 0);
+    // Left: Interactive Calendar Widget
+    let cal_box = GtkBox::new(Orientation::Vertical, 4);
+    let cal_label = Label::new(Some("Calendar Date:"));
+    cal_label.set_xalign(0.0);
+    cal_label.style_context().add_class("slopos-control-title");
+    cal_box.pack_start(&cal_label, false, false, 0);
+
+    let calendar = Calendar::new();
+    if let Some(ref dt) = now {
+        calendar.select_month(dt.month() as u32 - 1, dt.year() as u32);
+        calendar.select_day(dt.day_of_month() as u32);
+    }
+    set_accessible_name(&calendar, "Date calendar");
+    cal_box.pack_start(&calendar, true, true, 0);
+    manual_box.pack_start(&cal_box, true, true, 0);
+
+    // Right: Time Adjusters
+    let time_box = GtkBox::new(Orientation::Vertical, 10);
+    time_box.set_valign(Align::Center);
+
+    let time_sec_label = Label::new(Some("Adjust Time (24h):"));
+    time_sec_label.set_xalign(0.0);
+    time_sec_label
+        .style_context()
+        .add_class("slopos-control-title");
+    time_box.pack_start(&time_sec_label, false, false, 0);
 
     let cur_hour = now.as_ref().map(|d| d.hour()).unwrap_or(12) as f64;
     let cur_min = now.as_ref().map(|d| d.minute()).unwrap_or(0) as f64;
     let cur_sec = now.as_ref().map(|d| d.seconds()).unwrap_or(0.0);
 
-    let adj_hour = Adjustment::new(cur_hour, 0.0, 23.0, 1.0, 5.0, 0.0);
+    // Hour row
+    let h_row = GtkBox::new(Orientation::Horizontal, 8);
+    let h_lbl = Label::new(Some("Hour:"));
+    h_lbl.set_width_chars(6);
+    h_lbl.set_xalign(0.0);
+    let adj_hour = Adjustment::new(cur_hour, 0.0, 23.0, 1.0, 1.0, 0.0);
     let spin_hour = SpinButton::new(Some(&adj_hour), 1.0, 0);
     spin_hour.set_numeric(true);
-    spin_hour.set_width_chars(2);
+    spin_hour.set_width_chars(4);
     set_accessible_name(&spin_hour, "Hour");
+    h_row.pack_start(&h_lbl, false, false, 0);
+    h_row.pack_start(&spin_hour, true, true, 0);
+    time_box.pack_start(&h_row, false, false, 0);
 
+    // Minute row
+    let m_row = GtkBox::new(Orientation::Horizontal, 8);
+    let m_lbl = Label::new(Some("Minute:"));
+    m_lbl.set_width_chars(6);
+    m_lbl.set_xalign(0.0);
     let adj_min = Adjustment::new(cur_min, 0.0, 59.0, 1.0, 5.0, 0.0);
     let spin_min = SpinButton::new(Some(&adj_min), 1.0, 0);
     spin_min.set_numeric(true);
-    spin_min.set_width_chars(2);
+    spin_min.set_width_chars(4);
     set_accessible_name(&spin_min, "Minute");
+    m_row.pack_start(&m_lbl, false, false, 0);
+    m_row.pack_start(&spin_min, true, true, 0);
+    time_box.pack_start(&m_row, false, false, 0);
 
+    // Second row
+    let s_row = GtkBox::new(Orientation::Horizontal, 8);
+    let s_lbl = Label::new(Some("Second:"));
+    s_lbl.set_width_chars(6);
+    s_lbl.set_xalign(0.0);
     let adj_sec = Adjustment::new(cur_sec, 0.0, 59.0, 1.0, 5.0, 0.0);
     let spin_sec = SpinButton::new(Some(&adj_sec), 1.0, 0);
     spin_sec.set_numeric(true);
-    spin_sec.set_width_chars(2);
+    spin_sec.set_width_chars(4);
     set_accessible_name(&spin_sec, "Second");
+    s_row.pack_start(&s_lbl, false, false, 0);
+    s_row.pack_start(&spin_sec, true, true, 0);
+    time_box.pack_start(&s_row, false, false, 0);
 
-    time_row.pack_start(&spin_hour, false, false, 0);
-    time_row.pack_start(&Label::new(Some(":")), false, false, 0);
-    time_row.pack_start(&spin_min, false, false, 0);
-    time_row.pack_start(&Label::new(Some(":")), false, false, 0);
-    time_row.pack_start(&spin_sec, false, false, 0);
-    manual_box.pack_start(&time_row, false, false, 0);
-
-    // Date row: YYYY - MM - DD
-    let date_row = GtkBox::new(Orientation::Horizontal, 6);
-    date_row.pack_start(&Label::new(Some("Date:")), false, false, 0);
-
-    let cur_year = now.as_ref().map(|d| d.year()).unwrap_or(2026) as f64;
-    let cur_month = now.as_ref().map(|d| d.month()).unwrap_or(8) as f64;
-    let cur_day = now.as_ref().map(|d| d.day_of_month()).unwrap_or(18) as f64;
-
-    let adj_year = Adjustment::new(cur_year, 2000.0, 2099.0, 1.0, 5.0, 0.0);
-    let spin_year = SpinButton::new(Some(&adj_year), 1.0, 0);
-    spin_year.set_numeric(true);
-    spin_year.set_width_chars(4);
-    set_accessible_name(&spin_year, "Year");
-
-    let adj_month = Adjustment::new(cur_month, 1.0, 12.0, 1.0, 1.0, 0.0);
-    let spin_month = SpinButton::new(Some(&adj_month), 1.0, 0);
-    spin_month.set_numeric(true);
-    spin_month.set_width_chars(2);
-    set_accessible_name(&spin_month, "Month");
-
-    let adj_day = Adjustment::new(cur_day, 1.0, 31.0, 1.0, 5.0, 0.0);
-    let spin_day = SpinButton::new(Some(&adj_day), 1.0, 0);
-    spin_day.set_numeric(true);
-    spin_day.set_width_chars(2);
-    set_accessible_name(&spin_day, "Day");
-
-    date_row.pack_start(&Label::new(Some("Year")), false, false, 0);
-    date_row.pack_start(&spin_year, false, false, 0);
-    date_row.pack_start(&Label::new(Some("Month")), false, false, 0);
-    date_row.pack_start(&spin_month, false, false, 0);
-    date_row.pack_start(&Label::new(Some("Day")), false, false, 0);
-    date_row.pack_start(&spin_day, false, false, 0);
-    manual_box.pack_start(&date_row, false, false, 0);
+    manual_box.pack_start(&time_box, false, false, 4);
 
     manual_frame.add(&manual_box);
-    content.pack_start(&manual_frame, false, false, 0);
+    content.pack_start(&manual_frame, true, true, 0);
 
-    // Connect NTP checkbox to manual inputs sensitivity
+    // Connect NTP toggle to manual adjustments sensitivity
     let manual_box_clone = manual_box.clone();
-    manual_box.set_sensitive(false); // Initially NTP is on
+    manual_box.set_sensitive(false);
     ntp.connect_toggled(move |btn| {
         manual_box_clone.set_sensitive(!btn.is_active());
     });
 
-    let timezone_row = GtkBox::new(Orientation::Horizontal, 8);
-    timezone_row.pack_start(&Label::new(Some("Timezone:")), false, false, 0);
+    // 4. Time Zone Row
+    let tz_card = GtkBox::new(Orientation::Horizontal, 8);
+    tz_card.style_context().add_class("slopos-section");
+    let tz_icon = Image::from_icon_name(Some("preferences-system-symbolic"), gtk::IconSize::Menu);
+    tz_card.pack_start(&tz_icon, false, false, 0);
+    let tz_label = Label::new(Some("Time Zone:"));
+    tz_label.style_context().add_class("slopos-control-title");
+    tz_card.pack_start(&tz_label, false, false, 0);
+
     let timezone = ComboBoxText::new();
     for (id, label) in [
         ("UTC", "UTC (Coordinated Universal Time)"),
-        ("America/New_York", "America/New York (EST/EDT)"),
-        ("America/Chicago", "America/Chicago (CST/CDT)"),
-        ("America/Denver", "America/Denver (MST/MDT)"),
-        ("America/Los_Angeles", "America/Los Angeles (PST/PDT)"),
-        ("Europe/London", "Europe/London (GMT/BST)"),
-        ("Europe/Paris", "Europe/Paris (CET/CEST)"),
-        ("Europe/Berlin", "Europe/Berlin (CET/CEST)"),
-        ("Asia/Kolkata", "Asia/Kolkata (IST)"),
-        ("Asia/Tokyo", "Asia/Tokyo (JST)"),
-        ("Asia/Singapore", "Asia/Singapore (SGT)"),
-        ("Australia/Sydney", "Australia/Sydney (AEST/AEDT)"),
+        ("America/New_York", "America / New York (Eastern)"),
+        ("America/Chicago", "America / Chicago (Central)"),
+        ("America/Denver", "America / Denver (Mountain)"),
+        ("America/Los_Angeles", "America / Los Angeles (Pacific)"),
+        ("Europe/London", "Europe / London (GMT/BST)"),
+        ("Europe/Paris", "Europe / Paris (CET/CEST)"),
+        ("Europe/Berlin", "Europe / Berlin (CET/CEST)"),
+        ("Asia/Kolkata", "Asia / Kolkata (IST)"),
+        ("Asia/Tokyo", "Asia / Tokyo (JST)"),
+        ("Asia/Singapore", "Asia / Singapore (SGT)"),
+        ("Australia/Sydney", "Australia / Sydney (AEST/AEDT)"),
     ] {
         timezone.append(Some(id), label);
     }
     timezone.set_active_id(Some("UTC"));
-    timezone_row.pack_start(&timezone, true, true, 0);
-    content.pack_start(&timezone_row, false, false, 0);
-
-    let note = Label::new(Some(
-        "Changing system time may require administrator authorization from your Linux distribution.",
-    ));
-    note.set_xalign(0.0);
-    note.set_line_wrap(true);
-    note.style_context().add_class("slopos-secondary-text");
-    content.pack_start(&note, false, false, 0);
+    tz_card.pack_start(&timezone, true, true, 0);
+    content.pack_start(&tz_card, false, false, 0);
 
     dialog.show_all();
+
     if dialog.run() == ResponseType::Accept {
-        if !command_exists("timedatectl") {
-            log::warn!("timedatectl is unavailable; date/time changes were not applied");
-        } else {
-            let is_ntp = ntp.is_active();
-            if let Some(id) = timezone.active_id() {
+        let auto_ntp = ntp.is_active();
+        if command_exists("timedatectl") {
+            let ntp_arg = if auto_ntp { "true" } else { "false" };
+            let _ = Command::new("timedatectl")
+                .args(["set-ntp", ntp_arg])
+                .spawn();
+
+            if let Some(tz) = timezone.active_id() {
                 let _ = Command::new("timedatectl")
-                    .args(["set-timezone", id.as_str()])
-                    .status();
+                    .args(["set-timezone", tz.as_str()])
+                    .spawn();
             }
-            if is_ntp {
+
+            if !auto_ntp {
+                let (year, month, day) = calendar.date();
+                let h = spin_hour.value_as_int();
+                let m = spin_min.value_as_int();
+                let s = spin_sec.value_as_int();
+                let date_str =
+                    format!("{year:04}-{:02}-{:02} {h:02}:{m:02}:{s:02}", month + 1, day);
                 let _ = Command::new("timedatectl")
-                    .args(["set-ntp", "true"])
-                    .status();
-            } else {
-                let _ = Command::new("timedatectl")
-                    .args(["set-ntp", "false"])
-                    .status();
-                let year = spin_year.value_as_int();
-                let month = spin_month.value_as_int();
-                let day = spin_day.value_as_int();
-                let hour = spin_hour.value_as_int();
-                let min = spin_min.value_as_int();
-                let sec = spin_sec.value_as_int();
-                let time_str = format!("{year:04}-{month:02}-{day:02} {hour:02}:{min:02}:{sec:02}");
-                let _ = Command::new("timedatectl")
-                    .args(["set-time", &time_str])
-                    .status();
+                    .args(["set-time", &date_str])
+                    .spawn();
             }
         }
     }
-    dialog.close();
+    unsafe {
+        dialog.destroy();
+    }
 }
 
 fn set_accessible_name<W>(widget: &W, name: &str)

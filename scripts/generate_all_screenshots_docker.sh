@@ -470,7 +470,7 @@ s.clean_client_windows()
 # 36 Date & Time control panel
 p_dt = s.spawn(["slopos-settings", "--datetime"])
 time.sleep(0.8)
-run("xdotool search --onlyvisible --name '^Date & Time$' | tail -1 | xargs -I{} xdotool windowsize {} 520 380 windowmove {} 200 100 windowactivate {}", env=s.env)
+run("xdotool search --onlyvisible --name '^Date & Time$' | tail -1 | xargs -I{} xdotool windowsize {} 520 480 windowmove {} 180 60 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("36_datetime_control_panel_1280x800.png")
 s.clean_client_windows()
@@ -558,10 +558,9 @@ s.clean_client_windows()
 with open(f"{s.home}/.config/slopos-i/dock_dodge", "w") as f:
     f.write("1\n")
 p_dodge = s.spawn(["mousepad", f"{REPO_ROOT}/README.md"])
-time.sleep(1.0)
-run("xdotool search --onlyvisible --class mousepad | tail -1 | xargs -I{} xdotool windowsize {} 1280 748 windowmove {} 0 52 windowactivate {}", env=s.env)
-run("xdotool mousemove 640 400", env=s.env)
-time.sleep(0.6)
+time.sleep(1.5)
+run("xdotool search --sync --onlyvisible --class mousepad | tail -1 | xargs -I{} xdotool windowactivate --sync {} windowsize {} 1280 696 windowmove {} 0 78", env=s.env)
+time.sleep(0.8)
 s.capture("47_dock_dodge_maximized_1280x800.png")
 
 # 49 Dock Dodge Hover Overlap
@@ -575,14 +574,14 @@ except Exception:
     pass
 
 # 50 Fullscreen Game SuperTux
-p_st_full = s.spawn(["supertux", "-f"])
-time.sleep(1.2)
+p_stux_full = s.spawn(["supertux2", "-f"])
+time.sleep(2.0)
 s.capture("50_fullscreen_game_supertux_1280x800.png")
 s.clean_client_windows()
 
 # 51 Fullscreen Game Doom
-p_doom_full = s.spawn(["chocolate-doom", "-iwad", wad_file, "-fullscreen"])
-time.sleep(1.2)
+p_doom_full = s.spawn(["chocolate-doom", "-iwad", wad_file, "-geometry", "1280x800", "-fullscreen"])
+time.sleep(1.5)
 s.capture("51_fullscreen_game_doom_1280x800.png")
 s.clean_client_windows()
 

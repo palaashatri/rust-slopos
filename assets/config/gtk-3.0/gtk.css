@@ -405,6 +405,33 @@ frame > border {
   border-radius: 7px;
 }
 
+calendar {
+  background-color: @slopos_surface;
+  color: @slopos_text;
+  border: 1px solid @slopos_border;
+  border-radius: 7px;
+  padding: 4px;
+}
+
+calendar.header {
+  border-bottom: 1px solid @slopos_border;
+  background-color: @slopos_surface_alt;
+  color: @slopos_text;
+  font-weight: bold;
+}
+
+calendar.button {
+  background-color: transparent;
+  color: @slopos_text;
+  border: 0;
+}
+
+calendar:selected {
+  background-color: @slopos_highlight;
+  color: #ffffff;
+  border-radius: 4px;
+}
+
 separator {
   min-height: 1px;
   min-width: 1px;
