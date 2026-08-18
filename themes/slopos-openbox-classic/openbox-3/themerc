@@ -3,7 +3,10 @@
 
 padding.width: 2
 padding.height: 2
+window.client.padding.width: 0
+window.client.padding.height: 0
 border.width: 1
+border.color: #000000
 window.active.border.color: #000000
 window.inactive.border.color: #808080
 

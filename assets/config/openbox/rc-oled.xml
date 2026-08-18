@@ -4,7 +4,7 @@
   <focus><focusNew>yes</focusNew><followMouse>no</followMouse><focusLast>yes</focusLast><underMouse>no</underMouse><focusDelay>150</focusDelay><raiseOnFocus>no</raiseOnFocus></focus>
   <placement><policy>Smart</policy><center>yes</center></placement>
   <theme>
-    <name>slopos-openbox-oled</name><titleLayout>CLMI</titleLayout><keepBorder>yes</keepBorder><animateIconify>no</animateIconify>
+    <name>slopos-openbox-oled</name><titleLayout>CLMI</titleLayout><keepBorder>no</keepBorder><animateIconify>no</animateIconify>
     <font place="ActiveWindow"><name>Liberation Sans</name><size>9</size><weight>Bold</weight></font>
     <font place="InactiveWindow"><name>Liberation Sans</name><size>9</size><weight>Normal</weight></font>
     <font place="MenuHeader"><name>Liberation Sans</name><size>9</size><weight>Bold</weight></font>
@@ -58,12 +58,17 @@
     </context>
   </mouse>
   <applications>
-    <application name="SLOPOS Top Bar" class="*">
+    <application class="*slopos-shell*" title="*Top Bar*">
       <decor>no</decor>
+      <layer>above</layer>
       <position force="yes">
         <x>0</x>
         <y>0</y>
       </position>
+    </application>
+    <application class="*slopos-shell*" title="*Application Strip*">
+      <decor>no</decor>
+      <layer>above</layer>
     </application>
     <application class="*">
       <decor>yes</decor>

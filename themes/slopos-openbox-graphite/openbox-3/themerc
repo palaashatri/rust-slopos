@@ -1,7 +1,10 @@
 # SLOPOS Graphite Openbox theme
 padding.width: 4
 padding.height: 3
+window.client.padding.width: 0
+window.client.padding.height: 0
 border.width: 1
+border.color: #383B42
 window.active.border.color: #383B42
 window.inactive.border.color: #26282D
 window.active.title.bg: flat gradient vertical
