@@ -137,11 +137,15 @@ Mature upstream applications + verified AppImages
 
 ### 5. True Fullscreen & Dock Dodge Window Management
 
-| True Fullscreen Video & Gaming | Dock Dodged (Maximized Full Height) | Dock Hover Overlap (macOS-Style) |
+| Fullscreen Gaming (SuperTux 2D) | Fullscreen Gaming (Freedoom / Doom) |
+|:---:|:---:|
+| ![Fullscreen SuperTux](docs/screenshots/50_fullscreen_game_supertux_1280x800.png) | ![Fullscreen Doom](docs/screenshots/51_fullscreen_game_doom_1280x800.png) |
+
+| True Fullscreen Video Playback (MPV) | Dock Dodged (Maximized Full Height) | Dock Hover Overlap (macOS-Style) |
 |:---:|:---:|:---:|
 | ![True Fullscreen Video](docs/screenshots/46_fullscreen_video_mpv_1280x800.png) | ![Dock Dodged Full Height](docs/screenshots/47_dock_dodge_maximized_1280x800.png) | ![Dock Hover Overlap](docs/screenshots/49_dock_dodge_hover_overlap_1280x800.png) |
 
-- **True Fullscreen Experience**: When any video player (MPV, VLC), game (Doom, SuperTux), or web browser enters fullscreen (`_NET_WM_STATE_FULLSCREEN`), both the top menu bar and bottom Application Strip dock automatically unmap and hide, delivering a 100% unobstructed full-screen experience.
+- **True Fullscreen Experience**: When any video player (MPV, VLC), game (SuperTux, Doom, RetroArch), or web browser enters fullscreen (`_NET_WM_STATE_FULLSCREEN`), both the top menu bar and bottom Application Strip dock automatically unmap and hide, delivering a 100% unobstructed full-screen experience across every pixel of the display.
 - **Dock Dodge / Autohide (macOS-Style)**: When enabled in Control Panels, maximized applications occupy the full vertical height of the display (all the way to the bottom edge). Moving the pointer to the bottom location reveals the Application Strip smoothly floating **over** the maximized application content.
 
 ---

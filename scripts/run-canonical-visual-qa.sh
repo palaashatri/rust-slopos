@@ -708,6 +708,49 @@ fi
 kill "$STUDIO_PID" 2>/dev/null || true
 sleep 0.5
 
+# 50. Fullscreen Gaming (SuperTux 2D OpenGL in True Fullscreen Mode with Unmapped Chrome)
+if command -v supertux2 >/dev/null 2>&1 || [[ -x /usr/games/supertux2 ]]; then
+  ST_BIN="$(command -v supertux2 2>/dev/null || echo /usr/games/supertux2)"
+  "$ST_BIN" --geometry 1280x800 --fullscreen >/dev/null 2>&1 &
+  ST_FS_PID=$!
+  sleep 4
+  ST_FS_WIN="$(xdotool search --onlyvisible --class supertux2 | tail -n 1 || xdotool search --onlyvisible --name '.*SuperTux.*' | tail -n 1 || true)"
+  if [[ -n "$ST_FS_WIN" ]]; then
+    xdotool windowactivate --sync "$ST_FS_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "50_fullscreen_game_supertux_1280x800.png"
+  fi
+  kill "$ST_FS_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
+# 51. Fullscreen Gaming (Chocolate Doom / Freedoom in True Fullscreen Mode with Unmapped Chrome)
+if command -v chocolate-doom >/dev/null 2>&1 || command -v doom >/dev/null 2>&1 || [[ -x /usr/games/chocolate-doom ]]; then
+  DOOM_BIN="$(command -v chocolate-doom 2>/dev/null || command -v doom 2>/dev/null || printf '%s' /usr/games/chocolate-doom)"
+  IWAD=""
+  for candidate_wad in /usr/share/games/doom/freedoom2.wad /usr/share/games/doom/freedoom1.wad /usr/share/doom/freedoom2.wad; do
+    if [[ -f "$candidate_wad" ]]; then
+      IWAD="$candidate_wad"
+      break
+    fi
+  done
+  doom_fs_args=("-fullscreen" "-nosound" "-nomusic")
+  if [[ -n "$IWAD" ]]; then
+    doom_fs_args+=("-iwad" "$IWAD")
+  fi
+  "$DOOM_BIN" "${doom_fs_args[@]}" >/dev/null 2>&1 &
+  DOOM_FS_PID=$!
+  sleep 3
+  DOOM_FS_WIN="$(xdotool search --onlyvisible --class "chocolate-doom" | tail -n 1 || xdotool search --onlyvisible --name ".*Doom.*" | tail -n 1 || true)"
+  if [[ -n "$DOOM_FS_WIN" ]]; then
+    xdotool windowactivate --sync "$DOOM_FS_WIN" 2>/dev/null || true
+    sleep 0.5
+    capture_screen "51_fullscreen_game_doom_1280x800.png"
+  fi
+  kill "$DOOM_FS_PID" 2>/dev/null || true
+  sleep 0.5
+fi
+
 kill -TERM "$SESSION_90_PID" "$XVFB_90_PID" 2>/dev/null || true
 pkill -TERM -x slopos-shell 2>/dev/null || true
 pkill -TERM -x openbox 2>/dev/null || true
