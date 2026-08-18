@@ -126,24 +126,60 @@ class XSession:
             "PATH": f"/usr/local/bin:/usr/games:{REPO_ROOT}/scripts:{REPO_ROOT}/target/release:{self.env.get('PATH', '')}",
         })
 
-        # Copy configs
+        # Appearance configs
         cfg = f"{self.home}/.config"
         os.makedirs(f"{cfg}/gtk-3.0", exist_ok=True)
         os.makedirs(f"{cfg}/openbox", exist_ok=True)
-        shutil.copy(f"{REPO_ROOT}/assets/config/gtk-3.0/gtk.css", f"{cfg}/gtk-3.0/gtk.css")
+        os.makedirs(f"{cfg}/slopos-i", exist_ok=True)
+        with open(f"{cfg}/slopos-i/appearance", "w") as f:
+            f.write(self.appearance)
+
+        gtk_css = "gtk.css"
+        ob_theme = "slopos-openbox"
+        bg_color = "#758090"
+        if self.appearance == "graphite":
+            gtk_css = "gtk-graphite.css"
+            ob_theme = "slopos-openbox-graphite"
+            bg_color = "#1e222a"
+        elif self.appearance == "oled":
+            gtk_css = "gtk-oled.css"
+            ob_theme = "slopos-openbox-oled"
+            bg_color = "#000000"
+        elif self.appearance == "classic":
+            gtk_css = "gtk-classic.css"
+            ob_theme = "slopos-openbox-classic"
+            bg_color = "#758090"
+
+        if self.appearance in ["platinum", "classic"]:
+            with open(f"{cfg}/slopos-i/wallpaper", "w") as f:
+                f.write(f"{REPO_ROOT}/assets/wallpapers/04_retro_teal_grid.png\n")
+
+        shutil.copy(f"{REPO_ROOT}/assets/config/gtk-3.0/{gtk_css}", f"{cfg}/gtk-3.0/gtk.css")
+        shutil.copy(f"{REPO_ROOT}/assets/config/gtk-3.0/{gtk_css}", f"{cfg}/gtk-3.0/{gtk_css}")
         shutil.copy(f"{REPO_ROOT}/assets/config/gtk-3.0/settings.ini", f"{cfg}/gtk-3.0/settings.ini")
-        shutil.copy(f"{REPO_ROOT}/assets/config/openbox/rc.xml", f"{cfg}/openbox/rc.xml")
+
+        # Openbox config with selected theme
+        with open(f"{REPO_ROOT}/assets/config/openbox/rc.xml") as f:
+            rc_xml = f.read()
+        rc_xml = rc_xml.replace("<name>slopos-openbox</name>", f"<name>{ob_theme}</name>")
+        with open(f"{cfg}/openbox/rc.xml", "w") as f:
+            f.write(rc_xml)
 
         # Start Xvfb
         self.xvfb_proc = subprocess.Popen([
             "Xvfb", self.display, "-screen", "0", f"{w}x{h}x24", "-nolisten", "tcp"
         ], env=self.env)
         time.sleep(1.0)
-        run("xsetroot -solid '#758090'", env=self.env)
+        run(f"xsetroot -solid '{bg_color}'", env=self.env)
 
         # Set default wallpaper
-        if os.path.exists(f"{REPO_ROOT}/assets/wallpapers/01_classic_system_gray.png"):
-            run(f"feh --bg-fill '{REPO_ROOT}/assets/wallpapers/01_classic_system_gray.png'", env=self.env)
+        if self.appearance in ["platinum", "classic"]:
+            if os.path.exists(f"{REPO_ROOT}/assets/wallpapers/04_retro_teal_grid.png"):
+                run(f"feh --bg-fill '{REPO_ROOT}/assets/wallpapers/04_retro_teal_grid.png'", env=self.env)
+            elif os.path.exists(f"{REPO_ROOT}/assets/wallpapers/01_classic_system_gray.png"):
+                run(f"feh --bg-fill '{REPO_ROOT}/assets/wallpapers/01_classic_system_gray.png'", env=self.env)
+        else:
+            run(f"xsetroot -solid '{bg_color}'", env=self.env)
 
         # Start slopos-session
         self.session_proc = subprocess.Popen([
@@ -183,6 +219,24 @@ class XSession:
             return None
         return subprocess.Popen([exe] + cmd[1:], env=self.env)
 
+    def clean_client_windows(self):
+        try:
+            out = subprocess.check_output("wmctrl -l", shell=True, env=self.env).decode()
+            for line in out.splitlines():
+                parts = line.split(None, 3)
+                if len(parts) >= 4:
+                    wid = parts[0]
+                    title = parts[3]
+                    if "SLOPOS Top Bar" not in title and "SLOPOS Application Strip" not in title:
+                        run(f"wmctrl -i -c {wid}", env=self.env)
+        except Exception:
+            pass
+        time.sleep(0.15)
+        run("pkill -9 -f 'pcmanfm|mousepad|terminal|galculator|ristretto|zathura|mpv|gimp|inkscape|soffice|libreoffice|vlc|thunderbird|supertux|doom|epiphany|firefox|slopos-settings|slopos-catalogue|nm-connection-editor|blueman-manager|pavucontrol' || true", env=self.env)
+        run("xdotool search --onlyvisible --name 'SLOPOS Notification' | xargs -I{} xdotool windowclose {} || true", env=self.env)
+        run("xdotool search --onlyvisible --class Dialog | xargs -I{} xdotool windowclose {} || true", env=self.env)
+        time.sleep(0.2)
+
     def stop(self):
         if self.session_proc:
             self.session_proc.terminate()
@@ -190,7 +244,8 @@ class XSession:
                 self.session_proc.wait(timeout=2)
             except Exception:
                 self.session_proc.kill()
-        run("pkill -9 -x slopos-shell slopos-settings slopos-catalogue openbox pcmanfm mousepad xfce4-terminal galculator ristretto zathura mpv gimp inkscape soffice.bin vlc thunderbird supertux supertux2 chocolate-doom epiphany epiphany-browser || true", env=self.env)
+        self.clean_client_windows()
+        run("pkill -9 -x slopos-shell openbox || true", env=self.env)
         if self.xvfb_proc:
             self.xvfb_proc.terminate()
             try:
@@ -224,9 +279,12 @@ run("xdotool key Escape", env=s.env)
 time.sleep(0.3)
 
 # 04 Toast Notification
-run("notify-send -t 6000 -a 'SLOPOS-I' 'Welcome to SLOPOS-I' 'Press Super+Space or choose Search to find applications.'", env=s.env)
+run("notify-send -t 1500 -a 'SLOPOS-I' 'Welcome to SLOPOS-I' 'Press Super+Space or choose Search to find applications.'", env=s.env)
 time.sleep(0.6)
 s.capture("04_notification_1280x800.png")
+run("xdotool search --onlyvisible --name 'SLOPOS Notification' | xargs -I{} xdotool windowclose {} || true", env=s.env)
+time.sleep(0.3)
+s.clean_client_windows()
 
 # 05 Modal About Dialog
 run("pkill -USR2 -x slopos-shell", env=s.env)
@@ -234,35 +292,39 @@ time.sleep(0.4)
 run("xdotool key Down Return", env=s.env)
 time.sleep(0.6)
 s.capture("05_modal_about_dialog_1280x800.png")
-run("xdotool key Escape || xdotool key Return", env=s.env)
+run("xdotool key Escape", env=s.env)
 time.sleep(0.3)
+s.clean_client_windows()
 
 # 17 Modal Shutdown Dialog
 run("pkill -USR2 -x slopos-shell", env=s.env)
 time.sleep(0.4)
-run("xdotool key Down Down Down Down Down Down Down Down Down Return", env=s.env)
+run("xdotool key Down Down Down Down Down Down Down Down Down Down Down Return", env=s.env)
 time.sleep(0.6)
 s.capture("17_modal_shutdown_dialog_1280x800.png")
-run("xdotool key Escape || xdotool key Return", env=s.env)
+run("xdotool key Escape", env=s.env)
 time.sleep(0.3)
+s.clean_client_windows()
 
 # 18 Modal Switch User Dialog
 run("pkill -USR2 -x slopos-shell", env=s.env)
 time.sleep(0.4)
-run("xdotool key Down Down Down Down Down Down Return", env=s.env)
+run("xdotool key Down Down Down Down Down Down Down Return", env=s.env)
 time.sleep(0.6)
 s.capture("18_modal_switch_user_dialog_1280x800.png")
-run("xdotool key Escape || xdotool key Return", env=s.env)
+run("xdotool key Escape", env=s.env)
 time.sleep(0.3)
+s.clean_client_windows()
 
 # 22 Modal Restart Dialog
 run("pkill -USR2 -x slopos-shell", env=s.env)
 time.sleep(0.4)
-run("xdotool key Down Down Down Down Down Down Down Down Return", env=s.env)
+run("xdotool key Down Down Down Down Down Down Down Down Down Down Return", env=s.env)
 time.sleep(0.6)
 s.capture("22_modal_restart_dialog_1280x800.png")
-run("xdotool key Escape || xdotool key Return", env=s.env)
+run("xdotool key Escape", env=s.env)
 time.sleep(0.3)
+s.clean_client_windows()
 
 # 25 Desktop right-click context menu
 run("xdotool mousemove 640 400 click 3", env=s.env)
@@ -270,6 +332,10 @@ time.sleep(0.4)
 s.capture("25_desktop_right_click_context_menu_1280x800.png")
 run("xdotool key Escape", env=s.env)
 time.sleep(0.3)
+s.clean_client_windows()
+
+# 06 Active App Mousepad
+s.clean_client_windows()
 
 # 06 Active App Mousepad
 p_mouse = s.spawn(["mousepad", f"{REPO_ROOT}/README.md"])
@@ -279,15 +345,16 @@ time.sleep(0.4)
 s.capture("06_active_app_mousepad_1280x800.png")
 
 # 07 Multi-window focus (PCManFM + Terminal)
+s.clean_client_windows()
+p_fm = s.spawn(["pcmanfm", REPO_ROOT])
+time.sleep(0.6)
+run("xdotool search --onlyvisible --class pcmanfm | tail -1 | xargs -I{} xdotool windowsize {} 560 380 windowmove {} 100 80", env=s.env)
 p_term = s.spawn(["xfce4-terminal"])
-time.sleep(0.8)
-run("xdotool search --onlyvisible --class xfce4-terminal | tail -1 | xargs -I{} xdotool windowsize {} 560 360 windowmove {} 380 180 windowactivate {}", env=s.env)
+time.sleep(0.6)
+run("xdotool search --onlyvisible --class xfce4-terminal | tail -1 | xargs -I{} xdotool windowsize {} 540 340 windowmove {} 380 180 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("07_multi_window_focus_1280x800.png")
-
-if p_mouse: p_mouse.terminate()
-if p_term: p_term.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 08 File Manager PCManFM
 p_fm = s.spawn(["pcmanfm", REPO_ROOT])
@@ -302,8 +369,7 @@ time.sleep(0.4)
 s.capture("26_file_manager_right_click_context_menu_1280x800.png")
 run("xdotool key Escape", env=s.env)
 time.sleep(0.3)
-if p_fm: p_fm.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 09 Terminal Xfce4
 p_term = s.spawn(["xfce4-terminal"])
@@ -311,8 +377,7 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --class xfce4-terminal | tail -1 | xargs -I{} xdotool windowsize {} 640 420 windowmove {} 160 80 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("09_terminal_xfce4_1280x800.png")
-if p_term: p_term.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 10 Software Catalogue
 p_cat = s.spawn(["slopos-catalogue"])
@@ -320,8 +385,7 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --name '^Software Catalogue$' | tail -1 | xargs -I{} xdotool windowsize {} 660 480 windowmove {} 140 70 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("10_software_catalogue_1280x800.png")
-if p_cat: p_cat.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 11 System Settings Control Panels
 p_set = s.spawn(["slopos-settings"])
@@ -329,8 +393,7 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --name '^System Settings$' | tail -1 | xargs -I{} xdotool windowsize {} 640 460 windowmove {} 150 70 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("11_system_settings_control_panels_1280x800.png")
-if p_set: p_set.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 23 Web Browser Firefox
 p_ff = s.spawn(["firefox", "https://example.com"])
@@ -338,8 +401,7 @@ time.sleep(1.2)
 run("xdotool search --onlyvisible --class 'epiphany|firefox' | tail -1 | xargs -I{} xdotool windowsize {} 700 500 windowmove {} 100 60 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("23_web_browser_firefox_1280x800.png")
-if p_ff: p_ff.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 24 Game Doom (Freedoom Phase 2) Windowed
 wad_file = "/usr/share/games/doom/freedoom2.wad"
@@ -350,8 +412,7 @@ time.sleep(1.0)
 run("xdotool search --onlyvisible --class chocolate-doom | tail -1 | xargs -I{} xdotool windowmove {} 200 80 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("24_game_doom_freedoom_1280x800.png")
-if p_doom: p_doom.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 27 Calculator
 p_calc = s.spawn(["galculator"])
@@ -359,8 +420,7 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --class galculator | tail -1 | xargs -I{} xdotool windowmove {} 200 120 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("27_calculator_galculator_1280x800.png")
-if p_calc: p_calc.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 28 Image viewer Ristretto
 if os.path.exists(f"{REPO_ROOT}/assets/wallpapers/01_classic_system_gray.png"):
@@ -369,8 +429,7 @@ if os.path.exists(f"{REPO_ROOT}/assets/wallpapers/01_classic_system_gray.png"):
     run("xdotool search --onlyvisible --class ristretto | tail -1 | xargs -I{} xdotool windowsize {} 620 440 windowmove {} 160 80 windowactivate {}", env=s.env)
     time.sleep(0.4)
     s.capture("28_image_viewer_ristretto_1280x800.png")
-    if p_img: p_img.terminate()
-    time.sleep(0.3)
+    s.clean_client_windows()
 
 # 29 Document viewer Zathura
 p_zath = s.spawn(["zathura"])
@@ -378,8 +437,7 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --class zathura | tail -1 | xargs -I{} xdotool windowsize {} 600 440 windowmove {} 180 80 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("29_document_viewer_zathura_1280x800.png")
-if p_zath: p_zath.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 33 Wallpaper chooser dialog
 p_wall = s.spawn(["slopos-settings", "--wallpaper"])
@@ -387,8 +445,7 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --name '^Desktop & Wallpaper$' | tail -1 | xargs -I{} xdotool windowsize {} 640 460 windowmove {} 150 70 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("33_wallpaper_chooser_dialog_1280x800.png")
-if p_wall: p_wall.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 36 Date & Time control panel
 p_dt = s.spawn(["slopos-settings", "--datetime"])
@@ -396,8 +453,7 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --name '^Date & Time$' | tail -1 | xargs -I{} xdotool windowsize {} 520 380 windowmove {} 200 100 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("36_datetime_control_panel_1280x800.png")
-if p_dt: p_dt.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 37 Network GUI
 p_net = s.spawn(["nm-connection-editor"])
@@ -405,8 +461,7 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --class nm-connection-editor | tail -1 | xargs -I{} xdotool windowsize {} 520 400 windowmove {} 180 90 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("37_network_wifi_gui_1280x800.png")
-if p_net: p_net.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 38 Bluetooth GUI
 p_blue = s.spawn(["blueman-manager"])
@@ -414,8 +469,7 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --class blueman-manager | tail -1 | xargs -I{} xdotool windowsize {} 560 400 windowmove {} 180 90 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("38_bluetooth_gui_1280x800.png")
-if p_blue: p_blue.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 39 Sound Audio Pavucontrol
 p_snd = s.spawn(["pavucontrol"])
@@ -423,8 +477,7 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --class pavucontrol | tail -1 | xargs -I{} xdotool windowsize {} 580 420 windowmove {} 170 80 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("39_sound_audio_pavucontrol_1280x800.png")
-if p_snd: p_snd.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 40 GIMP
 p_gimp = s.spawn(["gimp"])
@@ -432,8 +485,7 @@ time.sleep(1.5)
 run("xdotool search --onlyvisible --class gimp | tail -1 | xargs -I{} xdotool windowsize {} 720 500 windowmove {} 100 60 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("40_app_gimp_1280x800.png")
-if p_gimp: p_gimp.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 41 Inkscape
 p_ink = s.spawn(["inkscape"])
@@ -441,8 +493,7 @@ time.sleep(1.5)
 run("xdotool search --onlyvisible --class inkscape | tail -1 | xargs -I{} xdotool windowsize {} 720 500 windowmove {} 100 60 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("41_app_inkscape_1280x800.png")
-if p_ink: p_ink.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 42 VLC Media Player
 p_vlc = s.spawn(["vlc"])
@@ -450,26 +501,24 @@ time.sleep(1.0)
 run("xdotool search --onlyvisible --class vlc | tail -1 | xargs -I{} xdotool windowsize {} 640 440 windowmove {} 160 80 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("42_app_vlc_media_player_1280x800.png")
-if p_vlc: p_vlc.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 43 LibreOffice Writer
-p_lo = s.spawn(["libreoffice", "--writer"])
-time.sleep(1.5)
+p_lo = s.spawn(["libreoffice", "--writer", "--nologo"])
+time.sleep(1.8)
 run("xdotool search --onlyvisible --class soffice.bin | tail -1 | xargs -I{} xdotool windowsize {} 720 500 windowmove {} 100 60 windowactivate {}", env=s.env)
+run("xdotool key Return", env=s.env)
 time.sleep(0.4)
 s.capture("43_app_libreoffice_writer_1280x800.png")
-if p_lo: p_lo.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 44 SuperTux Windowed
 p_st = s.spawn(["supertux", "-w"])
-time.sleep(1.0)
-run("xdotool search --onlyvisible --class 'supertux|supertux2' | tail -1 | xargs -I{} xdotool windowmove {} 150 80 windowactivate {}", env=s.env)
+time.sleep(1.2)
+run("xdotool search --onlyvisible --class 'supertux|supertux2' | tail -1 | xargs -I{} xdotool windowmove {} 200 70 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("44_app_supertux_1280x800.png")
-if p_st: p_st.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 45 Thunderbird
 p_tb = s.spawn(["thunderbird"])
@@ -477,43 +526,45 @@ time.sleep(1.5)
 run("xdotool search --onlyvisible --class thunderbird | tail -1 | xargs -I{} xdotool windowsize {} 700 480 windowmove {} 120 70 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("45_app_thunderbird_1280x800.png")
-if p_tb: p_tb.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 46 Fullscreen Video MPV
 p_mpv = s.spawn(["mpv", "--fullscreen", "--idle=yes", "--force-window=yes"])
 time.sleep(1.0)
 s.capture("46_fullscreen_video_mpv_1280x800.png")
-if p_mpv: p_mpv.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 47 Dock Dodge Maximized
-p_max = s.spawn(["mousepad"])
-time.sleep(0.8)
-run("xdotool search --onlyvisible --class mousepad | tail -1 | xargs -I{} xdotool windowsize {} 1280 774 windowmove {} 0 26 windowactivate {}", env=s.env)
-time.sleep(0.4)
+with open(f"{s.home}/.config/slopos-i/dock_dodge", "w") as f:
+    f.write("1\n")
+p_dodge = s.spawn(["mousepad", f"{REPO_ROOT}/README.md"])
+time.sleep(1.0)
+run("xdotool search --onlyvisible --class mousepad | tail -1 | xargs -I{} wmctrl -i -r {} -b add,maximized_vert,maximized_horz", env=s.env)
+run("xdotool mousemove 640 400", env=s.env)
+time.sleep(0.6)
 s.capture("47_dock_dodge_maximized_1280x800.png")
 
 # 49 Dock Dodge Hover Overlap
-run("xdotool mousemove 640 795", env=s.env)
-time.sleep(0.5)
+run("xdotool mousemove 640 798", env=s.env)
+time.sleep(0.6)
 s.capture("49_dock_dodge_hover_overlap_1280x800.png")
-if p_max: p_max.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
+try:
+    os.remove(f"{s.home}/.config/slopos-i/dock_dodge")
+except Exception:
+    pass
 
 # 50 Fullscreen Game SuperTux
 p_st_full = s.spawn(["supertux", "-f"])
 time.sleep(1.2)
 s.capture("50_fullscreen_game_supertux_1280x800.png")
-if p_st_full: p_st_full.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 51 Fullscreen Game Doom
 p_doom_full = s.spawn(["chocolate-doom", "-iwad", wad_file, "-fullscreen"])
 time.sleep(1.2)
 s.capture("51_fullscreen_game_doom_1280x800.png")
-if p_doom_full: p_doom_full.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # 48 Appearance custom color & font studio
 p_app = s.spawn(["slopos-settings", "--appearance"])
@@ -521,8 +572,7 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --name '^Appearance$' | tail -1 | xargs -I{} xdotool windowsize {} 600 440 windowmove {} 180 80 windowactivate {}", env=s.env)
 time.sleep(0.4)
 s.capture("48_custom_color_font_studio_1280x800.png")
-if p_app: p_app.terminate()
-time.sleep(0.3)
+s.clean_client_windows()
 
 # Wallpapers
 for idx, wp, name in [
@@ -542,7 +592,6 @@ s.stop()
 print("--- Scene 2: Graphite Dark ---")
 s_dark = XSession(resolution="1280x800", appearance="graphite")
 s_dark.start()
-run("xsetroot -solid '#1e222a'", env=s_dark.env)
 s_dark.capture("12_graphite_dark_desktop_1280x800.png")
 
 p_dark_set = s_dark.spawn(["slopos-settings"])
@@ -550,14 +599,13 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --name '^System Settings$' | tail -1 | xargs -I{} xdotool windowsize {} 640 460 windowmove {} 150 70 windowactivate {}", env=s_dark.env)
 time.sleep(0.4)
 s_dark.capture("13_graphite_settings_1280x800.png")
-if p_dark_set: p_dark_set.terminate()
+s_dark.clean_client_windows()
 s_dark.stop()
 
 # 3. OLED Dark Session
 print("--- Scene 3: OLED Dark ---")
 s_oled = XSession(resolution="1280x800", appearance="oled")
 s_oled.start()
-run("xsetroot -solid '#000000'", env=s_oled.env)
 s_oled.capture("34_oled_dark_desktop_1280x800.png")
 
 p_oled_set = s_oled.spawn(["slopos-settings"])
@@ -565,7 +613,7 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --name '^System Settings$' | tail -1 | xargs -I{} xdotool windowsize {} 640 460 windowmove {} 150 70 windowactivate {}", env=s_oled.env)
 time.sleep(0.4)
 s_oled.capture("35_oled_dark_settings_1280x800.png")
-if p_oled_set: p_oled_set.terminate()
+s_oled.clean_client_windows()
 s_oled.stop()
 
 # 4. Classic Contrast Session
@@ -581,9 +629,9 @@ s_classic.capture("20_classic_contrast_system_menu_1280x800.png")
 run("xdotool key Down Return", env=s_classic.env)
 time.sleep(0.6)
 s_classic.capture("21_classic_contrast_about_dialog_1280x800.png")
-run("xdotool key Escape || xdotool key Return", env=s_classic.env)
+run("xdotool search --onlyvisible --name 'About' | xargs -I{} xdotool windowclose {} || true", env=s_classic.env)
 time.sleep(0.3)
-
+s_classic.clean_client_windows()
 s_classic.stop()
 
 # 5. Multi-resolution: 1920x1080 Full HD
@@ -598,8 +646,7 @@ time.sleep(0.8)
 run("xdotool search --onlyvisible --class xfce4-terminal | tail -1 | xargs -I{} xdotool windowsize {} 680 440 windowmove {} 540 220 windowactivate {}", env=s_fhd.env)
 time.sleep(0.4)
 s_fhd.capture("16_workspace_multi_window_1920x1080.png")
-if p_fm1: p_fm1.terminate()
-if p_term1: p_term1.terminate()
+s_fhd.clean_client_windows()
 s_fhd.stop()
 
 # 6. Multi-resolution: 3440x1440 Ultrawide

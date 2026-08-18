@@ -92,8 +92,9 @@ impl TopBar {
             .style_context()
             .add_class("slopos-active-app");
         active_title_label.set_halign(Align::Start);
+        active_title_label.set_xalign(0.0);
         active_title_label.set_ellipsize(pango::EllipsizeMode::End);
-        active_title_label.set_max_width_chars(24);
+        active_title_label.set_size_request(130, -1);
         set_accessible_name(&active_title_label, "Active application");
         main_box.pack_start(&active_title_label, false, false, 7);
 
@@ -872,6 +873,14 @@ fn slopos_dialog(title: &str, message: &str, buttons: &[(&str, ResponseType)]) -
     );
     dialog.set_default_size(360, 150);
     dialog.set_resizable(false);
+    dialog.connect_key_press_event(|dialog, event| {
+        if event.keyval() == gdk::keys::constants::Escape {
+            dialog.close();
+            glib::Propagation::Stop
+        } else {
+            glib::Propagation::Proceed
+        }
+    });
 
     let alert = GtkBox::new(Orientation::Horizontal, 9);
     alert.style_context().add_class("slopos-alert-box");
