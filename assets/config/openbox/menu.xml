@@ -25,8 +25,8 @@
     <item label="02 Platinum Cool Slate (Grid)">
       <action name="Execute"><command>slopos-wallpaper set 02_platinum_cool_slate.png</command></action>
     </item>
-    <item label="03 Vintage Mac Blue (Tweed)">
-      <action name="Execute"><command>slopos-wallpaper set 03_vintage_mac_blue.png</command></action>
+    <item label="03 Slate Blue (Woven)">
+      <action name="Execute"><command>slopos-wallpaper set 03_slate_blue.png</command></action>
     </item>
     <item label="04 Retro Teal Grid (Matrix)">
       <action name="Execute"><command>slopos-wallpaper set 04_retro_teal_grid.png</command></action>
