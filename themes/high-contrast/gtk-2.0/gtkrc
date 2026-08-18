@@ -1,4 +1,4 @@
-# SLOPOS-I Classic Macintosh GTK2 Theme — System 6/7 Monochrome
+# SLOPOS-I Classic Contrast GTK2 Theme — monochrome appearance
 gtk-color-scheme = "fg_color:#000000\nbg_color:#FFFFFF\nbase_color:#FFFFFF\ntext_color:#000000\nselected_bg_color:#000000\nselected_fg_color:#FFFFFF\ntooltip_bg_color:#FFFFFF\ntooltip_fg_color:#000000"
 
 style "default" {
