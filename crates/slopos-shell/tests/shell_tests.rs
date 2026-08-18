@@ -402,3 +402,45 @@ fn shipping_sources_do_not_reintroduce_wayland_or_vision() {
         }
     }
 }
+
+#[test]
+fn event_driven_architecture_replaces_periodic_subprocess_polling() {
+    let shell_main = include_str!("../src/main.rs");
+    let x11_events = include_str!("../src/x11/events.rs");
+    let monitor = include_str!("../src/services/monitor.rs");
+
+    assert!(shell_main.contains("AppIndex::start"));
+    assert!(shell_main.contains("SystemMonitor::start"));
+    assert!(shell_main.contains("X11EventBus::start"));
+
+    // Ensure edge detection uses native X11 Enter/Leave notify window rather than 50ms pointer polling
+    assert!(x11_events.contains("EventMask::ENTER_WINDOW"));
+    assert!(x11_events.contains("EventMask::LEAVE_WINDOW"));
+    assert!(x11_events.contains("Event::EnterNotify"));
+    assert!(x11_events.contains("Event::LeaveNotify"));
+    assert!(!x11_events.contains("query_pointer"));
+
+    // Ensure system monitor uses D-Bus and PipeWire/Pulse event streaming rather than subprocess polling loops
+    assert!(monitor.contains("pactl"));
+    assert!(monitor.contains("subscribe"));
+    assert!(monitor.contains("receive_all_signals"));
+}
+
+#[test]
+fn multi_monitor_and_coordinate_mapping_supports_hidpi_and_non_zero_origins() {
+    let monitors = include_str!("../src/x11/monitors.rs");
+    let dock = include_str!("../src/dock.rs");
+    let topbar = include_str!("../src/topbar.rs");
+
+    assert!(monitors.contains("pub fn gdk_x"));
+    assert!(monitors.contains("pub fn gdk_y"));
+    assert!(monitors.contains("pub fn gdk_width"));
+    assert!(monitors.contains("pub fn gdk_height"));
+    assert!(monitors.contains("pub fn root_left"));
+    assert!(monitors.contains("pub fn root_bottom"));
+
+    assert!(dock.contains("primary.gdk_x()"));
+    assert!(dock.contains("primary.gdk_y()"));
+    assert!(topbar.contains("primary.gdk_x()"));
+    assert!(topbar.contains("primary.gdk_width()"));
+}

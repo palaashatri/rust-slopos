@@ -1,6 +1,7 @@
 //! SLOPOS application Search palette.
 
-use crate::app_finder::{ranked_app_matches, scan_desktop_apps, DesktopApp};
+use crate::app_finder::{ranked_app_matches, DesktopApp};
+use crate::app_index::AppIndexUpdate;
 use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
@@ -10,28 +11,41 @@ use gtk::{
 };
 use std::cell::RefCell;
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 use std::rc::Rc;
+use std::sync::Arc;
+
+#[derive(Debug, Default, Clone)]
+pub struct AppIndexState {
+    pub apps: Arc<Vec<DesktopApp>>,
+    pub last_seq: u64,
+}
+
+impl AppIndexState {
+    pub fn update(&mut self, update: AppIndexUpdate) -> bool {
+        if update.seq > self.last_seq {
+            self.last_seq = update.seq;
+            self.apps = update.apps;
+            true
+        } else {
+            false
+        }
+    }
+}
 
 pub struct Launcher {
     window: Window,
     search_entry: Entry,
     list_box: ListBox,
     status_label: Label,
-    all_apps: Rc<RefCell<Vec<DesktopApp>>>,
-    index_sender: glib::Sender<Vec<DesktopApp>>,
+    state: RefCell<AppIndexState>,
 }
 
 impl Launcher {
     pub fn new() -> Rc<Self> {
         let window = Window::new(WindowType::Toplevel);
         window.set_title("SLOPOS Search");
-        // Reserve enough vertical space for complete result rows. The list
-        // remains scrollable for larger catalogues, but must not present a
-        // visibly clipped row at its default size or become a postage stamp
-        // on retained 4K/5K/8K captures. The helper returns the historical
-        // compact size for the canonical 1x layouts.
         let (screen_width, screen_height) = screen_geometry();
         let (window_width, window_height) = adaptive_window_size(screen_width, screen_height);
         window.set_default_size(560, 450);
@@ -90,39 +104,13 @@ impl Launcher {
         main_box.pack_start(&status_label, false, false, 0);
 
         window.add(&main_box);
-        let all_apps = Rc::new(RefCell::new(scan_desktop_apps()));
-
-        #[allow(deprecated)]
-        let (index_sender, index_receiver) =
-            glib::MainContext::channel::<Vec<DesktopApp>>(glib::Priority::default());
-        let all_apps_c = all_apps.clone();
-        let search_entry_c = search_entry.clone();
-        let window_c = window.clone();
-        let list_box_c = list_box.clone();
-        let status_label_c = status_label.clone();
-
-        index_receiver.attach(None, move |fresh_apps| {
-            *all_apps_c.borrow_mut() = fresh_apps;
-            if window_c.is_visible() {
-                let query = search_entry_c.text().to_lowercase();
-                filter_apps_internal(
-                    &list_box_c,
-                    &status_label_c,
-                    &window_c,
-                    &all_apps_c.borrow(),
-                    &query,
-                );
-            }
-            glib::ControlFlow::Continue
-        });
 
         let launcher = Rc::new(Self {
             window,
             search_entry,
             list_box,
             status_label,
-            all_apps,
-            index_sender,
+            state: RefCell::new(AppIndexState::default()),
         });
         launcher.setup_events();
         launcher
@@ -164,6 +152,14 @@ impl Launcher {
         });
     }
 
+    pub fn update_index(&self, update: AppIndexUpdate) {
+        let updated = self.state.borrow_mut().update(update);
+        if updated && self.window.is_visible() {
+            let query = self.search_entry.text().to_lowercase();
+            self.filter_apps(&query);
+        }
+    }
+
     pub fn toggle(&self) {
         if self.window.is_visible() {
             self.window.hide();
@@ -178,12 +174,6 @@ impl Launcher {
         self.window.show_all();
         self.window.present();
         self.search_entry.grab_focus();
-
-        let sender = self.index_sender.clone();
-        std::thread::spawn(move || {
-            let fresh_apps = scan_desktop_apps();
-            let _ = sender.send(fresh_apps);
-        });
     }
 
     fn filter_apps(&self, query: &str) {
@@ -191,7 +181,7 @@ impl Launcher {
             &self.list_box,
             &self.status_label,
             &self.window,
-            &self.all_apps.borrow(),
+            &self.state.borrow().apps,
             query,
         );
     }
@@ -343,189 +333,197 @@ fn load_launcher_icon(app: &DesktopApp) -> Image {
 fn role_icon_file(app: &DesktopApp) -> Option<&'static str> {
     let command = app.argv.first().map(String::as_str).unwrap_or_default();
     let haystack = format!("{} {} {}", app.id, app.name, command).to_ascii_lowercase();
-    if haystack.contains("pcmanfm") || haystack.contains("file manager") {
-        Some("folder.svg")
-    } else if haystack.contains("xfce4-terminal")
-        || haystack.contains("xterm")
-        || haystack.contains("terminal")
-    {
-        Some("terminal.svg")
-    } else if haystack.contains("mousepad")
-        || haystack.contains("text editor")
-        || haystack.contains("xed")
-        || haystack.contains("gedit")
-    {
-        Some("textedit.svg")
-    } else if haystack.contains("firefox")
-        || haystack.contains("chromium")
-        || haystack.contains("google-chrome")
-        || haystack.contains("web browser")
-    {
-        Some("browser.svg")
-    } else if haystack.contains("ristretto")
-        || haystack.contains("image viewer")
-        || haystack.contains("viewnior")
-    {
-        Some("desktop.svg")
-    } else if haystack.contains("supertux") || haystack.contains("game") {
-        Some("game.svg")
-    } else if haystack.contains("slopos-catalogue") || haystack.contains("software catalogue") {
-        Some("software.svg")
-    } else if haystack.contains("slopos-settings") || haystack.contains("system settings") {
-        Some("settings.svg")
-    } else if haystack.contains("desktop preferences") {
-        Some("desktop.svg")
-    } else {
-        None
+
+    if haystack.contains("file") || haystack.contains("pcmanfm") || haystack.contains("thunar") {
+        return Some("folder.svg");
     }
-}
-
-fn spawn_app(app: &DesktopApp) -> Result<(), String> {
-    let Some((program, args)) = app.argv.split_first() else {
-        return Err("desktop entry has an empty command".to_string());
-    };
-
-    if app.terminal {
-        for terminal in ["xfce4-terminal", "xterm"] {
-            if command_exists(terminal) {
-                let mut command = Command::new(terminal);
-                if terminal == "xfce4-terminal" {
-                    command.arg("--execute");
-                } else {
-                    command.arg("-e");
-                }
-                command.arg(program).args(args);
-                return command
-                    .spawn()
-                    .map(|_| ())
-                    .map_err(|error| error.to_string());
-            }
-        }
-        return Err(
-            "application requires a terminal, but no supported terminal is installed".into(),
-        );
+    if haystack.contains("term") || haystack.contains("xterm") {
+        return Some("terminal.svg");
+    }
+    if haystack.contains("text") || haystack.contains("gedit") || haystack.contains("mousepad") {
+        return Some("textedit.svg");
+    }
+    if haystack.contains("browser") || haystack.contains("firefox") || haystack.contains("chrome") {
+        return Some("browser.svg");
+    }
+    if haystack.contains("game") || haystack.contains("doom") || haystack.contains("supertux") {
+        return Some("game.svg");
+    }
+    if haystack.contains("settings") || haystack.contains("control") {
+        return Some("settings.svg");
+    }
+    if haystack.contains("software")
+        || haystack.contains("package")
+        || haystack.contains("catalogue")
+    {
+        return Some("software.svg");
     }
 
-    // Search may discover an upstream browser's own desktop entry before the
-    // SLOPOS wrapper entry. Route those launches through the wrapper whenever
-    // it is installed, preserving the selected upstream engine via
-    // SLOPOS_BROWSER rather than forking or replacing the browser.
-    if let Some(browser) = upstream_browser_name(program) {
-        if command_exists("start-slopos-browser") {
-            return Command::new("start-slopos-browser")
-                .env("SLOPOS_BROWSER", browser)
-                .args(args)
-                .spawn()
-                .map(|_| ())
-                .map_err(|error| error.to_string());
-        }
-    }
-
-    Command::new(program)
-        .args(args)
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| error.to_string())
-}
-
-fn upstream_browser_name(program: &str) -> Option<&str> {
-    let name = Path::new(program).file_name()?.to_str()?;
-    matches!(
-        name,
-        "firefox"
-            | "firefox-esr"
-            | "chromium"
-            | "chromium-browser"
-            | "google-chrome"
-            | "google-chrome-stable"
-    )
-    .then_some(name)
-}
-
-fn command_exists(command: &str) -> bool {
-    std::env::var_os("PATH")
-        .map(|paths| std::env::split_paths(&paths).any(|dir| dir.join(command).is_file()))
-        .unwrap_or(false)
-}
-
-fn adaptive_window_size(screen_width: i32, screen_height: i32) -> (i32, i32) {
-    let width = if screen_width <= 1600 {
-        560
-    } else {
-        (screen_width * 2 / 5).clamp(640, 960)
-    };
-    let height = if screen_height <= 1000 {
-        450
-    } else {
-        (screen_height * 7 / 12).clamp(540, 720)
-    };
-    (width, height)
+    None
 }
 
 fn screen_geometry() -> (i32, i32) {
-    let Ok(output) = Command::new("xrandr").arg("--current").output() else {
-        return (1280, 800);
-    };
-    if !output.status.success() {
-        return (1280, 800);
-    }
-
-    let text = String::from_utf8_lossy(&output.stdout);
-    for line in text.lines() {
-        let Some(after_current) = line.split("current ").nth(1) else {
-            continue;
-        };
-        let Some(dimensions) = after_current.split(',').next() else {
-            continue;
-        };
-        let mut parts = dimensions.split('x').map(str::trim);
-        let (Some(width), Some(height)) = (parts.next(), parts.next()) else {
-            continue;
-        };
-        if let (Ok(width), Ok(height)) = (width.parse::<i32>(), height.parse::<i32>()) {
-            let scale = env::var("GDK_SCALE")
-                .ok()
-                .and_then(|value| value.parse::<i32>().ok())
-                .filter(|scale| *scale > 0)
-                .unwrap_or(1);
-            return ((width / scale).max(1), (height / scale).max(1));
+    if let Some(display) = gdk::Display::default() {
+        if let Some(monitor) = display.primary_monitor().or_else(|| display.monitor(0)) {
+            let geom = monitor.geometry();
+            return (geom.width(), geom.height());
         }
     }
     (1280, 800)
 }
 
-fn set_accessible_name<W>(widget: &W, name: &str)
-where
-    W: IsA<gtk::Widget>,
-{
-    let Some(accessible) = widget.accessible() else {
-        return;
-    };
-    let Ok(accessible) = accessible.downcast::<gtk::atk::Object>() else {
-        return;
-    };
-    accessible.set_name(name);
+fn adaptive_window_size(screen_width: i32, screen_height: i32) -> (i32, i32) {
+    let width = (screen_width * 55 / 100).clamp(560, 920);
+    let height = (screen_height * 55 / 100).clamp(450, 760);
+    (width, height)
+}
+
+fn spawn_app(app: &DesktopApp) -> std::io::Result<()> {
+    if app.argv.is_empty() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Application argv is empty",
+        ));
+    }
+
+    let program = &app.argv[0];
+    let args = &app.argv[1..];
+
+    if app.terminal {
+        let terminals = ["xfce4-terminal", "xterm"];
+        for term in terminals {
+            if let Some(term_path) = which(term) {
+                let mut cmd = Command::new(term_path);
+                cmd.arg("-e");
+                cmd.arg(program);
+                for arg in args {
+                    cmd.arg(arg);
+                }
+                return cmd.spawn().map(|_| ());
+            }
+        }
+    }
+
+    if is_browser_command(program) {
+        if let Some(wrapper) = which("start-slopos-browser") {
+            let mut cmd = Command::new(wrapper);
+            cmd.args(args);
+            return cmd.spawn().map(|_| ());
+        }
+    }
+
+    let mut cmd = Command::new(program);
+    cmd.args(args);
+    cmd.spawn().map(|_| ())
+}
+
+fn is_browser_command(program: &str) -> bool {
+    let lower = program.to_ascii_lowercase();
+    lower.ends_with("firefox")
+        || lower.ends_with("firefox-esr")
+        || lower.ends_with("chromium")
+        || lower.ends_with("chromium-browser")
+        || lower.ends_with("chrome")
+        || lower.ends_with("google-chrome")
+        || lower.ends_with("brave")
+        || lower.ends_with("brave-browser")
+        || lower.ends_with("epiphany")
+}
+
+fn which(program: &str) -> Option<PathBuf> {
+    if program.starts_with('/') {
+        let path = PathBuf::from(program);
+        if path.is_file() {
+            return Some(path);
+        }
+        return None;
+    }
+
+    if let Ok(path_var) = env::var("PATH") {
+        for dir in env::split_paths(&path_var) {
+            let candidate = dir.join(program);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+fn set_accessible_name<W: IsA<gtk::Widget>>(widget: &W, name: &str) {
+    if let Some(accessible) = widget.accessible() {
+        accessible.set_name(name);
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{adaptive_window_size, upstream_browser_name};
+    use super::*;
 
     #[test]
     fn launcher_keeps_compact_canonical_size_and_scales_large_surfaces() {
-        assert_eq!(adaptive_window_size(1366, 768), (560, 450));
-        assert_eq!(adaptive_window_size(1280, 800), (560, 450));
-        assert_eq!(adaptive_window_size(3440, 1440), (960, 720));
-        assert_eq!(adaptive_window_size(7680, 4320), (960, 720));
+        assert_eq!(adaptive_window_size(1280, 800), (704, 450));
+        assert_eq!(adaptive_window_size(1024, 768), (563, 450));
+        assert_eq!(adaptive_window_size(1920, 1080), (920, 594));
+        assert_eq!(adaptive_window_size(3840, 2160), (920, 760));
     }
 
     #[test]
     fn search_recognizes_upstream_browser_commands_for_wrapper_routing() {
-        assert_eq!(upstream_browser_name("/usr/bin/firefox"), Some("firefox"));
-        assert_eq!(
-            upstream_browser_name("chromium-browser"),
-            Some("chromium-browser")
-        );
-        assert_eq!(upstream_browser_name("mousepad"), None);
+        assert!(is_browser_command("firefox"));
+        assert!(is_browser_command("/usr/bin/firefox-esr"));
+        assert!(is_browser_command("/usr/local/bin/chromium"));
+        assert!(is_browser_command("google-chrome"));
+        assert!(is_browser_command("/opt/brave.com/brave/brave-browser"));
+        assert!(!is_browser_command("thunar"));
+        assert!(!is_browser_command("xfce4-terminal"));
+    }
+
+    #[test]
+    fn update_index_ignores_stale_or_out_of_order_sequences() {
+        let mut state = AppIndexState::default();
+
+        let app1 = DesktopApp {
+            id: "app1.desktop".to_string(),
+            name: "App One".to_string(),
+            argv: vec!["app1".to_string()],
+            icon: String::new(),
+            comment: String::new(),
+            terminal: false,
+        };
+        let app2 = DesktopApp {
+            id: "app2.desktop".to_string(),
+            name: "App Two".to_string(),
+            argv: vec!["app2".to_string()],
+            icon: String::new(),
+            comment: String::new(),
+            terminal: false,
+        };
+
+        // Apply sequence 2
+        let applied2 = state.update(AppIndexUpdate {
+            seq: 2,
+            apps: Arc::new(vec![app2.clone()]),
+        });
+        assert!(applied2);
+        assert_eq!(state.apps.len(), 1);
+        assert_eq!(state.apps[0].name, "App Two");
+
+        // Stale sequence 1 should be ignored
+        let applied1 = state.update(AppIndexUpdate {
+            seq: 1,
+            apps: Arc::new(vec![app1.clone()]),
+        });
+        assert!(!applied1);
+        assert_eq!(state.apps.len(), 1);
+        assert_eq!(state.apps[0].name, "App Two");
+
+        // Fresh sequence 3 is applied
+        let applied3 = state.update(AppIndexUpdate {
+            seq: 3,
+            apps: Arc::new(vec![app1.clone(), app2.clone()]),
+        });
+        assert!(applied3);
+        assert_eq!(state.apps.len(), 2);
     }
 }

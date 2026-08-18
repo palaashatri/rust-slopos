@@ -114,7 +114,7 @@ menubar > menuitem:active {
 }
 
 .slopos-clock {
-  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 menubar {

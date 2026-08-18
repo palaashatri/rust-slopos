@@ -18,14 +18,57 @@ pub struct Monitor {
 }
 
 impl Monitor {
+    /// Return the width in GDK scaled coordinate space.
     pub fn scaled_width(&self) -> i32 {
         (self.width / self.scale.max(1)).max(1)
     }
 
+    /// Return the height in GDK scaled coordinate space.
     pub fn scaled_height(&self) -> i32 {
         (self.height / self.scale.max(1)).max(1)
     }
 
+    /// Return the X origin in GDK scaled coordinate space.
+    pub fn gdk_x(&self) -> i32 {
+        self.x / self.scale.max(1)
+    }
+
+    /// Return the Y origin in GDK scaled coordinate space.
+    pub fn gdk_y(&self) -> i32 {
+        self.y / self.scale.max(1)
+    }
+
+    /// Return the width in GDK scaled coordinate space.
+    pub fn gdk_width(&self) -> i32 {
+        self.scaled_width()
+    }
+
+    /// Return the height in GDK scaled coordinate space.
+    pub fn gdk_height(&self) -> i32 {
+        self.scaled_height()
+    }
+
+    /// Return the bottom Y coordinate in root X11 pixel space.
+    pub fn root_bottom(&self) -> i32 {
+        self.y + self.height
+    }
+
+    /// Return the top Y coordinate in root X11 pixel space.
+    pub fn root_top(&self) -> i32 {
+        self.y
+    }
+
+    /// Return the left X coordinate in root X11 pixel space.
+    pub fn root_left(&self) -> i32 {
+        self.x
+    }
+
+    /// Return the right X coordinate in root X11 pixel space.
+    pub fn root_right(&self) -> i32 {
+        self.x + self.width
+    }
+
+    /// Returns true if the root X11 pixel point (px, py) is within this monitor.
     pub fn contains_point(&self, px: i32, py: i32) -> bool {
         px >= self.x && px < self.x + self.width && py >= self.y && py < self.y + self.height
     }
@@ -157,7 +200,7 @@ pub fn query_monitors(conn: &RustConnection, root: Window) -> MonitorModel {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
 
     #[test]
@@ -182,6 +225,9 @@ mod tests {
         assert_eq!(model.primary(), Some(&monitor));
         assert_eq!(monitor.scaled_width(), 1920);
         assert_eq!(monitor.scaled_height(), 1080);
+        assert_eq!(monitor.gdk_x(), 0);
+        assert_eq!(monitor.gdk_y(), 0);
+        assert_eq!(monitor.root_bottom(), 1080);
         assert!(monitor.contains_point(100, 100));
         assert!(!monitor.contains_point(2000, 500));
     }
@@ -218,7 +264,71 @@ mod tests {
         assert_eq!(model.primary(), Some(&right));
         assert_eq!(right.scaled_width(), 1280);
         assert_eq!(right.scaled_height(), 720);
+        assert_eq!(right.gdk_x(), 960);
+        assert_eq!(right.gdk_y(), 0);
+        assert_eq!(right.root_bottom(), 1440);
         assert_eq!(model.monitor_for_point(500, 500), Some(&left));
         assert_eq!(model.monitor_for_point(2500, 500), Some(&right));
+    }
+
+    #[test]
+    fn vertical_stacked_monitor_layout() {
+        let top = Monitor {
+            output_id: 1,
+            name: "DP-1".to_string(),
+            x: 0,
+            y: 0,
+            width: 1920,
+            height: 1080,
+            primary: false,
+            scale: 1,
+        };
+        let bottom_primary = Monitor {
+            output_id: 2,
+            name: "eDP-1".to_string(),
+            x: 0,
+            y: 1080,
+            width: 1920,
+            height: 1080,
+            primary: true,
+            scale: 1,
+        };
+        let model = MonitorModel {
+            monitors: vec![top.clone(), bottom_primary.clone()],
+            primary_index: 1,
+            total_width: 1920,
+            total_height: 2160,
+        };
+
+        assert_eq!(model.primary(), Some(&bottom_primary));
+        assert_eq!(bottom_primary.gdk_x(), 0);
+        assert_eq!(bottom_primary.gdk_y(), 1080);
+        assert_eq!(bottom_primary.root_top(), 1080);
+        assert_eq!(bottom_primary.root_bottom(), 2160);
+        assert_eq!(model.monitor_for_point(100, 500), Some(&top));
+        assert_eq!(model.monitor_for_point(100, 1500), Some(&bottom_primary));
+    }
+
+    #[test]
+    fn hidpi_and_non_zero_origin_coordinate_mapping() {
+        let hidpi_monitor = Monitor {
+            output_id: 1,
+            name: "4K-Primary".to_string(),
+            x: 1920,
+            y: 1080,
+            width: 3840,
+            height: 2160,
+            primary: true,
+            scale: 2,
+        };
+
+        assert_eq!(hidpi_monitor.gdk_x(), 960);
+        assert_eq!(hidpi_monitor.gdk_y(), 540);
+        assert_eq!(hidpi_monitor.gdk_width(), 1920);
+        assert_eq!(hidpi_monitor.gdk_height(), 1080);
+        assert_eq!(hidpi_monitor.root_left(), 1920);
+        assert_eq!(hidpi_monitor.root_right(), 5760);
+        assert_eq!(hidpi_monitor.root_top(), 1080);
+        assert_eq!(hidpi_monitor.root_bottom(), 3240);
     }
 }

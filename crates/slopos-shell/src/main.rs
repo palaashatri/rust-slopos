@@ -1,6 +1,7 @@
 //! SLOPOS-I X11 desktop shell entry point.
 
 pub mod app_finder;
+pub mod app_index;
 pub mod dock;
 pub mod gmenu;
 pub mod launcher;
@@ -12,6 +13,7 @@ pub mod theme;
 pub mod topbar;
 pub mod x11;
 
+use app_index::AppIndex;
 use dock::Dock;
 use launcher::Launcher;
 use notifications::NotificationServer;
@@ -44,11 +46,25 @@ fn main() {
     let launcher = Launcher::new();
     install_launcher_signal_bridge(launcher.clone());
 
+    // Initialize the persistent background application index worker
+    #[allow(deprecated)]
+    let (app_index_sender, app_index_receiver) =
+        glib::MainContext::channel(glib::Priority::default());
+    let launcher_c = launcher.clone();
+    app_index_receiver.attach(None, move |update| {
+        launcher_c.update_index(update);
+        glib::ControlFlow::Continue
+    });
+
+    let _app_index = AppIndex::start(move |update| {
+        let _ = app_index_sender.send(update);
+    });
+
     let topbar = TopBar::new(launcher.clone());
     shortcuts::install_system_menu_shortcut();
     let dock = Dock::new(launcher);
 
-    // Initialize the background system service monitor (audio, network, power)
+    // Initialize the persistent event-driven D-Bus and audio monitor
     #[allow(deprecated)]
     let (status_sender, status_receiver) = glib::MainContext::channel(glib::Priority::default());
     let topbar_status = topbar.clone();
@@ -57,7 +73,7 @@ fn main() {
         glib::ControlFlow::Continue
     });
 
-    let _system_monitor = services::SystemMonitor::start(Duration::from_secs(3), move |status| {
+    let _system_monitor = services::SystemMonitor::start(move |status| {
         let _ = status_sender.send(status);
     });
 
