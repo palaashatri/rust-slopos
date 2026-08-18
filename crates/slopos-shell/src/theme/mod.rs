@@ -66,11 +66,26 @@ pub fn load_css_theme() {
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
     if let Some(ref config_home) = config_home {
-        let user_css = config_home.join("gtk-3.0/gtk.css");
-        if user_css.exists() {
-            css_paths.push(user_css);
+        let app_user_css = match appearance {
+            "oled" => config_home.join("gtk-3.0/gtk-oled.css"),
+            "graphite" => config_home.join("gtk-3.0/gtk-graphite.css"),
+            "classic" => config_home.join("gtk-3.0/gtk-classic.css"),
+            _ => config_home.join("gtk-3.0/gtk.css"),
+        };
+        if app_user_css.exists() {
+            css_paths.push(app_user_css);
         }
     }
+    css_paths.extend([
+        PathBuf::from(format!(
+            "/usr/share/themes/{installed_theme}/gtk-3.0/gtk.css"
+        )),
+        PathBuf::from(format!(
+            "/usr/local/share/themes/{installed_theme}/gtk-3.0/gtk.css"
+        )),
+        PathBuf::from(source_css),
+        PathBuf::from(format!("/etc/slopos-i/gtk-3.0/{installed_theme}.css")),
+    ]);
     if let Ok(share_dir) = std::env::var("SLOPOS_SHARE_DIR") {
         css_paths.push(
             PathBuf::from(share_dir)
@@ -79,16 +94,6 @@ pub fn load_css_theme() {
                 .join("gtk-3.0/gtk.css"),
         );
     }
-    css_paths.extend([
-        PathBuf::from(source_css),
-        PathBuf::from(format!("/etc/slopos-i/gtk-3.0/{installed_theme}.css")),
-        PathBuf::from(format!(
-            "/usr/local/share/themes/{installed_theme}/gtk-3.0/gtk.css"
-        )),
-        PathBuf::from(format!(
-            "/usr/share/themes/{installed_theme}/gtk-3.0/gtk.css"
-        )),
-    ]);
 
     for path in css_paths {
         if !path.exists() {

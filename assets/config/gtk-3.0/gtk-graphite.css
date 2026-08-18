@@ -1,102 +1,616 @@
-/* SLOPOS-I Graphite GTK3 theme: dark counterpart to Platinum with Crisp Black Borders. */
-@define-color slopos_face #2b2d31;
-@define-color slopos_face_dark #202226;
-@define-color slopos_light #1a1c1e;
-@define-color slopos_highlight #627dba;
-@define-color slopos_shadow #000000;
-@define-color slopos_mid #18191c;
-@define-color slopos_text #f0f0f0;
-@define-color slopos_disabled #858890;
-@define-color slopos_warning #ffb083;
+/* SLOPOS-I Graphite GTK3 theme: dark counterpart to Platinum.
+ * Original compact desktop styling: restrained depth, soft corners and clear dark hierarchy.
+ */
 
-* { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; font-size: 12px; color: @slopos_text; border-radius: 0; }
-window, .background, dialog { background-color: @slopos_face; color: @slopos_text; }
-headerbar, .titlebar { min-height: 24px; padding: 2px 4px; background-image: linear-gradient(to bottom,#4b4e55,#303238); border:0; border-bottom:1px solid #000000; box-shadow:none; }
-headerbar .title,.titlebar .title { font-weight:bold; font-size:12px; }
-window.csd,window.solid-csd,window.csd decoration { border-radius:0; box-shadow:none; }
+@define-color slopos_bg #1e222a;
+@define-color slopos_surface #282c34;
+@define-color slopos_surface_alt #21252b;
+@define-color slopos_surface_pressed #181a1f;
+@define-color slopos_text #e6edf3;
+@define-color slopos_secondary #8b949e;
+@define-color slopos_disabled #5c6370;
+@define-color slopos_border #3e4451;
+@define-color slopos_border_strong #5c6370;
+@define-color slopos_highlight #4d78cc;
+@define-color slopos_highlight_dark #355ba3;
+@define-color slopos_light #2c313c;
+@define-color slopos_warning #e06c75;
 
-.slopos-topbar { min-height:26px; background-image:linear-gradient(to bottom,#4b4e55,#303238); border-bottom:1px solid #000000; box-shadow:none; }
-.slopos-topbar label,.slopos-active-app { color:@slopos_text; }
-.slopos-active-app { font-weight:bold; padding:0 4px; }
-.slopos-topbar button,.slopos-menubar-control,.slopos-logo-btn { min-height:20px; padding:1px 5px; background-image:none; background-color:transparent; border:0; box-shadow:none; }
-.slopos-logo-btn { min-width:22px; font-weight:bold; }
-.slopos-topbar button:hover,.slopos-topbar button:checked,.slopos-menu-bar menuitem:hover { background-color:@slopos_highlight; }
-.slopos-topbar button:hover label,.slopos-topbar button:checked label,.slopos-menu-bar menuitem:hover label { color:#fff; }
-.slopos-menu-bar { background-color:transparent; border:0; box-shadow:none; }
-.slopos-menu-bar menuitem { min-height:18px; padding:3px 7px; }
-menubar { min-height:22px; padding:0 2px; background-color:@slopos_face; border-bottom:1px solid #000000; }
-menubar > menuitem { min-height:18px; padding:2px 7px; }
-menubar > menuitem:hover,menubar > menuitem:focus,menubar > menuitem:selected { background-color:@slopos_highlight; color:#fff; }
-menubar > menuitem:hover label,menubar > menuitem:focus label,menubar > menuitem:selected label { color:#fff; }
+* {
+  font-family: "Liberation Sans", "DejaVu Sans", sans-serif;
+  font-size: 12px;
+  color: @slopos_text;
+}
 
-menu,popover.background { background-color:#24262a; border:2px solid #000000; box-shadow:3px 3px rgba(0,0,0,.65); padding:2px; }
-menu menuitem { min-height:18px; padding:3px 18px 3px 8px; }
-menu menuitem:hover,menu menuitem:focus,menu menuitem:selected { background-color:@slopos_highlight; color:#fff; }
-menu menuitem:hover label,menu menuitem:focus label,menu menuitem:selected label { color:#fff; }
-menu menuitem:disabled,menubar > menuitem:disabled,menu menuitem:disabled label,menubar > menuitem:disabled label { color:@slopos_disabled; }
-menu separator { min-height:1px; margin:3px 4px; background-color:#000000; }
+window,
+.background,
+dialog {
+  background-color: @slopos_bg;
+  color: @slopos_text;
+}
 
-button { min-height:22px; padding:3px 9px; background-image:linear-gradient(to bottom,#50535a,#37393f); border:1px solid #000000; box-shadow:none; }
-button:hover { background-image:linear-gradient(to bottom,#61656d,#42454b); border-color:#000000; }
-button:active,button:checked { background-image:none; background-color:#24262a; border:1px solid #000000; }
-button:disabled { color:@slopos_disabled; background-image:none; background-color:#303238; border:1px solid #1a1c1e; }
-button:disabled label,.slopos-control-panel:disabled .slopos-control-title,.slopos-control-panel:disabled .slopos-secondary-text { color:@slopos_disabled; }
-button:disabled image { opacity:.55; }
-button:focus,check:focus,radio:focus,scale:focus,switch:focus,row:focus { box-shadow:inset 0 0 0 1px #91a9dd; }
-button.default { border:2px solid #000000; }
+window.csd,
+window.solid-csd,
+window.csd decoration {
+  border-radius: 9px;
+  border: 1px solid @slopos_border;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
 
-entry,spinbutton entry { min-height:24px; padding:2px 5px; background-color:#1d1f22; color:@slopos_text; border:1px solid #000000; }
-entry:focus,spinbutton entry:focus { border-color:#91a9dd; }
-entry:disabled { background-color:#292b30; color:@slopos_disabled; border-color:#1a1c1e; }
-check,radio { min-width:13px; min-height:13px; margin:2px 5px 2px 2px; background-color:#1d1f22; border:1px solid #000000; }
-check:checked,radio:checked { background-color:@slopos_highlight; color:#fff; border-color:#000000; }
-radio { border-radius:50%; }
-switch { min-width:42px; min-height:18px; background-color:#25272b; border:1px solid #000000; }
-switch:checked { background-color:@slopos_highlight; border-color:#000000; }
-switch slider { min-width:17px; min-height:16px; background-color:#555861; border:1px solid #000000; }
-combobox button { min-height:24px; padding:2px 7px; border:1px solid #000000; }
-scale trough { min-height:5px; background-color:#1d1f22; border:1px solid #000000; }
-scale slider { min-width:14px; min-height:18px; background-image:linear-gradient(to bottom,#575a62,#36383e); border:1px solid #000000; }
-progressbar trough { min-height:13px; background-color:#1d1f22; border:1px solid #000000; }
-progressbar progress { min-height:11px; background-color:@slopos_highlight; border:1px solid #000000; }
+headerbar,
+.titlebar {
+  min-height: 28px;
+  padding: 2px 6px;
+  border: 0;
+  border-bottom: 1px solid @slopos_border;
+  border-radius: 9px 9px 0 0;
+  background-image: linear-gradient(to bottom, #2d3139, #21252b);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08);
+}
 
-list,listbox,treeview,textview { background-color:#1f2125; color:@slopos_text; }
-row { min-height:26px; }
-row:selected { background-color:@slopos_highlight; color:#fff; }
-row:selected label,row:selected .slopos-secondary-text { color:#fff; }
-.slopos-list-frame { background-color:#1f2125; border:1px solid #000000; }
-.slopos-list-row { border-bottom:1px solid #1a1c1e; }
-.slopos-result-title,.slopos-control-title { font-weight:bold; }
-.slopos-secondary-text { color:#b8bac0; font-size:11px; }
-.slopos-warning-text { color:@slopos_warning; font-size:11px; font-weight:bold; }
-notebook > header { background-color:@slopos_face; border-bottom:1px solid #000000; }
-notebook > header tab { padding:4px 8px; border:1px solid transparent; }
-notebook > header tab:checked { background-color:#3a3d43; border:1px solid #000000; }
-frame,frame > border { border:1px solid #000000; }
-separator { min-height:1px; min-width:1px; background-color:#000000; }
-toolbar { padding:2px; background-color:#34363c; border-bottom:1px solid #000000; }
-scrollbar { min-width:14px; min-height:14px; background-color:#222428; }
-scrollbar slider { min-width:10px; min-height:24px; background-color:#555861; border:1px solid #000000; }
+headerbar:backdrop,
+.titlebar:backdrop {
+  background-image: linear-gradient(to bottom, #242830, #1c1f24);
+  color: @slopos_secondary;
+}
 
-.slopos-dock-container { padding:4px 6px; background-image:linear-gradient(to bottom,#4a4d54,#292b30); border:2px solid #000000; box-shadow:3px 3px rgba(0,0,0,.6); }
-.slopos-dock-label { min-width:30px; padding:1px 2px; color:#f0f0f0; font-size:9px; font-weight:bold; border:1px solid #000000; background-color:#202226; }
-.slopos-dock-btn { min-width:42px; min-height:40px; margin:0 1px; padding:2px; background-image:linear-gradient(to bottom,#50535a,#34363b); border:1px solid #000000; }
-.slopos-dock-btn:hover { background-image:none; background-color:#565a62; border-color:#000000; }
-.slopos-dock-separator { min-width:1px; margin:4px; background-color:#000000; }
-.slopos-launcher-window { background-color:transparent; }
-.slopos-launcher { padding:9px; background-color:@slopos_face; border:2px solid #000000; box-shadow:4px 4px rgba(0,0,0,.65); }
-.slopos-dialog-title { padding:2px 4px 5px; font-weight:bold; border-bottom:1px solid #000000; }
-.slopos-notification,.slopos-alert-box { padding:9px; background-color:#303238; border:2px solid #000000; box-shadow:4px 4px rgba(0,0,0,.65); }
-.slopos-notification-title { font-weight:bold; }
-.slopos-window-body { padding:10px; background-color:@slopos_face; }
-.slopos-panel-title { font-weight:bold; font-size:15px; }
-.slopos-panel-subtitle { color:#b8bac0; font-size:11px; }
-.slopos-section { padding:7px; background-color:#34363b; border:1px solid #000000; }
-.slopos-catalogue-row,.slopos-preference-row { background-color:#303238; border-bottom:1px solid #1a1c1e; }
-.slopos-control-panel { min-height:64px; padding:6px 8px; background-image:linear-gradient(to bottom,#484b52,#33353a); border:2px solid #000000; }
-.slopos-control-panel:hover { background-image:linear-gradient(to bottom,#555860,#3b3e44); border-color:#000000; }
-.slopos-control-panel:disabled { background-image:none; background-color:#303238; border-color:#1a1c1e; }
-.slopos-statusbar { padding:3px 6px; font-size:11px; background-color:#25272b; border-top:1px solid #000000; }
-tooltip { padding:3px 5px; background-color:#17181b; color:@slopos_text; border:1px solid #000000; box-shadow:2px 2px rgba(0,0,0,.6); }
-tooltip label { color:@slopos_text; }
-selection,entry selection,textview selection { background-color:@slopos_highlight; color:#fff; }
+headerbar .title,
+.titlebar .title {
+  font-weight: bold;
+  font-size: 12px;
+}
+
+headerbar button,
+.titlebar button {
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0 5px;
+  border-radius: 6px;
+}
+
+.slopos-topbar {
+  min-height: 26px;
+  background-image: linear-gradient(to bottom, rgba(45, 49, 57, 0.98), rgba(33, 37, 43, 0.98));
+  border-bottom: 1px solid @slopos_border;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.slopos-logo-btn,
+.slopos-menubar-control,
+.slopos-menu-bar > menuitem,
+menubar > menuitem {
+  min-height: 22px;
+  padding: 1px 7px;
+  border: 0;
+  border-radius: 6px;
+  background-image: none;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.slopos-logo-btn:hover,
+.slopos-menubar-control:hover,
+.slopos-menu-bar > menuitem:hover,
+menubar > menuitem:hover {
+  background-color: rgba(77, 120, 204, 0.22);
+}
+
+.slopos-menu-bar > menuitem:hover,
+menubar > menuitem:hover,
+.slopos-menu-bar > menuitem:active,
+menubar > menuitem:active {
+  color: #ffffff;
+  background-color: @slopos_highlight;
+}
+
+.slopos-active-app {
+  font-weight: bold;
+}
+
+.slopos-status-area,
+.slopos-global-menu-host {
+  background-color: transparent;
+}
+
+.slopos-clock {
+  font-feature-settings: "tnum";
+}
+
+menubar {
+  padding: 0;
+  background-color: transparent;
+  border: 0;
+}
+
+menu,
+popover,
+.menu {
+  padding: 4px;
+  background-color: @slopos_surface;
+  border: 1px solid @slopos_border;
+  border-radius: 8px;
+  box-shadow: 0 7px 24px rgba(0, 0, 0, 0.50);
+}
+
+menu menuitem,
+popover modelbutton {
+  min-height: 24px;
+  padding: 3px 10px;
+  border-radius: 5px;
+}
+
+menu menuitem:hover,
+popover modelbutton:hover {
+  color: #ffffff;
+  background-color: @slopos_highlight;
+}
+
+menu separator {
+  margin: 3px 7px;
+  min-height: 1px;
+  background-color: @slopos_border;
+}
+
+button {
+  min-height: 26px;
+  padding: 3px 10px;
+  color: @slopos_text;
+  background-image: linear-gradient(to bottom, #353b45, #282c34);
+  border: 1px solid @slopos_border;
+  border-radius: 6px;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+button:hover {
+  background-image: linear-gradient(to bottom, #3e4450, #30353f);
+  border-color: @slopos_border_strong;
+}
+
+button:active,
+button:checked {
+  background-image: none;
+  background-color: @slopos_surface_pressed;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+button:focus,
+check:focus,
+radio:focus,
+scale:focus,
+switch:focus,
+row:focus {
+  box-shadow: inset 0 0 0 1px @slopos_highlight;
+}
+
+button:disabled {
+  color: @slopos_disabled;
+  background-image: none;
+  background-color: #242830;
+  border-color: #333842;
+  box-shadow: none;
+}
+
+button:disabled label {
+  color: @slopos_disabled;
+}
+
+button:disabled image {
+  opacity: 0.55;
+}
+
+button.default {
+  border: 1px solid @slopos_highlight;
+  box-shadow: inset 0 0 0 1px rgba(77, 120, 204, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+button.default:focus {
+  box-shadow: inset 0 0 0 2px rgba(77, 120, 204, 0.5);
+}
+
+.slopos-compact-button {
+  min-height: 22px;
+  padding: 2px 8px;
+}
+
+entry,
+spinbutton entry {
+  min-height: 26px;
+  padding: 3px 7px;
+  background-color: #191c22;
+  color: @slopos_text;
+  border: 1px solid @slopos_border;
+  border-radius: 6px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+entry:focus,
+spinbutton entry:focus {
+  border-color: @slopos_highlight;
+  box-shadow: inset 0 0 0 1px rgba(77, 120, 204, 0.35);
+}
+
+entry:disabled {
+  background-color: #21252b;
+  color: @slopos_disabled;
+}
+
+check,
+radio {
+  min-width: 14px;
+  min-height: 14px;
+  margin: 2px 5px 2px 2px;
+  background-color: #191c22;
+  border: 1px solid @slopos_border_strong;
+}
+
+check {
+  border-radius: 4px;
+}
+
+radio {
+  border-radius: 50%;
+}
+
+check:checked,
+radio:checked {
+  background-color: @slopos_highlight;
+  color: #ffffff;
+  border-color: @slopos_highlight_dark;
+}
+
+switch {
+  min-width: 42px;
+  min-height: 20px;
+  background-color: #353b45;
+  border: 1px solid @slopos_border;
+  border-radius: 11px;
+}
+
+switch:checked {
+  background-color: @slopos_highlight;
+}
+
+switch slider {
+  min-width: 18px;
+  min-height: 18px;
+  background-color: #e6edf3;
+  border: 1px solid @slopos_border;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+combobox button {
+  min-height: 26px;
+  padding: 3px 8px;
+}
+
+scale trough {
+  min-height: 5px;
+  min-width: 5px;
+  background-color: #353b45;
+  border: 0;
+  border-radius: 3px;
+}
+
+scale highlight {
+  background-color: @slopos_highlight;
+  border-radius: 3px;
+}
+
+scale slider {
+  min-width: 15px;
+  min-height: 15px;
+  background-color: #e6edf3;
+  border: 1px solid @slopos_border_strong;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+progressbar trough {
+  min-height: 8px;
+  background-color: #353b45;
+  border: 0;
+  border-radius: 4px;
+}
+
+progressbar progress {
+  min-height: 8px;
+  background-color: @slopos_highlight;
+  border: 0;
+  border-radius: 4px;
+}
+
+list,
+listbox,
+treeview,
+textview {
+  background-color: #21252b;
+  color: @slopos_text;
+}
+
+row {
+  min-height: 28px;
+  border-radius: 5px;
+}
+
+row:selected {
+  background-color: @slopos_highlight;
+  color: #ffffff;
+}
+
+row:selected label,
+row:selected .slopos-secondary-text {
+  color: #ffffff;
+}
+
+.slopos-list-frame {
+  background-color: #21252b;
+  border: 1px solid @slopos_border;
+  border-radius: 7px;
+}
+
+.slopos-list-row {
+  border-bottom: 1px solid #282c34;
+}
+
+.slopos-result-title,
+.slopos-control-title {
+  font-weight: bold;
+}
+
+.slopos-result-icon,
+.slopos-control-icon {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.slopos-secondary-text {
+  color: @slopos_secondary;
+  font-size: 11px;
+}
+
+.slopos-warning-text {
+  color: @slopos_warning;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+treeview header button {
+  min-height: 22px;
+  padding: 2px 6px;
+  font-weight: bold;
+  border-radius: 5px 5px 0 0;
+}
+
+notebook > header {
+  background-color: transparent;
+  border-bottom: 1px solid @slopos_border;
+}
+
+notebook > header tab {
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 6px 6px 0 0;
+}
+
+notebook > header tab:checked {
+  background-color: @slopos_surface;
+  border: 1px solid @slopos_border;
+  border-bottom-color: @slopos_surface;
+}
+
+frame,
+frame > border {
+  border: 1px solid @slopos_border;
+  border-radius: 7px;
+}
+
+separator {
+  min-height: 1px;
+  min-width: 1px;
+  background-color: @slopos_border;
+}
+
+toolbar {
+  padding: 3px;
+  background-color: @slopos_surface_alt;
+  border-bottom: 1px solid @slopos_border;
+}
+
+scrollbar {
+  min-width: 12px;
+  min-height: 12px;
+  background-color: transparent;
+}
+
+scrollbar slider {
+  min-width: 8px;
+  min-height: 30px;
+  margin: 2px;
+  background-color: #5c6370;
+  border: 0;
+  border-radius: 5px;
+}
+
+scrollbar slider:hover {
+  background-color: #7b8496;
+}
+
+scrollbar button {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.slopos-dock-container {
+  padding: 5px 7px;
+  background-image: linear-gradient(to bottom, rgba(45, 49, 57, 0.96), rgba(30, 34, 42, 0.96));
+  border: 1px solid rgba(88, 97, 112, 0.85);
+  border-radius: 14px;
+  box-shadow: 0 7px 22px rgba(0, 0, 0, 0.45), inset 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.slopos-dock-label {
+  min-width: 30px;
+  padding: 1px 3px;
+  color: @slopos_secondary;
+  font-size: 9px;
+  font-weight: bold;
+}
+
+.slopos-dock-btn {
+  min-width: 42px;
+  min-height: 40px;
+  margin: 0 1px;
+  padding: 2px;
+  background-image: none;
+  background-color: transparent;
+  border-color: transparent;
+  border-radius: 9px;
+  box-shadow: none;
+}
+
+.slopos-dock-btn:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(92, 99, 112, 0.55);
+}
+
+.slopos-dock-btn:active {
+  background-color: rgba(77, 120, 204, 0.25);
+}
+
+.slopos-dock-btn:disabled {
+  background-image: none;
+  background-color: transparent;
+}
+
+.slopos-dock-separator {
+  min-width: 1px;
+  margin: 5px;
+  background-color: @slopos_border;
+}
+
+.slopos-launcher-window {
+  background-color: transparent;
+}
+
+.slopos-launcher {
+  padding: 10px;
+  background-color: rgba(40, 44, 52, 0.98);
+  border: 1px solid @slopos_border;
+  border-radius: 12px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.50);
+}
+
+.slopos-dialog-title {
+  padding: 2px 4px 6px 4px;
+  font-weight: bold;
+  border-bottom: 1px solid @slopos_border;
+}
+
+.slopos-search-entry {
+  margin: 2px 0 5px 0;
+}
+
+.slopos-notification,
+.slopos-alert-box {
+  padding: 10px;
+  background-color: rgba(40, 44, 52, 0.98);
+  border: 1px solid @slopos_border;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.slopos-notification-title {
+  font-weight: bold;
+}
+
+.slopos-window-body {
+  padding: 12px;
+  background-color: @slopos_bg;
+}
+
+.slopos-panel-title {
+  font-weight: bold;
+  font-size: 15px;
+}
+
+.slopos-panel-subtitle {
+  color: @slopos_secondary;
+  font-size: 11px;
+}
+
+.slopos-section {
+  padding: 8px;
+  background-color: @slopos_surface;
+  border: 1px solid @slopos_border;
+  border-radius: 8px;
+}
+
+.slopos-catalogue-row {
+  background-color: @slopos_surface;
+  border-bottom: 1px solid #333842;
+}
+
+.slopos-preference-row {
+  padding: 7px;
+  background-color: @slopos_surface;
+  border-bottom: 1px solid #333842;
+}
+
+.slopos-control-panel {
+  min-height: 68px;
+  padding: 8px 10px;
+  background-image: linear-gradient(to bottom, #353b45, #262a31);
+  border: 1px solid @slopos_border;
+  border-radius: 9px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25), inset 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.slopos-control-panel:hover {
+  background-image: linear-gradient(to bottom, #3e4450, #2d313a);
+  border-color: @slopos_border_strong;
+}
+
+.slopos-control-panel:disabled {
+  background-image: none;
+  background-color: #242830;
+  box-shadow: none;
+}
+
+.slopos-control-panel:disabled .slopos-control-title,
+.slopos-control-panel:disabled .slopos-secondary-text {
+  color: @slopos_disabled;
+}
+
+.slopos-control-panel:disabled image {
+  opacity: 0.72;
+}
+
+.slopos-statusbar {
+  padding: 4px 7px;
+  font-size: 11px;
+  color: @slopos_secondary;
+  background-color: @slopos_surface_alt;
+  border-top: 1px solid @slopos_border;
+}
+
+tooltip {
+  padding: 4px 6px;
+  background-color: #282c34;
+  color: @slopos_text;
+  border: 1px solid @slopos_border;
+  border-radius: 6px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+}
+
+tooltip label {
+  color: @slopos_text;
+}
+
+selection,
+entry selection,
+textview selection {
+  background-color: @slopos_highlight;
+  color: #ffffff;
+}
