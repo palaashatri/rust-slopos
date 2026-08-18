@@ -85,6 +85,9 @@ fi
 if [[ -x scripts/run-debian-package-qa.sh ]]; then
   run_gate "Debian package payload" bash scripts/run-debian-package-qa.sh
 fi
+if [[ -x scripts/generate-package-repos.sh ]]; then
+  run_gate "Package repository metadata generation" bash scripts/generate-package-repos.sh
+fi
 if [[ -x scripts/run-canonical-visual-qa.sh ]]; then
   run_gate "Canonical visual evidence capture" bash scripts/run-canonical-visual-qa.sh
 fi
