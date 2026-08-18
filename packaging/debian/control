@@ -13,9 +13,9 @@ Package: slopos-i
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, xorg, openbox, dbus-x11, pcmanfm, xfce4-terminal, mousepad, ristretto, zathura, mpv, galculator, network-manager, network-manager-gnome, pavucontrol, pipewire, pipewire-pulse, wireplumber, blueman, upower, xfce4-power-manager, xfce4-settings, lxappearance, arandr, x11-xserver-utils, xdotool, wmctrl, adwaita-icon-theme, librsvg2-common, fonts-liberation, fonts-dejavu-core
 Recommends: firefox, supertux
-Description: SLOPOS-I X11 Platinum/Graphite desktop environment
- SLOPOS-I is a lightweight X11 desktop environment inspired by classic
- Macintosh/System 7 and Platinum interface grammar. It uses Openbox for
- floating window management, mature Linux applications and a small SLOPOS
- shell, Settings hub and AppImage Software Catalogue. Platinum and Graphite
- provide first-class light and dark appearances.
+Description: SLOPOS-I X11 desktop environment
+ SLOPOS-I is a lightweight X11 desktop environment with an original compact
+ desktop interface. It uses Openbox for floating window management, mature
+ Linux applications and a small SLOPOS shell, Settings hub and AppImage
+ Software Catalogue. Platinum and Graphite provide first-class light and dark
+ appearances.
