@@ -8,6 +8,10 @@ SLOPOS-I is an original, polished, consumer-oriented Linux desktop environment b
 
 > **Own the experience. Do not unnecessarily own the infrastructure.**
 
+> **SLOPOS-I is opinionated about the desktop environment, not the surrounding Linux system. The standalone desktop must coexist with the user's chosen distribution, display manager, authentication stack, screen locker, bootloader and other mature system infrastructure. Reference images may choose defaults only to provide a complete demonstrable system.**
+
+> **A mandatory red release pipeline lane automatically prevents SLOPOS-I from being considered release-ready.**
+
 The product goal is not merely to demonstrate a shell. It is to provide a desktop that an ordinary user can install, understand and use every day, with coherent visual design, predictable window behavior, real settings, normal Linux application compatibility and a reliable release/install path.
 
 SLOPOS-I must have its own identity. Product copy, code comments, asset names and UI labels must not depend on another operating-system vendor's product names, trademarks or proprietary visual assets.
@@ -44,6 +48,15 @@ slopos-settings + slopos-catalogue
         ↓
 Normal Linux applications
 ```
+
+### Display Manager Neutrality & Screen Locker Policy
+
+- **Display Manager Neutrality:** The standalone `slopos-i` package must not mandate or depend upon LightDM. It must install a standards-compliant `/usr/share/xsessions/slopos-i.desktop` session entry compatible with any modern display manager (GDM, SDDM, LightDM, LXDM, XDM). Reference live ISOs may choose LightDM as a default convenience greeter, but LightDM is never an architectural requirement.
+- **Screen Locking Abstraction:** SLOPOS-I uses a multi-tiered session-lock abstraction:
+  1. D-Bus freedesktop screensaver interface (`org.freedesktop.ScreenSaver`);
+  2. D-Bus GNOME screensaver interface (`org.gnome.ScreenSaver`);
+  3. Concrete installed locker executables (`light-locker-command`, `i3lock`, `slock`, `xscreensaver`, `xflock4`).
+  If no functional screen locker is installed, the desktop disables the lock-screen action with a clear explanation instead of faking success via `loginctl lock-session`.
 
 ### Non-goals
 

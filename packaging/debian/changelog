@@ -1,7 +1,10 @@
-slopos-i (0.1.0) UNRELEASED; urgency=medium
+slopos-i (20260824-1) unstable; urgency=medium
 
-  * Initial release of SLOPOS-I
-  * X11/Openbox session supervisor and Platinum desktop shell
-  * Upstream application integration, Settings hub and AppImage catalogue
+  * SLOPOS-I v20260824 release
+  * Opinionated X11 desktop environment with Openbox window manager
+  * Native Platinum and Graphite visual language
+  * Event-driven X11/D-Bus system integration
+  * Display manager neutral X11 session
 
- -- SLOPOS-I Contributors <team@slopos-i.local>  Thu, 31 Jul 2026 00:00:00 +0000
+ -- SLOPOS-I Contributors <team@slopos-i.local>  Mon, 24 Aug 2026 00:00:00 +0000
+

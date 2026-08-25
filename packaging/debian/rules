@@ -3,7 +3,7 @@
 %:
 	dh $@
 
-CARGO_TARGET_DIR ?= $(CURDIR)/.cargo-target
+CARGO_TARGET_DIR ?= $(CURDIR)/target
 export CARGO_TARGET_DIR
 
 override_dh_auto_build:

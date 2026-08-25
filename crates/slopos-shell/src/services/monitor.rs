@@ -42,7 +42,7 @@ impl SystemStatus {
 pub struct SystemMonitor {
     running: Arc<AtomicBool>,
     trigger_tx: Sender<()>,
-    threads: Vec<thread::JoinHandle<()>>,
+    aggregator_handle: Option<thread::JoinHandle<()>>,
 }
 
 impl SystemMonitor {
@@ -52,137 +52,133 @@ impl SystemMonitor {
     {
         let running = Arc::new(AtomicBool::new(true));
         let (trigger_tx, trigger_rx): (Sender<()>, Receiver<()>) = mpsc::channel();
-        let mut threads = Vec::new();
-
         // 1. Audio event subscriber thread (listens to PipeWire/PulseAudio event stream)
         let running_audio = running.clone();
         let trigger_audio = trigger_tx.clone();
-        threads.push(
-            thread::Builder::new()
-                .name("slopos-audio-sub".to_string())
-                .spawn(move || {
-                    while running_audio.load(Ordering::Relaxed) {
-                        // Start long-lived pactl subscribe process to receive sink volume/mute events
-                        let mut child = match Command::new("pactl")
-                            .arg("subscribe")
-                            .stdout(Stdio::piped())
-                            .stderr(Stdio::null())
-                            .spawn()
-                        {
-                            Ok(child) => child,
-                            Err(_) => {
-                                thread::sleep(Duration::from_secs(5));
-                                continue;
-                            }
-                        };
+        let _ = thread::Builder::new()
+            .name("slopos-audio-sub".to_string())
+            .spawn(move || {
+                while running_audio.load(Ordering::Relaxed) {
+                    // Start long-lived pactl subscribe process to receive sink volume/mute events
+                    let mut child = match Command::new("pactl")
+                        .arg("subscribe")
+                        .stdout(Stdio::piped())
+                        .stderr(Stdio::null())
+                        .spawn()
+                    {
+                        Ok(child) => child,
+                        Err(_) => {
+                            thread::sleep(Duration::from_secs(5));
+                            continue;
+                        }
+                    };
 
-                        if let Some(stdout) = child.stdout.take() {
-                            let reader = BufReader::new(stdout);
-                            for line in reader.lines() {
-                                if !running_audio.load(Ordering::Relaxed) {
-                                    break;
-                                }
-                                if let Ok(event) = line {
-                                    if event.contains("sink") || event.contains("server") {
-                                        let _ = trigger_audio.send(());
-                                    }
+                    if let Some(stdout) = child.stdout.take() {
+                        let reader = BufReader::new(stdout);
+                        for line in reader.lines() {
+                            if !running_audio.load(Ordering::Relaxed) {
+                                break;
+                            }
+                            if let Ok(event) = line {
+                                if event.contains("sink") || event.contains("server") {
+                                    let _ = trigger_audio.send(());
                                 }
                             }
                         }
-
-                        let _ = child.kill();
-                        let _ = child.wait();
-                        thread::sleep(Duration::from_secs(2));
                     }
-                })
-                .expect("spawn audio monitor thread"),
-        );
+
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    thread::sleep(Duration::from_secs(2));
+                }
+            });
 
         // 2. D-Bus system signal subscriber thread (UPower, NetworkManager, BlueZ)
         let running_dbus = running.clone();
         let trigger_dbus = trigger_tx.clone();
-        threads.push(
-            thread::Builder::new()
-                .name("slopos-dbus-sub".to_string())
-                .spawn(move || {
-                    while running_dbus.load(Ordering::Relaxed) {
-                        let conn = match zbus::blocking::Connection::system() {
-                            Ok(c) => c,
-                            Err(_) => {
-                                thread::sleep(Duration::from_secs(5));
-                                continue;
-                            }
-                        };
-
-                        let nm_proxy = zbus::blocking::Proxy::new(
-                            &conn,
-                            "org.freedesktop.NetworkManager",
-                            "/org/freedesktop/NetworkManager",
-                            "org.freedesktop.NetworkManager",
-                        );
-
-                        if let Ok(proxy) = nm_proxy {
-                            if let Ok(iter) = proxy.receive_all_signals() {
-                                for _ in iter {
-                                    if !running_dbus.load(Ordering::Relaxed) {
-                                        break;
-                                    }
-                                    let _ = trigger_dbus.send(());
-                                }
-                            }
-                        } else {
+        let _ = thread::Builder::new()
+            .name("slopos-dbus-sub".to_string())
+            .spawn(move || {
+                while running_dbus.load(Ordering::Relaxed) {
+                    let conn = match zbus::blocking::Connection::system() {
+                        Ok(c) => c,
+                        Err(_) => {
                             thread::sleep(Duration::from_secs(5));
+                            continue;
                         }
+                    };
+
+                    let nm_proxy = zbus::blocking::Proxy::new(
+                        &conn,
+                        "org.freedesktop.NetworkManager",
+                        "/org/freedesktop/NetworkManager",
+                        "org.freedesktop.NetworkManager",
+                    );
+
+                    if let Ok(proxy) = nm_proxy {
+                        if let Ok(iter) = proxy.receive_all_signals() {
+                            for _ in iter {
+                                if !running_dbus.load(Ordering::Relaxed) {
+                                    break;
+                                }
+                                let _ = trigger_dbus.send(());
+                            }
+                        }
+                    } else {
+                        thread::sleep(Duration::from_secs(5));
                     }
-                })
-                .expect("spawn dbus monitor thread"),
-        );
+                }
+            });
 
         // 3. Central status aggregator worker
         let running_agg = running.clone();
-        threads.push(
-            thread::Builder::new()
-                .name("slopos-status-agg".to_string())
-                .spawn(move || {
-                    let mut last_status = SystemStatus::collect();
-                    callback(last_status.clone());
+        let aggregator_handle = thread::Builder::new()
+            .name("slopos-status-agg".to_string())
+            .spawn(move || {
+                let mut last_status = SystemStatus::collect();
+                callback(last_status.clone());
 
-                    let mut last_collect = Instant::now();
+                let mut last_collect = Instant::now();
 
-                    while running_agg.load(Ordering::Relaxed) {
-                        match trigger_rx.recv_timeout(Duration::from_secs(10)) {
-                            Ok(()) => {
-                                // Drain queued triggers to debounce rapid bursts
-                                while trigger_rx.try_recv().is_ok() {}
-
-                                if last_collect.elapsed() >= Duration::from_millis(150) {
-                                    last_collect = Instant::now();
-                                    let new_status = SystemStatus::collect();
-                                    if new_status != last_status {
-                                        last_status = new_status.clone();
-                                        callback(new_status);
-                                    }
-                                }
+                while running_agg.load(Ordering::Relaxed) {
+                    match trigger_rx.recv_timeout(Duration::from_secs(10)) {
+                        Ok(()) => {
+                            if !running_agg.load(Ordering::Relaxed) {
+                                break;
                             }
-                            Err(mpsc::RecvTimeoutError::Timeout) => {
-                                // Infrequent sanity heartbeat in case kernel sysfs changed without D-Bus signals
+                            // Drain queued triggers to debounce rapid bursts
+                            while trigger_rx.try_recv().is_ok() {}
+
+                            if last_collect.elapsed() >= Duration::from_millis(150) {
+                                last_collect = Instant::now();
                                 let new_status = SystemStatus::collect();
                                 if new_status != last_status {
                                     last_status = new_status.clone();
                                     callback(new_status);
                                 }
                             }
-                            Err(mpsc::RecvTimeoutError::Disconnected) => break,
                         }
+                        Err(mpsc::RecvTimeoutError::Timeout) => {
+                            if !running_agg.load(Ordering::Relaxed) {
+                                break;
+                            }
+                            // Infrequent sanity heartbeat in case kernel sysfs changed without D-Bus signals
+                            let new_status = SystemStatus::collect();
+                            if new_status != last_status {
+                                last_status = new_status.clone();
+                                callback(new_status);
+                            }
+                        }
+                        Err(mpsc::RecvTimeoutError::Disconnected) => break,
                     }
-                })
-                .expect("spawn aggregator thread"),
-        );
+                }
+            })
+            .expect("spawn aggregator thread");
 
         Self {
             running,
             trigger_tx,
-            threads,
+            aggregator_handle: Some(aggregator_handle),
         }
     }
 
@@ -193,7 +189,7 @@ impl SystemMonitor {
     pub fn stop(&mut self) {
         self.running.store(false, Ordering::Relaxed);
         let _ = self.trigger_tx.send(());
-        for handle in self.threads.drain(..) {
+        if let Some(handle) = self.aggregator_handle.take() {
             let _ = handle.join();
         }
     }
