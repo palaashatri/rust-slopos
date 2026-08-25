@@ -1,6 +1,6 @@
 # Maintainer: SLOPOS-I Contributors
-pkgname=slopos-i-git
-pkgver=0.1.0.r0
+pkgname=slopos-i
+pkgver=20260824
 pkgrel=1
 pkgdesc="SLOPOS-I X11 Platinum/Graphite desktop environment"
 arch=('x86_64' 'aarch64' 'riscv64')
@@ -16,15 +16,11 @@ depends=(
 makedepends=(cargo pkgconf rust git openssl)
 optdepends=('firefox: web browser' 'lightdm: graphical display manager')
 provides=('slopos-i')
-conflicts=('slopos-i')
+conflicts=('slopos-i-git')
 options=(!debug)
 source=('rust-slopos::git+https://github.com/palaashatri/rust-slopos.git#branch=main')
 sha256sums=('SKIP')
 
-pkgver() {
-  cd "$srcdir/rust-slopos"
-  printf '0.1.0.r%s.%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
-}
 
 build() {
   cd "$srcdir/rust-slopos"

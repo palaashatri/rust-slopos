@@ -574,19 +574,36 @@ fn build_desktop_menu_bar(launcher: Rc<Launcher>) -> gtk::MenuBar {
     special_menu.append(&empty_trash);
     special_menu.append(&SeparatorMenuItem::new());
     let lock = MenuItem::with_label("Lock Screen");
-    lock.connect_activate(|_| {
-        session::lock_screen();
-    });
+    if session::can_lock_screen() {
+        lock.connect_activate(|_| {
+            session::lock_screen();
+        });
+    } else {
+        lock.set_sensitive(false);
+        lock.set_tooltip_text(Some("No supported screen locker is installed"));
+    }
     special_menu.append(&lock);
     let switch_user = MenuItem::with_label("Switch User…");
-    switch_user.connect_activate(|_| {
-        session::switch_user();
-    });
+    if session::can_switch_user() {
+        switch_user.connect_activate(|_| {
+            session::switch_user();
+        });
+    } else {
+        switch_user.set_sensitive(false);
+        switch_user.set_tooltip_text(Some(
+            "User switching is not supported by the active display manager",
+        ));
+    }
     special_menu.append(&switch_user);
     let sleep = MenuItem::with_label("Sleep");
-    sleep.connect_activate(|_| {
-        session::suspend_system();
-    });
+    if session::can_suspend() {
+        sleep.connect_activate(|_| {
+            session::suspend_system();
+        });
+    } else {
+        sleep.set_sensitive(false);
+        sleep.set_tooltip_text(Some("System suspend is not supported on this host"));
+    }
     special_menu.append(&sleep);
     let restart = MenuItem::with_label("Restart…");
     restart.connect_activate(|_| {
@@ -1077,10 +1094,7 @@ mod tests {
 
     #[test]
     fn test_compact_title_regular_dash() {
-        assert_eq!(
-            compact_title("Untitled Document 1 - Mousepad"),
-            "Mousepad"
-        );
+        assert_eq!(compact_title("Untitled Document 1 - Mousepad"), "Mousepad");
     }
 
     #[test]
@@ -1089,4 +1103,3 @@ mod tests {
         assert_eq!(compact_title("Calculator"), "Calculator");
     }
 }
-

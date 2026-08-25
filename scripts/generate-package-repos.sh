@@ -6,6 +6,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="${1:-$ROOT/artifacts/repositories}"
+if [[ "$OUT_DIR" != /* ]]; then
+  OUT_DIR="$PWD/$OUT_DIR"
+fi
 CHANNEL="${2:-alpha}"
 GPG_KEY_FILE="${SLOPOS_GPG_KEY_FILE:-}"
 
@@ -39,7 +42,7 @@ else
       sha256="$(sha256sum "$deb" | awk '{print $1}')"
       cat >> "$APT_DIST/Packages" <<EOF
 Package: slopos-i
-Version: 0.1.0
+Version: 20260824-1
 Architecture: amd64
 Maintainer: SLOPOS Contributors <slopos@localhost>
 Installed-Size: 15360
@@ -65,7 +68,7 @@ Origin: SLOPOS
 Label: SLOPOS-I
 Suite: $CHANNEL
 Codename: $CHANNEL
-Version: 0.1.0
+Version: 20260824
 Architectures: amd64 arm64 riscv64
 Components: main
 Description: SLOPOS-I Desktop Environment Package Repository

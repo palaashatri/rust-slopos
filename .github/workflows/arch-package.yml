@@ -74,7 +74,7 @@ jobs:
                 makepkg --nodeps --cleanbuild --noconfirm
               "
 
-              mapfile -t packages < <(find /tmp/slopos-pkg -maxdepth 1 -type f -name "slopos-i-git-*.pkg.tar.zst" ! -name "*-debug-*.pkg.tar.zst" -print)
+              mapfile -t packages < <(find /tmp/slopos-pkg -maxdepth 1 -type f -name "slopos-i-*.pkg.tar.zst" ! -name "*-debug-*.pkg.tar.zst" -print)
               test "${#packages[@]}" -eq 1
               cp "${packages[0]}" /workspace/artifacts/arch-package/slopos-i.pkg.tar.zst
               bsdtar -tf "${packages[0]}" > /workspace/artifacts/arch-package/payload-paths.txt

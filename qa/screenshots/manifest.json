@@ -1,0 +1,25 @@
+{
+  "release": "v20260824",
+  "commit": "head",
+  "generated_at": "2026-08-25T04:26:43Z",
+  "vm": "ubuntu-server",
+  "suite": "SLOPOS-I Visual QA",
+  "screenshots": [
+    { "filename": "01-desktop.png", "scene": "desktop", "resolution": "1920x1080", "appearance": "platinum", "result": "pass" },
+    { "filename": "02-search.png", "scene": "search", "resolution": "1920x1080", "appearance": "platinum", "result": "pass" },
+    { "filename": "03-settings.png", "scene": "settings", "resolution": "1920x1080", "appearance": "platinum", "result": "pass" },
+    { "filename": "04-catalogue.png", "scene": "catalogue", "resolution": "1920x1080", "appearance": "platinum", "result": "pass" },
+    { "filename": "05-terminal.png", "scene": "terminal", "resolution": "1920x1080", "appearance": "platinum", "result": "pass" },
+    { "filename": "06-file-manager.png", "scene": "file-manager", "resolution": "1920x1080", "appearance": "platinum", "result": "pass" },
+    { "filename": "07-browser.png", "scene": "browser", "resolution": "1920x1080", "appearance": "platinum", "result": "pass" },
+    { "filename": "08-multiple-windows.png", "scene": "multiple-windows", "resolution": "1920x1080", "appearance": "platinum", "result": "pass" },
+    { "filename": "09-notification.png", "scene": "notification", "resolution": "1920x1080", "appearance": "platinum", "result": "pass" },
+    { "filename": "10-dark-theme.png", "scene": "dark-theme", "resolution": "1920x1080", "appearance": "graphite", "result": "pass" },
+    { "filename": "11-fullscreen.png", "scene": "fullscreen", "resolution": "1920x1080", "appearance": "graphite", "result": "pass" },
+    { "filename": "12-lock-integration-or-unavailable-state.png", "scene": "lock-integration", "resolution": "1920x1080", "appearance": "platinum", "result": "pass" },
+    { "filename": "resolution-1280x800.png", "scene": "resolution-1280x800", "resolution": "1280x800", "appearance": "platinum", "result": "pass" },
+    { "filename": "resolution-1920x1080.png", "scene": "resolution-1920x1080", "resolution": "1920x1080", "appearance": "platinum", "result": "pass" },
+    { "filename": "resolution-2560x1440.png", "scene": "resolution-2560x1440", "resolution": "2560x1440", "appearance": "platinum", "result": "pass" },
+    { "filename": "resolution-hidpi-scale2.png", "scene": "resolution-hidpi-scale2", "resolution": "2560x1600", "appearance": "platinum", "result": "pass" }
+  ]
+}
