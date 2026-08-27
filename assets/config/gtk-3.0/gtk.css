@@ -1,26 +1,31 @@
-/* SLOPOS-I Platinum GTK3 theme.
- * Original compact desktop styling: restrained depth, soft corners and clear hierarchy.
- * Legacy QA note: `border-radius: 0` is intentionally not the global design rule anymore.
+/* SLOPOS-I Platinum GTK3 theme — classic parity branch.
+ *
+ * The visual contract here is deliberately desktop-first: compact geometry,
+ * square chrome, high-contrast one-pixel keylines, light platinum surfaces,
+ * obvious pressed/raised states, and a global menu bar that visually owns the
+ * top edge of the screen.  All artwork remains original/license-compatible.
  */
 
-@define-color slopos_bg #eef0f3;
-@define-color slopos_surface #f8f9fb;
-@define-color slopos_surface_alt #e5e8ed;
-@define-color slopos_surface_pressed #d8dce3;
-@define-color slopos_text #20242b;
-@define-color slopos_secondary #606873;
-@define-color slopos_disabled #8b929c;
-@define-color slopos_border #aeb4bd;
-@define-color slopos_border_strong #7e8793;
-@define-color slopos_highlight #356fd4;
-@define-color slopos_highlight_dark #245ab8;
+@define-color slopos_bg #d9d9d9;
+@define-color slopos_surface #eeeeee;
+@define-color slopos_surface_alt #cfcfcf;
+@define-color slopos_surface_pressed #b8b8b8;
+@define-color slopos_text #111111;
+@define-color slopos_secondary #555555;
+@define-color slopos_disabled #777777;
+@define-color slopos_border #5f5f5f;
+@define-color slopos_border_strong #111111;
+@define-color slopos_highlight #000080;
+@define-color slopos_highlight_dark #00005a;
+@define-color slopos_accent #000080;
 @define-color slopos_light #ffffff;
-@define-color slopos_warning #a33b24;
+@define-color slopos_warning #8a1c11;
 
 * {
   font-family: "Liberation Sans", "DejaVu Sans", sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   color: @slopos_text;
+  border-radius: 0;
 }
 
 window,
@@ -30,82 +35,114 @@ dialog {
   color: @slopos_text;
 }
 
+/* Client-side decorated GTK windows: crisp, square, compact. */
 window.csd,
 window.solid-csd,
 window.csd decoration {
-  border-radius: 9px;
-  border: 1px solid @slopos_border;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+  border-radius: 0;
+  border: 1px solid @slopos_border_strong;
+  box-shadow: none;
 }
 
 headerbar,
 .titlebar {
-  min-height: 28px;
-  padding: 2px 6px;
-  border: 0;
-  border-bottom: 1px solid @slopos_border;
-  border-radius: 9px 9px 0 0;
-  background-image: linear-gradient(to bottom, #fbfcfd, #e3e6ea);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.9);
+  min-height: 20px;
+  padding: 1px 3px;
+  border: 1px solid @slopos_border_strong;
+  border-left-width: 0;
+  border-right-width: 0;
+  border-top-width: 0;
+  border-radius: 0;
+  background-image: linear-gradient(
+    to bottom,
+    #f8f8f8 0%,
+    #f8f8f8 16%,
+    #b8b8b8 17%,
+    #f2f2f2 25%,
+    #b8b8b8 26%,
+    #f2f2f2 34%,
+    #b8b8b8 35%,
+    #f2f2f2 43%,
+    #b8b8b8 44%,
+    #f0f0f0 52%,
+    #c8c8c8 100%
+  );
+  box-shadow: inset 0 1px #ffffff;
 }
 
 headerbar:backdrop,
 .titlebar:backdrop {
-  background-image: linear-gradient(to bottom, #f4f5f7, #e8eaed);
+  background-image: none;
+  background-color: #dddddd;
   color: @slopos_secondary;
 }
 
 headerbar .title,
 .titlebar .title {
+  padding: 0 6px;
   font-weight: bold;
-  font-size: 12px;
+  font-size: 11px;
+  background-color: #e7e7e7;
 }
 
 headerbar button,
 .titlebar button {
-  min-width: 20px;
-  min-height: 20px;
-  padding: 0 5px;
-  border-radius: 6px;
+  min-width: 14px;
+  min-height: 14px;
+  padding: 0 2px;
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
+  background-image: linear-gradient(to bottom, #ffffff, #c9c9c9);
+  box-shadow: inset 1px 1px #ffffff, inset -1px -1px #8a8a8a;
 }
 
+/* Global system/menu bar. */
 .slopos-topbar {
-  min-height: 26px;
-  background-image: linear-gradient(to bottom, rgba(252, 253, 254, 0.98), rgba(231, 234, 238, 0.98));
-  border-bottom: 1px solid @slopos_border;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+  min-height: 24px;
+  background-image: linear-gradient(to bottom, #f8f8f8, #d4d4d4);
+  border-bottom: 1px solid #111111;
+  box-shadow: none;
 }
 
 .slopos-logo-btn,
 .slopos-menubar-control,
 .slopos-menu-bar > menuitem,
 menubar > menuitem {
-  min-height: 22px;
-  padding: 1px 7px;
+  min-height: 20px;
+  padding: 0 6px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 0;
   background-image: none;
   background-color: transparent;
   box-shadow: none;
+  font-weight: normal;
+}
+
+.slopos-logo-btn {
+  padding-left: 3px;
+  padding-right: 4px;
 }
 
 .slopos-logo-btn:hover,
 .slopos-menubar-control:hover,
 .slopos-menu-bar > menuitem:hover,
-menubar > menuitem:hover {
-  background-color: rgba(53, 111, 212, 0.14);
-}
-
-.slopos-menu-bar > menuitem:hover,
 menubar > menuitem:hover,
 .slopos-menu-bar > menuitem:active,
 menubar > menuitem:active {
   color: @slopos_light;
+  background-image: none;
   background-color: @slopos_highlight;
 }
 
+/* The active-window text was useful in the modern shell but duplicates the
+ * global menu hierarchy in the classic layout. Collapse it visually while
+ * retaining the accessible object and event plumbing. */
 .slopos-active-app {
-  font-weight: bold;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  font-size: 1px;
+  color: transparent;
 }
 
 .slopos-status-area,
@@ -113,7 +150,19 @@ menubar > menuitem:active {
   background-color: transparent;
 }
 
-.slopos-clock {
+/* Keep the right side icon-dense. Text labels inside search/audio/network
+ * controls collapse; the clock opts back into normal typography below. */
+.slopos-menubar-control label {
+  font-size: 1px;
+  color: transparent;
+}
+
+.slopos-clock,
+.slopos-menubar-control .slopos-clock {
+  padding: 0 3px;
+  font-size: 11px;
+  font-weight: bold;
+  color: @slopos_text;
   font-feature-settings: "tnum";
 }
 
@@ -121,57 +170,61 @@ menubar {
   padding: 0;
   background-color: transparent;
   border: 0;
+  box-shadow: none;
 }
 
+/* Menus are square floating sheets with a single dark keyline. */
 menu,
 popover,
 .menu {
-  padding: 4px;
+  padding: 2px;
   background-color: @slopos_surface;
-  border: 1px solid @slopos_border;
-  border-radius: 8px;
-  box-shadow: 0 7px 24px rgba(0, 0, 0, 0.24);
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
+  box-shadow: 2px 2px rgba(0, 0, 0, 0.35);
 }
 
 menu menuitem,
 popover modelbutton {
-  min-height: 24px;
-  padding: 3px 10px;
-  border-radius: 5px;
+  min-height: 18px;
+  padding: 1px 14px 1px 8px;
+  border-radius: 0;
 }
 
 menu menuitem:hover,
-popover modelbutton:hover {
+popover modelbutton:hover,
+menu menuitem:active,
+popover modelbutton:active {
   color: @slopos_light;
   background-color: @slopos_highlight;
 }
 
 menu separator {
-  margin: 3px 7px;
+  margin: 2px 3px;
   min-height: 1px;
-  background-color: #d4d8de;
+  background-color: #858585;
 }
 
+/* Raised platinum controls. */
 button {
-  min-height: 26px;
-  padding: 3px 10px;
+  min-height: 22px;
+  padding: 2px 8px;
   color: @slopos_text;
-  background-image: linear-gradient(to bottom, #ffffff, #e7e9ed);
-  border: 1px solid @slopos_border;
-  border-radius: 6px;
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.08);
+  background-image: linear-gradient(to bottom, #f8f8f8, #c8c8c8);
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
+  box-shadow: inset 1px 1px #ffffff, inset -1px -1px #777777;
 }
 
 button:hover {
-  background-image: linear-gradient(to bottom, #ffffff, #eef1f5);
-  border-color: @slopos_border_strong;
+  background-image: linear-gradient(to bottom, #ffffff, #d7d7d7);
 }
 
 button:active,
 button:checked {
   background-image: none;
   background-color: @slopos_surface_pressed;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.16);
+  box-shadow: inset 1px 1px #666666, inset -1px -1px #ffffff;
 }
 
 button:focus,
@@ -186,9 +239,9 @@ row:focus {
 button:disabled {
   color: @slopos_disabled;
   background-image: none;
-  background-color: #e6e8eb;
-  border-color: #c8ccd2;
-  box-shadow: none;
+  background-color: #d7d7d7;
+  border-color: #8f8f8f;
+  box-shadow: inset 1px 1px #eeeeee, inset -1px -1px #b0b0b0;
 }
 
 button:disabled label {
@@ -196,55 +249,50 @@ button:disabled label {
 }
 
 button:disabled image {
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
 button.default {
-  border: 1px solid @slopos_highlight_dark;
-  box-shadow: inset 0 0 0 1px rgba(53, 111, 212, 0.22), 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-button.default:focus {
-  box-shadow: inset 0 0 0 2px rgba(53, 111, 212, 0.35);
+  border: 2px solid @slopos_border_strong;
 }
 
 .slopos-compact-button {
-  min-height: 22px;
-  padding: 2px 8px;
+  min-height: 18px;
+  padding: 1px 6px;
 }
 
 entry,
 spinbutton entry {
-  min-height: 26px;
-  padding: 3px 7px;
+  min-height: 20px;
+  padding: 2px 4px;
   background-color: @slopos_light;
-  border: 1px solid @slopos_border;
-  border-radius: 6px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
+  box-shadow: inset 1px 1px #7d7d7d, inset -1px -1px #ffffff;
 }
 
 entry:focus,
 spinbutton entry:focus {
   border-color: @slopos_highlight;
-  box-shadow: inset 0 0 0 1px rgba(53, 111, 212, 0.18);
+  box-shadow: inset 0 0 0 1px @slopos_highlight;
 }
 
 entry:disabled {
-  background-color: #e7e9ec;
+  background-color: #d4d4d4;
   color: @slopos_disabled;
 }
 
 check,
 radio {
-  min-width: 14px;
-  min-height: 14px;
-  margin: 2px 5px 2px 2px;
+  min-width: 12px;
+  min-height: 12px;
+  margin: 2px 4px 2px 1px;
   background-color: @slopos_light;
   border: 1px solid @slopos_border_strong;
 }
 
 check {
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 radio {
@@ -255,15 +303,15 @@ check:checked,
 radio:checked {
   background-color: @slopos_highlight;
   color: @slopos_light;
-  border-color: @slopos_highlight_dark;
+  border-color: @slopos_border_strong;
 }
 
 switch {
-  min-width: 42px;
-  min-height: 20px;
-  background-color: #c7ccd3;
-  border: 1px solid @slopos_border;
-  border-radius: 11px;
+  min-width: 34px;
+  min-height: 18px;
+  background-color: #bdbdbd;
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
 }
 
 switch:checked {
@@ -271,53 +319,53 @@ switch:checked {
 }
 
 switch slider {
-  min-width: 18px;
-  min-height: 18px;
-  background-color: @slopos_light;
-  border: 1px solid @slopos_border;
-  border-radius: 50%;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
-}
-
-combobox button {
-  min-height: 26px;
-  padding: 3px 8px;
-}
-
-scale trough {
-  min-height: 5px;
-  min-width: 5px;
-  background-color: #c8ccd2;
-  border: 0;
-  border-radius: 3px;
-}
-
-scale highlight {
-  background-color: @slopos_highlight;
-  border-radius: 3px;
-}
-
-scale slider {
   min-width: 15px;
   min-height: 15px;
   background-color: @slopos_light;
   border: 1px solid @slopos_border_strong;
-  border-radius: 50%;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+combobox button {
+  min-height: 20px;
+  padding: 2px 6px;
+}
+
+scale trough {
+  min-height: 4px;
+  min-width: 4px;
+  background-color: #9c9c9c;
+  border: 1px solid #555555;
+  border-radius: 0;
+}
+
+scale highlight {
+  background-color: @slopos_highlight;
+  border-radius: 0;
+}
+
+scale slider {
+  min-width: 13px;
+  min-height: 17px;
+  background-image: linear-gradient(to bottom, #ffffff, #c4c4c4);
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
+  box-shadow: inset 1px 1px #ffffff, inset -1px -1px #777777;
 }
 
 progressbar trough {
-  min-height: 8px;
-  background-color: #d8dce1;
-  border: 0;
-  border-radius: 4px;
+  min-height: 10px;
+  background-color: #ffffff;
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
 }
 
 progressbar progress {
-  min-height: 8px;
+  min-height: 10px;
   background-color: @slopos_highlight;
   border: 0;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 list,
@@ -329,8 +377,8 @@ textview {
 }
 
 row {
-  min-height: 28px;
-  border-radius: 5px;
+  min-height: 22px;
+  border-radius: 0;
 }
 
 row:selected {
@@ -345,12 +393,12 @@ row:selected .slopos-secondary-text {
 
 .slopos-list-frame {
   background-color: @slopos_light;
-  border: 1px solid @slopos_border;
-  border-radius: 7px;
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
 }
 
 .slopos-list-row {
-  border-bottom: 1px solid #e4e7eb;
+  border-bottom: 1px solid #bcbcbc;
 }
 
 .slopos-result-title,
@@ -366,55 +414,55 @@ row:selected .slopos-secondary-text {
 
 .slopos-secondary-text {
   color: @slopos_secondary;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .slopos-warning-text {
   color: @slopos_warning;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: bold;
 }
 
 treeview header button {
-  min-height: 22px;
-  padding: 2px 6px;
+  min-height: 18px;
+  padding: 1px 5px;
   font-weight: bold;
-  border-radius: 5px 5px 0 0;
+  border-radius: 0;
 }
 
 notebook > header {
-  background-color: transparent;
-  border-bottom: 1px solid @slopos_border;
+  background-color: @slopos_surface_alt;
+  border-bottom: 1px solid @slopos_border_strong;
 }
 
 notebook > header tab {
-  padding: 5px 9px;
-  border: 0;
-  border-radius: 6px 6px 0 0;
+  padding: 3px 7px;
+  border: 1px solid #7d7d7d;
+  border-bottom: 0;
+  border-radius: 0;
 }
 
 notebook > header tab:checked {
   background-color: @slopos_surface;
-  border: 1px solid @slopos_border;
-  border-bottom-color: @slopos_surface;
+  border-color: @slopos_border_strong;
 }
 
 frame,
 frame > border {
-  border: 1px solid @slopos_border;
-  border-radius: 7px;
+  border: 1px solid #7b7b7b;
+  border-radius: 0;
 }
 
 calendar {
   background-color: @slopos_surface;
   color: @slopos_text;
-  border: 1px solid @slopos_border;
-  border-radius: 7px;
-  padding: 4px;
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
+  padding: 2px;
 }
 
 calendar.header {
-  border-bottom: 1px solid @slopos_border;
+  border-bottom: 1px solid @slopos_border_strong;
   background-color: @slopos_surface_alt;
   color: @slopos_text;
   font-weight: bold;
@@ -429,104 +477,98 @@ calendar.button {
 calendar:selected {
   background-color: @slopos_highlight;
   color: #ffffff;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 separator {
   min-height: 1px;
   min-width: 1px;
-  background-color: #c8ccd2;
+  background-color: #858585;
 }
 
 toolbar {
-  padding: 3px;
+  padding: 2px;
   background-color: @slopos_surface_alt;
-  border-bottom: 1px solid @slopos_border;
+  border-bottom: 1px solid @slopos_border_strong;
 }
 
+/* Classic scrollbars remain visible and mechanical rather than overlay-like. */
 scrollbar {
-  min-width: 12px;
-  min-height: 12px;
-  background-color: transparent;
+  min-width: 14px;
+  min-height: 14px;
+  background-color: #d2d2d2;
+  border: 1px solid #888888;
 }
 
 scrollbar slider {
-  min-width: 8px;
-  min-height: 30px;
-  margin: 2px;
-  background-color: #aeb4bd;
-  border: 0;
-  border-radius: 5px;
+  min-width: 11px;
+  min-height: 24px;
+  margin: 1px;
+  background-image: linear-gradient(to right, #efefef, #bcbcbc);
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
 }
 
 scrollbar slider:hover {
-  background-color: #8f97a2;
+  background-image: linear-gradient(to right, #ffffff, #c8c8c8);
 }
 
 scrollbar button {
-  min-width: 0;
-  min-height: 0;
+  min-width: 12px;
+  min-height: 12px;
   padding: 0;
+  border-radius: 0;
 }
 
+/* The dock is not instantiated on this branch. Keep neutral styles so an
+ * explicit developer launch does not reintroduce glossy modern chrome. */
 .slopos-dock-container {
-  padding: 5px 7px;
-  background-image: linear-gradient(to bottom, rgba(250, 251, 252, 0.96), rgba(224, 228, 233, 0.96));
-  border: 1px solid rgba(126, 135, 147, 0.78);
-  border-radius: 14px;
-  box-shadow: 0 7px 22px rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 255, 255, 0.9);
+  padding: 3px;
+  background-color: @slopos_surface;
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .slopos-dock-label {
-  min-width: 30px;
-  padding: 1px 3px;
+  padding: 1px 2px;
   color: @slopos_secondary;
   font-size: 9px;
   font-weight: bold;
 }
 
 .slopos-dock-btn {
-  min-width: 42px;
-  min-height: 40px;
-  margin: 0 1px;
-  padding: 2px;
+  min-width: 36px;
+  min-height: 34px;
+  margin: 0;
+  padding: 1px;
   background-image: none;
   background-color: transparent;
   border-color: transparent;
-  border-radius: 9px;
+  border-radius: 0;
   box-shadow: none;
 }
 
 .slopos-dock-btn:hover {
-  background-color: rgba(255, 255, 255, 0.72);
-  border-color: rgba(126, 135, 147, 0.45);
-}
-
-.slopos-dock-btn:active {
-  background-color: rgba(53, 111, 212, 0.16);
-}
-
-.slopos-dock-btn:disabled {
-  background-image: none;
-  background-color: transparent;
+  background-color: #ffffff;
+  border-color: @slopos_border_strong;
 }
 
 .slopos-dock-separator {
   min-width: 1px;
-  margin: 5px;
-  background-color: @slopos_border;
+  margin: 3px;
+  background-color: @slopos_border_strong;
 }
 
 .slopos-dock-indicator {
   min-width: 4px;
   min-height: 4px;
-  margin: 1px 0 0 0;
-  border-radius: 2px;
+  border-radius: 0;
   background-color: transparent;
 }
 
 .slopos-dock-indicator.is-running {
-  background-color: rgba(90, 98, 112, 0.85);
+  background-color: #555555;
 }
 
 .slopos-dock-indicator.is-active {
@@ -545,31 +587,32 @@ window.slopos-notification-window,
   box-shadow: none;
 }
 
+/* Search and notifications now read as ordinary desktop utility windows. */
 .slopos-launcher {
-  padding: 10px;
-  background-color: rgba(248, 249, 251, 0.98);
-  border: 1px solid @slopos_border;
-  border-radius: 12px;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.30);
+  padding: 6px;
+  background-color: @slopos_surface;
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
+  box-shadow: 2px 2px rgba(0, 0, 0, 0.35);
 }
 
 .slopos-dialog-title {
-  padding: 2px 4px 6px 4px;
+  padding: 2px 3px 4px 3px;
   font-weight: bold;
-  border-bottom: 1px solid #d5d9df;
+  border-bottom: 1px solid #8c8c8c;
 }
 
 .slopos-search-entry {
-  margin: 2px 0 5px 0;
+  margin: 2px 0 4px 0;
 }
 
 .slopos-notification,
 .slopos-alert-box {
-  padding: 10px;
-  background-color: rgba(248, 249, 251, 0.98);
-  border: 1px solid @slopos_border;
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  padding: 7px;
+  background-color: @slopos_surface;
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
+  box-shadow: 2px 2px rgba(0, 0, 0, 0.35);
 }
 
 .slopos-notification-title {
@@ -577,55 +620,54 @@ window.slopos-notification-window,
 }
 
 .slopos-window-body {
-  padding: 12px;
+  padding: 8px;
   background-color: @slopos_bg;
 }
 
 .slopos-panel-title {
   font-weight: bold;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .slopos-panel-subtitle {
   color: @slopos_secondary;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .slopos-section {
-  padding: 8px;
+  padding: 6px;
   background-color: @slopos_surface;
-  border: 1px solid @slopos_border;
-  border-radius: 8px;
+  border: 1px solid #8c8c8c;
+  border-radius: 0;
 }
 
 .slopos-catalogue-row {
   background-color: @slopos_surface;
-  border-bottom: 1px solid #dfe2e7;
+  border-bottom: 1px solid #adadad;
 }
 
 .slopos-preference-row {
-  padding: 7px;
+  padding: 5px;
   background-color: @slopos_surface;
-  border-bottom: 1px solid #dfe2e7;
+  border-bottom: 1px solid #adadad;
 }
 
 .slopos-control-panel {
-  min-height: 68px;
-  padding: 8px 10px;
-  background-image: linear-gradient(to bottom, #fbfcfd, #e8ebef);
-  border: 1px solid @slopos_border;
-  border-radius: 9px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08), inset 0 1px rgba(255, 255, 255, 0.9);
+  min-height: 58px;
+  padding: 6px 8px;
+  background-image: linear-gradient(to bottom, #f6f6f6, #c9c9c9);
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
+  box-shadow: inset 1px 1px #ffffff, inset -1px -1px #7c7c7c;
 }
 
 .slopos-control-panel:hover {
-  background-image: linear-gradient(to bottom, #ffffff, #eef1f5);
-  border-color: @slopos_border_strong;
+  background-image: linear-gradient(to bottom, #ffffff, #d8d8d8);
 }
 
 .slopos-control-panel:disabled {
   background-image: none;
-  background-color: #e3e5e8;
+  background-color: #d2d2d2;
   box-shadow: none;
 }
 
@@ -635,24 +677,24 @@ window.slopos-notification-window,
 }
 
 .slopos-control-panel:disabled image {
-  opacity: 0.72;
+  opacity: 0.6;
 }
 
 .slopos-statusbar {
-  padding: 4px 7px;
-  font-size: 11px;
+  padding: 2px 5px;
+  font-size: 10px;
   color: @slopos_secondary;
   background-color: @slopos_surface_alt;
-  border-top: 1px solid @slopos_border;
+  border-top: 1px solid @slopos_border_strong;
 }
 
 tooltip {
-  padding: 4px 6px;
-  background-color: #fffbdc;
+  padding: 3px 5px;
+  background-color: #ffffdd;
   color: @slopos_text;
-  border: 1px solid #d4c985;
-  border-radius: 6px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+  border: 1px solid @slopos_border_strong;
+  border-radius: 0;
+  box-shadow: 1px 1px rgba(0, 0, 0, 0.3);
 }
 
 tooltip label {
