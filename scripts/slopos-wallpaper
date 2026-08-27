@@ -25,7 +25,6 @@ resolve_wallpaper_path() {
     return 0
   fi
 
-  # Search standard wallpaper directories
   local candidates=(
     "$slopos_config/wallpapers/$target"
     "$slopos_config/wallpapers/$target.png"
@@ -45,7 +44,6 @@ resolve_wallpaper_path() {
     fi
   done
 
-  # Fallback to exact match by number / name
   for dir in "assets/wallpapers" "/usr/share/slopos-i/wallpapers" "/usr/local/share/slopos-i/wallpapers"; do
     if [[ -d "$dir" ]]; then
       local found
@@ -124,11 +122,11 @@ case "$action" in
     if [[ -r "$wallpaper_file" ]]; then
       cat "$wallpaper_file"
     else
-      echo "assets/wallpapers/02_platinum_cool_slate.png"
+      echo "assets/wallpapers/03_slate_blue.png"
     fi
     ;;
   list)
-    echo "Available retro wallpapers:"
+    echo "Available SLOPOS wallpapers:"
     for dir in "assets/wallpapers" "/usr/share/slopos-i/wallpapers" "/usr/local/share/slopos-i/wallpapers"; do
       if [[ -d "$dir" ]]; then
         for f in "$dir"/*.png "$dir"/*.jpg; do
