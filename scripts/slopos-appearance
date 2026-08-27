@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Switch SLOPOS-I between its supported Platinum and Graphite appearances.
+# Switch SLOPOS-I between its supported appearances.
 set -euo pipefail
 
 usage() {
@@ -32,7 +32,7 @@ mv -f "$appearance_file.tmp" "$appearance_file"
 
 font_name="Liberation Sans 9"
 if [[ -f "$slopos_config/font" ]]; then
-  saved_font="$(cat "$slopos_config/font" | tr -d '\r\n')"
+  saved_font="$(tr -d '\r\n' < "$slopos_config/font")"
   if [[ -n "$saved_font" ]]; then
     font_name="$saved_font"
   fi
@@ -48,9 +48,9 @@ if [[ "$mode" == "custom" ]]; then
   css_name="custom-theme.css"
   rc_name="rc.xml"
   dark_pref=0
-  root_color="#758090"
+  root_color="#2B7798"
   if [[ -f "$slopos_config/root_color" ]]; then
-    root_color="$(cat "$slopos_config/root_color" | tr -d '\r\n')"
+    root_color="$(tr -d '\r\n' < "$slopos_config/root_color")"
   fi
 elif [[ "$mode" == "oled" ]]; then
   gtk_theme="slopos-gtk-oled"
@@ -75,7 +75,7 @@ else
   css_name="gtk.css"
   rc_name="rc.xml"
   dark_pref=0
-  root_color="#758090"
+  root_color="#2B7798"
 fi
 
 cat > "$gtk_config/settings.ini.tmp" <<EOF
@@ -96,7 +96,6 @@ gtk-xft-rgba = rgb
 EOF
 mv -f "$gtk_config/settings.ini.tmp" "$gtk_config/settings.ini"
 
-# GTK2 Runtime Configuration (for PCManFM, GIMP, and GTK2 applications)
 cat > "$HOME/.gtkrc-2.0.tmp" <<EOF
 # SLOPOS-I GTK2 Runtime Configuration
 gtk-theme-name = "$gtk_theme"
@@ -109,15 +108,14 @@ gtk-toolbar-style = GTK_TOOLBAR_ICONS
 EOF
 mv -f "$HOME/.gtkrc-2.0.tmp" "$HOME/.gtkrc-2.0"
 
-# Ensure user icon theme directory is populated
 mkdir -p "$HOME/.icons/SLOPOS-Platinum" "$HOME/.local/share/icons/SLOPOS-Platinum"
 for cand_icon in \
   "themes/platinum/icon-theme" \
   "/usr/local/share/icons/SLOPOS-Platinum" \
   "/usr/share/icons/SLOPOS-Platinum"; do
   if [[ -d "$cand_icon" ]]; then
-    cp -a "$cand_icon"/* "$HOME/.icons/SLOPOS-Platinum/" 2>/dev/null || true
-    cp -a "$cand_icon"/* "$HOME/.local/share/icons/SLOPOS-Platinum/" 2>/dev/null || true
+    cp -a "$cand_icon"/. "$HOME/.icons/SLOPOS-Platinum/" 2>/dev/null || true
+    cp -a "$cand_icon"/. "$HOME/.local/share/icons/SLOPOS-Platinum/" 2>/dev/null || true
     break
   fi
 done
@@ -141,25 +139,26 @@ else
   done
 fi
 
-# Ensure theme directory structure in HOME/.themes and system share
+# Copy the entire Openbox theme directory, not just the themerc.  The parity
+# theme ships original XBM title-button glyphs alongside its texture rules.
 mkdir -p "$HOME/.themes"
 for ob_theme in slopos-openbox slopos-openbox-classic slopos-openbox-graphite slopos-openbox-oled; do
-  mkdir -p "$HOME/.themes/$ob_theme/openbox-3"
-  for cand_themerc in \
-    "themes/$ob_theme/openbox-3/themerc" \
-    "/usr/local/share/themes/$ob_theme/openbox-3/themerc" \
-    "/usr/share/themes/$ob_theme/openbox-3/themerc"; do
-    if [[ -f "$cand_themerc" ]]; then
-      cp -f "$cand_themerc" "$HOME/.themes/$ob_theme/openbox-3/themerc"
+  target="$HOME/.themes/$ob_theme/openbox-3"
+  mkdir -p "$target"
+  for cand_dir in \
+    "themes/$ob_theme/openbox-3" \
+    "/usr/local/share/themes/$ob_theme/openbox-3" \
+    "/usr/share/themes/$ob_theme/openbox-3"; do
+    if [[ -d "$cand_dir" && -f "$cand_dir/themerc" ]]; then
+      cp -a "$cand_dir"/. "$target/" 2>/dev/null || true
       if mkdir -p "/usr/share/themes/$ob_theme/openbox-3" 2>/dev/null; then
-        cp -f "$cand_themerc" "/usr/share/themes/$ob_theme/openbox-3/themerc" 2>/dev/null || true
+        cp -a "$cand_dir"/. "/usr/share/themes/$ob_theme/openbox-3/" 2>/dev/null || true
       fi
       break
     fi
   done
 done
 
-# Ensure GTK2 and GTK3 theme directories in ~/.themes
 for theme_spec in "slopos-gtk:themes/platinum:assets/config/gtk-3.0/gtk.css" \
                   "slopos-gtk-classic:themes/high-contrast:assets/config/gtk-3.0/gtk-classic.css" \
                   "slopos-gtk-graphite:themes/graphite:assets/config/gtk-3.0/gtk-graphite.css" \
@@ -188,28 +187,47 @@ for candidate_rc in \
   "assets/config/openbox/$rc_name"; do
   if [[ -f "$candidate_rc" ]]; then
     cp -f "$candidate_rc" "$openbox_config/rc.xml"
-    if [[ -f "$slopos_config/dock_dodge" ]]; then
-      if grep -q "1" "$slopos_config/dock_dodge"; then
-        sed -i 's|<bottom>60</bottom>|<bottom>0</bottom>|g' "$openbox_config/rc.xml"
-      fi
-    fi
     break
   fi
 done
+
+# Give first-time Platinum sessions the blue desktop field used by the
+# canonical parity composition, without replacing a wallpaper the user chose.
+if [[ "$mode" == "platinum" && ! -s "$slopos_config/wallpaper" ]]; then
+  for default_wallpaper in \
+    "assets/wallpapers/03_slate_blue.png" \
+    "/usr/local/share/slopos-i/wallpapers/03_slate_blue.png" \
+    "/usr/share/slopos-i/wallpapers/03_slate_blue.png"; do
+    if [[ -f "$default_wallpaper" ]]; then
+      default_wallpaper="$(cd "$(dirname "$default_wallpaper")" && pwd)/$(basename "$default_wallpaper")"
+      printf '%s\n' "$default_wallpaper" > "$slopos_config/wallpaper"
+      printf 'fill\n' > "$slopos_config/wallpaper_mode"
+      if command -v feh >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
+        feh --bg-fill "$default_wallpaper" >/dev/null 2>&1 || true
+      fi
+      break
+    fi
+  done
+fi
 
 if command -v xsetroot >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
   xsetroot -solid "$root_color" >/dev/null 2>&1 || true
 fi
 
-# Reconfigure running Openbox so all window decorations immediately adapt
+if [[ "$mode" == "platinum" && -r "$slopos_config/wallpaper" && -n "${DISPLAY:-}" ]] && command -v feh >/dev/null 2>&1; then
+  active_wallpaper="$(tr -d '\r\n' < "$slopos_config/wallpaper")"
+  if [[ -f "$active_wallpaper" ]]; then
+    feh --bg-fill "$active_wallpaper" >/dev/null 2>&1 || true
+  fi
+fi
+
 if command -v openbox >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
   openbox --reconfigure >/dev/null 2>&1 || true
 fi
 
-# Always restart slopos-shell so topbar and dock reload with the new CSS
+# Reload shell-owned surfaces after the theme changes.
 pkill -TERM -x slopos-shell >/dev/null 2>&1 || true
 
-# If managed by session supervisor, also give openbox a clean reload
 if [[ "${XDG_CURRENT_DESKTOP:-}" == "SLOPOS" || "${SLOPOS_SESSION_MANAGED:-}" == "1" ]]; then
   pkill -TERM -x openbox >/dev/null 2>&1 || true
 fi
