@@ -75,6 +75,22 @@ else
   fi
 fi
 
+# The CI workflow historically pre-provisioned only the bare shell stack when
+# SLOPOS_QA_SKIP_DEPS=1. Composed desktop evidence now requires PCManFM as the
+# real desktop object manager. Provision just that missing runtime instead of
+# silently falling back to an empty root window.
+if ! command -v pcmanfm >/dev/null 2>&1; then
+  echo "Provisioning PCManFM for composed desktop evidence"
+  if command -v sudo >/dev/null 2>&1; then
+    sudo apt-get update -qq
+    sudo apt-get install -y -qq --no-install-recommends pcmanfm
+  else
+    apt-get update -qq
+    apt-get install -y -qq --no-install-recommends pcmanfm
+  fi
+fi
+command -v pcmanfm >/dev/null
+
 mkdir -p "$HOME/.themes/slopos-openbox/openbox-3"
 cp -a themes/slopos-openbox/openbox-3/. "$HOME/.themes/slopos-openbox/openbox-3/"
 mkdir -p "$HOME/.themes/slopos-gtk/gtk-3.0" "$HOME/.config/gtk-3.0"
