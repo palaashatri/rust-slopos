@@ -4,6 +4,67 @@ use gtk::prelude::*;
 use gtk::{CssProvider, StyleContext};
 use std::path::PathBuf;
 
+const CONTROL_PANEL_PARITY_CSS: &[u8] = br#"
+.slopos-folder-caption {
+  min-height: 17px;
+  padding: 1px 3px 3px 3px;
+  font-weight: bold;
+  border-bottom: 1px solid #858585;
+}
+
+.slopos-icon-grid {
+  padding: 8px 6px;
+  background-color: #ffffff;
+  border: 1px solid #111111;
+}
+
+button.slopos-control-panel-icon {
+  min-width: 84px;
+  min-height: 66px;
+  padding: 4px 2px;
+  margin: 0;
+  background-image: none;
+  background-color: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+
+button.slopos-control-panel-icon:hover,
+button.slopos-control-panel-icon:focus,
+button.slopos-control-panel-icon:active {
+  color: #ffffff;
+  background-image: none;
+  background-color: #000080;
+  border-color: #000080;
+  box-shadow: none;
+}
+
+button.slopos-control-panel-icon:hover label,
+button.slopos-control-panel-icon:focus label,
+button.slopos-control-panel-icon:active label {
+  color: #ffffff;
+}
+
+button.slopos-control-panel-icon:disabled {
+  background-image: none;
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  opacity: 0.52;
+}
+
+button.slopos-control-panel-icon image {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+button.slopos-control-panel-icon label {
+  font-size: 10px;
+  font-weight: normal;
+  color: #111111;
+}
+"#;
+
 pub fn current_appearance() -> &'static str {
     if let Ok(env_app) = std::env::var("SLOPOS_APPEARANCE") {
         let v = env_app.trim();
@@ -122,6 +183,20 @@ pub fn load_css_theme() {
                 );
             }
             break;
+        }
+    }
+
+    // Settings has one additional application-owned layer for the icon-grid
+    // Control Panels presentation. Keeping it here avoids changing the global
+    // GTK theme semantics for unrelated upstream applications.
+    let parity_provider = CssProvider::new();
+    if parity_provider.load_from_data(CONTROL_PANEL_PARITY_CSS).is_ok() {
+        if let Some(screen) = gdk::Screen::default() {
+            StyleContext::add_provider_for_screen(
+                &screen,
+                &parity_provider,
+                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+            );
         }
     }
 }
