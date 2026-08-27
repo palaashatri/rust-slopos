@@ -13,6 +13,7 @@ cd "$REPO_ROOT"
 export SLOPOS_OPENBOX_CONFIG="${SLOPOS_OPENBOX_CONFIG:-$REPO_ROOT/assets/config/openbox/rc.xml}"
 export SLOPOS_QA_NO_WELCOME=1
 export GDK_BACKEND=x11
+export SLOPOS_DESKTOP_PROFILE="${SLOPOS_DESKTOP_PROFILE:-slopos}"
 
 SCREEN="${SLOPOS_RESOLUTION:-1366x768}"
 SCALE="${SLOPOS_SCALE:-1}"
@@ -43,10 +44,14 @@ rm -f "$OUTPUT_DIR"/*.png "$OUTPUT_DIR"/*.log "$OUTPUT_DIR"/evidence-manifest.tx
 
 cleanup() {
   set +e
+  if command -v pcmanfm >/dev/null 2>&1; then
+    pcmanfm --profile="$SLOPOS_DESKTOP_PROFILE" --desktop-off >/dev/null 2>&1 || true
+  fi
   kill "${SETTINGS_PID:-}" "${SESSION_PID:-}" "${XVFB_PID:-}" 2>/dev/null || true
   pkill -TERM -x slopos-settings 2>/dev/null || true
   pkill -TERM -x slopos-shell 2>/dev/null || true
   pkill -TERM -x slopos-session 2>/dev/null || true
+  pkill -TERM -x pcmanfm 2>/dev/null || true
   pkill -TERM -x openbox 2>/dev/null || true
   pkill -TERM -x Xvfb 2>/dev/null || true
 }
@@ -59,7 +64,7 @@ else
   apt-get update -qq
   apt-get install -y -qq --no-install-recommends \
     ca-certificates curl build-essential pkg-config libgtk-3-dev libx11-dev \
-    libxrandr-dev libssl-dev libdbus-1-dev xvfb openbox xdotool scrot \
+    libxrandr-dev libssl-dev libdbus-1-dev xvfb openbox pcmanfm xdotool scrot \
     imagemagick dbus-x11 x11-utils x11-xserver-utils librsvg2-common \
     fonts-liberation fonts-dejavu-core adwaita-icon-theme
 
@@ -106,10 +111,22 @@ test "$ROOT_DIMENSIONS" = "$SCREEN" || {
 echo "X11_ROOT_DIMENSIONS=$ROOT_DIMENSIONS"
 xsetroot -solid "#2B7798"
 rm -f "$DBUS_ENV_FILE"
+export SLOPOS_SESSION_BIN="$REPO_ROOT/target/release/slopos-session"
 dbus-run-session -- bash -c '
   printf "export DBUS_SESSION_BUS_ADDRESS=%q\n" "$DBUS_SESSION_BUS_ADDRESS" > "$1"
-  exec env GDK_BACKEND=x11 GDK_SCALE="$3" "$2"
-' bash "$DBUS_ENV_FILE" ./target/release/slopos-session "$SCALE" \
+  exec env \
+    GDK_BACKEND=x11 \
+    GDK_SCALE="$3" \
+    SLOPOS_SESSION_BIN="$2" \
+    SLOPOS_QA_NO_WELCOME=1 \
+    SLOPOS_DESKTOP_PROFILE="$5" \
+    "$4"
+' bash \
+  "$DBUS_ENV_FILE" \
+  "$SLOPOS_SESSION_BIN" \
+  "$SCALE" \
+  "$REPO_ROOT/scripts/start-slopos-i" \
+  "$SLOPOS_DESKTOP_PROFILE" \
   >"$OUTPUT_DIR/session.log" 2>&1 &
 SESSION_PID=$!
 
@@ -135,13 +152,17 @@ capture_screenshot() {
 }
 
 for _ in $(seq 1 30); do
-  if pgrep -x openbox >/dev/null && pgrep -x slopos-shell >/dev/null && [[ -s "$DBUS_ENV_FILE" ]]; then
+  if pgrep -x openbox >/dev/null \
+      && pgrep -x slopos-shell >/dev/null \
+      && pgrep -x pcmanfm >/dev/null \
+      && [[ -s "$DBUS_ENV_FILE" ]]; then
     break
   fi
   sleep 1
 done
 pgrep -x openbox >/dev/null
 pgrep -x slopos-shell >/dev/null
+pgrep -x pcmanfm >/dev/null
 test -s "$DBUS_ENV_FILE"
 # shellcheck source=/dev/null
 source "$DBUS_ENV_FILE"
@@ -153,7 +174,22 @@ if xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null 2
   exit 1
 fi
 
-echo "[4/5] Capturing dockless shell geometry and retained scenes"
+# The retained screenshot must now be from the real session composition, not a
+# bare root pixmap. Verify the managed objects that should appear on the right
+# edge exist before taking evidence.
+DESKTOP_DIR="$HOME/Desktop"
+if command -v xdg-user-dir >/dev/null 2>&1; then
+  RESOLVED_DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || true)"
+  if [[ -n "$RESOLVED_DESKTOP_DIR" && "$RESOLVED_DESKTOP_DIR" != "$HOME" ]]; then
+    DESKTOP_DIR="$RESOLVED_DESKTOP_DIR"
+  fi
+fi
+for object in slopos-home.desktop slopos-network.desktop slopos-documents.desktop slopos-trash.desktop; do
+  test -f "$DESKTOP_DIR/$object"
+  grep -Fq 'X-SLOPOS-Managed=true' "$DESKTOP_DIR/$object"
+done
+
+echo "[4/5] Capturing composed classic desktop and retained scenes"
 TOPBAR_WINDOW="$(xdotool search --onlyvisible --name '^SLOPOS Top Bar$' | tail -n 1)"
 test -n "$TOPBAR_WINDOW"
 eval "$(xdotool getwindowgeometry --shell "$TOPBAR_WINDOW" | sed -e 's/^WINDOW=/GEOM_WINDOW=/' -e 's/^SCREEN=/GEOM_SCREEN=/')"
@@ -196,6 +232,9 @@ done
   printf 'resolution=%s\n' "$SCREEN"
   printf 'scale=%s\n' "$SCALE"
   printf 'dock=absent\n'
+  printf 'desktop_manager=pcmanfm\n'
+  printf 'desktop_profile=%s\n' "$SLOPOS_DESKTOP_PROFILE"
+  printf 'managed_desktop_objects=4\n'
   for image in \
     "$OUTPUT_DIR/desktop_${SCREEN_TAG}.png" \
     "$OUTPUT_DIR/search_${SCREEN_TAG}.png" \
@@ -207,5 +246,5 @@ done
 } >"$OUTPUT_DIR/evidence-manifest.txt"
 test -s "$OUTPUT_DIR/evidence-manifest.txt"
 echo "RESOLUTION_QA_SOURCE_COMMIT=$SOURCE_COMMIT"
-echo "RESOLUTION=$SCREEN SCALE=$SCALE TOPBAR_WIDTH=$TOPBAR_WIDTH DOCK=absent"
+echo "RESOLUTION=$SCREEN SCALE=$SCALE TOPBAR_WIDTH=$TOPBAR_WIDTH DOCK=absent DESKTOP_MANAGER=pcmanfm"
 echo "RESOLUTION_QA_STATUS_0"
