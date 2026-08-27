@@ -1,50 +1,64 @@
-# SLOPOS Platinum Openbox theme
+# SLOPOS Platinum Openbox theme — classic parity branch
+# Compact square chrome with high-contrast keylines and mechanical depth.
 
-padding.width: 4
-padding.height: 3
+padding.width: 3
+padding.height: 2
 window.client.padding.width: 0
 window.client.padding.height: 0
 border.width: 1
-border.color: #5A6270
-window.active.border.color: #5A6270
-window.inactive.border.color: #B0B5BD
+border.color: #111111
+window.active.border.color: #111111
+window.inactive.border.color: #686868
 
-# Platinum active window title gradient
-window.active.title.bg: flat gradient vertical
-window.active.title.bg.color: #F4F5F7
-window.active.title.bg.colorTo: #D8DCE3
+# Active title: light platinum, crisp edge, compact label.
+window.active.title.bg: raised gradient vertical
+window.active.title.bg.color: #F7F7F7
+window.active.title.bg.colorTo: #BEBEBE
+window.active.title.separator.color: #111111
 window.active.label.bg: parentrelative
-window.active.label.text.color: #1A1D20
+window.active.label.text.color: #111111
 window.active.label.text.font: shadow=off
 
-window.inactive.title.bg: flat solid
-window.inactive.title.bg.color: #E2E5EB
+# Inactive windows deliberately flatten and desaturate.
+window.inactive.title.bg: flat gradient vertical
+window.inactive.title.bg.color: #E4E4E4
+window.inactive.title.bg.colorTo: #C9C9C9
+window.inactive.title.separator.color: #6F6F6F
 window.inactive.label.bg: parentrelative
-window.inactive.label.text.color: #7A808C
+window.inactive.label.text.color: #585858
+window.inactive.label.text.font: shadow=off
 
-window.active.button.unpressed.bg: flat gradient vertical
+# Square, bordered title buttons.
+window.active.button.unpressed.bg: raised gradient vertical
 window.active.button.unpressed.bg.color: #FFFFFF
-window.active.button.unpressed.bg.colorTo: #D0D5DD
-window.active.button.pressed.bg: flat gradient vertical
-window.active.button.pressed.bg.color: #B8BCC6
-window.active.button.pressed.bg.colorTo: #D0D5DD
-window.active.button.unpressed.image.color: #2D3139
-window.active.button.pressed.image.color: #1A1D20
+window.active.button.unpressed.bg.colorTo: #BDBDBD
+window.active.button.hover.bg: raised gradient vertical
+window.active.button.hover.bg.color: #FFFFFF
+window.active.button.hover.bg.colorTo: #D5D5D5
+window.active.button.pressed.bg: sunken gradient vertical
+window.active.button.pressed.bg.color: #8F8F8F
+window.active.button.pressed.bg.colorTo: #D7D7D7
+window.active.button.unpressed.image.color: #111111
+window.active.button.hover.image.color: #000080
+window.active.button.pressed.image.color: #111111
+
 window.inactive.button.unpressed.bg: flat solid
-window.inactive.button.unpressed.bg.color: #E2E5EB
-window.inactive.button.unpressed.image.color: #8C93A0
+window.inactive.button.unpressed.bg.color: #D4D4D4
+window.inactive.button.unpressed.image.color: #666666
 
-menu.border.color: #5A6270
+# Menus should visually belong to the same chrome, not float as modern cards.
+menu.border.color: #111111
 menu.border.width: 1
-menu.title.bg: flat gradient vertical
-menu.title.bg.color: #F4F5F7
-menu.title.bg.colorTo: #D8DCE3
-menu.title.text.color: #1A1D20
+menu.overlap.x: -1
+menu.overlap.y: -1
+menu.title.bg: raised gradient vertical
+menu.title.bg.color: #F5F5F5
+menu.title.bg.colorTo: #C2C2C2
+menu.title.text.color: #111111
 menu.items.bg: flat solid
-menu.items.bg.color: #FFFFFF
-menu.items.text.color: #1A1D20
-menu.items.disabled.text.color: #7A808C
+menu.items.bg.color: #EEEEEE
+menu.items.text.color: #111111
+menu.items.disabled.text.color: #777777
 menu.items.active.bg: flat solid
-menu.items.active.bg.color: #3B71CA
+menu.items.active.bg.color: #000080
 menu.items.active.text.color: #FFFFFF
-
