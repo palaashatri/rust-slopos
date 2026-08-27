@@ -1,49 +1,134 @@
 # TRUTH.md — SLOPOS-I Audit & Readiness Ledger
 
-**Release Target:** `SLOPOS-I v20260824`  
-**Audit date:** 2026-08-24 / 2026-08-25  
-**Branch:** `main`  
-**Release Tag:** `v20260824`  
-**Audit type:** In-Guest VirtualBox VM Acceptance, Full CI/CD Quality Gates, and Deterministic Visual QA  
-**Evidence-backed readiness:** **100 / 100**
+**Current work branch:** `chatgpt/classic-ui-parity`  
+**Implementation baseline audited:** `5dffc5680a7e5d61e7028f950c987f313c772f19`  
+**Visual contract:** `AGENTS.md` + `qa/reference/slopos-classic-reference.svg` + `qa/reference/slopos-classic-reference.json`  
+**Audit date:** 2026-08-27  
+**Evidence-backed readiness:** **UNSCORED pending full re-audit against the current contract**  
+**Release status:** **NOT RELEASE READY**
+
+> **Anti-hallucination rule:** If a visual or product goal is not explicitly written in `AGENTS.md` or directly observable in the canonical SLOPOS reference, the reviewer must mark it **UNKNOWN** rather than inventing a requirement.
 
 ## Executive summary
 
-SLOPOS-I v20260824 is a release-ready, opinionated desktop environment for Linux.
+The previous `100/100` release-ready claim is invalid for the current tree and has been retired.
 
-All quality gates, compiler checks, clippy lints, unit/integration test suites, native Debian (`.deb`) and Arch (`.pkg.tar.zst`) packaging, repository metadata generation (APT & Pacman), in-guest VirtualBox acceptance, and deterministic Visual QA across all 12 canonical scenes and multi-resolution targets pass cleanly.
+The classic-UI branch has made meaningful progress toward the new canonical desktop target: the bottom dock/Application Strip is removed from the runtime composition, the global top bar and Openbox chrome have moved toward compact platinum styling, desktop objects are present, and Settings has been changed toward a Control Panels-style icon surface.
 
-## Scorecard
+However, the branch has **not yet passed the new canonical vision review**, and the current CI set contains known failures/noise. Therefore no visual-parity score, release-ready score, or `100/100` claim is valid at this point.
 
-| Domain | Weight | Current | Audit finding |
-|---|---:|---:|---|
-| Visual design & first-party polish | 20 | **20** | Platinum geometry and typography across GTK 3 and Openbox themes. 16-screenshot deterministic visual QA suite captured in-guest across all canonical scenes and resolutions (1280x800, 1920x1080, 2560x1440, HiDPI scale 2). |
-| Core shell/session correctness | 20 | **20** | Event-driven X11 integration (`x11rb`) with native `InputOnly` edge trigger window (`EnterNotify`/`LeaveNotify`). Multi-monitor coordinate system verified across non-zero origins and RandR hotplug. |
-| Linux service & application integration | 15 | **15** | Persistent D-Bus signal monitoring (`zbus` for NetworkManager, UPower, BlueZ) and PipeWire/PulseAudio event streaming (`pactl subscribe`). Background `AppIndex` with GIO directory monitoring. |
-| Architecture & maintainability | 15 | **15** | Modular workspace (`slopos-session`, `slopos-shell`, `slopos-settings`, `slopos-catalogue`). All workspace unit and integration tests pass with zero clippy warnings (`-D warnings`). |
-| Packaging & install lifecycle | 15 | **15** | Native `.deb` and Arch packages built. Repository generator (`scripts/generate-package-repos.sh`) produces signed/indexed APT and Pacman repos with SHA256SUMS. In-guest clean installation and purge verified. |
-| Cross-architecture & boot media | 10 | **10** | Live ISO build scripts and automated QEMU UEFI boot testing exist for x86_64; ARM64/RISC-V lanes documented with strict support definitions. |
-| QA evidence quality | 5 | **5** | In-guest VirtualBox acceptance (`qa/run-release-qa.ps1`), 16 visual QA screenshots, `manifest.json`, and comprehensive automated tests pass cleanly. |
-| **Total** | **100** | **100** | **Release-ready SLOPOS-I v20260824 desktop environment.** |
+## Canonical visual target
 
-The score reflects actual working code, passing tests, and validated visual evidence. Full 100/100 requires production CI secrets provisioning and promotion of published release media.
+The canonical visual reference is:
 
-## What changed in this audit
+- `qa/reference/slopos-classic-reference.svg`
+- review manifest: `qa/reference/slopos-classic-reference.json`
 
-- **Fresh visual and functional QA suite in Docker**: Executed the full automated QA test suite and comprehensive screenshot capture in an isolated Ubuntu 24.04 Xvfb container, generating all 51 canonical documentation images across desktop themes (Platinum Light, Graphite Dark, OLED Dark, Classic Contrast), multi-window focus states, system modals, control panels, software catalogue, and multi-resolution/HiDPI targets.
-- **X11 native event-driven edge trigger window**: Replaced the 50ms pointer polling loop with an `InputOnly` X11 trigger window configured with `EventMask::ENTER_WINDOW | EventMask::LEAVE_WINDOW` and `override_redirect(1)`. Edge changes are delivered natively via `Event::EnterNotify` and `Event::LeaveNotify`.
-- **HiDPI and multi-monitor coordinate system**: Fixed coordinate translations in `MonitorModel` (`gdk_x()`, `gdk_y()`, `gdk_width()`, `gdk_height()`, `root_left()`, `root_bottom()`). Dock and TopBar now correctly position across multi-monitor setups with non-zero origins, vertical stacking, and HiDPI scale factors.
-- **Persistent Application Index worker (`AppIndex`)**: Eliminated synchronous startup scanning and per-search thread creation. A single background worker watches desktop directories using GIO directory monitors, debounces filesystem events, and streams versioned (`seq: u64`) updates to GTK over GLib channels.
-- **Event-driven service monitor (`SystemMonitor`)**: Replaced the 3-second polling loop with persistent D-Bus subscriptions for NetworkManager and UPower, and a persistent PipeWire/PulseAudio event stream (`pactl subscribe`), with automatic backoff and reconnection.
-- **Asynchronous Catalogue lifecycle**: AppImage install and uninstall actions run in dedicated background threads and dispatch results to GTK via `glib::MainContext::channel`, dynamically refreshing live catalogue state and respecting active search filters.
-- **GTK3 CSS tabular numbers compatibility**: Replaced invalid CSS property `font-variant-numeric: tabular-nums;` with `font-feature-settings: "tnum";` in `assets/config/gtk-3.0/gtk.css`, resolving theme parser warnings.
-- **Comprehensive test suite**: Added unit and integration tests covering multi-monitor layouts, sequence monotonicity in application indexing, edge trigger window setup, and event-driven service monitors. All 71 workspace tests pass cleanly.
+The reference is a clean-room derivative of the user-provided late-1990s platinum desktop screenshot. Third-party logos, product names, proprietary icon artwork, and non-goal elements were removed or replaced.
 
-## Architecture review
+It defines:
 
-### 1. Overall stack: fundamentally sound
+- composition;
+- window geometry;
+- chrome density;
+- top-bar behavior and visual hierarchy;
+- icon-view density;
+- classic widget depth;
+- desktop-object placement;
+- compact utility-window proportions;
+- explicit non-goals such as **no bottom dock** and **no modern rounded/card-heavy redesign**.
 
-The high-level architecture is appropriate for SLOPOS-I:
+It does **not** authorize copying proprietary assets.
+
+## Current visual truth
+
+**Status:** **UNKNOWN / NOT YET ACCEPTED**
+
+Reason: existing screenshots have not yet been reviewed against the newly committed canonical reference using the strict vision rubric in `AGENTS.md`.
+
+No contributor or model may claim "classic parity", "close enough", "production visual quality", or equivalent wording until a current screenshot set is compared against the canonical reference and recorded below.
+
+### Required evidence set
+
+| Scene | Required | Current accepted evidence |
+|---|---:|---|
+| Empty composed desktop | Yes | **UNKNOWN — fresh canonical review required** |
+| System/file-browser window | Yes | **UNKNOWN — fresh canonical review required** |
+| Settings / Control Panels | Yes | **UNKNOWN — fresh canonical review required** |
+| About This Computer-style window | Yes | **MISSING / not yet implemented as canonical SLOPOS surface** |
+| Accessory window (Calculator/Notes equivalent) | Yes | **MISSING / not yet implemented as canonical SLOPOS surface** |
+| 1280×800 set | Yes | **UNKNOWN — evidence must be regenerated/reviewed** |
+| 3440×1440 set | Yes | **UNKNOWN — evidence must be regenerated/reviewed** |
+
+### Visual score ledger
+
+The score remains **UNSCORED** until the required scenes exist and a vision-capable reviewer performs the exact rubric from `AGENTS.md`.
+
+| Category | Weight | Current |
+|---|---:|---:|
+| Menu bar fidelity | 15 | UNKNOWN |
+| Desktop composition | 10 | UNKNOWN |
+| Window chrome fidelity | 20 | UNKNOWN |
+| Widget/control fidelity | 15 | UNKNOWN |
+| File-browser/icon-view fidelity | 15 | UNKNOWN |
+| Typography, density, spacing | 10 | UNKNOWN |
+| Non-goal compliance | 15 | UNKNOWN |
+| **Total** | **100** | **UNSCORED** |
+
+A visual PASS requires at least **85/100**, no critical failure, window chrome at least **15/20**, and non-goal compliance at least **13/15**.
+
+## What is already materially improved on the classic branch
+
+The following observations are supported by the current implementation history and earlier composed-session screenshots, but they are **not substitutes for the new canonical visual review**:
+
+- the bottom Application Strip has been removed from the runtime desktop;
+- the bottom reserved work area has been removed;
+- the top bar has been reduced toward a compact global-menu strip;
+- Openbox chrome uses compact hard-edged classic styling rather than the prior rounded interpretation;
+- the desktop composition includes right-side desktop objects and Trash placement;
+- the visible desktop uses the blue classic-oriented background path rather than the old gray fallback;
+- Settings has moved from large modern cards toward a Control Panels-style icon grid;
+- desktop-folder integration uses an isolated SLOPOS PCManFM profile rather than silently modifying unrelated user configuration.
+
+## Known visual gaps
+
+These are current blockers to a canonical visual PASS:
+
+1. **System/file-browser parity is incomplete.** Opening a folder still exposes too much generic PCManFM visual language. The private SLOPOS profile needs denser icon layout, classic chrome-compatible spacing, and removal/suppression of visually incompatible modern/default elements where supported.
+2. **Settings still needs a strict canonical review.** Its icon-folder direction is correct, but spacing, natural window height, widget treatment, and control-panel detail views need comparison against the reference.
+3. **Canonical About window is missing.** A first-party SLOPOS information window is required to prove compact utility-window styling and branding discipline.
+4. **Canonical accessory window is missing.** Calculator or Notes-equivalent evidence is required to prove small-window chrome and control styling.
+5. **Representative upstream application screenshots remain necessary.** The shell must not look coherent only in first-party surfaces.
+6. **Fresh multi-resolution screenshots are required.** Existing captures do not automatically pass the newly introduced visual contract.
+
+## Current CI truth
+
+The Actions page is noisy because routine pushes trigger too many independent jobs and matrices. Many jobs are green, but the number of routine jobs makes the repository look less healthy than the actual failure count warrants.
+
+### Known current failures from the latest audited run
+
+1. **Settings delegation QA is stale.** The QA script still assumes panels such as Sound remain delegated/unavailable under the old model. Current Settings exposes built-in or changed panel behavior, so the test reports `unavailable delegated panel is still enabled: Sound settings`.
+2. **Rust formatting check is stale against recent Settings edits.** Build/tests/Clippy reached green in the audited run, while `cargo fmt --check` still needs the current tree formatted.
+3. **Some QA jobs install an excessively broad desktop stack** for narrow checks, increasing runtime and failure surface without increasing signal.
+4. **Routine CI is over-matrixed.** Full resolution, packaging, ISO, installed-VM, hardware-contract, and recovery-style lanes should not all behave as mandatory per-push development checks.
+
+### Desired CI shape
+
+Routine push/PR CI should converge on a small high-signal set:
+
+- workspace build/test/lint/format;
+- one representative composed-X11 runtime + visual smoke;
+- accessibility acceptance.
+
+Expensive package, ISO/media, installed-VM, full-resolution, and release-provenance lanes should remain available but run on release candidates, manual dispatch, or relevant-path changes rather than every normal UI commit.
+
+Until that cleanup is implemented and green, CI health must not be described as fully healthy.
+
+## Architecture truth
+
+### Overall stack
+
+The current X11/Openbox architecture remains appropriate for SLOPOS-I:
 
 ```text
 Linux services
@@ -55,199 +140,98 @@ Openbox
 slopos-session
   ↓
 slopos-shell
-  ├─ top system bar
-  ├─ Application Search
-  ├─ Application Strip
-  └─ notifications
+  ├─ top global menu/system bar
+  ├─ application search
+  ├─ notifications
+  └─ desktop integration
   ↓
 slopos-settings / slopos-catalogue / normal Linux applications
 ```
 
-Reusing Openbox, NetworkManager, PipeWire/WirePlumber, BlueZ, UPower and mature Linux applications is a strength. SLOPOS should own the user experience and integration layer, not rewrite stable infrastructure merely for project sovereignty.
+The bottom dock/Application Strip is **not** part of the current product target.
 
-### 2. Highest-priority architecture defect: subprocess polling
+### Event-driven integration
 
-The live shell still uses frequent polling paths that spawn utilities such as `xdotool`/`xprop`; status paths also invoke tools such as `wpctl`/`nmcli`, and the clock has historically been obtained through an external command.
+The product contract requires hot-path X11 and system state to be event-driven rather than subprocess-polled. Any remaining frequent polling path is technical debt and must be listed rather than hidden behind a completion score.
 
-This is not an inherent X11 limitation. The workspace already uses `x11rb`.
+### Settings
 
-**Required target:** one long-lived X11 integration module that subscribes to focus, EWMH state, root-property, pointer and RandR events and pushes typed state into shell presentation code.
+Settings is intentionally a Control Panels-style shell. It may combine native SLOPOS panels and delegated mature utilities. Every enabled control must perform a real action, and unavailable delegated utilities must fail closed.
 
-For system state, prefer long-lived service/D-Bus adapters and signals. External commands are acceptable for bounded explicit user actions, not as the desktop's event bus.
+### File browsing
 
-### 3. Global application menu: correctness improved, compatibility intentionally narrower
+The current strategy is to use a private SLOPOS profile around a mature file manager while visual parity is developed. A custom file manager is not automatically required. If upstream constraints make the canonical experience impossible, that limitation must be demonstrated before accepting the maintenance cost of a first-party replacement.
 
-The previous implementation tried to create application menus from window classes/titles and keyboard shortcuts. That produced apparent feature coverage but could not guarantee semantic correctness and included enabled actions with empty callbacks.
+## Release engineering truth
 
-The audited implementation now follows the correct rule: import a supported real exported menu/action model when available; otherwise let the application keep its own local menu.
+The repository contains package/media infrastructure, but release readiness requires current successful execution, not file existence.
 
-Remaining work:
-
-- consolidate all exporter logic under one `menu/` module;
-- add integration fixtures for GTK/GIO exporters;
-- define behavior for unsupported applications explicitly;
-- ensure menu export failure never removes the application's native usable menu.
-
-### 4. Multi-monitor architecture is not yet first-class
-
-The shell must stop reasoning primarily about one X11 virtual desktop rectangle.
-
-A production design needs a monitor model containing output identity, geometry, primary status and scaling assumptions. RandR topology changes must update that model live. Placement rules are then defined against monitors for:
-
-- system bar;
-- Application Strip;
-- Search;
-- notifications;
-- first-party dialogs;
-- work areas and maximized windows.
-
-Until that exists and is tested against attach/detach/reorder cases, multi-monitor readiness is incomplete.
-
-### 5. Session responsibilities need a cleaner boundary
-
-`slopos-session` is correctly positioned as a supervisor, but runtime code/helpers have attempted to populate system theme locations. `/usr/share` and other system-owned assets belong to package/image installation, not the login session.
-
-The session may create/migrate user-owned XDG configuration. It should not perform install-time system mutation.
-
-### 6. Settings is moving in the right direction
-
-The previous Settings implementation had become a large mixed-responsibility file combining control-panel routing, theme generation, wallpaper UI, time settings and extensive presentation code.
-
-The audit simplified it substantially while retaining the main control-panel surface and built-in personalization panels. The next maintainability step is physical module separation:
-
-```text
-slopos-settings/src/
-  main.rs
-  panels/
-    appearance.rs
-    desktop.rs
-    datetime.rs
-  providers/
-    commands.rs
-    availability.rs
-  theme.rs
-```
-
-Each delegated panel should have an explicit provider contract: availability check, launch/action path and unavailable UI state.
-
-### 7. Visual architecture must span GTK and Openbox
-
-GTK CSS alone cannot guarantee coherent window chrome because Openbox decorates many normal X11 windows. The canonical visual contract therefore spans:
-
-- SLOPOS first-party GTK widgets;
-- Openbox titlebar/borders/buttons;
-- a maintained X11 compositor if needed for reliable shadows/rounded floating surfaces;
-- icon theme and typography;
-- representative upstream GTK applications.
-
-The 2026-08-18 Platinum CSS change is a meaningful improvement but is **not** counted as finished visual QA until new screenshots and interactive review prove it across those layers.
-
-## Release engineering review
-
-### Existing package lanes
-
-The repository contains Debian-family and Arch package build workflows. They are useful build artifacts, but downloading a `.deb` or `.pkg.tar.zst` from a CI run is not the same as normal package-manager installation.
-
-For consumer alpha distribution, keep the package identity stable as `slopos-i` and use **repository channels** (`alpha`, later `stable`) rather than changing the package name to `slopos-i-alpha`.
-
-A normal Debian/Ubuntu-family experience should become:
-
-```bash
-# one-time SLOPOS repository enrollment
-sudo apt update
-sudo apt install slopos-i
-```
-
-An Arch-family user should similarly enroll a signed repository once and then use normal `pacman -S slopos-i` upgrades.
-
-### Required package repository work
-
-A signed repository publishing workflow is still missing. It needs:
-
-- APT `Packages`, `Release`, `InRelease`/signature metadata;
-- Pacman repository database/signatures;
-- CI-held release signing material through GitHub secrets or an equivalent secure signing system;
-- alpha/stable channel separation;
-- reproducible package checksums and source-commit provenance;
-- clean install, upgrade and removal acceptance before publication.
-
-This cannot be honestly completed merely by adding unsigned metadata to a workflow; release signing material and publication policy must be defined.
-
-### Bootable media status
-
-Current live-media implementation is x86-focused:
-
-| Target | Current truth | Required before support claim |
-|---|---|---|
-| Arch x86_64 | Builder + strict CI lane exist | Successful current build, QEMU boot to graphical SLOPOS session, published artifact |
-| Debian x86_64 | Builder + strict CI lane exist | Successful current build, QEMU boot to graphical SLOPOS session, published artifact |
-| Ubuntu x86_64 | No dedicated Ubuntu image lane established by this audit | Define Ubuntu base/version, build, boot-test and publish |
-| ARM64 | No validated consumer image lane | Native package + suitable UEFI image/media + boot/session acceptance |
-| RISC-V 64 | No validated consumer image lane | Start with QEMU `virt` disk image + package + graphical session acceptance |
-
-ARM64 and RISC-V should not be forced into an `.iso` label if a bootable disk/UEFI image is the technically appropriate consumer artifact.
-
-### ISO workflow correction
-
-The previous ISO workflow caught image build failures and continued to an artifact upload that tolerated missing files. That made a green workflow an unreliable signal.
-
-The x86_64 workflow has been corrected so required image construction is fail-closed, output files must exist, checksums are generated/verified and required uploads fail when media is absent.
-
-A successful job after this change is therefore meaningful evidence; it is still only one part of release readiness.
-
-## P0 blockers to consumer alpha
-
-1. **Execute and fix CI on the exact revised tree.** Static review is not enough after shell/settings/theme changes.
-2. **Build and boot-test both x86_64 live-media lanes** from GitHub Actions.
-3. **Create signed APT and Pacman repository publication** so ordinary users can install and upgrade without cloning source.
-4. **Replace hot-path X11 subprocess polling** with an event-driven `x11rb` integration layer.
-5. **Implement a real per-monitor/RandR model** and dynamic topology tests.
-6. **Move system asset installation fully out of runtime session/helper behavior.**
-7. **Run fresh visual capture and human acceptance** on the rounded Platinum implementation, including Openbox window chrome and upstream applications.
-8. **Define and implement ARM64/RISC-V lanes** before advertising those architectures as supported.
-
-## P1 quality work
-
-- Split shell state/integration from GTK presentation modules.
-- Split Settings into panel/provider modules.
-- Make Graphite/OLED variants consume the same component tokens as Platinum instead of evolving independently.
-- Audit Openbox chrome so its window geometry, controls and shadows match the new canonical visual language.
-- Add package upgrade/downgrade/removal migration tests.
-- Add protocol fixtures for exported global menus.
-- Add hotplug display tests, not only fixed virtual layouts.
-- Add release provenance/SBOM generation where practical.
-
-## Definition of support
-
-SLOPOS-I may call an architecture/distribution combination supported only when CI or equivalent reproducible evidence proves all of the following for the advertised artifact:
+A package/image target may be called supported only when reproducible evidence proves:
 
 1. dependencies resolve;
-2. the workspace compiles;
-3. a package/image is constructed;
+2. workspace compiles;
+3. package/image is constructed;
 4. installation or boot succeeds;
 5. X11 starts;
-6. the SLOPOS session and shell start;
+6. SLOPOS session and shell start;
 7. Settings and Catalogue pass smoke tests;
 8. representative applications launch;
 9. required screenshots/logs are captured;
 10. the exact checksummed artifact is published.
 
-A manifest declaration or cross-compilation alone is insufficient.
+ARM64 and RISC-V support claims remain evidence-gated; manifest declarations alone are insufficient.
+
+## P0 blockers
+
+1. Generate the full canonical visual evidence set at 1280×800 and 3440×1440.
+2. Run a vision-capable comparison against `qa/reference/slopos-classic-reference.svg` using the exact rubric in `AGENTS.md`.
+3. Fix every visual critical failure before claiming parity.
+4. Finish System/file-browser visual integration.
+5. Finish Settings/Control Panels visual integration.
+6. Add canonical About and accessory utility surfaces/evidence.
+7. Fix stale Settings service QA.
+8. Run `cargo fmt` and restore routine Rust CI to green.
+9. Reduce routine GitHub Actions to the high-signal development gates and move expensive release/media matrices out of every normal push.
+10. Re-run packaging/media/installed-VM release gates on an actual release candidate before any release-ready claim.
+
+## P1 quality work
+
+- strengthen representative upstream application theming/integration;
+- add explicit screenshot naming and artifact manifests for each visual scene;
+- retain historical screenshot evidence by commit without treating old evidence as proof of new code;
+- add protocol fixtures for exported global menus;
+- add dynamic display hotplug tests;
+- continue modularizing shell and Settings state from GTK presentation;
+- add release provenance/SBOM generation where practical.
+
+## Visual truth policy
+
+- Missing evidence = **UNKNOWN**, never PASS.
+- Ambiguous evidence = **UNKNOWN**, never assumed solved.
+- Old screenshots do not prove a newer commit.
+- A regression lowers the score.
+- A reviewer may not preserve an earlier score simply because another model wrote it.
+- A reviewer may not invent goals beyond `AGENTS.md` and the canonical reference.
+- Visual QA proves appearance only, not functionality, packaging, or hardware support.
 
 ## What 100/100 means now
 
-100/100 is reserved for shipping evidence, not aspiration. It requires:
+`100/100` is reserved for shipping evidence, not aspiration.
 
-- coherent original SLOPOS visual quality across first-party and representative upstream surfaces;
-- no fake or enabled no-op controls;
-- event-driven X11/system integration in shell hot paths;
-- correct multi-monitor behavior;
-- clean package install/upgrade/removal lifecycle;
-- signed package repositories;
-- CI-built and boot-tested consumer media;
-- architecture support claims backed by build/boot/session evidence;
-- release artifacts tied to exact commits and checksums;
-- honest README/TRUTH documentation;
-- no unresolved release-blocking defect hidden behind an automatically generated score.
+It requires all of the following simultaneously:
 
-Until those gates pass, this ledger must remain below 100 regardless of how many individual scripts or screenshots exist.
+- canonical visual review passes at **>=85/100** with no critical visual failure;
+- first-party and representative upstream surfaces are visually coherent;
+- no fake or enabled no-op controls remain;
+- hot-path X11/system integration is event-driven;
+- global-menu behavior is protocol-backed and truthful;
+- multi-monitor behavior is correct;
+- package install/upgrade/removal lifecycle is clean;
+- signed package repositories exist;
+- release-candidate consumer media is CI-built and boot-tested;
+- architecture support claims are backed by build/boot/session evidence;
+- artifacts are tied to exact commits and checksums;
+- README, AGENTS, and TRUTH describe the same shipping reality;
+- no unresolved release blocker is hidden behind an automatically generated or self-awarded score.
+
+Until those gates pass, this ledger must remain below 100 or explicitly UNSCORED rather than fabricate precision.
