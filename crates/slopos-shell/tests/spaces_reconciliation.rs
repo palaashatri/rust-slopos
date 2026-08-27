@@ -32,10 +32,11 @@ fn classic_session_has_a_real_desktop_object_manager() {
     assert!(start.contains("[slopos-network.desktop]"));
     assert!(start.contains("[slopos-documents.desktop]"));
     assert!(start.contains("[slopos-trash.desktop]"));
-    assert!(start.contains("Name=My Home"));
-    assert!(start.contains("Name=Network"));
-    assert!(start.contains("Name=Documents"));
-    assert!(start.contains("Name=Trash"));
+    assert!(start.contains("Name=$name"));
+    assert!(start.contains("\"My Home\""));
+    assert!(start.contains("\"Network\""));
+    assert!(start.contains("\"Documents\""));
+    assert!(start.contains("\"Trash\""));
     assert!(start.contains("x=$right_x"));
     assert!(start.contains("pcmanfm --profile=\"$SLOPOS_DESKTOP_PROFILE\" --desktop-off"));
 }
