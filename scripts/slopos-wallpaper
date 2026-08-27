@@ -16,6 +16,7 @@ config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
 slopos_config="$config_home/slopos-i"
 wallpaper_file="$slopos_config/wallpaper"
 mode_file="$slopos_config/wallpaper_mode"
+profile="${SLOPOS_DESKTOP_PROFILE:-slopos}"
 mkdir -p "$slopos_config"
 
 resolve_wallpaper_path() {
@@ -58,6 +59,15 @@ resolve_wallpaper_path() {
   return 1
 }
 
+pcmanfm_mode() {
+  case "$1" in
+    tile) printf 'tile\n' ;;
+    center) printf 'center\n' ;;
+    fit|max) printf 'fit\n' ;;
+    *) printf 'crop\n' ;;
+  esac
+}
+
 apply_wallpaper() {
   local image_path="$1"
   local mode="${2:-fill}"
@@ -73,6 +83,20 @@ apply_wallpaper() {
   mv -f "$mode_file.tmp" "$mode_file"
 
   if [[ -n "${DISPLAY:-}" ]]; then
+    # In SLOPOS-I the visible desktop is normally owned by the private
+    # PCManFM profile, so update that surface first. Setting the X root pixmap
+    # with feh while PCManFM is active only changes an obscured background.
+    if command -v pcmanfm >/dev/null 2>&1 && pgrep -x pcmanfm >/dev/null 2>&1; then
+      local pcm_mode
+      pcm_mode="$(pcmanfm_mode "$mode")"
+      if pcmanfm --profile="$profile" \
+        --set-wallpaper="$image_path" \
+        --wallpaper-mode="$pcm_mode" >/dev/null 2>&1; then
+        printf 'Desktop wallpaper updated to %s (mode: %s)\n' "$image_path" "$mode"
+        return 0
+      fi
+    fi
+
     if command -v feh >/dev/null 2>&1; then
       case "$mode" in
         tile) feh --bg-tile "$image_path" >/dev/null 2>&1 || true ;;
@@ -81,14 +105,11 @@ apply_wallpaper() {
         *) feh --bg-fill "$image_path" >/dev/null 2>&1 || true ;;
       esac
     elif command -v pcmanfm >/dev/null 2>&1; then
-      local pcm_mode="crop"
-      case "$mode" in
-        tile) pcm_mode="tile" ;;
-        center) pcm_mode="center" ;;
-        fit|max) pcm_mode="fit" ;;
-        *) pcm_mode="crop" ;;
-      esac
-      pcmanfm --set-wallpaper="$image_path" --wallpaper-mode="$pcm_mode" >/dev/null 2>&1 || true
+      local pcm_mode
+      pcm_mode="$(pcmanfm_mode "$mode")"
+      pcmanfm --profile="$profile" \
+        --set-wallpaper="$image_path" \
+        --wallpaper-mode="$pcm_mode" >/dev/null 2>&1 || true
     elif command -v display >/dev/null 2>&1; then
       display -window root "$image_path" >/dev/null 2>&1 || true
     fi
