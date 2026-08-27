@@ -130,10 +130,274 @@ resolve_bin() {
   return 1
 }
 
-SESSION_BIN="$(resolve_bin slopos-session)" || {
-  echo "start-slopos-i: slopos-session binary not found" >&2
+SESSION_BIN="${SLOPOS_SESSION_BIN:-}"
+if [ -z "$SESSION_BIN" ]; then
+  SESSION_BIN="$(resolve_bin slopos-session)" || {
+    echo "start-slopos-i: slopos-session binary not found" >&2
+    exit 1
+  }
+fi
+if [ ! -x "$SESSION_BIN" ]; then
+  echo "start-slopos-i: configured session binary is not executable: $SESSION_BIN" >&2
   exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Classic desktop composition
+# ---------------------------------------------------------------------------
+# The shell owns the menu bar and window language; PCManFM is used only as the
+# desktop object manager so the session has real files, drag/drop, Trash and
+# mounted-volume semantics instead of a decorative fake icon layer.  A private
+# profile keeps these choices isolated from any other desktop on the machine.
+SLOPOS_DESKTOP_PROFILE="${SLOPOS_DESKTOP_PROFILE:-slopos}"
+pcmanfm_profile_dir="${XDG_CONFIG_HOME:-$HOME/.config}/pcmanfm/$SLOPOS_DESKTOP_PROFILE"
+pcmanfm_layout="$pcmanfm_profile_dir/desktop-items-0.conf"
+managed_shortcuts=()
+DESKTOP_MANAGER_STARTED=0
+SESSION_PID=""
+
+resolve_desktop_dir() {
+  local dir=""
+  if command -v xdg-user-dir >/dev/null 2>&1; then
+    dir="$(xdg-user-dir DESKTOP 2>/dev/null || true)"
+  fi
+  if [ -z "$dir" ] || [ "$dir" = "$HOME" ]; then
+    dir="$HOME/Desktop"
+  fi
+  printf '%s\n' "$dir"
 }
 
+resolve_documents_dir() {
+  local dir=""
+  if command -v xdg-user-dir >/dev/null 2>&1; then
+    dir="$(xdg-user-dir DOCUMENTS 2>/dev/null || true)"
+  fi
+  if [ -z "$dir" ]; then
+    dir="$HOME/Documents"
+  fi
+  printf '%s\n' "$dir"
+}
+
+screen_dimensions() {
+  local dims=""
+  if command -v xdotool >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
+    dims="$(xdotool getdisplaygeometry 2>/dev/null || true)"
+  fi
+  if [[ "$dims" =~ ^[0-9]+[[:space:]][0-9]+$ ]]; then
+    printf '%s\n' "$dims"
+    return 0
+  fi
+  if command -v xrandr >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
+    dims="$(xrandr --current 2>/dev/null | sed -n 's/.* current \([0-9][0-9]*\) x \([0-9][0-9]*\),.*/\1 \2/p' | head -n 1)"
+  fi
+  if [[ "$dims" =~ ^[0-9]+[[:space:]][0-9]+$ ]]; then
+    printf '%s\n' "$dims"
+  else
+    printf '1280 800\n'
+  fi
+}
+
+write_managed_shortcut() {
+  local path="$1"
+  local name="$2"
+  local icon="$3"
+  local exec_line="$4"
+
+  if [ -e "$path" ] && ! grep -Fq 'X-SLOPOS-Managed=true' "$path" 2>/dev/null; then
+    # Never overwrite a user-created object that happens to use our filename.
+    return 0
+  fi
+
+  cat > "$path" <<EOF
+[Desktop Entry]
+Type=Application
+Name=$name
+Icon=$icon
+Exec=$exec_line
+Terminal=false
+StartupNotify=true
+X-SLOPOS-Managed=true
+EOF
+  chmod 0755 "$path" 2>/dev/null || true
+  managed_shortcuts+=("$path")
+}
+
+prepare_classic_desktop() {
+  if [ "${SLOPOS_SKIP_DESKTOP_MANAGER:-0}" = 1 ]; then
+    return 0
+  fi
+  if ! command -v pcmanfm >/dev/null 2>&1; then
+    echo "start-slopos-i: pcmanfm is unavailable; continuing with root background only" >&2
+    return 0
+  fi
+
+  local desktop_dir documents_dir wallpaper_path="" wallpaper_mode="color"
+  local desktop_bg="#2B7798" desktop_fg="#FFFFFF" desktop_shadow="#001018"
+  desktop_dir="$(resolve_desktop_dir)"
+  documents_dir="$(resolve_documents_dir)"
+  mkdir -p "$desktop_dir" "$documents_dir" "$pcmanfm_profile_dir"
+
+  if [ -r "$user_config_dir/wallpaper" ]; then
+    wallpaper_path="$(head -n 1 "$user_config_dir/wallpaper")"
+    if [ -f "$wallpaper_path" ]; then
+      wallpaper_mode="crop"
+    else
+      wallpaper_path=""
+    fi
+  fi
+
+  case "$appearance" in
+    classic)
+      desktop_bg="#808080"; desktop_fg="#FFFFFF"; desktop_shadow="#000000" ;;
+    graphite)
+      desktop_bg="#25272B"; desktop_fg="#FFFFFF"; desktop_shadow="#000000" ;;
+    oled)
+      desktop_bg="#000000"; desktop_fg="#FFFFFF"; desktop_shadow="#000000" ;;
+  esac
+
+  write_managed_shortcut \
+    "$desktop_dir/slopos-home.desktop" \
+    "My Home" \
+    "user-home" \
+    "pcmanfm \"$HOME\""
+  write_managed_shortcut \
+    "$desktop_dir/slopos-network.desktop" \
+    "Network" \
+    "network-workgroup" \
+    "pcmanfm network:///"
+  write_managed_shortcut \
+    "$desktop_dir/slopos-documents.desktop" \
+    "Documents" \
+    "folder-documents" \
+    "pcmanfm \"$documents_dir\""
+  write_managed_shortcut \
+    "$desktop_dir/slopos-trash.desktop" \
+    "Trash" \
+    "user-trash" \
+    "pcmanfm trash:///"
+
+  # Preserve user-rearranged icon positions after the first SLOPOS run. A
+  # separate profile means seeding this file does not alter another desktop.
+  if [ ! -s "$pcmanfm_layout" ]; then
+    local width height right_x trash_y
+    read -r width height < <(screen_dimensions)
+    right_x=$((width - 92))
+    trash_y=$((height - 104))
+    (( right_x < 28 )) && right_x=28
+    (( trash_y < 300 )) && trash_y=300
+
+    cat > "$pcmanfm_layout" <<EOF
+[*]
+wallpaper_mode=$wallpaper_mode
+wallpaper_common=1
+wallpaper=$wallpaper_path
+desktop_bg=$desktop_bg
+desktop_fg=$desktop_fg
+desktop_shadow=$desktop_shadow
+desktop_font=Liberation Sans 10
+folder=$desktop_dir
+show_wm_menu=1
+sort=name;ascending;
+show_documents=0
+show_trash=0
+show_mounts=0
+
+[slopos-home.desktop]
+x=$right_x
+y=48
+
+[slopos-network.desktop]
+x=$right_x
+y=132
+
+[slopos-documents.desktop]
+x=$right_x
+y=216
+
+[slopos-trash.desktop]
+x=$right_x
+y=$trash_y
+EOF
+  fi
+}
+
+start_desktop_manager() {
+  if [ "${SLOPOS_SKIP_DESKTOP_MANAGER:-0}" = 1 ] || ! command -v pcmanfm >/dev/null 2>&1; then
+    return 0
+  fi
+
+  # PCManFM may attach to an already running process, so the returned process
+  # is not treated as the session lifetime owner. The explicit --desktop-off
+  # command in cleanup is the authoritative shutdown path.
+  pcmanfm --profile="$SLOPOS_DESKTOP_PROFILE" --desktop \
+    >"${XDG_RUNTIME_DIR}/slopos-pcmanfm.log" 2>&1 &
+  DESKTOP_MANAGER_STARTED=1
+}
+
+cleanup() {
+  local status=$?
+  set +e
+
+  if [ "$DESKTOP_MANAGER_STARTED" = 1 ] && command -v pcmanfm >/dev/null 2>&1; then
+    pcmanfm --profile="$SLOPOS_DESKTOP_PROFILE" --desktop-off >/dev/null 2>&1 || true
+  fi
+
+  if [ -n "$SESSION_PID" ] && kill -0 "$SESSION_PID" 2>/dev/null; then
+    kill -TERM "$SESSION_PID" 2>/dev/null || true
+    wait "$SESSION_PID" 2>/dev/null || true
+  fi
+
+  local shortcut
+  for shortcut in "${managed_shortcuts[@]}"; do
+    if [ -f "$shortcut" ] && grep -Fq 'X-SLOPOS-Managed=true' "$shortcut" 2>/dev/null; then
+      rm -f "$shortcut"
+    fi
+  done
+
+  return "$status"
+}
+trap cleanup EXIT HUP INT TERM
+
+prepare_classic_desktop
+
+# Give the root window an immediately-correct fallback while the desktop
+# manager and selected wallpaper are coming up. This removes the old gray/slate
+# flash from real sessions even when image decoding takes a moment.
+if [ -n "${DISPLAY:-}" ] && command -v xsetroot >/dev/null 2>&1; then
+  case "$appearance" in
+    classic) xsetroot -solid '#808080' >/dev/null 2>&1 || true ;;
+    graphite) xsetroot -solid '#25272B' >/dev/null 2>&1 || true ;;
+    oled) xsetroot -solid '#000000' >/dev/null 2>&1 || true ;;
+    *) xsetroot -solid '#2B7798' >/dev/null 2>&1 || true ;;
+  esac
+fi
+
 echo "Starting SLOPOS-I X11 desktop session ($appearance)..."
-exec "$SESSION_BIN" "$@"
+"$SESSION_BIN" "$@" &
+SESSION_PID=$!
+
+# Let Openbox claim the screen first so PCManFM's Desktop-type window is
+# stacked beneath application windows and the SLOPOS menu bar from frame one.
+for _ in $(seq 1 20); do
+  if pgrep -x openbox >/dev/null 2>&1; then
+    break
+  fi
+  if ! kill -0 "$SESSION_PID" 2>/dev/null; then
+    break
+  fi
+  sleep 0.05
+done
+start_desktop_manager
+
+set +e
+wait "$SESSION_PID"
+status=$?
+set -e
+SESSION_PID=""
+trap - EXIT HUP INT TERM
+cleanup_status=0
+cleanup || cleanup_status=$?
+if [ "$status" -ne 0 ]; then
+  exit "$status"
+fi
+exit "$cleanup_status"
