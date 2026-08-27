@@ -26,15 +26,15 @@ pub fn show_wallpaper_dialog(parent: &Window) {
         ],
     );
     dialog.set_default_response(ResponseType::Accept);
-    dialog.set_default_size(560, 530);
+    dialog.set_default_size(520, 430);
     set_accessible_name(&dialog, "SLOPOS wallpaper settings");
 
     let content = dialog.content_area();
-    content.set_spacing(9);
-    content.set_margin_start(14);
-    content.set_margin_end(14);
-    content.set_margin_top(12);
-    content.set_margin_bottom(12);
+    content.set_spacing(6);
+    content.set_margin_start(10);
+    content.set_margin_end(10);
+    content.set_margin_top(8);
+    content.set_margin_bottom(8);
 
     let heading = Label::new(Some("Desktop background"));
     heading.set_xalign(0.0);
@@ -52,9 +52,9 @@ pub fn show_wallpaper_dialog(parent: &Window) {
 
     let scrolled = ScrolledWindow::new(gtk::Adjustment::NONE, gtk::Adjustment::NONE);
     scrolled.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
-    scrolled.set_min_content_height(310);
+    scrolled.set_min_content_height(285);
 
-    let rows = GtkBox::new(Orientation::Vertical, 6);
+    let rows = GtkBox::new(Orientation::Vertical, 4);
     let choices = [
         (
             "01_classic_system_gray.png",
@@ -66,7 +66,11 @@ pub fn show_wallpaper_dialog(parent: &Window) {
             "Platinum Slate",
             "Cool slate grid",
         ),
-        ("03_slate_blue.png", "Slate Blue", "Deep blue woven pattern"),
+        (
+            "03_slate_blue.png",
+            "Slate Blue",
+            "Deep blue woven desktop",
+        ),
         (
             "04_retro_teal_grid.png",
             "Teal Grid",
@@ -84,7 +88,7 @@ pub fn show_wallpaper_dialog(parent: &Window) {
     let mut first_radio: Option<RadioButton> = None;
 
     for (index, (file, name, description)) in choices.iter().enumerate() {
-        let row = GtkBox::new(Orientation::Horizontal, 10);
+        let row = GtkBox::new(Orientation::Horizontal, 8);
         row.style_context().add_class("slopos-section");
 
         if let Some(path) = find_wallpaper_path(file) {
@@ -100,7 +104,7 @@ pub fn show_wallpaper_dialog(parent: &Window) {
             first_radio = Some(value.clone());
             value
         };
-        if index == 1 {
+        if index == 2 {
             radio.set_active(true);
         }
 
@@ -145,10 +149,7 @@ pub fn show_wallpaper_dialog(parent: &Window) {
             Some("Choose Wallpaper Image"),
             Some(&dialog_parent),
             FileChooserAction::Open,
-            &[
-                ("Cancel", ResponseType::Cancel),
-                ("Open", ResponseType::Accept),
-            ],
+            &[("Cancel", ResponseType::Cancel), ("Open", ResponseType::Accept)],
         );
         let filter = FileFilter::new();
         filter.set_name(Some("Images"));
@@ -200,51 +201,10 @@ pub fn show_wallpaper_dialog(parent: &Window) {
     mode_row.pack_start(&mode, true, true, 0);
     content.pack_start(&mode_row, false, false, 0);
 
-    // Dock & Application Strip Preferences
-    let dock_frame = gtk::Frame::new(Some("Application Strip (Dock)"));
-    dock_frame.style_context().add_class("slopos-section");
-    let dock_box = GtkBox::new(Orientation::Vertical, 6);
-    dock_box.set_margin_start(10);
-    dock_box.set_margin_end(10);
-    dock_box.set_margin_top(6);
-    dock_box.set_margin_bottom(6);
-
-    let dock_pos_row = GtkBox::new(Orientation::Horizontal, 8);
-    dock_pos_row.pack_start(&Label::new(Some("Screen Position:")), false, false, 0);
-    let dock_pos_combo = ComboBoxText::new();
-    dock_pos_combo.append(Some("bottom"), "Bottom (Horizontal)");
-    dock_pos_combo.append(Some("left"), "Left Screen Edge (Vertical)");
-    dock_pos_combo.append(Some("right"), "Right Screen Edge (Vertical)");
-
-    let cur_pos = current_saved_dock_position();
-    dock_pos_combo.set_active_id(Some(&cur_pos));
-    dock_pos_row.pack_start(&dock_pos_combo, true, true, 0);
-    dock_box.pack_start(&dock_pos_row, false, false, 0);
-
-    let dock_align_row = GtkBox::new(Orientation::Horizontal, 8);
-    dock_align_row.pack_start(&Label::new(Some("Alignment:")), false, false, 0);
-    let dock_align_combo = ComboBoxText::new();
-    dock_align_combo.append(Some("center"), "Center (macOS Style)");
-    dock_align_combo.append(Some("start"), "Start (Left / Top)");
-    dock_align_combo.append(Some("end"), "End (Right / Bottom)");
-
-    let cur_align = current_saved_dock_alignment();
-    dock_align_combo.set_active_id(Some(&cur_align));
-    dock_align_row.pack_start(&dock_align_combo, true, true, 0);
-    dock_box.pack_start(&dock_align_row, false, false, 0);
-
-    let dock_dodge_check =
-        gtk::CheckButton::with_label("Auto-hide dock when windows maximize (Dock Dodge)");
-    dock_dodge_check.set_active(current_saved_dock_dodge());
-    dock_box.pack_start(&dock_dodge_check, false, false, 0);
-
-    dock_frame.add(&dock_box);
-    content.pack_start(&dock_frame, false, false, 0);
-
     dialog.show_all();
     match dialog.run() {
         ResponseType::Accept => {
-            let mut selected = "02_platinum_cool_slate.png".to_string();
+            let mut selected = "03_slate_blue.png".to_string();
             for (radio, value) in radio_choices.borrow().iter() {
                 if !radio.is_active() {
                     continue;
@@ -270,24 +230,6 @@ pub fn show_wallpaper_dialog(parent: &Window) {
             } else {
                 log::warn!("slopos-wallpaper helper is unavailable");
             }
-
-            // Save dock preferences
-            let pos_val = dock_pos_combo
-                .active_id()
-                .unwrap_or_else(|| "bottom".into());
-            let align_val = dock_align_combo
-                .active_id()
-                .unwrap_or_else(|| "center".into());
-            let dodge_val = if dock_dodge_check.is_active() {
-                "1"
-            } else {
-                "0"
-            };
-
-            save_dock_settings(pos_val.as_str(), align_val.as_str(), dodge_val);
-            let _ = Command::new("pkill")
-                .args(["-USR1", "-x", "slopos-shell"])
-                .status();
         }
         ResponseType::Other(1) if command_exists("pcmanfm") => {
             let _ = Command::new("pcmanfm").arg("--desktop-pref").spawn();
@@ -295,62 +237,6 @@ pub fn show_wallpaper_dialog(parent: &Window) {
         _ => {}
     }
     dialog.close();
-}
-
-fn current_saved_dock_position() -> String {
-    let config_home = env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
-    if let Some(config_home) = config_home {
-        if let Ok(val) = std::fs::read_to_string(config_home.join("slopos-i/dock_position")) {
-            let v = val.trim().to_ascii_lowercase();
-            if v == "left" || v == "right" {
-                return v;
-            }
-        }
-    }
-    "bottom".to_string()
-}
-
-fn current_saved_dock_alignment() -> String {
-    let config_home = env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
-    if let Some(config_home) = config_home {
-        if let Ok(val) = std::fs::read_to_string(config_home.join("slopos-i/dock_alignment")) {
-            let v = val.trim().to_ascii_lowercase();
-            if v == "start" || v == "end" {
-                return v;
-            }
-        }
-    }
-    "center".to_string()
-}
-
-fn current_saved_dock_dodge() -> bool {
-    let config_home = env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
-    if let Some(config_home) = config_home {
-        if let Ok(val) = std::fs::read_to_string(config_home.join("slopos-i/dock_dodge")) {
-            let v = val.trim();
-            return v == "1" || v.eq_ignore_ascii_case("true") || v.eq_ignore_ascii_case("yes");
-        }
-    }
-    false
-}
-
-fn save_dock_settings(pos: &str, align: &str, dodge: &str) {
-    let config_home = env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
-    if let Some(config_home) = config_home {
-        let dir = config_home.join("slopos-i");
-        let _ = std::fs::create_dir_all(&dir);
-        let _ = std::fs::write(dir.join("dock_position"), pos);
-        let _ = std::fs::write(dir.join("dock_alignment"), align);
-        let _ = std::fs::write(dir.join("dock_dodge"), dodge);
-    }
 }
 
 fn find_wallpaper_path(filename: &str) -> Option<PathBuf> {
