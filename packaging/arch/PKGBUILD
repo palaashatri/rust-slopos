@@ -1,7 +1,7 @@
 # Maintainer: SLOPOS-I Contributors
 pkgname=slopos-i
 pkgver=20260824
-pkgrel=1
+pkgrel=2
 pkgdesc="SLOPOS-I X11 Platinum/Graphite desktop environment"
 arch=('x86_64' 'aarch64' 'riscv64')
 url="https://github.com/palaashatri/rust-slopos"
@@ -11,7 +11,7 @@ depends=(
   pcmanfm xfce4-terminal mousepad ristretto zathura zathura-pdf-mupdf mpv galculator supertux
   networkmanager network-manager-applet pavucontrol pipewire pipewire-pulse wireplumber
   blueman upower xfce4-power-manager xfce4-settings lxappearance arandr xorg-xrandr xorg-xsetroot
-  xdotool wmctrl adwaita-icon-theme librsvg ttf-liberation ttf-dejavu
+  xdotool wmctrl adwaita-icon-theme librsvg ttf-liberation ttf-dejavu feh
 )
 makedepends=(cargo pkgconf rust git openssl)
 optdepends=('firefox: web browser' 'lightdm: graphical display manager')
@@ -20,7 +20,6 @@ conflicts=('slopos-i-git')
 options=(!debug)
 source=('rust-slopos::git+https://github.com/palaashatri/rust-slopos.git#branch=main')
 sha256sums=('SKIP')
-
 
 build() {
   cd "$srcdir/rust-slopos"
@@ -39,6 +38,7 @@ package() {
   install -Dm755 scripts/start-slopos-browser "$pkgdir/usr/bin/start-slopos-browser"
   install -Dm755 scripts/install-browser-theme.sh "$pkgdir/usr/bin/install-browser-theme.sh"
   install -Dm755 scripts/slopos-appearance "$pkgdir/usr/bin/slopos-appearance"
+  install -Dm755 scripts/slopos-wallpaper "$pkgdir/usr/bin/slopos-wallpaper"
   install -Dm755 scripts/slopos-recovery.sh "$pkgdir/usr/bin/slopos-recovery"
   install -Dm644 packaging/slopos-browser.desktop "$pkgdir/usr/share/applications/slopos-browser.desktop"
 
@@ -47,12 +47,14 @@ package() {
   install -Dm644 assets/config/openbox/rc-classic.xml "$pkgdir/usr/share/slopos-i/openbox/rc-classic.xml"
   install -Dm644 assets/config/openbox/rc-graphite.xml "$pkgdir/usr/share/slopos-i/openbox/rc-graphite.xml"
   install -Dm644 assets/config/openbox/menu.xml "$pkgdir/usr/share/slopos-i/openbox/menu.xml"
-  install -Dm644 themes/slopos-openbox/openbox-3/themerc \
-    "$pkgdir/usr/share/themes/slopos-openbox/openbox-3/themerc"
-  install -Dm644 themes/slopos-openbox-classic/openbox-3/themerc \
-    "$pkgdir/usr/share/themes/slopos-openbox-classic/openbox-3/themerc"
-  install -Dm644 themes/slopos-openbox-graphite/openbox-3/themerc \
-    "$pkgdir/usr/share/themes/slopos-openbox-graphite/openbox-3/themerc"
+
+  mkdir -p "$pkgdir/usr/share/themes/slopos-openbox/openbox-3"
+  cp -a themes/slopos-openbox/openbox-3/. "$pkgdir/usr/share/themes/slopos-openbox/openbox-3/"
+  mkdir -p "$pkgdir/usr/share/themes/slopos-openbox-classic/openbox-3"
+  cp -a themes/slopos-openbox-classic/openbox-3/. "$pkgdir/usr/share/themes/slopos-openbox-classic/openbox-3/"
+  mkdir -p "$pkgdir/usr/share/themes/slopos-openbox-graphite/openbox-3"
+  cp -a themes/slopos-openbox-graphite/openbox-3/. "$pkgdir/usr/share/themes/slopos-openbox-graphite/openbox-3/"
+
   install -Dm644 assets/config/gtk-3.0/gtk.css \
     "$pkgdir/usr/share/themes/slopos-gtk/gtk-3.0/gtk.css"
   install -Dm644 assets/config/gtk-3.0/gtk-classic.css \
@@ -63,6 +65,9 @@ package() {
     "$pkgdir/usr/share/slopos-i/gtk-3.0/settings.ini"
   install -Dm644 assets/config/mimeapps.list "$pkgdir/usr/share/slopos-i/mimeapps.list"
   install -Dm644 assets/slopos-logo.png "$pkgdir/usr/share/slopos-i/slopos-logo.png"
+
+  mkdir -p "$pkgdir/usr/share/slopos-i/wallpapers"
+  cp -a assets/wallpapers/. "$pkgdir/usr/share/slopos-i/wallpapers/"
 
   mkdir -p "$pkgdir/usr/share/slopos-i/recovery"
   printf '%s\n' platinum >"$pkgdir/usr/share/slopos-i/recovery/appearance"
