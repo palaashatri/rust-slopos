@@ -51,8 +51,11 @@ fn main() {
     load_css_theme();
 
     let window = Window::new(WindowType::Toplevel);
-    window.set_title("Control Panels");
-    set_accessible_name(&window, "SLOPOS Control Panels");
+    // Keep the stable external window identity used by automation and desktop
+    // integrations. The visible content itself is the compact Control Panels
+    // folder, so compatibility does not dictate the presentation.
+    window.set_title("System Settings");
+    set_accessible_name(&window, "SLOPOS system settings");
     let (screen_width, screen_height) = screen_geometry();
     let (window_width, window_height) = adaptive_window_size(screen_width, screen_height);
     window.set_default_size(window_width, window_height);
