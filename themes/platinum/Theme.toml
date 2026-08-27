@@ -1,15 +1,15 @@
 name = "SLOPOS Platinum"
 identifier = "com.slopos.theme.platinum"
-version = "1.1"
+version = "1.2"
 author = "SLOPOS-I"
-description = "Original compact SLOPOS-I light theme with layered neutral surfaces and crisp desktop ergonomics"
+description = "Original compact SLOPOS-I light theme with square platinum chrome, crisp keylines, dense menus, and mechanical control depth"
 is_dark = false
 accent = "#000080"
 
 [typography]
 system_font = "Liberation Sans"
 monospace_font = "DejaVu Sans Mono"
-size_small = 11
-size_body = 12
-size_title = 13
-size_large = 14
+size_small = 10
+size_body = 11
+size_title = 11
+size_large = 13
