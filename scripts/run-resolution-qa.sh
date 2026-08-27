@@ -32,11 +32,6 @@ if (( SCREEN_WIDTH < 1 || SCREEN_HEIGHT < 1 )); then
   exit 2
 fi
 SCREEN_TAG="${SCREEN//x/_}"
-# Keep screenshot filenames shell-friendly while retaining the canonical
-# WIDTHxHEIGHT directory name consumed by the CI upload step.  The previous
-# underscore substitution made every retained-resolution job pass while
-# silently dropping its evidence because upload-artifact looked under the
-# literal matrix value (for example 3440x1440-scale1).
 OUTPUT_DIR="${SLOPOS_RESOLUTION_OUTPUT:-artifacts/qa/resolutions/${SCREEN}-scale${SCALE}}"
 DBUS_ENV_FILE="$XDG_RUNTIME_DIR/dbus-env.sh"
 QA_STARTED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -76,14 +71,14 @@ else
 fi
 
 mkdir -p "$HOME/.themes/slopos-openbox/openbox-3"
-cp themes/slopos-openbox/openbox-3/themerc "$HOME/.themes/slopos-openbox/openbox-3/themerc"
+cp -a themes/slopos-openbox/openbox-3/. "$HOME/.themes/slopos-openbox/openbox-3/"
 mkdir -p "$HOME/.themes/slopos-gtk/gtk-3.0" "$HOME/.config/gtk-3.0"
 cp assets/config/gtk-3.0/gtk.css "$HOME/.themes/slopos-gtk/gtk-3.0/gtk.css"
 cp assets/config/gtk-3.0/gtk.css "$HOME/.config/gtk-3.0/gtk.css"
 export GTK_THEME=slopos-gtk
 if (( EUID == 0 )); then
   mkdir -p /usr/share/themes/slopos-openbox/openbox-3 /usr/share/themes/slopos-gtk/gtk-3.0
-  cp themes/slopos-openbox/openbox-3/themerc /usr/share/themes/slopos-openbox/openbox-3/themerc
+  cp -a themes/slopos-openbox/openbox-3/. /usr/share/themes/slopos-openbox/openbox-3/
   cp assets/config/gtk-3.0/gtk.css /usr/share/themes/slopos-gtk/gtk-3.0/gtk.css
 fi
 
@@ -109,7 +104,7 @@ test "$ROOT_DIMENSIONS" = "$SCREEN" || {
   exit 1
 }
 echo "X11_ROOT_DIMENSIONS=$ROOT_DIMENSIONS"
-xsetroot -solid "#758090"
+xsetroot -solid "#2B7798"
 rm -f "$DBUS_ENV_FILE"
 dbus-run-session -- bash -c '
   printf "export DBUS_SESSION_BUS_ADDRESS=%q\n" "$DBUS_SESSION_BUS_ADDRESS" > "$1"
@@ -134,8 +129,6 @@ capture_screenshot() {
   local output="$1"
   local width height
   read -r width height < <(xdotool getdisplaygeometry)
-  # Keep pointer-driven tooltips out of retained evidence. This is capture
-  # hygiene only; it does not alter application input or focus.
   xdotool mousemove "$((width - 24))" "$((height - 24))"
   sleep 0.35
   scrot -zo "$output"
@@ -153,33 +146,25 @@ test -s "$DBUS_ENV_FILE"
 # shellcheck source=/dev/null
 source "$DBUS_ENV_FILE"
 wait_visible_window '^SLOPOS Top Bar$'
-wait_visible_window '^SLOPOS Application Strip$'
+# The classic parity branch intentionally has no Application Strip. Ensure a
+# stale/accidental dock cannot silently re-enter the retained visual evidence.
+if xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null 2>&1; then
+  echo "ERROR: dock/application strip is visible in the dockless parity shell" >&2
+  exit 1
+fi
 
-echo "[4/5] Capturing shell geometry and retained scenes"
+echo "[4/5] Capturing dockless shell geometry and retained scenes"
 TOPBAR_WINDOW="$(xdotool search --onlyvisible --name '^SLOPOS Top Bar$' | tail -n 1)"
-DOCK_WINDOW="$(xdotool search --onlyvisible --name '^SLOPOS Application Strip$' | tail -n 1)"
 test -n "$TOPBAR_WINDOW"
-test -n "$DOCK_WINDOW"
 eval "$(xdotool getwindowgeometry --shell "$TOPBAR_WINDOW" | sed -e 's/^WINDOW=/GEOM_WINDOW=/' -e 's/^SCREEN=/GEOM_SCREEN=/')"
 TOPBAR_WIDTH="$WIDTH"
 TOPBAR_HEIGHT="$HEIGHT"
-eval "$(xdotool getwindowgeometry --shell "$DOCK_WINDOW" | sed -e 's/^WINDOW=/GEOM_WINDOW=/' -e 's/^SCREEN=/GEOM_SCREEN=/')"
-DOCK_X="$X"
-DOCK_WIDTH="$WIDTH"
-DOCK_HEIGHT="$HEIGHT"
 if [[ "$SCALE" == 1 ]]; then
   test "$TOPBAR_WIDTH" = "$SCREEN_WIDTH"
 fi
 MIN_TOPBAR_WIDTH=$((SCREEN_WIDTH / SCALE))
 test "$TOPBAR_WIDTH" -ge "$MIN_TOPBAR_WIDTH"
 test "$TOPBAR_HEIGHT" -ge 20
-test "$DOCK_WIDTH" -ge 300
-test "$DOCK_HEIGHT" -ge 40
-DOCK_CENTER=$((DOCK_X + DOCK_WIDTH / 2))
-SCREEN_CENTER=$((SCREEN_WIDTH / 2))
-DELTA=$((DOCK_CENTER - SCREEN_CENTER))
-DELTA=${DELTA#-}
-test "$DELTA" -le $((SCREEN_WIDTH / 10))
 
 capture_screenshot "$OUTPUT_DIR/desktop_${SCREEN_TAG}.png"
 pkill -USR1 -x slopos-shell
@@ -210,6 +195,7 @@ done
   printf 'completed_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf 'resolution=%s\n' "$SCREEN"
   printf 'scale=%s\n' "$SCALE"
+  printf 'dock=absent\n'
   for image in \
     "$OUTPUT_DIR/desktop_${SCREEN_TAG}.png" \
     "$OUTPUT_DIR/search_${SCREEN_TAG}.png" \
@@ -221,5 +207,5 @@ done
 } >"$OUTPUT_DIR/evidence-manifest.txt"
 test -s "$OUTPUT_DIR/evidence-manifest.txt"
 echo "RESOLUTION_QA_SOURCE_COMMIT=$SOURCE_COMMIT"
-echo "RESOLUTION=$SCREEN SCALE=$SCALE TOPBAR_WIDTH=$TOPBAR_WIDTH DOCK_CENTER=$DOCK_CENTER"
+echo "RESOLUTION=$SCREEN SCALE=$SCALE TOPBAR_WIDTH=$TOPBAR_WIDTH DOCK=absent"
 echo "RESOLUTION_QA_STATUS_0"
