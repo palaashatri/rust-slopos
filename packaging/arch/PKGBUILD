@@ -48,6 +48,7 @@ package() {
   install -Dm644 assets/config/openbox/rc-graphite.xml "$pkgdir/usr/share/slopos-i/openbox/rc-graphite.xml"
   install -Dm644 assets/config/openbox/menu.xml "$pkgdir/usr/share/slopos-i/openbox/menu.xml"
 
+  test -f themes/slopos-openbox/openbox-3/themerc
   mkdir -p "$pkgdir/usr/share/themes/slopos-openbox/openbox-3"
   cp -a themes/slopos-openbox/openbox-3/. "$pkgdir/usr/share/themes/slopos-openbox/openbox-3/"
   mkdir -p "$pkgdir/usr/share/themes/slopos-openbox-classic/openbox-3"
