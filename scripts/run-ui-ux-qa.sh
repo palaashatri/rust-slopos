@@ -24,6 +24,8 @@ export XDG_SESSION_TYPE=x11
 export SLOPOS_SESSION_MANAGED=1
 export SLOPOS_QA_NO_WELCOME=1
 export SLOPOS_SHARE_DIR="$ROOT"
+export SLOPOS_DESKTOP_PROFILE=slopos
+export SLOPOS_SESSION_BIN="$ROOT/target/release/slopos-session"
 export PATH="$ROOT/scripts:$ROOT/target/release:$PATH"
 export DISPLAY="${DISPLAY:-:94}"
 
@@ -35,8 +37,12 @@ cleanup() {
   for pid in "${APP_PIDS[@]:-}"; do
     kill "$pid" >/dev/null 2>&1 || true
   done
+  if command -v pcmanfm >/dev/null 2>&1; then
+    pcmanfm --profile="$SLOPOS_DESKTOP_PROFILE" --desktop-off >/dev/null 2>&1 || true
+  fi
   [[ -n "$SESSION_PID" ]] && kill "$SESSION_PID" >/dev/null 2>&1 || true
   [[ -n "$XVFB_PID" ]] && kill "$XVFB_PID" >/dev/null 2>&1 || true
+  pkill -TERM -x pcmanfm >/dev/null 2>&1 || true
   rm -rf "$TMP"
 }
 trap cleanup EXIT
@@ -64,6 +70,10 @@ window_for_name() {
 
 capture() {
   local name="$1"
+  local width height
+  read -r width height < <(xdotool getdisplaygeometry)
+  xdotool mousemove "$((width - 20))" "$((height - 20))" >/dev/null 2>&1 || true
+  sleep 0.25
   scrot "$OUT/$name.png"
   test -s "$OUT/$name.png"
 }
@@ -79,10 +89,10 @@ cp "$ROOT/assets/config/gtk-3.0/gtk-classic.css" "$HOME/.themes/slopos-gtk-class
 cp "$ROOT/assets/config/gtk-3.0/gtk-graphite.css" "$HOME/.themes/slopos-gtk-graphite/gtk-3.0/gtk.css"
 cp "$ROOT/assets/config/gtk-3.0/gtk-oled.css" "$HOME/.themes/slopos-gtk-oled/gtk-3.0/gtk.css"
 mkdir -p "$HOME/.themes/slopos-openbox/openbox-3" "$HOME/.themes/slopos-openbox-classic/openbox-3" "$HOME/.themes/slopos-openbox-graphite/openbox-3" "$HOME/.themes/slopos-openbox-oled/openbox-3"
-cp "$ROOT/themes/slopos-openbox/openbox-3/themerc" "$HOME/.themes/slopos-openbox/openbox-3/themerc"
-cp "$ROOT/themes/slopos-openbox-classic/openbox-3/themerc" "$HOME/.themes/slopos-openbox-classic/openbox-3/themerc"
-cp "$ROOT/themes/slopos-openbox-graphite/openbox-3/themerc" "$HOME/.themes/slopos-openbox-graphite/openbox-3/themerc"
-cp "$ROOT/themes/slopos-openbox-oled/openbox-3/themerc" "$HOME/.themes/slopos-openbox-oled/openbox-3/themerc"
+cp -a "$ROOT/themes/slopos-openbox/openbox-3/." "$HOME/.themes/slopos-openbox/openbox-3/"
+cp -a "$ROOT/themes/slopos-openbox-classic/openbox-3/." "$HOME/.themes/slopos-openbox-classic/openbox-3/"
+cp -a "$ROOT/themes/slopos-openbox-graphite/openbox-3/." "$HOME/.themes/slopos-openbox-graphite/openbox-3/"
+cp -a "$ROOT/themes/slopos-openbox-oled/openbox-3/." "$HOME/.themes/slopos-openbox-oled/openbox-3/"
 
 required_icons=(
   folder user-home user-desktop text-x-generic drive-harddisk user-trash
@@ -95,9 +105,17 @@ for icon in "${required_icons[@]}"; do
   }
 done
 
+for command in Xvfb openbox pcmanfm xdotool scrot wmctrl; do
+  command -v "$command" >/dev/null || {
+    echo "Required UI/UX QA command is missing: $command" >&2
+    exit 1
+  }
+done
+
 Xvfb "$DISPLAY" -screen 0 1280x800x24 -nolisten tcp >"$OUT/xvfb.log" 2>&1 &
 XVFB_PID=$!
 wait_for Xvfb xdpyinfo -display "$DISPLAY"
+xsetroot -solid '#2B7798'
 
 # Prove the release UI does not depend on generic Adwaita for its core file
 # manager vocabulary, and prove GTK is told the shell owns GtkApplication
@@ -114,14 +132,28 @@ assert bool(settings.get_property("gtk-shell-shows-app-menu")) is False
 PY
 
 cd "$ROOT"
-./target/release/slopos-session >"$OUT/session.log" 2>&1 &
+"$ROOT/scripts/start-slopos-i" >"$OUT/session.log" 2>&1 &
 SESSION_PID=$!
 wait_for "SLOPOS top bar" bash -c 'wmctrl -l | grep -q "SLOPOS Top Bar"'
-wait_for "SLOPOS Application Strip" bash -c 'wmctrl -l | grep -q "SLOPOS Application Strip"'
+wait_for "classic desktop manager" pgrep -x pcmanfm
+if wmctrl -l | grep -q 'SLOPOS Application Strip'; then
+  echo "Retired Application Strip returned in dockless parity QA" >&2
+  exit 1
+fi
+for desktop_object in \
+  "$HOME/Desktop/slopos-home.desktop" \
+  "$HOME/Desktop/slopos-network.desktop" \
+  "$HOME/Desktop/slopos-documents.desktop" \
+  "$HOME/Desktop/slopos-trash.desktop"; do
+  test -f "$desktop_object"
+done
 capture 01-platinum-desktop
 
-# Real upstream file manager + actual SLOPOS freedesktop icon theme.
-pcmanfm "$ROOT" >"$OUT/pcmanfm.log" 2>&1 &
+# Real upstream file manager, but under the SLOPOS profile and icon vocabulary.
+# This is the closest current stand-in for the classic Finder/System Folder
+# surface; the evidence makes regressions in this layer visible while we keep
+# tightening it rather than pretending it is already a custom application.
+pcmanfm --profile="$SLOPOS_DESKTOP_PROFILE" "$ROOT" >"$OUT/pcmanfm.log" 2>&1 &
 APP_PIDS+=("$!")
 wait_for PCManFM bash -c 'xdotool search --onlyvisible --class pcmanfm >/dev/null 2>&1'
 PCMANFM_WIN="$(window_for_class pcmanfm)"
@@ -131,7 +163,7 @@ capture 02-pcmanfm-slopos-icons
 
 # Real upstream GtkApplication global menu. Mousepad and the shell deliberately
 # share this D-Bus session; the shell must discover the X11 exporter and import
-# its GMenu model instead of showing the old "App (local)" placeholder.
+# its GMenu model instead of showing the old local-menu placeholder.
 printf 'SLOPOS global menu QA\n' >"$TMP/global-menu.txt"
 mousepad "$TMP/global-menu.txt" >"$OUT/mousepad.log" 2>&1 &
 MOUSEPAD_PID=$!
@@ -203,6 +235,9 @@ slopos-appearance platinum >>"$OUT/appearance.log" 2>&1
 test "$(slopos-appearance status)" = platinum
 
 printf '%s\n' "${GITHUB_SHA:-$(git rev-parse HEAD)}" >"$OUT/source-sha.txt"
+printf 'desktop_manager=pcmanfm\n' >"$OUT/composition.txt"
+printf 'dock=absent\n' >>"$OUT/composition.txt"
+printf 'managed_desktop_objects=4\n' >>"$OUT/composition.txt"
 printf 'UI/UX QA PASS\n' >"$OUT/status.txt"
 
 echo "SLOPOS UI/UX QA passed; evidence: $OUT"
