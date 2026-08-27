@@ -1,38 +1,39 @@
 [window]
-titlebar_height = 22
+titlebar_height = 20
 border_width = 1
-min_width = 200
-min_height = 100
+min_width = 160
+min_height = 80
 corner_radius = 0
 
 [menubar]
-height = 26
+height = 24
 
 [button]
-height = 22
-min_width = 56
+height = 20
+min_width = 48
 corner_radius = 0
 
 [menu]
-item_height = 20
-min_width = 170
-max_width = 400
+item_height = 18
+min_width = 150
+max_width = 360
 
 [dock]
-icon_size = 32
-height = 54
-padding = 6
-item_spacing = 3
+# Retained only for compatibility with dormant dock code on the parity branch.
+icon_size = 28
+height = 0
+padding = 0
+item_spacing = 2
 
 [scrollbar]
 width = 14
-min_thumb_size = 24
+min_thumb_size = 20
 
 [toolbar]
-height = 28
+height = 24
 
 [spacing]
-small = 3
-medium = 7
-large = 12
-xlarge = 18
+small = 2
+medium = 5
+large = 9
+xlarge = 14
