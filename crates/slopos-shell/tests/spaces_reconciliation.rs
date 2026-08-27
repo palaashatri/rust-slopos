@@ -4,7 +4,8 @@ fn openbox_contract_is_floating_x11_with_four_desktops() {
     assert!(rc.contains("<name>slopos-openbox</name>"));
     assert!(rc.contains("<number>4</number>"));
     assert!(rc.contains("<top>26</top>"));
-    assert!(rc.contains("<bottom>60</bottom>"));
+    assert!(rc.contains("<bottom>0</bottom>"));
+    assert!(!rc.contains("Application Strip"));
     assert!(rc.contains("ToggleMaximize"));
 }
 
