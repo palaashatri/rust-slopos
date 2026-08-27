@@ -221,7 +221,7 @@ jobs:
       - name: Install Openbox theme for smoke session
         run: |
           mkdir -p "$HOME/.themes/slopos-openbox/openbox-3"
-          cp themes/slopos-openbox/openbox-3/themerc "$HOME/.themes/slopos-openbox/openbox-3/themerc"
+          cp -a themes/slopos-openbox/openbox-3/. "$HOME/.themes/slopos-openbox/openbox-3/"
       - name: Run X11 behavior and screenshot smoke
         id: runtime-smoke
         shell: bash
@@ -290,6 +290,13 @@ jobs:
             return 1
           }
 
+          require_no_application_strip() {
+            if xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null 2>&1; then
+              echo "retired Application Strip unexpectedly visible" >&2
+              return 1
+            fi
+          }
+
           Xvfb :99 -screen 0 1280x800x24 -nolisten tcp >"$RUNNER_TEMP/xvfb.log" 2>&1 &
           XVFB_PID=$!
           wait_for "X server" xdpyinfo -display :99
@@ -299,7 +306,7 @@ jobs:
           wait_for "Openbox" pgrep -x openbox
           wait_for "SLOPOS shell" pgrep -x slopos-shell
           wait_for "top bar" xdotool search --onlyvisible --name '^SLOPOS Top Bar$'
-          wait_for "application strip" xdotool search --onlyvisible --name '^SLOPOS Application Strip$'
+          require_no_application_strip
           scrot "$RUNNER_TEMP/slopos-qa/01-desktop.png"
 
           shell_count_before=$(pgrep -x slopos-shell | wc -l)
@@ -322,6 +329,7 @@ jobs:
           test -n "$shell_pid_after"
           test "$shell_pid_after" != "$shell_pid_before"
           wait_for "top bar after shell restart" xdotool search --onlyvisible --name '^SLOPOS Top Bar$'
+          require_no_application_strip
 
           wm_pid_before=$(pgrep -xo openbox)
           kill "$wm_pid_before"
@@ -333,7 +341,8 @@ jobs:
           done
           test -n "$wm_pid_after"
           test "$wm_pid_after" != "$wm_pid_before"
-          wait_for "application strip after Openbox restart" xdotool search --onlyvisible --name '^SLOPOS Application Strip$'
+          wait_for "top bar after Openbox restart" xdotool search --onlyvisible --name '^SLOPOS Top Bar$'
+          require_no_application_strip
 
           ./target/debug/slopos-settings >"$RUNNER_TEMP/slopos-settings.log" 2>&1 &
           SETTINGS_PID=$!
