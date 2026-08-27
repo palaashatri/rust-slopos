@@ -38,12 +38,13 @@ if [ -d "$SLOPOS_SHARE_DIR" ]; then
   esac
 fi
 
-appearance_file="${XDG_CONFIG_HOME:-$HOME/.config}/slopos-i/appearance"
+user_config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/slopos-i"
+appearance_file="$user_config_dir/appearance"
 appearance="platinum"
 if [ -r "$appearance_file" ]; then
   configured="$(tr -d '[:space:]' < "$appearance_file")"
   case "$configured" in
-    graphite|platinum) appearance="$configured" ;;
+    classic|graphite|oled|platinum) appearance="$configured" ;;
   esac
 fi
 export SLOPOS_APPEARANCE="$appearance"
@@ -60,6 +61,12 @@ elif [ "$appearance" = "classic" ]; then
      [ -d /usr/share/themes/slopos-gtk-classic/gtk-3.0 ]; then
     export GTK_THEME="slopos-gtk-classic"
   fi
+elif [ "$appearance" = "oled" ]; then
+  if [ -d "$SLOPOS_SHARE_DIR/themes/slopos-gtk-oled/gtk-3.0" ] || \
+     [ -d /usr/local/share/themes/slopos-gtk-oled/gtk-3.0 ] || \
+     [ -d /usr/share/themes/slopos-gtk-oled/gtk-3.0 ]; then
+    export GTK_THEME="slopos-gtk-oled"
+  fi
 else
   if [ -d "$SLOPOS_SHARE_DIR/themes/slopos-gtk/gtk-3.0" ] || \
      [ -d /usr/local/share/themes/slopos-gtk/gtk-3.0 ] || \
@@ -68,8 +75,27 @@ else
   fi
 fi
 
-# Enable GTK and AppMenu proxy modules so traditional GTK applications (PCManFM, Xfce4-Terminal, GIMP, etc.)
-# export their menus to the SLOPOS top bar.
+# The parity branch uses a blue desktop field by default. Seed only a missing
+# wallpaper preference so an existing user choice is never overwritten.
+if [ "$appearance" = "platinum" ] && [ ! -s "$user_config_dir/wallpaper" ]; then
+  for wallpaper in \
+    "$SLOPOS_SHARE_DIR/slopos-i/wallpapers/03_slate_blue.png" \
+    "$INSTALL_PREFIX/share/slopos-i/wallpapers/03_slate_blue.png" \
+    "/usr/local/share/slopos-i/wallpapers/03_slate_blue.png" \
+    "/usr/share/slopos-i/wallpapers/03_slate_blue.png" \
+    "assets/wallpapers/03_slate_blue.png"; do
+    if [ -f "$wallpaper" ]; then
+      mkdir -p "$user_config_dir"
+      wallpaper="$(cd "$(dirname "$wallpaper")" && pwd)/$(basename "$wallpaper")"
+      printf '%s\n' "$wallpaper" > "$user_config_dir/wallpaper"
+      printf 'fill\n' > "$user_config_dir/wallpaper_mode"
+      break
+    fi
+  done
+fi
+
+# Enable GTK and AppMenu proxy modules so traditional GTK applications
+# export their menus to the SLOPOS top bar when the module is available.
 export UBUNTU_MENUPROXY=1
 if [ -n "${GTK_MODULES:-}" ]; then
   case ":$GTK_MODULES:" in
