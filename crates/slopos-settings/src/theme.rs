@@ -13,55 +13,68 @@ const CONTROL_PANEL_PARITY_CSS: &[u8] = br#"
 }
 
 .slopos-icon-grid {
-  padding: 8px 6px;
+  padding: 10px 8px 8px 8px;
   background-color: #ffffff;
   border: 1px solid #111111;
 }
 
-button.slopos-control-panel-icon {
-  min-width: 84px;
-  min-height: 66px;
-  padding: 4px 2px;
+/* These are folder objects, not modern dashboard cards.  Override every
+ * inherited Platinum push-button edge so idle and unavailable panels sit
+ * directly on the white icon field like files in a classic folder window. */
+button.slopos-control-panel-icon,
+button.slopos-control-panel-icon:disabled {
+  min-width: 86px;
+  min-height: 72px;
+  padding: 4px 3px;
   margin: 0;
   background-image: none;
   background-color: transparent;
-  border: 1px solid transparent;
+  border-style: none;
+  border-width: 0;
+  border-radius: 0;
   box-shadow: none;
+  text-shadow: none;
+  outline-width: 0;
 }
 
 button.slopos-control-panel-icon:hover,
 button.slopos-control-panel-icon:focus,
-button.slopos-control-panel-icon:active {
+button.slopos-control-panel-icon:active,
+button.slopos-control-panel-icon:checked {
   color: #ffffff;
   background-image: none;
   background-color: #000080;
-  border-color: #000080;
+  border-style: none;
+  border-width: 0;
   box-shadow: none;
+  text-shadow: none;
+  outline-width: 0;
 }
 
 button.slopos-control-panel-icon:hover label,
 button.slopos-control-panel-icon:focus label,
-button.slopos-control-panel-icon:active label {
+button.slopos-control-panel-icon:active label,
+button.slopos-control-panel-icon:checked label {
   color: #ffffff;
+  text-shadow: none;
 }
 
 button.slopos-control-panel-icon:disabled {
-  background-image: none;
-  background-color: transparent;
-  border-color: transparent;
-  box-shadow: none;
-  opacity: 0.52;
+  opacity: 0.46;
 }
 
 button.slopos-control-panel-icon image {
   min-width: 32px;
   min-height: 32px;
+  margin-bottom: 1px;
 }
 
 button.slopos-control-panel-icon label {
+  padding: 0 2px;
   font-size: 10px;
   font-weight: normal;
   color: #111111;
+  text-shadow: none;
 }
 "#;
 
