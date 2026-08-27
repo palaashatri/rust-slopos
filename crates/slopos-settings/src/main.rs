@@ -1,7 +1,9 @@
 //! SLOPOS-I Settings hub.
 //!
-//! SLOPOS owns a coherent control-panel surface while mature Linux utilities
-//! remain authoritative for hardware and system services.
+//! The parity branch presents settings as a compact Control Panels folder:
+//! icon-first, dense, and visually consistent with the classic desktop rather
+//! than a modern card dashboard. Mature Linux utilities remain authoritative
+//! for hardware and system services.
 
 pub mod panels;
 pub mod providers;
@@ -11,7 +13,7 @@ use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
-    Align, Box as GtkBox, Button, Grid, IconSize, Image, Label, Orientation, Window,
+    Align, Box as GtkBox, Button, Grid, IconSize, Image, Label, Orientation, ReliefStyle, Window,
     WindowPosition, WindowType,
 };
 use panels::{
@@ -49,8 +51,8 @@ fn main() {
     load_css_theme();
 
     let window = Window::new(WindowType::Toplevel);
-    window.set_title("System Settings");
-    set_accessible_name(&window, "SLOPOS system settings");
+    window.set_title("Control Panels");
+    set_accessible_name(&window, "SLOPOS Control Panels");
     let (screen_width, screen_height) = screen_geometry();
     let (window_width, window_height) = adaptive_window_size(screen_width, screen_height);
     window.set_default_size(window_width, window_height);
@@ -105,30 +107,23 @@ fn main() {
         return;
     }
 
-    let body = GtkBox::new(Orientation::Vertical, 8);
+    let body = GtkBox::new(Orientation::Vertical, 3);
     body.style_context().add_class("slopos-window-body");
 
-    let title = Label::new(Some("System Settings"));
-    title.set_xalign(0.0);
-    title.style_context().add_class("slopos-panel-title");
-    set_accessible_name(&title, "System Settings");
-    body.pack_start(&title, false, false, 0);
-
-    let subtitle = Label::new(Some(
-        "Personalize SLOPOS-I and open the installed Linux utility responsible for each device or service.",
-    ));
-    subtitle.set_xalign(0.0);
-    subtitle.set_line_wrap(true);
-    subtitle.style_context().add_class("slopos-panel-subtitle");
-    body.pack_start(&subtitle, false, false, 0);
+    let hint = Label::new(Some("Control Panels"));
+    hint.set_xalign(0.0);
+    hint.style_context().add_class("slopos-folder-caption");
+    set_accessible_name(&hint, "Control Panels folder");
+    body.pack_start(&hint, false, false, 0);
 
     let grid = Grid::new();
-    grid.set_row_spacing(8);
-    grid.set_column_spacing(8);
+    grid.style_context().add_class("slopos-icon-grid");
+    grid.set_row_spacing(5);
+    grid.set_column_spacing(4);
     grid.set_column_homogeneous(true);
-    grid.set_row_homogeneous(true);
+    grid.set_row_homogeneous(false);
     grid.set_hexpand(true);
-    grid.set_vexpand(true);
+    grid.set_vexpand(false);
 
     let panels = [
         ControlPanel {
@@ -179,7 +174,7 @@ fn main() {
             icon_file: "appearance.svg",
             fallback_icon: "preferences-desktop-theme-symbolic",
             title: "Appearance",
-            description: "Theme, typography and desktop behavior",
+            description: "Theme and typography",
             candidates: &[],
             built_in: BuiltInPanel::Appearance,
         },
@@ -187,7 +182,7 @@ fn main() {
             icon_file: "desktop.svg",
             fallback_icon: "preferences-desktop-wallpaper-symbolic",
             title: "Desktop",
-            description: "Wallpaper and background layout",
+            description: "Wallpaper and desktop background",
             candidates: &[],
             built_in: BuiltInPanel::Desktop,
         },
@@ -215,12 +210,12 @@ fn main() {
 
     for (index, panel) in panels.iter().enumerate() {
         let button = control_panel_button(panel, &window);
-        grid.attach(&button, (index % 3) as i32, (index / 3) as i32, 1, 1);
+        grid.attach(&button, (index % 5) as i32, (index / 5) as i32, 1, 1);
     }
-    body.pack_start(&grid, true, true, 0);
+    body.pack_start(&grid, false, false, 2);
 
     let status = Label::new(Some(
-        "Unavailable controls are disabled when their system utility is not installed.",
+        "Unavailable control panels are dimmed when their system utility is not installed.",
     ));
     status.set_xalign(0.0);
     status.style_context().add_class("slopos-statusbar");
@@ -247,15 +242,22 @@ fn control_panel_button(panel: &ControlPanel<'_>, parent: &Window) -> Button {
         });
 
     let button = Button::new();
-    button.style_context().add_class("slopos-control-panel");
+    button.set_relief(ReliefStyle::None);
+    button.style_context().add_class("slopos-control-panel-icon");
     button.set_hexpand(true);
-    button.set_vexpand(true);
-    button.set_tooltip_text(Some(panel.description));
+    button.set_vexpand(false);
     set_accessible_name(&button, &format!("{} settings", panel.title));
 
-    let content = GtkBox::new(Orientation::Vertical, 4);
+    let available = panel.built_in != BuiltInPanel::None || selected.is_some();
+    if available {
+        button.set_tooltip_text(Some(panel.description));
+    } else {
+        button.set_tooltip_text(Some("Required system utility is not installed"));
+    }
+
+    let content = GtkBox::new(Orientation::Vertical, 2);
     content.set_halign(Align::Center);
-    content.set_valign(Align::Center);
+    content.set_valign(Align::Start);
 
     let icon = load_control_icon(panel.icon_file, panel.fallback_icon);
     icon.set_pixel_size(32);
@@ -264,22 +266,11 @@ fn control_panel_button(panel: &ControlPanel<'_>, parent: &Window) -> Button {
 
     let title = Label::new(Some(panel.title));
     title.set_xalign(0.5);
+    title.set_justify(gtk::Justification::Center);
+    title.set_line_wrap(true);
+    title.set_max_width_chars(15);
     title.style_context().add_class("slopos-control-title");
     content.pack_start(&title, false, false, 0);
-
-    let available = panel.built_in != BuiltInPanel::None || selected.is_some();
-    let description = if available {
-        panel.description
-    } else {
-        "Required utility is not installed"
-    };
-    let subtitle = Label::new(Some(description));
-    subtitle.set_xalign(0.5);
-    subtitle.set_justify(gtk::Justification::Center);
-    subtitle.set_line_wrap(true);
-    subtitle.set_max_width_chars(24);
-    subtitle.style_context().add_class("slopos-secondary-text");
-    content.pack_start(&subtitle, false, false, 0);
     button.add(&content);
 
     match panel.built_in {
@@ -358,14 +349,14 @@ fn screen_geometry() -> (i32, i32) {
 
 fn adaptive_window_size(screen_width: i32, screen_height: i32) -> (i32, i32) {
     let width = if screen_width <= 1600 {
-        680
+        560
     } else {
-        (screen_width * 2 / 5).clamp(720, 980)
+        (screen_width / 3).clamp(600, 720)
     };
     let height = if screen_height <= 900 {
-        470
+        350
     } else {
-        (screen_height * 3 / 5).clamp(520, 680)
+        (screen_height * 2 / 5).clamp(390, 480)
     };
     (width, height)
 }
@@ -389,8 +380,8 @@ mod tests {
 
     #[test]
     fn settings_window_is_compact_but_scales_for_large_displays() {
-        assert_eq!(adaptive_window_size(1280, 800), (680, 470));
-        assert_eq!(adaptive_window_size(1920, 1080), (768, 648));
-        assert_eq!(adaptive_window_size(2560, 1440), (980, 680));
+        assert_eq!(adaptive_window_size(1280, 800), (560, 350));
+        assert_eq!(adaptive_window_size(1920, 1080), (640, 432));
+        assert_eq!(adaptive_window_size(2560, 1440), (720, 480));
     }
 }
