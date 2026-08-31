@@ -4,7 +4,7 @@ version = "1.2"
 author = "SLOPOS-I"
 description = "Original compact SLOPOS-I light theme with square platinum chrome, crisp keylines, dense menus, and mechanical control depth"
 is_dark = false
-accent = "#000080"
+accent = "#8A92A0"
 
 [typography]
 system_font = "Liberation Sans"

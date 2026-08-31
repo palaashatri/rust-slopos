@@ -51,5 +51,31 @@ menu.items.bg.color: #FFFFFF
 menu.items.text.color: #000000
 menu.items.disabled.text.color: #707070
 menu.items.active.bg: flat solid
-menu.items.active.bg.color: #000000
+menu.items.active.bg.color: #8A92A0
 menu.items.active.text.color: #FFFFFF
+
+# Soft shadow settings for Platinum depth
+window.active.shadow.color: #000000
+window.active.shadow.opacity: 0.15
+window.active.shadow.offset.x: 2
+window.active.shadow.offset.y: 2
+window.inactive.shadow.color: #000000
+window.inactive.shadow.opacity: 0.08
+window.inactive.shadow.offset.x: 1
+window.inactive.shadow.offset.y: 1
+menu.overlap.x: 0
+menu.overlap.y: 0
+menu.separator.width: 1
+menu.separator.padding.width: 8
+menu.separator.padding.height: 4
+menu.items.padding.x: 8
+menu.items.padding.y: 3
+menu.title.padding.x: 6
+menu.title.padding.y: 4
+menu.title.text.justify: left
+menu.window.active.button.unpressed.bg: flat solid
+menu.window.active.button.unpressed.bg.color: #FFFFFF
+menu.window.active.button.unpressed.bg.border: 1 1 1 1
+menu.window.active.button.pressed.bg: flat solid
+menu.window.active.button.pressed.bg.color: #8A92A0
+menu.window.active.button.pressed.bg.border: 1 1 1 1

@@ -359,7 +359,10 @@ fn load_slopos_mark() -> Option<Image> {
         candidates.push(PathBuf::from(share_dir).join("slopos-i/slopos-logo.png"));
     }
     candidates.extend([
+        PathBuf::from("assets/icons/notification.png"),
         PathBuf::from("assets/slopos-logo.png"),
+        PathBuf::from("/usr/local/share/slopos-i/icons/notification.png"),
+        PathBuf::from("/usr/share/slopos-i/icons/notification.png"),
         PathBuf::from("/usr/local/share/slopos-i/slopos-logo.png"),
         PathBuf::from("/usr/share/slopos-i/slopos-logo.png"),
     ]);
