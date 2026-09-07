@@ -34,8 +34,8 @@ window.inactive.button.unpressed.bg: flat solid
 window.inactive.button.unpressed.bg.color: #C8C8C8
 window.inactive.button.unpressed.image.color: #777777
 
-menu.border.color: #000000
-menu.border.width: 2
+menu.border.color: #C0C0C0
+menu.border.width: 1
 # Keep menu headers on the same legible Platinum gradient as active frames;
 # interlaced fills turn compact labels into noisy black/white stripes at 1x.
 menu.title.bg: flat gradient vertical
@@ -49,5 +49,39 @@ menu.items.text.color: #000000
 # #888888 was too low-contrast for compact 9px labels).
 menu.items.disabled.text.color: #5E5E5E
 menu.items.active.bg: flat solid
-menu.items.active.bg.color: #000080
+menu.items.active.bg.color: #8A92A0
 menu.items.active.text.color: #FFFFFF
+
+# Soft shadow settings for Platinum depth
+window.active.shadow.color: #000000
+window.active.shadow.opacity: 0.15
+window.active.shadow.offset.x: 2
+window.active.shadow.offset.y: 2
+window.inactive.shadow.color: #000000
+window.inactive.shadow.opacity: 0.08
+window.inactive.shadow.offset.x: 1
+window.inactive.shadow.offset.y: 1
+menu.overlap.x: 0
+menu.overlap.y: 0
+# Soft diffused shadows for menus - matches Platinum surface depth
+menu.shadow.color: #000000
+menu.shadow.opacity: 0.12
+menu.shadow.offset.x: 2
+menu.shadow.offset.y: 3
+menu.shadow.radius: 8
+menu.separator.width: 1
+menu.separator.padding.width: 8
+menu.separator.padding.height: 4
+menu.items.padding.x: 8
+menu.items.padding.y: 3
+menu.title.padding.x: 6
+menu.title.padding.y: 4
+menu.title.text.justify: left
+menu.window.active.button.unpressed.bg: raised gradient vertical
+menu.window.active.button.unpressed.bg.color: #D9D9D9
+menu.window.active.button.unpressed.bg.colorTo: #C0C0C0
+menu.window.active.button.unpressed.bg.border: 1 1 1 1
+menu.window.active.button.pressed.bg: sunken gradient vertical
+menu.window.active.button.pressed.bg.color: #A0A0A0
+menu.window.active.button.pressed.bg.colorTo: #B0B0B0
+menu.window.active.button.pressed.bg.border: 1 1 1 1

@@ -902,6 +902,10 @@ fn slopos_dialog(title: &str, message: &str, buttons: &[(&str, ResponseType)]) -
     );
     dialog.set_default_size(360, 150);
     dialog.set_resizable(false);
+    dialog.content_area().set_margin_top(12);
+    dialog.content_area().set_margin_bottom(12);
+    dialog.content_area().set_margin_start(12);
+    dialog.content_area().set_margin_end(12);
     dialog.connect_key_press_event(|dialog, event| {
         if event.keyval() == gdk::keys::constants::Escape {
             dialog.close();

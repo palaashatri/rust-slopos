@@ -12,9 +12,10 @@
 @define-color slopos_disabled #8b929c;
 @define-color slopos_border #aeb4bd;
 @define-color slopos_border_strong #7e8793;
-@define-color slopos_highlight #356fd4;
-@define-color slopos_highlight_dark #245ab8;
+@define-color slopos_highlight #8A92A0;
+@define-color slopos_highlight_dark #6A7280;
 @define-color slopos_light #ffffff;
+@define-color slopos_accent #8A92A0;
 @define-color slopos_warning #a33b24;
 
 * {
@@ -35,7 +36,7 @@ window.solid-csd,
 window.csd decoration {
   border-radius: 9px;
   border: 1px solid @slopos_border;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
 headerbar,
@@ -73,7 +74,7 @@ headerbar button,
   min-height: 26px;
   background-image: linear-gradient(to bottom, rgba(252, 253, 254, 0.98), rgba(231, 234, 238, 0.98));
   border-bottom: 1px solid @slopos_border;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.10);
 }
 
 .slopos-logo-btn,
@@ -93,7 +94,7 @@ menubar > menuitem {
 .slopos-menubar-control:hover,
 .slopos-menu-bar > menuitem:hover,
 menubar > menuitem:hover {
-  background-color: rgba(53, 111, 212, 0.14);
+  background-color: rgba(138, 146, 160, 0.14);
 }
 
 .slopos-menu-bar > menuitem:hover,
@@ -128,9 +129,9 @@ popover,
 .menu {
   padding: 4px;
   background-color: @slopos_surface;
-  border: 1px solid @slopos_border;
-  border-radius: 8px;
-  box-shadow: 0 7px 24px rgba(0, 0, 0, 0.24);
+  border: 1px solid #C0C0C0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
 menu menuitem,
@@ -159,7 +160,7 @@ button {
   background-image: linear-gradient(to bottom, #ffffff, #e7e9ed);
   border: 1px solid @slopos_border;
   border-radius: 6px;
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 button:hover {
@@ -171,7 +172,7 @@ button:active,
 button:checked {
   background-image: none;
   background-color: @slopos_surface_pressed;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.16);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
 }
 
 button:focus,
@@ -201,11 +202,11 @@ button:disabled image {
 
 button.default {
   border: 1px solid @slopos_highlight_dark;
-  box-shadow: inset 0 0 0 1px rgba(53, 111, 212, 0.22), 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(138, 146, 160, 0.22), 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 button.default:focus {
-  box-shadow: inset 0 0 0 2px rgba(53, 111, 212, 0.35);
+  box-shadow: inset 0 0 0 2px rgba(138, 146, 160, 0.35);
 }
 
 .slopos-compact-button {
@@ -226,7 +227,7 @@ spinbutton entry {
 entry:focus,
 spinbutton entry:focus {
   border-color: @slopos_highlight;
-  box-shadow: inset 0 0 0 1px rgba(53, 111, 212, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(138, 146, 160, 0.18);
 }
 
 entry:disabled {
@@ -276,7 +277,7 @@ switch slider {
   background-color: @slopos_light;
   border: 1px solid @slopos_border;
   border-radius: 50%;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.10);
 }
 
 combobox button {
@@ -474,7 +475,7 @@ scrollbar button {
   background-image: linear-gradient(to bottom, rgba(250, 251, 252, 0.96), rgba(224, 228, 233, 0.96));
   border: 1px solid rgba(126, 135, 147, 0.78);
   border-radius: 14px;
-  box-shadow: 0 7px 22px rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 255, 255, 0.9);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18), inset 0 1px rgba(255, 255, 255, 0.9);
 }
 
 .slopos-dock-label {
@@ -503,7 +504,7 @@ scrollbar button {
 }
 
 .slopos-dock-btn:active {
-  background-color: rgba(53, 111, 212, 0.16);
+  background-color: rgba(138, 146, 160, 0.16);
 }
 
 .slopos-dock-btn:disabled {
@@ -550,7 +551,7 @@ window.slopos-notification-window,
   background-color: rgba(248, 249, 251, 0.98);
   border: 1px solid @slopos_border;
   border-radius: 12px;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.30);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
 }
 
 .slopos-dialog-title {
@@ -569,7 +570,7 @@ window.slopos-notification-window,
   background-color: rgba(248, 249, 251, 0.98);
   border: 1px solid @slopos_border;
   border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
 .slopos-notification-title {
@@ -615,7 +616,7 @@ window.slopos-notification-window,
   background-image: linear-gradient(to bottom, #fbfcfd, #e8ebef);
   border: 1px solid @slopos_border;
   border-radius: 9px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08), inset 0 1px rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06), inset 0 1px rgba(255, 255, 255, 0.9);
 }
 
 .slopos-control-panel:hover {
@@ -652,7 +653,7 @@ tooltip {
   color: @slopos_text;
   border: 1px solid #d4c985;
   border-radius: 6px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
 }
 
 tooltip label {

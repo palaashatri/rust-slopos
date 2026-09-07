@@ -4,7 +4,7 @@ version = "1.1"
 author = "SLOPOS-I"
 description = "Original compact SLOPOS-I light theme with layered neutral surfaces and crisp desktop ergonomics"
 is_dark = false
-accent = "#000080"
+accent = "#8A92A0"
 
 [typography]
 system_font = "Liberation Sans"
