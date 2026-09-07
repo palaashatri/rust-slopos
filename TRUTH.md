@@ -2,7 +2,7 @@
 
 **Audited base commit:** `29af05e06913c787b4e24e6d7bf111b5beb18ef9` (`v20260824`)
 
-**Current snapshot:** `codex/platinum-surface-refresh` with the pending UI/theme/assets delta recorded below
+**Current snapshot:** `codex/platinum-surface-refresh` with the UI/theme/assets delta recorded below
 
 **Audit date:** 2026-09-07
 
