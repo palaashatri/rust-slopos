@@ -3,7 +3,7 @@ titlebar_height = 22
 border_width = 1
 min_width = 200
 min_height = 100
-corner_radius = 0
+corner_radius = 8
 
 [menubar]
 height = 26
@@ -11,7 +11,7 @@ height = 26
 [button]
 height = 22
 min_width = 56
-corner_radius = 0
+corner_radius = 6
 
 [menu]
 item_height = 20

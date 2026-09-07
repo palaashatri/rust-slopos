@@ -2,6 +2,8 @@
 
 **Authority:** This file is the normative development contract for SLOPOS-I. `README.md` is end-user documentation. `TRUTH.md` is the evidence-backed readiness ledger. When implementation, comments, screenshots or old planning material disagree with this file, this file wins.
 
+> **Evidence discipline:** Missing, stale, or indirect evidence is **UNKNOWN**. A score, screenshot, manifest, or passing source test may support only the behavior it actually covers; it does not prove packaging, hardware compatibility, or release readiness.
+
 ## 1. Mission
 
 SLOPOS-I is an original, polished, consumer-oriented Linux desktop environment built on mature X11 infrastructure.
