@@ -1,34 +1,55 @@
 # TRUTH.md — SLOPOS-I Audit & Readiness Ledger
 
-**Release Target:** `SLOPOS-I v20260824`  
-**Audit date:** 2026-08-24 / 2026-08-25  
-**Branch:** `main`  
-**Release Tag:** `v20260824`  
-**Audit type:** In-Guest VirtualBox VM Acceptance, Full CI/CD Quality Gates, and Deterministic Visual QA  
-**Evidence-backed readiness:** **100 / 100**
+**Audited base commit:** `29af05e06913c787b4e24e6d7bf111b5beb18ef9` (`v20260824`)
+
+**Current snapshot:** `codex/platinum-surface-refresh` with the pending UI/theme/assets delta recorded below
+
+**Audit date:** 2026-09-07
+
+**Release tag:** `v20260824` (historical baseline only)
+
+**Audit type:** Local source review, Rust formatting, Clippy, and workspace tests; package, repository, media, installed-VM, and fresh visual acceptance were not run in this audit
+
+**Evidence-backed readiness:** **UNSCORED**
+
+**Release status:** **NOT RELEASE READY**
 
 ## Executive summary
 
-SLOPOS-I v20260824 is a release-ready, opinionated desktop environment for Linux.
-
-All quality gates, compiler checks, clippy lints, unit/integration test suites, native Debian (`.deb`) and Arch (`.pkg.tar.zst`) packaging, repository metadata generation (APT & Pacman), in-guest VirtualBox acceptance, and deterministic Visual QA across all 12 canonical scenes and multi-resolution targets pass cleanly.
+The `v20260824` release claim is historical and is not evidence for this current snapshot. The branch contains a Platinum visual/theme refresh, new image assets, shell presentation tweaks, and a GTK API compatibility fix. No release promotion or aggregate readiness score is valid until the required packaging, media, installed-VM, and visual gates run against this exact tree.
 
 ## Scorecard
 
 | Domain | Weight | Current | Audit finding |
 |---|---:|---:|---|
-| Visual design & first-party polish | 20 | **20** | Platinum geometry and typography across GTK 3 and Openbox themes. 16-screenshot deterministic visual QA suite captured in-guest across all canonical scenes and resolutions (1280x800, 1920x1080, 2560x1440, HiDPI scale 2). |
-| Core shell/session correctness | 20 | **20** | Event-driven X11 integration (`x11rb`) with native `InputOnly` edge trigger window (`EnterNotify`/`LeaveNotify`). Multi-monitor coordinate system verified across non-zero origins and RandR hotplug. |
-| Linux service & application integration | 15 | **15** | Persistent D-Bus signal monitoring (`zbus` for NetworkManager, UPower, BlueZ) and PipeWire/PulseAudio event streaming (`pactl subscribe`). Background `AppIndex` with GIO directory monitoring. |
-| Architecture & maintainability | 15 | **15** | Modular workspace (`slopos-session`, `slopos-shell`, `slopos-settings`, `slopos-catalogue`). All workspace unit and integration tests pass with zero clippy warnings (`-D warnings`). |
-| Packaging & install lifecycle | 15 | **15** | Native `.deb` and Arch packages built. Repository generator (`scripts/generate-package-repos.sh`) produces signed/indexed APT and Pacman repos with SHA256SUMS. In-guest clean installation and purge verified. |
-| Cross-architecture & boot media | 10 | **10** | Live ISO build scripts and automated QEMU UEFI boot testing exist for x86_64; ARM64/RISC-V lanes documented with strict support definitions. |
-| QA evidence quality | 5 | **5** | In-guest VirtualBox acceptance (`qa/run-release-qa.ps1`), 16 visual QA screenshots, `manifest.json`, and comprehensive automated tests pass cleanly. |
-| **Total** | **100** | **100** | **Release-ready SLOPOS-I v20260824 desktop environment.** |
+| Visual design & first-party polish | 20 | **UNKNOWN** | The pending palette, radius, shadow, theme, and asset changes have no fresh screenshot set or human visual acceptance in this audit. |
+| Core shell/session correctness | 20 | **LOCAL EVIDENCE** | Existing source and tests cover the X11/event-driven paths; no installed-VM or boot-media acceptance was rerun for this snapshot. |
+| Linux service & application integration | 15 | **LOCAL EVIDENCE** | Existing source and workspace tests cover service adapters; hardware-facing behavior was not exercised here. |
+| Architecture & maintainability | 15 | **LOCAL EVIDENCE** | Formatting, Clippy, and workspace tests are recorded below; this is not a release gate by itself. |
+| Packaging & install lifecycle | 15 | **UNVERIFIED** | No clean package install/upgrade/removal or signed repository publication was run for this snapshot. |
+| Cross-architecture & boot media | 10 | **UNVERIFIED** | No current ISO/UEFI/QEMU build or boot test was run; ARM64/RISC-V remain intended targets. |
+| QA evidence quality | 5 | **INCOMPLETE** | Existing screenshots and manifests are historical; no fresh visual or installed-VM evidence was captured for this snapshot. |
+| **Total** | **100** | **UNSCORED** | Required release evidence is incomplete. |
 
-The score reflects actual working code, passing tests, and validated visual evidence. Full 100/100 requires production CI secrets provisioning and promotion of published release media.
+The local Rust gates below are evidence for source health only. They do not raise this ledger to a numeric readiness score.
 
-## What changed in this audit
+## Current snapshot changes
+
+- **Platinum visual tokens:** GTK and Openbox surfaces now use the pending neutral accent, softer shadows, compact radii, lighter keylines, and revised menu/button depth.
+- **Bundled assets:** Added the notification mark and a 1920×1080 default wallpaper candidate for the pending visual refresh.
+- **Shell presentation:** Updated notification fallback paths and dialog content margins; the existing distinct wallpaper choices remain unchanged.
+- **GTK API compatibility:** Replaced the four invalid `gtk::Dialog::get_content_area()` calls with `content_area()`.
+
+## Current verification evidence
+
+- `git diff --check` and `git diff --cached --check`: clean.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets --locked -- -D warnings`: passed.
+- `cargo test --workspace --locked`: passed — 77 tests (19 catalogue, 2 session, 2 settings, 29 shell unit, 22 shell integration, 3 reconciliation).
+
+These commands were run locally on the current source tree. No package, repository, live-media, installed-VM, hardware, or fresh visual acceptance result is claimed here.
+
+## Historical baseline notes (2026-08-24; not current evidence)
 
 - **Fresh visual and functional QA suite in Docker**: Executed the full automated QA test suite and comprehensive screenshot capture in an isolated Ubuntu 24.04 Xvfb container, generating all 51 canonical documentation images across desktop themes (Platinum Light, Graphite Dark, OLED Dark, Classic Contrast), multi-window focus states, system modals, control panels, software catalogue, and multi-resolution/HiDPI targets.
 - **X11 native event-driven edge trigger window**: Replaced the 50ms pointer polling loop with an `InputOnly` X11 trigger window configured with `EventMask::ENTER_WINDOW | EventMask::LEAVE_WINDOW` and `override_redirect(1)`. Edge changes are delivered natively via `Event::EnterNotify` and `Event::LeaveNotify`.
