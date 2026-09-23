@@ -51,7 +51,6 @@ cleanup() {
   pkill -TERM -x slopos-settings 2>/dev/null || true
   pkill -TERM -x slopos-shell 2>/dev/null || true
   pkill -TERM -x slopos-session 2>/dev/null || true
-  pkill -TERM -x pcmanfm 2>/dev/null || true
   pkill -TERM -x openbox 2>/dev/null || true
   pkill -TERM -x Xvfb 2>/dev/null || true
 }
