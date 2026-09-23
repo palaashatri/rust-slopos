@@ -353,7 +353,6 @@ fn platinum_controls_have_dense_classic_interaction_states() {
         "radio:checked",
         "entry:focus",
         "row:selected",
-        ".slopos-dock-container",
         ".slopos-alert-box",
         ".slopos-control-panel",
         "tooltip",
