@@ -44,9 +44,7 @@ fn main() {
     let launcher = Launcher::new();
     install_launcher_signal_bridge(launcher.clone());
 
-    // The classic parity shell is intentionally menu-bar-first.  The old
-    // bottom Application Strip remains in the source tree for now so its
-    // launcher/state code can be reused later, but it is not instantiated.
+    // The classic SLOPOS-I shell is intentionally menu-bar-first and dockless.
     let topbar = TopBar::new(launcher.clone());
     shortcuts::install_system_menu_shortcut();
 
