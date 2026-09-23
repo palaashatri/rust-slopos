@@ -337,16 +337,11 @@ fn sync_theme_assets() {
     ] {
         let mut candidates = Vec::new();
         if let Ok(cwd) = env::current_dir() {
-            candidates.push(cwd.join("themes").join(ob_theme).join("openbox-3/themerc"));
+            candidates.push(cwd.join("themes").join(ob_theme).join("openbox-3"));
         }
         if let Ok(executable) = env::current_exe() {
             if let Some(prefix) = executable.parent().and_then(Path::parent) {
-                candidates.push(
-                    prefix
-                        .join("share/themes")
-                        .join(ob_theme)
-                        .join("openbox-3/themerc"),
-                );
+                candidates.push(prefix.join("share/themes").join(ob_theme).join("openbox-3"));
             }
         }
         if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
@@ -354,22 +349,22 @@ fn sync_theme_assets() {
                 PathBuf::from(share_dir)
                     .join("themes")
                     .join(ob_theme)
-                    .join("openbox-3/themerc"),
+                    .join("openbox-3"),
             );
         }
         candidates.extend([
-            PathBuf::from(format!("themes/{ob_theme}/openbox-3/themerc")),
-            PathBuf::from(format!(
-                "/usr/local/share/themes/{ob_theme}/openbox-3/themerc"
-            )),
-            PathBuf::from(format!("/usr/share/themes/{ob_theme}/openbox-3/themerc")),
+            PathBuf::from(format!("themes/{ob_theme}/openbox-3")),
+            PathBuf::from(format!("/usr/local/share/themes/{ob_theme}/openbox-3")),
+            PathBuf::from(format!("/usr/share/themes/{ob_theme}/openbox-3")),
         ]);
 
-        if let Some(src) = candidates.into_iter().find(|p| p.is_file()) {
+        if let Some(src_dir) = candidates
+            .into_iter()
+            .find(|p| p.is_dir() && p.join("themerc").is_file())
+        {
             if let Some(ref h) = home {
                 let dest_dir = h.join(".themes").join(ob_theme).join("openbox-3");
-                let _ = std::fs::create_dir_all(&dest_dir);
-                let _ = std::fs::copy(&src, dest_dir.join("themerc"));
+                let _ = copy_dir_recursive(&src_dir, &dest_dir);
             }
         }
     }
@@ -454,15 +449,6 @@ fn sync_theme_assets() {
     }
 }
 
-fn is_dock_dodge_enabled(config_home: &Path) -> bool {
-    let flag_file = config_home.join("slopos-i/dock_dodge");
-    if let Ok(content) = std::fs::read_to_string(flag_file) {
-        let t = content.trim();
-        return t == "1" || t.eq_ignore_ascii_case("true") || t.eq_ignore_ascii_case("yes");
-    }
-    false
-}
-
 fn sync_openbox_config() -> Option<PathBuf> {
     let config_home = env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
@@ -472,17 +458,7 @@ fn sync_openbox_config() -> Option<PathBuf> {
         let target = target_dir.join("rc.xml");
         if let Some(source) = resolve_openbox_config() {
             let _ = std::fs::create_dir_all(&target_dir);
-            if let Ok(content) = std::fs::read_to_string(&source) {
-                let dodge_enabled = is_dock_dodge_enabled(&config_home);
-                let bottom_margin = if dodge_enabled { "0" } else { "60" };
-                let modified = content.replace(
-                    "<bottom>60</bottom>",
-                    &format!("<bottom>{bottom_margin}</bottom>"),
-                );
-                let _ = std::fs::write(&target, modified);
-            } else {
-                let _ = std::fs::copy(&source, &target);
-            }
+            let _ = std::fs::copy(&source, &target);
         }
         if target.exists() {
             return target.canonicalize().ok().or(Some(target));

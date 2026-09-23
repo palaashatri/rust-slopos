@@ -6,8 +6,8 @@ use gdk_pixbuf::Pixbuf;
 use gtk::atk::prelude::AtkObjectExt;
 use gtk::prelude::*;
 use gtk::{
-    Box as GtkBox, CheckButton, Dialog, DialogFlags, FontButton, Image, Label, Orientation,
-    RadioButton, ResponseType, Window,
+    Box as GtkBox, Dialog, DialogFlags, FontButton, Image, Label, Orientation, RadioButton,
+    ResponseType, Window,
 };
 use std::env;
 use std::fs;
@@ -115,12 +115,6 @@ pub fn show_appearance_dialog(parent: &Window) {
     typography.pack_start(&font, true, true, 0);
     content.pack_start(&typography, false, false, 0);
 
-    let dodge = CheckButton::with_label(
-        "Hide the Application Strip when a maximized window needs the space",
-    );
-    dodge.set_active(is_dock_dodge_enabled());
-    content.pack_start(&dodge, false, false, 0);
-
     dialog.show_all();
     if dialog.run() == ResponseType::Accept {
         let mode = if graphite.is_active() {
@@ -136,8 +130,6 @@ pub fn show_appearance_dialog(parent: &Window) {
         if let Some(font_name) = font.font() {
             save_font(font_name.as_str());
         }
-        set_dock_dodge_enabled(dodge.is_active());
-
         if let Some(helper) = resolve_program_path("slopos-appearance") {
             if let Err(error) = Command::new(helper).arg(mode).spawn() {
                 log::warn!("Failed to apply appearance: {error}");
@@ -210,32 +202,6 @@ fn save_font(font: &str) {
         }
         let _ = fs::write(&settings_ini, new_lines.join("\n"));
     }
-}
-
-pub fn is_dock_dodge_enabled() -> bool {
-    let config_home = env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")));
-    if let Some(config_home) = config_home {
-        let flag_file = config_home.join("slopos-i/dock_dodge");
-        if let Ok(content) = fs::read_to_string(flag_file) {
-            let t = content.trim();
-            return t == "1" || t.eq_ignore_ascii_case("true") || t.eq_ignore_ascii_case("yes");
-        }
-    }
-    false
-}
-
-pub fn set_dock_dodge_enabled(enabled: bool) {
-    let config_home = env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")));
-    let Some(config_home) = config_home else {
-        return;
-    };
-    let dir = config_home.join("slopos-i");
-    let _ = fs::create_dir_all(&dir);
-    let _ = fs::write(dir.join("dock_dodge"), if enabled { "1\n" } else { "0\n" });
 }
 
 fn set_accessible_name<W>(widget: &W, name: &str)

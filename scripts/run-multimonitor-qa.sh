@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SLOPOS-I Virtual Multi-Monitor & Dual-Head Geometry QA.
-# Validates top bar geometry, application strip centering, search placement,
+# Validates top bar geometry, dockless composition, search placement,
 # and window moving across virtual multi-monitor layouts.
 set -euo pipefail
 
@@ -55,15 +55,15 @@ pgrep -x openbox >/dev/null
 pgrep -x slopos-shell >/dev/null
 
 for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null 2>&1 && \
-     xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null 2>&1; then
+  if xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null 2>&1; then
     break
   fi
   sleep 0.25
 done
 
-TOP_BAR_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Top Bar$' | tail -n 1)"
-STRIP_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Application Strip$' | tail -n 1)"
+TOP_BAR_WIN="$(xdotool search --onlyvisible --name "^SLOPOS Top Bar$" | tail -n 1)"
+test -n "$TOP_BAR_WIN"
+! xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1
 
 # Check Top Bar width spans the multi-monitor display
 TOP_BAR_GEO="$(xdotool getwindowgeometry --shell "$TOP_BAR_WIN")"
@@ -74,10 +74,10 @@ test "$TOP_BAR_WIDTH" -eq 3840 || test "$TOP_BAR_WIDTH" -ge 1920
 echo "=== [3/3] Testing Search placement & window moving across virtual outputs ==="
 pkill -USR1 -x slopos-shell
 for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then break; fi
+  if xdotool search --onlyvisible --name "^SLOPOS Search$" >/dev/null 2>&1; then break; fi
   sleep 0.1
 done
-SEARCH_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Search$' | tail -n 1)"
+SEARCH_WIN="$(xdotool search --onlyvisible --name "^SLOPOS Search$" | tail -n 1)"
 test -n "$SEARCH_WIN"
 
 SEARCH_GEO="$(xdotool getwindowgeometry --shell "$SEARCH_WIN")"

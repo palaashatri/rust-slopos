@@ -17,7 +17,7 @@ SLOPOS-I does **not** replace Linux itself. It runs on top of a Linux distributi
 ## What SLOPOS-I includes
 
 - A top system bar with the active application, menus, search and status information.
-- An Application Strip for launching commonly used programs.
+- A dockless classic desktop with a global menu/system bar and desktop objects.
 - Application Search with `Super + Space`.
 - A Settings hub for display, audio, network, Bluetooth, power, appearance and desktop preferences.
 - A curated AppImage Software Catalogue with integrity checks.
@@ -82,7 +82,7 @@ Press `Super + Space`, type the name of an installed application, use the arrow 
 
 ### Settings
 
-Open **System Settings** from the Application Strip or system menu. Some panels are SLOPOS-I interfaces, while others open the established Linux utility that actually controls that subsystem.
+Open **System Settings** from the system menu or Application Search. Some panels are SLOPOS-I interfaces, while others open the established Linux utility that actually controls that subsystem.
 
 If a required utility is missing, SLOPOS-I should show that panel as unavailable rather than pretending a setting works.
 
@@ -92,7 +92,7 @@ The Software Catalogue is for curated **AppImage** applications. It is separate 
 
 ### Appearance and wallpaper
 
-Use **System Settings → Appearance** to choose the SLOPOS-I appearance, interface font and Application Strip behavior. Use **System Settings → Desktop** to choose a bundled background or your own image.
+Use **System Settings → Appearance** to choose the SLOPOS-I appearance and interface font. Use **System Settings → Desktop** to choose a bundled background or your own image.
 
 ## Recovery
 
@@ -129,7 +129,7 @@ Openbox window manager
 SLOPOS-I session and shell
   ├─ top bar
   ├─ application search
-  ├─ Application Strip
+  ├─ classic desktop-object integration
   ├─ notifications
   ├─ Settings
   └─ Software Catalogue
@@ -201,18 +201,18 @@ SLOPOS-I ships four coherent appearances sharing the same compact ergonomics and
 
 ---
 
-### 4. Window Management, Fullscreen & Dock Dodge
+### 4. Window Management & Fullscreen
 
 | Multi-Window Focus & Stacking | Active Text Editor (Global Menu Host) |
 |:---:|:---:|
 | ![Multi-Window Focus](docs/screenshots/07_multi_window_focus_1280x800.png) | ![Mousepad Active](docs/screenshots/06_active_app_mousepad_1280x800.png) |
 
-| True Fullscreen Video Player (MPV) | Maximized Window (Dock Dodged) | Dock Hover Overlap Reveal |
-|:---:|:---:|:---:|
-| ![True Fullscreen Video](docs/screenshots/46_fullscreen_video_mpv_1280x800.png) | ![Dock Dodged Full Height](docs/screenshots/47_dock_dodge_maximized_1280x800.png) | ![Dock Hover Overlap](docs/screenshots/49_dock_dodge_hover_overlap_1280x800.png) |
+| True Fullscreen Video Player (MPV) |
+|:---:|
+| ![True Fullscreen Video](docs/screenshots/46_fullscreen_video_mpv_1280x800.png) |
 
-- **True Fullscreen Experience**: When video players (MPV, VLC), games (SuperTux, Doom), or web browsers enter fullscreen (`_NET_WM_STATE_FULLSCREEN`), both the top menu bar and bottom Application Strip dock unmap, providing a 100% unobstructed full-screen experience.
-- **Dock Dodge / Autohide**: When enabled, maximized windows utilize the full display height below the top bar. Moving the pointer to the bottom edge reveals the Application Strip floating over the window.
+- **True Fullscreen Experience**: When video players (MPV, VLC), games (SuperTux, Doom), or web browsers enter fullscreen (`_NET_WM_STATE_FULLSCREEN`), the top menu bar yields to the fullscreen application so the display remains unobstructed.
+- **Dockless work area**: Normal maximized windows use the full display area below the top bar; SLOPOS-I does not reserve a hidden bottom dock region.
 
 ---
 

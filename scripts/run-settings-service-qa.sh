@@ -1,6 +1,7 @@
 #!/bin/bash
-# Verify that Settings delegates to mature utilities, keeps its built-in
-# Appearance panel available, and fails closed when external utilities are absent.
+# Verify that Settings keeps its SLOPOS-owned panels available, delegates the
+# remaining hardware panels to mature utilities, and fails closed when those
+# external utilities are absent.
 # The final phase also runs the exact-head UI/UX acceptance so this existing CI
 # job gates the user-visible icon, global-menu and Graphite requirements.
 set -euo pipefail
@@ -45,9 +46,11 @@ test -x target/release/slopos-settings
 test -x target/release/slopos-session
 test -x target/release/slopos-shell
 
+mkdir -p "$HOME/.themes/slopos-openbox/openbox-3"
+cp -a themes/slopos-openbox/openbox-3/. "$HOME/.themes/slopos-openbox/openbox-3/"
+
 mkdir -p /tmp/slopos-settings-service-stubs
-for utility in arandr lxrandr pavucontrol nm-connection-editor blueman-manager \
-  xfce4-power-manager-settings pcmanfm lxinput; do
+for utility in arandr blueman-manager xfce4-power-manager-settings lxinput; do
   cat >"/tmp/slopos-settings-service-stubs/$utility" <<EOF
 #!/bin/bash
 printf '%s\\n' '$utility' >> "\${SLOPOS_SERVICE_PROBE_LOG:?}"
@@ -83,8 +86,16 @@ run_case() {
       wait "${SETTINGS_PID:-}" "${OPENBOX_PID:-}" "${AT_SPI_PID:-}" 2>/dev/null || true
     }
     trap cleanup_inner EXIT
-    at-spi-bus-launcher --launch-immediately >/tmp/slopos-settings-atspi.log 2>&1 &
-    AT_SPI_PID=$!
+    AT_SPI_PID=""
+    if command -v at-spi-bus-launcher >/dev/null 2>&1; then
+      at-spi-bus-launcher --launch-immediately >/tmp/slopos-settings-atspi.log 2>&1 &
+      AT_SPI_PID=$!
+    elif [ -x /usr/libexec/at-spi-bus-launcher ]; then
+      /usr/libexec/at-spi-bus-launcher --launch-immediately >/tmp/slopos-settings-atspi.log 2>&1 &
+      AT_SPI_PID=$!
+    else
+      : > /tmp/slopos-settings-atspi.log
+    fi
     gsettings set org.gnome.desktop.interface toolkit-accessibility true >/dev/null 2>&1 || true
     openbox --config-file "$SLOPOS_OPENBOX_CONFIG" >/tmp/slopos-settings-openbox.log 2>&1 &
     OPENBOX_PID=$!
@@ -132,19 +143,20 @@ run_case() {
   SETTINGS_PID=""
 }
 
-echo "[3/5] Checking unavailable delegated controls fail closed while Appearance remains available"
+echo "[3/5] Checking unavailable delegated controls fail closed while built-in panels remain available"
 run_case disabled /tmp/slopos-settings-empty-path
-grep -Fxq SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=7 /tmp/slopos-settings-disabled-qa.log
+grep -Fxq SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=4 /tmp/slopos-settings-disabled-qa.log
+grep -Fxq SETTINGS_BUILTIN_CONTROLS_ENABLED=5 /tmp/slopos-settings-disabled-qa.log
 grep -Fxq SETTINGS_BUILTIN_APPEARANCE_ENABLED=1 /tmp/slopos-settings-disabled-qa.log
 
-echo "[4/5] Checking seven external controls delegate to mature utilities"
+echo "[4/5] Checking four external controls delegate to mature utilities"
 export SLOPOS_SERVICE_PROBE_LOG=/tmp/slopos-settings-delegation-probe.log
 rm -f "$SLOPOS_SERVICE_PROBE_LOG"
 run_case delegation /tmp/slopos-settings-service-stubs
-grep -Fxq SETTINGS_DELEGATED_CONTROLS=7 /tmp/slopos-settings-delegation-qa.log
+grep -Fxq SETTINGS_DELEGATED_CONTROLS=4 /tmp/slopos-settings-delegation-qa.log
+grep -Fxq SETTINGS_BUILTIN_CONTROLS_ENABLED=5 /tmp/slopos-settings-delegation-qa.log
 grep -Fxq SETTINGS_BUILTIN_APPEARANCE_ENABLED=1 /tmp/slopos-settings-delegation-qa.log
-for utility in arandr pavucontrol nm-connection-editor blueman-manager \
-  xfce4-power-manager-settings pcmanfm lxinput; do
+for utility in arandr blueman-manager xfce4-power-manager-settings lxinput; do
   grep -Fxq "$utility" /tmp/slopos-settings-delegation.log
 done
 

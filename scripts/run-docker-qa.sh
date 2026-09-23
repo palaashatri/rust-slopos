@@ -44,6 +44,13 @@ wait_visible_window() {
   return 1
 }
 
+require_no_application_strip() {
+  if xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1; then
+    echo "ERROR: retired Application Strip is visible" >&2
+    return 1
+  fi
+}
+
 window_for_pid() {
   local pid="$1" window window_pid
   for window in $(xdotool search --onlyvisible --name '.*' 2>/dev/null || true); do
@@ -167,9 +174,9 @@ if [[ "$APPMENU_UPSTREAM_MODE" == "1" ]]; then
   fi
   dpkg-query -W -f='${Status}\n' appmenu-gtk3-module 2>/dev/null | grep -Fq 'install ok installed'
   dpkg-query -W -f='${Status}\n' appmenu-registrar 2>/dev/null | grep -Fq 'install ok installed'
-  APPMENU_GTK_MODULE_PATH="$(dpkg -L appmenu-gtk3-module | grep '/libappmenu-gtk-module\.so$' | head -n 1)"
-  APPMENU_REGISTRAR_PATH="$(dpkg -L appmenu-registrar | grep '/appmenu-registrar$' | head -n 1)"
-  APPMENU_REGISTRAR_SERVICE="$(dpkg -L appmenu-registrar | grep '/com\.canonical\.AppMenu\.Registrar\.service$' | head -n 1)"
+  APPMENU_GTK_MODULE_PATH="$(dpkg -L appmenu-gtk3-module | grep "/libappmenu-gtk-module\.so$" | head -n 1)"
+  APPMENU_REGISTRAR_PATH="$(dpkg -L appmenu-registrar | grep "/appmenu-registrar$" | head -n 1)"
+  APPMENU_REGISTRAR_SERVICE="$(dpkg -L appmenu-registrar | grep "/com\.canonical\.AppMenu\.Registrar\.service$" | head -n 1)"
   test -n "$APPMENU_GTK_MODULE_PATH" && test -r "$APPMENU_GTK_MODULE_PATH"
   test -n "$APPMENU_REGISTRAR_PATH" && test -x "$APPMENU_REGISTRAR_PATH"
   test -n "$APPMENU_REGISTRAR_SERVICE" && test -r "$APPMENU_REGISTRAR_SERVICE"
@@ -241,9 +248,9 @@ pgrep -x slopos-shell >/dev/null
 test -s "$DBUS_ENV_FILE"
 # shellcheck source=/dev/null
 source "$DBUS_ENV_FILE"
-wait_visible_window '^SLOPOS Top Bar$'
-wait_visible_window '^SLOPOS Application Strip$'
-TOPBAR_WINDOW="$(xdotool search --onlyvisible --name '^SLOPOS Top Bar$' | tail -n 1)"
+wait_visible_window "^SLOPOS Top Bar$"
+require_no_application_strip
+TOPBAR_WINDOW="$(xdotool search --onlyvisible --name "^SLOPOS Top Bar$" | tail -n 1)"
 test -n "$TOPBAR_WINDOW"
 
 echo "[4/8] Verify launcher hotkey toggles existing shell"
@@ -252,7 +259,7 @@ pkill -USR1 -x slopos-shell
 sleep 2
 SHELL_COUNT_AFTER="$(pgrep -xc slopos-shell)"
 test "$SHELL_COUNT_BEFORE" = "$SHELL_COUNT_AFTER"
-wait_visible_window '^SLOPOS Search$'
+wait_visible_window "^SLOPOS Search$"
 capture_screenshot artifacts/qa/screenshots/search_open_1280x800.png
 xdotool key Escape || true
 
@@ -267,7 +274,7 @@ for _ in $(seq 1 40); do
 done
 test -n "$shell_after"
 test "$shell_after" != "$shell_before"
-wait_visible_window '^SLOPOS Top Bar$'
+wait_visible_window "^SLOPOS Top Bar$"
 
 wm_before="$(pgrep -xo openbox)"
 kill "$wm_before"
@@ -279,13 +286,13 @@ for _ in $(seq 1 40); do
 done
 test -n "$wm_after"
 test "$wm_after" != "$wm_before"
-wait_visible_window '^SLOPOS Application Strip$'
-wait_visible_window '^SLOPOS Top Bar$'
+require_no_application_strip
+wait_visible_window "^SLOPOS Top Bar$"
 sleep 1
 # The supervisor recreates shell windows after the deliberate recovery test;
 # refresh the ID before later pointer-driven AppMenu checks instead of
 # reusing the destroyed pre-recovery top-bar window.
-TOPBAR_WINDOW="$(xdotool search --onlyvisible --name '^SLOPOS Top Bar$' | tail -n 1)"
+TOPBAR_WINDOW="$(xdotool search --onlyvisible --name "^SLOPOS Top Bar$" | tail -n 1)"
 test -n "$TOPBAR_WINDOW"
 
 echo "[6/8] Capture canonical scenes"
@@ -299,7 +306,7 @@ xdotool click 1
 sleep 1
 capture_screenshot artifacts/qa/screenshots/menu_open_1280x800.png
 xdotool key Down Return
-wait_visible_window '^About SLOPOS-I$'
+wait_visible_window "^About SLOPOS-I$"
 capture_screenshot artifacts/qa/screenshots/modal_about_1280x800.png
 xdotool key Return
 sleep 1
@@ -318,21 +325,21 @@ else
     string:"A real D-Bus notification rendered by the SLOPOS presenter." \
     array:string: dict:string:variant: int32:60000
 fi
-wait_visible_window '^SLOPOS Notification [0-9]+$'
+wait_visible_window "^SLOPOS Notification [0-9]+$"
 capture_screenshot artifacts/qa/screenshots/notification_1280x800.png
 # The long timeout keeps the notification visible long enough to capture, but
 # it must not contaminate later canonical scenes. Close only the fresh visible
 # SLOPOS notification window and assert that it is gone before continuing.
-for notification_window in $(xdotool search --onlyvisible --name '^SLOPOS Notification [0-9]+$' 2>/dev/null || true); do
+for notification_window in $(xdotool search --onlyvisible --name "^SLOPOS Notification [0-9]+$" 2>/dev/null || true); do
   xdotool windowclose "$notification_window"
 done
 for _ in $(seq 1 20); do
-  if ! xdotool search --onlyvisible --name '^SLOPOS Notification [0-9]+$' >/dev/null 2>&1; then
+  if ! xdotool search --onlyvisible --name "^SLOPOS Notification [0-9]+$" >/dev/null 2>&1; then
     break
   fi
   sleep 0.25
 done
-! xdotool search --onlyvisible --name '^SLOPOS Notification [0-9]+$' >/dev/null 2>&1
+! xdotool search --onlyvisible --name "^SLOPOS Notification [0-9]+$" >/dev/null 2>&1
 
 # The active-application scene must be distinct from the file-manager scene;
 # Mousepad gives the visual gate a real text-editor surface to inspect.
@@ -557,7 +564,7 @@ sleep 2
 TERM_WINDOW="$(xdotool search --onlyvisible --class xfce4-terminal | tail -n 1)"
 test -n "$TERM_WINDOW"
 # Arrange the overlap scene deliberately so both upstream windows remain fully
-# visible above the Application Strip instead of relying on WM placement luck.
+# visible below the top bar instead of relying on WM placement luck.
 xdotool windowmove --sync "$TERM_WINDOW" 520 300
 xdotool windowsize "$TERM_WINDOW" 610 360
 sleep 1
@@ -586,7 +593,7 @@ unset TERM_PID
 
 ./target/release/slopos-catalogue >artifacts/qa/catalogue.log 2>&1 & CATALOGUE_PID=$!
 for _ in $(seq 1 20); do
-  CATALOGUE_WINDOW="$(xdotool search --onlyvisible --name '^Software Catalogue$' 2>/dev/null | tail -n 1 || true)"
+  CATALOGUE_WINDOW="$(xdotool search --onlyvisible --name "^Software Catalogue$" 2>/dev/null | tail -n 1 || true)"
   if [[ -n "$CATALOGUE_WINDOW" ]]; then break; fi
   sleep 1
 done
@@ -598,7 +605,7 @@ unset CATALOGUE_PID
 
 ./target/release/slopos-settings >artifacts/qa/settings.log 2>&1 & SETTINGS_PID=$!
 for _ in $(seq 1 20); do
-  SETTINGS_WINDOW="$(xdotool search --onlyvisible --name '^System Settings$' 2>/dev/null | tail -n 1 || true)"
+  SETTINGS_WINDOW="$(xdotool search --onlyvisible --name "^System Settings$" 2>/dev/null | tail -n 1 || true)"
   if [[ -n "$SETTINGS_WINDOW" ]]; then break; fi
   sleep 1
 done

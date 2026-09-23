@@ -126,14 +126,18 @@ install -Dm644 assets/config/openbox/rc-classic.xml "$PREFIX/share/slopos-i/open
 install -Dm644 assets/config/openbox/rc-graphite.xml "$PREFIX/share/slopos-i/openbox/rc-graphite.xml"
 install -Dm644 assets/config/openbox/rc-oled.xml "$PREFIX/share/slopos-i/openbox/rc-oled.xml"
 install -Dm644 assets/config/openbox/menu.xml "$PREFIX/share/slopos-i/openbox/menu.xml"
-install -Dm644 themes/slopos-openbox/openbox-3/themerc \
-  "$PREFIX/share/themes/slopos-openbox/openbox-3/themerc"
-install -Dm644 themes/slopos-openbox-classic/openbox-3/themerc \
-  "$PREFIX/share/themes/slopos-openbox-classic/openbox-3/themerc"
-install -Dm644 themes/slopos-openbox-graphite/openbox-3/themerc \
-  "$PREFIX/share/themes/slopos-openbox-graphite/openbox-3/themerc"
-install -Dm644 themes/slopos-openbox-oled/openbox-3/themerc \
-  "$PREFIX/share/themes/slopos-openbox-oled/openbox-3/themerc"
+
+# Ship the complete Openbox theme trees. The Platinum parity theme includes
+# original XBM title-button glyphs in addition to the theme definition.
+test -f themes/slopos-openbox/openbox-3/themerc
+for openbox_theme in \
+  slopos-openbox \
+  slopos-openbox-classic \
+  slopos-openbox-graphite \
+  slopos-openbox-oled; do
+  mkdir -p "$PREFIX/share/themes/$openbox_theme/openbox-3"
+  cp -a "themes/$openbox_theme/openbox-3/." "$PREFIX/share/themes/$openbox_theme/openbox-3/"
+done
 
 install -Dm644 assets/config/gtk-3.0/gtk.css \
   "$PREFIX/share/themes/slopos-gtk/gtk-3.0/gtk.css"
@@ -163,7 +167,7 @@ install -Dm644 assets/file-manager/actions/set-wallpaper.desktop \
 install -Dm644 assets/applications/slopos-set-wallpaper.desktop \
   "$PREFIX/share/applications/slopos-set-wallpaper.desktop"
 
-# Install retro wallpapers
+# Install SLOPOS desktop backgrounds.
 mkdir -p "$PREFIX/share/slopos-i/wallpapers"
 if [[ -d assets/wallpapers ]]; then
   cp -a assets/wallpapers/* "$PREFIX/share/slopos-i/wallpapers/"

@@ -49,10 +49,6 @@ qa_packages=(
   adwaita-icon-theme libx11-6 libxrandr2 locales
 )
 if [[ "$AT_SPI_SCREEN_READER" == 1 ]]; then
-  # --no-install-recommends omits the speech stack on Ubuntu runners.  Keep
-  # the Orca leg real by provisioning a deterministic local speech engine;
-  # final acceptance still requires Orca's speech-output and focused-field
-  # debug evidence.
   qa_packages+=(orca speech-dispatcher espeak-ng)
 fi
 apt-get install -y -qq --no-install-recommends "${qa_packages[@]}"
@@ -112,10 +108,6 @@ dbus-run-session -- bash -c '
     ORCA_PID=$!
     orca_ready=0
     for _ in $(seq 1 30); do
-      # Orca debug wording has changed between Ubuntu releases.  Treat a
-      # live process with an initialized debug stream as process readiness;
-      # the actual speech and focused-field assertions below remain the
-      # acceptance evidence.
       if [[ -s /tmp/slopos-atspi-orca-debug.log ]] && kill -0 "$ORCA_PID" 2>/dev/null; then
         orca_ready=1
         break
@@ -132,20 +124,17 @@ dbus-run-session -- bash -c '
     fi
   fi
   for _ in $(seq 1 30); do
-    if xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null 2>&1 && \
-       xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1; then
+    if xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null 2>&1; then
       break
     fi
     sleep 1
   done
   xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null
-  xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null
+  if xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1; then
+    echo "retired Application Strip unexpectedly visible" >&2
+    exit 1
+  fi
 
-  # Ctrl+F2 is owned directly by the shell through a passive X11 grab. Wait
-  # until that grab is installed before injecting the real keyboard sequence.
-  # The shell emits KEYBOARD_READY only after GTK has mapped the popup and an
-  # idle callback has selected the first command, avoiding a synthetic-input
-  # race between popup creation and keyboard-grab readiness.
   shortcut_ready=0
   for _ in $(seq 1 30); do
     if grep -Fq "SLOPOS_SYSTEM_MENU_SHORTCUT_READY" /tmp/slopos-atspi-session.log; then
@@ -212,8 +201,6 @@ dbus-run-session -- bash -c '
     echo "AT_SPI_SHELL_ENV_END"
     grep -ao "libatk[^ ]*" "/proc/$shell_pid/maps" | sort -u || true
   fi
-  # Use the existing shell signal bridge so this verifies the singleton
-  # launcher path without depending on a particular XKB Super mapping.
   pkill -USR1 -x slopos-shell
   for _ in $(seq 1 30); do
     if xdotool search --onlyvisible --name "^SLOPOS Search$" >/dev/null 2>&1; then
@@ -242,3 +229,5 @@ echo "[4/4] AT-SPI acceptance passed"
 echo "AT_SPI_LOCALE=$AT_SPI_LOCALE"
 echo "AT_SPI_RUNTIME_LOCALE=$AT_SPI_RUNTIME_LOCALE"
 echo "AT_SPI_SCREEN_READER=$AT_SPI_SCREEN_READER"
+echo "AT_SPI_DOCK=absent"
+echo "AT_SPI_STATUS_0"
