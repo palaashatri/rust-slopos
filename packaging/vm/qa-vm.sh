@@ -70,8 +70,8 @@ xdpyinfo -display "$DISPLAY" >/dev/null
 pgrep -x openbox >/dev/null || fail "Openbox is not running"
 pgrep -x slopos-shell >/dev/null || fail "slopos-shell is not running"
 test "$(pgrep -xc slopos-shell)" -eq 1 || fail "exactly one shell instance is required"
-xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null
-xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null
+xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null
+! xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1
 
 step "shell geometry"
 XRANDR_CURRENT="$(xrandr --current)"
@@ -80,7 +80,7 @@ read -r screen_width screen_height < <(
   sed -nE 's/.*current ([0-9]+) x ([0-9]+).*/\1 \2/p' <<<"$XRANDR_CURRENT" | head -1
 )
 test -n "${screen_width:-}" && test -n "${screen_height:-}" || fail "cannot read XRandR geometry"
-bar_id="$(xdotool search --onlyvisible --name '^SLOPOS Top Bar$' | head -1)"
+bar_id="$(xdotool search --onlyvisible --name "^SLOPOS Top Bar$" | head -1)"
 bar_geometry="$(xdotool getwindowgeometry --shell "$bar_id")"
 grep -q "WIDTH=$screen_width" <<<"$bar_geometry" || fail "top bar does not span the screen"
 
@@ -130,15 +130,15 @@ step "launcher singleton and keyboard behavior"
 before="$(pgrep -xc slopos-shell)"
 pkill -USR1 -x slopos-shell
 for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then break; fi
+  if xdotool search --onlyvisible --name "^SLOPOS Search$" >/dev/null 2>&1; then break; fi
   sleep 0.1
 done
-xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null || fail "Search did not open"
+xdotool search --onlyvisible --name "^SLOPOS Search$" >/dev/null || fail "Search did not open"
 after="$(pgrep -xc slopos-shell)"
 test "$before" -eq 1 && test "$after" -eq 1 || fail "Search created a duplicate shell"
 xdotool key Escape
 sleep 0.2
-if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then
+if xdotool search --onlyvisible --name "^SLOPOS Search$" >/dev/null 2>&1; then
   fail "Escape did not dismiss Search"
 fi
 
@@ -150,15 +150,15 @@ cleanup_apps() {
 }
 trap cleanup_apps EXIT
 for _ in $(seq 1 40); do
-  xdotool search --onlyvisible --name '^System Settings$' >/dev/null 2>&1 && break
+  xdotool search --onlyvisible --name "^System Settings$" >/dev/null 2>&1 && break
   sleep 0.1
 done
-xdotool search --onlyvisible --name '^System Settings$' >/dev/null || fail "Settings window missing"
+xdotool search --onlyvisible --name "^System Settings$" >/dev/null || fail "Settings window missing"
 for _ in $(seq 1 40); do
-  xdotool search --onlyvisible --name '^Software Catalogue$' >/dev/null 2>&1 && break
+  xdotool search --onlyvisible --name "^Software Catalogue$" >/dev/null 2>&1 && break
   sleep 0.1
 done
-xdotool search --onlyvisible --name '^Software Catalogue$' >/dev/null || fail "Catalogue window missing"
+xdotool search --onlyvisible --name "^Software Catalogue$" >/dev/null || fail "Catalogue window missing"
 
 step "capture VM evidence"
 command -v scrot >/dev/null 2>&1 || fail "scrot is required for VM evidence"
@@ -200,14 +200,13 @@ grep -Fqx graphite "$recovery_backup/slopos-i/appearance" || fail "recovery did 
 grep -Fqx preserve-installed-user-state "$recovery_backup/slopos-i/qa-user-marker" || fail "recovery did not preserve user config"
 grep -Fqx platinum "$HOME/.config/slopos-i/appearance" || fail "recovery did not stage Platinum reset state"
 for _ in $(seq 1 80); do
-  if xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null 2>&1 \
-     && xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null 2>&1; then
+  if xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null 2>&1; then
     break
   fi
   sleep 0.1
 done
-xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null || fail "top bar did not recover"
-xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null || fail "application strip did not recover"
+xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null || fail "top bar did not recover"
+! xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1 || fail "retired application strip returned"
 scrot -z "$QA/installed-recovered-${screen_width}x${screen_height}.png"
 test -s "$QA/installed-recovered-${screen_width}x${screen_height}.png" || fail "recovery screenshot is missing or empty"
 echo "INSTALLED_RECOVERY_STATUS_0"
