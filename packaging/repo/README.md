@@ -1,55 +1,43 @@
-# SLOPOS-I Package Repository Enrollment
+# SLOPOS-I Package Repository Status
 
-SLOPOS-I publishes official signed package repositories for Debian/Ubuntu-family and Arch Linux distributions.
+SLOPOS-I does **not currently publish a public official APT or Pacman repository**.
 
-## Debian / Ubuntu / Mint Enrollment
+This directory contains repository-generation and release-engineering work only. It must not be interpreted as proof that a public package source exists.
 
-To enroll your system in the SLOPOS-I package repository:
+In particular, do not publish or document enrollment commands using placeholder domains, keys or repository metadata.
 
-```bash
-# 1. Download and install the repository signing key
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://repo.slopos.org/keys/slopos-archive-keyring.gpg \
-  | sudo tee /etc/apt/keyrings/slopos-archive-keyring.gpg > /dev/null
+## Current user installation paths
 
-# 2. Add the SLOPOS-I repository source
-echo "deb [signed-by=/etc/apt/keyrings/slopos-archive-keyring.gpg] https://repo.slopos.org/apt alpha main" \
-  | sudo tee /etc/apt/sources.list.d/slopos.list
+At the current alpha stage:
 
-# 3. Update package index and install SLOPOS-I
-sudo apt update
-sudo apt install slopos-i
-```
+- source installation exists for development/testing;
+- package artifacts may be produced by release workflows;
+- a downloadable package artifact is not the same as a supported public package repository;
+- no public SLOPOS APT/Pacman enrollment command should be advertised until the publication gates below pass.
 
-To update SLOPOS-I in the future:
-```bash
-sudo apt update && sudo apt upgrade slopos-i
-```
+## Publication requirements
 
----
+A public package repository may be documented as available only when all of the following are true for the exact release channel:
 
-## Arch Linux / Manjaro Enrollment
+1. repository metadata is generated from CI-built package artifacts;
+2. metadata and packages are signed with the real release key;
+3. the public HTTPS endpoint exists and is reachable;
+4. the documented signing-key fingerprint matches the published key;
+5. installation is tested from a clean Linux VM using only the public endpoint;
+6. update/upgrade from the previous supported release is tested;
+7. removal is tested;
+8. the installed package starts a usable SLOPOS X11 session;
+9. checksums/provenance are tied to the exact release commit;
+10. README/TRUTH documentation is updated only after those checks pass.
 
-To enroll your system in the SLOPOS-I pacman repository:
+Until then, repository publication status is:
 
-```bash
-# 1. Import and sign the SLOPOS repository key
-sudo pacman-key --recv-keys 4A8F90C12E345678 --keyserver keyserver.ubuntu.com
-sudo pacman-key --lsign-key 4A8F90C12E345678
+**NOT PUBLISHED**
 
-# 2. Add the repository to /etc/pacman.conf
-sudo tee -a /etc/pacman.conf <<'EOF'
+## Local/testing repositories
 
-[slopos]
-SigLevel = Required DatabaseOptional
-Server = https://repo.slopos.org/pacman
-EOF
+Release engineering may create temporary local APT/Pacman repositories inside dedicated Linux VMs for testing repository metadata, signatures and installation flows.
 
-# 3. Synchronize repository databases and install SLOPOS-I
-sudo pacman -Sy slopos-i
-```
+Test keys and local endpoints must be clearly marked as ephemeral and must never be copied into user-facing enrollment documentation.
 
-To update SLOPOS-I in the future:
-```bash
-sudo pacman -Syu
-```
+All local repository generation, package installation and validation must follow the VM-only execution and disk-space policies in the root [AGENTS.md](../../AGENTS.md).
