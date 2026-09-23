@@ -14,7 +14,6 @@ pub mod topbar;
 pub mod x11;
 
 use app_index::AppIndex;
-use dock::Dock;
 use launcher::Launcher;
 use notifications::NotificationServer;
 use std::fs::{File, OpenOptions};
@@ -46,19 +45,19 @@ fn main() {
     let launcher = Launcher::new();
     install_launcher_signal_bridge(launcher.clone());
 
+    // The classic parity shell is intentionally menu-bar-first.  The old
+    // bottom Application Strip remains in the source tree for now so its
+    // launcher/state code can be reused later, but it is not instantiated.
     let topbar = TopBar::new(launcher.clone());
     shortcuts::install_system_menu_shortcut();
-    let dock = Dock::new(launcher.clone());
 
-    // Initialize the persistent background application index worker
+    // Initialize the persistent background application index worker.
     #[allow(deprecated)]
     let (app_index_sender, app_index_receiver) =
         glib::MainContext::channel(glib::Priority::default());
     let launcher_c = launcher.clone();
-    let dock_index = dock.clone();
     app_index_receiver.attach(None, move |update| {
         launcher_c.update_index(update);
-        dock_index.rebuild_items();
         glib::ControlFlow::Continue
     });
 
@@ -66,7 +65,7 @@ fn main() {
         let _ = app_index_sender.send(update);
     });
 
-    // Initialize the persistent event-driven D-Bus and audio monitor
+    // Initialize the persistent event-driven D-Bus and audio monitor.
     #[allow(deprecated)]
     let (status_sender, status_receiver) = glib::MainContext::channel(glib::Priority::default());
     let topbar_status = topbar.clone();
@@ -79,15 +78,13 @@ fn main() {
         let _ = status_sender.send(status);
     });
 
-    // Initialize the event-driven X11 integration layer
+    // Initialize the event-driven X11 integration layer.
     #[allow(deprecated)]
     let (event_sender, event_receiver) = glib::MainContext::channel(glib::Priority::default());
     let topbar_c = topbar.clone();
-    let dock_c = dock.clone();
 
     event_receiver.attach(None, move |event| {
         topbar_c.handle_x11_event(&event);
-        dock_c.handle_x11_event(&event);
         glib::ControlFlow::Continue
     });
 

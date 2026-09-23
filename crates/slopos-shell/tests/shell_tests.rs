@@ -168,11 +168,17 @@ fn appearances_are_complete_runtime_themes() {
 #[test]
 fn settings_is_a_compact_control_panel_and_appearance_is_built_in() {
     let settings = include_str!("../../slopos-settings/src/main.rs");
+    let settings_theme = include_str!("../../slopos-settings/src/theme.rs");
     let appearance = include_str!("../../slopos-settings/src/panels/appearance.rs");
-    assert!(settings.contains("Label::new(Some(\"System Settings\"))"));
+    assert!(settings.contains("window.set_title(\"System Settings\")"));
+    assert!(settings.contains("Label::new(Some(\"Control Panels\"))"));
     assert!(settings.contains("adaptive_window_size"));
-    assert!(settings.contains("(index % 3) as i32"));
-    assert!(settings.contains("(index / 3) as i32"));
+    assert!(settings.contains("(index % 5) as i32"));
+    assert!(settings.contains("(index / 5) as i32"));
+    assert!(settings.contains("slopos-icon-grid"));
+    assert!(settings.contains("slopos-control-panel-icon"));
+    assert!(settings_theme.contains("#000080"));
+    assert!(settings_theme.contains("button.slopos-control-panel-icon"));
     assert!(settings.contains("title: \"Appearance\""));
     assert!(settings.contains("built_in: BuiltInPanel::Appearance"));
     assert!(appearance.contains("Platinum Light"));
