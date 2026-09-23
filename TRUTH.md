@@ -1,137 +1,74 @@
-# TRUTH.md — SLOPOS-I Audit & Readiness Ledger
+# TRUTH.md — SLOPOS-I Current Audit and Readiness Ledger
 
-**Integration target:** `main`  
-**Integration branch:** `chatgpt/integrate-classic-ui`  
-**Main baseline before integration:** `a86d0e5599a3ceaf312b38cd81dfcbd7e3bb8f1f`  
-**Classic source snapshot:** `1feaad9ad3e4ad75c6687bbd6d0ff346954a3536`  
-**Audited integration implementation:** `fc5c74806c328d0a2036fa1ad67d876e3baee281`  
-**Visual contract:** `AGENTS.md` + `qa/reference/slopos-classic-reference.svg` + `qa/reference/slopos-classic-reference.json`  
-**Audit date:** 2026-09-23  
-**Evidence-backed readiness:** **UNSCORED pending full re-audit against the current contract**  
-**Release status:** **NOT RELEASE READY**
+**Status:** evidence ledger, not a roadmap  
+**Audit date:** 2026-09-24  
+**Code baseline audited:** `main@a39dc523526dde0d02736ac29134c6af2cd63d3b`  
+**Audit type:** static source audit + canonical Figma metadata inspection  
+**Executed build/runtime evidence for this audit:** none  
+**Release state:** NOT RELEASE READY  
+**Completion state:** NOT COMPLETE
 
-> **Anti-hallucination rule:** If a visual or product goal is not explicitly written in `AGENTS.md` or directly observable in the canonical SLOPOS reference, the reviewer must mark it **UNKNOWN** rather than inventing a requirement.
+This file records what is currently known about SLOPOS-I. It does not preserve old scores and it does not infer success from file existence.
 
-## Executive summary
+The engineering contract is `AGENTS.md`. If this ledger and the contract disagree, the contract wins and this file must be corrected.
 
-The previous `100/100` release-ready claim is invalid for the current tree and has been retired.
+---
 
-The Classic UI implementation has been ported onto the current `main` baseline. The September `glib 0.20` dependency bump was reverted because it is incompatible with the repository's GTK/GDK/GIO 0.18 stack and caused compile-time type/API failures. The integration intentionally restores the dockless X11/Openbox desktop, compact Platinum Classic chrome, SLOPOS-isolated PCManFM desktop objects, Control Panels-style Settings, and the canonical visual QA contract.
+## 1. Audit boundary
 
-The integration implementation recorded above removes the retired Application Strip runtime/module/actions, aligns all selectable Openbox appearances to a dockless work area, preserves full window-control theme assets, makes runtime appearance changes user-owned, supervises the PCManFM desktop manager with bounded recovery, and aligns package/VM/ISO/QA paths with the same contract. It must still pass current CI and fresh composed-session visual review before it can be treated as validated. Therefore no visual-parity score, release-ready score, or `100/100` claim is valid at this point.
+The 2026-09-24 refresh audited the current `main` source at:
 
-## Canonical visual target
+`a39dc523526dde0d02736ac29134c6af2cd63d3b`
 
-The canonical visual reference is:
+That commit is the merge of PR #10, "Integrate Classic SLOPOS-I UI direction into main".
 
-- `qa/reference/slopos-classic-reference.svg`
-- review manifest: `qa/reference/slopos-classic-reference.json`
+The audit inspected:
 
-The reference is a clean-room derivative of the user-provided late-1990s platinum desktop screenshot. Third-party logos, product names, proprietary icon artwork, and non-goal elements were removed or replaced.
+- root workspace metadata;
+- `slopos-session`;
+- `slopos-shell`;
+- `slopos-settings`;
+- `slopos-catalogue`;
+- X11/Openbox configuration;
+- GTK styling;
+- global-menu code;
+- system-service UI;
+- canonical QA scripts;
+- the existing reference SVG/JSON;
+- current README/AGENTS/TRUTH material;
+- package-repository documentation;
+- stale historical QA documentation;
+- the canonical Figma UI kit metadata.
 
-It defines:
+No SLOPOS code was compiled or executed for this audit.
 
-- composition;
-- window geometry;
-- chrome density;
-- top-bar behavior and visual hierarchy;
-- icon-view density;
-- classic widget depth;
-- desktop-object placement;
-- compact utility-window proportions;
-- explicit non-goals such as **no bottom dock** and **no modern rounded/card-heavy redesign**.
+That is deliberate. The new contract requires all future compilation, execution and visual QA to run inside a Linux VM under UTM, QEMU, VirtualBox or VMware. The current audit environment was not established as that controlled guest.
 
-It does **not** authorize copying proprietary assets.
+Therefore all runtime/build assertions remain UNKNOWN until re-tested in a compliant VM.
 
-## Current visual truth
+---
 
-**Status:** **UNKNOWN / NOT YET ACCEPTED**
+## 2. Current repository shape
 
-Reason: existing screenshots have not yet been reviewed against the newly committed canonical reference using the strict vision rubric in `AGENTS.md`.
+The root Cargo workspace currently contains four first-party crates:
 
-No contributor or model may claim "classic parity", "close enough", "production visual quality", or equivalent wording until a current screenshot set is compared against the canonical reference and recorded below.
+- `crates/slopos-session`
+- `crates/slopos-shell`
+- `crates/slopos-catalogue`
+- `crates/slopos-settings`
 
-### Required evidence set
+The workspace currently uses GTK3-era Rust bindings:
 
-| Scene | Required | Current accepted evidence |
-|---|---:|---|
-| Empty composed desktop | Yes | **UNKNOWN — fresh canonical review required** |
-| System/file-browser window | Yes | **UNKNOWN — fresh canonical review required** |
-| Settings / Control Panels | Yes | **UNKNOWN — fresh canonical review required** |
-| About This Computer-style window | Yes | **MISSING / not yet implemented as canonical SLOPOS surface** |
-| Accessory window (Calculator/Notes equivalent) | Yes | **MISSING / not yet implemented as canonical SLOPOS surface** |
-| 1280×800 set | Yes | **UNKNOWN — evidence must be regenerated/reviewed** |
-| 3440×1440 set | Yes | **UNKNOWN — evidence must be regenerated/reviewed** |
+- `gtk = 0.18`
+- `gdk = 0.18`
+- `glib = 0.18`
+- `gio = 0.18`
+- `gdk-pixbuf = 0.18`
+- `pango = 0.18`
 
-### Visual score ledger
+X11 integration is based on `x11rb`.
 
-The score remains **UNSCORED** until the required scenes exist and a vision-capable reviewer performs the exact rubric from `AGENTS.md`.
-
-| Category | Weight | Current |
-|---|---:|---:|
-| Menu bar fidelity | 15 | UNKNOWN |
-| Desktop composition | 10 | UNKNOWN |
-| Window chrome fidelity | 20 | UNKNOWN |
-| Widget/control fidelity | 15 | UNKNOWN |
-| File-browser/icon-view fidelity | 15 | UNKNOWN |
-| Typography, density, spacing | 10 | UNKNOWN |
-| Non-goal compliance | 15 | UNKNOWN |
-| **Total** | **100** | **UNSCORED** |
-
-A visual PASS requires at least **85/100**, no critical failure, window chrome at least **15/20**, and non-goal compliance at least **13/15**.
-
-## Material behavior carried into the main integration
-
-The following behaviors are present in the integrated source snapshot, but they are **not substitutes for current execution and visual evidence**:
-
-- the bottom Application Strip has been removed from the runtime desktop;
-- the bottom reserved work area has been removed;
-- the top bar has been reduced toward a compact global-menu strip;
-- Openbox chrome uses compact hard-edged classic styling rather than the prior rounded interpretation;
-- the desktop composition includes right-side desktop objects and Trash placement;
-- the visible desktop uses the blue classic-oriented background path rather than the old gray fallback;
-- Settings has moved from large modern cards toward a Control Panels-style icon grid;
-- desktop-folder integration uses an isolated SLOPOS PCManFM profile rather than silently modifying unrelated user configuration.
-
-## Known visual gaps
-
-These are current blockers to a canonical visual PASS:
-
-1. **System/file-browser parity is incomplete.** Opening a folder still exposes too much generic PCManFM visual language. The private SLOPOS profile needs denser icon layout, classic chrome-compatible spacing, and removal/suppression of visually incompatible modern/default elements where supported.
-2. **Settings still needs a strict canonical review.** Its icon-folder direction is correct, but spacing, natural window height, widget treatment, and control-panel detail views need comparison against the reference.
-3. **Canonical About window is missing.** A first-party SLOPOS information window is required to prove compact utility-window styling and branding discipline.
-4. **Canonical accessory window is missing.** Calculator or Notes-equivalent evidence is required to prove small-window chrome and control styling.
-5. **Representative upstream application screenshots remain necessary.** The shell must not look coherent only in first-party surfaces.
-6. **Fresh multi-resolution screenshots are required.** Existing captures do not automatically pass the newly introduced visual contract.
-
-## Current CI truth
-
-The Actions page is noisy because routine pushes trigger too many independent jobs and matrices. Many jobs are green, but the number of routine jobs makes the repository look less healthy than the actual failure count warrants.
-
-### Inherited issues requiring re-validation
-
-1. **Settings delegation QA was stale on the source branch and must be re-run/fixed if still failing.** The QA script still assumes panels such as Sound remain delegated/unavailable under the old model. Current Settings exposes built-in or changed panel behavior, so the test reports `unavailable delegated panel is still enabled: Sound settings`.
-2. **Rust formatting previously needed cleanup after Settings edits and must be re-run on the integrated tree.**
-3. **Some QA jobs install an excessively broad desktop stack** for narrow checks, increasing runtime and failure surface without increasing signal.
-4. **Routine CI is over-matrixed.** Full resolution, packaging, ISO, installed-VM, hardware-contract, and recovery-style lanes should not all behave as mandatory per-push development checks.
-
-### Desired CI shape
-
-Routine push/PR CI should converge on a small high-signal set:
-
-- workspace build/test/lint/format;
-- one representative composed-X11 runtime + visual smoke;
-- accessibility acceptance.
-
-Expensive package, ISO/media, installed-VM, full-resolution, and release-provenance lanes should remain available but run on release candidates, manual dispatch, or relevant-path changes rather than every normal UI commit.
-
-Until that cleanup is implemented and green, CI health must not be described as fully healthy.
-
-## Architecture truth
-
-### Overall stack
-
-The current X11/Openbox architecture remains appropriate for SLOPOS-I:
+The session architecture remains:
 
 ```text
 Linux services
@@ -143,98 +80,674 @@ Openbox
 slopos-session
   ↓
 slopos-shell
-  ├─ top global menu/system bar
-  ├─ application search
+  ├─ global menu/system bar
+  ├─ launcher/search
   ├─ notifications
   └─ desktop integration
   ↓
-slopos-settings / slopos-catalogue / normal Linux applications
+slopos-settings / slopos-catalogue / normal X11 applications
 ```
 
-The bottom dock/Application Strip is **not** part of the current product target.
+This architecture remains acceptable for the X11-first SLOPOS-I objective.
 
-### Event-driven integration
+Wayland is not part of the current product generation.
 
-The product contract requires hot-path X11 and system state to be event-driven rather than subprocess-polled. Any remaining frequent polling path is technical debt and must be listed rather than hidden behind a completion score.
+---
 
-### Settings
+## 3. Canonical visual reference changed
 
-Settings is intentionally a Control Panels-style shell. It may combine native SLOPOS panels and delegated mature utilities. Every enabled control must perform a real action, and unavailable delegated utilities must fail closed.
+The previous repository contract treated:
 
-### File browsing
+- `qa/reference/slopos-classic-reference.svg`
+- `qa/reference/slopos-classic-reference.json`
 
-The current strategy is to use a private SLOPOS profile around a mature file manager while visual parity is developed. A custom file manager is not automatically required. If upstream constraints make the canonical experience impossible, that limitation must be demonstrated before accepting the maintenance cost of a first-party replacement.
+as the canonical visual target.
 
-## Release engineering truth
+That is no longer sufficient.
 
-The repository contains package/media infrastructure, but release readiness requires current successful execution, not file existence.
+The canonical reference is now the Classic Macintosh UI Kit (Community) Figma document:
 
-A package/image target may be called supported only when reproducible evidence proves:
+- file key: `LGMlwNCoVdakZxDBvPKg1W`
+- root node: `0:1`
 
-1. dependencies resolve;
-2. workspace compiles;
-3. package/image is constructed;
-4. installation or boot succeeds;
-5. X11 starts;
-6. SLOPOS session and shell start;
-7. Settings and Catalogue pass smoke tests;
-8. representative applications launch;
-9. required screenshots/logs are captured;
-10. the exact checksummed artifact is published.
+The old SVG/JSON may remain temporarily as historical context, but it is not authoritative for exact component geometry or state behavior.
 
-ARM64 and RISC-V support claims remain evidence-gated; manifest declarations alone are insufficient.
+Observed Figma metadata from the current audit includes examples such as:
 
-## P0 blockers
+| Reference item | Observed example |
+|---|---:|
+| menu bar | 19 px high |
+| menu item row | 16 px high |
+| Finder large item | 71×44 px |
+| Finder large icon | 32×32 px |
+| Finder large label region | 71×12 px |
+| Regular button | 80×20 px |
+| Default button | 88×28 px |
+| Secondary button | 80×16 px |
 
-1. Generate the full canonical visual evidence set at 1280×800 and 3440×1440.
-2. Run a vision-capable comparison against `qa/reference/slopos-classic-reference.svg` using the exact rubric in `AGENTS.md`.
-3. Fix every visual critical failure before claiming parity.
-4. Finish System/file-browser visual integration.
-5. Finish Settings/Control Panels visual integration.
-6. Add canonical About and accessory utility surfaces/evidence.
-7. Fix stale Settings service QA.
-8. Run `cargo fmt` and restore routine Rust CI to green.
-9. Reduce routine GitHub Actions to the high-signal development gates and move expensive release/media matrices out of every normal push.
-10. Re-run packaging/media/installed-VM release gates on an actual release candidate before any release-ready claim.
+The Figma kit also explicitly enumerates control states and variants, including button Rest/Pressed/Disabled, Action/Hierarchical menu rows, Active/Hover/Disabled menu states and Active/Inactive window-title variants.
 
-## P1 quality work
+A complete machine-readable extraction has not yet been created.
 
-- strengthen representative upstream application theming/integration;
-- add explicit screenshot naming and artifact manifests for each visual scene;
-- retain historical screenshot evidence by commit without treating old evidence as proof of new code;
-- add protocol fixtures for exported global menus;
-- add dynamic display hotplug tests;
-- continue modularizing shell and Settings state from GTK presentation;
-- add release provenance/SBOM generation where practical.
+**Current Figma-derived specification status: MISSING**
 
-## Visual truth policy
+This is the first implementation gate of the reset.
 
-- Missing evidence = **UNKNOWN**, never PASS.
-- Ambiguous evidence = **UNKNOWN**, never assumed solved.
-- Old screenshots do not prove a newer commit.
-- A regression lowers the score.
-- A reviewer may not preserve an earlier score simply because another model wrote it.
-- A reviewer may not invent goals beyond `AGENTS.md` and the canonical reference.
-- Visual QA proves appearance only, not functionality, packaging, or hardware support.
+---
 
-## What 100/100 means now
+## 4. Visual audit findings
 
-`100/100` is reserved for shipping evidence, not aspiration.
+### 4.1 Current visual implementation is not canonically conformant
 
-It requires all of the following simultaneously:
+The current GTK CSS still contains substantial modern styling that conflicts with both the new Figma authority and parts of the existing classic contract.
 
-- canonical visual review passes at **>=85/100** with no critical visual failure;
-- first-party and representative upstream surfaces are visually coherent;
-- no fake or enabled no-op controls remain;
-- hot-path X11/system integration is event-driven;
-- global-menu behavior is protocol-backed and truthful;
-- multi-monitor behavior is correct;
-- package install/upgrade/removal lifecycle is clean;
-- signed package repositories exist;
-- release-candidate consumer media is CI-built and boot-tested;
-- architecture support claims are backed by build/boot/session evidence;
-- artifacts are tied to exact commits and checksums;
-- README, AGENTS, and TRUTH describe the same shipping reality;
-- no unresolved release blocker is hidden behind an automatically generated or self-awarded score.
+Observed examples include:
 
-Until those gates pass, this ledger must remain below 100 or explicitly UNSCORED rather than fabricate precision.
+- `.slopos-topbar` minimum height of 26 px rather than the observed 19 px Figma menu-bar example;
+- generic buttons with 6 px corner radius;
+- menus/popovers with 10 px corner radius and large soft shadows;
+- launcher/search surfaces with 12 px radius and large floating shadows;
+- notification/alert surfaces with 10 px radius;
+- tooltip rounding;
+- prior card-like styling still present in the stylesheet;
+- soft gradient/shadow treatment inconsistent with a strict atomic classic component system.
+
+Some later rules moved toward hard-edged controls, but the stylesheet is still internally mixed rather than generated from one canonical token/component system.
+
+**Canonical visual conformance: FAIL / redesign required**
+
+### 4.2 Window chrome
+
+Openbox currently uses compact classic-oriented theme rules with:
+
+- 1 px outer borders;
+- striped/interlaced active title treatment;
+- active/inactive distinction;
+- square bordered title buttons.
+
+This is directionally aligned but has not been measured against the Figma window-title components.
+
+**Window chrome exact conformance: UNKNOWN**
+
+### 4.3 Global top bar
+
+The shell has a full-width top bar and no current Application Strip requirement.
+
+However:
+
+- its geometry is not derived from the Figma spec;
+- it combines presentation, system actions, menus, dialogs and fallback behavior in a very large module;
+- it contains fake system-state text described below.
+
+**Top-bar presence: statically present**  
+**Top-bar canonical conformance: FAIL/UNKNOWN pending rebuild and VM evidence**
+
+### 4.4 File browsing
+
+The current product relies on PCManFM with a SLOPOS-specific profile.
+
+The previous ledger already identified generic PCManFM visual leakage. The current audit found no new evidence proving that PCManFM now satisfies the canonical Finder-like density/chrome requirement.
+
+**File-browser functional baseline: delegated to PCManFM**  
+**File-browser canonical conformance: NOT PROVEN**
+
+### 4.5 Settings
+
+Settings has moved toward a Control Panels icon-grid presentation, which matches the intended direction better than the earlier modern dashboard.
+
+However:
+
+- several control panels are delegated to external utilities;
+- native panel detail views still use generic GTK composition;
+- real system state is not consistently wired;
+- spacing/control geometry is not Figma-derived.
+
+**Settings concept: directionally correct**  
+**Settings canonical conformance: NOT PROVEN**  
+**Settings functional truth: contains release-blocking fake state**
+
+### 4.6 Missing required canonical surfaces
+
+The current acceptance reference requires dedicated evidence for compact first-party utility windows.
+
+Current gaps:
+
+- canonical About/System Information surface is not implemented as a proper first-party utility;
+- no canonical first-party accessory such as Calculator is currently implemented for acceptance.
+
+A simple message dialog from the Help menu does not satisfy the intended About/System Information surface.
+
+**About surface: MISSING**  
+**Accessory surface: MISSING**
+
+---
+
+## 5. Functional audit findings
+
+These are release-blocking because the product contract forbids enabled controls that do not reflect or change real state.
+
+### 5.1 Network panel contains fabricated production state
+
+`crates/slopos-settings/src/panels/network.rs` currently hard-codes example runtime information, including values such as:
+
+- `eth0`;
+- `1000 Mbps Full Duplex`;
+- `192.168.1.100`;
+- `192.168.1.1`;
+- `SLOPOS-Fast-5G`;
+- `Home-Network-Guest`;
+- `CoffeeShop_Free_WiFi`.
+
+The panel also constructs a Wi-Fi switch and Connect buttons without complete real NetworkManager-backed behavior.
+
+This is not acceptable as production UI.
+
+**Network provider: FAIL**
+
+Required remediation: replace sample state with real NetworkManager D-Bus/API state and real connect/disconnect/toggle behavior, or expose an unavailable state.
+
+### 5.2 Top-bar network menu also fabricates state
+
+`crates/slopos-shell/src/topbar.rs` currently contains static menu text equivalent to:
+
+- Ethernet connected on `eth0`;
+- Wi-Fi active on `SLOPOS-Fast-5G`.
+
+This is fake state.
+
+**Top-bar network status: FAIL**
+
+### 5.3 Sound panel is only partially functional
+
+`crates/slopos-settings/src/panels/sound.rs` currently creates a synthetic device list such as:
+
+- Default Audio Output;
+- Built-in Analog Stereo Speakers;
+- Headphones / Line Out;
+- HDMI / DisplayPort.
+
+It initializes sample volume/microphone levels rather than reading the actual provider.
+
+On Apply, output volume and mute may be changed through `pactl` or `amixer`, but:
+
+- selected output device is not applied;
+- microphone level is not applied;
+- microphone mute is not applied;
+- displayed initial state is not read from the real audio stack.
+
+**Sound provider: FAIL**
+
+### 5.4 Date & Time needs real state/read-back audit
+
+The panel invokes `timedatectl` for writes, but its UI defaults do not establish that current timezone/NTP/date/time state is correctly read and represented.
+
+The new contract requires real read state and read-back verification.
+
+**Date & Time provider: UNKNOWN / incomplete**
+
+### 5.5 Generic fallback application menus violate the intended menu contract
+
+The top bar has a real GTK/GIO exported-menu bridge.
+
+However, its fallback menus also expose generic Edit commands implemented by injecting:
+
+- `Ctrl+X`;
+- `Ctrl+C`;
+- `Ctrl+V`;
+- `Ctrl+A`
+
+through `xdotool`.
+
+This is not a real application action model and can misrepresent application capabilities.
+
+**Fallback app-menu semantics: FAIL**
+
+Required remediation: only expose protocol-backed application actions or guaranteed shell-owned window actions.
+
+### 5.6 Global-menu implementation is duplicated
+
+The tree contains both:
+
+- `crates/slopos-shell/src/gmenu.rs`
+- `crates/slopos-shell/src/menu/gmenu.rs`
+
+with substantially overlapping GTK remote-menu bridge responsibilities.
+
+The contract requires one authoritative implementation.
+
+**Global-menu module ownership: FAIL / duplicate**
+
+### 5.7 Top-bar module is oversized and mixed-responsibility
+
+The audited `crates/slopos-shell/src/topbar.rs` is approximately 1,110 lines and mixes:
+
+- widget construction;
+- global-menu state;
+- desktop menus;
+- system menu;
+- audio menu;
+- network menu;
+- dialogs;
+- process spawning;
+- session actions;
+- fallback app actions.
+
+This structure makes atomic testing and provider/presentation separation unnecessarily difficult.
+
+**Top-bar modularity: NEEDS REFACTOR**
+
+---
+
+## 6. Session and X11 audit
+
+`slopos-session` statically contains bounded restart/backoff behavior for critical children and supervises Openbox, the shell and an optional X11 compositor.
+
+It establishes the X11 desktop environment and restores session components after failure.
+
+The shell contains:
+
+- an `x11rb` event layer;
+- EWMH window operations;
+- monitor/RandR modeling;
+- window state helpers.
+
+The architecture is directionally aligned with the X11-first contract.
+
+However no compliant-VM execution was performed in this audit.
+
+**Static architecture: ACCEPTABLE DIRECTION**  
+**Runtime reliability: UNKNOWN**
+
+---
+
+## 7. QA audit
+
+The repository already contains substantial QA infrastructure, including:
+
+- workspace tests;
+- Xvfb/Openbox smoke;
+- AT-SPI acceptance;
+- resolution QA;
+- packaging QA;
+- installed-VM/media scripts;
+- screenshot capture;
+- canonical visual capture.
+
+This is useful infrastructure, but it does not yet satisfy the new atomic-conformance model.
+
+### 7.1 Existing visual QA limitation
+
+`scripts/run-canonical-visual-qa.sh` currently:
+
+- builds the workspace;
+- starts an Xvfb session;
+- launches SLOPOS;
+- captures whole-screen screenshots.
+
+It does not by itself prove:
+
+- exact atom geometry;
+- every component state;
+- pointer state machines;
+- text baselines;
+- hit rectangles;
+- focus behavior;
+- system-effect truth;
+- Figma-derived per-component conformance.
+
+It also uses Xvfb rather than a real graphical VM display.
+
+Under the new policy it may remain as a secondary deterministic test **inside the Linux VM**, but it does not replace real VM visual acceptance.
+
+### 7.2 Current-commit CI evidence
+
+The GitHub connector returned no combined commit statuses and no workflow runs associated with `a39dc523526dde0d02736ac29134c6af2cd63d3b` during this audit.
+
+That is not proof that CI never ran; it means this audit has no current connector-visible CI evidence for the merge commit.
+
+**Current audited commit CI: UNKNOWN**
+
+Do not reuse CI claims from older commits.
+
+---
+
+## 8. Documentation/noise audit
+
+### 8.1 Historical QA document
+
+`docs/QA_EVIDENCE_2026-08-13.md` refers to obsolete commits, a former `pivot` branch, old hosted runs and an old `78/100` readiness statement.
+
+It conflicts with the current evidence model.
+
+**Action: delete it.**
+
+Historical Git history remains available if archaeology is needed.
+
+### 8.2 Package-repository README
+
+`packaging/repo/README.md` currently claims public repositories exist at `repo.slopos.org` and contains a placeholder-looking signing key ID.
+
+The root README simultaneously says public package repositories do not yet exist.
+
+This is contradictory and unsafe documentation.
+
+**Action: rewrite it to describe repository-generation intent only and explicitly state that no public SLOPOS package repository is currently available.**
+
+### 8.3 Root README
+
+The current README contains a very large gallery of older screenshots and multiple appearance variants.
+
+Those captures predate the strict Figma-atomic contract and can bias future agents toward preserving the wrong styling.
+
+**Action: replace the gallery-heavy README with a concise current-state document.**
+
+Old screenshot files may remain for archaeology but are non-authoritative unless regenerated for the current commit/spec.
+
+### 8.4 Existing reference SVG/JSON
+
+The old hand-built classic reference is now superseded as an exact visual authority.
+
+It should eventually be removed or explicitly migrated into a `legacy` location once the Figma-derived machine-readable specification exists.
+
+Deleting it before a replacement exists would unnecessarily break current QA scripts, so it remains temporarily.
+
+**Status: LEGACY / NON-NORMATIVE**
+
+---
+
+## 9. Current truth by subsystem
+
+| Area | Static state | Current evidence status |
+|---|---|---|
+| X11-only product direction | explicit | PASS |
+| Openbox base WM | present | PASS statically |
+| Session supervisor/backoff | present | PASS statically |
+| Bottom Application Strip | retired by current contract | PASS statically |
+| Figma-derived component spec | absent | FAIL |
+| Atomic shared design layer | absent/incomplete | FAIL |
+| Canonical top-bar geometry | not Figma-derived | FAIL/UNKNOWN |
+| Window chrome exact parity | directionally classic | UNKNOWN |
+| Global menu exporter bridge | present | PARTIAL |
+| Duplicate GMenu modules | present | FAIL |
+| Fake generic Edit fallback | present | FAIL |
+| Launcher | present | runtime UNKNOWN |
+| Notifications | present | runtime UNKNOWN |
+| Settings shell | present | PARTIAL |
+| Network Settings | fake state | FAIL |
+| Sound Settings | partial/fake state | FAIL |
+| Date & Time | write path present | UNKNOWN/PARTIAL |
+| Bluetooth | delegated | UNKNOWN |
+| Power | delegated | UNKNOWN |
+| Displays | delegated | UNKNOWN |
+| File browsing | PCManFM-based | visual NOT PROVEN |
+| About utility | missing | FAIL |
+| Accessory utility | missing | FAIL |
+| Catalogue | present | runtime/security revalidation required |
+| Accessibility infrastructure | present | current-commit runtime UNKNOWN |
+| Multi-monitor model | source present | current-commit runtime UNKNOWN |
+| Current canonical VM visual QA | not performed | FAIL/UNKNOWN |
+| Public APT/Pacman repository | not established | NOT AVAILABLE |
+| Release-ready package/media evidence | not current | UNKNOWN |
+
+---
+
+## 10. Required reset plan
+
+This section records the accepted work sequence. Detailed normative requirements remain in `AGENTS.md`.
+
+### Phase 0 — contract and evidence reset
+
+- make Figma the geometry/component authority;
+- remove stale readiness scores;
+- delete obsolete QA prose;
+- remove misleading package-repository claims;
+- enforce VM-only execution;
+- establish disk-space safety rules.
+
+**Status: IN PROGRESS on documentation branch**
+
+### Phase 1 — extract the design system
+
+Create a machine-readable Figma-derived specification covering:
+
+- typography;
+- patterns;
+- colors;
+- geometry;
+- buttons;
+- fields;
+- selection controls;
+- lists;
+- scrollbars;
+- menus;
+- window chrome;
+- file items;
+- dialogs;
+- utility-window compositions.
+
+Every component is classified REQUIRED / OPTIONAL VARIANT / NOT USED.
+
+**Status: NOT STARTED**
+
+### Phase 2 — atomic UI foundation
+
+Create a shared SLOPOS component/design layer and deterministic atom test harness.
+
+Migrate typography, borders, patterns, icons, focus and state treatment first.
+
+**Status: NOT STARTED**
+
+### Phase 3 — real providers
+
+Replace fake/sample state with tested providers for:
+
+- NetworkManager;
+- audio stack;
+- timedate;
+- BlueZ;
+- UPower/logind;
+- XRandR;
+- keyboard/pointer state.
+
+**Status: NOT STARTED**
+
+### Phase 4 — shell reconstruction
+
+Rebuild:
+
+- top menu bar;
+- system menus;
+- global app-menu integration;
+- launcher;
+- notifications;
+- dialogs;
+- window chrome integration
+
+from validated atoms.
+
+Remove duplicate menu implementation and fake xdotool app actions.
+
+**Status: NOT STARTED**
+
+### Phase 5 — desktop applications/workflows
+
+Bring to conformance and functional completeness:
+
+- file browsing;
+- Settings;
+- About;
+- Calculator or other canonical accessory;
+- Software Catalogue.
+
+**Status: NOT STARTED**
+
+### Phase 6 — conformance and VM QA
+
+Inside a Linux VM:
+
+- fmt;
+- clippy;
+- workspace tests;
+- atom/state conformance;
+- accessibility;
+- X11 integration;
+- real graphical-session screenshots;
+- 800×600;
+- 1280×800;
+- 1920×1080;
+- 3440×1440;
+- integer HiDPI;
+- full user journeys.
+
+**Status: NOT STARTED**
+
+### Phase 7 — packaging and release validation
+
+Inside appropriate Linux VM guests and hosted release CI:
+
+- clean package builds;
+- install/upgrade/remove;
+- live-media build;
+- boot;
+- session startup;
+- checksums/provenance;
+- publication only when real infrastructure exists.
+
+**Status: NOT STARTED**
+
+---
+
+## 11. Mandatory VM execution environment
+
+All future code execution must follow `AGENTS.md`.
+
+Summary:
+
+- native host: edit/read/Git/hypervisor management only;
+- all SLOPOS code execution: Linux VM only;
+- allowed hypervisors: UTM, QEMU, VirtualBox, VMware;
+- Ubuntu LTS preferred for general development;
+- distribution-specific guests used as needed;
+- guest-local clone for builds;
+- no `target/` or build caches on host shared folders;
+- real graphical X11 VM session required for primary visual QA;
+- Xvfb/container QA is secondary and runs inside the VM only.
+
+No current compliant VM run is recorded in this ledger yet.
+
+---
+
+## 12. Disk-space evidence policy
+
+No heavy build should start until free space is checked.
+
+Routine development target:
+
+- host free space >= 20 GiB;
+- guest free space >= 12 GiB.
+
+Release/media target:
+
+- host free space >= 30 GiB;
+- guest free space >= 25 GiB.
+
+Future executed audit entries should record:
+
+- hypervisor;
+- guest distribution/version;
+- virtual-disk size;
+- host free space before run;
+- guest free space before run;
+- relevant `target/` and artifact sizes;
+- cleanup performed.
+
+The project must not solve disk pressure by deleting unrelated host data.
+
+---
+
+## 13. Readiness scoring policy
+
+There is currently **no readiness score**.
+
+A numeric score can obscure critical failures by averaging them with unrelated successes.
+
+The reset therefore uses hard gates:
+
+- REQUIRED atom coverage;
+- exact geometry/state conformance;
+- real functional behavior;
+- real provider state;
+- VM runtime evidence;
+- accessibility;
+- packaging/release evidence where applicable.
+
+A future supplementary visual score may be recorded for human comparison, but it cannot override a failed required atom or functional gate.
+
+---
+
+## 14. Current blockers
+
+The current blocking set is:
+
+1. Figma-derived machine-readable design specification does not exist.
+2. Current UI is not atomically derived from the Figma reference.
+3. Current styling contains modern rounded/shadow/card drift.
+4. Network Settings contains fabricated production state.
+5. Top-bar network status contains fabricated production state.
+6. Sound Settings contains fabricated/partially disconnected state.
+7. Date/time real-state/read-back behavior is not proven.
+8. Generic xdotool Edit fallback misrepresents application capabilities.
+9. Global-menu bridge code is duplicated.
+10. File-browser visual conformance is not proven.
+11. Canonical About utility is missing.
+12. Canonical accessory utility is missing.
+13. Current-commit build/test evidence has not been produced in a compliant Linux VM.
+14. Current-commit graphical visual QA has not been produced in a compliant Linux VM.
+15. Public signed SLOPOS package repositories are not established.
+16. Current release-candidate package/media evidence is absent.
+
+Until these are closed with current evidence, SLOPOS-I is not complete.
+
+---
+
+## 15. What may be claimed now
+
+Accurate claims:
+
+- SLOPOS-I is an experimental X11/Linux desktop environment.
+- It currently uses Openbox and GTK3-era Rust bindings.
+- It has a shell, Settings, Software Catalogue, launcher, notifications and substantial QA/release infrastructure in source.
+- The project has adopted the Classic Macintosh UI Kit Figma document as its canonical component/geometry reference.
+- The current implementation is undergoing an atomic design/functionality reset.
+- Current code contains known visual and functional gaps.
+
+Claims that are not currently justified:
+
+- 100% complete;
+- production ready;
+- pixel-perfect Classic Macintosh parity;
+- all Settings controls are real;
+- all CI is current and green;
+- public SLOPOS package repositories are live;
+- ARM64/RISC-V are fully supported release targets;
+- current screenshots prove conformance.
+
+---
+
+## 16. Next evidence update
+
+The next meaningful TRUTH update should occur after Phase 1 and the first compliant Linux-VM run.
+
+It must record:
+
+- exact source commit;
+- exact Figma-spec revision/hash;
+- VM/hypervisor details;
+- free-space observations;
+- fmt/clippy/test results;
+- initial atom inventory;
+- initial conformance results;
+- current visual screenshots;
+- newly discovered blockers.
+
+Until then, this ledger intentionally remains conservative.

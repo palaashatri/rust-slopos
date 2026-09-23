@@ -1,6 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 1024 768">
   <metadata>
-    SLOPOS-I clean-room visual composition reference derived from the user-supplied late-1990s platinum desktop screenshot. This asset intentionally removes third-party logos, product names, proprietary icon artwork, and non-goal UI. It is a composition/style target only; do not copy proprietary assets from the source screenshot.
+    LEGACY NON-NORMATIVE REFERENCE. Retained temporarily for historical composition context only.
+    Superseded for exact geometry, component states, tokens and acceptance by AGENTS.md plus the
+    Figma-derived SLOPOS specification from Classic Macintosh UI Kit (Community),
+    file LGMlwNCoVdakZxDBvPKg1W, root node 0:1. Do not use this SVG as the exact component authority.
+    This remains a clean-room composition asset and contains no permission to copy proprietary assets.
   </metadata>
   <defs>
     <linearGradient id="desktop" x1="0" y1="0" x2="1" y2="1">

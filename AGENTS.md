@@ -1,593 +1,909 @@
-# AGENTS.md — SLOPOS-I Product Contract
+# AGENTS.md — SLOPOS-I Engineering Contract
 
-**Authority:** This file is the normative development contract for SLOPOS-I. `README.md` is end-user documentation. `TRUTH.md` is the evidence-backed readiness ledger. When implementation, comments, screenshots, old planning material, model assumptions, or previous audit prose disagree with this file, this file wins.
+**Status:** normative  
+**Product generation:** SLOPOS-I  
+**Primary branch:** `main`  
+**Execution target:** Linux/X11 only  
+**Canonical visual reference:** Classic Macintosh UI Kit (Community), Figma file `LGMlwNCoVdakZxDBvPKg1W`, root node `0:1`  
+**Readiness ledger:** `TRUTH.md`
 
-> **Anti-hallucination rule:** If a visual or product goal is not explicitly written in `AGENTS.md` or directly observable in the canonical SLOPOS reference, the reviewer must mark it **UNKNOWN** rather than inventing a requirement.
+This file is the authoritative engineering contract for SLOPOS-I. `TRUTH.md` records what is actually proven on the current tree. `README.md` is user-facing documentation. When old screenshots, old QA reports, comments, branches, agent prose, generated assets, or historical claims disagree with this file, this file wins.
 
-> **Evidence discipline:** Missing, stale, or indirect evidence is **UNKNOWN**. A score, screenshot, manifest, or passing source test may support only the behavior it actually covers; it does not prove packaging, hardware compatibility, or release readiness.
+SLOPOS-I is not considered complete because an agent says it is complete. Completion is established only by current evidence tied to the exact source revision.
 
-## 1. Mission
+---
 
-SLOPOS-I is an original, polished, consumer-oriented Linux desktop environment built on mature X11 infrastructure.
+## 1. Product mission
 
-> **Own the experience. Do not unnecessarily own the infrastructure.**
+SLOPOS-I is a coherent, mature, consumer-usable Linux desktop environment with a compact late-1990s Macintosh-inspired visual and interaction language implemented clean-room on modern Linux/X11 infrastructure.
 
-The product goal is not merely to demonstrate a shell. It is to provide a desktop that an ordinary user can install, understand, and use every day, with coherent visual design, predictable window behavior, real settings, normal Linux application compatibility, and a reliable release/install path.
+The project owns the desktop experience while reusing mature system infrastructure where that improves reliability.
 
-SLOPOS-I must have its own identity. Product copy, code comments, asset names, and UI labels must not depend on another operating-system vendor's product names, trademarks, logos, fonts, or proprietary visual assets.
+The product must feel like one system from login to shutdown:
 
-A mandatory red release gate automatically prevents SLOPOS-I from being considered release-ready.
+- session startup;
+- window management;
+- global menu bar;
+- desktop objects;
+- application launching;
+- file browsing;
+- Settings / Control Panels;
+- notifications;
+- network, sound, display, Bluetooth, power, keyboard and pointer integration;
+- screenshots and session actions;
+- normal Linux application compatibility;
+- packaging, installation, update and recovery.
 
-## 2. Product architecture
+The product must not contain enabled controls that merely look functional.
 
-SLOPOS-I is **X11-only** for this product generation.
+---
 
-The supported conceptual stack is:
+## 2. Scope and non-goals
 
-```text
-Linux + systemd/logind/udev
-  ├─ NetworkManager
-  ├─ PipeWire/WirePlumber
-  ├─ BlueZ
-  ├─ UPower
-  └─ distribution package manager
-        ↓
-X.Org-compatible X11 server
-        ↓
-Openbox window manager
-        ↓
-slopos-session
-        ↓
-slopos-shell
-  ├─ top global menu/system bar
-  ├─ application search
-  ├─ notifications
-  └─ desktop/session integration
-        ↓
-slopos-settings + slopos-catalogue
-        ↓
-Normal Linux applications and explicitly scoped SLOPOS utilities
-```
+### 2.1 In scope
 
-### Display manager neutrality and screen-locker policy
+SLOPOS-I is:
 
-- The standalone `slopos-i` package must not mandate one display manager. It must install a standards-compliant `/usr/share/xsessions/slopos-i.desktop` session entry compatible with modern X11 display managers.
-- Reference live images may choose a default greeter for convenience, but that greeter is not an architectural requirement.
-- Screen locking must use a real available mechanism. If no functional locker exists, disable the action and explain why instead of faking success.
+- Linux-only;
+- X11-only for this generation;
+- Openbox-based unless a documented technical blocker proves a replacement is necessary;
+- implemented primarily in Rust;
+- permitted to use GTK3/GDK/Pango/GIO and other mature Linux/X11 libraries;
+- permitted to delegate low-level service ownership to NetworkManager, PipeWire/WirePlumber or PulseAudio-compatible APIs, BlueZ, UPower, systemd/logind, udev, XRandR and related established infrastructure.
 
-### Architectural non-goals
+### 2.2 Out of scope
 
-SLOPOS-I must not introduce:
+Do not introduce:
 
-- a Wayland session or fallback in this product generation;
-- a custom display server merely for project ownership;
-- a custom window manager merely for project ownership;
-- a custom general-purpose GUI toolkit merely for project ownership;
-- speculative kernel or future-OS architecture in this product contract;
-- fake controls or fake compatibility claims;
-- a bottom dock, Application Strip, or any reserved bottom-dock work area.
+- a Wayland session;
+- Wayland fallback logic;
+- a custom display server merely for ownership;
+- a custom general-purpose GUI toolkit merely for ownership;
+- a custom kernel;
+- a speculative future SLOPOS generation;
+- a persistent bottom dock or retired Application Strip;
+- Aqua, modern macOS, GNOME/libadwaita, KDE Breeze, Windows Fluent or other unrelated visual languages;
+- fake compatibility or fake system state.
 
-Do not rewrite mature applications merely for sovereignty. A first-party utility or replacement surface is allowed when it is explicitly scoped and materially required for visual or functional cohesion, and its maintenance cost is accepted in this contract or a later explicit amendment.
+Wayland work is explicitly paused until the X11 product is mature.
 
-Openbox is infrastructure. Replacing it is permitted only after an evidence-backed architecture review demonstrates a material reliability, maintenance, or UX advantage while preserving ordinary X11 application behavior.
+---
 
-## 3. Required internal architecture
+## 3. Source-of-truth precedence
 
-The shell must evolve away from timer-driven subprocess polling.
+When requirements disagree, use this order:
 
-### 3.1 X11 integration
+1. this product contract;
+2. the Figma-derived SLOPOS component specification created from the canonical Figma file;
+3. approved clean-room SLOPOS assets and interaction specifications;
+4. implementation;
+5. current VM-generated screenshots and test evidence;
+6. historical screenshots, historical QA, old branches and old prose.
 
-Maintain one long-lived X11 integration layer, backed by `x11rb`, that owns:
+The existing files under `qa/reference/` were created before the current atomic-conformance reset. They may be used as historical context only. They are not allowed to override Figma-derived geometry, component states or the contract in this file.
 
-- active-window/focus tracking;
-- EWMH state changes such as fullscreen and maximization;
-- root-window property changes;
-- monitor/RandR topology changes;
-- active-window metadata and class lookup;
-- work-area and placement state required by the top bar and desktop.
+No previous numeric score is authoritative.
 
-Subscribe to X11 events and update GTK state from those events. Do **not** spawn `xdotool`, `xprop`, `xrandr`, or `wmctrl` on high-frequency timers.
+---
 
-Command-line utilities may remain bounded fallbacks for explicit user actions when no stable API is practical. They are not an event bus.
-
-### 3.2 System-service integration
-
-Prefer stable APIs and D-Bus signals for changing system state:
-
-- NetworkManager for connectivity;
-- UPower for battery/power state;
-- systemd/logind for session and power actions;
-- the installed audio stack for volume/mute state;
-- BlueZ for Bluetooth availability where SLOPOS displays live state.
-
-The clock must use an in-process local-time API. Do not spawn `date` every second.
-
-### 3.3 Global application menu
-
-There must be exactly one global-menu architecture.
-
-The shell may display an application's menu only when the application exports a supported real menu/action model. GTK/GIO menu/action exports and compatible D-Bus menu exporters are valid integration paths.
-
-If an application does not export a usable menu:
-
-- keep its own local menu visible; or
-- show only shell-owned window actions whose semantics are guaranteed.
-
-Do **not** invent application menus from window titles/classes and guessed keyboard shortcuts. Do not expose enabled menu items backed by empty callbacks.
-
-### 3.4 Shell module boundaries
-
-`slopos-shell` may be one process, but it must not be one architectural blob.
-
-Target boundaries:
-
-```text
-shell/
-  x11/            event source, EWMH, monitor model
-  services/       audio/network/power/session adapters
-  menu/           exported application-menu bridge
-  topbar/         global menu/system-bar presentation
-  desktop/        wallpaper, desktop-object integration
-  launcher/       desktop-entry index + search UI
-  notifications/  notification service + toast UI
-  theme/          appearance tokens and runtime selection
-```
-
-Business/state logic must be testable without constructing a full GTK window wherever practical.
-
-### 3.5 Session ownership
-
-`slopos-session` supervises session processes and establishes environment state. It must not behave like an installer.
-
-At runtime it may create or migrate **user-owned** files under XDG user directories. It must not attempt to populate `/usr/share`, `/usr/local/share`, or other system directories. System assets belong to packages/images and are installed before login.
-
-The supervisor must use bounded restart/backoff behavior for critical components and terminate children cleanly when the session ends.
-
-### 3.6 Settings architecture
-
-`slopos-settings` is a coherent Control Panels-style shell, not a reimplementation of every Linux service.
-
-Each panel must declare:
-
-- whether it is built in or delegated;
-- how availability is detected;
-- the real action/provider it invokes;
-- a testable unavailable state.
-
-SLOPOS-owned preferences may be native. Hardware/system services may delegate to mature utilities when that is more reliable, but delegated windows still need to be evaluated for visual coherence in release screenshots.
-
-## 4. Canonical SLOPOS classic visual language
+## 4. Canonical visual design
 
 The canonical appearance is **SLOPOS Platinum Classic**.
 
-The visual target is not a vague "retro" theme and not a generic GTK skin. It is a clean-room recreation of the **late-1990s compact platinum desktop feel** represented by the repository's canonical reference asset:
+The canonical Figma reference is:
 
-- `qa/reference/slopos-classic-reference.svg`
-- machine-readable review contract: `qa/reference/slopos-classic-reference.json`
+- URL: `https://www.figma.com/design/LGMlwNCoVdakZxDBvPKg1W/Classic-Macintosh-UI-Kit--Community-?node-id=0-1&p=f`
+- file key: `LGMlwNCoVdakZxDBvPKg1W`
+- root node: `0:1`
 
-The reference is derived from the user-provided late-1990s desktop screenshot. Third-party branding, product names, logos, proprietary artwork, and non-goal elements were removed or replaced. It is a **composition, geometry, density, and interaction-style reference**, not permission to copy proprietary assets.
+Treat the Figma file as a component and geometry specification, not vague inspiration.
 
-### 4.1 Required visual characteristics
+The implementation must extract and record exact relevant component metadata before claiming conformance. Examples already observed during the 2026-09-24 audit include:
 
-At 1× scale, the canonical desktop must trend toward:
+- menu bar example height: 19 px;
+- menu item example height: 16 px;
+- large Finder item example: 71×44 px;
+- large Finder icon example: 32×32 px;
+- large Finder label region example: 71×12 px;
+- regular button example: 80×20 px;
+- default button example: 88×28 px;
+- secondary button example: 80×16 px;
+- button states include Rest, Pressed and Disabled;
+- menu items distinguish Action and Hierarchical variants with Active, Hover and Disabled states;
+- window-title-bar examples distinguish Active/Inactive and 8-bit/1-bit variants.
 
-- a **full-width top global menu bar** approximately 20–24 px tall;
-- a **dockless desktop** with no persistent bottom launcher surface;
-- square or nearly square, compact window geometry;
-- thin dark keylines around windows and important controls;
-- compact title bars with restrained striped/linear texture where useful;
-- clearly raised/sunken classic control states rather than modern flat cards;
-- small, dense menu and body typography;
-- compact button, field, scrollbar, and list spacing;
-- dense icon-oriented file/system browsing;
-- small utility-window proportions for Calculator, About, Notes, and similar tools;
-- a blue desktop field with high contrast against platinum windows;
-- right-aligned desktop objects, with Trash near the lower-right in the canonical composition;
-- overlapping windows and a visually busy but readable desktop composition.
+These examples are audit observations, not a substitute for full extraction.
 
-The target is **desktop-dense**, not touch-first.
+### 4.1 Clean-room rule
 
-### 4.2 Window chrome
+The visual language may reproduce geometry, hierarchy, density, state treatment and interaction affordances.
 
-Use:
+Do not ship proprietary Apple material, including:
 
-- hard-edged platinum-gray frame surfaces;
+- Apple logos;
+- copied Macintosh icons or artwork;
+- proprietary Apple fonts;
+- proprietary sounds;
+- copied wallpapers;
+- copied documentation text.
+
+Any font or third-party asset must have a verified redistribution license before it is bundled. If licensing is unclear, use or create a redistributable replacement and document the choice.
+
+### 4.2 Canonical characteristics
+
+At 1× scale the desktop should use:
+
+- the exact Figma-derived global-menu geometry;
+- compact hard-edged platinum window surfaces;
+- thin dark keylines;
+- restrained raised/sunken control depth;
 - compact title bars;
-- thin dark outer borders;
-- visible active/inactive distinction;
-- small, legible window controls;
-- classic beveled or recessed states where the reference shows depth;
-- mechanical-looking scrollbars and resize affordances where supported.
+- dense desktop typography;
+- narrow visible scrollbars;
+- dense icon-oriented file browsing;
+- a dockless desktop;
+- right-aligned desktop objects where the canonical composition requires them;
+- a blue desktop field;
+- compact utility-window proportions;
+- strong active/inactive distinction.
 
 Avoid:
 
 - pervasive rounded corners;
-- large compositor shadows as the primary depth cue;
-- glass/translucency as a primary visual language;
-- oversized client-side header bars;
-- modern card layouts;
-- contemporary traffic-light-style window controls;
-- generic toolkit defaults leaking into first-party surfaces.
+- large soft shadows as the main depth cue;
+- floating modern cards;
+- translucent glass;
+- giant touch-first spacing;
+- pill-heavy controls;
+- contemporary traffic-light controls;
+- generic toolkit defaults leaking into first-party UI.
 
-### 4.3 Widgets and controls
+---
 
-Controls should read as compact desktop controls, not mobile/touch controls.
+## 5. Atomic implementation method
 
-Canonical characteristics:
+SLOPOS development proceeds strictly bottom-up:
 
-- little to no corner radius by default;
-- visible 1 px light/dark bevel hierarchy;
-- compact push buttons;
-- recessed text fields and list wells;
-- compact checkboxes/radio controls;
-- visible, narrow scrollbars;
-- navy/dark-blue selection highlight with high-contrast text where appropriate;
-- dense icon labels with minimal unnecessary whitespace.
+```text
+foundation
+→ primitive
+→ control
+→ container
+→ window component
+→ menu component
+→ shell component
+→ system provider
+→ workflow
+→ application
+→ complete desktop
+```
 
-Do not apply modern pill styling unless an explicitly documented feature requires it.
+A higher layer must not compensate for a known broken lower layer.
 
-### 4.4 Typography
+Every required atom needs:
 
-Use redistributable fonts only. Text must remain crisp at 1× and HiDPI.
+- canonical dimensions;
+- visual states;
+- behavior states;
+- accessibility semantics;
+- test coverage;
+- conformance evidence.
 
-The visual system must establish shared typography tokens for:
+A component is not complete merely because its default screenshot looks correct.
 
-- global menu/system text;
-- window/title text;
-- body text;
-- secondary labels;
-- section titles;
-- monospace text.
+### 5.1 Foundation
 
-Typography should remain compact and visually close to the density of the reference without copying proprietary fonts.
+The shared design layer must centralize:
 
-### 4.5 Color
+- geometry and scaling;
+- pixel snapping;
+- typography tokens and baselines;
+- colors;
+- borders and bevels;
+- patterns;
+- icon sizing and loading;
+- focus treatment;
+- selection treatment;
+- state transitions;
+- deterministic rendering hooks;
+- common accessibility helpers.
 
-Keep one canonical light palette before multiplying themes.
+A reusable SLOPOS component crate such as `slopos-ui` is acceptable and encouraged.
 
-Platinum Classic should use:
+This is a SLOPOS design/component layer on top of GTK3/GDK/Pango/GIO, not a replacement for those toolkits.
 
-- light neutral gray window surfaces;
-- white/recessed content wells;
-- dark keylines;
-- a restrained navy/dark-blue selection/accent;
-- the canonical blue desktop background.
+### 5.2 Required control families
 
-Alternative dark/OLED themes are secondary and must not influence the canonical classic acceptance score.
+Where used by SLOPOS, the conformance inventory must include all relevant states for:
 
-### 4.6 Icons and assets
+- labels;
+- separators;
+- icons/images;
+- buttons;
+- default buttons;
+- secondary buttons;
+- checkboxes;
+- radio buttons;
+- text fields;
+- text inputs;
+- popup selectors;
+- arrow controls;
+- progress indicators;
+- disclosure controls;
+- list rows;
+- selected rows;
+- scrollbars, arrows and thumbs;
+- menu items;
+- hierarchical menu items;
+- menu separators;
+- keyboard-command indicators;
+- Finder/file items;
+- dialogs and alerts.
 
-Ship original or license-compatible assets only. Do not copy proprietary logos, fonts, icons, wallpapers, sounds, or other resources.
+Each Figma component must be classified as `REQUIRED`, `OPTIONAL VARIANT` or `NOT USED`. A `NOT USED` classification requires a concrete reason.
 
-The reference's folder/device icons are deliberately generic clean-room approximations. Production assets may improve them while preserving scale, density, and composition.
+No required component may remain `UNKNOWN` in a completed build.
 
-### 4.7 Explicit visual non-goals
+---
 
-Models and contributors must **not** infer any of the following as desired modernization:
+## 6. Interaction contract
 
-- no bottom dock or Application Strip;
-- no Aqua/glass visual language;
-- no modern rounded desktop UI;
-- no GNOME/libadwaita card-heavy settings design;
-- no KDE Breeze visual language;
-- no Windows 10/11 Fluent visual language;
-- no giant touch-friendly spacing;
-- no oversized rounded buttons or pill-heavy controls;
-- no sidebar-heavy Settings redesign unless explicitly added to this file;
-- no third-party branding recreation;
-- no invented "modernization" goals simply because a contributor thinks they look better.
+Visual fidelity and functional fidelity are one acceptance gate.
 
-If an implementation decision is not specified here or directly observable in the canonical reference, mark it **UNKNOWN** and preserve the existing behavior until an explicit decision is made.
+Every interactive atom must have an explicit state machine.
 
-## 5. Window behavior
+At minimum test:
 
-Openbox provides ICCCM/EWMH window management. SLOPOS integration must support:
+### Buttons
 
-- overlapping windows;
+- pointer down inside;
+- pointer leaves while held;
+- pointer re-enters;
+- release inside;
+- release outside;
+- keyboard activation;
+- focus;
+- disabled behavior.
+
+### Menus
+
+- pointer opening;
+- keyboard opening;
+- traversal;
+- submenu ownership;
+- disabled items;
+- accelerators;
+- Escape;
+- click outside;
+- active-window changes while open.
+
+### Windows
+
+- activate/deactivate;
+- move;
+- resize;
+- minimize;
+- maximize;
+- restore;
+- fullscreen;
+- modal/transient ownership;
+- Alt+Tab;
+- workspace movement and switching.
+
+### File items
+
+- click;
+- double-click;
+- keyboard navigation;
+- single and multiple selection;
+- rename;
+- drag/drop;
+- context menu;
+- focus persistence.
+
+Where the Figma reference does not define behavior, use documented classic desktop behavior when practical, extended deliberately for modern Linux requirements and accessibility.
+
+---
+
+## 7. X11 and window-management architecture
+
+Openbox provides the base ICCCM/EWMH window-manager infrastructure.
+
+Maintain one long-lived X11 integration layer using `x11rb` for:
+
+- active-window tracking;
+- root-window property changes;
+- fullscreen/maximize state;
+- window metadata;
+- monitor/RandR topology;
+- work-area state;
+- shell placement state.
+
+Do not use `xdotool`, `xprop`, `xrandr` or `wmctrl` as a high-frequency event bus.
+
+Command-line tools may be bounded fallbacks for explicit user actions when a stable API is not practical.
+
+Window behavior must cover:
+
 - predictable focus;
-- drag and resize;
-- minimize/maximize/restore/fullscreen;
+- overlapping windows;
+- drag/resize;
+- minimize/maximize/restore;
+- fullscreen;
 - transient/modal relationships;
 - Alt+Tab;
 - multiple workspaces;
-- top-bar reserved-area behavior;
+- correct top-bar work area;
 - dynamic monitor changes;
-- correct behavior on more than one monitor;
-- supported integer HiDPI scaling.
+- integer HiDPI.
 
-Fullscreen and maximized state must be driven from X11/EWMH state changes rather than high-frequency subprocess polling.
+### 7.1 Window chrome
 
-## 6. Multi-monitor model
+Use Openbox themes/assets to reproduce the Figma-derived chrome as precisely as Openbox permits.
 
-Do not treat the X11 virtual desktop rectangle as one monitor.
+If Openbox blocks a required behavior or geometry:
 
-Maintain an explicit monitor model containing geometry, primary/output identity, and scale assumptions. Define which monitor owns:
+1. create a minimized reproducible case;
+2. document the exact limitation;
+3. evaluate the least invasive solution;
+4. change architecture only after evidence.
 
-- the primary global menu/system bar;
-- search palette placement;
+Never weaken the specification merely to fit Openbox.
+
+---
+
+## 8. Global menu architecture
+
+There must be one authoritative application-menu bridge.
+
+The current duplicate `gmenu` implementations must be consolidated during the reset.
+
+Application menus may be displayed globally only when backed by a real supported menu/action model such as GTK/GIO exports or a compatible D-Bus menu protocol.
+
+If an application does not export an actionable menu:
+
+- retain its local menu; or
+- expose only truthful shell-owned window actions.
+
+Forbidden:
+
+- guessed app commands;
+- fabricated app menu structures;
+- enabled empty callbacks;
+- using `xdotool key ctrl+x`, `ctrl+c`, `ctrl+v`, `ctrl+a` as a generic application-menu implementation.
+
+`xdotool` may be used by QA to drive a test session.
+
+---
+
+## 9. System services and truthful state
+
+An enabled control must perform the behavior it advertises.
+
+A stateful control must display real state, not a sample value.
+
+### 9.1 Network
+
+Use NetworkManager through a stable API/D-Bus integration for:
+
+- adapters;
+- connection state;
+- Wi-Fi enabled state;
+- access points;
+- signal strength;
+- active connection;
+- connect/disconnect actions;
+- failures.
+
+No production UI may contain synthetic SSIDs, sample IP addresses or assumed interface names.
+
+### 9.2 Sound
+
+Use the active PipeWire/WirePlumber/PulseAudio-compatible stack to read and set:
+
+- output devices;
+- default output;
+- output volume;
+- output mute;
+- input devices;
+- input volume;
+- input mute.
+
+Read back changes.
+
+### 9.3 Date and time
+
+Prefer `org.freedesktop.timedate1`/D-Bus where practical.
+
+Display real:
+
+- timezone;
+- NTP state;
+- current date/time.
+
+Handle authorization failure explicitly.
+
+### 9.4 Bluetooth
+
+Use BlueZ D-Bus for first-party live Bluetooth state and actions.
+
+### 9.5 Power/session
+
+Use UPower and systemd/logind as appropriate.
+
+### 9.6 Displays
+
+Use XRandR state for:
+
+- connected outputs;
+- current modes;
+- available modes;
+- geometry;
+- primary display;
+- applied configuration.
+
+### 9.7 Keyboard and pointer
+
+Use real X11/XKB/XInput-compatible mechanisms.
+
+When a provider is absent, expose a disabled/unavailable state with a truthful reason.
+
+---
+
+## 10. File browsing
+
+A release-visible file browser must be both visually coherent and functionally real.
+
+PCManFM may remain only if a private SLOPOS profile can satisfy the required visual and interaction contract without fragile hacks.
+
+If it cannot, document the blocker and implement a scoped first-party browser using mature filesystem/GIO facilities.
+
+Required core workflows include:
+
+- directory navigation;
+- open;
+- MIME/default-app launch;
+- keyboard navigation;
+- selection and multi-selection;
+- rename;
+- new folder;
+- copy/move/paste;
+- Trash;
+- context menus;
+- drag/drop;
+- filesystem change handling;
+- error handling;
+- removable volumes if exposed.
+
+Do not ship a screenshot-only Finder imitation.
+
+---
+
+## 11. Settings / Control Panels
+
+Settings is a compact Control Panels-style shell.
+
+It is not a modern card dashboard and not a generic launcher for unrelated tools.
+
+Every panel must declare:
+
+- built-in or delegated;
+- provider;
+- availability detection;
+- real action path;
+- unavailable state;
+- tests.
+
+Core categories should include, where supported:
+
+- Displays;
+- Sound;
+- Network/Wi-Fi;
+- Bluetooth;
+- Power;
+- Appearance;
+- Desktop;
+- Keyboard;
+- Mouse/Pointer;
+- Date & Time.
+
+Delegation is acceptable only when the resulting user experience remains coherent enough for the release contract.
+
+---
+
+## 12. Required first-party surfaces
+
+The canonical acceptance set requires functional first-party surfaces for:
+
+- About SLOPOS-I / system information;
+- at least one compact accessory utility, preferably Calculator;
+- Settings / Control Panels;
+- launcher;
+- notifications;
+- Software Catalogue.
+
+About must display real runtime/build information for any value it exposes.
+
+If Calculator is used, arithmetic and keyboard behavior must be tested. It must not exist only to satisfy a screenshot.
+
+---
+
+## 13. Software Catalogue
+
+The catalogue handles curated AppImages only unless the product contract is explicitly changed.
+
+An installable entry requires trusted metadata, including:
+
+- HTTPS source;
+- version;
+- architecture;
+- digest or verified signature metadata;
+- safe desktop-integration metadata.
+
+Install must:
+
+- fail closed;
+- stage to a temporary location;
+- verify integrity before final placement;
+- report failures visibly;
+- support launch and uninstall correctly.
+
+Distribution packages remain the base distribution's responsibility.
+
+---
+
+## 14. Accessibility
+
+Every meaningful control must provide:
+
+- accessible name;
+- appropriate role/state;
+- keyboard reachability;
+- logical focus order;
+- visible focus indication;
+- disabled-state semantics.
+
+AT-SPI acceptance remains mandatory.
+
+Visual fidelity must not be achieved by degrading accessibility.
+
+---
+
+## 15. Multi-monitor, fullscreen and HiDPI
+
+Do not treat the full X11 framebuffer as one monitor.
+
+Maintain an explicit monitor model with geometry, identity and scale assumptions.
+
+Define which monitor owns:
+
+- global menu bar;
+- launcher;
 - notifications;
 - desktop objects;
 - newly opened first-party dialogs.
 
-The shell must respond to RandR topology changes without requiring restart.
+Respond to RandR topology changes without session restart.
 
-## 7. Upstream application policy
+Fullscreen applications must remain unobstructed.
 
-Prefer mature, maintained Linux applications for ordinary tasks unless an explicit SLOPOS utility is justified by the product contract.
+Canonical geometry is defined at 1×. Integer scaling must remain predictable and avoid fractional blur.
 
-SLOPOS may theme or integrate with upstream applications through documented, redistributable mechanisms. A private profile/configuration is acceptable when it improves visual cohesion without silently changing the user's unrelated desktop configuration.
+---
 
-An application's own controls and menu must continue working even when optional SLOPOS integration is unavailable.
+## 16. Mandatory VM-only execution policy
 
-Visual QA must include representative upstream applications because a shell that looks coherent only in first-party windows is not sufficient.
+This rule applies to every human, model and automation agent working locally on SLOPOS-I.
 
-## 8. No fake functionality
+### 16.1 Native host restrictions
 
-This is a release-blocking rule:
+The native host may be used only for:
 
-> **An enabled control must execute the behavior it advertises.**
+- reading/editing source and documentation;
+- Git operations;
+- launching/managing a supported hypervisor;
+- copying final artifacts between guest and host;
+- checking host free disk space with host system tools.
 
-Forbidden examples include:
+Do **not** execute SLOPOS project code on the native host.
 
-- empty callbacks;
-- guessed application-menu shortcuts presented as guaranteed commands;
-- settings that only update a label without changing underlying state;
-- an installer workflow that catches a required build failure and still reports success;
-- an artifact upload step that silently accepts a missing required artifact;
-- a claimed architecture that has never been built and boot-tested;
-- a visual score generated without current screenshots and an explicit review method.
+Forbidden on the host include:
 
-When functionality cannot be implemented reliably, disable or omit the control and document the limitation in `TRUTH.md`.
+- `cargo build`;
+- `cargo test`;
+- `cargo run`;
+- `cargo clippy`;
+- project binaries;
+- project shell/Python/PowerShell QA scripts;
+- package builds;
+- ISO/image builds;
+- visual QA;
+- X11/GTK runtime tests;
+- Docker/Podman project QA as a substitute for a VM.
 
-## 9. Software Catalogue
+Run formatting/lint/test tooling in the Linux guest as well, so all engineering validation occurs in one controlled environment.
 
-The SLOPOS Software Catalogue handles curated AppImages only. Distribution packages remain the base distribution's responsibility.
+### 16.2 Required guest
 
-An installable catalogue entry requires trusted metadata including:
+All compilation, execution and visual QA must occur inside a Linux virtual machine hosted by one of:
 
-- HTTPS source;
-- architecture;
-- version;
-- valid digest or verified signature metadata;
-- safe desktop-integration metadata.
+- UTM;
+- QEMU;
+- VirtualBox;
+- VMware.
 
-Installation must fail closed, verify integrity before final placement, use temporary staging, and report errors visibly.
+Ubuntu LTS is the preferred general development guest. Debian or Arch may be used where a distribution-specific acceptance lane requires them.
 
-## 10. Packaging and consumer installation
+The working clone used for compilation must live on the guest filesystem, not in a host shared folder.
 
-Source installation is not sufficient for consumer readiness.
+Shared folders may be used for source/artifact transfer, but build output, `target/`, package caches and test scratch data must stay on guest storage.
 
-SLOPOS-I must produce release artifacts entirely from GitHub Actions or an equivalent reproducible CI service. A developer laptop must not be the canonical release machine.
+### 16.3 VM visual QA
 
-### 10.1 Package artifacts
+Primary visual QA must run in a real graphical X11 session inside the VM.
 
-Required package lanes:
+Xvfb/container tests may run **inside the VM** as secondary deterministic tests, but they do not replace VM graphical acceptance.
 
-- Debian/Ubuntu-family `.deb`;
-- Arch package artifact;
+Required screenshots must come from the current guest session and exact tested commit.
+
+### 16.4 Remote CI
+
+Hosted CI may supplement the evidence and remains required for release automation where specified.
+
+Hosted CI does not authorize executing project code on the local native host and does not replace the mandatory Linux-VM local acceptance run.
+
+---
+
+## 17. Disk-space safety policy
+
+SLOPOS work must not exhaust the host or guest filesystem.
+
+Before compilation or QA, record:
+
+- host free space;
+- guest `df -h`;
+- guest repository size;
+- guest `target/` size if present;
+- guest QA artifact size;
+- guest Cargo cache size where material.
+
+### 17.1 Routine development budget
+
+Before a routine build/test run:
+
+- host should have at least 20 GiB free;
+- guest should have at least 12 GiB free.
+
+If either threshold is not met, do not start a large build. Clean only SLOPOS-owned guest data or expand/move the VM.
+
+### 17.2 Release/media budget
+
+Before package, ISO, multi-architecture or VM-image generation:
+
+- host should have at least 30 GiB free;
+- guest should have at least 25 GiB free.
+
+Use a dedicated larger guest disk when needed rather than filling the main host volume.
+
+### 17.3 Storage discipline
+
+Use:
+
+- sparse virtual disks where supported;
+- one maintained development VM rather than creating a new full VM per iteration;
+- snapshots sparingly;
+- guest-local `CARGO_TARGET_DIR` on an ephemeral or dedicated build volume where practical;
+- only current-commit QA evidence as retained working artifacts.
+
+After successful evidence extraction, clean stale guest-only data such as:
+
+- old `target/` trees when no longer useful;
+- old package staging directories;
+- old ISO/image outputs;
+- old QA screenshots from superseded commits;
+- guest package-manager caches when necessary;
+- Docker/Podman caches only if the VM is dedicated to SLOPOS and the cache is known to be disposable.
+
+Never run broad cleanup commands on the native host.
+
+Never delete unrelated user data or unrelated VM images.
+
+Where supported, trim free guest blocks so sparse VM images do not grow indefinitely.
+
+---
+
+## 18. Conformance harness
+
+Build a machine-readable Figma-derived specification under `qa/spec/` or equivalent.
+
+For every required atom/state, provide:
+
+- reference dimensions;
+- actual dimensions;
+- visual golden/reference;
+- rendered output;
+- image diff where appropriate;
+- behavior assertions;
+- accessibility assertions.
+
+Geometry has zero tolerance unless the specification explicitly documents a platform exception.
+
+For anti-aliased text where exact pixels are not portable, define a fixed justified comparison threshold. Never increase tolerance merely to make a regression pass.
+
+Normal CI must never auto-update goldens.
+
+A golden/spec change requires an explicit reviewable source change.
+
+---
+
+## 19. Whole-desktop visual acceptance
+
+Required current composed scenes include:
+
+- empty desktop;
+- menu open;
+- system/file-browser window;
+- Settings / Control Panels;
+- About;
+- accessory utility;
+- launcher;
+- notification;
+- modal dialog;
+- representative upstream GTK application;
+- representative ordinary X11 application where useful.
+
+Required validation resolutions:
+
+- 800×600 canonical composition;
+- 1280×800;
+- 1920×1080;
+- 3440×1440;
+- supported integer HiDPI configuration.
+
+The 800×600 scene must be produced from real running SLOPOS components, not a mock image.
+
+---
+
+## 20. No-cheating rules
+
+Do not achieve a passing state by:
+
+- weakening the contract;
+- raising image-diff tolerance to hide regressions;
+- deleting required tests;
+- hard-coding test results into production;
+- replacing a real workflow with a mock;
+- screenshotting a mockup;
+- treating old screenshots as current evidence;
+- marking UNKNOWN as PASS;
+- silently disabling required behavior;
+- changing goldens to match incorrect output;
+- claiming an upstream limitation without evidence;
+- inventing system state;
+- self-awarding a visual score.
+
+When something cannot be proven, mark it `UNKNOWN` or `BLOCKED`.
+
+---
+
+## 21. CI and test gates
+
+Routine development gates must include:
+
+- `cargo fmt --all -- --check`;
+- `cargo clippy --workspace --all-targets -- -D warnings`;
+- `cargo test --workspace`;
+- script syntax checks;
+- atomic conformance tests;
+- X11 integration tests;
+- accessibility acceptance;
+- representative visual regression.
+
+All local invocations of these gates occur inside the Linux VM.
+
+Expensive package/media/installed-VM matrices should run for release candidates, manual dispatch, or relevant path changes rather than every trivial commit.
+
+Mandatory failures must fail the job. Do not hide them with `|| true`.
+
+---
+
+## 22. Packaging and release
+
+Source installation alone is not consumer readiness.
+
+Release engineering must eventually prove:
+
+- Debian/Ubuntu package;
+- Arch package;
+- install;
+- upgrade;
+- removal;
+- X11 session registration;
 - checksums;
-- source commit provenance;
-- SBOM/provenance metadata where practical.
+- exact source provenance;
+- x86_64 bootable media;
+- boot to a usable SLOPOS session.
 
-Each release package lane must install into a clean image/VM and start a SLOPOS X11 session before release promotion.
+Public package repositories may be advertised only after they actually exist and are signed/published.
 
-### 10.2 Package repositories
+Architecture support is evidence-based. ARM64 or RISC-V is not supported merely because a package manifest names it.
 
-A downloadable package is not the same thing as normal package-manager support.
+Release CI should produce official artifacts from exact source revisions. Local VM runs validate development/release candidates but are not the canonical publication mechanism.
 
-Alpha release readiness requires signed public package repositories generated by CI:
+---
 
-- APT repository metadata for Debian/Ubuntu-family users;
-- Pacman repository metadata for Arch-family users;
-- channel separation such as `alpha` and later `stable`;
-- documented one-time repository enrollment followed by normal package-manager installation and upgrade.
+## 23. Documentation truth
 
-Package installation, upgrade, and removal must not require a source checkout or Rust toolchain.
-
-### 10.3 Bootable media
-
-Required artifact matrix:
-
-| Target | Required consumer artifact |
-|---|---|
-| x86_64 Arch-family | bootable live ISO + package |
-| x86_64 Ubuntu-family | bootable live ISO + `.deb` |
-| ARM64 | bootable UEFI image/media appropriate to the distribution + native package |
-| RISC-V 64 | QEMU `virt` bootable disk image first; broader hardware images only when board support is defined |
-
-Every advertised bootable artifact must be boot-tested in QEMU or appropriate hardware/emulation and must reach a usable graphical SLOPOS session.
-
-### 10.4 GitHub Actions release rules
-
-Release workflows must:
-
-- use strict failure behavior;
-- never swallow a required build failure and continue;
-- fail when required artifacts are missing;
-- verify non-zero size and expected file type;
-- calculate SHA-256 checksums;
-- record the exact source commit;
-- boot-test media before promotion;
-- publish alpha artifacts from a dedicated release workflow only after gates pass.
-
-Normal development pushes should not trigger every expensive packaging/VM/media lane. Routine CI should remain small and high-signal; release, packaging, full resolution, and installed-VM matrices should run manually, on release candidates, or when their relevant paths change.
-
-## 11. Architecture support claims
-
-A package manifest listing `aarch64` or `riscv64` does not establish support.
-
-An architecture is supported only when reproducible evidence proves:
-
-1. dependency availability;
-2. compilation;
-3. package/image construction;
-4. boot or install in the target environment;
-5. X11 session startup;
-6. shell/settings/catalogue smoke tests;
-7. representative application launch;
-8. artifact publication.
-
-Until then, describe it as an intended target.
-
-## 12. QA contract
-
-Testing is evidence, not a scoreboard generator.
-
-Required layers:
-
-- Rust formatting, Clippy, and unit/integration tests;
-- shell/script syntax and security tests;
-- representative composed-X11 runtime smoke;
-- clean package install tests for release candidates;
-- installed-VM tests for release candidates;
-- bootable-media tests for release candidates;
-- multi-monitor and resolution tests;
-- accessibility checks;
-- failure/recovery tests;
-- visual regression capture;
-- vision-based visual acceptance;
-- human visual acceptance for release candidates.
-
-Container/Xvfb tests are valuable but cannot replace all installed-VM, boot-media, and hardware-facing validation.
-
-Screenshots prove only what is visible in that captured environment. They do not prove package availability, architecture support, hardware support, or functional correctness.
-
-### 12.1 Canonical visual QA evidence
-
-Every UI-affecting pass that claims visual progress must produce a current screenshot set from the actual composed SLOPOS session.
-
-Required scenes:
-
-1. **Empty desktop** — top bar, wallpaper, desktop objects, no dock.
-2. **System/file-browser window** — dense icon view and classic chrome.
-3. **Settings / Control Panels** — proves first-party controls follow the same language.
-4. **About This Computer-style window** — compact first-party information window using SLOPOS branding only.
-5. **Accessory window** — Calculator, Notes, or equivalent compact utility.
-
-Required resolutions:
-
-- `1280x800`
-- `3440x1440`
-
-Recommended additional evidence:
-
-- `1920x1080`
-- `3840x2160`
-- supported HiDPI scale
-
-Evidence should be stored or uploaded with stable scene names so a reviewer can compare equivalent scenes between commits.
-
-### 12.2 Vision-review procedure
-
-Any model with vision capability performing visual QA must compare:
-
-- **Image A:** rendered `qa/reference/slopos-classic-reference.svg`
-- **Image B:** current candidate screenshot
-- **Rules:** `AGENTS.md` and `qa/reference/slopos-classic-reference.json`
-
-The reviewer must not use its own aesthetic preferences as requirements.
-
-Required output:
-
-```text
-Verdict: PASS / FAIL
-Overall score: N/100
-
-Category scores:
-- Menu bar fidelity: N/15
-- Desktop composition: N/10
-- Window chrome fidelity: N/20
-- Widget/control fidelity: N/15
-- File-browser/icon-view fidelity: N/15
-- Typography/density/spacing: N/10
-- Non-goal compliance: N/15
-
-Critical failures:
-- ...
-
-Minor deltas:
-- ...
-
-Exact observed evidence:
-- ...
-
-Unknown / ambiguous:
-- ...
-```
-
-The reviewer must describe concrete observable differences: geometry, spacing, window chrome, control treatment, typography scale, icon density, desktop-object placement, and composition.
-
-Statements such as "looks nicer", "feels modern", or "should be more contemporary" are not valid QA findings unless tied to an explicit requirement in this file.
-
-### 12.3 Visual scoring and pass bar
-
-| Category | Weight |
-|---|---:|
-| Menu bar fidelity | 15 |
-| Desktop composition | 10 |
-| Window chrome fidelity | 20 |
-| Widget/control fidelity | 15 |
-| File-browser/icon-view fidelity | 15 |
-| Typography, density, spacing | 10 |
-| Non-goal compliance | 15 |
-| **Total** | **100** |
-
-Visual PASS requires:
-
-- overall score **>= 85/100**;
-- no critical failure;
-- window chrome **>= 15/20**;
-- non-goal compliance **>= 13/15**.
-
-Critical failures that force FAIL regardless of numeric score:
-
-- missing full-width global top menu bar;
-- visible bottom dock or Application Strip;
-- obviously modern rounded/card-heavy design dominating the desktop;
-- Settings or file-browser surfaces visibly breaking from the classic shell language;
-- direct use of third-party branding or proprietary visual assets;
-- claiming visual parity without current screenshot evidence and a vision review.
-
-### 12.4 Missing evidence policy
-
-- Missing evidence is **UNKNOWN**, never PASS.
-- Ambiguous evidence is **UNKNOWN**, never silently assumed correct.
-- A screenshot from an old commit cannot prove a newer commit.
-- If screenshots regress, the score must go down.
-- A vision model may not preserve a previous score merely because the previous reviewer wrote one.
-
-## 13. Documentation truth rules
-
-`README.md` must be understandable by a non-developer and describe only user-visible behavior that exists.
+`README.md` describes only user-visible behavior that exists.
 
 `TRUTH.md` must:
 
 - identify the exact audited commit;
-- distinguish static code evidence from executed tests;
-- list release blockers explicitly;
-- include the latest visual QA evidence state and score, or explicitly mark it UNKNOWN;
-- never retain a 100/100 score when a required release lane is unbuilt, unbooted, fail-open, or visually unverified;
-- be updated whenever architecture, release, or visual evidence materially changes.
+- state whether evidence is static, VM-executed, CI-executed or visual;
+- list known fake/placeholder behavior;
+- list visual deviations;
+- list current blockers;
+- record the VM environment used for executed evidence;
+- record relevant disk-space observations for heavy QA;
+- never preserve a score from another commit.
 
-Old planning documents must not override the three root truth documents. Stale plans that describe superseded branding, dock behavior, visual language, or architecture should be removed rather than left as competing specifications.
+Historical QA documents that conflict with the current contract should be deleted rather than left as competing truth sources.
 
-## 14. Definition of 100/100
+Historical screenshots may remain for archaeology, but they are never acceptance evidence unless explicitly tied to the current commit and current specification.
 
-SLOPOS-I reaches 100/100 only when all of the following are simultaneously true:
+---
 
-- the canonical visual review passes at **>= 85/100** with no critical visual failures;
-- the visual system is coherent across first-party and representative upstream surfaces;
-- no release-visible fake controls remain;
-- X11 integration is event-driven rather than subprocess-polled in hot paths;
-- global-menu behavior is protocol-backed and truthful;
-- shell/settings code is modular enough for focused testing;
-- packages install, upgrade, and remove cleanly;
-- signed package repositories exist;
-- x86_64 live media is built and boot-tested automatically for release candidates;
-- ARM64 and RISC-V artifacts meet their defined acceptance lanes before being called supported;
-- CI publishes checksummed artifacts from exact source revisions;
-- installed-VM and boot-media acceptance passes for release candidates;
-- README and TRUTH describe the same shipping reality;
-- no known release-blocking defect is hidden behind a self-awarded score.
+## 24. Definition of complete
 
-Until every required gate passes, `TRUTH.md` must report the actual evidence-backed state and remaining blockers.
+SLOPOS-I may be called complete only when all required gates are simultaneously true.
+
+### Visual
+
+- every REQUIRED atom is implemented;
+- every REQUIRED state has a reference/specification;
+- every REQUIRED geometry assertion passes;
+- every required composed scene passes;
+- there are no critical visual deviations;
+- there are no required UNKNOWN visual items.
+
+### Functional
+
+- every enabled control has a real action;
+- every stateful control reads real state;
+- system changes are read back and verified;
+- no production fake data remains;
+- core workflows pass;
+- failure paths are tested.
+
+### Runtime
+
+- session startup/exit passes;
+- window management passes;
+- global menu is truthful and protocol-backed;
+- file browsing passes;
+- Settings providers pass;
+- multi-monitor/fullscreen/HiDPI acceptance passes;
+- accessibility passes.
+
+### Engineering
+
+- fmt passes;
+- clippy passes;
+- workspace tests pass;
+- conformance tests pass;
+- required CI passes;
+- current VM evidence exists;
+- documentation matches the final commit.
+
+### Release
+
+A release-ready claim additionally requires all release-candidate package/media/publication gates defined for that release.
+
+If any required item cannot be proven, the state is not complete.
+
+The only valid terminal states for a full autonomous completion task are:
+
+- `COMPLETE` — every required gate has current evidence;
+- `BLOCKED` — all possible work is complete, but a specific external dependency prevents a remaining required gate.
+
+There is no "close enough" terminal state.
