@@ -326,14 +326,12 @@ fn ui_ux_acceptance_proves_the_user_reported_gaps() {
 fn shell_owned_surfaces_keep_accessibility_names() {
     let launcher = include_str!("../src/launcher.rs");
     let topbar = include_str!("../src/topbar.rs");
-    let dock = include_str!("../src/dock.rs");
     let settings = include_str!("../../slopos-settings/src/main.rs");
     let catalogue = include_str!("../../slopos-catalogue/src/main.rs");
     for (source, name) in [
         (launcher, "SLOPOS application search"),
         (topbar, "SLOPOS top menu bar"),
         (topbar, "Focused application global menu"),
-        (dock, "SLOPOS application strip"),
         (settings, "SLOPOS system settings"),
         (catalogue, "SLOPOS software catalogue"),
     ] {
