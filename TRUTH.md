@@ -4,7 +4,7 @@
 **Integration branch:** `chatgpt/integrate-classic-ui`  
 **Main baseline before integration:** `a86d0e5599a3ceaf312b38cd81dfcbd7e3bb8f1f`  
 **Classic source snapshot:** `1feaad9ad3e4ad75c6687bbd6d0ff346954a3536`  
-**Audited integration implementation:** `e62ddce874182329f9d9a89e3397058e8a19161d`  
+**Audited integration implementation:** `fc5c74806c328d0a2036fa1ad67d876e3baee281`  
 **Visual contract:** `AGENTS.md` + `qa/reference/slopos-classic-reference.svg` + `qa/reference/slopos-classic-reference.json`  
 **Audit date:** 2026-09-23  
 **Evidence-backed readiness:** **UNSCORED pending full re-audit against the current contract**  
