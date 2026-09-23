@@ -422,7 +422,7 @@ extern "C" fn system_menu_signal_handler(_sig: libc::c_int) {
 fn is_shell_surface(title: &str) -> bool {
     matches!(
         title.trim(),
-        "SLOPOS Top Bar" | "SLOPOS Application Strip" | "SLOPOS Search" | "SLOPOS Notification"
+        "SLOPOS Top Bar" | "SLOPOS Search" | "SLOPOS Notification"
     )
 }
 
