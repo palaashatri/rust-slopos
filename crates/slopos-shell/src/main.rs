@@ -2,7 +2,6 @@
 
 pub mod app_finder;
 pub mod app_index;
-pub mod dock;
 pub mod gmenu;
 pub mod launcher;
 pub mod menu;
