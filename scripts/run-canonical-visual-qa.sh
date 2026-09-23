@@ -89,7 +89,7 @@ SESSION_PID=$!
 
 for _ in $(seq 1 60); do
   if [[ -s "$DBUS_ENV" ]] && \
-     xdotool search --onlyvisible --name '^SLOPOS Top Bar
+     xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null 2>&1; then
     break
   fi
   sleep 0.2
@@ -98,8 +98,8 @@ done
 test -s "$DBUS_ENV"
 # shellcheck disable=SC1090
 source "$DBUS_ENV"
-xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null
-! xdotool search --onlyvisible --name '^SLOPOS Application Strip
+xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null
+! xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1
 
 capture() {
   local name="$1"
@@ -138,17 +138,17 @@ close_named '^SLOPOS Notification'
 ./target/release/slopos-settings >/dev/null 2>&1 &
 sleep 0.6
 capture "05_system_settings_1280x800.png"
-close_named '^System Settings$'
+close_named "^System Settings$"
 
 ./target/release/slopos-settings --appearance >/dev/null 2>&1 &
 sleep 0.6
 capture "06_appearance_settings_1280x800.png"
-close_named '^Appearance$'
+close_named "^Appearance$"
 
 ./target/release/slopos-settings --wallpaper >/dev/null 2>&1 &
 sleep 0.6
 capture "07_wallpaper_settings_1280x800.png"
-close_named '^Desktop & Wallpaper$'
+close_named "^Desktop & Wallpaper$"
 
 if [[ -x ./target/release/slopos-catalogue ]]; then
   ./target/release/slopos-catalogue >/dev/null 2>&1 &
@@ -170,309 +170,7 @@ if command -v pcmanfm >/dev/null 2>&1; then
   capture "10_file_manager_integration_1280x800.png"
   while read -r window; do
     [[ -n "$window" ]] && xdotool windowclose "$window" >/dev/null 2>&1 || true
-  done < <(xdotool search --onlyvisible --class 'Pcmanfm' 2>/dev/null || true)
-fi
-
-if command -v xfce4-terminal >/dev/null 2>&1; then
-  xfce4-terminal >/dev/null 2>&1 &
-  sleep 0.7
-  capture "11_terminal_integration_1280x800.png"
-  pkill -TERM -x xfce4-terminal >/dev/null 2>&1 || true
-fi
-
-if [[ -x scripts/slopos-wallpaper ]]; then
-  scripts/slopos-wallpaper set 03_slate_blue.png --mode fill >/dev/null 2>&1 || true
-  sleep 0.4
-  capture "12_slate_blue_wallpaper_1280x800.png"
-fi
-
-if [[ -x scripts/slopos-appearance ]]; then
-  scripts/slopos-appearance graphite >/dev/null 2>&1 || true
-  sleep 1
-  capture "13_graphite_desktop_1280x800.png"
-fi
-
-printf 'source_commit=%s\n' "$SOURCE_COMMIT" >> "$OUT_DIR/manifest.txt"
-printf 'captured_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$OUT_DIR/manifest.txt"
-printf 'CANONICAL_VISUAL_CAPTURE_OK\n'
- >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.2
-done
-
-test -s "$DBUS_ENV"
-# shellcheck disable=SC1090
-source "$DBUS_ENV"
-xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null
-xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null
-
-capture() {
-  local name="$1"
-  xdotool mousemove 1260 780 >/dev/null 2>&1 || true
-  sleep 0.25
-  scrot -zo "$OUT_DIR/$name"
-  test -s "$OUT_DIR/$name"
-  printf '%s\n' "$name" >> "$OUT_DIR/manifest.txt"
-}
-
-close_named() {
-  local pattern="$1"
-  while read -r window; do
-    [[ -n "$window" ]] && xdotool windowclose "$window" >/dev/null 2>&1 || true
-  done < <(xdotool search --onlyvisible --name "$pattern" 2>/dev/null || true)
-}
-
-capture "01_platinum_desktop_1280x800.png"
-
-pkill -USR2 -x slopos-shell
-sleep 0.35
-capture "02_system_menu_1280x800.png"
-xdotool key Escape
-
-pkill -USR1 -x slopos-shell
-sleep 0.35
-xdotool type --delay 35 "Terminal"
-capture "03_application_search_1280x800.png"
-xdotool key Escape
-
-notify-send -t 5000 -a "SLOPOS QA" "Visual QA" "Notification surface and typography check" || true
-sleep 0.35
-capture "04_notification_1280x800.png"
-close_named '^SLOPOS Notification'
-
-./target/release/slopos-settings >/dev/null 2>&1 &
-sleep 0.6
-capture "05_system_settings_1280x800.png"
-close_named '^System Settings$'
-
-./target/release/slopos-settings --appearance >/dev/null 2>&1 &
-sleep 0.6
-capture "06_appearance_settings_1280x800.png"
-close_named '^Appearance$'
-
-./target/release/slopos-settings --wallpaper >/dev/null 2>&1 &
-sleep 0.6
-capture "07_wallpaper_settings_1280x800.png"
-close_named '^Desktop & Wallpaper$'
-
-if [[ -x ./target/release/slopos-catalogue ]]; then
-  ./target/release/slopos-catalogue >/dev/null 2>&1 &
-  sleep 0.7
-  capture "08_software_catalogue_1280x800.png"
-  close_named 'Software Catalogue'
-fi
-
-if command -v mousepad >/dev/null 2>&1; then
-  mousepad README.md >/dev/null 2>&1 &
-  sleep 0.7
-  capture "09_text_editor_integration_1280x800.png"
-  pkill -TERM -x mousepad >/dev/null 2>&1 || true
-fi
-
-if command -v pcmanfm >/dev/null 2>&1; then
-  pcmanfm "$REPO_ROOT" >/dev/null 2>&1 &
-  sleep 0.8
-  capture "10_file_manager_integration_1280x800.png"
-  pkill -TERM -x pcmanfm >/dev/null 2>&1 || true
-fi
-
-if command -v xfce4-terminal >/dev/null 2>&1; then
-  xfce4-terminal >/dev/null 2>&1 &
-  sleep 0.7
-  capture "11_terminal_integration_1280x800.png"
-  pkill -TERM -x xfce4-terminal >/dev/null 2>&1 || true
-fi
-
-if [[ -x scripts/slopos-wallpaper ]]; then
-  scripts/slopos-wallpaper set 03_slate_blue.png --mode fill >/dev/null 2>&1 || true
-  sleep 0.4
-  capture "12_slate_blue_wallpaper_1280x800.png"
-fi
-
-if [[ -x scripts/slopos-appearance ]]; then
-  scripts/slopos-appearance graphite >/dev/null 2>&1 || true
-  sleep 1
-  capture "13_graphite_desktop_1280x800.png"
-fi
-
-printf 'source_commit=%s\n' "$SOURCE_COMMIT" >> "$OUT_DIR/manifest.txt"
-printf 'captured_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$OUT_DIR/manifest.txt"
-printf 'CANONICAL_VISUAL_CAPTURE_OK\n'
- >/dev/null 2>&1
-
-capture() {
-  local name="$1"
-  xdotool mousemove 1260 780 >/dev/null 2>&1 || true
-  sleep 0.25
-  scrot -zo "$OUT_DIR/$name"
-  test -s "$OUT_DIR/$name"
-  printf '%s\n' "$name" >> "$OUT_DIR/manifest.txt"
-}
-
-close_named() {
-  local pattern="$1"
-  while read -r window; do
-    [[ -n "$window" ]] && xdotool windowclose "$window" >/dev/null 2>&1 || true
-  done < <(xdotool search --onlyvisible --name "$pattern" 2>/dev/null || true)
-}
-
-capture "01_platinum_desktop_1280x800.png"
-
-pkill -USR2 -x slopos-shell
-sleep 0.35
-capture "02_system_menu_1280x800.png"
-xdotool key Escape
-
-pkill -USR1 -x slopos-shell
-sleep 0.35
-xdotool type --delay 35 "Terminal"
-capture "03_application_search_1280x800.png"
-xdotool key Escape
-
-notify-send -t 5000 -a "SLOPOS QA" "Visual QA" "Notification surface and typography check" || true
-sleep 0.35
-capture "04_notification_1280x800.png"
-close_named '^SLOPOS Notification'
-
-./target/release/slopos-settings >/dev/null 2>&1 &
-sleep 0.6
-capture "05_system_settings_1280x800.png"
-close_named '^System Settings$'
-
-./target/release/slopos-settings --appearance >/dev/null 2>&1 &
-sleep 0.6
-capture "06_appearance_settings_1280x800.png"
-close_named '^Appearance$'
-
-./target/release/slopos-settings --wallpaper >/dev/null 2>&1 &
-sleep 0.6
-capture "07_wallpaper_settings_1280x800.png"
-close_named '^Desktop & Wallpaper$'
-
-if [[ -x ./target/release/slopos-catalogue ]]; then
-  ./target/release/slopos-catalogue >/dev/null 2>&1 &
-  sleep 0.7
-  capture "08_software_catalogue_1280x800.png"
-  close_named 'Software Catalogue'
-fi
-
-if command -v mousepad >/dev/null 2>&1; then
-  mousepad README.md >/dev/null 2>&1 &
-  sleep 0.7
-  capture "09_text_editor_integration_1280x800.png"
-  pkill -TERM -x mousepad >/dev/null 2>&1 || true
-fi
-
-if command -v pcmanfm >/dev/null 2>&1; then
-  pcmanfm "$REPO_ROOT" >/dev/null 2>&1 &
-  sleep 0.8
-  capture "10_file_manager_integration_1280x800.png"
-  pkill -TERM -x pcmanfm >/dev/null 2>&1 || true
-fi
-
-if command -v xfce4-terminal >/dev/null 2>&1; then
-  xfce4-terminal >/dev/null 2>&1 &
-  sleep 0.7
-  capture "11_terminal_integration_1280x800.png"
-  pkill -TERM -x xfce4-terminal >/dev/null 2>&1 || true
-fi
-
-if [[ -x scripts/slopos-wallpaper ]]; then
-  scripts/slopos-wallpaper set 03_slate_blue.png --mode fill >/dev/null 2>&1 || true
-  sleep 0.4
-  capture "12_slate_blue_wallpaper_1280x800.png"
-fi
-
-if [[ -x scripts/slopos-appearance ]]; then
-  scripts/slopos-appearance graphite >/dev/null 2>&1 || true
-  sleep 1
-  capture "13_graphite_desktop_1280x800.png"
-fi
-
-printf 'source_commit=%s\n' "$SOURCE_COMMIT" >> "$OUT_DIR/manifest.txt"
-printf 'captured_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$OUT_DIR/manifest.txt"
-printf 'CANONICAL_VISUAL_CAPTURE_OK\n'
- >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.2
-done
-
-test -s "$DBUS_ENV"
-# shellcheck disable=SC1090
-source "$DBUS_ENV"
-xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null
-xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null
-
-capture() {
-  local name="$1"
-  xdotool mousemove 1260 780 >/dev/null 2>&1 || true
-  sleep 0.25
-  scrot -zo "$OUT_DIR/$name"
-  test -s "$OUT_DIR/$name"
-  printf '%s\n' "$name" >> "$OUT_DIR/manifest.txt"
-}
-
-close_named() {
-  local pattern="$1"
-  while read -r window; do
-    [[ -n "$window" ]] && xdotool windowclose "$window" >/dev/null 2>&1 || true
-  done < <(xdotool search --onlyvisible --name "$pattern" 2>/dev/null || true)
-}
-
-capture "01_platinum_desktop_1280x800.png"
-
-pkill -USR2 -x slopos-shell
-sleep 0.35
-capture "02_system_menu_1280x800.png"
-xdotool key Escape
-
-pkill -USR1 -x slopos-shell
-sleep 0.35
-xdotool type --delay 35 "Terminal"
-capture "03_application_search_1280x800.png"
-xdotool key Escape
-
-notify-send -t 5000 -a "SLOPOS QA" "Visual QA" "Notification surface and typography check" || true
-sleep 0.35
-capture "04_notification_1280x800.png"
-close_named '^SLOPOS Notification'
-
-./target/release/slopos-settings >/dev/null 2>&1 &
-sleep 0.6
-capture "05_system_settings_1280x800.png"
-close_named '^System Settings$'
-
-./target/release/slopos-settings --appearance >/dev/null 2>&1 &
-sleep 0.6
-capture "06_appearance_settings_1280x800.png"
-close_named '^Appearance$'
-
-./target/release/slopos-settings --wallpaper >/dev/null 2>&1 &
-sleep 0.6
-capture "07_wallpaper_settings_1280x800.png"
-close_named '^Desktop & Wallpaper$'
-
-if [[ -x ./target/release/slopos-catalogue ]]; then
-  ./target/release/slopos-catalogue >/dev/null 2>&1 &
-  sleep 0.7
-  capture "08_software_catalogue_1280x800.png"
-  close_named 'Software Catalogue'
-fi
-
-if command -v mousepad >/dev/null 2>&1; then
-  mousepad README.md >/dev/null 2>&1 &
-  sleep 0.7
-  capture "09_text_editor_integration_1280x800.png"
-  pkill -TERM -x mousepad >/dev/null 2>&1 || true
-fi
-
-if command -v pcmanfm >/dev/null 2>&1; then
-  pcmanfm "$REPO_ROOT" >/dev/null 2>&1 &
-  sleep 0.8
-  capture "10_file_manager_integration_1280x800.png"
-  pkill -TERM -x pcmanfm >/dev/null 2>&1 || true
+  done < <(xdotool search --onlyvisible --class "Pcmanfm" 2>/dev/null || true)
 fi
 
 if command -v xfce4-terminal >/dev/null 2>&1; then
