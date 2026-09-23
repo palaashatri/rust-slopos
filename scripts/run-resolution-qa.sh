@@ -181,10 +181,10 @@ pgrep -x pcmanfm >/dev/null
 test -s "$DBUS_ENV_FILE"
 # shellcheck source=/dev/null
 source "$DBUS_ENV_FILE"
-wait_visible_window '^SLOPOS Top Bar$'
+wait_visible_window "^SLOPOS Top Bar$"
 # The classic parity branch intentionally has no Application Strip. Ensure a
 # stale/accidental dock cannot silently re-enter the retained visual evidence.
-if xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null 2>&1; then
+if xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1; then
   echo "ERROR: dock/application strip is visible in the dockless parity shell" >&2
   exit 1
 fi
@@ -205,7 +205,7 @@ for object in slopos-home.desktop slopos-network.desktop slopos-documents.deskto
 done
 
 echo "[4/5] Capturing composed classic desktop and retained scenes"
-TOPBAR_WINDOW="$(xdotool search --onlyvisible --name '^SLOPOS Top Bar$' | tail -n 1)"
+TOPBAR_WINDOW="$(xdotool search --onlyvisible --name "^SLOPOS Top Bar$" | tail -n 1)"
 test -n "$TOPBAR_WINDOW"
 eval "$(xdotool getwindowgeometry --shell "$TOPBAR_WINDOW" | sed -e 's/^WINDOW=/GEOM_WINDOW=/' -e 's/^SCREEN=/GEOM_SCREEN=/')"
 TOPBAR_WIDTH="$WIDTH"
@@ -219,14 +219,14 @@ test "$TOPBAR_HEIGHT" -ge 20
 
 capture_screenshot "$OUTPUT_DIR/desktop_${SCREEN_TAG}.png"
 pkill -USR1 -x slopos-shell
-wait_visible_window '^SLOPOS Search$'
+wait_visible_window "^SLOPOS Search$"
 capture_screenshot "$OUTPUT_DIR/search_${SCREEN_TAG}.png"
 xdotool key Escape || true
 
 ./target/release/slopos-settings >"$OUTPUT_DIR/settings.log" 2>&1 &
 SETTINGS_PID=$!
-wait_visible_window '^System Settings$'
-SETTINGS_WINDOW="$(xdotool search --onlyvisible --name '^System Settings$' | tail -n 1)"
+wait_visible_window "^System Settings$"
+SETTINGS_WINDOW="$(xdotool search --onlyvisible --name "^System Settings$" | tail -n 1)"
 test "$(xdotool getwindowpid "$SETTINGS_WINDOW")" = "$SETTINGS_PID"
 capture_screenshot "$OUTPUT_DIR/settings_${SCREEN_TAG}.png"
 
