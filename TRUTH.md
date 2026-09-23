@@ -4,6 +4,7 @@
 **Integration branch:** `chatgpt/integrate-classic-ui`  
 **Main baseline before integration:** `a86d0e5599a3ceaf312b38cd81dfcbd7e3bb8f1f`  
 **Classic source snapshot:** `1feaad9ad3e4ad75c6687bbd6d0ff346954a3536`  
+**Audited integration implementation:** `e62ddce874182329f9d9a89e3397058e8a19161d`  
 **Visual contract:** `AGENTS.md` + `qa/reference/slopos-classic-reference.svg` + `qa/reference/slopos-classic-reference.json`  
 **Audit date:** 2026-09-23  
 **Evidence-backed readiness:** **UNSCORED pending full re-audit against the current contract**  
@@ -17,7 +18,7 @@ The previous `100/100` release-ready claim is invalid for the current tree and h
 
 The Classic UI implementation has been ported onto the current `main` baseline. The September `glib 0.20` dependency bump was reverted because it is incompatible with the repository's GTK/GDK/GIO 0.18 stack and caused compile-time type/API failures. The integration intentionally restores the dockless X11/Openbox desktop, compact Platinum Classic chrome, SLOPOS-isolated PCManFM desktop objects, Control Panels-style Settings, and the canonical visual QA contract.
 
-This integration must still pass current CI and fresh composed-session visual review before it can be treated as validated. Therefore no visual-parity score, release-ready score, or `100/100` claim is valid at this point.
+The integration implementation recorded above removes the retired Application Strip runtime/module/actions, aligns all selectable Openbox appearances to a dockless work area, preserves full window-control theme assets, makes runtime appearance changes user-owned, supervises the PCManFM desktop manager with bounded recovery, and aligns package/VM/ISO/QA paths with the same contract. It must still pass current CI and fresh composed-session visual review before it can be treated as validated. Therefore no visual-parity score, release-ready score, or `100/100` claim is valid at this point.
 
 ## Canonical visual target
 
