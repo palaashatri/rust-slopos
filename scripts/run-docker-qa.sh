@@ -564,7 +564,7 @@ sleep 2
 TERM_WINDOW="$(xdotool search --onlyvisible --class xfce4-terminal | tail -n 1)"
 test -n "$TERM_WINDOW"
 # Arrange the overlap scene deliberately so both upstream windows remain fully
-# visible above the Application Strip instead of relying on WM placement luck.
+# visible below the top bar instead of relying on WM placement luck.
 xdotool windowmove --sync "$TERM_WINDOW" 520 300
 xdotool windowsize "$TERM_WINDOW" 610 360
 sleep 1
