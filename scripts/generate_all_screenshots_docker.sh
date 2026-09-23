@@ -241,13 +241,17 @@ gtk-xft-rgba = rgb
             f"{REPO_ROOT}/target/release/slopos-session"
         ], env=self.env)
 
-        # Wait for Top Bar and Application Strip
+        # Wait for the top bar; the canonical Classic desktop is dockless.
         for _ in range(60):
-            res1 = subprocess.run("xdotool search --onlyvisible --name '^SLOPOS Top Bar$'", shell=True, env=self.env, capture_output=True)
-            res2 = subprocess.run("xdotool search --onlyvisible --name '^SLOPOS Application Strip$'", shell=True, env=self.env, capture_output=True)
-            if res1.returncode == 0 and res2.returncode == 0:
+            res1 = subprocess.run('xdotool search --onlyvisible --name "^SLOPOS Top Bar$"', shell=True, env=self.env, capture_output=True)
+            if res1.returncode == 0:
                 break
             time.sleep(0.2)
+        if res1.returncode != 0:
+            raise RuntimeError("SLOPOS Top Bar did not appear")
+        retired_strip = subprocess.run('xdotool search --onlyvisible --name "^SLOPOS Application Strip$"', shell=True, env=self.env, capture_output=True)
+        if retired_strip.returncode == 0:
+            raise RuntimeError("retired Application Strip is visible")
         time.sleep(0.5)
 
     def capture(self, name, delay=0.4):
@@ -282,7 +286,7 @@ gtk-xft-rgba = rgb
                 if len(parts) >= 4:
                     wid = parts[0]
                     title = parts[3]
-                    if not any(k in title for k in ["SLOPOS Top Bar", "SLOPOS Application Strip", "SLOPOS Search"]):
+                    if not any(k in title for k in ["SLOPOS Top Bar", "SLOPOS Search"]):
                         run(f"wmctrl -i -c {wid}", env=self.env)
         except Exception:
             pass
@@ -437,7 +441,7 @@ s.clean_client_windows()
 # 10 Software Catalogue
 p_cat = s.spawn(["slopos-catalogue"])
 time.sleep(0.8)
-run("xdotool search --onlyvisible --name '^Software Catalogue$' | tail -1 | xargs -I{} xdotool windowsize {} 660 480 windowmove {} 140 70 windowactivate {}", env=s.env)
+run('xdotool search --onlyvisible --name "^Software Catalogue$" | tail -1 | xargs -I{} xdotool windowsize {} 660 480 windowmove {} 140 70 windowactivate {}', env=s.env)
 time.sleep(0.4)
 s.capture("10_software_catalogue_1280x800.png")
 s.clean_client_windows()
@@ -445,7 +449,7 @@ s.clean_client_windows()
 # 11 System Settings Control Panels
 p_set = s.spawn(["slopos-settings"])
 time.sleep(0.8)
-run("xdotool search --onlyvisible --name '^System Settings$' | tail -1 | xargs -I{} xdotool windowsize {} 640 460 windowmove {} 150 70 windowactivate {}", env=s.env)
+run('xdotool search --onlyvisible --name "^System Settings$" | tail -1 | xargs -I{} xdotool windowsize {} 640 460 windowmove {} 150 70 windowactivate {}', env=s.env)
 time.sleep(0.4)
 s.capture("11_system_settings_control_panels_1280x800.png")
 s.clean_client_windows()
@@ -497,7 +501,7 @@ s.clean_client_windows()
 # 33 Wallpaper chooser dialog
 p_wall = s.spawn(["slopos-settings", "--wallpaper"])
 time.sleep(0.8)
-run("xdotool search --onlyvisible --name '^Desktop & Wallpaper$' | tail -1 | xargs -I{} xdotool windowsize {} 640 460 windowmove {} 150 70 windowactivate {}", env=s.env)
+run('xdotool search --onlyvisible --name "^Desktop & Wallpaper$" | tail -1 | xargs -I{} xdotool windowsize {} 640 460 windowmove {} 150 70 windowactivate {}', env=s.env)
 time.sleep(0.4)
 s.capture("33_wallpaper_chooser_dialog_1280x800.png")
 s.clean_client_windows()
@@ -505,7 +509,7 @@ s.clean_client_windows()
 # 36 Date & Time control panel
 p_dt = s.spawn(["slopos-settings", "--datetime"])
 time.sleep(0.8)
-run("xdotool search --onlyvisible --name '^Date & Time$' | tail -1 | xargs -I{} xdotool windowsize {} 520 480 windowmove {} 180 60 windowactivate {}", env=s.env)
+run('xdotool search --onlyvisible --name "^Date & Time$" | tail -1 | xargs -I{} xdotool windowsize {} 520 480 windowmove {} 180 60 windowactivate {}', env=s.env)
 time.sleep(0.4)
 s.capture("36_datetime_control_panel_1280x800.png")
 s.clean_client_windows()
@@ -588,25 +592,14 @@ time.sleep(1.0)
 s.capture("46_fullscreen_video_mpv_1280x800.png")
 s.clean_client_windows()
 
-# 47 Dock Dodge Maximized
-with open(f"{s.home}/.config/slopos-i/dock_dodge", "w") as f:
-    f.write("1\n")
-p_dodge = s.spawn(["mousepad", f"{REPO_ROOT}/README.md"])
+# 47 Maximized window in the dockless work area
+p_max = s.spawn(["mousepad", f"{REPO_ROOT}/README.md"])
 time.sleep(1.5)
 run("wmctrl -r 'Mousepad' -b add,maximized_vert,maximized_horz", env=s.env)
 run("wmctrl -a 'Mousepad'", env=s.env)
 time.sleep(0.8)
-s.capture("47_dock_dodge_maximized_1280x800.png")
-
-# 49 Dock Dodge Hover Overlap
-run("xdotool mousemove 640 799", env=s.env)
-time.sleep(0.6)
-s.capture("49_dock_dodge_hover_overlap_1280x800.png")
+s.capture("47_maximized_window_1280x800.png")
 s.clean_client_windows()
-try:
-    os.remove(f"{s.home}/.config/slopos-i/dock_dodge")
-except Exception:
-    pass
 
 # 50 Fullscreen Game SuperTux
 p_stux_full = s.spawn(["supertux2", "-f"])
@@ -623,7 +616,7 @@ s.clean_client_windows()
 # 48 Appearance custom color & font studio
 p_app = s.spawn(["slopos-settings", "--appearance"])
 time.sleep(0.8)
-run("xdotool search --onlyvisible --name '^Appearance$' | tail -1 | xargs -I{} xdotool windowsize {} 600 440 windowmove {} 180 80 windowactivate {}", env=s.env)
+run('xdotool search --onlyvisible --name "^Appearance$" | tail -1 | xargs -I{} xdotool windowsize {} 600 440 windowmove {} 180 80 windowactivate {}', env=s.env)
 time.sleep(0.4)
 s.capture("48_custom_color_font_studio_1280x800.png")
 s.clean_client_windows()
@@ -650,7 +643,7 @@ s_dark.capture("12_graphite_dark_desktop_1280x800.png")
 
 p_dark_set = s_dark.spawn(["slopos-settings"])
 time.sleep(0.8)
-run("xdotool search --onlyvisible --name '^System Settings$' | tail -1 | xargs -I{} xdotool windowsize {} 640 460 windowmove {} 150 70 windowactivate {}", env=s_dark.env)
+run('xdotool search --onlyvisible --name "^System Settings$" | tail -1 | xargs -I{} xdotool windowsize {} 640 460 windowmove {} 150 70 windowactivate {}', env=s_dark.env)
 time.sleep(0.4)
 s_dark.capture("13_graphite_settings_1280x800.png")
 s_dark.clean_client_windows()
@@ -664,7 +657,7 @@ s_oled.capture("34_oled_dark_desktop_1280x800.png")
 
 p_oled_set = s_oled.spawn(["slopos-settings"])
 time.sleep(0.8)
-run("xdotool search --onlyvisible --name '^System Settings$' | tail -1 | xargs -I{} xdotool windowsize {} 640 460 windowmove {} 150 70 windowactivate {}", env=s_oled.env)
+run('xdotool search --onlyvisible --name "^System Settings$" | tail -1 | xargs -I{} xdotool windowsize {} 640 460 windowmove {} 150 70 windowactivate {}', env=s_oled.env)
 time.sleep(0.4)
 s_oled.capture("35_oled_dark_settings_1280x800.png")
 s_oled.clean_client_windows()
