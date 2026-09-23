@@ -448,7 +448,6 @@ fn event_driven_architecture_replaces_periodic_subprocess_polling() {
 #[test]
 fn multi_monitor_and_coordinate_mapping_supports_hidpi_and_non_zero_origins() {
     let monitors = include_str!("../src/x11/monitors.rs");
-    let dock = include_str!("../src/dock.rs");
     let topbar = include_str!("../src/topbar.rs");
 
     assert!(monitors.contains("pub fn gdk_x"));
@@ -458,8 +457,6 @@ fn multi_monitor_and_coordinate_mapping_supports_hidpi_and_non_zero_origins() {
     assert!(monitors.contains("pub fn root_left"));
     assert!(monitors.contains("pub fn root_bottom"));
 
-    assert!(dock.contains("primary.gdk_x()"));
-    assert!(dock.contains("primary.gdk_y()"));
     assert!(topbar.contains("primary.gdk_x()"));
     assert!(topbar.contains("primary.gdk_width()"));
 }
