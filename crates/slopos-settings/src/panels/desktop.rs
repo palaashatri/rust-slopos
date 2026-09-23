@@ -66,11 +66,7 @@ pub fn show_wallpaper_dialog(parent: &Window) {
             "Platinum Slate",
             "Cool slate grid",
         ),
-        (
-            "03_slate_blue.png",
-            "Slate Blue",
-            "Deep blue woven desktop",
-        ),
+        ("03_slate_blue.png", "Slate Blue", "Deep blue woven desktop"),
         (
             "04_retro_teal_grid.png",
             "Teal Grid",
@@ -149,7 +145,10 @@ pub fn show_wallpaper_dialog(parent: &Window) {
             Some("Choose Wallpaper Image"),
             Some(&dialog_parent),
             FileChooserAction::Open,
-            &[("Cancel", ResponseType::Cancel), ("Open", ResponseType::Accept)],
+            &[
+                ("Cancel", ResponseType::Cancel),
+                ("Open", ResponseType::Accept),
+            ],
         );
         let filter = FileFilter::new();
         filter.set_name(Some("Images"));
