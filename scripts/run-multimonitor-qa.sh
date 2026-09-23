@@ -122,6 +122,7 @@ xdotool key Escape
 echo "MULTIMONITOR_QA_STATUS_0"
 echo "SLOPOS-I Multi-Monitor Geometry QA: PASS"
  | tail -n 1)"
+test -n "$TOP_BAR_WIN"
 ! xdotool search --onlyvisible --name '^SLOPOS Application Strip
 # Check Top Bar width spans the multi-monitor display
 TOP_BAR_GEO="$(xdotool getwindowgeometry --shell "$TOP_BAR_WIN")"
