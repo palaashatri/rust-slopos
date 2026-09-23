@@ -249,6 +249,6 @@ pub fn is_shell_surface(title: &str, class_name: &str) -> bool {
     let c = class_name.trim().to_ascii_lowercase();
     matches!(
         t,
-        "SLOPOS Top Bar" | "SLOPOS Application Strip" | "SLOPOS Search" | "SLOPOS Notification"
+        "SLOPOS Top Bar" | "SLOPOS Search" | "SLOPOS Notification"
     ) || c == "slopos-shell"
 }
