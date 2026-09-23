@@ -4,6 +4,8 @@
 
 > **Anti-hallucination rule:** If a visual or product goal is not explicitly written in `AGENTS.md` or directly observable in the canonical SLOPOS reference, the reviewer must mark it **UNKNOWN** rather than inventing a requirement.
 
+> **Evidence discipline:** Missing, stale, or indirect evidence is **UNKNOWN**. A score, screenshot, manifest, or passing source test may support only the behavior it actually covers; it does not prove packaging, hardware compatibility, or release readiness.
+
 ## 1. Mission
 
 SLOPOS-I is an original, polished, consumer-oriented Linux desktop environment built on mature X11 infrastructure.
