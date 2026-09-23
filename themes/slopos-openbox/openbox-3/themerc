@@ -1,0 +1,89 @@
+# SLOPOS Platinum Openbox theme — classic parity branch
+# Compact square chrome with high-contrast keylines and mechanical depth.
+
+padding.width: 3
+padding.height: 2
+window.client.padding.width: 0
+window.client.padding.height: 0
+border.width: 1
+border.color: #111111
+window.active.border.color: #111111
+window.inactive.border.color: #686868
+
+# Active title: interlaced platinum texture, crisp edge, compact label.
+window.active.title.bg: raised gradient vertical interlaced
+window.active.title.bg.color: #F7F7F7
+window.active.title.bg.colorTo: #BEBEBE
+window.active.title.separator.color: #111111
+window.active.label.bg: parentrelative
+window.active.label.text.color: #111111
+window.active.label.text.font: shadow=off
+
+# Inactive windows deliberately flatten and desaturate.
+window.inactive.title.bg: flat gradient vertical
+window.inactive.title.bg.color: #E4E4E4
+window.inactive.title.bg.colorTo: #C9C9C9
+window.inactive.title.separator.color: #6F6F6F
+window.inactive.label.bg: parentrelative
+window.inactive.label.text.color: #585858
+window.inactive.label.text.font: shadow=off
+
+# Square, bordered title buttons.
+window.active.button.unpressed.bg: raised gradient vertical
+window.active.button.unpressed.bg.color: #FFFFFF
+window.active.button.unpressed.bg.colorTo: #BDBDBD
+window.active.button.hover.bg: raised gradient vertical
+window.active.button.hover.bg.color: #FFFFFF
+window.active.button.hover.bg.colorTo: #D5D5D5
+window.active.button.pressed.bg: sunken gradient vertical
+window.active.button.pressed.bg.color: #8F8F8F
+window.active.button.pressed.bg.colorTo: #D7D7D7
+window.active.button.unpressed.image.color: #111111
+window.active.button.hover.image.color: #000080
+window.active.button.pressed.image.color: #111111
+
+window.inactive.button.unpressed.bg: flat solid
+window.inactive.button.unpressed.bg.color: #D4D4D4
+window.inactive.button.unpressed.image.color: #666666
+
+# Menus should visually belong to the same chrome, not float as modern cards.
+menu.border.color: #111111
+menu.border.width: 1
+menu.overlap.x: -1
+menu.overlap.y: -1
+menu.title.bg: raised gradient vertical interlaced
+menu.title.bg.color: #F5F5F5
+menu.title.bg.colorTo: #C2C2C2
+menu.title.text.color: #111111
+menu.items.bg: flat solid
+menu.items.bg.color: #EEEEEE
+menu.items.text.color: #111111
+menu.items.disabled.text.color: #777777
+menu.items.active.bg: flat solid
+menu.items.active.bg.color: #8A92A0
+menu.items.active.text.color: #FFFFFF
+
+# Soft shadow settings for Platinum depth
+window.active.shadow.color: #000000
+window.active.shadow.opacity: 0.15
+window.active.shadow.offset.x: 2
+window.active.shadow.offset.y: 2
+window.inactive.shadow.color: #000000
+window.inactive.shadow.opacity: 0.08
+window.inactive.shadow.offset.x: 1
+menu.separator.width: 1
+menu.separator.padding.width: 8
+menu.separator.padding.height: 4
+menu.items.padding.x: 8
+menu.items.padding.y: 3
+menu.title.padding.x: 6
+menu.title.padding.y: 4
+menu.title.text.justify: left
+menu.window.active.button.unpressed.bg: flat gradient vertical
+menu.window.active.button.unpressed.bg.color: #FFFFFF
+menu.window.active.button.unpressed.bg.colorTo: #D0D5DD
+menu.window.active.button.unpressed.bg.border: 1 1 1 1
+menu.window.active.button.pressed.bg: flat gradient vertical
+menu.window.active.button.pressed.bg.color: #B8BCC6
+menu.window.active.button.pressed.bg.colorTo: #D0D5DD
+menu.window.active.button.pressed.bg.border: 1 1 1 1

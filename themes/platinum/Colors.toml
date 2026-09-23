@@ -1,0 +1,65 @@
+[window]
+background = "#E6E6E6"
+border = "#B0B0B0"
+title_text = "#1A1A1A"
+titlebar_active = "#F0F0F0"
+titlebar_inactive = "#D0D0D0"
+
+[menu]
+background = "#FAFAFA"
+highlight = "#A0A0A0"
+text = "#1A1A1A"
+disabled_text = "#808080"
+separator = "#C8C8C8"
+
+[button]
+background = "#E8E8E8"
+highlight = "#FFFFFF"
+shadow = "#909090"
+text = "#1A1A1A"
+disabled_text = "#A0A0A0"
+
+[text]
+primary = "#1A1A1A"
+secondary = "#606060"
+link = "#505050"
+selection_background = "#A0A0A0"
+selection_text = "#FFFFFF"
+
+[desktop]
+background = "#E0E0E0"
+
+[dock]
+background = "#EAEAEA"
+highlight = "#FFFFFF"
+indicator = "#808080"
+
+[scrollbar]
+track = "#D8D8D8"
+thumb = "#B8B8B8"
+thumb_hover = "#A0A0A0"
+
+[toolbar]
+background = "#E8E8E8"
+border = "#C0C0C0"
+
+[dialog]
+background = "#F8F8F8"
+border = "#C0C0C0"
+
+[notification]
+background = "#F8F8F8"
+border = "#C8C8C8"
+
+[selection]
+background = "#A0A0A0"
+text = "#FFFFFF"
+
+[progress]
+fill = "#808080"
+track = "#D0D0D0"
+
+[slider]
+track = "#C0C0C0"
+thumb = "#E0E0E0"
+thumb_hover = "#F0F0F0"

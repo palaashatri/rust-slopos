@@ -1,0 +1,27 @@
+SLOPOS-I third-party notices
+============================
+
+SLOPOS-I first-party code and original assets are MIT-licensed. Third-party
+Rust crates, fonts, Linux components, drivers, firmware, codecs and services
+remain owned by their respective authors and retain their own licenses. The
+repository-level LICENSE does not relicense them.
+
+Release procedure
+-----------------
+
+Before publishing binaries, run the locked dependency audit and generate a
+machine-derived attribution bundle from the exact dependency graph:
+
+    cargo deny check licenses advisories bans sources
+
+Use a tool such as cargo-about or cargo-license for the release bundle. Preserve
+all notices required by direct and transitive dependencies. Do not maintain a
+guessed crate inventory in project documentation.
+
+System substrate
+----------------
+
+Externally supplied components may include the Linux kernel, X.Org-compatible
+X11 server, Openbox, Mesa, PipeWire, NetworkManager, BlueZ, UDisks2,
+systemd/logind and installed fonts. They are not covered by the SLOPOS-I MIT
+grant. SLOPOS-I does not ship model weights or require a Vision/AI runtime.

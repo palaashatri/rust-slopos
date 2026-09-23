@@ -1,0 +1,55 @@
+# Additional packages layered onto Arch Linux's official releng archiso profile.
+# Base/boot packages come from /usr/share/archiso/configs/releng.
+
+# X11 desktop
+xorg-server
+xorg-xinit
+xorg-xrandr
+xorg-xsetroot
+openbox
+gtk3
+dbus
+xdotool
+wmctrl
+
+# Display manager for the live image
+lightdm
+lightdm-gtk-greeter
+
+# SLOPOS default applications
+pcmanfm
+xfce4-terminal
+mousepad
+ristretto
+zathura
+zathura-pdf-mupdf
+mpv
+galculator
+firefox
+supertux
+
+# System integration and Settings delegates
+networkmanager
+network-manager-applet
+pavucontrol
+pipewire
+pipewire-pulse
+wireplumber
+blueman
+upower
+xfce4-power-manager
+xfce4-settings
+lxappearance
+arandr
+polkit
+
+# Visual/runtime assets
+ttf-liberation
+ttf-dejavu
+adwaita-icon-theme
+librsvg
+
+# QA / recovery helpers
+scrot
+imagemagick
+curl

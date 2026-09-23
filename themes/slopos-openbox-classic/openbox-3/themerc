@@ -1,0 +1,81 @@
+# SLOPOS Classic Contrast Openbox Theme
+# Monochrome striped titlebar and high-contrast window chrome
+
+padding.width: 2
+padding.height: 2
+window.client.padding.width: 0
+window.client.padding.height: 0
+border.width: 1
+border.color: #000000
+window.active.border.color: #000000
+window.inactive.border.color: #808080
+
+# Active window titlebar: striped pattern
+window.active.title.bg: vertical
+window.active.title.bg.color: #000000
+window.active.title.bg.colorTo: #FFFFFF
+window.active.title.bg.interlaced: true
+
+window.active.label.bg: flat solid
+window.active.label.bg.color: #FFFFFF
+window.active.label.text.color: #000000
+window.active.label.text.font: shadow=off
+
+# Inactive window: clean flat white/light gray
+window.inactive.title.bg: flat solid
+window.inactive.title.bg.color: #FFFFFF
+window.inactive.label.bg: flat solid
+window.inactive.label.bg.color: #FFFFFF
+window.inactive.label.text.color: #707070
+
+# High-contrast square window buttons
+window.active.button.unpressed.bg: flat solid
+window.active.button.unpressed.bg.color: #FFFFFF
+window.active.button.pressed.bg: flat solid
+window.active.button.pressed.bg.color: #000000
+window.active.button.unpressed.image.color: #000000
+window.active.button.pressed.image.color: #FFFFFF
+
+window.inactive.button.unpressed.bg: flat solid
+window.inactive.button.unpressed.bg.color: #FFFFFF
+window.inactive.button.unpressed.image.color: #707070
+
+# High-contrast menus
+menu.border.color: #000000
+menu.border.width: 1
+menu.title.bg: flat solid
+menu.title.bg.color: #FFFFFF
+menu.title.text.color: #000000
+menu.items.bg: flat solid
+menu.items.bg.color: #FFFFFF
+menu.items.text.color: #000000
+menu.items.disabled.text.color: #707070
+menu.items.active.bg: flat solid
+menu.items.active.bg.color: #8A92A0
+menu.items.active.text.color: #FFFFFF
+
+# Soft shadow settings for Platinum depth
+window.active.shadow.color: #000000
+window.active.shadow.opacity: 0.15
+window.active.shadow.offset.x: 2
+window.active.shadow.offset.y: 2
+window.inactive.shadow.color: #000000
+window.inactive.shadow.opacity: 0.08
+window.inactive.shadow.offset.x: 1
+window.inactive.shadow.offset.y: 1
+menu.overlap.x: 0
+menu.overlap.y: 0
+menu.separator.width: 1
+menu.separator.padding.width: 8
+menu.separator.padding.height: 4
+menu.items.padding.x: 8
+menu.items.padding.y: 3
+menu.title.padding.x: 6
+menu.title.padding.y: 4
+menu.title.text.justify: left
+menu.window.active.button.unpressed.bg: flat solid
+menu.window.active.button.unpressed.bg.color: #FFFFFF
+menu.window.active.button.unpressed.bg.border: 1 1 1 1
+menu.window.active.button.pressed.bg: flat solid
+menu.window.active.button.pressed.bg.color: #8A92A0
+menu.window.active.button.pressed.bg.border: 1 1 1 1

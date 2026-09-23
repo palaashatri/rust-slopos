@@ -1,0 +1,35 @@
+[window]
+titlebar_height = 22
+border_width = 1
+min_width = 200
+min_height = 100
+corner_radius = 0
+
+[button]
+height = 24
+min_width = 60
+corner_radius = 0
+
+[menu]
+item_height = 22
+min_width = 180
+max_width = 400
+
+[dock]
+icon_size = 48
+height = 64
+padding = 8
+item_spacing = 4
+
+[scrollbar]
+width = 12
+min_thumb_size = 24
+
+[toolbar]
+height = 32
+
+[spacing]
+small = 4
+medium = 8
+large = 16
+xlarge = 24

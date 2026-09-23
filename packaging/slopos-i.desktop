@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=SLOPOS-I
+Comment=Original SLOPOS-I X11 Desktop Environment
+Exec=slopos-session
+TryExec=slopos-session
+Icon=desktop-environment
+Type=Application
+DesktopNames=SLOPOS

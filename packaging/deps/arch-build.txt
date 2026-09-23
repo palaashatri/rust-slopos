@@ -1,0 +1,11 @@
+# Arch build dependencies (for cargo build --release --workspace)
+base-devel
+pkgconf
+rust
+# Native libraries required by the GTK3/X11 Rust crates during cargo build.
+gtk3
+gdk-pixbuf2
+libx11
+libxrandr
+openssl
+dbus

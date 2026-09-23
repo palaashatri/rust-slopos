@@ -1,0 +1,16 @@
+target/
+target-docker/
+.DS_Store
+*.swp
+*.swo
+
+# Generated QA/release evidence is local/CI output. Curated evidence should be
+# attached to a release or workflow artifact rather than committed into source.
+artifacts/
+
+# VM QA access material and captures.
+packaging/vm/qa_key
+packaging/vm/qa_key.pub
+packaging/vm/known_hosts
+packaging/vm/*.png
+packaging/vm/installed-vm-evidence/

@@ -1,0 +1,68 @@
+[window]
+background = "#FFFFFF"
+border = "#000000"
+title_text = "#FFFFFF"
+titlebar_active = "#000000"
+titlebar_inactive = "#666666"
+
+[menu]
+background = "#FFFFFF"
+highlight = "#000000"
+text = "#000000"
+disabled_text = "#666666"
+separator = "#000000"
+
+[button]
+background = "#FFFFFF"
+highlight = "#000000"
+shadow = "#000000"
+text = "#000000"
+disabled_text = "#666666"
+
+[text]
+primary = "#000000"
+secondary = "#000000"
+link = "#000000"
+selection_background = "#000000"
+selection_text = "#FFFFFF"
+
+[desktop]
+background = "#000000"
+
+[dock]
+background = "#FFFFFF"
+highlight = "#000000"
+indicator = "#000000"
+
+[scrollbar]
+track = "#FFFFFF"
+thumb = "#000000"
+thumb_hover = "#000000"
+
+[toolbar]
+background = "#FFFFFF"
+border = "#000000"
+
+[dialog]
+background = "#FFFFFF"
+border = "#000000"
+
+[notification]
+background = "#FFFFFF"
+border = "#000000"
+
+[selection]
+background = "#000000"
+text = "#FFFFFF"
+
+[progress]
+fill = "#000000"
+track = "#FFFFFF"
+
+[slider]
+track = "#000000"
+thumb = "#000000"
+thumb_hover = "#000000"
+
+[icon]
+background = "transparent"

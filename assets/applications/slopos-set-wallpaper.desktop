@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Use as Desktop Background
+Comment=Set selected image as SLOPOS desktop wallpaper
+Exec=slopos-wallpaper set %f --mode fill
+Icon=desktop
+Terminal=false
+Categories=Utility;Settings;
+MimeType=image/png;image/jpeg;image/jpg;image/bmp;image/svg+xml;image/gif;image/webp;
+NoDisplay=false

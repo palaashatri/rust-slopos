@@ -1,0 +1,24 @@
+[system]
+font = "Liberation Sans"
+size = 13
+weight = 400
+
+[heading]
+font = "Liberation Sans"
+size = 15
+weight = 600
+
+[title]
+font = "Liberation Sans"
+size = 20
+weight = 700
+
+[mono]
+font = "DejaVu Sans Mono"
+size = 12
+weight = 400
+
+[small]
+font = "Liberation Sans"
+size = 11
+weight = 400

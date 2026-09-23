@@ -1,0 +1,10 @@
+slopos-i (20260824-1) unstable; urgency=medium
+
+  * SLOPOS-I v20260824 release
+  * Opinionated X11 desktop environment with Openbox window manager
+  * Native Platinum and Graphite visual language
+  * Event-driven X11/D-Bus system integration
+  * Display manager neutral X11 session
+
+ -- SLOPOS-I Contributors <team@slopos-i.local>  Mon, 24 Aug 2026 00:00:00 +0000
+

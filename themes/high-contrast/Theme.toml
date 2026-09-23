@@ -1,0 +1,15 @@
+name = "High Contrast"
+identifier = "com.slopos.theme.high-contrast"
+version = "1.0"
+author = "SLOPOS-I"
+description = "High contrast accessibility theme"
+is_dark = false
+accent = "#000000"
+
+[typography]
+system_font = "Liberation Sans"
+monospace_font = "DejaVu Sans Mono"
+size_small = 14
+size_body = 16
+size_title = 18
+size_large = 24

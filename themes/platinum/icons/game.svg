@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Original SLOPOS Platinum game launcher mark. -->
+  <path d="M8 11h16c3 0 5 3 5 7l-1 7c-.2 1.5-2 2.1-3.1 1.1L20 22H12l-4.9 4.1C6 27.1 4.2 26.5 4 25l-1-7c0-4 2-7 5-7z" fill="#d9d9d9" stroke="#000" stroke-width="1.5"/>
+  <path d="M8 14v7M4.5 17.5h7" stroke="#000080" stroke-width="2"/>
+  <circle cx="22" cy="17" r="1.6" fill="#000080" stroke="#000" stroke-width=".8"/>
+  <circle cx="25" cy="20" r="1.6" fill="#fff" stroke="#000" stroke-width=".8"/>
+  <path d="M10 12h12" stroke="#fff" stroke-width="1"/>
+</svg>

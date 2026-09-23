@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "reference_asset": "qa/reference/slopos-classic-reference.svg",
+  "purpose": "Canonical clean-room visual target for SLOPOS-I classic shell composition and styling.",
+  "source_note": "Derived from the user-provided late-1990s platinum desktop screenshot with third-party branding, proprietary artwork, and non-goal elements removed or replaced.",
+  "authority": "AGENTS.md",
+  "must_have": [
+    "full-width top global menu bar",
+    "dockless desktop",
+    "hard-edged compact platinum-gray window chrome",
+    "thin dark keylines and classic raised/sunken control treatment",
+    "compact title bars",
+    "dense icon-oriented system/file-browser window",
+    "small utility-window proportions",
+    "right-aligned desktop objects with Trash near the bottom-right",
+    "blue desktop background with strong contrast against platinum windows",
+    "compact desktop typography and spacing",
+    "coherent styling across first-party shell, settings, utilities, and representative upstream applications"
+  ],
+  "must_not_have": [
+    "bottom dock or Application Strip",
+    "Aqua-style glass, traffic-light controls, or modern macOS visual language",
+    "GNOME/libadwaita-style cards or oversized touch spacing",
+    "KDE Breeze-style modern controls",
+    "Windows 10/11 Fluent-style surfaces",
+    "large rounded cards, pill controls, or pervasive rounded corners",
+    "third-party logos, product names, proprietary fonts, proprietary icons, or copied wallpapers",
+    "invented visual requirements not present in AGENTS.md or this manifest"
+  ],
+  "required_scenes": [
+    {
+      "id": "empty-desktop",
+      "required": true,
+      "description": "Idle composed desktop with top menu bar, desktop objects, wallpaper, and no dock."
+    },
+    {
+      "id": "system-window",
+      "required": true,
+      "description": "System/file-browser window in dense icon view with classic chrome."
+    },
+    {
+      "id": "settings-window",
+      "required": true,
+      "description": "Control Panels / Settings surface using the same compact classic visual language."
+    },
+    {
+      "id": "about-window",
+      "required": true,
+      "description": "Compact About This Computer-style first-party information window using SLOPOS branding only."
+    },
+    {
+      "id": "accessory-window",
+      "required": true,
+      "description": "Small utility such as Calculator or Notes proving compact utility-window styling."
+    }
+  ],
+  "required_resolutions": [
+    "1280x800",
+    "3440x1440"
+  ],
+  "recommended_resolutions": [
+    "1920x1080",
+    "3840x2160"
+  ],
+  "weights": {
+    "menu_bar_fidelity": 15,
+    "desktop_composition": 10,
+    "window_chrome_fidelity": 20,
+    "widget_control_fidelity": 15,
+    "file_browser_icon_view_fidelity": 15,
+    "typography_density_spacing": 10,
+    "non_goal_compliance": 15
+  },
+  "pass_threshold": 85,
+  "minimum_subscores": {
+    "window_chrome_fidelity": 15,
+    "non_goal_compliance": 13
+  },
+  "critical_failures": [
+    "global top menu bar missing",
+    "bottom dock or Application Strip visible",
+    "obviously modern rounded/card-heavy visual language",
+    "settings or file-browser surface visually breaks from the classic shell language",
+    "direct use of third-party branding or proprietary visual assets",
+    "visual parity claimed without current screenshot evidence and a vision review"
+  ],
+  "review_rules": [
+    "Compare only against AGENTS.md and this reference manifest.",
+    "If a goal is not explicit or directly observable in the canonical reference, mark it UNKNOWN rather than inventing a requirement.",
+    "Report observable geometry, spacing, chrome, typography, icon-density, and composition differences instead of subjective aesthetic claims.",
+    "Missing evidence is UNKNOWN, never PASS.",
+    "A critical failure forces FAIL regardless of numeric score.",
+    "Visual QA is evidence for appearance only; it does not prove packaging, architecture support, hardware support, or functional correctness."
+  ]
+}

@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# Manage SLOPOS desktop wallpaper & backgrounds.
+set -euo pipefail
+
+usage() {
+  cat <<EOF >&2
+Usage:
+  slopos-wallpaper set <path_or_name> [--mode fill|center|tile|max]
+  slopos-wallpaper get
+  slopos-wallpaper list
+EOF
+  exit 2
+}
+
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+slopos_config="$config_home/slopos-i"
+wallpaper_file="$slopos_config/wallpaper"
+mode_file="$slopos_config/wallpaper_mode"
+profile="${SLOPOS_DESKTOP_PROFILE:-slopos}"
+mkdir -p "$slopos_config"
+
+resolve_wallpaper_path() {
+  local target="$1"
+  if [[ -f "$target" ]]; then
+    printf '%s' "$(cd "$(dirname "$target")" && pwd)/$(basename "$target")"
+    return 0
+  fi
+
+  local candidates=(
+    "$slopos_config/wallpapers/$target"
+    "$slopos_config/wallpapers/$target.png"
+    "$slopos_config/wallpapers/$target.jpg"
+    "assets/wallpapers/$target"
+    "assets/wallpapers/$target.png"
+    "/usr/share/slopos-i/wallpapers/$target"
+    "/usr/share/slopos-i/wallpapers/$target.png"
+    "/usr/local/share/slopos-i/wallpapers/$target"
+    "/usr/local/share/slopos-i/wallpapers/$target.png"
+  )
+
+  for cand in "${candidates[@]}"; do
+    if [[ -f "$cand" ]]; then
+      printf '%s' "$cand"
+      return 0
+    fi
+  done
+
+  for dir in "assets/wallpapers" "/usr/share/slopos-i/wallpapers" "/usr/local/share/slopos-i/wallpapers"; do
+    if [[ -d "$dir" ]]; then
+      local found
+      found="$(find "$dir" -maxdepth 1 -iname "*$target*" -print -quit 2>/dev/null || true)"
+      if [[ -n "$found" && -f "$found" ]]; then
+        printf '%s' "$found"
+        return 0
+      fi
+    fi
+  done
+
+  return 1
+}
+
+pcmanfm_mode() {
+  case "$1" in
+    tile) printf 'tile\n' ;;
+    center) printf 'center\n' ;;
+    fit|max) printf 'fit\n' ;;
+    *) printf 'crop\n' ;;
+  esac
+}
+
+apply_wallpaper() {
+  local image_path="$1"
+  local mode="${2:-fill}"
+
+  if [[ ! -f "$image_path" ]]; then
+    echo "Error: Wallpaper file not found: $image_path" >&2
+    return 1
+  fi
+
+  printf '%s\n' "$image_path" > "$wallpaper_file.tmp"
+  mv -f "$wallpaper_file.tmp" "$wallpaper_file"
+  printf '%s\n' "$mode" > "$mode_file.tmp"
+  mv -f "$mode_file.tmp" "$mode_file"
+
+  if [[ -n "${DISPLAY:-}" ]]; then
+    # In SLOPOS-I the visible desktop is normally owned by the private
+    # PCManFM profile, so update that surface first. Setting the X root pixmap
+    # with feh while PCManFM is active only changes an obscured background.
+    if command -v pcmanfm >/dev/null 2>&1 && pgrep -x pcmanfm >/dev/null 2>&1; then
+      local pcm_mode
+      pcm_mode="$(pcmanfm_mode "$mode")"
+      if pcmanfm --profile="$profile" \
+        --set-wallpaper="$image_path" \
+        --wallpaper-mode="$pcm_mode" >/dev/null 2>&1; then
+        printf 'Desktop wallpaper updated to %s (mode: %s)\n' "$image_path" "$mode"
+        return 0
+      fi
+    fi
+
+    if command -v feh >/dev/null 2>&1; then
+      case "$mode" in
+        tile) feh --bg-tile "$image_path" >/dev/null 2>&1 || true ;;
+        center) feh --bg-center "$image_path" >/dev/null 2>&1 || true ;;
+        max) feh --bg-max "$image_path" >/dev/null 2>&1 || true ;;
+        *) feh --bg-fill "$image_path" >/dev/null 2>&1 || true ;;
+      esac
+    elif command -v pcmanfm >/dev/null 2>&1; then
+      local pcm_mode
+      pcm_mode="$(pcmanfm_mode "$mode")"
+      pcmanfm --profile="$profile" \
+        --set-wallpaper="$image_path" \
+        --wallpaper-mode="$pcm_mode" >/dev/null 2>&1 || true
+    elif command -v display >/dev/null 2>&1; then
+      display -window root "$image_path" >/dev/null 2>&1 || true
+    fi
+  fi
+  printf 'Desktop wallpaper updated to %s (mode: %s)\n' "$image_path" "$mode"
+}
+
+action="${1:-get}"
+shift || true
+
+case "$action" in
+  set)
+    [[ $# -ge 1 ]] || usage
+    target="$1"
+    shift
+    mode="fill"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --mode|-m) mode="$2"; shift 2 ;;
+        fill|tile|center|max) mode="$1"; shift ;;
+        *) shift ;;
+      esac
+    done
+    resolved="$(resolve_wallpaper_path "$target")" || {
+      echo "Could not resolve wallpaper: $target" >&2
+      exit 1
+    }
+    apply_wallpaper "$resolved" "$mode"
+    ;;
+  get)
+    if [[ -r "$wallpaper_file" ]]; then
+      cat "$wallpaper_file"
+    else
+      echo "assets/wallpapers/03_slate_blue.png"
+    fi
+    ;;
+  list)
+    echo "Available SLOPOS wallpapers:"
+    for dir in "assets/wallpapers" "/usr/share/slopos-i/wallpapers" "/usr/local/share/slopos-i/wallpapers"; do
+      if [[ -d "$dir" ]]; then
+        for f in "$dir"/*.png "$dir"/*.jpg; do
+          if [[ -f "$f" ]]; then
+            echo "  - $(basename "$f") ($f)"
+          fi
+        done
+      fi
+    done
+    ;;
+  *)
+    usage
+    ;;
+esac
