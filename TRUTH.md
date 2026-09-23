@@ -15,7 +15,7 @@
 
 The previous `100/100` release-ready claim is invalid for the current tree and has been retired.
 
-The Classic UI implementation has been ported onto the current `main` baseline while retaining the newer Cargo/dependency state. The integration intentionally restores the dockless X11/Openbox desktop, compact Platinum Classic chrome, SLOPOS-isolated PCManFM desktop objects, Control Panels-style Settings, and the canonical visual QA contract.
+The Classic UI implementation has been ported onto the current `main` baseline. The September `glib 0.20` dependency bump was reverted because it is incompatible with the repository's GTK/GDK/GIO 0.18 stack and caused compile-time type/API failures. The integration intentionally restores the dockless X11/Openbox desktop, compact Platinum Classic chrome, SLOPOS-isolated PCManFM desktop objects, Control Panels-style Settings, and the canonical visual QA contract.
 
 This integration must still pass current CI and fresh composed-session visual review before it can be treated as validated. Therefore no visual-parity score, release-ready score, or `100/100` claim is valid at this point.
 
@@ -110,7 +110,7 @@ The Actions page is noisy because routine pushes trigger too many independent jo
 ### Inherited issues requiring re-validation
 
 1. **Settings delegation QA was stale on the source branch and must be re-run/fixed if still failing.** The QA script still assumes panels such as Sound remain delegated/unavailable under the old model. Current Settings exposes built-in or changed panel behavior, so the test reports `unavailable delegated panel is still enabled: Sound settings`.
-2. **Rust formatting previously needed cleanup after Settings edits and must be re-run on the integrated tree.** Build/tests/Clippy reached green in the audited run, while `cargo fmt --check` still needs the current tree formatted.
+2. **Rust formatting previously needed cleanup after Settings edits and must be re-run on the integrated tree.**
 3. **Some QA jobs install an excessively broad desktop stack** for narrow checks, increasing runtime and failure surface without increasing signal.
 4. **Routine CI is over-matrixed.** Full resolution, packaging, ISO, installed-VM, hardware-contract, and recovery-style lanes should not all behave as mandatory per-push development checks.
 
