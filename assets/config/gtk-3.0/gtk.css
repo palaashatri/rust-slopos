@@ -528,74 +528,8 @@ scrollbar button {
   border-radius: 0;
 }
 
-/* The dock is not instantiated on this branch. Keep neutral styles so an
- * explicit developer launch does not reintroduce glossy modern chrome. */
-.slopos-dock-container {
-  padding: 5px 7px;
-  background-image: linear-gradient(to bottom, rgba(250, 251, 252, 0.96), rgba(224, 228, 233, 0.96));
-  border: 1px solid rgba(126, 135, 147, 0.78);
-  border-radius: 14px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18), inset 0 1px rgba(255, 255, 255, 0.9);
-}
-
-.slopos-dock-label {
-  padding: 1px 2px;
-  color: @slopos_secondary;
-  font-size: 9px;
-  font-weight: bold;
-}
-
-.slopos-dock-btn {
-  min-width: 36px;
-  min-height: 34px;
-  margin: 0;
-  padding: 1px;
-  background-image: none;
-  background-color: transparent;
-  border-color: transparent;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.slopos-dock-btn:hover {
-  background-color: rgba(255, 255, 255, 0.72);
-  border-color: rgba(126, 135, 147, 0.45);
-}
-
-.slopos-dock-btn:active {
-  background-color: rgba(138, 146, 160, 0.16);
-}
-
-.slopos-dock-btn:disabled {
-  background-image: none;
-  background-color: transparent;
-}
-
-.slopos-dock-separator {
-  min-width: 1px;
-  margin: 3px;
-  background-color: @slopos_border_strong;
-}
-
-.slopos-dock-indicator {
-  min-width: 4px;
-  min-height: 4px;
-  border-radius: 0;
-  background-color: transparent;
-}
-
-.slopos-dock-indicator.is-running {
-  background-color: #555555;
-}
-
-.slopos-dock-indicator.is-active {
-  background-color: @slopos_accent;
-}
-
-window.slopos-dock-window,
 window.slopos-launcher-window,
 window.slopos-notification-window,
-.slopos-dock-window,
 .slopos-launcher-window,
 .slopos-notification-window {
   background-color: transparent;
