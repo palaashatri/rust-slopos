@@ -246,7 +246,9 @@ fn control_panel_button(panel: &ControlPanel<'_>, parent: &Window) -> Button {
 
     let button = Button::new();
     button.set_relief(ReliefStyle::None);
-    button.style_context().add_class("slopos-control-panel-icon");
+    button
+        .style_context()
+        .add_class("slopos-control-panel-icon");
     button.set_hexpand(true);
     button.set_vexpand(false);
     set_accessible_name(&button, &format!("{} settings", panel.title));
