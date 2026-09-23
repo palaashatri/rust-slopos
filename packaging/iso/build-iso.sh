@@ -70,6 +70,7 @@ install -Dm755 scripts/start-slopos-i "$ROOTFS/usr/local/bin/start-slopos-i"
 install -Dm755 scripts/start-slopos-browser "$ROOTFS/usr/local/bin/start-slopos-browser"
 install -Dm755 scripts/install-browser-theme.sh "$ROOTFS/usr/local/bin/install-browser-theme.sh"
 install -Dm755 scripts/slopos-appearance "$ROOTFS/usr/local/bin/slopos-appearance"
+install -Dm755 scripts/slopos-wallpaper "$ROOTFS/usr/local/bin/slopos-wallpaper"
 install -Dm755 scripts/slopos-recovery.sh "$ROOTFS/usr/local/bin/slopos-recovery"
 install -Dm644 packaging/slopos-browser.desktop \
   "$ROOTFS/usr/local/share/applications/slopos-browser.desktop"
@@ -77,25 +78,36 @@ install -Dm644 packaging/slopos-i.desktop "$ROOTFS/usr/share/xsessions/slopos-i.
 install -Dm644 assets/config/openbox/rc.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc.xml"
 install -Dm644 assets/config/openbox/rc-classic.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc-classic.xml"
 install -Dm644 assets/config/openbox/rc-graphite.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc-graphite.xml"
+install -Dm644 assets/config/openbox/rc-oled.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc-oled.xml"
 install -Dm644 assets/config/openbox/menu.xml "$ROOTFS/usr/local/share/slopos-i/openbox/menu.xml"
-install -Dm644 themes/slopos-openbox/openbox-3/themerc \
-  "$ROOTFS/usr/local/share/themes/slopos-openbox/openbox-3/themerc"
-install -Dm644 themes/slopos-openbox-classic/openbox-3/themerc \
-  "$ROOTFS/usr/local/share/themes/slopos-openbox-classic/openbox-3/themerc"
-install -Dm644 themes/slopos-openbox-graphite/openbox-3/themerc \
-  "$ROOTFS/usr/local/share/themes/slopos-openbox-graphite/openbox-3/themerc"
+for ob_theme in slopos-openbox slopos-openbox-classic slopos-openbox-graphite slopos-openbox-oled; do
+  mkdir -p "$ROOTFS/usr/local/share/themes/$ob_theme/openbox-3"
+  cp -a "themes/$ob_theme/openbox-3/." "$ROOTFS/usr/local/share/themes/$ob_theme/openbox-3/"
+done
 install -Dm644 assets/config/gtk-3.0/gtk.css \
   "$ROOTFS/usr/local/share/themes/slopos-gtk/gtk-3.0/gtk.css"
 install -Dm644 assets/config/gtk-3.0/gtk-classic.css \
   "$ROOTFS/usr/local/share/themes/slopos-gtk-classic/gtk-3.0/gtk.css"
 install -Dm644 assets/config/gtk-3.0/gtk-graphite.css \
   "$ROOTFS/usr/local/share/themes/slopos-gtk-graphite/gtk-3.0/gtk.css"
+install -Dm644 assets/config/gtk-3.0/gtk-oled.css \
+  "$ROOTFS/usr/local/share/themes/slopos-gtk-oled/gtk-3.0/gtk.css"
+install -Dm644 themes/platinum/gtk-2.0/gtkrc \
+  "$ROOTFS/usr/local/share/themes/slopos-gtk/gtk-2.0/gtkrc"
+install -Dm644 themes/high-contrast/gtk-2.0/gtkrc \
+  "$ROOTFS/usr/local/share/themes/slopos-gtk-classic/gtk-2.0/gtkrc"
+install -Dm644 themes/graphite/gtk-2.0/gtkrc \
+  "$ROOTFS/usr/local/share/themes/slopos-gtk-graphite/gtk-2.0/gtkrc"
+install -Dm644 themes/oled-graphite/gtk-2.0/gtkrc \
+  "$ROOTFS/usr/local/share/themes/slopos-gtk-oled/gtk-2.0/gtkrc"
 install -Dm644 assets/config/gtk-3.0/settings.ini \
   "$ROOTFS/usr/local/share/slopos-i/gtk-3.0/settings.ini"
 install -Dm644 assets/config/mimeapps.list \
   "$ROOTFS/usr/local/share/slopos-i/mimeapps.list"
 install -Dm644 assets/slopos-logo.png \
   "$ROOTFS/usr/local/share/slopos-i/slopos-logo.png"
+mkdir -p "$ROOTFS/usr/local/share/slopos-i/wallpapers"
+cp -a assets/wallpapers/. "$ROOTFS/usr/local/share/slopos-i/wallpapers/"
 
 # Ship a deliberately bounded reset payload. Recovery returns the user to the
 # known-good Platinum configuration without copying unrelated system files.
@@ -127,6 +139,7 @@ file_permissions["/usr/local/bin/start-slopos-i"]="0:0:755"
 file_permissions["/usr/local/bin/start-slopos-browser"]="0:0:755"
 file_permissions["/usr/local/bin/install-browser-theme.sh"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-appearance"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-wallpaper"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-recovery"]="0:0:755"
 EOF
 
@@ -184,6 +197,7 @@ chmod 0755 \
   /usr/local/bin/start-slopos-browser \
   /usr/local/bin/install-browser-theme.sh \
   /usr/local/bin/slopos-appearance \
+  /usr/local/bin/slopos-wallpaper \
   /usr/local/bin/slopos-recovery
 if [[ -f /etc/lightdm/lightdm.conf ]]; then
   sed -i \
