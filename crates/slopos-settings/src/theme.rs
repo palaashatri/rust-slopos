@@ -203,7 +203,10 @@ pub fn load_css_theme() {
     // Control Panels presentation. Keeping it here avoids changing the global
     // GTK theme semantics for unrelated upstream applications.
     let parity_provider = CssProvider::new();
-    if parity_provider.load_from_data(CONTROL_PANEL_PARITY_CSS).is_ok() {
+    if parity_provider
+        .load_from_data(CONTROL_PANEL_PARITY_CSS)
+        .is_ok()
+    {
         if let Some(screen) = gdk::Screen::default() {
             StyleContext::add_provider_for_screen(
                 &screen,
