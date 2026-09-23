@@ -188,17 +188,29 @@ fn settings_is_a_compact_control_panel_and_appearance_is_built_in() {
 }
 
 #[test]
-fn settings_delegates_the_seven_external_system_panels() {
+fn settings_keeps_five_builtin_panels_and_delegates_four_external_panels() {
     let settings = include_str!("../../slopos-settings/src/main.rs");
-    let desktop = include_str!("../../slopos-settings/src/panels/desktop.rs");
-    let combined = format!("{settings}\n{desktop}");
+    for built_in in [
+        "BuiltInPanel::Sound",
+        "BuiltInPanel::Network",
+        "BuiltInPanel::Appearance",
+        "BuiltInPanel::Desktop",
+        "BuiltInPanel::DateTime",
+    ] {
+        assert!(
+            settings.contains(built_in),
+            "missing built-in Settings panel {built_in}"
+        );
+    }
+
+    let combined = format!(
+        "{settings}\n{}",
+        include_str!("../../slopos-settings/src/panels/desktop.rs")
+    );
     for utility in [
         "arandr",
-        "pavucontrol",
-        "nm-connection-editor",
         "blueman-manager",
         "xfce4-power-manager-settings",
-        "pcmanfm",
         "lxinput",
     ] {
         assert!(
@@ -206,11 +218,14 @@ fn settings_delegates_the_seven_external_system_panels() {
             "missing Settings delegate {utility}"
         );
     }
+
     let runner = include_str!("../../../scripts/run-settings-service-qa.sh");
     let probe = include_str!("../../../scripts/qa-settings-services.py");
-    assert!(runner.contains("SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=7"));
-    assert!(runner.contains("SETTINGS_DELEGATED_CONTROLS=7"));
-    assert!(probe.contains("BUILT_IN = \"Appearance settings\""));
+    assert!(runner.contains("SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=4"));
+    assert!(runner.contains("SETTINGS_DELEGATED_CONTROLS=4"));
+    assert!(runner.contains("SETTINGS_BUILTIN_CONTROLS_ENABLED=5"));
+    assert!(probe.contains("BUILT_INS = ["));
+    assert!(probe.contains("SETTINGS_BUILTIN_CONTROLS_ENABLED=5"));
     assert!(probe.contains("SETTINGS_BUILTIN_APPEARANCE_ENABLED=1"));
 }
 
