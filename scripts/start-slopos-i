@@ -154,6 +154,8 @@ pcmanfm_profile_dir="${XDG_CONFIG_HOME:-$HOME/.config}/pcmanfm/$SLOPOS_DESKTOP_P
 pcmanfm_layout="$pcmanfm_profile_dir/desktop-items-0.conf"
 managed_shortcuts=()
 DESKTOP_MANAGER_STARTED=0
+DESKTOP_MANAGER_PID=""
+DESKTOP_SUPERVISOR_PID=""
 SESSION_PID=""
 
 resolve_desktop_dir() {
@@ -278,13 +280,19 @@ prepare_classic_desktop() {
 
   # Preserve user-rearranged icon positions after the first SLOPOS run. A
   # separate profile means seeding this file does not alter another desktop.
+  #
+  # On a single-monitor desktop we seed the canonical right-side arrangement.
+  # On multi-monitor roots we intentionally leave icon coordinates to PCManFM:
+  # hard-coding the combined X11 root width can place objects on a detached
+  # output. PCManFM then keeps the objects on a live monitor across RandR
+  # topology changes instead of persisting invalid virtual-root coordinates.
   if [ ! -s "$pcmanfm_layout" ]; then
-    local width height right_x trash_y
+    local width height right_x trash_y connected_outputs=1
     read -r width height < <(screen_dimensions)
-    right_x=$((width - 92))
-    trash_y=$((height - 104))
-    (( right_x < 28 )) && right_x=28
-    (( trash_y < 300 )) && trash_y=300
+    if command -v xrandr >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
+      connected_outputs="$(xrandr --current 2>/dev/null | grep -c ' connected' || true)"
+      [[ "$connected_outputs" =~ ^[0-9]+$ ]] || connected_outputs=1
+    fi
 
     cat > "$pcmanfm_layout" <<EOF
 [*]
@@ -301,6 +309,14 @@ sort=name;ascending;
 show_documents=0
 show_trash=0
 show_mounts=0
+EOF
+
+    if [ "$connected_outputs" -le 1 ]; then
+      right_x=$((width - 92))
+      trash_y=$((height - 104))
+      (( right_x < 28 )) && right_x=28
+      (( trash_y < 300 )) && trash_y=300
+      cat >> "$pcmanfm_layout" <<EOF
 
 [slopos-home.desktop]
 x=$right_x
@@ -318,6 +334,7 @@ y=216
 x=$right_x
 y=$trash_y
 EOF
+    fi
   fi
 }
 
@@ -326,17 +343,49 @@ start_desktop_manager() {
     return 0
   fi
 
-  # PCManFM may attach to an already running process, so the returned process
-  # is not treated as the session lifetime owner. The explicit --desktop-off
-  # command in cleanup is the authoritative shutdown path.
   pcmanfm --profile="$SLOPOS_DESKTOP_PROFILE" --desktop \
     >"${XDG_RUNTIME_DIR}/slopos-pcmanfm.log" 2>&1 &
+  DESKTOP_MANAGER_PID=$!
   DESKTOP_MANAGER_STARTED=1
+}
+
+supervise_desktop_manager() {
+  if [ "$DESKTOP_MANAGER_STARTED" != 1 ] || [ -z "$DESKTOP_MANAGER_PID" ]; then
+    return 0
+  fi
+
+  local restarts=0 delay=1
+  while [ -n "$SESSION_PID" ] && kill -0 "$SESSION_PID" 2>/dev/null; do
+    if kill -0 "$DESKTOP_MANAGER_PID" 2>/dev/null; then
+      sleep 1
+      continue
+    fi
+
+    if [ "$restarts" -ge 5 ]; then
+      echo "start-slopos-i: PCManFM desktop manager exceeded restart limit" >&2
+      return 1
+    fi
+
+    sleep "$delay"
+    pcmanfm --profile="$SLOPOS_DESKTOP_PROFILE" --desktop \
+      >>"${XDG_RUNTIME_DIR}/slopos-pcmanfm.log" 2>&1 &
+    DESKTOP_MANAGER_PID=$!
+    restarts=$((restarts + 1))
+    if [ "$delay" -lt 8 ]; then
+      delay=$((delay * 2))
+    fi
+  done
 }
 
 cleanup() {
   local status=$?
   set +e
+
+  if [ -n "$DESKTOP_SUPERVISOR_PID" ] && kill -0 "$DESKTOP_SUPERVISOR_PID" 2>/dev/null; then
+    kill -TERM "$DESKTOP_SUPERVISOR_PID" 2>/dev/null || true
+    wait "$DESKTOP_SUPERVISOR_PID" 2>/dev/null || true
+  fi
+  DESKTOP_SUPERVISOR_PID=""
 
   if [ "$DESKTOP_MANAGER_STARTED" = 1 ] && command -v pcmanfm >/dev/null 2>&1; then
     pcmanfm --profile="$SLOPOS_DESKTOP_PROFILE" --desktop-off >/dev/null 2>&1 || true
@@ -388,6 +437,10 @@ for _ in $(seq 1 20); do
   sleep 0.05
 done
 start_desktop_manager
+if [ "$DESKTOP_MANAGER_STARTED" = 1 ]; then
+  supervise_desktop_manager &
+  DESKTOP_SUPERVISOR_PID=$!
+fi
 
 set +e
 wait "$SESSION_PID"
