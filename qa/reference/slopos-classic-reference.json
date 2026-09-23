@@ -1,8 +1,16 @@
 {
   "schema_version": 1,
+  "status": "LEGACY_NON_NORMATIVE",
+  "superseded_by": {
+    "reference": "Classic Macintosh UI Kit (Community)",
+    "figma_file_key": "LGMlwNCoVdakZxDBvPKg1W",
+    "figma_root_node": "0:1",
+    "authority": "AGENTS.md"
+  },
+  "warning": "This file predates the 2026-09-24 atomic-conformance reset. It may be used only as historical composition context and must not override Figma-derived geometry, component states, tokens, or acceptance rules.",
   "reference_asset": "qa/reference/slopos-classic-reference.svg",
-  "purpose": "Canonical clean-room visual target for SLOPOS-I classic shell composition and styling.",
-  "source_note": "Derived from the user-provided late-1990s platinum desktop screenshot with third-party branding, proprietary artwork, and non-goal elements removed or replaced.",
+  "purpose": "Historical clean-room composition reference retained temporarily while the Figma-derived machine-readable specification is built.",
+  "source_note": "Derived from a user-provided late-1990s platinum desktop screenshot with third-party branding, proprietary artwork, and non-goal elements removed or replaced.",
   "authority": "AGENTS.md",
   "must_have": [
     "full-width top global menu bar",
@@ -25,7 +33,7 @@
     "Windows 10/11 Fluent-style surfaces",
     "large rounded cards, pill controls, or pervasive rounded corners",
     "third-party logos, product names, proprietary fonts, proprietary icons, or copied wallpapers",
-    "invented visual requirements not present in AGENTS.md or this manifest"
+    "invented visual requirements not present in AGENTS.md or the canonical Figma-derived specification"
   ],
   "required_scenes": [
     {
@@ -46,50 +54,24 @@
     {
       "id": "about-window",
       "required": true,
-      "description": "Compact About This Computer-style first-party information window using SLOPOS branding only."
+      "description": "Compact first-party About/System Information window using SLOPOS branding only."
     },
     {
       "id": "accessory-window",
       "required": true,
-      "description": "Small utility such as Calculator or Notes proving compact utility-window styling."
+      "description": "Small functional utility such as Calculator proving compact utility-window styling."
     }
   ],
   "required_resolutions": [
+    "800x600",
     "1280x800",
+    "1920x1080",
     "3440x1440"
   ],
-  "recommended_resolutions": [
-    "1920x1080",
-    "3840x2160"
-  ],
-  "weights": {
-    "menu_bar_fidelity": 15,
-    "desktop_composition": 10,
-    "window_chrome_fidelity": 20,
-    "widget_control_fidelity": 15,
-    "file_browser_icon_view_fidelity": 15,
-    "typography_density_spacing": 10,
-    "non_goal_compliance": 15
-  },
-  "pass_threshold": 85,
-  "minimum_subscores": {
-    "window_chrome_fidelity": 15,
-    "non_goal_compliance": 13
-  },
-  "critical_failures": [
-    "global top menu bar missing",
-    "bottom dock or Application Strip visible",
-    "obviously modern rounded/card-heavy visual language",
-    "settings or file-browser surface visually breaks from the classic shell language",
-    "direct use of third-party branding or proprietary visual assets",
-    "visual parity claimed without current screenshot evidence and a vision review"
-  ],
   "review_rules": [
-    "Compare only against AGENTS.md and this reference manifest.",
-    "If a goal is not explicit or directly observable in the canonical reference, mark it UNKNOWN rather than inventing a requirement.",
-    "Report observable geometry, spacing, chrome, typography, icon-density, and composition differences instead of subjective aesthetic claims.",
+    "This legacy manifest is not an exact geometry authority.",
+    "Use AGENTS.md and the Figma-derived machine-readable specification for exact conformance.",
     "Missing evidence is UNKNOWN, never PASS.",
-    "A critical failure forces FAIL regardless of numeric score.",
-    "Visual QA is evidence for appearance only; it does not prove packaging, architecture support, hardware support, or functional correctness."
+    "Visual QA is evidence for appearance only; it does not prove functionality, packaging, architecture support, or hardware support."
   ]
 }
