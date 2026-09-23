@@ -153,11 +153,11 @@ menubar > menuitem:active {
   background-color: transparent;
 }
 
-/* Keep the right side icon-dense. Text labels inside search/audio/network
- * controls collapse; the clock opts back into normal typography below. */
+/* Status labels remain visible because their text carries live audio/network
+ * state that the current static symbolic icons do not yet encode. */
 .slopos-menubar-control label {
-  font-size: 1px;
-  color: transparent;
+  font-size: 10px;
+  color: @slopos_text;
 }
 
 .slopos-clock,
