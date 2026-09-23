@@ -122,72 +122,21 @@ pgrep -x slopos-shell >/dev/null || { echo "slopos-shell did not start from clea
 
 # Verify the top bar exists and the retired Application Strip does not
 for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Top Bar
+  if xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null 2>&1; then
     break
   fi
   sleep 0.25
 done
-xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null 2>&1
-! xdotool search --onlyvisible --name '^SLOPOS Application Strip
+xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null 2>&1
+! xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1
 
 # Verify Search hotkey toggles launcher
 pkill -USR1 -x slopos-shell
 for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then break; fi
+  if xdotool search --onlyvisible --name "^SLOPOS Search$" >/dev/null 2>&1; then break; fi
   sleep 0.1
 done
-xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1
-xdotool key Escape
-
-echo "CLEAN_INSTALL_QA_STATUS_0"
-echo "SLOPOS-I clean-root installation and session startup: PASS"
- >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.25
-done
-xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null 2>&1
-xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null 2>&1
-
-# Verify Search hotkey toggles launcher
-pkill -USR1 -x slopos-shell
-for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then break; fi
-  sleep 0.1
-done
-xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1
-xdotool key Escape
-
-echo "CLEAN_INSTALL_QA_STATUS_0"
-echo "SLOPOS-I clean-root installation and session startup: PASS"
- >/dev/null 2>&1
-
-# Verify Search hotkey toggles launcher
-pkill -USR1 -x slopos-shell
-for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then break; fi
-  sleep 0.1
-done
-xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1
-xdotool key Escape
-
-echo "CLEAN_INSTALL_QA_STATUS_0"
-echo "SLOPOS-I clean-root installation and session startup: PASS"
- >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.25
-done
-xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null 2>&1
-xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null 2>&1
-
-# Verify Search hotkey toggles launcher
-pkill -USR1 -x slopos-shell
-for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then break; fi
-  sleep 0.1
-done
-xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1
+xdotool search --onlyvisible --name "^SLOPOS Search$" >/dev/null 2>&1
 xdotool key Escape
 
 echo "CLEAN_INSTALL_QA_STATUS_0"
