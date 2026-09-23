@@ -42,7 +42,6 @@ cleanup() {
   fi
   [[ -n "$SESSION_PID" ]] && kill "$SESSION_PID" >/dev/null 2>&1 || true
   [[ -n "$XVFB_PID" ]] && kill "$XVFB_PID" >/dev/null 2>&1 || true
-  pkill -TERM -x pcmanfm >/dev/null 2>&1 || true
   rm -rf "$TMP"
 }
 trap cleanup EXIT
