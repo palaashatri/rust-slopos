@@ -13,7 +13,6 @@ from gi.repository import Atspi, GLib
 
 EXPECTED_NAMES = {
     "SLOPOS top menu bar",
-    "SLOPOS application strip",
     "SLOPOS application search",
     "Application search field",
     "SLOPOS system settings",
@@ -34,8 +33,6 @@ def collect(node, result, depth=0):
         print(f"AT_SPI_NODE_ERROR={error!r}", file=sys.stderr)
         return
 
-    # A transient application can disappear between count and lookup. Keep
-    # walking its siblings instead of abandoning the complete desktop tree.
     for index in range(child_count):
         try:
             child = node.get_child_at_index(index)
@@ -153,10 +150,6 @@ def run_extended_checks(desktop):
     if field is None:
         raise RuntimeError("Search field disappeared from AT-SPI tree")
 
-    # xdotool's locale-sensitive keysym path drops non-ASCII characters under
-    # some generated X11 locales (notably fr_FR.UTF-8).  Clipboard paste still
-    # exercises the real GTK Entry and AT-SPI text path while preserving the
-    # exact UTF-8 payload in every locale.
     subprocess.run(
         ["xclip", "-selection", "clipboard"], input="café", text=True, check=True
     )
@@ -172,7 +165,6 @@ def run_extended_checks(desktop):
     if typed != "café":
         raise RuntimeError(f"UTF-8 Search entry mismatch: {typed!r}")
 
-    # Clear the UTF-8 text so the application list contains matching rows to focus
     subprocess.run(["xdotool", "key", "ctrl+a", "BackSpace"], check=True)
     time.sleep(0.3)
 
@@ -202,8 +194,6 @@ def main():
     deadline = time.monotonic() + 15
     last = []
     while time.monotonic() < deadline:
-        # AT-SPI routes D-Bus watches through GLib. Pump the context between
-        # polls so newly registered applications are visible to this probe.
         context = GLib.MainContext.default()
         while context.pending():
             context.iteration(False)

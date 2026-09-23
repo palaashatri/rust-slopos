@@ -20,19 +20,23 @@ PANELS = [
     "Appearance settings",
     "Desktop settings",
     "Keyboard & Mouse settings",
+    "Date & Time settings",
 ]
 
-# Appearance is deliberately SLOPOS-owned: it switches Platinum/Graphite and
-# must remain available even on a minimal system. Every other panel delegates
-# mutation to a mature upstream utility.
-BUILT_IN = "Appearance settings"
+# These panels are SLOPOS-owned and must remain available on a minimal system.
+# The remaining hardware panels deliberately delegate to mature upstream tools
+# and must fail closed when those tools are unavailable.
+BUILT_INS = [
+    "Sound settings",
+    "Network settings",
+    "Appearance settings",
+    "Desktop settings",
+    "Date & Time settings",
+]
 DELEGATES = [
     ("Displays settings", "arandr"),
-    ("Sound settings", "pavucontrol"),
-    ("Network settings", "nm-connection-editor"),
     ("Bluetooth settings", "blueman-manager"),
     ("Power settings", "xfce4-power-manager-settings"),
-    ("Desktop settings", "pcmanfm"),
     ("Keyboard & Mouse settings", "lxinput"),
 ]
 
@@ -90,27 +94,31 @@ def wait_for_panels(desktop):
     raise RuntimeError(f"Settings panels missing from AT-SPI: {missing}")
 
 
-def verify_builtin_appearance(desktop):
-    node = find_named(desktop, BUILT_IN)
-    if node is None or not state_is_enabled(node):
-        raise RuntimeError("built-in Appearance panel must always be enabled")
-    action = node.get_action_iface()
-    if action is None or action.get_n_actions() < 1:
-        raise RuntimeError("built-in Appearance panel has no AT-SPI action")
+def verify_builtin_panels(desktop):
+    for name in BUILT_INS:
+        node = find_named(desktop, name)
+        if node is None or not state_is_enabled(node):
+            raise RuntimeError(f"built-in panel must always be enabled: {name}")
+        action = node.get_action_iface()
+        if action is None or action.get_n_actions() < 1:
+            raise RuntimeError(f"built-in panel has no AT-SPI action: {name}")
+    # Retain the older marker for downstream evidence readers while adding the
+    # complete built-in count.
     print("SETTINGS_BUILTIN_APPEARANCE_ENABLED=1")
+    print("SETTINGS_BUILTIN_CONTROLS_ENABLED=5")
 
 
 def verify_disabled(desktop):
-    verify_builtin_appearance(desktop)
+    verify_builtin_panels(desktop)
     for name, _ in DELEGATES:
         node = find_named(desktop, name)
         if state_is_enabled(node):
             raise RuntimeError(f"unavailable delegated panel is still enabled: {name}")
-    print("SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=7")
+    print("SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=4")
 
 
 def verify_delegation(desktop):
-    verify_builtin_appearance(desktop)
+    verify_builtin_panels(desktop)
     for name, utility in DELEGATES:
         node = find_named(desktop, name)
         if not state_is_enabled(node):
@@ -134,7 +142,7 @@ def verify_delegation(desktop):
         lines = set(content.splitlines())
         missing = [utility for _, utility in DELEGATES if utility not in lines]
         if not missing:
-            print("SETTINGS_DELEGATED_CONTROLS=7")
+            print("SETTINGS_DELEGATED_CONTROLS=4")
             print("SETTINGS_DELEGATED_DISPLAY=arandr")
             return
         time.sleep(0.1)

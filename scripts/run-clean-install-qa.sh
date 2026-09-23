@@ -46,7 +46,9 @@ data_files=(
   "share/xsessions/slopos-i.desktop"
   "share/applications/slopos-browser.desktop"
   "share/slopos-i/openbox/rc.xml"
+  "share/slopos-i/openbox/rc-classic.xml"
   "share/slopos-i/openbox/rc-graphite.xml"
+  "share/slopos-i/openbox/rc-oled.xml"
   "share/slopos-i/openbox/menu.xml"
   "share/slopos-i/mimeapps.list"
   "share/slopos-i/slopos-logo.png"
@@ -54,9 +56,13 @@ data_files=(
   "share/slopos-i/recovery/openbox/rc.xml"
   "share/slopos-i/recovery/openbox/menu.xml"
   "share/themes/slopos-openbox/openbox-3/themerc"
+  "share/themes/slopos-openbox-classic/openbox-3/themerc"
   "share/themes/slopos-openbox-graphite/openbox-3/themerc"
+  "share/themes/slopos-openbox-oled/openbox-3/themerc"
   "share/themes/slopos-gtk/gtk-3.0/gtk.css"
+  "share/themes/slopos-gtk-classic/gtk-3.0/gtk.css"
   "share/themes/slopos-gtk-graphite/gtk-3.0/gtk.css"
+  "share/themes/slopos-gtk-oled/gtk-3.0/gtk.css"
   "share/icons/SLOPOS-Platinum/index.theme"
 )
 for rel in "${data_files[@]}"; do
@@ -114,24 +120,23 @@ done
 pgrep -x openbox >/dev/null || { echo "Openbox did not start from clean root" >&2; exit 1; }
 pgrep -x slopos-shell >/dev/null || { echo "slopos-shell did not start from clean root" >&2; exit 1; }
 
-# Verify Top Bar and Application Strip windows
+# Verify the top bar exists and the retired Application Strip does not
 for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null 2>&1 && \
-     xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null 2>&1; then
+  if xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null 2>&1; then
     break
   fi
   sleep 0.25
 done
-xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null 2>&1
-xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null 2>&1
+xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null 2>&1
+! xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1
 
 # Verify Search hotkey toggles launcher
 pkill -USR1 -x slopos-shell
 for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then break; fi
+  if xdotool search --onlyvisible --name "^SLOPOS Search$" >/dev/null 2>&1; then break; fi
   sleep 0.1
 done
-xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1
+xdotool search --onlyvisible --name "^SLOPOS Search$" >/dev/null 2>&1
 xdotool key Escape
 
 echo "CLEAN_INSTALL_QA_STATUS_0"

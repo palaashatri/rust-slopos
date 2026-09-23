@@ -4,6 +4,80 @@ use gtk::prelude::*;
 use gtk::{CssProvider, StyleContext};
 use std::path::PathBuf;
 
+const CONTROL_PANEL_PARITY_CSS: &[u8] = br#"
+.slopos-folder-caption {
+  min-height: 17px;
+  padding: 1px 3px 3px 3px;
+  font-weight: bold;
+  border-bottom: 1px solid #858585;
+}
+
+.slopos-icon-grid {
+  padding: 10px 8px 8px 8px;
+  background-color: #ffffff;
+  border: 1px solid #111111;
+}
+
+/* These are folder objects, not modern dashboard cards.  Override every
+ * inherited Platinum push-button edge so idle and unavailable panels sit
+ * directly on the white icon field like files in a classic folder window. */
+button.slopos-control-panel-icon,
+button.slopos-control-panel-icon:disabled {
+  min-width: 86px;
+  min-height: 72px;
+  padding: 4px 3px;
+  margin: 0;
+  background-image: none;
+  background-color: transparent;
+  border-style: none;
+  border-width: 0;
+  border-radius: 0;
+  box-shadow: none;
+  text-shadow: none;
+  outline-width: 0;
+}
+
+button.slopos-control-panel-icon:hover,
+button.slopos-control-panel-icon:focus,
+button.slopos-control-panel-icon:active,
+button.slopos-control-panel-icon:checked {
+  color: #ffffff;
+  background-image: none;
+  background-color: #000080;
+  border-style: none;
+  border-width: 0;
+  box-shadow: none;
+  text-shadow: none;
+  outline-width: 0;
+}
+
+button.slopos-control-panel-icon:hover label,
+button.slopos-control-panel-icon:focus label,
+button.slopos-control-panel-icon:active label,
+button.slopos-control-panel-icon:checked label {
+  color: #ffffff;
+  text-shadow: none;
+}
+
+button.slopos-control-panel-icon:disabled {
+  opacity: 0.46;
+}
+
+button.slopos-control-panel-icon image {
+  min-width: 32px;
+  min-height: 32px;
+  margin-bottom: 1px;
+}
+
+button.slopos-control-panel-icon label {
+  padding: 0 2px;
+  font-size: 10px;
+  font-weight: normal;
+  color: #111111;
+  text-shadow: none;
+}
+"#;
+
 pub fn current_appearance() -> &'static str {
     if let Ok(env_app) = std::env::var("SLOPOS_APPEARANCE") {
         let v = env_app.trim();
@@ -122,6 +196,23 @@ pub fn load_css_theme() {
                 );
             }
             break;
+        }
+    }
+
+    // Settings has one additional application-owned layer for the icon-grid
+    // Control Panels presentation. Keeping it here avoids changing the global
+    // GTK theme semantics for unrelated upstream applications.
+    let parity_provider = CssProvider::new();
+    if parity_provider
+        .load_from_data(CONTROL_PANEL_PARITY_CSS)
+        .is_ok()
+    {
+        if let Some(screen) = gdk::Screen::default() {
+            StyleContext::add_provider_for_screen(
+                &screen,
+                &parity_provider,
+                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+            );
         }
     }
 }

@@ -27,7 +27,10 @@ command -v openbox >/dev/null 2>&1 || { echo "openbox is required" >&2; exit 1; 
 command -v dbus-run-session >/dev/null 2>&1 || { echo "dbus-run-session is required" >&2; exit 1; }
 xdpyinfo -display "$DISPLAY" >/dev/null
 
-export PATH="$BIN_DIR:$PATH"
+export PATH="$ROOT/scripts:$BIN_DIR:$PATH"
+export SLOPOS_SESSION_BIN="$BIN_DIR/slopos-session"
+export SLOPOS_SHARE_DIR="$ROOT"
+export SLOPOS_DESKTOP_PROFILE=slopos
 export SLOPOS_OPENBOX_CONFIG="$ROOT/assets/config/openbox/rc.xml"
 export SLOPOS_QA_NO_WELCOME=1
 
@@ -43,7 +46,7 @@ pkill -TERM -x slopos-settings 2>/dev/null || true
 pkill -TERM -x slopos-catalogue 2>/dev/null || true
 sleep 1
 
-dbus-run-session -- "$BIN_DIR/slopos-session" >"$QA_DIR/session.log" 2>&1 &
+dbus-run-session -- "$ROOT/scripts/start-slopos-i" >"$QA_DIR/session.log" 2>&1 &
 SESSION_PID=$!
 
 for _ in $(seq 1 20); do
@@ -53,14 +56,14 @@ done
 pgrep -x openbox >/dev/null
 pgrep -x slopos-shell >/dev/null
 test "$(pgrep -xc slopos-shell)" -eq 1
-xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null
-xdotool search --onlyvisible --name '^SLOPOS Application Strip$' >/dev/null
+xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null
+! xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1
 
 "$BIN_DIR/slopos-catalogue" >"$QA_DIR/catalogue.log" 2>&1 & CATALOGUE_PID=$!
 "$BIN_DIR/slopos-settings" >"$QA_DIR/settings.log" 2>&1 & SETTINGS_PID=$!
 for _ in $(seq 1 40); do
-  CATALOGUE_WINDOW="$(xdotool search --onlyvisible --name '^Software Catalogue$' 2>/dev/null | head -1 || true)"
-  SETTINGS_WINDOW="$(xdotool search --onlyvisible --name '^System Settings$' 2>/dev/null | head -1 || true)"
+  CATALOGUE_WINDOW="$(xdotool search --onlyvisible --name "^Software Catalogue$" 2>/dev/null | head -1 || true)"
+  SETTINGS_WINDOW="$(xdotool search --onlyvisible --name "^System Settings$" 2>/dev/null | head -1 || true)"
   if [[ -n "$CATALOGUE_WINDOW" && -n "$SETTINGS_WINDOW" ]]; then break; fi
   sleep 0.1
 done

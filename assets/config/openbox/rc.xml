@@ -9,14 +9,14 @@
   <theme>
     <name>slopos-openbox</name>
     <titleLayout>CLMI</titleLayout>
-    <keepBorder>no</keepBorder>
+    <keepBorder>yes</keepBorder>
     <animateIconify>no</animateIconify>
     <font place="ActiveWindow"><name>Liberation Sans</name><size>9</size><weight>Bold</weight></font>
     <font place="InactiveWindow"><name>Liberation Sans</name><size>9</size><weight>Normal</weight></font>
     <font place="MenuHeader"><name>Liberation Sans</name><size>9</size><weight>Bold</weight></font>
     <font place="MenuItem"><name>Liberation Sans</name><size>9</size><weight>Normal</weight></font>
   </theme>
-  <margins><top>26</top><bottom>60</bottom><left>0</left><right>0</right></margins>
+  <margins><top>26</top><bottom>0</bottom><left>0</left><right>0</right></margins>
   <desktops>
     <number>4</number><firstdefault>1</firstdefault>
     <name>Desktop 1</name><name>Desktop 2</name><name>Desktop 3</name><name>Desktop 4</name>
@@ -74,10 +74,6 @@
         <x>0</x>
         <y>0</y>
       </position>
-    </application>
-    <application class="*slopos-shell*" title="*Application Strip*">
-      <decor>no</decor>
-      <layer>above</layer>
     </application>
     <application class="*">
       <decor>yes</decor>

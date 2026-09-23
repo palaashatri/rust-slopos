@@ -168,11 +168,17 @@ fn appearances_are_complete_runtime_themes() {
 #[test]
 fn settings_is_a_compact_control_panel_and_appearance_is_built_in() {
     let settings = include_str!("../../slopos-settings/src/main.rs");
+    let settings_theme = include_str!("../../slopos-settings/src/theme.rs");
     let appearance = include_str!("../../slopos-settings/src/panels/appearance.rs");
-    assert!(settings.contains("Label::new(Some(\"System Settings\"))"));
+    assert!(settings.contains("window.set_title(\"System Settings\")"));
+    assert!(settings.contains("Label::new(Some(\"Control Panels\"))"));
     assert!(settings.contains("adaptive_window_size"));
-    assert!(settings.contains("(index % 3) as i32"));
-    assert!(settings.contains("(index / 3) as i32"));
+    assert!(settings.contains("(index % 5) as i32"));
+    assert!(settings.contains("(index / 5) as i32"));
+    assert!(settings.contains("slopos-icon-grid"));
+    assert!(settings.contains("slopos-control-panel-icon"));
+    assert!(settings_theme.contains("#000080"));
+    assert!(settings_theme.contains("button.slopos-control-panel-icon"));
     assert!(settings.contains("title: \"Appearance\""));
     assert!(settings.contains("built_in: BuiltInPanel::Appearance"));
     assert!(appearance.contains("Platinum Light"));
@@ -182,17 +188,29 @@ fn settings_is_a_compact_control_panel_and_appearance_is_built_in() {
 }
 
 #[test]
-fn settings_delegates_the_seven_external_system_panels() {
+fn settings_keeps_five_builtin_panels_and_delegates_four_external_panels() {
     let settings = include_str!("../../slopos-settings/src/main.rs");
-    let desktop = include_str!("../../slopos-settings/src/panels/desktop.rs");
-    let combined = format!("{settings}\n{desktop}");
+    for built_in in [
+        "BuiltInPanel::Sound",
+        "BuiltInPanel::Network",
+        "BuiltInPanel::Appearance",
+        "BuiltInPanel::Desktop",
+        "BuiltInPanel::DateTime",
+    ] {
+        assert!(
+            settings.contains(built_in),
+            "missing built-in Settings panel {built_in}"
+        );
+    }
+
+    let combined = format!(
+        "{settings}\n{}",
+        include_str!("../../slopos-settings/src/panels/desktop.rs")
+    );
     for utility in [
         "arandr",
-        "pavucontrol",
-        "nm-connection-editor",
         "blueman-manager",
         "xfce4-power-manager-settings",
-        "pcmanfm",
         "lxinput",
     ] {
         assert!(
@@ -200,11 +218,14 @@ fn settings_delegates_the_seven_external_system_panels() {
             "missing Settings delegate {utility}"
         );
     }
+
     let runner = include_str!("../../../scripts/run-settings-service-qa.sh");
     let probe = include_str!("../../../scripts/qa-settings-services.py");
-    assert!(runner.contains("SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=7"));
-    assert!(runner.contains("SETTINGS_DELEGATED_CONTROLS=7"));
-    assert!(probe.contains("BUILT_IN = \"Appearance settings\""));
+    assert!(runner.contains("SETTINGS_UNAVAILABLE_CONTROLS_DISABLED=4"));
+    assert!(runner.contains("SETTINGS_DELEGATED_CONTROLS=4"));
+    assert!(runner.contains("SETTINGS_BUILTIN_CONTROLS_ENABLED=5"));
+    assert!(probe.contains("BUILT_INS = ["));
+    assert!(probe.contains("SETTINGS_BUILTIN_CONTROLS_ENABLED=5"));
     assert!(probe.contains("SETTINGS_BUILTIN_APPEARANCE_ENABLED=1"));
 }
 
@@ -305,14 +326,12 @@ fn ui_ux_acceptance_proves_the_user_reported_gaps() {
 fn shell_owned_surfaces_keep_accessibility_names() {
     let launcher = include_str!("../src/launcher.rs");
     let topbar = include_str!("../src/topbar.rs");
-    let dock = include_str!("../src/dock.rs");
     let settings = include_str!("../../slopos-settings/src/main.rs");
     let catalogue = include_str!("../../slopos-catalogue/src/main.rs");
     for (source, name) in [
         (launcher, "SLOPOS application search"),
         (topbar, "SLOPOS top menu bar"),
         (topbar, "Focused application global menu"),
-        (dock, "SLOPOS application strip"),
         (settings, "SLOPOS system settings"),
         (catalogue, "SLOPOS software catalogue"),
     ] {
@@ -334,7 +353,6 @@ fn platinum_controls_have_dense_classic_interaction_states() {
         "radio:checked",
         "entry:focus",
         "row:selected",
-        ".slopos-dock-container",
         ".slopos-alert-box",
         ".slopos-control-panel",
         "tooltip",
@@ -429,7 +447,6 @@ fn event_driven_architecture_replaces_periodic_subprocess_polling() {
 #[test]
 fn multi_monitor_and_coordinate_mapping_supports_hidpi_and_non_zero_origins() {
     let monitors = include_str!("../src/x11/monitors.rs");
-    let dock = include_str!("../src/dock.rs");
     let topbar = include_str!("../src/topbar.rs");
 
     assert!(monitors.contains("pub fn gdk_x"));
@@ -439,8 +456,6 @@ fn multi_monitor_and_coordinate_mapping_supports_hidpi_and_non_zero_origins() {
     assert!(monitors.contains("pub fn root_left"));
     assert!(monitors.contains("pub fn root_bottom"));
 
-    assert!(dock.contains("primary.gdk_x()"));
-    assert!(dock.contains("primary.gdk_y()"));
     assert!(topbar.contains("primary.gdk_x()"));
     assert!(topbar.contains("primary.gdk_width()"));
 }
