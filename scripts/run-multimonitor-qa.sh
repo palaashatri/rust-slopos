@@ -55,108 +55,15 @@ pgrep -x openbox >/dev/null
 pgrep -x slopos-shell >/dev/null
 
 for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Top Bar
+  if xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null 2>&1; then
     break
   fi
   sleep 0.25
 done
 
-TOP_BAR_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Top Bar
-# Check Top Bar width spans the multi-monitor display
-TOP_BAR_GEO="$(xdotool getwindowgeometry --shell "$TOP_BAR_WIN")"
-TOP_BAR_WIDTH="$(awk -F= '/^WIDTH=/{print $2}' <<<"$TOP_BAR_GEO")"
-echo "Top Bar Width on 3840x1080: $TOP_BAR_WIDTH"
-test "$TOP_BAR_WIDTH" -eq 3840 || test "$TOP_BAR_WIDTH" -ge 1920
-
-echo "=== [3/3] Testing Search placement & window moving across virtual outputs ==="
-pkill -USR1 -x slopos-shell
-for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then break; fi
-  sleep 0.1
-done
-SEARCH_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Search$' | tail -n 1)"
-test -n "$SEARCH_WIN"
-
-SEARCH_GEO="$(xdotool getwindowgeometry --shell "$SEARCH_WIN")"
-SEARCH_X="$(awk -F= '/^X=/{print $2}' <<<"$SEARCH_GEO")"
-SEARCH_Y="$(awk -F= '/^Y=/{print $2}' <<<"$SEARCH_GEO")"
-echo "Search Position: ($SEARCH_X, $SEARCH_Y)"
-test "$SEARCH_X" -ge 0
-test "$SEARCH_Y" -ge 0
-xdotool key Escape
-
-echo "MULTIMONITOR_QA_STATUS_0"
-echo "SLOPOS-I Multi-Monitor Geometry QA: PASS"
- >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.25
-done
-
-TOP_BAR_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Top Bar$' | tail -n 1)"
-STRIP_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Application Strip$' | tail -n 1)"
-
-# Check Top Bar width spans the multi-monitor display
-TOP_BAR_GEO="$(xdotool getwindowgeometry --shell "$TOP_BAR_WIN")"
-TOP_BAR_WIDTH="$(awk -F= '/^WIDTH=/{print $2}' <<<"$TOP_BAR_GEO")"
-echo "Top Bar Width on 3840x1080: $TOP_BAR_WIDTH"
-test "$TOP_BAR_WIDTH" -eq 3840 || test "$TOP_BAR_WIDTH" -ge 1920
-
-echo "=== [3/3] Testing Search placement & window moving across virtual outputs ==="
-pkill -USR1 -x slopos-shell
-for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then break; fi
-  sleep 0.1
-done
-SEARCH_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Search$' | tail -n 1)"
-test -n "$SEARCH_WIN"
-
-SEARCH_GEO="$(xdotool getwindowgeometry --shell "$SEARCH_WIN")"
-SEARCH_X="$(awk -F= '/^X=/{print $2}' <<<"$SEARCH_GEO")"
-SEARCH_Y="$(awk -F= '/^Y=/{print $2}' <<<"$SEARCH_GEO")"
-echo "Search Position: ($SEARCH_X, $SEARCH_Y)"
-test "$SEARCH_X" -ge 0
-test "$SEARCH_Y" -ge 0
-xdotool key Escape
-
-echo "MULTIMONITOR_QA_STATUS_0"
-echo "SLOPOS-I Multi-Monitor Geometry QA: PASS"
- | tail -n 1)"
+TOP_BAR_WIN="$(xdotool search --onlyvisible --name "^SLOPOS Top Bar$" | tail -n 1)"
 test -n "$TOP_BAR_WIN"
-! xdotool search --onlyvisible --name '^SLOPOS Application Strip
-# Check Top Bar width spans the multi-monitor display
-TOP_BAR_GEO="$(xdotool getwindowgeometry --shell "$TOP_BAR_WIN")"
-TOP_BAR_WIDTH="$(awk -F= '/^WIDTH=/{print $2}' <<<"$TOP_BAR_GEO")"
-echo "Top Bar Width on 3840x1080: $TOP_BAR_WIDTH"
-test "$TOP_BAR_WIDTH" -eq 3840 || test "$TOP_BAR_WIDTH" -ge 1920
-
-echo "=== [3/3] Testing Search placement & window moving across virtual outputs ==="
-pkill -USR1 -x slopos-shell
-for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then break; fi
-  sleep 0.1
-done
-SEARCH_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Search$' | tail -n 1)"
-test -n "$SEARCH_WIN"
-
-SEARCH_GEO="$(xdotool getwindowgeometry --shell "$SEARCH_WIN")"
-SEARCH_X="$(awk -F= '/^X=/{print $2}' <<<"$SEARCH_GEO")"
-SEARCH_Y="$(awk -F= '/^Y=/{print $2}' <<<"$SEARCH_GEO")"
-echo "Search Position: ($SEARCH_X, $SEARCH_Y)"
-test "$SEARCH_X" -ge 0
-test "$SEARCH_Y" -ge 0
-xdotool key Escape
-
-echo "MULTIMONITOR_QA_STATUS_0"
-echo "SLOPOS-I Multi-Monitor Geometry QA: PASS"
- >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.25
-done
-
-TOP_BAR_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Top Bar$' | tail -n 1)"
-STRIP_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Application Strip$' | tail -n 1)"
+! xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1
 
 # Check Top Bar width spans the multi-monitor display
 TOP_BAR_GEO="$(xdotool getwindowgeometry --shell "$TOP_BAR_WIN")"
@@ -167,71 +74,10 @@ test "$TOP_BAR_WIDTH" -eq 3840 || test "$TOP_BAR_WIDTH" -ge 1920
 echo "=== [3/3] Testing Search placement & window moving across virtual outputs ==="
 pkill -USR1 -x slopos-shell
 for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then break; fi
+  if xdotool search --onlyvisible --name "^SLOPOS Search$" >/dev/null 2>&1; then break; fi
   sleep 0.1
 done
-SEARCH_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Search$' | tail -n 1)"
-test -n "$SEARCH_WIN"
-
-SEARCH_GEO="$(xdotool getwindowgeometry --shell "$SEARCH_WIN")"
-SEARCH_X="$(awk -F= '/^X=/{print $2}' <<<"$SEARCH_GEO")"
-SEARCH_Y="$(awk -F= '/^Y=/{print $2}' <<<"$SEARCH_GEO")"
-echo "Search Position: ($SEARCH_X, $SEARCH_Y)"
-test "$SEARCH_X" -ge 0
-test "$SEARCH_Y" -ge 0
-xdotool key Escape
-
-echo "MULTIMONITOR_QA_STATUS_0"
-echo "SLOPOS-I Multi-Monitor Geometry QA: PASS"
- >/dev/null 2>&1
-
-# Check Top Bar width spans the multi-monitor display
-TOP_BAR_GEO="$(xdotool getwindowgeometry --shell "$TOP_BAR_WIN")"
-TOP_BAR_WIDTH="$(awk -F= '/^WIDTH=/{print $2}' <<<"$TOP_BAR_GEO")"
-echo "Top Bar Width on 3840x1080: $TOP_BAR_WIDTH"
-test "$TOP_BAR_WIDTH" -eq 3840 || test "$TOP_BAR_WIDTH" -ge 1920
-
-echo "=== [3/3] Testing Search placement & window moving across virtual outputs ==="
-pkill -USR1 -x slopos-shell
-for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then break; fi
-  sleep 0.1
-done
-SEARCH_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Search$' | tail -n 1)"
-test -n "$SEARCH_WIN"
-
-SEARCH_GEO="$(xdotool getwindowgeometry --shell "$SEARCH_WIN")"
-SEARCH_X="$(awk -F= '/^X=/{print $2}' <<<"$SEARCH_GEO")"
-SEARCH_Y="$(awk -F= '/^Y=/{print $2}' <<<"$SEARCH_GEO")"
-echo "Search Position: ($SEARCH_X, $SEARCH_Y)"
-test "$SEARCH_X" -ge 0
-test "$SEARCH_Y" -ge 0
-xdotool key Escape
-
-echo "MULTIMONITOR_QA_STATUS_0"
-echo "SLOPOS-I Multi-Monitor Geometry QA: PASS"
- >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.25
-done
-
-TOP_BAR_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Top Bar$' | tail -n 1)"
-STRIP_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Application Strip$' | tail -n 1)"
-
-# Check Top Bar width spans the multi-monitor display
-TOP_BAR_GEO="$(xdotool getwindowgeometry --shell "$TOP_BAR_WIN")"
-TOP_BAR_WIDTH="$(awk -F= '/^WIDTH=/{print $2}' <<<"$TOP_BAR_GEO")"
-echo "Top Bar Width on 3840x1080: $TOP_BAR_WIDTH"
-test "$TOP_BAR_WIDTH" -eq 3840 || test "$TOP_BAR_WIDTH" -ge 1920
-
-echo "=== [3/3] Testing Search placement & window moving across virtual outputs ==="
-pkill -USR1 -x slopos-shell
-for _ in $(seq 1 40); do
-  if xdotool search --onlyvisible --name '^SLOPOS Search$' >/dev/null 2>&1; then break; fi
-  sleep 0.1
-done
-SEARCH_WIN="$(xdotool search --onlyvisible --name '^SLOPOS Search$' | tail -n 1)"
+SEARCH_WIN="$(xdotool search --onlyvisible --name "^SLOPOS Search$" | tail -n 1)"
 test -n "$SEARCH_WIN"
 
 SEARCH_GEO="$(xdotool getwindowgeometry --shell "$SEARCH_WIN")"
