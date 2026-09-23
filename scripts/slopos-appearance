@@ -151,9 +151,6 @@ for ob_theme in slopos-openbox slopos-openbox-classic slopos-openbox-graphite sl
     "/usr/share/themes/$ob_theme/openbox-3"; do
     if [[ -d "$cand_dir" && -f "$cand_dir/themerc" ]]; then
       cp -a "$cand_dir"/. "$target/" 2>/dev/null || true
-      if mkdir -p "/usr/share/themes/$ob_theme/openbox-3" 2>/dev/null; then
-        cp -a "$cand_dir"/. "/usr/share/themes/$ob_theme/openbox-3/" 2>/dev/null || true
-      fi
       break
     fi
   done
@@ -202,8 +199,8 @@ if [[ "$mode" == "platinum" && ! -s "$slopos_config/wallpaper" ]]; then
       default_wallpaper="$(cd "$(dirname "$default_wallpaper")" && pwd)/$(basename "$default_wallpaper")"
       printf '%s\n' "$default_wallpaper" > "$slopos_config/wallpaper"
       printf 'fill\n' > "$slopos_config/wallpaper_mode"
-      if command -v feh >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
-        feh --bg-fill "$default_wallpaper" >/dev/null 2>&1 || true
+      if command -v slopos-wallpaper >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
+        slopos-wallpaper set "$default_wallpaper" --mode fill >/dev/null 2>&1 || true
       fi
       break
     fi
@@ -214,10 +211,10 @@ if command -v xsetroot >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
   xsetroot -solid "$root_color" >/dev/null 2>&1 || true
 fi
 
-if [[ "$mode" == "platinum" && -r "$slopos_config/wallpaper" && -n "${DISPLAY:-}" ]] && command -v feh >/dev/null 2>&1; then
+if [[ "$mode" == "platinum" && -r "$slopos_config/wallpaper" && -n "${DISPLAY:-}" ]] && command -v slopos-wallpaper >/dev/null 2>&1; then
   active_wallpaper="$(tr -d '\r\n' < "$slopos_config/wallpaper")"
   if [[ -f "$active_wallpaper" ]]; then
-    feh --bg-fill "$active_wallpaper" >/dev/null 2>&1 || true
+    slopos-wallpaper set "$active_wallpaper" --mode fill >/dev/null 2>&1 || true
   fi
 fi
 
