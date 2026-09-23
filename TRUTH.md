@@ -1,9 +1,11 @@
 # TRUTH.md — SLOPOS-I Audit & Readiness Ledger
 
-**Current work branch:** `chatgpt/classic-ui-parity`  
-**Implementation baseline audited:** `5dffc5680a7e5d61e7028f950c987f313c772f19`  
+**Integration target:** `main`  
+**Integration branch:** `chatgpt/integrate-classic-ui`  
+**Main baseline before integration:** `a86d0e5599a3ceaf312b38cd81dfcbd7e3bb8f1f`  
+**Classic source snapshot:** `1feaad9ad3e4ad75c6687bbd6d0ff346954a3536`  
 **Visual contract:** `AGENTS.md` + `qa/reference/slopos-classic-reference.svg` + `qa/reference/slopos-classic-reference.json`  
-**Audit date:** 2026-08-27  
+**Audit date:** 2026-09-23  
 **Evidence-backed readiness:** **UNSCORED pending full re-audit against the current contract**  
 **Release status:** **NOT RELEASE READY**
 
@@ -13,9 +15,9 @@
 
 The previous `100/100` release-ready claim is invalid for the current tree and has been retired.
 
-The classic-UI branch has made meaningful progress toward the new canonical desktop target: the bottom dock/Application Strip is removed from the runtime composition, the global top bar and Openbox chrome have moved toward compact platinum styling, desktop objects are present, and Settings has been changed toward a Control Panels-style icon surface.
+The Classic UI implementation has been ported onto the current `main` baseline while retaining the newer Cargo/dependency state. The integration intentionally restores the dockless X11/Openbox desktop, compact Platinum Classic chrome, SLOPOS-isolated PCManFM desktop objects, Control Panels-style Settings, and the canonical visual QA contract.
 
-However, the branch has **not yet passed the new canonical vision review**, and the current CI set contains known failures/noise. Therefore no visual-parity score, release-ready score, or `100/100` claim is valid at this point.
+This integration must still pass current CI and fresh composed-session visual review before it can be treated as validated. Therefore no visual-parity score, release-ready score, or `100/100` claim is valid at this point.
 
 ## Canonical visual target
 
@@ -77,9 +79,9 @@ The score remains **UNSCORED** until the required scenes exist and a vision-capa
 
 A visual PASS requires at least **85/100**, no critical failure, window chrome at least **15/20**, and non-goal compliance at least **13/15**.
 
-## What is already materially improved on the classic branch
+## Material behavior carried into the main integration
 
-The following observations are supported by the current implementation history and earlier composed-session screenshots, but they are **not substitutes for the new canonical visual review**:
+The following behaviors are present in the integrated source snapshot, but they are **not substitutes for current execution and visual evidence**:
 
 - the bottom Application Strip has been removed from the runtime desktop;
 - the bottom reserved work area has been removed;
@@ -105,10 +107,10 @@ These are current blockers to a canonical visual PASS:
 
 The Actions page is noisy because routine pushes trigger too many independent jobs and matrices. Many jobs are green, but the number of routine jobs makes the repository look less healthy than the actual failure count warrants.
 
-### Known current failures from the latest audited run
+### Inherited issues requiring re-validation
 
-1. **Settings delegation QA is stale.** The QA script still assumes panels such as Sound remain delegated/unavailable under the old model. Current Settings exposes built-in or changed panel behavior, so the test reports `unavailable delegated panel is still enabled: Sound settings`.
-2. **Rust formatting check is stale against recent Settings edits.** Build/tests/Clippy reached green in the audited run, while `cargo fmt --check` still needs the current tree formatted.
+1. **Settings delegation QA was stale on the source branch and must be re-run/fixed if still failing.** The QA script still assumes panels such as Sound remain delegated/unavailable under the old model. Current Settings exposes built-in or changed panel behavior, so the test reports `unavailable delegated panel is still enabled: Sound settings`.
+2. **Rust formatting previously needed cleanup after Settings edits and must be re-run on the integrated tree.** Build/tests/Clippy reached green in the audited run, while `cargo fmt --check` still needs the current tree formatted.
 3. **Some QA jobs install an excessively broad desktop stack** for narrow checks, increasing runtime and failure surface without increasing signal.
 4. **Routine CI is over-matrixed.** Full resolution, packaging, ISO, installed-VM, hardware-contract, and recovery-style lanes should not all behave as mandatory per-push development checks.
 
