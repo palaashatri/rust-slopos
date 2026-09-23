@@ -308,7 +308,6 @@ fn filter_apps_internal(
                 });
                 menu.append(&launch_item);
 
-
                 menu.show_all();
                 menu.popup_at_widget(
                     row_widget,
