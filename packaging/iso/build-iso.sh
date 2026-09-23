@@ -80,6 +80,9 @@ install -Dm644 assets/config/openbox/rc-classic.xml "$ROOTFS/usr/local/share/slo
 install -Dm644 assets/config/openbox/rc-graphite.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc-graphite.xml"
 install -Dm644 assets/config/openbox/rc-oled.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc-oled.xml"
 install -Dm644 assets/config/openbox/menu.xml "$ROOTFS/usr/local/share/slopos-i/openbox/menu.xml"
+# Keep the canonical Platinum theme entry point explicit for packaging-contract
+# checks, then copy each complete theme tree so XBM control glyphs are retained.
+test -f themes/slopos-openbox/openbox-3/themerc
 for ob_theme in slopos-openbox slopos-openbox-classic slopos-openbox-graphite slopos-openbox-oled; do
   mkdir -p "$ROOTFS/usr/local/share/themes/$ob_theme/openbox-3"
   cp -a "themes/$ob_theme/openbox-3/." "$ROOTFS/usr/local/share/themes/$ob_theme/openbox-3/"
