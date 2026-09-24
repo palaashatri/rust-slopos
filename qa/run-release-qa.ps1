@@ -180,7 +180,6 @@ cp -a packaging/arch/PKGBUILD /tmp/arch-pkg-build/
   cp -a packaging/browser/firefox "`$pkgdir/usr/share/slopos-i/browser/firefox"
   install -Dm644 README.md "`$pkgdir/usr/share/doc/slopos-i/README.md"
   install -Dm644 AGENTS.md "`$pkgdir/usr/share/doc/slopos-i/AGENTS.md"
-  install -Dm644 TRUTH.md "`$pkgdir/usr/share/doc/slopos-i/TRUTH.md"
   install -Dm644 THIRD_PARTY_LICENSES.txt "`$pkgdir/usr/share/doc/slopos-i/THIRD_PARTY_LICENSES.txt"
 
   # Generate .PKGINFO
