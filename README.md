@@ -34,7 +34,7 @@ Known current gaps include:
 - canonical About and accessory utility surfaces are still missing;
 - current build/runtime/visual evidence must be regenerated in a compliant Linux VM.
 
-See [TRUTH.md](TRUTH.md) for the current evidence-backed audit.
+See [AGENTS.md](AGENTS.md#part-ii--current-audit-and-evidence-ledger) for the current evidence-backed audit and blocker ledger.
 
 ## Canonical design direction
 
@@ -157,8 +157,7 @@ Repository-generation infrastructure may exist in source, but public package-man
 
 ## Useful project documents
 
-- [AGENTS.md](AGENTS.md) — normative engineering/product contract.
-- [TRUTH.md](TRUTH.md) — current audit, evidence and blockers.
+- [AGENTS.md](AGENTS.md) — single project-wide source of truth: engineering contract, architecture, plans, audit evidence and blockers.
 - [packaging/browser/README.md](packaging/browser/README.md) — scoped upstream browser integration.
 - [packaging/repo/README.md](packaging/repo/README.md) — current package-repository status and future publication contract.
 

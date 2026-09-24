@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SLOPOS-I release evidence runner.
 # This script executes objective gates and records their results. It does not
-# assign product-readiness or visual scores to itself; TRUTH.md owns that audit.
+# assign product-readiness or visual scores to itself; AGENTS.md Part II owns that audit.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
