@@ -244,4 +244,4 @@ for image in "${images[@]}"; do
 done
 
 echo "[6/6] Build complete"
-echo "NOTE: an ISO build is not an installation/boot acceptance result. Boot it in QEMU or real hardware before updating TRUTH.md."
+echo "NOTE: an ISO build is not an installation/boot acceptance result. Boot it in QEMU or real hardware before updating the audit ledger in AGENTS.md Part II."

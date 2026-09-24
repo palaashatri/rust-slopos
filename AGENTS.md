@@ -5,11 +5,19 @@
 **Primary branch:** `main`  
 **Execution target:** Linux/X11 only  
 **Canonical visual reference:** Classic Macintosh UI Kit (Community), Figma file `LGMlwNCoVdakZxDBvPKg1W`, root node `0:1`  
-**Readiness ledger:** `TRUTH.md`
+**Current audit/evidence ledger:** embedded in Part II of this file
 
-This file is the authoritative engineering and product contract for SLOPOS-I.
+This file is the single authoritative project-wide engineering, planning, audit, and evidence document for SLOPOS-I.
 
-`TRUTH.md` records what is actually proven on the current tree. `README.md` is user-facing documentation. When old screenshots, old QA reports, stale branches, comments, generated assets, model assumptions, historical plans, or earlier completion claims disagree with this file, this file wins.
+Project-wide architecture, plans, audit findings, readiness state, blockers, QA evidence, and agent instructions belong here. Do **not** create separate project-wide Markdown plans, truth ledgers, roadmaps, audit reports, status files, or design documents.
+
+The only Markdown files permitted outside this file are:
+- the root `README.md`;
+- scoped project/subproject `README.md` files whose purpose is user/developer orientation for that directory.
+
+A scoped README must not redefine project architecture, readiness, roadmap, or source-of-truth rules. Those belong here.
+
+When old screenshots, old QA reports, stale branches, comments, generated assets, model assumptions, historical plans, or earlier completion claims disagree with this file, this file wins.
 
 SLOPOS-I is not complete because an agent says it is complete. Completion is established only by current evidence tied to the exact source revision.
 
@@ -2505,22 +2513,58 @@ A required feature may be removed only through an explicit product-contract chan
 
 ---
 
-# 34. Documentation truth
+# 34. Documentation and single-source truth
 
-`README.md` describes only user-visible behavior that exists.
+`AGENTS.md` is the single project-wide source of truth.
 
-`TRUTH.md` must:
+It contains both:
+- **Part I — normative engineering/product contract**: what SLOPOS must become and the rules agents must follow;
+- **Part II — current audit/evidence ledger**: what is actually true on the present tree.
 
-- identify the exact audited commit;
-- distinguish static evidence from VM execution, CI and visual evidence;
-- list known fake/placeholder behavior;
-- list visual deviations;
-- list blockers;
-- record VM/hypervisor environment for executed evidence;
-- record disk-space observations for heavy QA;
-- never preserve a score from another revision.
+`README.md` describes only user-visible behavior that exists and links back to this file for architecture/readiness details.
 
-Historical QA that conflicts with this contract should be removed or clearly archived as non-normative.
+Scoped subproject `README.md` files may document:
+- how to build/use that subproject;
+- its public API;
+- directory-local developer orientation;
+- narrowly scoped operational instructions.
+
+They must not contain competing:
+- product roadmaps;
+- readiness scores;
+- audit ledgers;
+- architectural authority;
+- global design specifications;
+- release claims.
+
+Do not create new Markdown files such as:
+- `TRUTH.md`;
+- `ROADMAP.md`;
+- `PLAN.md`;
+- `STATUS.md`;
+- `AUDIT.md`;
+- `DESIGN.md`;
+- `ARCHITECTURE.md`;
+- dated QA/evidence Markdown reports.
+
+Put that information into the appropriate section of this file instead.
+
+When a task materially changes implementation truth, the same change set should update **Part II** with:
+- exact audited commit/revision;
+- static evidence;
+- VM-executed evidence;
+- CI evidence;
+- visual evidence;
+- known fake/placeholder behavior;
+- visual deviations;
+- blockers;
+- VM/hypervisor environment;
+- relevant disk-space observations;
+- claims that are and are not currently justified.
+
+Never preserve a score or PASS state from another revision without fresh evidence.
+
+Historical conflicting Markdown should be removed rather than retained as noise. Git history is the archive.
 
 ---
 
@@ -2652,3 +2696,422 @@ The only valid terminal states for a full autonomous completion task are:
 - `BLOCKED` — all possible work is complete, but a precisely identified external dependency prevents a remaining required gate.
 
 There is no "close enough" completion state.
+
+
+---
+
+# Part II — Current Audit and Evidence Ledger
+
+This part is descriptive, not aspirational. It records what is actually known about the current implementation and must be updated as implementation evidence changes.
+
+## A. Audit identity
+
+**Ledger refresh date:** 2026-09-25  
+**Current main revision at consolidation start:** `19ad06b4a77c9b092f6886b5502e15f8fdc27129`  
+**Last production-code baseline statically audited:** `a39dc523526dde0d02736ac29134c6af2cd63d3b`  
+**Intervening PRs #11 and #12:** documentation/reference-contract changes only; the production-code findings below therefore still apply unless later code commits supersede them.  
+**Audit type represented here:** static source audit plus Figma metadata inspection.  
+**Fresh compliant Linux-VM build/runtime evidence:** none yet.  
+**Production readiness:** NOT PROVEN.  
+**Completion state:** NOT COMPLETE.
+
+No SLOPOS code was compiled or executed while producing the documentation/consolidation audit because Part I requires all local project execution to occur inside a compliant Linux VM.
+
+## B. Current implementation shape
+
+The current Cargo workspace still contains the legacy first-party crates:
+
+- `crates/slopos-session`;
+- `crates/slopos-shell`;
+- `crates/slopos-catalogue`;
+- `crates/slopos-settings`.
+
+The target platform crates and native-app structure defined in Part I, including `slopos-ui`, `slopos-appkit`, `slopos-core`, `slopos-services`, `slopos-x11`, and the `apps/` suite, are not yet implemented as the final architecture.
+
+The current Rust GTK stack is GTK3-era:
+
+- `gtk = 0.18`;
+- `gdk = 0.18`;
+- `glib = 0.18`;
+- `gio = 0.18`;
+- `gdk-pixbuf = 0.18`;
+- `pango = 0.18`.
+
+X11 integration uses `x11rb`.
+
+The current runtime architecture is still broadly:
+
+```text
+Linux services
+  ↓
+X11
+  ↓
+Openbox
+  ↓
+slopos-session
+  ↓
+slopos-shell
+  ├─ global menu/system bar
+  ├─ launcher/search
+  ├─ notifications
+  └─ desktop integration
+  ↓
+slopos-settings / slopos-catalogue / third-party X11 apps
+```
+
+This remains an acceptable migration base, but it is not the final first-party application/UI architecture specified in Part I.
+
+## C. Design-system truth
+
+The Figma Classic Macintosh UI Kit is now the visual/component authority.
+
+The existing files under `qa/reference/` are legacy/non-normative composition references.
+
+A complete Figma-derived machine-readable specification under `qa/spec/classic/` does not yet exist.
+
+Therefore:
+
+- exact atom inventory: NOT COMPLETE;
+- canonical token extraction: NOT COMPLETE;
+- canonical component state matrix: NOT COMPLETE;
+- `slopos-ui`: NOT IMPLEMENTED as the required final component platform;
+- `slopos-ui-gallery`: NOT IMPLEMENTED;
+- atomic visual conformance: NOT PROVEN.
+
+## D. Visual audit findings
+
+### D.1 Current GTK styling is internally mixed
+
+The current CSS still contains modern styling inconsistent with the strict Figma-derived Classic contract, including observed examples such as:
+
+- approximately 26 px top-bar minimum height rather than the observed 19 px Figma menu-bar example;
+- generic buttons with rounded corners;
+- rounded menus/popovers;
+- large soft shadows;
+- rounded launcher/search surfaces;
+- rounded notifications/alerts;
+- tooltip rounding;
+- legacy card-like control-panel styling.
+
+Some later rules moved toward harder-edged classic controls, but the stylesheet is not yet generated from one canonical token/component system.
+
+**Current canonical visual conformance:** FAIL / reconstruction required.
+
+### D.2 Window chrome
+
+Openbox currently has classic-oriented theme rules with:
+
+- compact borders;
+- interlaced/striped active-title treatment;
+- active/inactive distinction;
+- square title buttons.
+
+This is directionally useful but has not been measured against the Figma title-bar specification.
+
+**Exact window-chrome conformance:** UNKNOWN.
+
+### D.3 Top global menu bar
+
+A full-width top bar exists and the bottom Application Strip has been retired.
+
+However:
+
+- geometry is not yet driven by the Figma-derived specification;
+- presentation and service/action logic are heavily mixed;
+- the top bar still contains fake network state described below.
+
+**Presence:** statically present.  
+**Canonical conformance:** NOT PROVEN.
+
+### D.4 File browsing
+
+PCManFM remains the current file-browser/desktop integration path.
+
+The source audit found no evidence that it can currently achieve the required first-party Files visual/interaction contract.
+
+**Functional baseline:** delegated.  
+**Final first-party Files requirement:** NOT IMPLEMENTED.  
+**Canonical visual conformance:** NOT PROVEN.
+
+### D.5 Control Panels
+
+The current Settings shell has moved toward a Control Panels icon-grid direction, but:
+
+- it is still composed directly from GTK widgets;
+- several panels delegate to external utilities;
+- several native panels contain fake or disconnected state;
+- geometry is not produced by `slopos-ui`.
+
+**Direction:** useful migration donor.  
+**Final Control Panels architecture:** NOT IMPLEMENTED.  
+**Functional truth:** contains release-blocking fake/partial state.
+
+### D.6 Missing native proof surfaces
+
+The final architecture requires native proof applications and canonical utility surfaces.
+
+Current status:
+
+- SLOPOS Calculator: MISSING;
+- proper first-party System Information/About application: MISSING;
+- `slopos-ui` UI Gallery: MISSING.
+
+A basic message dialog is not equivalent to the required System Information/About application.
+
+## E. Functional audit findings
+
+### E.1 Network Settings contains fabricated production state
+
+`crates/slopos-settings/src/panels/network.rs` currently hard-codes example data such as:
+
+- `eth0`;
+- `1000 Mbps Full Duplex`;
+- `192.168.1.100`;
+- `192.168.1.1`;
+- `SLOPOS-Fast-5G`;
+- `Home-Network-Guest`;
+- `CoffeeShop_Free_WiFi`.
+
+The Wi-Fi switch and Connect controls are not fully backed by real NetworkManager actions.
+
+**Status:** FAIL.
+
+Required remediation is defined in Part I: typed real NetworkManager state/actions or a truthful unavailable state.
+
+### E.2 Top-bar network menu fabricates state
+
+The current top-bar implementation contains static Ethernet/Wi-Fi status labels including example interface/network names.
+
+**Status:** FAIL.
+
+### E.3 Sound Settings is only partially connected to real state
+
+The current Sound panel constructs sample device choices and sample initial levels.
+
+Output volume/mute may invoke `pactl` or `amixer`, but the audited implementation does not fully prove:
+
+- real initial device enumeration;
+- selected output-device application;
+- real microphone level;
+- real microphone mute;
+- complete read-back.
+
+**Status:** FAIL / incomplete.
+
+### E.4 Date & Time is not fully evidence-backed
+
+The panel contains `timedatectl` write paths, but the audit did not establish correct real-state initialization and read-back for all displayed values.
+
+**Status:** UNKNOWN / incomplete.
+
+### E.5 Generic fallback global-menu actions are not truthful
+
+The top bar contains fallback Edit actions that synthesize `Ctrl+X`, `Ctrl+C`, `Ctrl+V`, and `Ctrl+A` through `xdotool`.
+
+This is not a real application action model and violates Part I.
+
+**Status:** FAIL.
+
+### E.6 Global-menu implementation is duplicated
+
+The audited tree contains both:
+
+- `crates/slopos-shell/src/gmenu.rs`;
+- `crates/slopos-shell/src/menu/gmenu.rs`.
+
+They overlap in GTK remote-menu bridging.
+
+**Status:** FAIL / consolidation required.
+
+### E.7 Top-bar module is mixed-responsibility
+
+The audited `topbar.rs` is a large module combining presentation, application menus, service status, dialogs, process spawning, session actions, and fallback app commands.
+
+This conflicts with the target separation into `slopos-ui`, `slopos-appkit`, `slopos-services`, and shell presentation.
+
+**Status:** migration/refactor required.
+
+## F. Session and X11 truth
+
+Static source shows:
+
+- session supervision;
+- bounded restart/backoff behavior;
+- Openbox supervision;
+- shell supervision;
+- X11 event integration;
+- EWMH helpers;
+- monitor/RandR modeling;
+- window-state helpers.
+
+The architecture is directionally appropriate for the X11 generation.
+
+No fresh compliant-VM runtime pass is recorded in this ledger.
+
+**Static direction:** acceptable.  
+**Current runtime reliability:** UNKNOWN.
+
+## G. QA truth
+
+The repository contains substantial QA infrastructure, including:
+
+- workspace tests;
+- Xvfb/Openbox smoke;
+- AT-SPI checks;
+- resolution QA;
+- packaging QA;
+- installed-VM/media tooling;
+- screenshot capture.
+
+However the current QA stack does not yet prove the new atomic component contract.
+
+Existing whole-desktop screenshot capture does not by itself prove:
+
+- exact component geometry;
+- all widget states;
+- pointer state machines;
+- text baselines;
+- hit rectangles;
+- accessibility per component;
+- system-effect truth;
+- first-party application architecture;
+- Figma-derived conformance.
+
+Xvfb remains useful only as a secondary deterministic layer inside the Linux VM. Primary visual acceptance must come from the graphical Linux VM as required by Part I.
+
+**Fresh current-revision VM QA:** MISSING.  
+**Fresh current-revision graphical visual QA:** MISSING.  
+**Atomic conformance harness:** MISSING.
+
+## H. Documentation consolidation truth
+
+Project-wide Markdown has now been intentionally consolidated.
+
+Allowed Markdown sources of ongoing truth are:
+
+- `AGENTS.md` — all project-wide architecture, plans, audit/evidence, blockers and agent instructions;
+- root/subproject `README.md` files — scoped orientation and usage only.
+
+The former standalone `TRUTH.md` is obsolete after this consolidation and must not be recreated.
+
+Old dated QA ledgers were already removed. Git history is the archive.
+
+## I. Current subsystem ledger
+
+| Area | Current state |
+|---|---|
+| X11-only product direction | PASS as contract |
+| Openbox migration base | present |
+| Session supervision/backoff | present statically; runtime revalidation required |
+| Bottom Application Strip | retired |
+| Figma-derived machine spec | MISSING |
+| `slopos-ui` | MISSING |
+| `slopos-ui-gallery` | MISSING |
+| `slopos-appkit` | MISSING |
+| architecture boundary enforcement | MISSING |
+| top-bar exact geometry | NOT PROVEN |
+| window-chrome exact parity | UNKNOWN |
+| protocol-backed GTK menu bridge | partial/present |
+| duplicate global-menu code | FAIL |
+| fake generic Edit fallback | FAIL |
+| launcher | legacy implementation present; VM revalidation required |
+| notifications | legacy implementation present; VM revalidation required |
+| Control Panels | migration donor only |
+| Network Control Panel | FAIL — fake state |
+| Sound Control Panel | FAIL — partial/fake state |
+| Date & Time | UNKNOWN/PARTIAL |
+| Bluetooth | delegated/UNKNOWN |
+| Power | delegated/UNKNOWN |
+| Displays | delegated/UNKNOWN |
+| native Files | MISSING |
+| native Terminal | MISSING |
+| native Notes | MISSING |
+| native Calculator | MISSING |
+| native System Information/About | MISSING |
+| Software | legacy catalogue present; migration/revalidation required |
+| System Monitor | MISSING |
+| Screenshot/Recorder | MISSING as final native app |
+| Image Viewer | MISSING as final native app |
+| Archive Utility | MISSING |
+| Disks | MISSING |
+| Fonts | MISSING |
+| Help | MISSING |
+| Media | MISSING |
+| Documents | MISSING |
+| Polkit agent | NOT PROVEN as first-party target |
+| first-party file chooser | MISSING |
+| current graphical VM visual QA | MISSING |
+| public official APT/Pacman repository | NOT PUBLISHED |
+| release-ready package/media evidence | NOT CURRENT |
+
+## J. Current blocking set
+
+The current release/completion blockers include:
+
+1. Figma-derived machine-readable design specification does not exist.
+2. `slopos-ui` does not exist as the mandatory first-party component library.
+3. UI Gallery and atom/state conformance harness do not exist.
+4. First-party applications still rely on the legacy GTK-heavy architecture.
+5. Current styling contains modern rounded/shadow/card drift.
+6. Network Settings contains fabricated production state.
+7. Top-bar network status contains fabricated production state.
+8. Sound Settings contains fabricated/partially disconnected state.
+9. Date/time real-state/read-back is not proven.
+10. Generic `xdotool` application Edit fallbacks misrepresent application capabilities.
+11. Global-menu bridge code is duplicated.
+12. Native Files is not implemented.
+13. Native Control Panels is not implemented on `slopos-ui`.
+14. Native Calculator proof app is missing.
+15. Native System Information/About proof app is missing.
+16. Core daily-use native apps listed in Part I are not yet implemented.
+17. Current-revision build/test evidence has not been produced in a compliant Linux VM.
+18. Current-revision graphical visual QA has not been produced in a compliant Linux VM.
+19. Atomic accessibility/conformance evidence is absent.
+20. Public signed SLOPOS package repositories are not established.
+21. Current release-candidate package/media evidence is absent.
+
+## K. Claims currently justified
+
+The following claims are currently supportable:
+
+- SLOPOS-I is an experimental X11/Linux desktop-environment project.
+- It currently uses Openbox and a GTK3-era Rust stack.
+- It contains a shell, Settings/Control Panels migration donor, Software Catalogue, launcher, notifications, X11 integration and substantial QA/release infrastructure.
+- The project has adopted the Classic Macintosh UI Kit Figma document as its canonical component/geometry reference.
+- The project has committed to building its own first-party `slopos-ui` component system and native application suite.
+- The current tree contains known visual and functional gaps.
+
+The following claims are **not** currently justified:
+
+- production ready;
+- complete daily-use replacement for GNOME/KDE;
+- pixel-perfect Classic Macintosh conformance;
+- all Settings controls are real;
+- all first-party native apps exist;
+- all current CI/VM acceptance is green;
+- public SLOPOS package repositories are live;
+- ARM64/RISC-V are production-supported;
+- current screenshots prove the new component contract.
+
+## L. Audit update protocol
+
+After any implementation tranche that materially changes product truth, update this Part II in the same branch/PR.
+
+At minimum record:
+
+- exact source revision;
+- which findings were closed;
+- newly discovered findings;
+- Linux VM/hypervisor used;
+- guest distribution/version;
+- host free space before heavy work;
+- guest free space before heavy work;
+- fmt/clippy/test results;
+- atomic conformance results;
+- graphical visual-QA evidence;
+- end-to-end journey results;
+- packaging/release evidence where relevant.
+
+Do not create a new audit Markdown file.
+
+If evidence is missing, write `UNKNOWN`, `MISSING`, or `BLOCKED`. Never infer PASS from intent or old evidence.
