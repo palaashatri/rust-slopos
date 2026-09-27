@@ -230,9 +230,9 @@ When requirements disagree, use this order:
 2. the Figma-derived machine-readable SLOPOS design specification;
 3. approved clean-room SLOPOS assets and interaction specifications;
 4. `slopos-ui` component contracts;
-10. implementation;
-11. current VM-generated test and visual evidence;
-12. historical screenshots, historical QA, old branches and old prose.
+5. implementation;
+6. current VM-generated test and visual evidence;
+7. historical screenshots, historical QA, old branches and old prose.
 
 The existing files under `qa/reference/` predate the atomic reset. They may remain as historical composition references while the replacement specification is built, but they must not override Figma-derived geometry or component state rules.
 
@@ -304,7 +304,7 @@ SLOPOS is split into five architectural planes:
 2. **Application plane** — \`slopos-appkit\` and native applications.
 3. **Platform-service plane** — typed providers for network, audio, brightness, power, Bluetooth, displays, storage, printing and session state.
 4. **Shell plane** — menu bar, Dock, applets, OSD, launcher, notifications, desktop and workspaces.
-10. **Session/runtime plane** — X11, Openbox, process supervision, authentication agents and startup/shutdown.
+5. **Session/runtime plane** — X11, Openbox, process supervision, authentication agents and startup/shutdown.
 
 ## 6.1 System architecture
 
@@ -3650,11 +3650,11 @@ The current release/completion blockers include:
 2. `slopos-ui` does not exist as the mandatory first-party component library.
 3. UI Gallery and atom/state conformance harness do not exist.
 4. Required SLOPOS Dock is not implemented.
-10. Provider-backed system applet framework is not implemented.
-11. Non-focus-stealing volume/brightness OSD manager is not implemented.
-12. Shared global shortcut/media-key routing is not implemented.
-13. Shared Brightness and media-session providers are not implemented.
-14. First-party applications still rely on the legacy GTK-heavy architecture.
+5. Provider-backed system applet framework is not implemented.
+6. Non-focus-stealing volume/brightness OSD manager is not implemented.
+7. Shared global shortcut/media-key routing is not implemented.
+8. Shared Brightness and media-session providers are not implemented.
+9. First-party applications still rely on the legacy GTK-heavy architecture.
 10. Current styling contains modern rounded/shadow/card drift.
 11. Network Settings contains fabricated production state.
 12. Top-bar network status contains fabricated production state.
