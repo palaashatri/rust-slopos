@@ -3297,10 +3297,10 @@ This part is descriptive, not aspirational. It records what is actually known ab
 
 ## A. Audit identity
 
-**Ledger refresh date:** 2026-09-25  
-**Current main revision at consolidation start:** `19ad06b4a77c9b092f6886b5502e15f8fdc27129`  
+**Ledger refresh date:** 2026-09-27  
+**Current main revision at this requirements amendment start:** `187bc640a7f8351555f1fe3741afa3c172b0a3c4`  
 **Last production-code baseline statically audited:** `a39dc523526dde0d02736ac29134c6af2cd63d3b`  
-**Intervening PRs #11 and #12:** documentation/reference-contract changes only; the production-code findings below therefore still apply unless later code commits supersede them.  
+**Intervening PRs #11, #12 and #13:** documentation/reference-contract/consolidation changes only; the production-code findings below therefore still apply unless later code commits supersede them.  
 **Audit type represented here:** static source audit plus Figma metadata inspection.  
 **Fresh compliant Linux-VM build/runtime evidence:** none yet.  
 **Production readiness:** NOT PROVEN.  
