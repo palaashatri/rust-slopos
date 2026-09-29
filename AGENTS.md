@@ -52,19 +52,25 @@ The system must feel intentional from login to shutdown:
 - session startup and recovery;
 - desktop composition;
 - windows, focus and workspaces;
-- global application menus;
+- a first-party Dock;
+- a global application menu bar;
+- menu-bar system applets;
+- non-focus-stealing on-screen displays for volume, brightness and related hardware state;
 - application launching and search;
 - file browsing and removable media;
-- network, audio, displays, Bluetooth and power;
+- network, Wi-Fi, VPN, Bluetooth, audio, brightness, displays and power;
 - settings and defaults;
 - clipboard and drag-and-drop;
 - notifications;
 - screenshots and screen recording;
 - file dialogs and application choosers;
+- authentication and session dialogs;
 - accessibility;
 - first-party utilities;
 - normal third-party X11 application compatibility;
 - packaging, installation, upgrade, removal and recovery.
+
+SLOPOS is a desktop environment, not merely a window manager plus themed applications. The Dock, menu bar, applets, OSD layer, notification service, global shortcuts, system providers and native daily-use applications are first-class platform components.
 
 The product must never contain an enabled control that merely looks functional.
 
@@ -184,9 +190,11 @@ SLOPOS-I is:
 - X11-only for this generation;
 - Openbox-based unless an evidence-backed limitation requires another solution;
 - implemented primarily in Rust;
+- built around the first-party \`slopos-ui\` component library and \`slopos-appkit\`;
 - allowed to use GTK3/GDK/Pango/GIO underneath the SLOPOS component system;
 - allowed to use mature engines such as VTE, WebKitGTK, Poppler, libarchive and libmpv where appropriate;
-- allowed to delegate system ownership to NetworkManager, PipeWire/WirePlumber or PulseAudio-compatible APIs, BlueZ, UPower, systemd/logind, udev, CUPS/IPP and XRandR.
+- allowed to delegate system ownership to NetworkManager, PipeWire/WirePlumber or PulseAudio-compatible APIs, BlueZ, UPower, systemd/logind, udev, CUPS/IPP, UDisks2/GIO and XRandR;
+- required to provide a coherent first-party shell including Dock, global menu bar, status applets, OSDs, launcher, notifications, desktop surface and session UI.
 
 ## 3.2 Out of scope
 
@@ -197,7 +205,8 @@ Do not introduce:
 - a custom kernel;
 - a speculative future SLOPOS generation;
 - a general-purpose GUI toolkit unrelated to SLOPOS;
-- a persistent bottom dock or retired Application Strip;
+- the retired legacy Application Strip;
+- a Dock copied from modern macOS or any other vendor;
 - Aqua / modern macOS visual language;
 - GNOME/libadwaita card-heavy design;
 - KDE Breeze design;
@@ -206,6 +215,8 @@ Do not introduce:
 - fake compatibility;
 - fake state;
 - fake application actions.
+
+A proper first-party **SLOPOS Dock is required**. The former "no dock" rule applied to the retired ad-hoc Application Strip and is superseded by this contract.
 
 Wayland work remains paused until the X11 product is mature.
 
@@ -287,23 +298,48 @@ If a reference font cannot legally be redistributed, choose or create a redistri
 
 # 6. High-level architecture
 
+SLOPOS is split into five architectural planes:
+
+1. **Design/UI plane** — canonical spec, \`slopos-ui\`, icons, layout and accessibility.
+2. **Application plane** — \`slopos-appkit\` and native applications.
+3. **Platform-service plane** — typed providers for network, audio, brightness, power, Bluetooth, displays, storage, printing and session state.
+4. **Shell plane** — menu bar, Dock, applets, OSD, launcher, notifications, desktop and workspaces.
+5. **Session/runtime plane** — X11, Openbox, process supervision, authentication agents and startup/shutdown.
+
 ## 6.1 System architecture
 
-```mermaid
+~~~mermaid
 flowchart TB
     F[Figma canonical reference] --> S[qa/spec/classic<br/>machine-readable design spec]
     S --> UI[slopos-ui<br/>first-party component library]
     UI --> AK[slopos-appkit<br/>application framework]
 
-    AK --> APPS[Native SLOPOS applications]
-    UI --> SHELL[slopos-shell]
+    CORE[slopos-core] --> UI
+    CORE --> AK
+    CORE --> X11[slopos-x11]
+    CORE --> SV[slopos-services]
 
-    X11[slopos-x11<br/>X11/EWMH/RandR integration] --> SHELL
+    SV --> APPLETS[slopos-applets<br/>system applet models]
+    SV --> APPS[Native SLOPOS applications]
+    SV --> SHELL[slopos-shell]
+
+    UI --> APPLETS
+    UI --> APPS
+    UI --> SHELL
+    AK --> APPS
+
+    APPLETS --> SHELL
+
+    X11 --> SHELL
     X11 --> AK
 
-    SV[slopos-services<br/>system provider adapters] --> SHELL
-    SV --> APPS
-    SV --> CP[Control Panels]
+    SHELL --> MENUBAR[Global Menu Bar]
+    SHELL --> DOCK[Dock]
+    SHELL --> OSD[OSD Manager]
+    SHELL --> DESKTOP[Desktop]
+    SHELL --> LAUNCHER[Launcher/Search]
+    SHELL --> NOTIFY[Notifications]
+    SHELL --> WORKSPACES[Workspace UI]
 
     SESSION[slopos-session] --> SHELL
     SESSION --> WM[Openbox]
@@ -311,14 +347,42 @@ flowchart TB
 
     NM[NetworkManager] --> SV
     AU[PipeWire/WirePlumber] --> SV
+    BL[Backlight/logind/sysfs adapter] --> SV
     BT[BlueZ] --> SV
     PW[UPower/logind] --> SV
+    UD[UDisks2/GIO] --> SV
     CUPS[CUPS/IPP] --> SV
-```
+~~~
 
-## 6.2 Dependency direction
+## 6.2 Shell-to-provider rule
 
-```mermaid
+Every system state has one provider and any number of views.
+
+Correct:
+
+~~~text
+AudioProvider
+├── Volume menu-bar applet
+├── Volume OSD
+├── Sound Control Panel
+├── media-key handler
+└── accessibility/read-back tests
+~~~
+
+Incorrect:
+
+~~~text
+menu bar → pactl
+OSD → amixer
+Settings → PipeWire
+hotkey → shell script
+~~~
+
+The same rule applies to Wi-Fi, Bluetooth, brightness, displays, battery/power, VPN, media state, removable media and keyboard/input state.
+
+## 6.3 Dependency direction
+
+~~~mermaid
 flowchart LR
     CORE[slopos-core] --> UI[slopos-ui]
     CORE --> X11[slopos-x11]
@@ -327,6 +391,9 @@ flowchart LR
     UI --> APPKIT[slopos-appkit]
     X11 --> APPKIT
     SERVICES --> APPKIT
+
+    UI --> APPLETS[slopos-applets]
+    SERVICES --> APPLETS
 
     APPKIT --> FILES[Files]
     APPKIT --> SETTINGS[Control Panels]
@@ -340,13 +407,16 @@ flowchart LR
     UI --> SHELL[slopos-shell]
     X11 --> SHELL
     SERVICES --> SHELL
-```
+    APPLETS --> SHELL
+~~~
 
 Higher layers may depend on lower layers. Lower layers must never import application code.
 
-## 6.3 Runtime process topology
+## 6.4 Runtime process topology
 
-```mermaid
+Shell components may initially live in one process for simplicity, but their code and IPC contracts must remain separable so an individual component can later be restarted or isolated without redesigning the desktop.
+
+~~~mermaid
 flowchart TB
     SESS[slopos-session<br/>session supervisor]
     WM[Openbox]
@@ -359,8 +429,16 @@ flowchart TB
     SESS --> SH
     SESS --> POLKIT
     SESS -. capability dependent .-> LOCK
-    SH <--> APPS
 
+    SH --> MB[Menu Bar]
+    SH --> DK[Dock]
+    SH --> OS[OSD Manager]
+    SH --> NT[Notification Service]
+    SH --> LN[Launcher]
+    SH --> DT[Desktop]
+    SH --> WS[Workspace UI]
+
+    SH <--> APPS
     SH <--> DBUS[D-Bus session bus]
     POLKIT <--> DBUS
     APPS <--> DBUS
@@ -368,22 +446,39 @@ flowchart TB
     SH <--> X[X11]
     WM <--> X
     APPS <--> X
-```
+~~~
 
-## 6.4 UI construction pipeline
+## 6.5 UI construction pipeline
 
-```mermaid
+~~~mermaid
 flowchart LR
-    F[Figma node] --> SPEC[spec entry]
+    F[Figma node or approved SLOPOS extension spec] --> SPEC[spec entry]
     SPEC --> TEST[conformance fixture]
     SPEC --> WIDGET[slopos-ui widget]
     WIDGET --> GALLERY[UI Gallery]
     GALLERY --> DIFF[visual diff]
-    WIDGET --> APP[first-party application]
-    APP --> VM[VM workflow QA]
-```
+    WIDGET --> SURFACE[shell/app surface]
+    SURFACE --> VM[VM workflow QA]
+~~~
 
 No application-specific styling step exists in this pipeline.
+
+If SLOPOS needs a component not represented by the reference kit, such as the Dock or an OSD composition, first create a SLOPOS extension specification built from the same canonical atoms. Do not invent styling directly in production code.
+
+## 6.6 Extensibility contracts
+
+Future features must fit stable platform concepts instead of forcing shell rewrites.
+
+Core extensibility concepts are:
+
+- \`SystemProvider\` — owns real system state/actions;
+- \`SystemApplet\` — projects provider state into menu-bar/status UI;
+- \`ShellSurface\` — Dock, launcher, OSD, notification or other shell-owned presentation;
+- \`ControlPanel\` — settings view backed by a provider;
+- \`Application\` — native app built on \`slopos-appkit\`;
+- \`Command\` / \`Action\` — reusable real action exposed to menu, shortcut and UI.
+
+This is the path for later additions such as Night Light, HDR/VRR controls, performance profiles, clipboard history, live wallpapers, color picker, device sharing or other features remembered later.
 
 ---
 
@@ -391,11 +486,10 @@ No application-specific styling step exists in this pipeline.
 
 The long-term repository should converge toward this shape:
 
-```text
+~~~text
 rust-slopos/
 ├── Cargo.toml
 ├── AGENTS.md
-├── TRUTH.md
 ├── README.md
 │
 ├── crates/
@@ -449,17 +543,46 @@ rust-slopos/
 │   ├── slopos-services/
 │   │   ├── network/
 │   │   ├── audio/
+│   │   ├── brightness/
 │   │   ├── bluetooth/
 │   │   ├── power/
+│   │   ├── media/
 │   │   ├── session/
 │   │   ├── timedate/
 │   │   ├── displays/
 │   │   ├── printers/
 │   │   ├── removable_media/
-│   │   └── storage/
+│   │   ├── storage/
+│   │   ├── applications/
+│   │   └── input/
+│   │
+│   ├── slopos-applets/
+│   │   ├── framework/
+│   │   ├── wifi/
+│   │   ├── bluetooth/
+│   │   ├── volume/
+│   │   ├── brightness/
+│   │   ├── battery/
+│   │   ├── vpn/
+│   │   ├── displays/
+│   │   ├── keyboard/
+│   │   ├── media/
+│   │   ├── removable_media/
+│   │   ├── notifications/
+│   │   └── clock/
 │   │
 │   ├── slopos-session/
 │   └── slopos-shell/
+│       ├── desktop/
+│       ├── global_menu/
+│       ├── dock/
+│       ├── launcher/
+│       ├── notifications/
+│       ├── osd/
+│       ├── status_area/
+│       ├── workspace_ui/
+│       ├── session_ui/
+│       └── shell_ipc/
 │
 ├── apps/
 │   ├── files/
@@ -482,9 +605,20 @@ rust-slopos/
 ├── utilities/
 │   ├── polkit-agent/
 │   ├── lock-screen/
+│   ├── global-shortcuts/
+│   ├── clipboard-manager/
+│   ├── media-keys/
+│   ├── removable-media/
+│   ├── wallpaper-manager/
 │   ├── open-with/
 │   ├── default-apps/
 │   ├── file-chooser/
+│   ├── display-confirmation/
+│   ├── network-secrets/
+│   ├── bluetooth-pairing/
+│   ├── printer-auth/
+│   ├── uri-opener/
+│   ├── desktop-entry-launcher/
 │   └── session-dialogs/
 │
 ├── tools/
@@ -506,7 +640,7 @@ rust-slopos/
 ├── packaging/
 ├── scripts/
 └── .github/workflows/
-```
+~~~
 
 Existing crates may be migrated incrementally. Do not rename everything at once merely for neatness. Preserve bisectability and working behavior while moving toward this structure.
 
@@ -1119,42 +1253,160 @@ Fixtures are allowed only behind test-only code paths.
 
 # 14. SLOPOS shell
 
-`slopos-shell` is a first-party application of the same design system, not a separate visual universe.
+\`slopos-shell\` is a first-party consumer of the same design system, not a separate visual universe.
 
-It must consume `slopos-ui`.
+It must consume \`slopos-ui\` and typed provider/applet APIs.
 
 The shell owns:
 
 - global top menu bar;
-- system menu;
 - application-menu host;
+- menu-bar status area;
+- first-party Dock;
 - desktop surface integration;
 - desktop objects;
 - launcher/search;
-- notifications;
-- workspace integration;
+- notification service/presentation;
+- OSD manager;
+- workspace UI;
 - session actions;
-- status items;
-- global keyboard shortcuts.
+- global keyboard shortcuts;
+- shell-level media-key routing.
 
-The shell must not create its own duplicate versions of controls that already exist in `slopos-ui`.
+The shell must not create duplicate versions of controls already implemented in \`slopos-ui\`.
 
-## 14.1 Global menu
+## 14.1 Global menu bar
+
+The menu bar has two conceptual regions:
+
+~~~text
+focused-application menu region                system/status region
+┌──────────────────────────────────────────────────────────────────┐
+│ App  File  Edit  View  Window  Help      Wi-Fi  BT  Vol  ☀  🔋  │
+└──────────────────────────────────────────────────────────────────┘
+~~~
+
+The left region is backed by the focused application's real action/menu model.
 
 There must be exactly one application-menu bridge.
 
-Native SLOPOS applications export their real action model.
+Native SLOPOS applications export their real \`slopos-appkit\` action model.
 
 Third-party applications may be integrated only when they expose a supported real menu/action protocol.
 
 If a third-party app does not export one:
 
-- leave its own local menu intact; or
+- leave its local menu intact; or
 - expose only guaranteed shell/window actions.
 
 Do not fabricate Cut/Copy/Paste/Select All by blindly injecting shortcuts.
 
-## 14.2 Desktop
+The right region hosts system applets backed by shared typed providers.
+
+## 14.2 First-party Dock
+
+The Dock is a required shell component and replaces the retired Application Strip.
+
+Required behavior:
+
+- pinned applications;
+- running applications;
+- active/focused application state;
+- multiple-window indication;
+- launch;
+- raise/focus existing window;
+- minimize where the interaction design specifies;
+- application/window context menus;
+- drag-to-reorder;
+- pin/unpin;
+- attention state;
+- badges/progress only where a real source exists;
+- workspace awareness;
+- multi-monitor policy;
+- configurable auto-hide, dodge and always-visible behavior;
+- keyboard accessibility;
+- drag/drop where meaningful;
+- correct work-area reservation only when visible policy requires it.
+
+The Dock must use \`slopos-ui\` and a dedicated SLOPOS Dock specification. It must not copy modern macOS Dock appearance or behavior blindly.
+
+Control Panels must expose a Dock panel for at least:
+
+- visibility mode;
+- position if multiple positions are supported;
+- size/density where supported;
+- animation/reveal timing if configurable;
+- running-app indicators;
+- pinned application management;
+- monitor policy where supported.
+
+## 14.3 System applet framework
+
+System applets are reusable projections of \`slopos-services\` state into the menu bar.
+
+Required initial applets:
+
+- Wi-Fi / Network;
+- VPN where NetworkManager exposes it;
+- Bluetooth;
+- Volume / microphone state;
+- Brightness;
+- Battery / Power;
+- Displays;
+- Keyboard layout/input state where applicable;
+- Media playback;
+- Removable media;
+- Notifications / Do Not Disturb where implemented;
+- Clock / Date.
+
+Every applet must support a consistent contract equivalent to:
+
+~~~text
+identity
+current icon/state
+accessible label/tooltip
+summary state
+popup/menu model
+real actions
+deep link to the relevant Control Panel
+availability/unavailable state
+~~~
+
+No applet may shell out independently to implement state already owned by a provider.
+
+## 14.4 On-screen display manager
+
+SLOPOS requires a shell-level OSD manager.
+
+Initial OSD events include:
+
+- volume up/down;
+- mute/unmute;
+- microphone mute;
+- display brightness;
+- keyboard backlight where available;
+- Caps Lock / Num Lock where useful;
+- touchpad enable/disable where supported;
+- airplane/network mode where supported;
+- display-switching feedback where supported.
+
+OSDs must:
+
+- never steal keyboard focus from the active application;
+- never appear in Alt+Tab;
+- never appear in normal task lists;
+- preserve the active X11 window/focus;
+- work over fullscreen applications where the X11/compositor stack permits;
+- coalesce repeated key presses into one updating overlay;
+- dismiss automatically;
+- be monitor-aware;
+- be accessible without behaving like a normal focus-taking window;
+- use actual provider state after the requested change;
+- be click-through unless an OSD is intentionally interactive.
+
+Implementation must explicitly test \`_NET_ACTIVE_WINDOW\`/focus preservation around OSD mapping. Do not accept an OSD implementation that causes a fullscreen game/video/application to lose focus.
+
+## 14.5 Desktop
 
 The desktop supports:
 
@@ -1170,7 +1422,22 @@ The desktop supports:
 
 PCManFM may remain temporarily during migration but is not the final source of first-party desktop UI if it prevents conformance.
 
-## 14.3 Notifications
+## 14.6 Launcher/search
+
+The launcher must support:
+
+- application discovery from desktop entries;
+- keyboard-first invocation;
+- incremental search;
+- launch;
+- focus/raise existing applications where policy calls for it;
+- recent or suggested items only when backed by real data;
+- accessibility;
+- no fake search categories.
+
+Search providers may expand later, but application launch must remain fast and deterministic.
+
+## 14.7 Notifications
 
 Implement the freedesktop notification protocol truthfully.
 
@@ -1183,7 +1450,34 @@ Support:
 - application attribution;
 - actions only where correctly supported;
 - monitor-aware placement;
-- do-not-disturb policy if added.
+- Do Not Disturb when implemented;
+- notification history only if persistence and privacy behavior are explicitly designed.
+
+## 14.8 Global shortcuts and media keys
+
+One shell-level shortcut service owns global hotkeys.
+
+It routes:
+
+- launcher;
+- screenshots;
+- volume;
+- brightness;
+- media playback;
+- workspace switching;
+- window switching;
+- lock/session shortcuts;
+- user-configurable shortcuts.
+
+Do not scatter global shortcut registration across unrelated applications.
+
+## 14.9 Shell isolation and restartability
+
+Dock, applets, OSD, notifications and launcher may initially share one executable, but must have clear module/state boundaries.
+
+A failure in one shell surface must not corrupt provider state.
+
+Long-term process separation is permitted when it materially improves reliability.
 
 ---
 
@@ -1267,12 +1561,15 @@ Required panels for production daily use:
 ### Desktop and appearance
 - Appearance
 - Desktop / Wallpaper
+- Dock
+- Menu Bar / Status Items
 - Fonts
 - Notifications
 - Default Applications
 
 ### Hardware
 - Displays
+- Brightness where hardware supports it
 - Sound
 - Keyboard
 - Mouse
@@ -1428,48 +1725,94 @@ Distribution package management remains owned by the base distribution unless th
 
 Target path:
 
-```text
+~~~text
 apps/system-monitor
-```
+~~~
 
-Required:
+This is SLOPOS's full task-manager/system-observation application.
 
-- process list;
+Required views:
+
+- Processes;
+- CPU;
+- Memory;
+- Storage activity where practical;
+- Network activity where practical;
+- GPU activity where a stable provider exists.
+
+Process view must expose at least:
+
+- name;
+- PID;
 - CPU usage;
 - memory usage;
-- storage activity where practical;
-- network activity where practical;
-- per-process resource state;
+- state;
+- user;
+- command/details on inspection.
+
+Required actions:
+
 - search/filter;
-- terminate process;
-- force-kill with confirmation;
-- process details;
+- inspect process;
+- end/terminate process;
+- force kill with explicit confirmation;
+- process priority adjustment only when correctly authorized;
 - refresh without UI stalls.
 
+No process action may silently claim success. Read back process state.
+
 Use procfs/sysfs and stable system APIs.
+
+
 
 ## 16.8 SLOPOS Screenshot & Recorder
 
 Target path:
 
-```text
+~~~text
 apps/screenshot
-```
+~~~
 
-Required:
+Screenshot is a first-party shell-integrated capture utility.
 
-- full screen;
+Required screenshot modes:
+
+- entire screen;
+- selected monitor where useful;
 - selected window;
-- selected region;
-- clipboard/save;
+- selected region.
+
+Required output paths:
+
+- save;
+- clipboard;
+- open captured image in SLOPOS Image Viewer.
+
+Required behavior:
+
 - configurable delay;
 - multi-monitor awareness;
-- predictable filename;
-- visible success/error feedback.
+- predictable filenames;
+- visible success/error feedback;
+- global keyboard shortcuts owned by the shortcut service;
+- non-destructive cancellation.
 
-Screen recording should be implemented using a mature capture stack such as PipeWire/FFmpeg/GStreamer where viable on X11.
+Recording is enabled only when functional.
 
-Do not ship a Record control until recording is functional.
+Target recording modes:
+
+- entire screen;
+- selected monitor;
+- selected window where technically reliable;
+- selected region;
+- optional microphone;
+- optional system audio.
+
+Use a mature capture/encoding stack such as PipeWire, FFmpeg or GStreamer as appropriate for X11. Do not implement codecs.
+
+Do not ship a Record control until the selected recording path passes real VM tests.
+
+
 
 ## 16.9 SLOPOS System Information / About
 
@@ -1662,17 +2005,17 @@ A browser is not allowed to delay core desktop correctness.
 
 ---
 
-# 18. System utilities and agents
+# 18. System utilities and background infrastructure
 
-These are not ordinary document applications but are necessary for a mature desktop.
+A production desktop depends on many components that users do not launch as ordinary applications. These are first-class requirements, not afterthoughts.
 
 ## 18.1 Authentication agent
 
 Target:
 
-```text
+~~~text
 utilities/polkit-agent
-```
+~~~
 
 Provide a SLOPOS-native Polkit authentication UI backed by the real Polkit agent API.
 
@@ -1689,9 +2032,9 @@ Required:
 
 Target:
 
-```text
+~~~text
 utilities/lock-screen
-```
+~~~
 
 SLOPOS may initially use a mature external locker if necessary.
 
@@ -1707,7 +2050,7 @@ Security takes priority over ownership.
 
 ## 18.3 File chooser
 
-Native SLOPOS apps use a SLOPOS file chooser implemented through `slopos-appkit` and `slopos-ui`.
+Native SLOPOS apps use a SLOPOS file chooser implemented through \`slopos-appkit\` and \`slopos-ui\`.
 
 It must support:
 
@@ -1732,7 +2075,89 @@ Provide:
 - persistent default update;
 - one-time open without changing default.
 
-## 18.5 Session dialogs
+## 18.5 Global shortcut service
+
+One service owns shell-level shortcuts and media keys.
+
+It must provide conflict detection, configured bindings, provider dispatch and real feedback.
+
+## 18.6 Clipboard manager
+
+Provide base X11 clipboard/selection correctness first.
+
+Persistent clipboard history is optional until explicitly designed with:
+
+- privacy policy;
+- exclusion rules;
+- secret/sensitive content behavior;
+- storage lifecycle.
+
+## 18.7 Removable-media handler
+
+Respond to real media events and integrate with:
+
+- Files;
+- notifications;
+- menu-bar applet;
+- safe unmount/eject;
+- configured autorun/open behavior.
+
+## 18.8 Wallpaper manager
+
+Own:
+
+- configured wallpaper;
+- per-monitor policy where supported;
+- static wallpaper application;
+- live wallpaper only when explicitly implemented and performance-tested.
+
+## 18.9 Display-change confirmation
+
+Risky display changes must offer an automatic rollback countdown so an unusable mode does not strand the user.
+
+## 18.10 Network-secret UI
+
+Network authentication/secrets must use NetworkManager's supported secret-agent mechanism or another appropriate stable API.
+
+Do not log secrets.
+
+## 18.11 Bluetooth pairing UI
+
+Pairing requests must present:
+
+- device identity;
+- PIN/passkey/confirmation state;
+- cancel/failure;
+- trusted/connected result.
+
+## 18.12 Printer authentication UI
+
+Where CUPS/IPP requires credentials or authorization, present a truthful native prompt with no credential logging.
+
+## 18.13 Low-battery and hardware-state notifications
+
+Power/provider events may trigger:
+
+- low battery;
+- critical battery;
+- device removal;
+- network loss;
+- other actionable hardware state.
+
+Rate-limit repetitive notifications.
+
+## 18.14 URI opener and desktop-entry launcher
+
+Provide one safe launch path for:
+
+- URIs;
+- MIME/default applications;
+- desktop entries;
+- files.
+
+Avoid every application inventing process-spawn rules.
+
+## 18.15 Session dialogs
 
 Provide SLOPOS-native:
 
@@ -1743,11 +2168,24 @@ Provide SLOPOS-native:
 
 Actions must use real logind/session provider capability checks.
 
-## 18.6 Crash/error presentation
+## 18.16 Crash/error presentation
 
 Unexpected first-party application failures should produce useful logs and recoverable user-facing errors where practical.
 
 Do not silently restart forever or hide repeated failure.
+
+## 18.17 Infrastructure inventory rule
+
+When a later requirement is remembered, first classify it as one of:
+
+- provider;
+- applet;
+- shell surface;
+- Control Panel;
+- native application;
+- background utility.
+
+Add it through the appropriate stable interface instead of putting miscellaneous code into \`slopos-shell\`.
 
 ---
 
@@ -1826,14 +2264,16 @@ Use this sequence.
 
 - no new ad-hoc GTK first-party surfaces;
 - fix only critical regressions in legacy UI;
-- keep existing shell/session usable while the new stack is built.
+- keep existing shell/session usable while the new stack is built;
+- retire the old "no Dock" assumption; do not resurrect the legacy Application Strip.
 
 ## Phase 1 — design specification
 
 - extract Figma components;
-- create `qa/spec/classic`;
+- create \`qa/spec/classic\`;
 - define typography, metrics, patterns, colors and states;
-- define legal clean-room assets.
+- define legal clean-room assets;
+- create explicit SLOPOS extension specs for Dock, OSD and other shell compositions absent from the source Figma kit.
 
 ## Phase 2 — slopos-ui foundation
 
@@ -1861,7 +2301,7 @@ Implement and validate:
 - dialogs;
 - icon/file items.
 
-Build `slopos-ui-gallery`.
+Build \`slopos-ui-gallery\`.
 
 ## Phase 4 — slopos-appkit
 
@@ -1878,50 +2318,105 @@ Implement:
 - jobs/errors;
 - state restoration.
 
-## Phase 5 — small proof applications
+## Phase 5 — typed service providers
+
+Create shared providers before shell widgets depend on them:
+
+- Network;
+- Audio;
+- Brightness;
+- Bluetooth;
+- Power;
+- Displays;
+- Media;
+- Date/Time;
+- Removable media;
+- Input/application index as needed.
+
+Remove fake/sample production state while migrating.
+
+## Phase 6 — applet + OSD framework
+
+Implement:
+
+- \`slopos-applets\`;
+- status area host;
+- Wi-Fi;
+- Bluetooth;
+- volume;
+- brightness;
+- battery;
+- clock;
+- initial OSD manager;
+- global media-key/shortcut routing.
+
+Verify OSD focus preservation over fullscreen applications.
+
+## Phase 7 — small proof applications
 
 Build native:
 
 1. Calculator;
 2. System Information/About.
 
-These must prove the stack before larger apps migrate.
+These prove the UI/appkit stack before larger apps migrate.
 
-## Phase 6 — Files
+## Phase 8 — Files
 
 Build the first-party file manager.
 
 Do not retain PCManFM as the permanent first-party file UI if it cannot meet the contract.
 
-## Phase 7 — Control Panels
+## Phase 9 — Control Panels
 
-Replace the current Settings presentation with `slopos-ui`.
+Replace the current Settings presentation with \`slopos-ui\`.
 
-At the same time replace fake/sample provider state.
+Include real panels for Dock, Menu Bar/Status Items and the system providers implemented above.
 
-## Phase 8 — Terminal and Notes
+## Phase 10 — Terminal and Notes
 
 Build daily-use core apps on the common framework.
 
-## Phase 9 — Shell migration
+## Phase 11 — shell reconstruction
 
-Move shell-owned visible surfaces onto `slopos-ui`:
+Move shell-owned visible surfaces onto \`slopos-ui\` and typed providers:
 
-- top bar;
-- menus;
+- global menu bar;
+- Dock;
+- status applets;
+- OSD;
 - launcher;
 - notifications;
-- dialogs.
+- desktop;
+- workspace UI;
+- session dialogs.
 
-## Phase 10 — Software and System Monitor
+## Phase 12 — Software, System Monitor and Screenshot
 
-Migrate Software Catalogue and implement System Monitor.
+- migrate Software Catalogue;
+- implement System Monitor/task manager;
+- implement Screenshot;
+- expose recording only when functional.
 
-## Phase 11 — extended utilities
+## Phase 13 — background desktop infrastructure
+
+Implement or harden:
+
+- Polkit agent;
+- lock-screen integration;
+- global shortcuts;
+- clipboard;
+- removable media;
+- wallpaper manager;
+- display rollback;
+- network secrets;
+- Bluetooth pairing;
+- URI/default-app launcher.
+
+## Phase 14 — extended utilities
 
 Implement:
 
-- Screenshot/Recorder;
 - Image Viewer;
 - Archive Utility;
 - Disks;
@@ -1930,7 +2425,7 @@ Implement:
 - Media;
 - Documents.
 
-## Phase 12 — integrated daily-use acceptance
+## Phase 15 — integrated daily-use acceptance
 
 Run complete desktop workflows in the Linux VM.
 
@@ -1943,6 +2438,8 @@ Only after this phase can broad production-readiness claims be considered.
 An enabled control must execute the behavior it advertises.
 
 A stateful control must display real state.
+
+Providers are the single owners of system state. Menu-bar applets, OSDs and Control Panels observe the same provider rather than implementing separate backends.
 
 ## 22.1 Network
 
@@ -1983,7 +2480,26 @@ Support:
 
 Read back changes.
 
-## 22.3 Bluetooth
+The Volume applet, volume OSD, Sound Control Panel and media keys all use this provider.
+
+## 22.3 Brightness
+
+Provide one brightness abstraction over the correct platform facility, such as backlight sysfs/logind-compatible mechanisms, with explicit capability detection.
+
+Support:
+
+- current brightness;
+- min/max or normalized range;
+- increment/decrement;
+- direct set where supported;
+- read-back;
+- unavailable state.
+
+The Brightness applet, brightness OSD, Display/Power settings and brightness keys all use this provider.
+
+Do not fabricate brightness support on displays without a controllable backlight.
+
+## 22.4 Bluetooth
 
 Use BlueZ D-Bus.
 
@@ -1997,7 +2513,9 @@ Support:
 - connect/disconnect;
 - trusted/paired state where exposed.
 
-## 22.4 Power
+The applet and Control Panel share this provider.
+
+## 22.5 Power
 
 Use UPower/logind.
 
@@ -2008,11 +2526,26 @@ Support:
 - power source;
 - suspend capability;
 - lid behavior where supported;
+- critical/low-battery events;
 - power profiles only when provider support is real.
 
-## 22.5 Date/time
+## 22.6 Media
 
-Prefer `org.freedesktop.timedate1`.
+Provide a shared media-session abstraction over supported mechanisms such as MPRIS.
+
+Expose:
+
+- current player;
+- title/artist where available;
+- play/pause;
+- next/previous;
+- playback state.
+
+The menu-bar media applet and media keys use this provider.
+
+## 22.7 Date/time
+
+Prefer \`org.freedesktop.timedate1\`.
 
 Support:
 
@@ -2022,7 +2555,9 @@ Support:
 - authorized changes;
 - permission errors.
 
-## 22.6 Displays
+The menu-bar clock and Control Panel use shared time/locale state where applicable.
+
+## 22.8 Displays
 
 Use XRandR/X11 state.
 
@@ -2034,10 +2569,11 @@ Support:
 - layout;
 - primary display;
 - rotation where supported;
-- apply and rollback on failure;
+- apply;
+- automatic rollback/confirmation for risky changes;
 - hotplug.
 
-## 22.7 Printers
+## 22.9 Printers
 
 Use CUPS/IPP.
 
@@ -2049,7 +2585,7 @@ Support:
 - jobs;
 - add/remove only when correctly authorized.
 
-## 22.8 Removable media
+## 22.10 Removable media
 
 Use GIO/UDisks2 as appropriate.
 
@@ -2061,6 +2597,21 @@ Support:
 - errors;
 - volume labels;
 - safe removal.
+
+The Files app, removable-media applet and notifications share this state.
+
+## 22.11 Input and hardware keys
+
+Provide a single capability/routing layer for:
+
+- media keys;
+- brightness keys;
+- keyboard backlight;
+- Caps/Num state where surfaced;
+- touchpad toggles where supported;
+- layout/input-source state.
+
+Global shortcut handling must not be duplicated across apps.
 
 ---
 
@@ -2449,15 +3000,51 @@ capture region/window/screen
 → verify output
 ```
 
+## Dock
+
+~~~text
+pin application
+→ launch from Dock
+→ observe running indicator
+→ open second window
+→ activate correct app/window
+→ reorder
+→ unpin
+→ verify persistence
+→ test auto-hide/dodge without stealing focus
+~~~
+
+## Menu-bar applets
+
+~~~text
+open Wi-Fi/Bluetooth/Volume/Brightness/Battery applet
+→ observe real provider state
+→ perform supported action
+→ verify read-back
+→ deep-link to matching Control Panel
+~~~
+
+## OSD and fullscreen focus
+
+~~~text
+focus fullscreen application
+→ press volume/brightness key
+→ provider state changes
+→ OSD appears and updates
+→ fullscreen application remains _NET_ACTIVE_WINDOW
+→ OSD dismisses
+→ Alt+Tab list remains unchanged
+~~~
+
 ## Software
 
-```text
+~~~text
 search
 → install trusted fixture
 → verify integrity
 → launch
 → uninstall
-```
+~~~
 
 ---
 
@@ -2642,15 +3229,19 @@ Release-critical applications pass:
 
 ## Shell
 
-- menu bar;
+- global menu bar;
+- protocol-backed application menus;
+- first-party Dock;
+- system status applets;
+- volume/brightness/hardware OSD;
 - launcher;
 - desktop;
 - notifications;
+- global shortcuts/media keys;
 - workspaces;
 - session actions;
-- global menu;
 - multi-monitor;
-- fullscreen
+- fullscreen focus preservation
 
 all pass.
 
@@ -2706,10 +3297,10 @@ This part is descriptive, not aspirational. It records what is actually known ab
 
 ## A. Audit identity
 
-**Ledger refresh date:** 2026-09-25  
-**Current main revision at consolidation start:** `19ad06b4a77c9b092f6886b5502e15f8fdc27129`  
+**Ledger refresh date:** 2026-09-27  
+**Current main revision at this requirements amendment start:** `187bc640a7f8351555f1fe3741afa3c172b0a3c4`  
 **Last production-code baseline statically audited:** `a39dc523526dde0d02736ac29134c6af2cd63d3b`  
-**Intervening PRs #11 and #12:** documentation/reference-contract changes only; the production-code findings below therefore still apply unless later code commits supersede them.  
+**Intervening PRs #11, #12 and #13:** documentation/reference-contract/consolidation changes only; the production-code findings below therefore still apply unless later code commits supersede them.  
 **Audit type represented here:** static source audit plus Figma metadata inspection.  
 **Fresh compliant Linux-VM build/runtime evidence:** none yet.  
 **Production readiness:** NOT PROVEN.  
@@ -3003,12 +3594,19 @@ Old dated QA ledgers were already removed. Git history is the archive.
 | X11-only product direction | PASS as contract |
 | Openbox migration base | present |
 | Session supervision/backoff | present statically; runtime revalidation required |
-| Bottom Application Strip | retired |
+| Legacy Application Strip | retired; must not return |
+| first-party SLOPOS Dock | MISSING |
+| `slopos-applets` framework | MISSING |
+| Wi-Fi/Bluetooth/Volume/Brightness/Battery applets | MISSING as final provider-backed system |
+| non-focus-stealing OSD manager | MISSING |
+| global shortcut/media-key service | NOT PROVEN as final architecture |
 | Figma-derived machine spec | MISSING |
 | `slopos-ui` | MISSING |
 | `slopos-ui-gallery` | MISSING |
 | `slopos-appkit` | MISSING |
 | architecture boundary enforcement | MISSING |
+| shared Brightness provider | MISSING |
+| shared Media/MPRIS provider | MISSING |
 | top-bar exact geometry | NOT PROVEN |
 | window-chrome exact parity | UNKNOWN |
 | protocol-backed GTK menu bridge | partial/present |
@@ -3051,24 +3649,29 @@ The current release/completion blockers include:
 1. Figma-derived machine-readable design specification does not exist.
 2. `slopos-ui` does not exist as the mandatory first-party component library.
 3. UI Gallery and atom/state conformance harness do not exist.
-4. First-party applications still rely on the legacy GTK-heavy architecture.
-5. Current styling contains modern rounded/shadow/card drift.
-6. Network Settings contains fabricated production state.
-7. Top-bar network status contains fabricated production state.
-8. Sound Settings contains fabricated/partially disconnected state.
-9. Date/time real-state/read-back is not proven.
-10. Generic `xdotool` application Edit fallbacks misrepresent application capabilities.
-11. Global-menu bridge code is duplicated.
-12. Native Files is not implemented.
-13. Native Control Panels is not implemented on `slopos-ui`.
-14. Native Calculator proof app is missing.
-15. Native System Information/About proof app is missing.
-16. Core daily-use native apps listed in Part I are not yet implemented.
-17. Current-revision build/test evidence has not been produced in a compliant Linux VM.
-18. Current-revision graphical visual QA has not been produced in a compliant Linux VM.
-19. Atomic accessibility/conformance evidence is absent.
-20. Public signed SLOPOS package repositories are not established.
-21. Current release-candidate package/media evidence is absent.
+4. Required SLOPOS Dock is not implemented.
+5. Provider-backed system applet framework is not implemented.
+6. Non-focus-stealing volume/brightness OSD manager is not implemented.
+7. Shared global shortcut/media-key routing is not implemented.
+8. Shared Brightness and media-session providers are not implemented.
+9. First-party applications still rely on the legacy GTK-heavy architecture.
+10. Current styling contains modern rounded/shadow/card drift.
+11. Network Settings contains fabricated production state.
+12. Top-bar network status contains fabricated production state.
+13. Sound Settings contains fabricated/partially disconnected state.
+14. Date/time real-state/read-back is not proven.
+15. Generic `xdotool` application Edit fallbacks misrepresent application capabilities.
+16. Global-menu bridge code is duplicated.
+17. Native Files is not implemented.
+18. Native Control Panels is not implemented on `slopos-ui`.
+19. Native Calculator proof app is missing.
+20. Native System Information/About proof app is missing.
+21. Core daily-use native apps listed in Part I are not yet implemented.
+22. Current-revision build/test evidence has not been produced in a compliant Linux VM.
+23. Current-revision graphical visual QA has not been produced in a compliant Linux VM.
+24. Atomic accessibility/conformance evidence is absent.
+25. Public signed SLOPOS package repositories are not established.
+26. Current release-candidate package/media evidence is absent.
 
 ## K. Claims currently justified
 
@@ -3079,6 +3682,7 @@ The following claims are currently supportable:
 - It contains a shell, Settings/Control Panels migration donor, Software Catalogue, launcher, notifications, X11 integration and substantial QA/release infrastructure.
 - The project has adopted the Classic Macintosh UI Kit Figma document as its canonical component/geometry reference.
 - The project has committed to building its own first-party `slopos-ui` component system and native application suite.
+- The target shell now explicitly includes a first-party Dock, global menu bar, provider-backed system applets, and non-focus-stealing hardware OSD infrastructure.
 - The current tree contains known visual and functional gaps.
 
 The following claims are **not** currently justified:
