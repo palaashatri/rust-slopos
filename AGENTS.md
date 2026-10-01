@@ -1,51 +1,149 @@
 # AGENTS.md — SLOPOS-I Engineering Contract
 
-**Status:** normative  
-**Product generation:** SLOPOS-I  
-**Primary branch:** `main`  
-**Execution target:** Linux/X11 only  
-**Canonical visual reference:** Classic Macintosh UI Kit (Community), Figma file `LGMlwNCoVdakZxDBvPKg1W`, root node `0:1`  
-**Current audit/evidence ledger:** embedded in Part II of this file
+**Status:** normative contract plus separately labelled evidence  
+**Product:** SLOPOS-I / Platinum Classic  
+**Primary branch:** `main`; one monorepo  
+**Execution target:** Linux/X11; Openbox; primarily Rust  
+**Visual authority:** Classic Macintosh UI Kit, Figma `LGMlwNCoVdakZxDBvPKg1W`, root `0:1`  
+**Contract audit:** 2026-10-02 IST (2026-10-01 UTC), source `7639ccd0b89955fc2657a3d67a489822f70c0837`  
+**Implementation readiness:** NOT COMPLETE; no new VM execution is claimed by this documentation change.
 
-This file is the single authoritative project-wide engineering, planning, audit, and evidence document for SLOPOS-I.
+This is the single project-wide source for requirements, architecture, work sequencing, audit findings and evidence. Root/subproject `README.md` files provide scoped orientation only. Do not create competing plans, `TRUTH.md`, design documents or per-agent Markdown ledgers. Machine-readable specifications, tests and raw execution artifacts are permitted; see §34.
 
-Project-wide architecture, plans, audit findings, readiness state, blockers, QA evidence, and agent instructions belong here. Do **not** create separate project-wide Markdown plans, truth ledgers, roadmaps, audit reports, status files, or design documents.
+Current explicit user instructions take precedence over this file, subject to the execution environment's higher-priority rules. Old chats, branches, comments and screenshots do not override the latest adopted contract. Requirements describe the target; only evidence establishes implementation truth.
 
-The only Markdown files permitted outside this file are:
-- the root `README.md`;
-- scoped project/subproject `README.md` files whose purpose is user/developer orientation for that directory.
+# 0. Agent execution contract — read first
 
-A scoped README must not redefine project architecture, readiness, roadmap, or source-of-truth rules. Those belong here.
+This file is deliberately comprehensive. A harness may supply only its beginning. Every coordinator reads the whole file; every worker explicitly reads this section, §§20–21, §§28–30, its assigned component sections and Part II before changing code. Do not assume an automatically injected excerpt contains the entire contract.
 
-When old screenshots, old QA reports, stale branches, comments, generated assets, model assumptions, historical plans, or earlier completion claims disagree with this file, this file wins.
+## 0.1 Decisions to preserve
 
-SLOPOS-I is not complete because an agent says it is complete. Completion is established only by current evidence tied to the exact source revision.
+| Decision | Current instruction |
+|---|---|
+| Product generation | SLOPOS-I is an X11 desktop environment. Keep Openbox as the current WM; no Wayland/Smithay revival or custom display server in this tranche. |
+| Language and appearance | Primarily Rust; Platinum Classic geometry and interaction. Earlier Cheetah/Aqua, Cutefish, tucch and C/C++ explorations do not authorize a rename or rewrite of this tree. |
+| UI first | Build and verify `slopos-ui`, then `slopos-appkit`; native applications and shell surfaces consume them. GTK3/GDK/Pango/GIO may remain hidden infrastructure. |
+| Required shell | Dock, global menu, status applets, launcher, desktop, notifications, workspaces and volume/brightness OSDs. The later Dock requirement supersedes the former “no Dock” rule. |
+| Applications | Preserve the full inventory in §§16–18. Start with the component gallery and small proof apps, then core daily-use apps; do not start every app at once. |
+| Repository | One monorepo, agreed 2026-09-29. Use temporary task branches/worktrees, never permanent compositor/app branches that each contain a different product. |
+| Execution | All local project compilation, tests, formatting, lint, runtime, packaging and visual QA run inside a Linux VM. A host container is not a substitute. |
+| Documentation | This file is the central contract and evidence ledger; Git history archives superseded prose. |
+| Later capabilities | Keep HDR/VRR/color-management and live-wallpaper ambitions visible, but require supported-backend/hardware evidence before exposure. They do not authorize Wayland work now or fake controls in an X11 VM. Kindle/AI/vision and office-suite expansion do not displace the core desktop. |
+
+The September 2026 X11/UI-library decisions and the merged Dock amendment in PR #14 are the operative baseline. Do not revive an older architecture because it sounds more ambitious.
+
+## 0.2 Start and resume procedure
+
+1. Read `git status --short`, `git diff --stat`, `git log -5 --oneline`, `git rev-parse HEAD` and `git worktree list`. Preserve unrelated changes. Record the exact base SHA, branch and dirty state.
+2. Read Part II and inspect the assigned source paths. Distinguish **existing**, **to create**, **historical** and **unverified**. No `slopos-ui`, `slopos-appkit`, gallery or `xtask` exists at the audited baseline.
+3. The coordinator establishes the VM and resource record (§§28–29), selects a dependency-ready task from §21 and records ownership in Part II.M. No worker self-assigns overlapping paths.
+4. Agree the narrow acceptance criteria, interface shape and test command before implementation. Missing UI atoms become UI tasks, not app-local workarounds.
+5. On resume, recheck the coordinator's integration SHA, task ownership and upstream interface changes. Stop only the affected task if its dependency changed; continue independent authorized work.
+6. A documentation-only audit may read/edit source and perform text consistency checks without a VM. It must not run repository code or claim project test/visual passes.
+
+## 0.3 Coordinator and worker ownership
+
+Use one coordinator/integrator, a small number of workers and an independent review pass. Start with two or three workers; increase only after measuring RAM, disk and build contention. Agent count is not permission to launch that many Cargo builds or graphical sessions.
+
+The coordinator alone owns:
+
+- root `AGENTS.md`, `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml` and the integration branch;
+- shared public interfaces, crate/module registration (`lib.rs`, `mod.rs`), gallery registries and specification manifests;
+- CI/workspace-wide policy, shared theme/token changes and packaging entry points;
+- task assignment, resource reservations, integration order and final evidence reconciliation.
+
+An owner may explicitly delegate one of these paths in a task packet; record the handoff and suspend other edits to it. Leaf-module workers send proposed registration/dependency changes to that owner. Only one owner changes a file at a time, even if worktrees would let Git merge it.
+
+Workers own only the exact listed paths and tests. They do not rewrite shared APIs, reformat the workspace, update lockfiles, weaken goldens, edit another worker's files, change the product contract or push to `main`. A blocker report includes the smallest needed upstream change. The coordinator either schedules it or reassigns a non-conflicting task. Workers do not spawn additional implementers without coordinator allocation.
+
+The coordinator updates Part II for the integrated change set. Workers return evidence and proposed ledger text instead of independently editing this file.
+
+## 0.4 Task packet and handoff
+
+Every assignment includes these fields; a broad role such as “finish Settings” is not a task.
+
+| Field | Required content |
+|---|---|
+| Identity | Stable task ID from §21, named owner, branch/worktree and base SHA |
+| Outcome | One reviewable user behavior or infrastructure contract; explicit exclusions |
+| Dependencies | Integrated prerequisite SHAs, accepted spec/state IDs and public API signatures |
+| Ownership | Exact writable files/directories, read-only references and coordinator-owned registration paths |
+| Acceptance | Positive behavior, failure/cancellation behavior, accessibility where relevant and observable result |
+| Verification | Existing exact commands; planned tests clearly marked as to be implemented; required VM/visual/hardware evidence |
+| Resources | Build permit, maximum Cargo jobs, target/artifact paths and any exclusive runtime/system-service lease |
+| Handoff | Commit SHA(s), changed paths, commands/exit codes, artifact paths/hashes, limitations and next dependency |
+
+Task states are `PLANNED → READY → CLAIMED → IMPLEMENTED → VERIFIED → INTEGRATED`; `BLOCKED` records a precise missing dependency and unblock condition. `IMPLEMENTED` is not `VERIFIED`. `INTEGRATED` also requires review and the relevant integration gates. A planning row does not establish that a component exists.
+
+A task is small enough when it can be reviewed, reverted and tested independently. Split provider state discovery from mutations, control rendering from interaction, and application commands from their views when that produces clear ownership. Do not split into empty crates or stub callbacks merely to increase the completed-task count.
+
+## 0.5 Branches and worktrees
+
+Keep all clones, worktrees, targets and test data on guest-local storage. Start each task from the coordinator's recorded integration commit, not an arbitrary latest remote branch.
+
+Example **inside the established guest** (replace paths and SHA before use):
+
+```bash
+git -C /work/rust-slopos worktree add -b agent/ui-02-buttons /work/slopos-worktrees/ui-02-buttons <integration-sha>
+```
+
+Use `agent/<task-id>-<description>` and a temporary `integration/<tranche>` branch. The coordinator commits workspace/interface bootstrap first, then publishes that SHA to workers. Dependent tasks start only after their prerequisites integrate; do not independently invent the same API.
+
+Each worker uses its own target directory if the disk reservation allows it. Existing QA scripts often hard-code `target/debug` or `target/release`; they must use the expected worktree-local target until QA-01 makes path handling explicit. Do not set a shared `CARGO_TARGET_DIR` and assume legacy launchers honor it. Sharing Cargo's download cache is acceptable; sharing mutable build outputs across simultaneous workers is not.
+
+Workers deliver small commits. The coordinator reviews diffs, integrates in dependency order, resolves shared-file conflicts and reruns affected integration gates at the integrated SHA. No automatic force-push, broad reset, branch deletion or cleanup of unmerged work. Remove a worktree only after its changes and evidence are preserved. Keep branch/PR work reviewable; merge upstream only when authorized.
+
+## 0.6 VM concurrency and runtime leases
+
+Separate **editing concurrency**, **build concurrency** and **runtime-test concurrency**.
+
+- Start with one build/test permit; cap `CARGO_BUILD_JOBS` explicitly for the guest. Raise parallel build permits only after measuring available memory and aggregate target growth (§29).
+- One coordinator-owned runtime lease covers all graphical/Xvfb sessions, global hotkeys, session D-Bus ownership, audio/network/display mutations, package installs and session restart/lock tests in a shared guest.
+- At the audited baseline, run existing QA suites **serially in a dedicated test account/session**. Fixed displays, shared output paths and name-based `pkill` make separate worktrees alone insufficient isolation.
+- New harnesses must use unique display allocation, per-run XDG/runtime/config/data directories, isolated session buses, explicit child PID/process-group cleanup and unique evidence directories. A private session bus does not isolate the system bus or physical devices.
+- Do not run crash/restart QA against a guest desktop someone is using. Retain a recovery console and coordinate any network/display/locker tests that may disconnect the agent.
+- Never “clean up” with global `pkill`, `killall`, `cargo clean`, removal of shared caches or another agent's targets. Before using a legacy script with those behaviors, QA-01 must isolate or repair it; until then use only a disposable, exclusive test session.
+- The lease records owner, command, guest/session and start time outside versioned product files. Release it after owned children exit; reclaim an abandoned lease only after checking those processes. Parallel runtime testing is allowed only after isolation is demonstrated.
+
+Locks and task messages may be kept in a coordinator's scratch directory outside the checkout. They are transient orchestration state, not another project roadmap.
+
+## 0.7 Evidence and completion
+
+For each gate retain: task ID, source SHA, clean/dirty state, command, exit code, UTC timestamp, guest/hypervisor/OS, toolchain, relevant dependency versions, artifact location/checksum and explicit result. Visual evidence additionally records resolution, scale, fonts, backend and spec/golden revision. Dirty-tree experiments are provisional until rerun from the recorded commit.
+
+Use `PASS`, `FAIL`, `NOT_RUN`, `BLOCKED` and `NOT_APPLICABLE` precisely. A skip needs a reason and cannot become PASS. Fixture-backed protocol tests, real guest-service tests, graphical VM tests and physical-device tests are separate evidence categories. A VM without Wi-Fi, Bluetooth or a backlight can verify unavailability and test fixtures; it cannot prove real-device support.
+
+Avoid the self-referencing-commit trap: test code commit A, then add a documentation-only evidence commit B that explicitly cites A. The coordinator may retain A's evidence if a diff proves B changes only documentation. Never relabel it as a run of B; runtime/build/spec/golden changes require the affected gates again. Release candidates require evidence for the actual candidate code.
+
+Scoped tasks may finish while the overall product remains incomplete. Report partial work as `IMPLEMENTED / NOT VERIFIED`, and external dependencies as `BLOCKED`; do not run indefinitely or invent evidence to satisfy a demand for “100%.” Completion of this contract edit is not completion of SLOPOS.
+
+## 0.8 Reading map
+
+| Work | Read before editing |
+|---|---|
+| Every task | §0, §§20–21, §§28–30, §33–34 and Part II |
+| UI/spec/gallery | §§2, 4–5, 7–11, 25, 27, 35 |
+| Appkit and native apps | §§6, 12, 15–19, 26, 31, 36 |
+| Services, X11 and shell | §§6, 13–14, 18, 22–26, 31 |
+| Integration/release | §§28–32, 37 and the complete ledger |
+
+## 0.9 Coordinator launch instruction
+
+Use this as the initial instruction to an agent running with access to the intended VM:
+
+> Read the full AGENTS.md in this checkout and audit the current SHA before acting. Coordinate a bounded implementation tranche using §21, starting with VM-00, SPEC-01 and QA-00 where access permits. Use one coordinator and up to three workers with non-overlapping task packets/worktrees. Integrate the bootstrap interfaces before dispatching dependent code. Preserve Rust/X11/Openbox, Platinum Classic, the UI-library-first architecture and the full required inventory. Serialize builds/runtime tests until resource and isolation evidence allows more concurrency. Keep implementing ready tasks, report exact blockers for unavailable dependencies, and update Part II through the coordinator with verified commits and artifacts. Do not claim desktop completion from a task pass.
+
+If a subagent facility is unavailable, perform the same dependency-ready tasks sequentially. The plan does not require a particular model, agent vendor or VM automation tool.
 
 ---
+
+# Part I — Product and engineering requirements
 
 # 1. Product mission
 
 SLOPOS-I is a first-party Linux desktop environment designed to be viable for normal daily use and engineered to the quality level expected of mature environments such as GNOME and KDE while retaining its own deliberately compact Classic-Macintosh-inspired interaction and visual language.
 
-The goal is not to create a themed collection of unrelated GTK applications.
-
-The goal is to create one coherent desktop platform:
-
-```text
-SLOPOS design specification
-        ↓
-SLOPOS UI component library
-        ↓
-SLOPOS application framework
-        ↓
-SLOPOS system/platform adapters
-        ↓
-SLOPOS first-party applications
-        ↓
-SLOPOS shell + session
-        ↓
-complete daily-use desktop
-```
+Build one coherent desktop platform: shared design specification and UI components, reusable application services, real platform adapters, native applications and an integrated shell/session. The dependency graph in §6 is authoritative; providers and UI foundations can be developed independently.
 
 The system must feel intentional from login to shutdown:
 
@@ -72,7 +170,7 @@ The system must feel intentional from login to shutdown:
 
 SLOPOS is a desktop environment, not merely a window manager plus themed applications. The Dock, menu bar, applets, OSD layer, notification service, global shortcuts, system providers and native daily-use applications are first-class platform components.
 
-The product must never contain an enabled control that merely looks functional.
+The product must never contain an enabled control that merely looks functional. Preserve the existing MIT license, COPYRIGHT attribution and third-party notices.
 
 ---
 
@@ -80,7 +178,7 @@ The product must never contain an enabled control that merely looks functional.
 
 ## 2.1 The UI library comes first
 
-The first architectural dependency of every first-party SLOPOS surface is the SLOPOS UI component library.
+The first architectural dependency of every first-party SLOPOS surface is the SLOPOS UI component library. Backend and QA work may proceed independently under §21; application UI may consume only the verified atoms it needs, and missing atoms must be completed in the library.
 
 The project must create:
 
@@ -121,17 +219,7 @@ GTK3/GDK/Pango/GIO may remain mature infrastructure beneath SLOPOS.
 
 They are not the first-party design system.
 
-The intended dependency direction is:
-
-```text
-GTK3 / GDK / Pango / GIO / AT-SPI
-                 ↓
-              slopos-ui
-                 ↓
-            slopos-appkit
-                 ↓
-       first-party applications
-```
+First-party apps depend on `slopos-appkit`/`slopos-ui`; those SLOPOS abstractions own presentation over GTK3/GDK/Pango/GIO/AT-SPI infrastructure. Follow the explicit “depends on” graph in §6.3.
 
 A first-party application crate must not directly build its user interface from arbitrary `gtk::Button`, `gtk::Entry`, `gtk::Dialog`, `gtk::ListBox`, CSS fragments, or ad-hoc layout constants.
 
@@ -143,7 +231,7 @@ Direct GTK/GDK/Pango UI dependencies are permitted only in explicitly designated
 
 CI must enforce this architectural boundary.
 
-A native application that needs a missing control must stop application work, add the control to `slopos-ui`, bring that control to conformance, and only then continue the application.
+When a native app needs a missing control, stop the dependent UI slice and request a UI task from the coordinator. The assigned UI owner adds it to `slopos-ui` and verifies conformance before app integration resumes. Continue independent app model/test work within the existing packet; do not edit another owner's component or bypass it.
 
 ## 2.3 "Designed from scratch" definition
 
@@ -190,7 +278,7 @@ SLOPOS-I is:
 - X11-only for this generation;
 - Openbox-based unless an evidence-backed limitation requires another solution;
 - implemented primarily in Rust;
-- built around the first-party \`slopos-ui\` component library and \`slopos-appkit\`;
+- built around the first-party `slopos-ui` component library and `slopos-appkit`;
 - allowed to use GTK3/GDK/Pango/GIO underneath the SLOPOS component system;
 - allowed to use mature engines such as VTE, WebKitGTK, Poppler, libarchive and libmpv where appropriate;
 - allowed to delegate system ownership to NetworkManager, PipeWire/WirePlumber or PulseAudio-compatible APIs, BlueZ, UPower, systemd/logind, udev, CUPS/IPP, UDisks2/GIO and XRandR;
@@ -224,19 +312,13 @@ Wayland work remains paused until the X11 product is mature.
 
 # 4. Source-of-truth precedence
 
-When requirements disagree, use this order:
+Normative precedence is: current explicit user direction (subject to higher-priority environment rules), this contract, the approved machine-readable design specification, approved clean-room assets and component contracts, then implementation conventions. Resolve a genuine product conflict with the user; the coordinator resolves ordinary implementation choices.
 
-1. this engineering contract;
-2. the Figma-derived machine-readable SLOPOS design specification;
-3. approved clean-room SLOPOS assets and interaction specifications;
-4. `slopos-ui` component contracts;
-5. implementation;
-6. current VM-generated test and visual evidence;
-7. historical screenshots, historical QA, old branches and old prose.
+Evidence is not beneath prose in this hierarchy. A requirement cannot overrule a failing test, missing component or measured runtime behavior. Part II describes facts separately from Part I's target. Static presence is not runtime verification.
 
-The existing files under `qa/reference/` predate the atomic reset. They may remain as historical composition references while the replacement specification is built, but they must not override Figma-derived geometry or component state rules.
+Existing `qa/reference/` files predate the atomic reset and are historical composition references. They cannot override extracted Figma geometry or serve as current conformance goldens. Example measurements in §5 are not a complete or freshly re-extracted specification.
 
-No previous numeric readiness score is authoritative.
+No old numeric readiness score is authoritative. Scoped task verification and product readiness are different claims.
 
 ---
 
@@ -298,351 +380,121 @@ If a reference font cannot legally be redistributed, choose or create a redistri
 
 # 6. High-level architecture
 
-SLOPOS is split into five architectural planes:
+SLOPOS has design/UI, application, platform-service, shell and session/runtime layers. Preserve these boundaries while migrating the existing four crates.
 
-1. **Design/UI plane** — canonical spec, \`slopos-ui\`, icons, layout and accessibility.
-2. **Application plane** — \`slopos-appkit\` and native applications.
-3. **Platform-service plane** — typed providers for network, audio, brightness, power, Bluetooth, displays, storage, printing and session state.
-4. **Shell plane** — menu bar, Dock, applets, OSD, launcher, notifications, desktop and workspaces.
-5. **Session/runtime plane** — X11, Openbox, process supervision, authentication agents and startup/shutdown.
+## 6.1 Design and implementation authority
 
-## 6.1 System architecture
-
-~~~mermaid
-flowchart TB
-    F[Figma canonical reference] --> S[qa/spec/classic<br/>machine-readable design spec]
-    S --> UI[slopos-ui<br/>first-party component library]
-    UI --> AK[slopos-appkit<br/>application framework]
-
-    CORE[slopos-core] --> UI
-    CORE --> AK
-    CORE --> X11[slopos-x11]
-    CORE --> SV[slopos-services]
-
-    SV --> APPLETS[slopos-applets<br/>system applet models]
-    SV --> APPS[Native SLOPOS applications]
-    SV --> SHELL[slopos-shell]
-
-    UI --> APPLETS
-    UI --> APPS
-    UI --> SHELL
-    AK --> APPS
-
-    APPLETS --> SHELL
-
-    X11 --> SHELL
-    X11 --> AK
-
-    SHELL --> MENUBAR[Global Menu Bar]
-    SHELL --> DOCK[Dock]
-    SHELL --> OSD[OSD Manager]
-    SHELL --> DESKTOP[Desktop]
-    SHELL --> LAUNCHER[Launcher/Search]
-    SHELL --> NOTIFY[Notifications]
-    SHELL --> WORKSPACES[Workspace UI]
-
-    SESSION[slopos-session] --> SHELL
-    SESSION --> WM[Openbox]
-    WM --> XORG[X11 server]
-
-    NM[NetworkManager] --> SV
-    AU[PipeWire/WirePlumber] --> SV
-    BL[Backlight/logind/sysfs adapter] --> SV
-    BT[BlueZ] --> SV
-    PW[UPower/logind] --> SV
-    UD[UDisks2/GIO] --> SV
-    CUPS[CUPS/IPP] --> SV
-~~~
+The Figma reference and approved SLOPOS extension specs feed `qa/spec/classic/`. Those definitions drive `slopos-ui` implementations and independent conformance assertions. `slopos-appkit`, shell surfaces and apps compose verified controls. Spec-derived assertions must not simply call the same implementation formula they are supposed to check.
 
 ## 6.2 Shell-to-provider rule
 
-Every system state has one provider and any number of views.
+A domain has one authoritative backend implementation and shared typed contracts, consumed by any number of views. For example, Volume applet, OSD, Sound panel and media keys use the same AudioProvider API. They may not implement independent `pactl`, `amixer` or PipeWire behavior.
 
-Correct:
+“One provider” means consistent ownership and API, not necessarily one new daemon for the whole desktop. Within a process share its provider instance. Across processes use the same adapter implementation and subscribe/read back from the real OS service; a dedicated SLOPOS daemon is justified only when a recorded requirement needs it. Shell restarts must resubscribe instead of inventing state.
 
-~~~text
-AudioProvider
-├── Volume menu-bar applet
-├── Volume OSD
-├── Sound Control Panel
-├── media-key handler
-└── accessibility/read-back tests
-~~~
+Minimum provider contract:
 
-Incorrect:
+| Concern | Required behavior |
+|---|---|
+| Availability | Distinguish loading, available, unsupported hardware, missing service, permission denied, disconnected and failed. Never substitute fixture values. |
+| Snapshot/events | Typed state with stable device IDs and an update revision; subscribe without leaking callbacks on reconnect. Handle hotplug and service-owner changes. |
+| Command | Typed request, capability/authorization check, bounded completion, error propagation and cancellation where meaningful. |
+| Mutation result | Show pending state; confirm success by authoritative reply/read-back or event. Roll back optimistic UI if the action fails. |
+| Concurrency | Serialize/conflict-resolve writes to the same device; discard stale completions after device removal or a newer request. |
+| Test seam | Injectable transport/clock/filesystem where needed. Fixture data is only available to tests/gallery, never a production fallback. |
+| Credentials | Secret-agent integration; no credentials in logs, screenshots or command lines. |
 
-~~~text
-menu bar → pactl
-OSD → amixer
-Settings → PipeWire
-hotkey → shell script
-~~~
-
-The same rule applies to Wi-Fi, Bluetooth, brightness, displays, battery/power, VPN, media state, removable media and keyboard/input state.
+System I/O and blocking D-Bus work do not run on the UI thread. GTK/GDK/Pango objects remain on their required main thread; worker results cross through typed messages. Bound queues and define shutdown/cancellation ownership before adding background loops.
 
 ## 6.3 Dependency direction
 
-~~~mermaid
-flowchart LR
-    CORE[slopos-core] --> UI[slopos-ui]
-    CORE --> X11[slopos-x11]
-    CORE --> SERVICES[slopos-services]
+**Every arrow below means “depends on”; runtime ownership is shown separately in §6.4.**
 
-    UI --> APPKIT[slopos-appkit]
-    X11 --> APPKIT
-    SERVICES --> APPKIT
+```mermaid
+flowchart TD
+    APPS["Native applications"] --> APPKIT["slopos-appkit"]
+    SHELL["slopos-shell"] --> APPLETS["slopos-applets"]
+    SHELL --> UI["slopos-ui"]
+    SHELL --> SERVICES["slopos-services"]
+    SHELL --> X11["slopos-x11"]
+    APPLETS --> UI
+    APPLETS --> SERVICES
+    APPKIT --> UI
+    APPKIT --> SERVICES
+    APPKIT --> X11
+    SERVICES --> X11
+    UI --> CORE["slopos-core"]
+    X11 --> CORE
+    SERVICES --> CORE
+```
 
-    UI --> APPLETS[slopos-applets]
-    SERVICES --> APPLETS
+Apps may also consume typed services directly for domain-specific operations. No lower layer imports apps, shell or applets. `slopos-core` has no GUI/system-service dependencies. `slopos-x11` is UI-free; `slopos-services` is UI-free and may use it for display state. Engine adapters expose SLOPOS-owned APIs and may not leak raw GTK widgets into app code.
 
-    APPKIT --> FILES[Files]
-    APPKIT --> SETTINGS[Control Panels]
-    APPKIT --> TERMINAL[Terminal]
-    APPKIT --> NOTES[Notes]
-    APPKIT --> CALC[Calculator]
-    APPKIT --> SOFTWARE[Software]
-    APPKIT --> MONITOR[System Monitor]
-    APPKIT --> UTIL[Other native utilities]
-
-    UI --> SHELL[slopos-shell]
-    X11 --> SHELL
-    SERVICES --> SHELL
-    APPLETS --> SHELL
-~~~
-
-Higher layers may depend on lower layers. Lower layers must never import application code.
+`slopos-session` supervises processes; it must not depend on UI libraries to keep a broken UI from preventing recovery. The graph describes allowed dependencies, not an instruction to add every dependency to every crate.
 
 ## 6.4 Runtime process topology
 
-Shell components may initially live in one process for simplicity, but their code and IPC contracts must remain separable so an individual component can later be restarted or isolated without redesigning the desktop.
+```mermaid
+flowchart TD
+    LOGIN["Display-manager X11 session"] --> SESSION["slopos-session"]
+    SESSION -->|"supervises"| WM["Openbox"]
+    SESSION -->|"supervises"| SHELL["slopos-shell"]
+    SESSION -->|"supervises"| AUTH["Authentication and locker integration"]
+    SHELL -->|"launches or activates"| APPS["Native and third-party applications"]
+    SHELL -->|"reads and requests"| OS["OS services and X11"]
+    APPS -->|"reads and requests"| OS
+    WM -->|"manages windows"| OS
+```
 
-~~~mermaid
-flowchart TB
-    SESS[slopos-session<br/>session supervisor]
-    WM[Openbox]
-    SH[slopos-shell]
-    LOCK[slopos-lock / supported locker]
-    POLKIT[slopos-polkit-agent]
-    APPS[first-party and third-party apps]
+The display manager/Xorg own the X server lifecycle; Openbox is a window manager, not the X server. Shell modules initially share one process with explicit state/lifecycle boundaries. Their UI, model and provider contracts must allow later process isolation without a desktop rewrite.
 
-    SESS --> WM
-    SESS --> SH
-    SESS --> POLKIT
-    SESS -. capability dependent .-> LOCK
-
-    SH --> MB[Menu Bar]
-    SH --> DK[Dock]
-    SH --> OS[OSD Manager]
-    SH --> NT[Notification Service]
-    SH --> LN[Launcher]
-    SH --> DT[Desktop]
-    SH --> WS[Workspace UI]
-
-    SH <--> APPS
-    SH <--> DBUS[D-Bus session bus]
-    POLKIT <--> DBUS
-    APPS <--> DBUS
-
-    SH <--> X[X11]
-    WM <--> X
-    APPS <--> X
-~~~
+Session startup establishes the session bus, launches supervised components, detects crash loops with bounded backoff, and offers a recoverable failure path. Restarting the shell/WM must not terminate unrelated applications, duplicate global grabs or lose their window/menu state. Test clean logout, bounded shutdown and recovery separately.
 
 ## 6.5 UI construction pipeline
 
-~~~mermaid
-flowchart LR
-    F[Figma node or approved SLOPOS extension spec] --> SPEC[spec entry]
-    SPEC --> TEST[conformance fixture]
-    SPEC --> WIDGET[slopos-ui widget]
-    WIDGET --> GALLERY[UI Gallery]
-    GALLERY --> DIFF[visual diff]
-    WIDGET --> SURFACE[shell/app surface]
-    SURFACE --> VM[VM workflow QA]
-~~~
+```mermaid
+flowchart TD
+    SPEC["Approved component spec"] --> IMPLEMENT["SLOPOS component"]
+    SPEC --> ASSERT["Independent expected states"]
+    IMPLEMENT --> GALLERY["Gallery capture"]
+    ASSERT --> COMPARE["Conformance comparison"]
+    GALLERY --> COMPARE
+    COMPARE -->|"accepted"| COMPOSE["App or shell integration"]
+    COMPOSE --> JOURNEY["Graphical VM journey"]
+```
 
-No application-specific styling step exists in this pipeline.
-
-If SLOPOS needs a component not represented by the reference kit, such as the Dock or an OSD composition, first create a SLOPOS extension specification built from the same canonical atoms. Do not invent styling directly in production code.
+There is no application-specific styling step. For Dock, OSD or other absent reference compositions, write a SLOPOS extension spec built from canonical atoms before production UI implementation. Missing Figma access blocks exact extraction/conformance for affected atoms; it does not block unrelated provider, VM or QA work.
 
 ## 6.6 Extensibility contracts
 
-Future features must fit stable platform concepts instead of forcing shell rewrites.
-
-Core extensibility concepts are:
-
-- \`SystemProvider\` — owns real system state/actions;
-- \`SystemApplet\` — projects provider state into menu-bar/status UI;
-- \`ShellSurface\` — Dock, launcher, OSD, notification or other shell-owned presentation;
-- \`ControlPanel\` — settings view backed by a provider;
-- \`Application\` — native app built on \`slopos-appkit\`;
-- \`Command\` / \`Action\` — reusable real action exposed to menu, shortcut and UI.
-
-This is the path for later additions such as Night Light, HDR/VRR controls, performance profiles, clipboard history, live wallpapers, color picker, device sharing or other features remembered later.
+Use `SystemProvider`, `SystemApplet`, `ShellSurface`, `ControlPanel`, `Application` and shared `Action` concepts. Add later capabilities through those interfaces rather than miscellaneous shell conditionals. HDR/VRR/color management require a separately validated backend/capability plan; no generic XRandR toggle or VM fixture proves them. Live wallpaper requires lifecycle, resource-budget and fullscreen behavior evidence before exposure.
 
 ---
 
 # 7. Target repository structure
 
-The long-term repository should converge toward this shape:
+These are **target paths**, not a claim they already exist. Part II lists the current four-crate workspace. Every Rust crate has `Cargo.toml` and `src/lib.rs` and/or `src/main.rs`; the module directories below live beneath `src/`, not next to the manifest.
 
-~~~text
-rust-slopos/
-├── Cargo.toml
-├── AGENTS.md
-├── README.md
-│
-├── crates/
-│   ├── slopos-core/
-│   │   ├── config/
-│   │   ├── error/
-│   │   ├── ids/
-│   │   ├── paths/
-│   │   └── ipc/
-│   │
-│   ├── slopos-ui/
-│   │   ├── foundation/
-│   │   ├── render/
-│   │   ├── input/
-│   │   ├── layout/
-│   │   ├── primitives/
-│   │   ├── controls/
-│   │   ├── containers/
-│   │   ├── menus/
-│   │   ├── dialogs/
-│   │   ├── views/
-│   │   ├── accessibility/
-│   │   ├── theme/
-│   │   └── testing/
-│   │
-│   ├── slopos-appkit/
-│   │   ├── application/
-│   │   ├── actions/
-│   │   ├── menus/
-│   │   ├── documents/
-│   │   ├── undo/
-│   │   ├── clipboard/
-│   │   ├── drag_drop/
-│   │   ├── file_dialogs/
-│   │   ├── recent_items/
-│   │   ├── mime/
-│   │   ├── state_restore/
-│   │   ├── jobs/
-│   │   └── errors/
-│   │
-│   ├── slopos-x11/
-│   │   ├── connection/
-│   │   ├── ewmh/
-│   │   ├── windows/
-│   │   ├── monitors/
-│   │   ├── randr/
-│   │   ├── workspaces/
-│   │   ├── clipboard/
-│   │   └── input/
-│   │
-│   ├── slopos-services/
-│   │   ├── network/
-│   │   ├── audio/
-│   │   ├── brightness/
-│   │   ├── bluetooth/
-│   │   ├── power/
-│   │   ├── media/
-│   │   ├── session/
-│   │   ├── timedate/
-│   │   ├── displays/
-│   │   ├── printers/
-│   │   ├── removable_media/
-│   │   ├── storage/
-│   │   ├── applications/
-│   │   └── input/
-│   │
-│   ├── slopos-applets/
-│   │   ├── framework/
-│   │   ├── wifi/
-│   │   ├── bluetooth/
-│   │   ├── volume/
-│   │   ├── brightness/
-│   │   ├── battery/
-│   │   ├── vpn/
-│   │   ├── displays/
-│   │   ├── keyboard/
-│   │   ├── media/
-│   │   ├── removable_media/
-│   │   ├── notifications/
-│   │   └── clock/
-│   │
-│   ├── slopos-session/
-│   └── slopos-shell/
-│       ├── desktop/
-│       ├── global_menu/
-│       ├── dock/
-│       ├── launcher/
-│       ├── notifications/
-│       ├── osd/
-│       ├── status_area/
-│       ├── workspace_ui/
-│       ├── session_ui/
-│       └── shell_ipc/
-│
-├── apps/
-│   ├── files/
-│   ├── control-panels/
-│   ├── terminal/
-│   ├── notes/
-│   ├── calculator/
-│   ├── software/
-│   ├── system-monitor/
-│   ├── screenshot/
-│   ├── image-viewer/
-│   ├── archive-utility/
-│   ├── disks/
-│   ├── fonts/
-│   ├── help/
-│   ├── system-information/
-│   ├── media/
-│   └── documents/
-│
-├── utilities/
-│   ├── polkit-agent/
-│   ├── lock-screen/
-│   ├── global-shortcuts/
-│   ├── clipboard-manager/
-│   ├── media-keys/
-│   ├── removable-media/
-│   ├── wallpaper-manager/
-│   ├── open-with/
-│   ├── default-apps/
-│   ├── file-chooser/
-│   ├── display-confirmation/
-│   ├── network-secrets/
-│   ├── bluetooth-pairing/
-│   ├── printer-auth/
-│   ├── uri-opener/
-│   ├── desktop-entry-launcher/
-│   └── session-dialogs/
-│
-├── tools/
-│   ├── slopos-ui-gallery/
-│   ├── slopos-conformance/
-│   ├── slopos-qa-driver/
-│   └── figma-spec-import/
-│
-├── qa/
-│   ├── spec/
-│   │   └── classic/
-│   ├── goldens/
-│   ├── interaction/
-│   ├── journeys/
-│   ├── fixtures/
-│   └── evidence/
-│
-├── assets/
-├── packaging/
-├── scripts/
-└── .github/workflows/
-~~~
+| Path | Owned modules/responsibilities |
+|---|---|
+| `crates/slopos-core/` | config, errors, IDs, XDG paths, build metadata, capability/IPC identifiers |
+| `crates/slopos-ui/` | foundation, render, input, layout, primitives, controls, containers, menus, dialogs, views, accessibility, theme, testing |
+| `crates/slopos-appkit/` | lifecycle, actions, menus, documents, undo, clipboard, drag/drop, file dialogs, recent items, MIME, restore, jobs, errors |
+| `crates/slopos-x11/` | connection, EWMH, windows, monitors/RandR, workspaces, selections and input |
+| `crates/slopos-services/` | network, audio, brightness, Bluetooth, power, media, session, timedate, displays, printers, storage/removable media, applications, input; additional Control Panel providers as required |
+| `crates/slopos-applets/` | framework and per-domain models/presenters: Wi-Fi/VPN, Bluetooth, volume, brightness, battery, displays, keyboard, media, removable media, notifications, clock |
+| `crates/slopos-session/` | process supervision and recovery |
+| `crates/slopos-shell/` | desktop, global menu, Dock, launcher, notifications, OSD, status area, workspace/session UI and shell IPC |
+| `apps/` | files, control-panels, terminal, notes, calculator, software, system-monitor, screenshot, system-information, image-viewer, archive-utility, disks, fonts, help, media, documents |
+| `utilities/` | auth/locker adapters, shortcuts/media keys, clipboard, removable media, wallpaper, chooser/default-apps, display confirmation, secrets/pairing, URI/desktop-entry launch, session dialogs |
+| `tools/` | `slopos-ui-gallery`, `slopos-conformance`, `slopos-qa-driver`, `figma-spec-import` as needed |
+| `qa/` | `spec/classic/`, goldens, interaction tests, journeys, fixtures; raw run output follows §30 |
+| `assets/`, `themes/` | reviewed clean-room assets and transitional GTK/Openbox theme integration |
+| `packaging/`, `scripts/`, `.github/workflows/` | install/release integration and gate runners |
 
-Existing crates may be migrated incrementally. Do not rename everything at once merely for neatness. Preserve bisectability and working behavior while moving toward this structure.
+The utility inventory describes responsibilities, not a requirement for a separate process/crate per row. Keep shortcuts and media-key registration under one runtime owner. Keep file dialogs in appkit rather than duplicating them in a Files-only implementation.
+
+New app Cargo package names should consistently use `slopos-<app-name>`; directory and executable compatibility changes are coordinated with packaging. Do not rename the four legacy crates before their replacements preserve session/install behavior. Central manifest/module registration belongs to the coordinator. Prefer focused modules with private implementation details over large shared files.
 
 ---
 
@@ -1135,7 +987,7 @@ Do not duplicate action logic across UI surfaces.
 
 ## 12.3 Global menu export
 
-Native SLOPOS apps must export their menu/action model in the one supported application-menu architecture so `slopos-shell` can display the same real actions in the global menu bar.
+Native SLOPOS apps must export their menu/action model through the shared appkit transport so `slopos-shell` displays the same real actions in the global menu bar. Follow the protocol contract in §21.4; keep GTK/GIO transport mechanics behind SLOPOS-owned APIs. Verify enabled/checked state, window-specific actions, exporter disappearance and focus switching with a real producer/consumer test.
 
 No guessed keyboard injection is allowed.
 
@@ -1253,9 +1105,9 @@ Fixtures are allowed only behind test-only code paths.
 
 # 14. SLOPOS shell
 
-\`slopos-shell\` is a first-party consumer of the same design system, not a separate visual universe.
+`slopos-shell` is a first-party consumer of the same design system, not a separate visual universe.
 
-It must consume \`slopos-ui\` and typed provider/applet APIs.
+It must consume `slopos-ui` and typed provider/applet APIs.
 
 The shell owns:
 
@@ -1273,24 +1125,22 @@ The shell owns:
 - global keyboard shortcuts;
 - shell-level media-key routing.
 
-The shell must not create duplicate versions of controls already implemented in \`slopos-ui\`.
+The shell must not create duplicate versions of controls already implemented in `slopos-ui`.
 
 ## 14.1 Global menu bar
 
-The menu bar has two conceptual regions:
+The menu bar has two regions:
 
-~~~text
-focused-application menu region                system/status region
-┌──────────────────────────────────────────────────────────────────┐
-│ App  File  Edit  View  Window  Help      Wi-Fi  BT  Vol  ☀  🔋  │
-└──────────────────────────────────────────────────────────────────┘
-~~~
+| Region | Content/authority |
+|---|---|
+| Application region | Focused application's real App/File/Edit/View/Window/Help actions, where exported |
+| System/status region | Provider-backed Wi-Fi, Bluetooth, volume, brightness, battery and clock applets |
 
 The left region is backed by the focused application's real action/menu model.
 
 There must be exactly one application-menu bridge.
 
-Native SLOPOS applications export their real \`slopos-appkit\` action model.
+Native SLOPOS applications export their real `slopos-appkit` action model.
 
 Third-party applications may be integrated only when they expose a supported real menu/action protocol.
 
@@ -1328,7 +1178,7 @@ Required behavior:
 - drag/drop where meaningful;
 - correct work-area reservation only when visible policy requires it.
 
-The Dock must use \`slopos-ui\` and a dedicated SLOPOS Dock specification. It must not copy modern macOS Dock appearance or behavior blindly.
+The Dock must use `slopos-ui` and a dedicated SLOPOS Dock specification. It must not copy modern macOS Dock appearance or behavior blindly.
 
 Control Panels must expose a Dock panel for at least:
 
@@ -1342,7 +1192,7 @@ Control Panels must expose a Dock panel for at least:
 
 ## 14.3 System applet framework
 
-System applets are reusable projections of \`slopos-services\` state into the menu bar.
+System applets are reusable projections of `slopos-services` state into the menu bar.
 
 Required initial applets:
 
@@ -1404,7 +1254,7 @@ OSDs must:
 - use actual provider state after the requested change;
 - be click-through unless an OSD is intentionally interactive.
 
-Implementation must explicitly test \`_NET_ACTIVE_WINDOW\`/focus preservation around OSD mapping. Do not accept an OSD implementation that causes a fullscreen game/video/application to lose focus.
+Implementation must explicitly test `_NET_ACTIVE_WINDOW`/focus preservation around OSD mapping. Do not accept an OSD implementation that causes a fullscreen game/video/application to lose focus.
 
 ## 14.5 Desktop
 
@@ -1719,7 +1569,9 @@ Required:
 - progress;
 - architecture validation.
 
-Distribution package management remains owned by the base distribution unless the product contract explicitly expands scope.
+Initial delivery policy: evolve the existing curated AppImage catalogue. Installed user applications and desktop entries live in user-owned XDG locations; downloads require an explicitly trusted source, integrity verification, architecture checks, atomic installation, cancellation cleanup and uninstall that preserves unrelated user data. A checksum alone does not establish publisher trust. Do not invent a public SLOPOS package repository.
+
+Distribution package management remains owned by the base distribution unless the product contract explicitly expands scope. Native distro-package management is not silently part of the AppImage store task.
 
 ## 16.7 SLOPOS System Monitor
 
@@ -1810,7 +1662,7 @@ Target recording modes:
 
 Use a mature capture/encoding stack such as PipeWire, FFmpeg or GStreamer as appropriate for X11. Do not implement codecs.
 
-Do not ship a Record control until the selected recording path passes real VM tests.
+Do not ship a Record control until the selected recording path passes real VM tests. The required “open captured image in SLOPOS Image Viewer” path also makes APP-08's minimum viewer slice a capture-release dependency; an unimplemented handoff is not a completed action.
 
 
 
@@ -2046,11 +1898,11 @@ A first-party lock screen becomes acceptable only when:
 - multi-monitor behavior is correct;
 - suspend/resume behavior is correct.
 
-Security takes priority over ownership.
+Security takes priority over ownership. A working, tested locker integration is mandatory for daily-use release readiness even when a mature external locker supplies it; an unavailable Lock item is an honest alpha limitation, not a production pass.
 
 ## 18.3 File chooser
 
-Native SLOPOS apps use a SLOPOS file chooser implemented through \`slopos-appkit\` and \`slopos-ui\`.
+Native SLOPOS apps use a SLOPOS file chooser implemented through `slopos-appkit` and `slopos-ui`.
 
 It must support:
 
@@ -2185,7 +2037,7 @@ When a later requirement is remembered, first classify it as one of:
 - native application;
 - background utility.
 
-Add it through the appropriate stable interface instead of putting miscellaneous code into \`slopos-shell\`.
+Add it through the appropriate stable interface instead of putting miscellaneous code into `slopos-shell`.
 
 ---
 
@@ -2212,7 +2064,7 @@ Recommended layering:
 
 ```mermaid
 flowchart TB
-    VIEW[views<br/>slopos-ui only]
+    VIEW["Views using slopos-ui"]
     ACTIONS[actions/menu commands]
     MODEL[domain model/state]
     SERVICES[app-specific adapters]
@@ -2248,188 +2100,114 @@ At minimum enforce:
 - no enabled empty callbacks;
 - no TODO placeholder controls in release-visible code.
 
-Exceptions require an explicit comment in this contract or a reviewed architecture exception file.
+Record each temporary exception in Part II.N with exact path, reason, owner, test and removal task. Do not create a competing architecture document or allow whole new app directories to bypass the boundary.
+
+Inspect Cargo metadata by resolved package identity (including dependency aliases) and combine it with source/behavior checks; a grep for `gtk::Button` alone is not enforcement. Test-only fixture strings are allowed in test fixtures; production sample values are not. Keep domain logic testable without initializing GTK.
+
+Legacy crates initially need a bounded migration exception. Freeze the exception list at the audited baseline; no new raw-GTK surface is allowed under it. Narrow/delete entries as migration lands. An exception is acknowledged debt, never a conformance pass.
+
+QA-01 must also check task path ownership, specification completeness, Markdown policy, duplicate menu ownership, and unregistered required gates. Until that checker exists, the coordinator reviews these constraints manually and records the limitation.
 
 ---
 
-# 21. Migration strategy from the current tree
+# 21. Dependency-driven implementation plan
 
-The current implementation is a functional donor, not the final UI architecture.
+The current tree is a migration donor. Preserve boot/session behavior and introduce one tested slice at a time. “UI first” forbids app-local controls and premature application completion; it does not prevent independent VM, backend, protocol or QA work while UI atoms are built.
 
-Do not rewrite everything in one commit.
+The following task IDs are a starting backlog. At the audited baseline **none is assigned or verified**. The coordinator records actual status in Part II.M and expands any multi-step row into leaf packets before dispatch. A path prefix is a boundary, not permission to edit every file underneath it.
 
-Use this sequence.
+## 21.1 Bootstrap and first dispatch
 
-## Phase 0 — preserve current behavior and freeze visual expansion
+1. Coordinator: establish VM-00, record the baseline and reserve resource/runtime ownership.
+2. Parallel read/preparation: SPEC-01 extracts the authoritative component inventory; QA-00 inspects and measures the existing baseline. Neither invents current passes.
+3. Coordinator: integrate BOOT-01's minimal shared interfaces/manifests and publish an immutable starting SHA. New crates must contain a useful implemented invariant/test, not empty “completed” scaffolds.
+4. Dispatch UI-01, QA-01 and PLAT-01 or one SVC task against that SHA if resources allow. They can edit in parallel; build/runtime permits remain separately scheduled.
+5. Unlock controls, appkit, apps and shell only when their actual dependencies integrate. A worker waiting on UI can take a provider/model/test task with distinct ownership.
 
-- no new ad-hoc GTK first-party surfaces;
-- fix only critical regressions in legacy UI;
-- keep existing shell/session usable while the new stack is built;
-- retire the old "no Dock" assumption; do not resurrect the legacy Application Strip.
+Do not launch “an agent for every app” at the start. Do not make each agent update this contract or reinvent tokens, menus, providers, file choosers and command dispatch.
 
-## Phase 1 — design specification
+## 21.2 Foundation tasks
 
-- extract Figma components;
-- create \`qa/spec/classic\`;
-- define typography, metrics, patterns, colors and states;
-- define legal clean-room assets;
-- create explicit SLOPOS extension specs for Dock, OSD and other shell compositions absent from the source Figma kit.
+| ID | Depends on | Writable area to allocate | Concrete acceptance |
+|---|---|---|---|
+| VM-00 | none | Guest setup/evidence; coordinator | Confirm hypervisor/guest, guest-local checkout, disk/RAM budget, X11 test account, recovery access and execution policy. |
+| QA-00 | VM-00 | Baseline evidence only | Record existing build/test results or exact failures at baseline SHA; inventory script side effects, dependencies and inherited defects. No “all green” inference. |
+| SPEC-01 | source access | `qa/spec/classic/`, licensed asset provenance | Machine-readable schema, complete required-component inventory, source node IDs, revision/scale/font/license metadata and first foundation/button/menu/text specs. Unknowns explicit. |
+| BOOT-01 | QA-00 recorded | Coordinator: workspace, core, initial UI/gallery manifests and module roots | Freeze IDs/errors/capabilities and crate APIs; compile first meaningful invariant tests; keep existing session/package names working. Record exact Rust version; choose and test a toolchain pin before reproducibility claims. |
+| QA-01 | BOOT-01 | Assigned QA runners/tests and CI changes | Isolate displays, buses, child cleanup and output paths; enforce architecture/migration exceptions; validate required-gate inventory, failure exit codes and fixture separation. |
+| UI-01 | BOOT-01, SPEC-01 | `crates/slopos-ui/src/foundation,render,layout,primitives,accessibility`; assigned gallery fixtures | Real surface/text/icon/bevel/focus/layout at 1×/2×; deterministic measurements and independent geometry assertions; AT-SPI base. |
+| UI-02 | UI-01 | `crates/slopos-ui/src/controls/` allocated button/selection modules | Button, checkbox, radio and disclosure states; pointer press/release/cancel, focus and keyboard activation; disabled controls cannot fire actions. |
+| UI-03 | UI-01 | Allocated text-entry modules | Text/search/password/numeric/multiline entry as required; selection, IME, clipboard, Unicode, validation and password privacy. |
+| UI-04 | UI-01 | `crates/slopos-ui/src/menus/` | Menu bar/items/submenus/check states; keyboard traversal, dismissal, enabled actions, exact geometry and focus restoration. |
+| UI-05 | UI-01, UI-02 | Allocated scrolling, list/table/tree/icon-view modules | Scroll, selection, keyboard navigation, long labels/large collections, accessible selection and pixel-preserving icon scale. |
+| UI-06 | UI-03, UI-04, UI-05 | Allocated dialogs/window-content/navigation modules | Dialog/alert/toolbar/status/path compositions, modal focus/escape/default behavior, overflow handling and accessibility. |
+| SPEC-02 | SPEC-01 | Allocated extension specs, no app styling | Approved Dock, OSD, status-area and modern system-dialog compositions built from Classic atoms; independent acceptance fixtures. |
+| PLAT-01 | BOOT-01 | `crates/slopos-x11/` plus explicitly assigned donor extraction | One X11 connection/event/monitor/window authority; preserve active window, workspace and work-area state across hotplug and WM restart. |
+| KIT-01 | UI-02, UI-03, UI-04, PLAT-01 | `crates/slopos-appkit/src/application,actions,menus,jobs,errors` | Lifecycle plus real action/menu export; one command invoked from keyboard/local/global menu; state changes and cancellation cross process boundaries correctly. |
+| KIT-02 | KIT-01, UI-05, UI-06, SVC-07 | Appkit documents/undo/clipboard/drag-drop/dialogs/MIME/restore | Atomic save and recovery, unsaved-close prompt, chooser overwrite handling, clipboard/drag-drop and safe MIME/URI dispatch. |
+| PROOF-01 | KIT-01, required verified atoms | `apps/calculator/` | Arithmetic/error/keyboard/copy journeys; no direct GTK UI. |
+| PROOF-02 | KIT-01, required verified atoms | `apps/system-information/` | Real system/build values, truthful unavailable fields, compact About scene and accessibility. |
 
-## Phase 2 — slopos-ui foundation
+Gallery entry files and tests belong to their component task; shared gallery registration belongs to the coordinator. Unextracted required variants remain SPEC-01/UI work and must be closed before §35 component completion.
 
-Implement:
+## 21.3 Providers and shared infrastructure
 
-- geometry;
-- typography;
-- drawing;
-- icons;
-- focus;
-- selection;
-- layouts;
-- accessibility base.
+Provider work may overlap UI development after BOOT-01. Register modules centrally; workers own distinct domain files. Split a row by discovery, mutations and reconnect tests where necessary.
 
-## Phase 3 — atomic controls
+| ID | Depends on | Area | Acceptance |
+|---|---|---|---|
+| SVC-01 | BOOT-01 | services/network state/transport | Real NetworkManager adapters, APs, connection/IP state; missing daemon, no adapter, disconnect and hotplug tests. |
+| SVC-02 | SVC-01 | services/network actions/secrets model | Connect/disconnect/toggle/VPN capability; authorization/cancel/timeouts; authoritative read-back; no sample SSIDs or logged secrets. |
+| SVC-03 | BOOT-01 | services/audio | Real outputs/inputs/defaults/volume/mute and events; denied/failed writes and hotplug; one API for Sound, applet and OSD. |
+| SVC-04 | BOOT-01 | services/brightness and power, separately allocated | Real capability/state/change paths, bounds/read-back, no-backlight/no-battery behavior, low-battery and suspend capability. |
+| SVC-05 | PLAT-01 | services/displays | Real modes/layout, hotplug, timed apply/confirm/rollback; recover from loss of the controlling output. |
+| SVC-06 | BOOT-01 | services/Bluetooth, media, timedate, input; one domain per packet | Real API plus unavailable/denied/reconnect fixtures per domain; same state consumed by panel and applet. |
+| SVC-07 | BOOT-01 | services/storage, removable-media, applications | Safe media events/mounts, desktop-entry/MIME discovery and launch; command argument handling and untrusted filename tests. |
+| SVC-08 | BOOT-01 | Additional Control Panel providers, one per packet | Printers, users, region/language, autostart, accessibility/preferences and other §16.2 panels get explicit authority/capability/read-back contracts; none is silently forgotten. |
+| SYS-01 | KIT-01, UI-06 | Auth/locker/session integration, exact paths allocated | Native Polkit flow; mature locker integration first; cancellation, logout, shell/WM crash recovery, lock/suspend/resume and all-monitor behavior. |
+| SYS-02 | KIT-02, relevant SVC tasks | Remaining §18 utilities, one per packet | Chooser/defaults, secret/pairing prompts, wallpaper, media events and session dialogs integrated without duplicate providers or shortcut owners. |
 
-Implement and validate:
+System-service tests use isolated fixtures or an exclusive disposable guest session. Fixture success must not be relabelled real hardware success.
 
-- buttons;
-- checkboxes/radios;
-- text fields;
-- lists;
-- menus;
-- scrollbars;
-- dialogs;
-- icon/file items.
+## 21.4 Applications and shell
 
-Build \`slopos-ui-gallery\`.
+The small proof applications validate the common platform before larger native UI migrations. Reuse already verified atoms; schedule any missing atom back into the UI queue.
 
-## Phase 4 — slopos-appkit
+| ID | Depends on | Area | First acceptance slice, then remaining section contract |
+|---|---|---|---|
+| APP-01 | KIT-02, UI-05, SVC-07, proof apps | `apps/files/` | Navigation/watch/open/selection, then independently reviewed copy/move/conflict/cancel/Trash/removable-media tasks (§16.1). |
+| APP-02 | KIT-02, relevant SVC tasks, proof apps | `apps/control-panels/` | Real provider-backed panel host; one panel per task; applet deep links and persistence (§16.2). |
+| APP-03 | KIT-02, proof apps | `apps/terminal/` and named engine adapter | PTY/VTE launch/resize/exit; later search, Unicode/IME, clipboard and accessible chrome (§16.3). |
+| APP-04 | KIT-02, proof apps | `apps/notes/` | New/edit/save/reopen/error/unsaved-close journey and undo/find (§16.4). |
+| APP-05 | KIT-02, SVC-07, proof apps | `apps/software/` and assigned catalogue donor paths | Trusted fixture search/install/integrity/launch/uninstall; cancel/failed download and architecture rejection (§16.6). |
+| APP-06 | KIT-01, UI-05, proof apps | `apps/system-monitor/` | Real process/resource snapshots; PID-reuse-safe terminate confirmation/read-back; permission failures (§16.7). |
+| APP-07 | KIT-02, PLAT-01, SHELL-04, APP-08 | `apps/screenshot/` | Screen/window/region capture, clipboard/save/open-in-viewer; cancellation and multiple monitors (§16.8). Recording is a separate task. |
+| APP-08 | KIT-02, proof apps | `apps/image-viewer/` | Open/fit/zoom/actual pixels; this minimum is required by Screenshot's advertised viewer handoff. Finish remaining §17.1 functions subsequently. |
+| SHELL-01 | KIT-01, UI-04, PLAT-01, proof apps | Shell global-menu module and named donor paths | One protocol-aware bridge; correct app/window focus tracking and action state; preserve local menus for unsupported apps. |
+| SHELL-02 | SPEC-02, UI-05, PLAT-01, SVC-07, proof apps | Shell Dock module | Pin/launch/activate/reorder/persist; multiple windows, hide/dodge/work-area and focus behavior (§14.2). |
+| SHELL-03 | KIT-01, SPEC-02, relevant SVC tasks, proof apps | `slopos-applets/` and shell status host | One applet per provider: real state/action/read-back, unavailable states and Control Panel deep links. |
+| SHELL-04 | SPEC-02, PLAT-01, SVC-03/04/06, proof apps | Assigned OSD and global-shortcut modules | One key owner; coalesced real-state OSD; active X11 window and input focus unchanged through fullscreen use. |
+| SHELL-05 | KIT-02, PLAT-01, SVC-07, APP-01 | Desktop, launcher, notifications, workspace/session UI; separate packets | Native surface migration with real launch/notification/desktop actions and restart restoration; retain working migration path until replacement passes. |
+| EXT-01 | Core desktop stable, required appkit/providers | Remaining §17 apps; one app/behavior per packet | Archive Utility, Disks, Fonts, Help, Media, Documents and remaining Image Viewer requirements; browser remains optional. |
+| INT-01 | Required core tasks integrated, QA-01 | Integration worktree, journeys, packaging and ledger | Exact-SHA workspace gates; graphical VM daily-use journeys; install/upgrade/remove/recovery; no hidden failing required gate. |
 
-Implement:
+“Proof apps” means PROOF-01 and PROOF-02 verified/integrated. Runtime wiring files (`main.rs`, startup scripts, menu registries, desktop entries and package manifests) are integrated by their single designated owner. Independent workers must not each migrate `topbar.rs`.
 
-- application lifecycle;
-- action/menu model;
-- global-menu export;
-- file dialogs;
-- clipboard;
-- drag/drop;
-- undo/redo;
-- document lifecycle;
-- jobs/errors;
-- state restoration.
+Native menu transport initially follows the existing GTK/GIO GMenu/action-group path, hidden behind appkit and a SLOPOS menu model. GTK GMenu and DBusMenu are distinct adapters; discovering a service/object path is not protocol validation. Consolidate to one bridge owner with explicitly supported adapters, not one decoder pretending every exporter uses the same protocol. Add producer/consumer integration tests before claiming an adapter supported.
 
-## Phase 5 — typed service providers
+## 21.5 Milestone gates and migration cutover
 
-Create shared providers before shell widgets depend on them:
+| Milestone | Entry/exit condition |
+|---|---|
+| Foundation | VM baseline recorded; spec inventory and all atoms used by the proof apps verified; shared APIs, gallery and boundary checks integrated. No desktop-readiness claim. |
+| Platform proof | Both proof apps complete; appkit menus/actions, async/error lifecycle and necessary providers verified. |
+| Desktop alpha | Native core apps/shell integrated; enabled actions truthful; core journeys usable; unresolved device/release gates enumerated. Alpha does not mean production-ready. |
+| Daily-use release candidate | All §37 requirements for the declared scope, mandatory app dependencies, graphical VM evidence and install/upgrade/remove/recovery gates pass on the candidate. |
+| Production | §37 and declared release matrix satisfied with current evidence; no blocking defect or unverified required claim. Extended inventory remains tracked, not silently deleted. |
 
-- Network;
-- Audio;
-- Brightness;
-- Bluetooth;
-- Power;
-- Displays;
-- Media;
-- Date/Time;
-- Removable media;
-- Input/application index as needed.
+For each replacement, first record the legacy entry point, desktop ID/config migration, behavior to preserve and rollback path. Integrate the new implementation behind an explicit development selection if needed. After it passes, switch launcher/session/package wiring atomically and remove the obsolete path/exception. Do not delete PCManFM or other working fallback before the native replacement covers its required journeys; do not keep fallback use hidden in a “native complete” claim.
 
-Remove fake/sample production state while migrating.
-
-## Phase 6 — applet + OSD framework
-
-Implement:
-
-- \`slopos-applets\`;
-- status area host;
-- Wi-Fi;
-- Bluetooth;
-- volume;
-- brightness;
-- battery;
-- clock;
-- initial OSD manager;
-- global media-key/shortcut routing.
-
-Verify OSD focus preservation over fullscreen applications.
-
-## Phase 7 — small proof applications
-
-Build native:
-
-1. Calculator;
-2. System Information/About.
-
-These prove the UI/appkit stack before larger apps migrate.
-
-## Phase 8 — Files
-
-Build the first-party file manager.
-
-Do not retain PCManFM as the permanent first-party file UI if it cannot meet the contract.
-
-## Phase 9 — Control Panels
-
-Replace the current Settings presentation with \`slopos-ui\`.
-
-Include real panels for Dock, Menu Bar/Status Items and the system providers implemented above.
-
-## Phase 10 — Terminal and Notes
-
-Build daily-use core apps on the common framework.
-
-## Phase 11 — shell reconstruction
-
-Move shell-owned visible surfaces onto \`slopos-ui\` and typed providers:
-
-- global menu bar;
-- Dock;
-- status applets;
-- OSD;
-- launcher;
-- notifications;
-- desktop;
-- workspace UI;
-- session dialogs.
-
-## Phase 12 — Software, System Monitor and Screenshot
-
-- migrate Software Catalogue;
-- implement System Monitor/task manager;
-- implement Screenshot;
-- expose recording only when functional.
-
-## Phase 13 — background desktop infrastructure
-
-Implement or harden:
-
-- Polkit agent;
-- lock-screen integration;
-- global shortcuts;
-- clipboard;
-- removable media;
-- wallpaper manager;
-- display rollback;
-- network secrets;
-- Bluetooth pairing;
-- URI/default-app launcher.
-
-## Phase 14 — extended utilities
-
-Implement:
-
-- Image Viewer;
-- Archive Utility;
-- Disks;
-- Fonts;
-- Help;
-- Media;
-- Documents.
-
-## Phase 15 — integrated daily-use acceptance
-
-Run complete desktop workflows in the Linux VM.
-
-Only after this phase can broad production-readiness claims be considered.
+Keep fixes for fabricated production state and misleading readiness text in the migration queue. A truthful unavailable state is a valid temporary repair, not completion of a required provider. A blocked specification or device task does not block unrelated ready work.
 
 ---
 
@@ -2545,7 +2323,7 @@ The menu-bar media applet and media keys use this provider.
 
 ## 22.7 Date/time
 
-Prefer \`org.freedesktop.timedate1\`.
+Prefer `org.freedesktop.timedate1`.
 
 Support:
 
@@ -2625,9 +2403,9 @@ SLOPOS integration must support:
 - predictable focus;
 - drag and resize;
 - minimize;
-- maximize;
-- restore;
-- fullscreen;
+- maximize with accessible title-bar controls and correct menu/Dock work area;
+- restore to the previous usable geometry;
+- fullscreen as a distinct state from maximize;
 - transient/modal relationships;
 - Alt+Tab;
 - workspaces;
@@ -2661,7 +2439,7 @@ Define which monitor owns:
 
 Respond to RandR topology changes without restarting the session.
 
-Fullscreen apps must not be obstructed.
+Normal panels and the Dock must yield to fullscreen applications according to policy. Transient hardware OSDs may overlay fullscreen only as specified in §14.4, without focus theft.
 
 Canonical geometry is 1×.
 
@@ -2746,146 +2524,128 @@ The 800×600 canonical scene must be produced by real components, not a mockup.
 
 # 28. Mandatory VM-only execution policy
 
-This applies to every local human or autonomous coding agent.
+This applies to every local human and autonomous agent. An agent running in a container/cloud shell must establish that its underlying execution environment satisfies this policy; `uname` reporting Linux is insufficient.
 
 ## 28.1 Native host restrictions
 
-The native host may be used only for:
+The host may read/edit source and documentation, perform Git operations and non-executing text/diff reviews, manage the hypervisor, copy artifacts and check host disk space. It must not compile or execute SLOPOS code, run repository scripts, Cargo formatting/lint/tests, build packages/media, run X11/visual QA, or use native-host Docker/Podman as a VM substitute.
 
-- reading/editing source and docs;
-- Git operations;
-- launching/managing a hypervisor;
-- copying final artifacts;
-- checking host free disk space.
+All project validation runs in the guest. A docs-only change may receive static text/link/consistency review on the host; that is not project runtime validation. Do not install system dependencies on the host to get around missing VM access.
 
-Do not execute SLOPOS project code on the native host.
+## 28.2 Guest preflight
 
-Forbidden on the host:
+Use UTM, QEMU/KVM (including a verified remote VM), VirtualBox or VMware. Ubuntu LTS is the default general development guest; Debian/Arch guests provide distribution-specific acceptance. Record the exact tested release and architecture instead of “latest Ubuntu.”
 
-- `cargo build`;
-- `cargo test`;
-- `cargo run`;
-- `cargo clippy`;
-- SLOPOS binaries;
-- repo QA scripts;
-- package builds;
-- ISO/image builds;
-- X11 runtime tests;
-- visual QA;
-- project Docker/Podman QA as a substitute for a VM.
+Before any project execution the coordinator records:
 
-Formatting/lint/test validation also runs in the Linux guest.
+- hypervisor/VM identity, guest OS/kernel/architecture and how they were established;
+- whether the agent is directly in the VM or in a container inside it;
+- guest-local repository/worktree/output locations and available CPU/RAM;
+- host backing-volume free space and guest free space (§29);
+- test account, X11 graphical session/recovery console and scheduled runtime lease.
 
-## 28.2 Required Linux guest
+Inside the guest, OS-only checks such as `systemd-detect-virt --vm`, `cat /etc/os-release`, `uname -m`, `df -h`, `free -h` and `nproc` help document the environment. Detection can be incomplete inside containers; use hypervisor/provisioning evidence, not a fabricated success override.
 
-All local compilation, execution and visual QA must occur inside a Linux VM hosted by one of:
+For remote infrastructure where physical-host storage telemetry is unavailable, record that limitation and the provider's virtual-disk quota/free space plus any administrator-supplied backing-storage assurance. Without adequate storage assurance, heavy build/media work remains blocked; source editing and task preparation can continue. Do not invent a host-space number or block every independent task.
 
-- UTM;
-- QEMU;
-- VirtualBox;
-- VMware.
+Use guest-local storage for source builds, target directories, package caches and QA scratch. Do not build through a host-shared directory. Set up dependencies once under coordinator ownership, from the current distro manifests and CI prerequisites; do not run `sudo ./install.sh` in every worktree.
 
-Ubuntu LTS is preferred for normal development.
+## 28.3 Graphical and hardware QA
 
-Debian or Arch guests may be used for distribution-specific acceptance.
+Primary visual acceptance comes from the real graphical X11 session in the Linux VM. Xvfb and containers inside the VM are secondary deterministic layers. Record them as such.
 
-The compiled working tree must live on guest storage.
+Every visible UI change needs the affected component states and composed scene, plus real interaction assertions. Screenshot generation alone is not visual approval. A desktop running in Xvfb does not prove display-manager login, graphics performance, lock security or physical-device behavior.
 
-Do not place `target/`, package caches, build directories or QA scratch output on host shared folders.
-
-## 28.3 Graphical QA
-
-Primary visual QA must run in a real graphical X11 session inside the VM.
-
-Xvfb/container tests may run **inside the VM** as deterministic secondary tests.
-
-They do not replace graphical VM acceptance.
+Use virtual devices and isolated service fixtures for reproducible failure tests. Validate real hardware claims with relevant device access/passthrough or a separately authorized hardware matrix; do not substitute “unavailable passed” for a required connect/brightness/suspend test. Keep unsupported capabilities honestly unavailable.
 
 ## 28.4 Hosted CI
 
-Hosted CI supplements local VM evidence and may be the canonical release-artifact builder.
+Hosted CI supplements guest evidence and may build release artifacts. It does not authorize local host execution or replace graphical VM journeys. Record the actual checkout SHA and CI run URL; distinguish a PR head from a tested merge result.
 
-Hosted CI does not authorize local native-host execution.
+# 29. Disk-space and resource safety
 
----
+Before heavy work record host backing-volume space, guest filesystem space, repository/worktree sizes, target/cache sizes, QA retention and the planned output reservation.
 
-# 29. Disk-space safety policy
+| Work | Minimum free host space | Minimum free guest space |
+|---|---|---|
+| Routine build/test | 20 GiB | 12 GiB |
+| Package/ISO/image/installed-VM generation | 30 GiB | 25 GiB |
 
-Before compilation or QA record:
+These are **floors**, not per-agent allowances. Schedule simultaneous workers against aggregate target/package/image/snapshot growth plus those safety margins. Measure a representative build before increasing concurrency; do not give every worker the same remaining 12 GiB. Lower `CARGO_BUILD_JOBS` or serialize builds if memory pressure/OOM occurs; do not mask OOM as a product failure or success.
 
-- host free space;
-- guest free space;
-- repository size;
-- `target/` size if present;
-- QA artifact size;
-- Cargo cache size when material.
+Prefer one maintained development VM, sparse virtual disks, bounded evidence retention and a dedicated guest-local build volume. Snapshots consume host storage and must be included in the budget. Recheck headroom before each heavy phase.
 
-## 29.1 Routine development budget
+Only the coordinator cleans known obsolete SLOPOS-owned guest targets/artifacts after confirming no active owner or needed evidence. Never delete other projects, unrelated VM images, unmerged worktrees or caches currently in use. If required space is unavailable, stop that heavy action and record a precise blocker.
 
-Before a routine build/test run:
+# 30. Verification commands and evidence
 
-- host free space >= 20 GiB;
-- guest free space >= 12 GiB.
+## 30.1 Existing baseline commands
 
-If below threshold, do not begin a large build.
+Run these **inside the verified guest**, from the selected worktree after the coordinator has installed dependencies and granted a build permit:
 
-Clean only known SLOPOS-owned guest data or expand/move the VM.
+```bash
+git status --short
+git rev-parse HEAD
+rustc -Vv
+cargo -V
+cargo metadata --locked --format-version 1 --no-deps
+cargo fmt --all -- --check
+cargo build --workspace --all-targets --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+```
 
-## 29.2 Release/media budget
+The baseline workspace has `slopos-session`, `slopos-shell`, `slopos-settings` and `slopos-catalogue`. A focused worker check may use, for example:
 
-Before package, ISO, architecture-image or installed-VM generation:
+```bash
+cargo test -p slopos-shell --locked
+cargo clippy -p slopos-shell --all-targets --locked -- -D warnings
+```
 
-- host free space >= 30 GiB;
-- guest free space >= 25 GiB.
+Use the new package's actual registered name only after its manifest lands. Scope edits/formatting to owned files; the coordinator runs workspace checks at integration. Pure/unit tests may be parallelized when isolated. Any test requiring X11, D-Bus service ownership or system state must follow the runtime lease.
 
-Prefer a dedicated larger guest/build volume.
+At the audited revision `rust-toolchain.toml` tracks `stable`, not a fixed version. Record `rustc -Vv`; BOOT-01 must establish a tested pin for reproducible builds. `Cargo.lock` changes require deliberate coordinator review and a fresh locked build.
 
-## 29.3 Storage discipline
+## 30.2 Existing QA is evidence infrastructure, not the new gate implementation
 
-Use:
+| Existing entry point | What inspection establishes | Execution constraint/remaining gap |
+|---|---|---|
+| `scripts/run-release-qa.sh` | Runs Cargo and selected legacy suites | Conditional `-x` checks can omit suites; PASS means selected commands passed. Not the complete §37 gate. |
+| `scripts/run-canonical-visual-qa.sh` | Captures legacy desktop/app scenes with Xvfb | Shared output path, fixed default display, name-based signals/cleanup; no atom-state conformance or real graphical-VM pass. |
+| `scripts/test-session-gui.sh` | Drives legacy session-menu dialogs | Fixed `:95`, global process-name operations and hard-coded release paths; use only exclusive disposable sessions until repaired. |
+| `scripts/run-atspi-qa.sh`, `run-settings-service-qa.sh`, `run-appmenu-qa.sh` | Existing scoped QA entry points | Inspect each script's prerequisites/side effects first; passing legacy expectations does not establish native UI/provider parity. |
+| `scripts/run-resolution-qa.sh`, `run-multimonitor-qa.sh` | Existing display-test entry points | Coordinate X server/system-state ownership; extend for new menu/Dock/OSD and required resolutions. |
+| `packaging/vm/`, package/installed-VM workflows | Existing release/guest tooling | Budget storage, inspect mutating steps, pin source, and verify actual install/boot/upgrade behavior. |
 
-- sparse virtual disks;
-- one maintained development VM rather than many full copies;
-- snapshots sparingly;
-- guest-local `CARGO_TARGET_DIR`;
-- bounded QA retention;
-- compressed archived evidence where useful.
+Do not run all of these automatically for a leaf change. Select tests for the changed behavior and dependencies; full candidate gates belong to INT-01.
 
-Clean stale guest-only:
+At baseline there is no `cargo xtask`, component conformance CLI or VM lease manager. QA-01 must implement the required harness before documenting commands as usable. Keep existing scripts working during migration.
 
-- obsolete `target/`;
-- old package staging;
-- old ISO/image output;
-- superseded screenshots;
-- package caches when required;
-- disposable container caches.
+## 30.3 Required acceptance gates
 
-Never perform broad cleanup of unrelated host data.
+| Gate | Required proof |
+|---|---|
+| G-BUILD | Formatting, locked workspace build/checks, Clippy, meaningful unit/integration tests and changed-script syntax. |
+| G-ARCH | Dependency/UI boundaries, bounded migration exceptions, unique provider/menu/shortcut ownership, no production fixture state. |
+| G-ATOM | Approved spec and gallery states; independent geometry/state/hit-testing/accessibility assertions; 1× and supported integer scale. |
+| G-PROVIDER | Real API and isolated fixture cases: absent/denied/failure/cancel/reconnect/hotplug; changes read back; UI remains responsive. |
+| G-X11 | ICCCM/EWMH/window/work-area/focus/fullscreen/monitor behavior; observe both `_NET_ACTIVE_WINDOW` and input focus for OSD. |
+| G-A11Y | AT-SPI roles/names/states, keyboard-only workflows and usable focus on components and apps. |
+| G-VISUAL | Reviewed graphical VM scenes at §27 resolutions with spec, font and scale provenance. |
+| G-JOURNEY | Applicable §31 workflows including error/recovery paths; output artifacts/system effects verified. |
+| G-RELEASE | Candidate source/artifact checksums; clean install, upgrade, remove, boot/session and recovery in the declared distro/architecture matrix. |
 
-Never delete unrelated VM images.
+A task packet selects applicable gates with reasons. The integration/candidate gate covers every required product gate. Missing harnesses are `NOT_RUN/BLOCKED`, never silently skipped. Required-script absence or a failed assertion must make the gate fail; retries preserve the original failure log. Best-effort cleanup may tolerate an already-exited child, but required assertions must not use `|| true`.
 
----
+Record baseline defects separately from regressions. A pre-existing failure still blocks the relevant completion claim; it is not permission to weaken tests or expand an unrelated worker's scope.
 
-# 30. Development quality gates
+## 30.4 Artifact and evidence ownership
 
-Routine development gates must include:
+Use unique guest-local output such as `artifacts/qa/<source-sha>/<task-id>/<run-id>/` with machine-readable metadata, logs, screenshots and results. Retain source/spec/golden/toolchain provenance and hashes. Do not overwrite a prior run's evidence.
 
-- `cargo fmt --all -- --check`;
-- `cargo clippy --workspace --all-targets -- -D warnings`;
-- `cargo test --workspace`;
-- script syntax checks;
-- architecture-boundary tests;
-- UI atomic conformance;
-- interaction tests;
-- X11 integration;
-- accessibility;
-- representative visual regression.
+Existing scripts that require fixed output locations run serially, then their output is archived under a unique run path before the next run. QA-01 should remove that limitation. Do not copy old screenshot files and change only their manifest SHA.
 
-All local invocations occur inside the Linux VM.
-
-Mandatory failures must fail.
-
-Do not mask required errors with `|| true`.
+Large/binary raw evidence may live in retained CI/VM artifact storage with stable links/checksums. Part II remains the concise interpretation and status ledger. Review final integrated changes and repeat only gates affected by integration, shared interfaces or changed requirements.
 
 ---
 
@@ -3102,56 +2862,15 @@ A required feature may be removed only through an explicit product-contract chan
 
 # 34. Documentation and single-source truth
 
-`AGENTS.md` is the single project-wide source of truth.
+This file contains §0's execution rules, Part I's normative requirements and Part II's descriptive audit/evidence/task ledger. Root and scoped `README.md` files provide truthful usage/API orientation and link here for architecture and readiness.
 
-It contains both:
-- **Part I — normative engineering/product contract**: what SLOPOS must become and the rules agents must follow;
-- **Part II — current audit/evidence ledger**: what is actually true on the present tree.
+Do not add competing `TRUTH.md`, `ROADMAP.md`, `PLAN.md`, `STATUS.md`, `AUDIT.md`, `DESIGN.md`, `ARCHITECTURE.md`, per-agent Markdown plans or dated hand-authored reports. If a generic agent workflow asks for one, put its plan/decision here through the coordinator. Git history is the archive; do not duplicate old ledgers.
 
-`README.md` describes only user-visible behavior that exists and links back to this file for architecture/readiness details.
+The restriction concerns authored/tracked project documentation. Machine-readable specifications, fixtures, test outputs, PR discussion and temporary orchestration messages are not competing truth sources. Existing QA scripts may emit raw `report.md` files into ignored artifacts; those are execution output, must not become committed alternate ledgers, and cannot redefine readiness. Preserve license notices and upstream attribution even when their format differs from this policy.
 
-Scoped subproject `README.md` files may document:
-- how to build/use that subproject;
-- its public API;
-- directory-local developer orientation;
-- narrowly scoped operational instructions.
+Only the coordinator edits this contract during parallel work, unless ownership is explicitly delegated. Each integrated tranche updates Part II in the same PR with source SHA, findings changed, exact command results, VM identity, resource observations, links/hashes for evidence and remaining blockers. Workers supply that information in their handoff.
 
-They must not contain competing:
-- product roadmaps;
-- readiness scores;
-- audit ledgers;
-- architectural authority;
-- global design specifications;
-- release claims.
-
-Do not create new Markdown files such as:
-- `TRUTH.md`;
-- `ROADMAP.md`;
-- `PLAN.md`;
-- `STATUS.md`;
-- `AUDIT.md`;
-- `DESIGN.md`;
-- `ARCHITECTURE.md`;
-- dated QA/evidence Markdown reports.
-
-Put that information into the appropriate section of this file instead.
-
-When a task materially changes implementation truth, the same change set should update **Part II** with:
-- exact audited commit/revision;
-- static evidence;
-- VM-executed evidence;
-- CI evidence;
-- visual evidence;
-- known fake/placeholder behavior;
-- visual deviations;
-- blockers;
-- VM/hypervisor environment;
-- relevant disk-space observations;
-- claims that are and are not currently justified.
-
-Never preserve a score or PASS state from another revision without fresh evidence.
-
-Historical conflicting Markdown should be removed rather than retained as noise. Git history is the archive.
+Keep historical results labelled with their tested revision. Apply §0.7's documentation-only evidence rule instead of demanding an impossible self-referencing commit or relabelling old evidence as fresh. Do not replace failures with scores, silence UNKNOWN fields or copy a PASS to changed code.
 
 ---
 
@@ -3211,7 +2930,8 @@ SLOPOS-I may be described as production-ready for daily use only when all of the
 - `slopos-appkit` provides common application behavior;
 - global actions/menus are real;
 - file dialogs, clipboard, drag/drop and MIME handling pass;
-- state restoration/error handling pass.
+- state restoration/error handling pass;
+- Polkit authentication, secure locker integration and session crash/recovery paths pass.
 
 ## Core applications
 
@@ -3225,7 +2945,8 @@ Release-critical applications pass:
 - Software;
 - System Monitor;
 - Screenshot/Recorder for exposed functionality;
-- System Information/About.
+- System Information/About;
+- the minimum Image Viewer functionality required by Screenshot's native viewer handoff.
 
 ## Shell
 
@@ -3281,441 +3002,199 @@ all pass.
 - published documentation matches reality;
 - no release-blocking defect remains.
 
-The only valid terminal states for a full autonomous completion task are:
+For a **full product completion** assignment, `COMPLETE` means all required gates have current evidence for the declared distro/architecture/capability matrix. `BLOCKED` means a precise dependency prevents remaining required work, with an owner/unblock condition and independent work accounted for.
 
-- `COMPLETE` — every required gate has current evidence;
-- `BLOCKED` — all possible work is complete, but a precisely identified external dependency prevents a remaining required gate.
+For a **bounded implementation task**, use §0.4's task states and report what was verified. A successful task does not require finishing the whole desktop. If execution is unavailable, preserve the implementation and report `IMPLEMENTED / NOT VERIFIED`; do not claim completion or loop indefinitely. A docs-only audit can be complete as documentation while SLOPOS remains incomplete.
 
-There is no "close enough" completion state.
+Neither truthful unavailability nor a fixture pass proves hardware functionality. Unsupported optional capabilities may be excluded only explicitly; required features and enabled actions cannot be silently removed to make a release pass.
 
 
 ---
 
 # Part II — Current Audit and Evidence Ledger
 
-This part is descriptive, not aspirational. It records what is actually known about the current implementation and must be updated as implementation evidence changes.
+This part describes observed implementation truth. Normative targets above are not evidence.
 
-## A. Audit identity
+## A. Audit identity and limits
 
-**Ledger refresh date:** 2026-09-27  
-**Current main revision at this requirements amendment start:** `187bc640a7f8351555f1fe3741afa3c172b0a3c4`  
-**Last production-code baseline statically audited:** `a39dc523526dde0d02736ac29134c6af2cd63d3b`  
-**Intervening PRs #11, #12 and #13:** documentation/reference-contract/consolidation changes only; the production-code findings below therefore still apply unless later code commits supersede them.  
-**Audit type represented here:** static source audit plus Figma metadata inspection.  
-**Fresh compliant Linux-VM build/runtime evidence:** none yet.  
-**Production readiness:** NOT PROVEN.  
-**Completion state:** NOT COMPLETE.
+| Field | Recorded value |
+|---|---|
+| Refresh | 2026-10-02 IST / 2026-10-01 UTC |
+| Audited default-branch revision | `7639ccd0b89955fc2657a3d67a489822f70c0837` |
+| Default-branch context | PR #14 merged: complete shell/Dock/applets/OSD contract. No open PR was returned during this audit. |
+| Previous production-source audit | `a39dc523526dde0d02736ac29134c6af2cd63d3b` |
+| Inspection performed | Recursive tree, workspace/README/toolchain/CI, release and visual/session QA runners, legacy network/sound panels, shell topbar, menu bridge modules, network/audio service code and source comparison. |
+| Comparison scope | Base-to-current comparison contains 23 commits; no changes to Rust crate sources or themes. Documentation/reference files plus packaging/QA ledger references changed. Earlier source/style findings are retained as inherited static findings, not new runtime results. |
+| New project execution | NONE. No Cargo, repository QA, package build or graphical test was run for this documentation audit. |
+| Figma inspection | No fresh extraction in this audit. §5 measurements are inherited observations; a complete machine specification is still missing. |
+| VM/hardware/CI pass | NOT ESTABLISHED by this audit. Existing CI configuration is not evidence that its latest run passed. |
+| Product state | NOT COMPLETE; production readiness NOT PROVEN. |
 
-No SLOPOS code was compiled or executed while producing the documentation/consolidation audit because Part I requires all local project execution to occur inside a compliant Linux VM.
+The contract edit repairs planning/execution instructions. It does not implement the backlog or close the source defects below.
 
-## B. Current implementation shape
+## B. Current source layout
 
-The current Cargo workspace still contains the legacy first-party crates:
+The workspace contains only:
 
 - `crates/slopos-session`;
 - `crates/slopos-shell`;
 - `crates/slopos-catalogue`;
 - `crates/slopos-settings`.
 
-The target platform crates and native-app structure defined in Part I, including `slopos-ui`, `slopos-appkit`, `slopos-core`, `slopos-services`, `slopos-x11`, and the `apps/` suite, are not yet implemented as the final architecture.
+GTK/GDK/GLib/GIO/Pango/GdkPixbuf dependencies are the 0.18-era stack; X11 uses `x11rb`. `rust-toolchain.toml` selects `stable`, so the compiler is not version-pinned. The target core/UI/appkit/services/X11/applets crates, `apps/` suite, gallery and atomic conformance tools are absent from the inspected tree.
 
-The current Rust GTK stack is GTK3-era:
+The donor runtime is X11/Openbox plus session/shell, legacy Settings/Catalogue and external applications such as PCManFM. It is a migration base, not proof of the target architecture.
 
-- `gtk = 0.18`;
-- `gdk = 0.18`;
-- `glib = 0.18`;
-- `gio = 0.18`;
-- `gdk-pixbuf = 0.18`;
-- `pango = 0.18`.
+## C. Design and visual state
 
-X11 integration uses `x11rb`.
-
-The current runtime architecture is still broadly:
-
-```text
-Linux services
-  ↓
-X11
-  ↓
-Openbox
-  ↓
-slopos-session
-  ↓
-slopos-shell
-  ├─ global menu/system bar
-  ├─ launcher/search
-  ├─ notifications
-  └─ desktop integration
-  ↓
-slopos-settings / slopos-catalogue / third-party X11 apps
-```
-
-This remains an acceptable migration base, but it is not the final first-party application/UI architecture specified in Part I.
-
-## C. Design-system truth
-
-The Figma Classic Macintosh UI Kit is now the visual/component authority.
-
-The existing files under `qa/reference/` are legacy/non-normative composition references.
-
-A complete Figma-derived machine-readable specification under `qa/spec/classic/` does not yet exist.
-
-Therefore:
-
-- exact atom inventory: NOT COMPLETE;
-- canonical token extraction: NOT COMPLETE;
-- canonical component state matrix: NOT COMPLETE;
-- `slopos-ui`: NOT IMPLEMENTED as the required final component platform;
-- `slopos-ui-gallery`: NOT IMPLEMENTED;
-- atomic visual conformance: NOT PROVEN.
-
-## D. Visual audit findings
-
-### D.1 Current GTK styling is internally mixed
-
-The current CSS still contains modern styling inconsistent with the strict Figma-derived Classic contract, including observed examples such as:
-
-- approximately 26 px top-bar minimum height rather than the observed 19 px Figma menu-bar example;
-- generic buttons with rounded corners;
-- rounded menus/popovers;
-- large soft shadows;
-- rounded launcher/search surfaces;
-- rounded notifications/alerts;
-- tooltip rounding;
-- legacy card-like control-panel styling.
-
-Some later rules moved toward harder-edged classic controls, but the stylesheet is not yet generated from one canonical token/component system.
-
-**Current canonical visual conformance:** FAIL / reconstruction required.
-
-### D.2 Window chrome
-
-Openbox currently has classic-oriented theme rules with:
-
-- compact borders;
-- interlaced/striped active-title treatment;
-- active/inactive distinction;
-- square title buttons.
-
-This is directionally useful but has not been measured against the Figma title-bar specification.
-
-**Exact window-chrome conformance:** UNKNOWN.
-
-### D.3 Top global menu bar
-
-A full-width top bar exists and the bottom Application Strip has been retired.
-
-However:
-
-- geometry is not yet driven by the Figma-derived specification;
-- presentation and service/action logic are heavily mixed;
-- the top bar still contains fake network state described below.
-
-**Presence:** statically present.  
-**Canonical conformance:** NOT PROVEN.
-
-### D.4 File browsing
-
-PCManFM remains the current file-browser/desktop integration path.
-
-The source audit found no evidence that it can currently achieve the required first-party Files visual/interaction contract.
-
-**Functional baseline:** delegated.  
-**Final first-party Files requirement:** NOT IMPLEMENTED.  
-**Canonical visual conformance:** NOT PROVEN.
-
-### D.5 Control Panels
-
-The current Settings shell has moved toward a Control Panels icon-grid direction, but:
-
-- it is still composed directly from GTK widgets;
-- several panels delegate to external utilities;
-- several native panels contain fake or disconnected state;
-- geometry is not produced by `slopos-ui`.
-
-**Direction:** useful migration donor.  
-**Final Control Panels architecture:** NOT IMPLEMENTED.  
-**Functional truth:** contains release-blocking fake/partial state.
-
-### D.6 Missing native proof surfaces
-
-The final architecture requires native proof applications and canonical utility surfaces.
-
-Current status:
-
-- SLOPOS Calculator: MISSING;
-- proper first-party System Information/About application: MISSING;
-- `slopos-ui` UI Gallery: MISSING.
-
-A basic message dialog is not equivalent to the required System Information/About application.
-
-## E. Functional audit findings
-
-### E.1 Network Settings contains fabricated production state
-
-`crates/slopos-settings/src/panels/network.rs` currently hard-codes example data such as:
-
-- `eth0`;
-- `1000 Mbps Full Duplex`;
-- `192.168.1.100`;
-- `192.168.1.1`;
-- `SLOPOS-Fast-5G`;
-- `Home-Network-Guest`;
-- `CoffeeShop_Free_WiFi`.
-
-The Wi-Fi switch and Connect controls are not fully backed by real NetworkManager actions.
-
-**Status:** FAIL.
-
-Required remediation is defined in Part I: typed real NetworkManager state/actions or a truthful unavailable state.
-
-### E.2 Top-bar network menu fabricates state
-
-The current top-bar implementation contains static Ethernet/Wi-Fi status labels including example interface/network names.
-
-**Status:** FAIL.
-
-### E.3 Sound Settings is only partially connected to real state
-
-The current Sound panel constructs sample device choices and sample initial levels.
-
-Output volume/mute may invoke `pactl` or `amixer`, but the audited implementation does not fully prove:
-
-- real initial device enumeration;
-- selected output-device application;
-- real microphone level;
-- real microphone mute;
-- complete read-back.
-
-**Status:** FAIL / incomplete.
-
-### E.4 Date & Time is not fully evidence-backed
-
-The panel contains `timedatectl` write paths, but the audit did not establish correct real-state initialization and read-back for all displayed values.
-
-**Status:** UNKNOWN / incomplete.
-
-### E.5 Generic fallback global-menu actions are not truthful
-
-The top bar contains fallback Edit actions that synthesize `Ctrl+X`, `Ctrl+C`, `Ctrl+V`, and `Ctrl+A` through `xdotool`.
-
-This is not a real application action model and violates Part I.
-
-**Status:** FAIL.
-
-### E.6 Global-menu implementation is duplicated
-
-The audited tree contains both:
-
-- `crates/slopos-shell/src/gmenu.rs`;
-- `crates/slopos-shell/src/menu/gmenu.rs`.
-
-They overlap in GTK remote-menu bridging.
-
-**Status:** FAIL / consolidation required.
-
-### E.7 Top-bar module is mixed-responsibility
-
-The audited `topbar.rs` is a large module combining presentation, application menus, service status, dialogs, process spawning, session actions, and fallback app commands.
-
-This conflicts with the target separation into `slopos-ui`, `slopos-appkit`, `slopos-services`, and shell presentation.
-
-**Status:** migration/refactor required.
-
-## F. Session and X11 truth
-
-Static source shows:
-
-- session supervision;
-- bounded restart/backoff behavior;
-- Openbox supervision;
-- shell supervision;
-- X11 event integration;
-- EWMH helpers;
-- monitor/RandR modeling;
-- window-state helpers.
-
-The architecture is directionally appropriate for the X11 generation.
-
-No fresh compliant-VM runtime pass is recorded in this ledger.
-
-**Static direction:** acceptable.  
-**Current runtime reliability:** UNKNOWN.
-
-## G. QA truth
-
-The repository contains substantial QA infrastructure, including:
-
-- workspace tests;
-- Xvfb/Openbox smoke;
-- AT-SPI checks;
-- resolution QA;
-- packaging QA;
-- installed-VM/media tooling;
-- screenshot capture.
-
-However the current QA stack does not yet prove the new atomic component contract.
-
-Existing whole-desktop screenshot capture does not by itself prove:
-
-- exact component geometry;
-- all widget states;
-- pointer state machines;
-- text baselines;
-- hit rectangles;
-- accessibility per component;
-- system-effect truth;
-- first-party application architecture;
-- Figma-derived conformance.
-
-Xvfb remains useful only as a secondary deterministic layer inside the Linux VM. Primary visual acceptance must come from the graphical Linux VM as required by Part I.
-
-**Fresh current-revision VM QA:** MISSING.  
-**Fresh current-revision graphical visual QA:** MISSING.  
-**Atomic conformance harness:** MISSING.
-
-## H. Documentation consolidation truth
-
-Project-wide Markdown has now been intentionally consolidated.
-
-Allowed Markdown sources of ongoing truth are:
-
-- `AGENTS.md` — all project-wide architecture, plans, audit/evidence, blockers and agent instructions;
-- root/subproject `README.md` files — scoped orientation and usage only.
-
-The former standalone `TRUTH.md` is obsolete after this consolidation and must not be recreated.
-
-Old dated QA ledgers were already removed. Git history is the archive.
-
-## I. Current subsystem ledger
-
-| Area | Current state |
+| Area | Evidence/status |
 |---|---|
-| X11-only product direction | PASS as contract |
-| Openbox migration base | present |
-| Session supervision/backoff | present statically; runtime revalidation required |
-| Legacy Application Strip | retired; must not return |
-| first-party SLOPOS Dock | MISSING |
-| `slopos-applets` framework | MISSING |
-| Wi-Fi/Bluetooth/Volume/Brightness/Battery applets | MISSING as final provider-backed system |
-| non-focus-stealing OSD manager | MISSING |
-| global shortcut/media-key service | NOT PROVEN as final architecture |
-| Figma-derived machine spec | MISSING |
-| `slopos-ui` | MISSING |
-| `slopos-ui-gallery` | MISSING |
-| `slopos-appkit` | MISSING |
-| architecture boundary enforcement | MISSING |
-| shared Brightness provider | MISSING |
-| shared Media/MPRIS provider | MISSING |
-| top-bar exact geometry | NOT PROVEN |
-| window-chrome exact parity | UNKNOWN |
-| protocol-backed GTK menu bridge | partial/present |
-| duplicate global-menu code | FAIL |
-| fake generic Edit fallback | FAIL |
-| launcher | legacy implementation present; VM revalidation required |
-| notifications | legacy implementation present; VM revalidation required |
-| Control Panels | migration donor only |
-| Network Control Panel | FAIL — fake state |
-| Sound Control Panel | FAIL — partial/fake state |
-| Date & Time | UNKNOWN/PARTIAL |
-| Bluetooth | delegated/UNKNOWN |
-| Power | delegated/UNKNOWN |
-| Displays | delegated/UNKNOWN |
-| native Files | MISSING |
-| native Terminal | MISSING |
-| native Notes | MISSING |
-| native Calculator | MISSING |
-| native System Information/About | MISSING |
-| Software | legacy catalogue present; migration/revalidation required |
-| System Monitor | MISSING |
-| Screenshot/Recorder | MISSING as final native app |
-| Image Viewer | MISSING as final native app |
-| Archive Utility | MISSING |
-| Disks | MISSING |
-| Fonts | MISSING |
-| Help | MISSING |
-| Media | MISSING |
-| Documents | MISSING |
-| Polkit agent | NOT PROVEN as first-party target |
-| first-party file chooser | MISSING |
-| current graphical VM visual QA | MISSING |
-| public official APT/Pacman repository | NOT PUBLISHED |
-| release-ready package/media evidence | NOT CURRENT |
+| Canonical authority | Classic Macintosh UI Kit is adopted by the contract; no fresh extraction here. |
+| `qa/spec/classic/` | MISSING; atom inventory, tokens, source/state mapping and extension specs incomplete. |
+| `slopos-ui` and gallery | MISSING; G-ATOM cannot run as specified. |
+| Legacy `qa/reference/` | Explicitly historical/non-normative; not accepted new goldens. |
+| Legacy GTK styling | Inherited static FAIL: mixed rounded/shadow/card styling and approximate bar/control geometry; not driven by canonical tokens. |
+| Openbox chrome | Inherited directionally classic theme; exact conformance UNKNOWN. |
+| Global bar | Present statically; canonical geometry and new provider architecture NOT PROVEN. |
+| PCManFM file/desktop path | Delegated baseline; first-party Files/desktop conformance NOT IMPLEMENTED. |
+| Control Panels | GTK migration donor with fake/partial state; final architecture NOT IMPLEMENTED. |
+| Calculator/About proof apps | MISSING as target native applications; a legacy message dialog is not the System Information app. |
 
-## J. Current blocking set
+No contemporary screenshots in this audit establish graphical or pixel conformance.
 
-The current release/completion blockers include:
+## D. Reconfirmed source defects
 
-1. Figma-derived machine-readable design specification does not exist.
-2. `slopos-ui` does not exist as the mandatory first-party component library.
-3. UI Gallery and atom/state conformance harness do not exist.
-4. Required SLOPOS Dock is not implemented.
-5. Provider-backed system applet framework is not implemented.
-6. Non-focus-stealing volume/brightness OSD manager is not implemented.
-7. Shared global shortcut/media-key routing is not implemented.
-8. Shared Brightness and media-session providers are not implemented.
-9. First-party applications still rely on the legacy GTK-heavy architecture.
-10. Current styling contains modern rounded/shadow/card drift.
-11. Network Settings contains fabricated production state.
-12. Top-bar network status contains fabricated production state.
-13. Sound Settings contains fabricated/partially disconnected state.
-14. Date/time real-state/read-back is not proven.
-15. Generic `xdotool` application Edit fallbacks misrepresent application capabilities.
-16. Global-menu bridge code is duplicated.
-17. Native Files is not implemented.
-18. Native Control Panels is not implemented on `slopos-ui`.
-19. Native Calculator proof app is missing.
-20. Native System Information/About proof app is missing.
-21. Core daily-use native apps listed in Part I are not yet implemented.
-22. Current-revision build/test evidence has not been produced in a compliant Linux VM.
-23. Current-revision graphical visual QA has not been produced in a compliant Linux VM.
-24. Atomic accessibility/conformance evidence is absent.
-25. Public signed SLOPOS package repositories are not established.
-26. Current release-candidate package/media evidence is absent.
+| Finding | Inspected source | Status and required remediation |
+|---|---|---|
+| F-NET-01: invented Settings state | `crates/slopos-settings/src/panels/network.rs` | FAIL: hard-coded `eth0`, link speed, IP/gateway and named SSIDs; implement SVC-01/02 and APP-02. |
+| F-NET-02: invented menu state | `crates/slopos-shell/src/topbar.rs` | FAIL: static “Connected (eth0)” and “Active (SLOPOS-Fast-5G)” menu labels; real provider state or explicit unavailability required. |
+| F-AUDIO-01: partial/fake Sound state | `crates/slopos-settings/src/panels/sound.rs` | FAIL: sample device/initial levels, incomplete input/device control/read-back, direct command paths. SVC-03/APP-02. |
+| F-MENU-01: guessed app actions | `crates/slopos-shell/src/topbar.rs` | FAIL: `xdotool` Cut/Copy/Paste/Select All and refresh fallbacks. Use real exported actions or guaranteed window actions. |
+| F-MENU-02: duplicate menu code | Both `src/gmenu.rs` and `src/menu/gmenu.rs` under shell | FAIL: both declared; topbar imports the latter. Consolidate carefully and preserve valid tests/behavior. |
+| F-MENU-03: adapter truth | `crates/slopos-shell/src/menu/gmenu.rs` | Static risk: GTK/KDE property fallbacks feed GIO GMenu construction. This is not evidence of DBusMenu support; define/test adapters before advertising compatibility. |
+| F-SHELL-01: mixed responsibilities | `crates/slopos-shell/src/topbar.rs` | Migration required: menus, service UI, spawning, session actions and presentation share one large file. Allocate extraction to one owner at a time. |
+| F-CLAIM-01: stale production claim | `crates/slopos-shell/src/topbar.rs` About text | FAIL: “consumer-ready” is unsupported by the ledger. Correct during the migration tranche. |
+| F-DOCK-01: obsolete implementation assumption | `crates/slopos-shell/src/main.rs` | Contains a dockless comment; required new Dock is MISSING. Contract supersedes the comment; do not revive the old strip. |
 
-## K. Claims currently justified
+Earlier Date/Time initialization/read-back uncertainty remains OPEN; this audit did not freshly inspect or execute that panel.
 
-The following claims are currently supportable:
+## E. Runtime and provider truth
 
-- SLOPOS-I is an experimental X11/Linux desktop-environment project.
-- It currently uses Openbox and a GTK3-era Rust stack.
-- It contains a shell, Settings/Control Panels migration donor, Software Catalogue, launcher, notifications, X11 integration and substantial QA/release infrastructure.
-- The project has adopted the Classic Macintosh UI Kit Figma document as its canonical component/geometry reference.
-- The project has committed to building its own first-party `slopos-ui` component system and native application suite.
-- The target shell now explicitly includes a first-party Dock, global menu bar, provider-backed system applets, and non-focus-stealing hardware OSD infrastructure.
-- The current tree contains known visual and functional gaps.
+Session supervision, bounded restart/backoff and X11/EWMH/monitor helpers are present in the inherited source baseline. Current runtime reliability is UNKNOWN until VM execution. Shared typed production providers as specified in §§6/22 are not implemented as the target architecture; partial command-based donor modules are not their completion.
 
-The following claims are **not** currently justified:
+Network, Sound and fallback-menu findings are release blockers. Brightness, Media/MPRIS, input-routing and applet/OSD work remain missing or unproven. Bluetooth, power, displays and other delegated integrations need fresh real-state/read-back tests.
 
-- production ready;
-- complete daily-use replacement for GNOME/KDE;
-- pixel-perfect Classic Macintosh conformance;
-- all Settings controls are real;
-- all first-party native apps exist;
-- all current CI/VM acceptance is green;
-- public SLOPOS package repositories are live;
-- ARM64/RISC-V are production-supported;
-- current screenshots prove the new component contract.
+## F. QA and parallel-execution hazards
+
+| Finding | Static evidence | Required response |
+|---|---|---|
+| F-QA-01: missing suites can disappear from “PASS” | `scripts/run-release-qa.sh` conditionally invokes executable scripts | Implement an explicit required-gate inventory; selected-command success is not product acceptance. |
+| F-QA-02: capture is not conformance | `scripts/run-canonical-visual-qa.sh` launches Xvfb and captures PNGs | Add independent component/state assertions and real graphical VM review. |
+| F-QA-03: cross-worker interference | Visual runner defaults to `:90`, session GUI runner uses `:95`; both use process-name operations and shared paths | Serial exclusive test sessions until QA-01 isolates display/bus/process/artifact ownership. |
+| F-QA-04: target-path mismatch | QA scripts launch `./target/release/...` | Custom shared target settings are unsafe until launch paths are made explicit; use worktree-local outputs. |
+| F-QA-05: compiler drift | `rust-toolchain.toml` uses `stable` | Record actual compiler; test and pin through BOOT-01. |
+| F-QA-06: inherited CI expectations | `.github/workflows/ci.yml` tests current four crates/binary names and legacy UI | Update checks together with each migration cutover; do not delete them to make the new layout pass. |
+| F-QA-07: absent new harnesses | Recursive tree lacks target gallery/spec/conformance tools | QA-01/UI tasks implement them; do not advertise `xtask` or unimplemented CLIs. |
+
+The existing repository includes workspace, Xvfb/Openbox, AT-SPI, resolution, package and installed-VM infrastructure. It has not yet demonstrated the new component, provider or concurrent-agent contract.
+
+## G. Subsystem readiness
+
+| Subsystem | Current state |
+|---|---|
+| X11/Openbox/session | Present statically; runtime revalidation required |
+| Legacy Application Strip | Retired; do not restore |
+| Dock | MISSING |
+| Global menu | Partial GTK/GIO path; duplicate/injection/protocol issues above |
+| Applet framework and real system applets | MISSING as final architecture |
+| OSD/fullscreen focus guarantee | MISSING |
+| Single global-shortcut/media-key integration | NOT PROVEN |
+| Core/UI/appkit/X11/services target crates | MISSING |
+| Native Files and desktop | MISSING; PCManFM donor |
+| Native Control Panels | MISSING; legacy Settings donor |
+| Native Terminal, Notes, Calculator, System Information | MISSING |
+| Software | Legacy catalogue exists; migration/policy/runtime proof required |
+| System Monitor and Screenshot/Recorder | MISSING as target apps |
+| Image Viewer, Archive Utility, Disks, Fonts, Help, Media, Documents | MISSING as target apps |
+| Native Polkit, secure locker integration, file chooser and other §18 utilities | Missing or unverified against the final contracts; do not equate external command presence with readiness |
+| Legacy launcher and notifications | Present statically; native migration/runtime verification required |
+| Atomic accessibility/conformance and graphical visual acceptance | MISSING current evidence |
+| Public signed APT/Pacman repository | No verified publication evidence in this audit; README says none available |
+| Current candidate package/install/upgrade/remove/media evidence | MISSING |
+| ARM64/RISC-V/HDR/VRR production claims | NOT ESTABLISHED |
+
+## H. Documentation audit resolution
+
+This amendment:
+
+- restores explicit precedence for current user directions and separates requirements from evidence;
+- adds front-loaded VM/subagent rules, worktree ownership, serialized shared-file integration and task handoff contracts;
+- replaces the monolithic phase queue with dependency-ready tasks and milestone gates;
+- clarifies dependency arrows, Rust source layout, provider/process ownership and native menu transport;
+- preserves the full UI/application/shell inventory and records deferred capabilities without changing generation;
+- names existing QA commands and hazards separately from planned harnesses;
+- resolves the single-Markdown policy versus generated raw reports;
+- removes the requirement that every bounded task finish the entire product, and resolves exact-SHA evidence bookkeeping;
+- records the Image Viewer dependency, Software delivery scope and mandatory secure locker integration.
+
+These are **contract corrections**, not implementation passes. Root/subproject READMEs remain orientation documents; no separate truth ledger was added.
+
+## I. Blocking set and next actions
+
+The active blockers are the absent spec/UI/appkit platform and conformance harness, absent required apps/shell/providers, source defects D/E, QA hazards F, and missing compliant runtime/graphical/release evidence.
+
+Start VM-00, SPEC-01 and QA-00 as in §21; then bootstrap common interfaces and dispatch independent foundation tasks. Do not begin native application polishing while its controls are missing. Fix misleading/fabricated production state under explicitly assigned migration tasks.
+
+External access blockers (VM/storage, Figma source, physical devices, signing/publication credentials) must name the exact missing access and impacted gate. Continue independent ready work. Do not ask for new product choices already settled in §0.1.
+
+## J. Justified and unjustified claims
+
+Justified: experimental X11 Linux desktop, existing Rust/GTK3/Openbox donor architecture and QA tooling, adopted Classic component direction, required first-party UI/app suite and full shell contract, known gaps.
+
+Not justified: production-ready daily-use desktop, exact Figma conformance, complete native apps/providers, all-real Settings state, complete menu compatibility, all-current CI/VM gates green, live signed package repositories, or supported hardware/architectures without evidence.
+
+## K. Evidence register
+
+| Evidence category | Status for this amendment |
+|---|---|
+| Repository/tree/source inspection | Static audit at the SHA in A; specific findings in C–F |
+| Historical source/style audit | Retained with original baseline and unchanged-source comparison; not fresh execution |
+| Project compilation/test/lint | NOT_RUN — documentation/source inspection only |
+| Graphical/Xvfb/component/a11y QA | NOT_RUN |
+| Physical devices/performance | NOT_RUN |
+| Package/install/upgrade/release | NOT_RUN |
+
+Actual project results are added here by the integrator as implementation proceeds. Record failures and skipped gates as well as successes.
 
 ## L. Audit update protocol
 
-After any implementation tranche that materially changes product truth, update this Part II in the same branch/PR.
+For each integrated tranche record the tested source commit, reviewed paths, task IDs, closed/new findings, commands/exit codes, VM/hypervisor/OS/toolchain, disk/resource observations, artifact paths/hashes and applicable gate results. Add graphical resolution/scale/spec provenance for UI work and real-vs-fixture device classification for provider work.
 
-At minimum record:
+The coordinator owns this update in the same PR; workers provide the data. Follow §0.7 for a documentation-only ledger commit after a tested code commit. Never infer PASS from file existence, a successful screenshot capture, a previous revision or another agent's summary.
 
-- exact source revision;
-- which findings were closed;
-- newly discovered findings;
-- Linux VM/hypervisor used;
-- guest distribution/version;
-- host free space before heavy work;
-- guest free space before heavy work;
-- fmt/clippy/test results;
-- atomic conformance results;
-- graphical visual-QA evidence;
-- end-to-end journey results;
-- packaging/release evidence where relevant.
+## M. Active task and ownership register
 
-Do not create a new audit Markdown file.
+Initial state for this documentation amendment: **no implementation worker or VM has been assigned**.
 
-If evidence is missing, write `UNKNOWN`, `MISSING`, or `BLOCKED`. Never infer PASS from intent or old evidence.
+| Task | State | Owner/worktree/base | Dependencies or next action |
+|---|---|---|---|
+| VM-00 | PLANNED | Unassigned | Establish and record compliant VM/resource access |
+| SPEC-01 | PLANNED | Unassigned | Retrieve canonical source and record extraction provenance |
+| QA-00 | PLANNED | Unassigned | VM-00, then baseline commands and side-effect inventory |
+| Remaining §21 tasks | PLANNED | Unassigned | Instantiate rows when dependencies and exact path ownership are known |
+
+For active rows include the concrete branch, worktree, base/prerequisite SHAs, exact write paths, build/runtime permit and evidence/commit handoff. READY means prerequisites are integrated and the task packet exists. Do not mark the table assigned merely because a future agent prompt mentions a role.
+
+## N. Transitional architecture exceptions
+
+These acknowledge existing debt only; they do not permit new ad-hoc UI.
+
+| Existing boundary | Permitted migration use | Owner/removal condition |
+|---|---|---|
+| `crates/slopos-shell/` legacy GTK UI | Maintain existing behavior; critical truthful-state fixes; incremental extraction | Coordinator until assigned; remove exception per migrated shell module, SHELL-01–05 |
+| `crates/slopos-settings/` legacy GTK UI | Maintain donor behavior while real providers/native panels replace it | APP-02; no additional raw-GTK panels |
+| `crates/slopos-catalogue/` legacy GTK UI | Preserve AppImage lifecycle during Software migration | APP-05; verify/install new entry point before retiring donor |
+| `assets/config/gtk-3.0/` and `themes/` | Existing external-app/Openbox compatibility and donor styling | Coordinator; separate legitimate external themes from obsolete first-party styling |
+| PCManFM/external utility integration | Explicitly labelled interim/delegated behavior | APP-01/SHELL-05 or matching utility task; final native claims require the replacement |
+
+New engine/compatibility exceptions must name exact crate/path, API boundary, reason, test and owner here. No blanket exemption for all applications, all GTK imports or all QA failures is allowed.
