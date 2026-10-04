@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "runners": [
+    {
+      "id": "clean-install",
+      "label": "Clean installation and session startup",
+      "script": "scripts/run-clean-install-qa.sh"
+    },
+    {
+      "id": "catalogue",
+      "label": "Software Catalogue integrity and lifecycle",
+      "script": "scripts/run-catalogue-qa.sh"
+    },
+    {
+      "id": "virtual-services",
+      "label": "Virtual system-service integration",
+      "script": "scripts/run-virtual-services-qa.sh"
+    },
+    {
+      "id": "settings-services",
+      "label": "Settings delegated-service integration",
+      "script": "scripts/run-settings-service-qa.sh"
+    },
+    {
+      "id": "multimonitor",
+      "label": "Multi-monitor geometry",
+      "script": "scripts/run-multimonitor-qa.sh"
+    },
+    {
+      "id": "resolution",
+      "label": "Resolution and scale coverage",
+      "script": "scripts/run-resolution-qa.sh"
+    },
+    {
+      "id": "recovery",
+      "label": "Configuration recovery",
+      "script": "scripts/run-recovery-qa.sh"
+    },
+    {
+      "id": "security-failure",
+      "label": "Security and failure handling",
+      "script": "scripts/run-security-failure-qa.sh"
+    },
+    {
+      "id": "session-performance",
+      "label": "Session performance evidence",
+      "script": "scripts/benchmark-x11-session.sh"
+    },
+    {
+      "id": "accessibility-tree",
+      "label": "Accessibility tree",
+      "script": "scripts/run-atspi-qa.sh"
+    },
+    {
+      "id": "debian-package",
+      "label": "Debian package payload",
+      "script": "scripts/run-debian-package-qa.sh"
+    },
+    {
+      "id": "package-repositories",
+      "label": "Package repository metadata generation",
+      "script": "scripts/generate-package-repos.sh"
+    },
+    {
+      "id": "canonical-visual",
+      "label": "Canonical visual evidence capture",
+      "script": "scripts/run-canonical-visual-qa.sh"
+    }
+  ]
+}
