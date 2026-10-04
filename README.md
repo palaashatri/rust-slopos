@@ -44,7 +44,7 @@ Fresh Ubuntu 24.04 VM captures of the current SLOPOS UI button-plate gallery (20
 | --- | --- |
 | ![Button-plate gallery at 1×](docs/screenshots/current-button-plate-1x.png) | ![Button-plate gallery at 2×](docs/screenshots/current-button-plate-2x.png) |
 
-These recaptures are pixel-identical to the October 2 captures; they document the current fixture, not a new visual change. The fixture draws only nine plate variants (Regular, Default and Secondary × Rest, Pressed and Disabled). It does not show text, interactive controls or accessibility behavior, and is not a Figma-conformance pass. Recent verified progress is QA hardening, not a UI milestone. See [AGENTS.md](AGENTS.md#part-ii--current-audit-and-evidence-ledger) for task status.
+These recaptures are pixel-identical to the October 2 captures; they document the current fixture, not a new visual change. The fixture draws only nine plate variants (Regular, Default and Secondary × Rest, Pressed and Disabled). It does not show text, interactive controls or accessibility behavior, and is not a Figma-conformance pass. The gallery implementation is not included in the pushed screenshot/QA commit, so these images do not verify that commit's UI source. Recent verified progress is QA hardening, not a UI milestone. See [AGENTS.md](AGENTS.md#part-ii--current-audit-and-evidence-ledger) for task status.
 
 ## Canonical design direction
 
