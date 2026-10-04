@@ -48,49 +48,24 @@ trap on_error ERR
 
 printf 'SLOPOS-I release QA\nSource: %s\n' "$SOURCE_SHA"
 
+run_gate "Required release runner inventory" python3 scripts/check-release-runner-inventory.py --root "$REPO_ROOT"
 run_gate "Rust formatting" cargo fmt --all -- --check
 run_gate "Workspace Clippy" bash -c 'cargo clippy --workspace --all-targets --locked -- -D warnings'
 run_gate "Workspace tests" cargo test --workspace --locked
 
-if [[ -x scripts/run-clean-install-qa.sh ]]; then
-  run_gate "Clean installation and session startup" bash scripts/run-clean-install-qa.sh
-fi
-if [[ -x scripts/run-catalogue-qa.sh ]]; then
-  run_gate "Software Catalogue integrity and lifecycle" bash scripts/run-catalogue-qa.sh
-fi
-if [[ -x scripts/run-virtual-services-qa.sh ]]; then
-  run_gate "Virtual system-service integration" bash scripts/run-virtual-services-qa.sh
-fi
-if [[ -x scripts/run-settings-service-qa.sh ]]; then
-  run_gate "Settings delegated-service integration" bash scripts/run-settings-service-qa.sh
-fi
-if [[ -x scripts/run-multimonitor-qa.sh ]]; then
-  run_gate "Multi-monitor geometry" bash scripts/run-multimonitor-qa.sh
-fi
-if [[ -x scripts/run-resolution-qa.sh ]]; then
-  run_gate "Resolution and scale coverage" bash scripts/run-resolution-qa.sh
-fi
-if [[ -x scripts/run-recovery-qa.sh ]]; then
-  run_gate "Configuration recovery" bash scripts/run-recovery-qa.sh
-fi
-if [[ -x scripts/run-security-failure-qa.sh ]]; then
-  run_gate "Security and failure handling" bash scripts/run-security-failure-qa.sh
-fi
-if [[ -x scripts/benchmark-x11-session.sh ]]; then
-  run_gate "Session performance evidence" bash scripts/benchmark-x11-session.sh
-fi
-if [[ -x scripts/run-atspi-qa.sh ]]; then
-  run_gate "Accessibility tree" bash scripts/run-atspi-qa.sh
-fi
-if [[ -x scripts/run-debian-package-qa.sh ]]; then
-  run_gate "Debian package payload" bash scripts/run-debian-package-qa.sh
-fi
-if [[ -x scripts/generate-package-repos.sh ]]; then
-  run_gate "Package repository metadata generation" bash scripts/generate-package-repos.sh
-fi
-if [[ -x scripts/run-canonical-visual-qa.sh ]]; then
-  run_gate "Canonical visual evidence capture" bash scripts/run-canonical-visual-qa.sh
-fi
+run_gate "Clean installation and session startup" bash scripts/run-clean-install-qa.sh
+run_gate "Software Catalogue integrity and lifecycle" bash scripts/run-catalogue-qa.sh
+run_gate "Virtual system-service integration" bash scripts/run-virtual-services-qa.sh
+run_gate "Settings delegated-service integration" bash scripts/run-settings-service-qa.sh
+run_gate "Multi-monitor geometry" bash scripts/run-multimonitor-qa.sh
+run_gate "Resolution and scale coverage" bash scripts/run-resolution-qa.sh
+run_gate "Configuration recovery" bash scripts/run-recovery-qa.sh
+run_gate "Security and failure handling" bash scripts/run-security-failure-qa.sh
+run_gate "Session performance evidence" bash scripts/benchmark-x11-session.sh
+run_gate "Accessibility tree" bash scripts/run-atspi-qa.sh
+run_gate "Debian package payload" bash scripts/run-debian-package-qa.sh
+run_gate "Package repository metadata generation" bash scripts/generate-package-repos.sh
+run_gate "Canonical visual evidence capture" bash scripts/run-canonical-visual-qa.sh
 
 FINISHED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 cat > "$REPORT_FILE" <<EOF

@@ -30,10 +30,25 @@ jobs:
       - name: Confirm exact source revision
         run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12.3'
       - name: Validate committed lockfile
         run: |
           cargo metadata --locked --format-version 1 --no-deps > /dev/null
           git diff --exit-code -- Cargo.lock
+      - name: Enforce first-party application UI boundary
+        run: |
+          set -euo pipefail
+          qa_venv="$RUNNER_TEMP/slopos-qa-venv"
+          python3 -m venv "$qa_venv"
+          "$qa_venv/bin/python" -m pip install --requirement qa/requirements-architecture.txt
+          "$qa_venv/bin/python" -m pytest -q \
+            scripts/test_check_architecture.py \
+            scripts/test_release_runner_inventory.py
+          bash -n scripts/run-release-qa.sh
+          "$qa_venv/bin/python" scripts/check-architecture.py
+          "$qa_venv/bin/python" scripts/check-release-runner-inventory.py
 
   x11-contract:
     name: X11-only product contract

@@ -36,6 +36,16 @@ Known current gaps include:
 
 See [AGENTS.md](AGENTS.md#part-ii--current-audit-and-evidence-ledger) for the current evidence-backed audit and blocker ledger.
 
+## Latest UI progress
+
+Fresh Ubuntu 24.04 VM captures of the current SLOPOS UI button-plate gallery (2026-10-04):
+
+| 1× | 2× |
+| --- | --- |
+| ![Button-plate gallery at 1×](docs/screenshots/current-button-plate-1x.png) | ![Button-plate gallery at 2×](docs/screenshots/current-button-plate-2x.png) |
+
+These recaptures are pixel-identical to the October 2 captures; they document the current fixture, not a new visual change. The fixture draws only nine plate variants (Regular, Default and Secondary × Rest, Pressed and Disabled). It does not show text, interactive controls or accessibility behavior, and is not a Figma-conformance pass. Recent verified progress is QA hardening, not a UI milestone. See [AGENTS.md](AGENTS.md#part-ii--current-audit-and-evidence-ledger) for task status.
+
 ## Canonical design direction
 
 The visual/component reference is the community **Classic Macintosh UI Kit** in Figma:
@@ -161,7 +171,7 @@ Repository-generation infrastructure may exist in source, but public package-man
 - [packaging/browser/README.md](packaging/browser/README.md) — scoped upstream browser integration.
 - [packaging/repo/README.md](packaging/repo/README.md) — current package-repository status and future publication contract.
 
-Historical screenshots and old QA material are not authoritative acceptance evidence for the current atomic/Figma contract.
+Older screenshot sets have been removed to avoid presenting stale UI as current progress. The captures above are qualitative component-development snapshots, not product-acceptance evidence.
 
 ## License
 
