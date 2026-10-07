@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "specification": "SLOPOS Classic Macintosh component specification",
+  "status": "DRAFT_SOURCE_METADATA_INCOMPLETE",
+  "source": {
+    "fileName": "Classic Macintosh UI Kit (Community)",
+    "fileKey": "LGMlwNCoVdakZxDBvPKg1W",
+    "rootPageNodeId": "0:1",
+    "rootPageName": "The Interface Elements",
+    "sourceRevision": null,
+    "sourceLastModified": null,
+    "sourceAccessStatus": "PARTIAL_READ_ONLY",
+    "sourceAccessNotes": [
+      "Figma MCP returned root metadata once, then reported the connected Starter-plan tool-call limit.",
+      "get_design_context returned a no-selection message for the page root; no component context or screenshot artifact was returned.",
+      "The anonymous Figma web viewer displayed the component board, but prompted sign-up for inspection; no child component properties were available.",
+      "A fresh get_design_context request for recovered Regular Button node 73:3498 on 2026-10-06 UTC returned the Starter-plan tool-call limit; no new properties or screenshot were returned."
+    ],
+    "webViewerSectionsObserved": [
+      "Example screen (8-bit)",
+      "Example screen (1-bit)",
+      "Fonts",
+      "Menus",
+      "Windows",
+      "Controls",
+      "Icons & symbols",
+      "Patterns",
+      "Misc."
+    ],
+    "scale": {
+      "canonicalCoordinateSystem": "1x",
+      "sourceScale": null,
+      "integerHiDpiRequired": true,
+      "fractionalScalingRequired": false,
+      "status": "CONTRACT_REQUIREMENT_SOURCE_SCALE_UNKNOWN"
+    },
+    "typography": {
+      "fontFamily": null,
+      "fontVersion": null,
+      "metricsSource": null,
+      "redistributionLicense": "UNKNOWN"
+    },
+    "historicalMetadata": {
+      "status": "HISTORICAL_CACHED_XML_REVISION_UNKNOWN",
+      "sha256": "9a0ee26ac340cccea6b5ca1ab019573a0ab3f8053e5df86b92eaa872570220d4",
+      "sourceRevision": null,
+      "retrievedUtc": null,
+      "notes": "Retained node names, hierarchy and bounds only; styles, behavior, source scale and conformance remain unverified."
+    },
+    "assetLicense": {
+      "status": "UNKNOWN",
+      "notes": "Community-file attribution does not establish redistribution rights for embedded fonts, icons, or other assets."
+    }
+  },
+  "schemaFile": "schema.json",
+  "inventoryFile": "inventory.json",
+  "sourceMetadataFile": "source-metadata.xml",
+  "sourceNodeCatalogFile": "source-nodes.json",
+  "componentFiles": [
+    "colors.json",
+    "typography.json",
+    "metrics.json",
+    "patterns.json",
+    "icons.json",
+    "buttons.json",
+    "text-fields.json",
+    "menus.json"
+  ],
+  "plannedComponentFiles": [
+    "colors.json",
+    "typography.json",
+    "metrics.json",
+    "patterns.json",
+    "icons.json",
+    "buttons.json",
+    "selection-controls.json",
+    "text-fields.json",
+    "menus.json",
+    "scrollbars.json",
+    "lists.json",
+    "windows.json",
+    "file-items.json",
+    "dialogs.json"
+  ],
+  "provenance": {
+    "contractRevision": "7639ccd0b89955fc2657a3d67a489822f70c0837",
+    "contractExamplesAudited": "2026-09-24",
+    "currentAccessDate": "2026-10-06",
+    "exactFigmaExtraction": "NOT_COMPLETE",
+    "visualViewerScreenshot": "Observed during this task; no evidence artifact retained."
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "category": "icons",
+  "status": "CATEGORY_INVENTORY_COMPLETE_METRICS_SOURCE_PENDING",
+  "sourceNodeIds": [],
+  "canonicalSizesPx": null,
+  "scaleRule": "Pixel-preserving scaling for pixel-oriented artwork (AGENTS.md §9.3); exact source rules pending.",
+  "categories": [
+    "device",
+    "folder",
+    "file_type",
+    "action",
+    "status",
+    "application"
+  ],
+  "highDpiVariantsRequired": true,
+  "contractExample": {
+    "sizePx": [
+      32,
+      32
+    ],
+    "authority": "EXAMPLE_ONLY",
+    "provenance": "AGENTS.md §5 large Finder icon example."
+  }
+}

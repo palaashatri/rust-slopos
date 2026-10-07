@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "category": "text-fields",
+  "status": "PARTIAL_CACHED_SOURCE_MAPPING_NOT_CONFORMANCE",
+  "sourceNodeIds": [
+    "73:3745"
+  ],
+  "commonProperties": {
+    "widthPx": null,
+    "heightPx": null,
+    "paddingPx": null,
+    "baselinePx": null,
+    "border": null,
+    "focusTreatment": null,
+    "selectionTreatment": null,
+    "disabledTreatment": null,
+    "keyboardBehavior": null,
+    "accessibility": null
+  },
+  "items": [
+    {
+      "id": "text_field.text",
+      "name": "Text Field",
+      "sourceNodeId": "73:3745",
+      "widthPx": 170,
+      "heightPx": 22,
+      "behavior": [
+        "text selection",
+        "IME",
+        "clipboard",
+        "Unicode",
+        "validation"
+      ],
+      "sourceNodeIds": [
+        "73:3745"
+      ],
+      "sourceParentNodeId": "1:18",
+      "sourceMappingStatus": "MAPPED",
+      "sourceMappingBasis": "Named Text field symbol; editing behavior, text offsets and accessible semantics remain unextracted.",
+      "sourceMetadataStatus": "HISTORICAL_CACHED_XML_REVISION_UNKNOWN",
+      "geometryStatus": "CACHED_SOURCE_NODE_BOUNDS_ONLY"
+    },
+    {
+      "id": "text_field.search",
+      "name": "Search Field",
+      "sourceNodeId": null,
+      "behavior": [
+        "text selection",
+        "IME",
+        "clipboard",
+        "Unicode",
+        "validation"
+      ]
+    },
+    {
+      "id": "text_field.password",
+      "name": "Password Field",
+      "sourceNodeId": null,
+      "behavior": [
+        "secure input",
+        "password privacy",
+        "focus",
+        "accessibility"
+      ]
+    },
+    {
+      "id": "text_field.multiline",
+      "name": "Multi-line Text Area",
+      "sourceNodeId": null,
+      "behavior": [
+        "text selection",
+        "IME",
+        "clipboard",
+        "Unicode",
+        "validation"
+      ]
+    },
+    {
+      "id": "text_field.numeric",
+      "name": "Numeric Field",
+      "sourceNodeId": null,
+      "behavior": [
+        "numeric validation",
+        "keyboard operation"
+      ]
+    },
+    {
+      "id": "text_field.editable_label",
+      "name": "Editable Label",
+      "sourceNodeId": null,
+      "behavior": [
+        "file-rename editing",
+        "validation",
+        "keyboard operation"
+      ]
+    }
+  ],
+  "source": {
+    "fileKey": "LGMlwNCoVdakZxDBvPKg1W",
+    "rootPageNodeId": "0:1",
+    "sourceRevision": null,
+    "sourceScale": null,
+    "fontStatus": "UNKNOWN",
+    "licenseStatus": "UNKNOWN",
+    "metadataFile": "source-metadata.xml",
+    "metadataSha256": "9a0ee26ac340cccea6b5ca1ab019573a0ab3f8053e5df86b92eaa872570220d4",
+    "nodeCatalogFile": "source-nodes.json",
+    "metadataStatus": "HISTORICAL_CACHED_XML_REVISION_UNKNOWN",
+    "geometryStatus": "CACHED_SOURCE_NODE_BOUNDS_ONLY",
+    "geometryUnits": "XML logical coordinates; source scale unverified. widthPx/heightPx retain draft field names and record source bounds, not physical pixels or fixed control sizes.",
+    "retrievedUtc": null,
+    "retrievalNotes": "Retained artifact has no embedded retrieval timestamp or source revision. The archived inventory reports retrieval at 2026-10-02 05:20:33 UTC; this is a historical record, not a fresh Figma request.",
+    "currentConformance": "NOT_RUN"
+  },
+  "notes": [
+    "Behavior list is from AGENTS.md §9.6; exact appearance and interaction details still require Figma extraction and component design."
+  ]
+}

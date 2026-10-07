@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "category": "typography",
+  "status": "ROLE_INVENTORY_COMPLETE_METRICS_SOURCE_PENDING",
+  "sourceNodeIds": [],
+  "font": {
+    "family": null,
+    "version": null,
+    "redistributionLicense": "UNKNOWN",
+    "metricsSource": null
+  },
+  "requiredProperties": [
+    "family",
+    "sizePx",
+    "weight",
+    "baselinePx",
+    "lineHeightPx",
+    "scalingRule"
+  ],
+  "roles": [
+    {
+      "id": "global_menu",
+      "name": "Global Menu Text",
+      "family": null,
+      "sizePx": null,
+      "weight": null,
+      "baselinePx": null,
+      "lineHeightPx": null,
+      "scalingRule": null,
+      "sourceNodeId": null,
+      "status": "SOURCE_PENDING"
+    },
+    {
+      "id": "window_title",
+      "name": "Window/Title Text",
+      "family": null,
+      "sizePx": null,
+      "weight": null,
+      "baselinePx": null,
+      "lineHeightPx": null,
+      "scalingRule": null,
+      "sourceNodeId": null,
+      "status": "SOURCE_PENDING"
+    },
+    {
+      "id": "body",
+      "name": "Body Text",
+      "family": null,
+      "sizePx": null,
+      "weight": null,
+      "baselinePx": null,
+      "lineHeightPx": null,
+      "scalingRule": null,
+      "sourceNodeId": null,
+      "status": "SOURCE_PENDING"
+    },
+    {
+      "id": "secondary",
+      "name": "Secondary Text",
+      "family": null,
+      "sizePx": null,
+      "weight": null,
+      "baselinePx": null,
+      "lineHeightPx": null,
+      "scalingRule": null,
+      "sourceNodeId": null,
+      "status": "SOURCE_PENDING"
+    },
+    {
+      "id": "list",
+      "name": "List Text",
+      "family": null,
+      "sizePx": null,
+      "weight": null,
+      "baselinePx": null,
+      "lineHeightPx": null,
+      "scalingRule": null,
+      "sourceNodeId": null,
+      "status": "SOURCE_PENDING"
+    },
+    {
+      "id": "icon_label",
+      "name": "Icon-label Text",
+      "family": null,
+      "sizePx": null,
+      "weight": null,
+      "baselinePx": null,
+      "lineHeightPx": null,
+      "scalingRule": null,
+      "sourceNodeId": null,
+      "status": "SOURCE_PENDING"
+    },
+    {
+      "id": "section_title",
+      "name": "Section Title",
+      "family": null,
+      "sizePx": null,
+      "weight": null,
+      "baselinePx": null,
+      "lineHeightPx": null,
+      "scalingRule": null,
+      "sourceNodeId": null,
+      "status": "SOURCE_PENDING"
+    },
+    {
+      "id": "utility_display",
+      "name": "Utility Display Text",
+      "family": null,
+      "sizePx": null,
+      "weight": null,
+      "baselinePx": null,
+      "lineHeightPx": null,
+      "scalingRule": null,
+      "sourceNodeId": null,
+      "status": "SOURCE_PENDING"
+    },
+    {
+      "id": "monospace",
+      "name": "Monospace Text",
+      "family": null,
+      "sizePx": null,
+      "weight": null,
+      "baselinePx": null,
+      "lineHeightPx": null,
+      "scalingRule": null,
+      "sourceNodeId": null,
+      "status": "SOURCE_PENDING"
+    }
+  ],
+  "notes": [
+    "Role names come from AGENTS.md §9.13; they are not a fresh Figma extraction."
+  ]
+}

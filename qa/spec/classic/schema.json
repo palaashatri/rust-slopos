@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slopos.invalid/qa/spec/classic/inventory.schema.json",
+  "title": "SLOPOS Classic component inventory",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "status",
+    "source",
+    "components",
+    "notUsedReasons"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "status": {
+      "enum": [
+        "DRAFT_SOURCE_MAPPING_PENDING",
+        "COMPLETE"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "fileKey",
+        "rootPageNodeId",
+        "sourceRevision",
+        "sourceScale",
+        "fontStatus",
+        "licenseStatus"
+      ],
+      "properties": {
+        "fileKey": {
+          "type": "string"
+        },
+        "rootPageNodeId": {
+          "type": "string"
+        },
+        "sourceRevision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metadataFile": {"type": "string"},
+        "metadataSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "nodeCatalogFile": {"type": "string"},
+        "metadataStatus": {"const": "HISTORICAL_CACHED_XML_REVISION_UNKNOWN"},
+        "retrievedUtc": {"type": ["string", "null"]},
+        "sourceScale": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fontStatus": {
+          "enum": [
+            "UNKNOWN",
+            "VERIFIED"
+          ]
+        },
+        "licenseStatus": {
+          "enum": [
+            "UNKNOWN",
+            "VERIFIED"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "category",
+          "classification",
+          "classificationBasis",
+          "requirementReference",
+          "sourceNodeId",
+          "sourceMappingStatus",
+          "specificationStatus"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "classification": {
+            "enum": [
+              "REQUIRED",
+              "OPTIONAL_VARIANT",
+              "NOT_USED"
+            ]
+          },
+          "classificationBasis": {
+            "type": "string"
+          },
+          "requirementReference": {
+            "type": "string"
+          },
+          "sourceNodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceMappingStatus": {
+            "enum": [
+              "UNKNOWN",
+              "MAPPED"
+            ]
+          },
+          "sourceNodeIds": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": true,
+            "minItems": 1
+          },
+          "sourceParentNodeId": {"type": ["string", "null"]},
+          "sourceMappingBasis": {"type": "string", "minLength": 1},
+          "candidateSourceNodeIds": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": true
+          },
+          "widthPx": {"type": ["number", "null"], "minimum": 0},
+          "heightPx": {"type": ["number", "null"], "minimum": 0},
+          "specificationStatus": {
+            "enum": [
+              "NOT_EXTRACTED",
+              "EXTRACTED"
+            ]
+          },
+          "expectedStates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "classificationCondition": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "notUsedReasons": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

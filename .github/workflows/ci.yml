@@ -45,10 +45,12 @@ jobs:
           "$qa_venv/bin/python" -m pip install --requirement qa/requirements-architecture.txt
           "$qa_venv/bin/python" -m pytest -q \
             scripts/test_check_architecture.py \
-            scripts/test_release_runner_inventory.py
+            scripts/test_release_runner_inventory.py \
+            scripts/test_classic_source_mapping.py
           bash -n scripts/run-release-qa.sh
           "$qa_venv/bin/python" scripts/check-architecture.py
           "$qa_venv/bin/python" scripts/check-release-runner-inventory.py
+          "$qa_venv/bin/python" scripts/check-classic-source-mapping.py
 
   x11-contract:
     name: X11-only product contract
