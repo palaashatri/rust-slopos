@@ -27,7 +27,7 @@ EXPECTED_RUNNER_TEMPLATE = r'''#!/usr/bin/env bash
 # SLOPOS-I release evidence runner.
 # This script executes objective gates and records their results. It does not
 # assign product-readiness or visual scores to itself; AGENTS.md Part II owns that audit.
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
@@ -173,6 +173,9 @@ def validate_release_runner_inventory(root: Path) -> list[str]:
         if not isinstance(script, str) or RUNNER_PATH.fullmatch(script) is None:
             errors.add(f"runner entry {index} has an unsafe script path")
             continue
+
+        if Path(script) == RUNNER_RELATIVE_PATH:
+            errors.add("release runner inventory must not register the aggregate runner")
 
         if script in seen_scripts:
             errors.add(f"release runner inventory repeats script {script!r}")

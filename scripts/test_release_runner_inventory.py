@@ -117,6 +117,91 @@ def test_accepts_complete_executable_inventory(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
+    ("failed_gate", "exit_status", "completed", "attempted"),
+    [
+        ("Rust formatting", 17, 1, 2),
+        ("First gate", 23, 4, 5),
+    ],
+)
+def test_failed_gate_replaces_stale_pass_and_stops_runner(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failed_gate: str,
+    exit_status: int,
+    completed: int,
+    attempted: int,
+) -> None:
+    write_fixture(tmp_path)
+    (tmp_path / "scripts" / CHECKER_PATH.name).write_bytes(CHECKER_PATH.read_bytes())
+    trace_path = tmp_path / "gates.log"
+    monkeypatch.setenv("TRACE_FILE", str(trace_path))
+    monkeypatch.setenv("SOURCE_SHA", "fixture-source")
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    monkeypatch.setenv("PATH", str(fake_bin), prepend=":")
+    cargo = fake_bin / "cargo"
+    cargo_status = exit_status if failed_gate == "Rust formatting" else 0
+    cargo.write_text(
+        "#!/usr/bin/env bash\n"
+        'printf "cargo %s\\n" "$*" >> "$TRACE_FILE"\n'
+        f"exit {cargo_status}\n",
+        encoding="utf-8",
+    )
+    cargo.chmod(0o755)
+    (tmp_path / "scripts" / "run-first-qa.sh").write_text(
+        'printf "first\\n" >> "$TRACE_FILE"\n'
+        f"exit {exit_status}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "scripts" / "run-second-qa.sh").write_text(
+        'printf "second\\n" >> "$TRACE_FILE"\n', encoding="utf-8"
+    )
+    report_path = tmp_path / "artifacts" / "qa" / "release" / "report.md"
+    report_path.parent.mkdir(parents=True)
+    report_path.write_text("- Result: **PASS**\n", encoding="utf-8")
+
+    result = subprocess.run(
+        ["bash", str(tmp_path / "scripts" / "run-release-qa.sh")],
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == exit_status, result.stdout + result.stderr
+    report = report_path.read_text(encoding="utf-8")
+    assert "- Result: **FAIL**" in report
+    assert "**PASS**" not in report
+    assert f"- Failed gate: `{failed_gate}`" in report
+    assert f"- Completed gates: {completed} / {attempted} attempted" in report
+    assert "- Source commit: `fixture-source`" in report
+    assert "RELEASE_QA_EVIDENCE_OK" not in result.stdout
+    expected_trace = ["cargo fmt --all -- --check"]
+    if failed_gate == "First gate":
+        expected_trace += [
+            "cargo clippy --workspace --all-targets --locked -- -D warnings",
+            "cargo test --workspace --locked",
+            "first",
+        ]
+    assert trace_path.read_text(encoding="utf-8").splitlines() == expected_trace
+
+
+def test_rejects_synchronized_aggregate_runner_registration(tmp_path: Path) -> None:
+    manifest = write_fixture(tmp_path)
+    manifest["runners"][0]["script"] = "scripts/run-release-qa.sh"
+    (tmp_path / "qa" / "release-runner-inventory.json").write_text(
+        json.dumps(manifest), encoding="utf-8"
+    )
+    write_runner(tmp_path, manifest)
+
+    errors = validate_inventory(tmp_path)
+
+    assert errors == [
+        "release runner inventory must not register the aggregate runner"
+    ]
+
+
+@pytest.mark.parametrize(
     "payload",
     [
         "hash -p /usr/bin/true bash",

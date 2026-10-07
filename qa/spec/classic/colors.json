@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "category": "colors",
+  "status": "SOURCE_PENDING",
+  "sourceNodeIds": [],
+  "palette": [],
+  "variantsObservedInContract": [
+    {
+      "id": "reference.one_bit",
+      "classification": "OPTIONAL_VARIANT",
+      "values": null,
+      "provenance": "AGENTS.md §5; applicability and colors not freshly extracted."
+    },
+    {
+      "id": "reference.eight_bit",
+      "classification": "OPTIONAL_VARIANT",
+      "values": null,
+      "provenance": "AGENTS.md §5; applicability and colors not freshly extracted."
+    }
+  ],
+  "notes": [
+    "No color values, token names, or exact Figma source nodes have been extracted."
+  ]
+}
