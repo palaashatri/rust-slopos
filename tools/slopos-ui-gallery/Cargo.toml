@@ -1,0 +1,9 @@
+[package]
+name = "slopos-ui-gallery"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS component-development gallery"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }

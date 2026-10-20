@@ -1,0 +1,16 @@
+[package]
+name = "slopos-services"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS system-service adapters"
+
+[dependencies]
+futures.workspace = true
+slopos-core = { path = "../slopos-core" }
+thiserror.workspace = true
+tokio.workspace = true
+zbus.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

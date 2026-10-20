@@ -613,6 +613,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "futures"
+version = "0.3.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a88cf1f829d945f548cf8fec32c61b1f202b6d93b45848602fc02af4b12ad218"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "futures-executor",
+ "futures-io",
+ "futures-sink",
+ "futures-task",
+ "futures-util",
+]
+
+[[package]]
 name = "futures-channel"
 version = "0.3.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -687,6 +702,7 @@ version = "0.3.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a77a90a256fce34da66415271e30f94ee91c57b04b8a2c042d9cf3220179deaa"
 dependencies = [
+ "futures-channel",
  "futures-core",
  "futures-io",
  "futures-macro",
@@ -1468,6 +1484,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "pangocairo"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57036589a9cfcacf83f9e606d15813fc6bf03f0e9e69aa2b5e3bb85af86b38a5"
+dependencies = [
+ "cairo-rs",
+ "glib",
+ "libc",
+ "pango",
+ "pangocairo-sys",
+]
+
+[[package]]
+name = "pangocairo-sys"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc3c8ff676a37e7a72ec1d5fc029f91c407278083d2752784ff9f5188c108833"
+dependencies = [
+ "cairo-sys-rs",
+ "glib-sys",
+ "libc",
+ "pango-sys",
+ "system-deps",
+]
+
+[[package]]
 name = "parking"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2034,6 +2076,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-core"
+version = "0.1.0"
+
+[[package]]
+name = "slopos-services"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "slopos-core",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "zbus",
+]
+
+[[package]]
 name = "slopos-session"
 version = "0.1.0"
 dependencies = [
@@ -2061,6 +2119,8 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
+ "slopos-services",
+ "tokio",
 ]
 
 [[package]]
@@ -2078,10 +2138,28 @@ dependencies = [
  "pango",
  "serde",
  "serde_json",
+ "slopos-core",
+ "slopos-services",
  "tokio",
  "walkdir",
  "x11rb",
  "zbus",
+]
+
+[[package]]
+name = "slopos-ui"
+version = "0.1.0"
+dependencies = [
+ "gtk",
+ "pangocairo",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "slopos-ui-gallery"
+version = "0.1.0"
+dependencies = [
+ "slopos-ui",
 ]
 
 [[package]]
