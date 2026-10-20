@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import stat
@@ -14,7 +15,75 @@ RUNNER_RELATIVE_PATH = Path("scripts/run-release-qa.sh")
 GATE_ID = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
 GATE_LABEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9 -]*")
 RUNNER_PATH = re.compile(r"scripts/[A-Za-z0-9][A-Za-z0-9._-]*\.sh")
+SHA256 = re.compile(r"[a-f0-9]{64}")
 GATE_CALLS_MARKER = "__REQUIRED_GATE_CALLS__"
+REQUIRED_RUNNER_SCRIPTS = (
+    (
+        "clean-install",
+        "scripts/run-clean-install-qa.sh",
+        "a8ae73ba4adc3e55b6eca45505fe4c2be6a90e399fc35473111eca291ccd992b",
+    ),
+    (
+        "catalogue",
+        "scripts/run-catalogue-qa.sh",
+        "05f726210b411937bd3bee84b32229a1ed454cc221fa5ba1a830aa6710899686",
+    ),
+    (
+        "virtual-services",
+        "scripts/run-virtual-services-qa.sh",
+        "b2b7a20211db1decabe20c68504bcf30c7a0a9e85fc4a91a44f44aea263d2b9c",
+    ),
+    (
+        "settings-services",
+        "scripts/run-settings-service-qa.sh",
+        "788f888cd50faeb7cd4a4cb13e144fdfdb0da8b2ae6b4ce9a178b2cce5e3f2c3",
+    ),
+    (
+        "multimonitor",
+        "scripts/run-multimonitor-qa.sh",
+        "9ef36f254e51d3e5d9d5524b272b71b9788129e835aea3cab0b94e3a5d475599",
+    ),
+    (
+        "resolution",
+        "scripts/run-resolution-qa.sh",
+        "cf6bfea83b41608586b7447011f6e1004d9e9ba9e62ab995b867b6fc4f4f8ecb",
+    ),
+    (
+        "recovery",
+        "scripts/run-recovery-qa.sh",
+        "5cb25fa4f5696bc63957e80886d89338515b7a9a119d4d51c30efcfa220af81a",
+    ),
+    (
+        "security-failure",
+        "scripts/run-security-failure-qa.sh",
+        "9ff6ee540f7f66e528e5646c7a2a20d905dc8204b04c691ec8a254a6d0399b3e",
+    ),
+    (
+        "session-performance",
+        "scripts/benchmark-x11-session.sh",
+        "d18875f6221e8f06c1eb42df8d9631d44cdbb586e1ad485ee90c90b273944f32",
+    ),
+    (
+        "accessibility-tree",
+        "scripts/run-atspi-qa.sh",
+        "d2fcb2c5bea48b067356cd65de23789a5b901c290dd3a231e7bc5625bba1868e",
+    ),
+    (
+        "debian-package",
+        "scripts/run-debian-package-qa.sh",
+        "d43cd2b0872498703ee3a47477382a4ae95803103093c77958c974ff065830ed",
+    ),
+    (
+        "package-repositories",
+        "scripts/generate-package-repos.sh",
+        "a3287841c29389aa7937d1b454e185d61831f4b09d2493efc579f6d686167f60",
+    ),
+    (
+        "canonical-visual",
+        "scripts/run-canonical-visual-qa.sh",
+        "d9059acf18dc23cffe2f97d26eef560bff77ab4b4bae9ec235c6dddac52fb0b4",
+    ),
+)
 CORE_GATE_CALLS = (
     'run_gate "Required release runner inventory" python3 '
     'scripts/check-release-runner-inventory.py --root "$REPO_ROOT"',
@@ -144,17 +213,36 @@ def validate_release_runner_inventory(root: Path) -> list[str]:
             errors | {"release runner inventory runners must be a non-empty list"}
         )
 
+    actual_required_runners = [
+        (entry.get("id"), entry.get("script"), entry.get("sha256"))
+        for entry in runner_entries
+        if isinstance(entry, dict)
+    ]
+    if actual_required_runners != list(REQUIRED_RUNNER_SCRIPTS):
+        errors.add(
+            "release runner inventory must match the required runner set, order, "
+            "and sha256 values"
+        )
+
     seen_ids: set[str] = set()
     seen_scripts: set[str] = set()
     expected_calls: list[tuple[str, str]] = []
     for index, entry in enumerate(runner_entries):
-        if not isinstance(entry, dict) or set(entry) != {"id", "label", "script"}:
-            errors.add(f"runner entry {index} must contain id, label, and script")
+        if not isinstance(entry, dict) or set(entry) != {
+            "id",
+            "label",
+            "script",
+            "sha256",
+        }:
+            errors.add(
+                f"runner entry {index} must contain id, label, script, and sha256"
+            )
             continue
 
         gate_id = entry["id"]
         label = entry["label"]
         script = entry["script"]
+        script_sha256 = entry["sha256"]
         if not isinstance(gate_id, str) or GATE_ID.fullmatch(gate_id) is None:
             errors.add(f"runner entry {index} has an invalid id")
         elif gate_id in seen_ids:
@@ -169,6 +257,13 @@ def validate_release_runner_inventory(root: Path) -> list[str]:
         )
         if not valid_label:
             errors.add(f"runner entry {index} has an invalid label")
+
+        valid_sha256 = (
+            isinstance(script_sha256, str)
+            and SHA256.fullmatch(script_sha256) is not None
+        )
+        if not valid_sha256:
+            errors.add(f"runner entry {index} has an invalid sha256")
 
         if not isinstance(script, str) or RUNNER_PATH.fullmatch(script) is None:
             errors.add(f"runner entry {index} has an unsafe script path")
@@ -194,6 +289,11 @@ def validate_release_runner_inventory(root: Path) -> list[str]:
             & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         ) == 0:
             errors.add(f"{script}: required release runner is not executable")
+        elif (
+            valid_sha256
+            and hashlib.sha256(candidate.read_bytes()).hexdigest() != script_sha256
+        ):
+            errors.add(f"{script}: required release runner sha256 mismatch")
 
         if valid_label:
             expected_calls.append((label, script))
