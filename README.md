@@ -27,9 +27,9 @@ Known current gaps include:
 
 - the UI has not yet been rebuilt from the new Figma-derived atomic specification;
 - several surfaces still contain modern rounded/shadow/card styling;
-- Network Settings currently contains sample/fabricated state and must be replaced with real NetworkManager state;
-- Sound Settings is only partially connected to real audio state;
-- generic fallback application Edit actions are not a truthful global-menu implementation;
+- Network Settings no longer shows sample data, but it only opens the external connection editor; live NetworkManager state is not shown yet;
+- logging in from a graphical display manager (GDM, LightDM, SDDM) starts `slopos-session` directly and skips `start-slopos-i`, so that path has no global-menu export for GTK apps and no desktop icons (the `tuigreet` path is fine);
+- the About dialog still describes the desktop as "consumer-ready", which it is not;
 - file-browser visual conformance is not proven;
 - canonical About and accessory utility surfaces are still missing;
 - current build/runtime/visual evidence must be regenerated in a compliant Linux VM.
@@ -44,7 +44,19 @@ Fresh Ubuntu 24.04 VM captures of the current SLOPOS UI button-plate gallery (20
 | --- | --- |
 | ![Button-plate gallery at 1×](docs/screenshots/current-button-plate-1x.png) | ![Button-plate gallery at 2×](docs/screenshots/current-button-plate-2x.png) |
 
-These recaptures are pixel-identical to the October 2 captures; they document the current fixture, not a new visual change. The fixture draws only nine plate variants (Regular, Default and Secondary × Rest, Pressed and Disabled). It does not show text, interactive controls or accessibility behavior, and is not a Figma-conformance pass. The gallery implementation is not included in the pushed screenshot/QA commit, so these images do not verify that commit's UI source. Recent verified progress is QA hardening, not a UI milestone. See [docs/CONTRACT.md](docs/CONTRACT.md#part-ii--current-audit-and-evidence-ledger) for task status.
+These recaptures are pixel-identical to the October 2 captures; they document the current fixture, not a new visual change. The fixture draws only nine plate variants (Regular, Default and Secondary × Rest, Pressed and Disabled). It does not show text, interactive controls or accessibility behavior, and is not a Figma-conformance pass. The gallery source is now committed as `tools/slopos-ui-gallery` (2026-10-20); the images have not been recaptured from that commit. See [docs/CONTRACT.md](docs/CONTRACT.md#part-ii--current-audit-and-evidence-ledger) for task status.
+
+## Roadmap
+
+Next product steps, in priority order. Each one is something a person using SLOPOS-I would notice. Task-level detail and ownership live in [docs/CONTRACT.md](docs/CONTRACT.md) §21 and Part II.I; this list is a summary, not a separate plan.
+
+1. **One login path that works everywhere.** Point the session descriptor at `start-slopos-i` so display-manager logins get the same global menu, desktop and wallpaper as `tuigreet` logins; this also turns the package CI green.
+2. **Green CI on `main`.** Fix the two release-runner tests broken by the spec merge and the Arch `bsdtar` step, then find out why the Debian Live ISO fails.
+3. **Live network status in Settings.** Show interfaces, connection names, addresses and Wi-Fi radio state from the existing `slopos-services` NetworkManager provider, then add joining a Wi-Fi network.
+4. **The Dock.** It is a required shell surface and still missing; build it on `slopos-ui` rather than raw GTK.
+5. **Volume and brightness OSDs with media keys**, using the existing audio and brightness providers.
+6. **A first native app on `slopos-ui`** (Calculator is the smallest), as proof that the component library can carry a real app.
+7. **A bootable install image a new user can try**: an ISO that boots to the SLOPOS-I session in QEMU, built and boot-tested in CI.
 
 ## Canonical design direction
 
