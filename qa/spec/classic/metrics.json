@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "category": "metrics",
+  "status": "PARTIAL_CONTRACT_EXAMPLES_ONLY",
+  "coordinateSystem": {
+    "canonical": "1x",
+    "integerHiDpi": "required",
+    "fractionalScaling": "not required by current contract",
+    "sourceScale": null
+  },
+  "measurements": [
+    {
+      "id": "menu.bar.height",
+      "componentId": "menu.bar",
+      "valuePx": 19,
+      "authority": "EXAMPLE_ONLY",
+      "provenance": "AGENTS.md §5; prior observation dated 2026-09-24",
+      "figmaNodeId": null
+    },
+    {
+      "id": "menu.row.height",
+      "componentId": "menu.item",
+      "valuePx": 16,
+      "authority": "EXAMPLE_ONLY",
+      "provenance": "AGENTS.md §5; prior observation dated 2026-09-24",
+      "figmaNodeId": null
+    },
+    {
+      "id": "finder.large_item.width",
+      "componentId": "collection.file_item",
+      "valuePx": 71,
+      "authority": "EXAMPLE_ONLY",
+      "provenance": "AGENTS.md §5; prior observation dated 2026-09-24",
+      "figmaNodeId": null
+    },
+    {
+      "id": "finder.large_item.height",
+      "componentId": "collection.file_item",
+      "valuePx": 44,
+      "authority": "EXAMPLE_ONLY",
+      "provenance": "AGENTS.md §5; prior observation dated 2026-09-24",
+      "figmaNodeId": null
+    },
+    {
+      "id": "finder.large_icon.width",
+      "componentId": "icon.canonical_sizes",
+      "valuePx": 32,
+      "authority": "EXAMPLE_ONLY",
+      "provenance": "AGENTS.md §5; prior observation dated 2026-09-24",
+      "figmaNodeId": null
+    },
+    {
+      "id": "finder.large_icon.height",
+      "componentId": "icon.canonical_sizes",
+      "valuePx": 32,
+      "authority": "EXAMPLE_ONLY",
+      "provenance": "AGENTS.md §5; prior observation dated 2026-09-24",
+      "figmaNodeId": null
+    },
+    {
+      "id": "finder.large_label.width",
+      "componentId": "typography.icon_label",
+      "valuePx": 71,
+      "authority": "EXAMPLE_ONLY",
+      "provenance": "AGENTS.md §5; prior observation dated 2026-09-24",
+      "figmaNodeId": null
+    },
+    {
+      "id": "finder.large_label.height",
+      "componentId": "typography.icon_label",
+      "valuePx": 12,
+      "authority": "EXAMPLE_ONLY",
+      "provenance": "AGENTS.md §5; prior observation dated 2026-09-24",
+      "figmaNodeId": null
+    },
+    {
+      "id": "button.regular.size",
+      "componentId": "button.regular",
+      "widthPx": 80,
+      "heightPx": 20,
+      "authority": "EXAMPLE_ONLY",
+      "provenance": "AGENTS.md §5; prior observation dated 2026-09-24",
+      "figmaNodeId": null
+    },
+    {
+      "id": "button.default.size",
+      "componentId": "button.default",
+      "widthPx": 88,
+      "heightPx": 28,
+      "authority": "EXAMPLE_ONLY",
+      "provenance": "AGENTS.md §5; prior observation dated 2026-09-24",
+      "figmaNodeId": null
+    },
+    {
+      "id": "button.secondary.size",
+      "componentId": "button.secondary",
+      "widthPx": 80,
+      "heightPx": 16,
+      "authority": "EXAMPLE_ONLY",
+      "provenance": "AGENTS.md §5; prior observation dated 2026-09-24",
+      "figmaNodeId": null
+    }
+  ],
+  "exactSpecification": {
+    "padding": null,
+    "margins": null,
+    "baseline": null,
+    "iconBox": null,
+    "border": null,
+    "bevel": null,
+    "hitTargets": null,
+    "status": "SOURCE_PENDING"
+  }
+}

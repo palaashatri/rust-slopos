@@ -1,0 +1,934 @@
+<canvas id="0:1" name="The Interface Elements" x="0" y="0" width="0" height="0">
+  <symbol id="1:6" name="Page title" x="1941" y="702" width="695" height="36" hidden="true" />
+  <frame id="73:5016" name="Example screen (8-bit)" x="-4068" y="-149" width="800" height="600">
+    <frame id="73:5017" name="Desktop" x="0" y="19" width="800" height="581">
+      <frame id="73:5018" name="Desktop mask" x="0" y="0" width="800" height="581">
+        <vector id="73:5019" name="Menu bar end" x="0" y="581" width="6" height="19" />
+        <rounded-rectangle id="73:5020" name="Rectangle 89" x="6" y="0" width="789" height="581" />
+        <vector id="73:5021" name="Menu bar end" x="795" y="581" width="5" height="19" />
+        <rounded-rectangle id="73:5022" name="Rectangle 2113" x="0" y="0" width="6" height="562" />
+        <rounded-rectangle id="73:5023" name="Rectangle 2114" x="794" y="0" width="6" height="562" />
+      </frame>
+      <frame id="73:5024" name="Desktop pattern" x="0" y="0" width="800" height="581" />
+    </frame>
+    <instance id="73:5025" name="Menu bar" x="0" y="0" width="800" height="19" />
+    <instance id="73:5026" name="Finder item/Large" x="714" y="30" width="68" height="44" />
+    <instance id="73:5027" name="Finder item/Large" x="713" y="530" width="32" height="44" />
+    <instance id="73:5028" name="Finder item/Large" x="702" y="201" width="71" height="44" />
+    <frame id="224:16547" name="Window" x="83" y="179" width="498" height="344">
+      <instance id="73:5030" name="Document window base" x="0" y="0" width="498" height="344" />
+      <frame id="224:16548" name="Window content" x="1" y="39" width="480" height="288">
+        <instance id="224:16549" name="Finder item/Large" x="19" y="15" width="137" height="44" />
+        <instance id="224:16797" name="Finder item/Large" x="185" y="15" width="50" height="44" />
+        <instance id="224:17045" name="Finder item/Large" x="316" y="15" width="35" height="44" />
+        <instance id="224:17293" name="Finder item/Large" x="65" y="93" width="45" height="44" />
+        <instance id="224:17541" name="Finder item/Large" x="183" y="91" width="54" height="44" />
+        <instance id="224:17789" name="Finder item/Large" x="305" y="91" width="57" height="44" />
+        <instance id="224:18037" name="Finder item/Large" x="56" y="171" width="62" height="44" />
+        <instance id="224:18285" name="Finder item/Large" x="185" y="171" width="50" height="44" />
+        <instance id="225:19538" name="Finder item/Large" x="298" y="171" width="71" height="44" />
+        <instance id="224:18533" name="Finder item/Large" x="67" y="237" width="41" height="44" />
+      </frame>
+    </frame>
+    <frame id="224:19300" name="Window" x="192" y="37" width="499" height="220">
+      <instance id="225:20254" name="Document window base" x="0" y="0" width="499" height="220" />
+      <frame id="224:19301" name="Window content" x="1" y="39" width="481" height="164">
+        <frame id="225:21561" name="List" x="0" y="0" width="576" height="176">
+          <instance id="225:21562" name="List row" x="0" y="0" width="576" height="16" />
+          <instance id="225:21563" name="List row" x="0" y="16" width="576" height="16" />
+          <instance id="225:21564" name="List row" x="0" y="32" width="576" height="16" />
+          <instance id="225:21565" name="List row" x="0" y="48" width="576" height="16" />
+          <instance id="225:21566" name="List row" x="0" y="64" width="576" height="16" />
+          <instance id="225:21567" name="List row" x="0" y="80" width="576" height="16" />
+          <instance id="225:21568" name="List row" x="0" y="96" width="576" height="16" />
+          <instance id="225:21569" name="List row" x="0" y="112" width="576" height="16" />
+          <instance id="225:21570" name="List row" x="0" y="128" width="576" height="16" />
+          <instance id="225:21571" name="List row" x="0" y="144" width="576" height="16" />
+          <instance id="225:21572" name="List row" x="0" y="160" width="576" height="16" />
+        </frame>
+      </frame>
+    </frame>
+    <frame id="85:18397" name="Menu" x="32" y="19" width="142" height="259">
+      <frame id="85:18398" name="Menu items" x="1" y="1" width="139" height="256">
+        <instance id="85:18399" name="Base/Menu item" x="0" y="0" width="139" height="16" />
+        <instance id="85:18400" name="Base/Menu item" x="0" y="16" width="139" height="16" />
+        <instance id="85:18401" name="Base/Menu item" x="0" y="32" width="139" height="16" />
+        <instance id="85:18402" name="Base/Menu item" x="0" y="48" width="139" height="16" />
+        <instance id="85:18403" name="Base/Divider" x="0" y="64" width="139" height="16" />
+        <instance id="85:18404" name="Base/Menu item" x="0" y="80" width="139" height="16" />
+        <instance id="85:18405" name="Base/Menu item" x="0" y="96" width="139" height="16" />
+        <instance id="85:18406" name="Base/Menu item" x="0" y="112" width="139" height="16" />
+        <instance id="85:18407" name="Base/Menu item" x="0" y="128" width="139" height="16" />
+        <instance id="85:18408" name="Base/Menu item" x="0" y="144" width="139" height="16" />
+        <instance id="85:18409" name="Base/Divider" x="0" y="160" width="139" height="16" />
+        <instance id="85:18410" name="Base/Menu item" x="0" y="176" width="139" height="16" />
+        <instance id="85:18411" name="Base/Menu item" x="0" y="192" width="139" height="16" />
+        <instance id="85:18412" name="Base/Divider" x="0" y="208" width="139" height="16" />
+        <instance id="85:18413" name="Base/Menu item" x="0" y="224" width="139" height="16" />
+        <instance id="85:18414" name="Base/Menu item" x="0" y="240" width="139" height="16" />
+      </frame>
+      <instance id="85:18415" name="Base/Menu bg" x="0" y="0" width="142" height="259" />
+    </frame>
+    <instance id="152:5300" name="Sticky" x="609" y="340" width="126" height="47" />
+  </frame>
+  <frame id="225:22416" name="Example screen (1-bit)" x="-3220" y="-149" width="800" height="600">
+    <frame id="225:22417" name="Desktop" x="0" y="19" width="800" height="581">
+      <frame id="225:22418" name="Desktop mask" x="0" y="0" width="800" height="581">
+        <vector id="225:22419" name="Menu bar end" x="0" y="581" width="6" height="19" />
+        <rounded-rectangle id="225:22420" name="Rectangle 89" x="6" y="0" width="789" height="581" />
+        <vector id="225:22421" name="Menu bar end" x="795" y="581" width="5" height="19" />
+        <rounded-rectangle id="225:22422" name="Rectangle 2113" x="0" y="0" width="6" height="562" />
+        <rounded-rectangle id="225:22423" name="Rectangle 2114" x="794" y="0" width="6" height="562" />
+      </frame>
+      <frame id="225:22424" name="Desktop pattern" x="0" y="0" width="800" height="581" />
+    </frame>
+    <instance id="225:22425" name="Menu bar" x="0" y="0" width="800" height="19" />
+    <instance id="225:22426" name="Finder item/Large" x="714" y="30" width="68" height="44" />
+    <instance id="225:22427" name="Finder item/Large" x="713" y="530" width="32" height="44" />
+    <instance id="225:22428" name="Finder item/Large" x="702" y="201" width="71" height="44" />
+    <frame id="225:22429" name="Window" x="83" y="179" width="498" height="344">
+      <instance id="225:22430" name="Document window base" x="0" y="0" width="498" height="344" />
+      <frame id="225:22431" name="Window content" x="1" y="39" width="480" height="288">
+        <instance id="225:22432" name="Finder item/Large" x="19" y="15" width="137" height="44" />
+        <instance id="225:22433" name="Finder item/Large" x="185" y="15" width="50" height="44" />
+        <instance id="225:22434" name="Finder item/Large" x="316" y="15" width="35" height="44" />
+        <instance id="225:22435" name="Finder item/Large" x="65" y="93" width="45" height="44" />
+        <instance id="225:22436" name="Finder item/Large" x="183" y="91" width="54" height="44" />
+        <instance id="225:22437" name="Finder item/Large" x="305" y="91" width="57" height="44" />
+        <instance id="225:22438" name="Finder item/Large" x="56" y="171" width="62" height="44" />
+        <instance id="225:22439" name="Finder item/Large" x="185" y="171" width="50" height="44" />
+        <instance id="225:22440" name="Finder item/Large" x="298" y="171" width="71" height="44" />
+        <instance id="225:22441" name="Finder item/Large" x="67" y="237" width="41" height="44" />
+      </frame>
+    </frame>
+    <frame id="225:22442" name="Window" x="192" y="37" width="499" height="220">
+      <instance id="225:22443" name="Document window base" x="0" y="0" width="499" height="220" />
+      <frame id="225:22444" name="Window content" x="1" y="39" width="481" height="164">
+        <frame id="225:22445" name="List" x="0" y="0" width="576" height="176">
+          <instance id="225:22446" name="List row" x="0" y="0" width="576" height="16" />
+          <instance id="225:22447" name="List row" x="0" y="16" width="576" height="16" />
+          <instance id="225:22448" name="List row" x="0" y="32" width="576" height="16" />
+          <instance id="225:22449" name="List row" x="0" y="48" width="576" height="16" />
+          <instance id="225:22450" name="List row" x="0" y="64" width="576" height="16" />
+          <instance id="225:22451" name="List row" x="0" y="80" width="576" height="16" />
+          <instance id="225:22452" name="List row" x="0" y="96" width="576" height="16" />
+          <instance id="225:22453" name="List row" x="0" y="112" width="576" height="16" />
+          <instance id="225:22454" name="List row" x="0" y="128" width="576" height="16" />
+          <instance id="225:22455" name="List row" x="0" y="144" width="576" height="16" />
+          <instance id="225:22456" name="List row" x="0" y="160" width="576" height="16" />
+        </frame>
+      </frame>
+    </frame>
+    <frame id="225:22457" name="Menu" x="32" y="19" width="142" height="259">
+      <frame id="225:22458" name="Menu items" x="1" y="1" width="139" height="256">
+        <instance id="225:22459" name="Base/Menu item" x="0" y="0" width="139" height="16" />
+        <instance id="225:22460" name="Base/Menu item" x="0" y="16" width="139" height="16" />
+        <instance id="225:22461" name="Base/Menu item" x="0" y="32" width="139" height="16" />
+        <instance id="225:22462" name="Base/Menu item" x="0" y="48" width="139" height="16" />
+        <instance id="225:22463" name="Base/Divider" x="0" y="64" width="139" height="16" />
+        <instance id="225:22464" name="Base/Menu item" x="0" y="80" width="139" height="16" />
+        <instance id="225:22465" name="Base/Menu item" x="0" y="96" width="139" height="16" />
+        <instance id="225:22466" name="Base/Menu item" x="0" y="112" width="139" height="16" />
+        <instance id="225:22467" name="Base/Menu item" x="0" y="128" width="139" height="16" />
+        <instance id="225:22468" name="Base/Menu item" x="0" y="144" width="139" height="16" />
+        <instance id="225:22469" name="Base/Divider" x="0" y="160" width="139" height="16" />
+        <instance id="225:22470" name="Base/Menu item" x="0" y="176" width="139" height="16" />
+        <instance id="225:22471" name="Base/Menu item" x="0" y="192" width="139" height="16" />
+        <instance id="225:22472" name="Base/Divider" x="0" y="208" width="139" height="16" />
+        <instance id="225:22473" name="Base/Menu item" x="0" y="224" width="139" height="16" />
+        <instance id="225:22474" name="Base/Menu item" x="0" y="240" width="139" height="16" />
+      </frame>
+      <instance id="225:22475" name="Base/Menu bg" x="0" y="0" width="142" height="259" />
+    </frame>
+    <instance id="227:27928" name="Sticky" x="620" y="353" width="126" height="47" />
+  </frame>
+  <frame id="73:8396" name="Misc." x="1941" y="-149" width="757" height="721">
+    <instance id="73:8397" name="Page title" x="2" y="2" width="753" height="36" />
+    <symbol id="73:8867" name="Placeholder" x="16" y="484" width="233" height="92" />
+    <symbol id="191:9042" name="Balloon body" x="416" y="458" width="108" height="60" />
+    <frame id="191:9091" name="Beak" x="541" y="458" width="124" height="123">
+      <symbol id="191:9088" name="Position=Right top" x="84" y="40" width="19" height="17" />
+      <symbol id="191:9090" name="Position=Top left" x="37" y="20" width="17" height="18" />
+      <symbol id="191:9086" name="Position=Left top" x="21" y="36" width="17" height="16" />
+      <symbol id="191:9089" name="Position=Top right" x="68" y="21" width="16" height="17" />
+      <symbol id="191:9085" name="Position=Bottom right" x="67" y="84" width="17" height="18" />
+      <symbol id="191:9084" name="Position=Right bottom" x="84" y="64" width="20" height="19" />
+      <symbol id="191:9087" name="Position=Bottom left" x="42" y="83" width="18" height="20" />
+      <symbol id="191:9083" name="Position=Left bottom" x="20" y="62" width="18" height="17" />
+    </frame>
+    <frame id="193:10219" name="Balloon help" x="370" y="53" width="319" height="367">
+      <symbol id="193:10218" name="Position=Left top" x="9" y="106" width="146" height="73" />
+      <symbol id="193:10212" name="Position=Left bottom" x="8" y="187" width="147" height="73" />
+      <symbol id="193:10217" name="Position=Right bottom" x="163" y="187" width="148" height="73" />
+      <symbol id="193:10215" name="Position=Right top" x="163" y="106" width="147" height="73" />
+      <symbol id="193:10213" name="Position=Bottom left" x="25" y="268" width="130" height="91" />
+      <symbol id="193:10214" name="Position=Bottom right" x="163" y="268" width="130" height="89" />
+      <symbol id="193:10211" name="Position=Top left" x="25" y="8" width="130" height="90" />
+      <symbol id="193:10216" name="Position=Top right" x="163" y="9" width="130" height="89" />
+    </frame>
+    <symbol id="103:5523" name="Sticky controls/Zoom" x="343" y="80" width="7" height="7" />
+    <symbol id="103:5522" name="Sticky controls/Close" x="343" y="67" width="7" height="7" />
+    <symbol id="103:5521" name="Sticky controls/Re-size" x="343" y="93" width="8" height="8" />
+    <frame id="73:8586" name="Sticky" x="16" y="53" width="316" height="405">
+      <symbol id="73:8587" name="Color=Yellow, Active=True" x="20" y="14" width="126" height="47" />
+      <symbol id="73:8607" name="Color=Yellow, Active=False" x="168" y="14" width="126" height="47" />
+      <symbol id="73:8627" name="Color=Blue, Active=True" x="22" y="69" width="126" height="47" />
+      <symbol id="73:8647" name="Color=Blue, Active=False" x="170" y="69" width="126" height="47" />
+      <symbol id="73:8667" name="Color=Green, Active=True" x="21" y="124" width="126" height="47" />
+      <symbol id="73:8687" name="Color=Green, Active=False" x="169" y="124" width="126" height="47" />
+      <symbol id="73:8707" name="Color=Pink, Active=True" x="20" y="179" width="126" height="47" />
+      <symbol id="73:8727" name="Color=Pink, Active=False" x="168" y="179" width="126" height="47" />
+      <symbol id="73:8747" name="Color=Grey, Active=True" x="21" y="289" width="126" height="47" />
+      <symbol id="73:8767" name="Color=Grey, Active=False" x="169" y="289" width="126" height="47" />
+      <symbol id="73:8787" name="Color=Black &amp; white, Active=True" x="20" y="344" width="126" height="47" />
+      <symbol id="73:8807" name="Color=Black &amp; white, Active=False" x="168" y="344" width="126" height="47" />
+      <symbol id="73:8827" name="Color=Purple, Active=True" x="21" y="234" width="126" height="47" />
+      <symbol id="73:8847" name="Color=Purple, Active=False" x="169" y="234" width="126" height="47" />
+    </frame>
+  </frame>
+  <frame id="1:22" name="Pattterns" x="1380" y="-149" width="513" height="599">
+    <instance id="1:23" name="Page title" x="2" y="2" width="511" height="36" />
+    <frame id="231:9571" name="Desktop patterns" x="48" y="60" width="417" height="404">
+      <rounded-rectangle id="9:1516" name="Swatch" x="321" y="308" width="96" height="96" />
+      <symbol id="9:1455" name="desktop-12" x="321" y="284" width="16" height="16" />
+      <rounded-rectangle id="9:1515" name="Swatch" x="214" y="308" width="96" height="96" />
+      <symbol id="9:1401" name="desktop-11" x="214" y="284" width="16" height="16" />
+      <rounded-rectangle id="9:1514" name="Swatch" x="107" y="308" width="96" height="96" />
+      <symbol id="9:1379" name="desktop-10" x="107" y="284" width="16" height="16" />
+      <rounded-rectangle id="9:1513" name="Swatch" x="0" y="308" width="96" height="96" />
+      <symbol id="9:1354" name="desktop-9" x="0" y="284" width="16" height="16" />
+      <rounded-rectangle id="9:1512" name="Swatch" x="321" y="166" width="96" height="96" />
+      <symbol id="9:1346" name="desktop-8" x="321" y="142" width="16" height="16" />
+      <rounded-rectangle id="9:1511" name="Swatch" x="214" y="166" width="96" height="96" />
+      <symbol id="9:1452" name="desktop-7" x="214" y="142" width="16" height="16" />
+      <rounded-rectangle id="9:1510" name="Swatch" x="107" y="166" width="96" height="96" />
+      <symbol id="9:1443" name="desktop-6" x="107" y="142" width="16" height="16" />
+      <rounded-rectangle id="9:1509" name="Swatch" x="0" y="166" width="96" height="96" />
+      <symbol id="9:1430" name="desktop-5" x="0" y="142" width="16" height="16" />
+      <rounded-rectangle id="9:1508" name="Swatch" x="321" y="24" width="96" height="96" />
+      <symbol id="9:1450" name="desktop-4" x="321" y="0" width="16" height="16" />
+      <rounded-rectangle id="9:1507" name="Swatch" x="214" y="24" width="96" height="96" />
+      <symbol id="9:1427" name="desktop-3" x="214" y="0" width="16" height="16" />
+      <rounded-rectangle id="9:1506" name="Swatch" x="107" y="24" width="96" height="96" />
+      <symbol id="9:1418" name="desktop-2" x="107" y="0" width="16" height="16" />
+      <rounded-rectangle id="9:1505" name="Swatch" x="0" y="24" width="96" height="96" />
+      <symbol id="9:1345" name="desktop-1" x="0" y="0" width="16" height="16" />
+    </frame>
+  </frame>
+  <frame id="1:20" name="Icons &amp; symbols" x="779" y="-149" width="561" height="994">
+    <instance id="1:21" name="Page title" x="2" y="2" width="557" height="36" />
+    <symbol id="1:4101" name="Symbols/Caret Down" x="508" y="140" width="11" height="6" />
+    <symbol id="1:4103" name="Symbols/Sparkle" x="536" y="139" width="9" height="9" />
+    <symbol id="1:4105" name="Symbols/Command" x="443" y="139" width="9" height="9" />
+    <symbol id="1:4107" name="Symbols/Check" x="523" y="139" width="9" height="9" />
+    <symbol id="1:4109" name="Symbols/Caret right" x="498" y="138" width="6" height="11" />
+    <symbol id="1:4111" name="Symbols/Shift" x="472" y="139" width="9" height="9" />
+    <symbol id="1:4113" name="Symbols/Dash" x="485" y="139" width="9" height="9" />
+    <symbol id="76:3810" name="Symbols/Option" x="456" y="139" width="12" height="9" />
+    <frame id="127:6490" name="Symbols/Little arrow" x="443" y="158" width="27" height="18">
+      <symbol id="127:6489" name="State=Rest" x="5" y="4" width="9" height="9" />
+      <symbol id="127:6493" name="State=Pressed" x="16" y="4" width="9" height="9" />
+    </frame>
+    <frame id="216:12517" name="Small icon/Trash" x="491" y="924" width="42" height="42">
+      <symbol id="208:11328" name="State=Rest" x="4" y="4" width="16" height="16" />
+      <symbol id="216:12524" name="State=State2" x="22" y="4" width="16" height="16" />
+      <symbol id="216:12536" name="State=Disabled" x="4" y="22" width="16" height="16" />
+      <symbol id="216:12548" name="State=Disabled (1-bit)" x="22" y="22" width="16" height="16" />
+    </frame>
+    <frame id="216:12486" name="Small icon/Suitcase" x="445" y="924" width="42" height="42">
+      <symbol id="208:11325" name="Statre=Rest" x="4" y="4" width="16" height="16" />
+      <symbol id="216:12492" name="Statre=Selected" x="22" y="4" width="16" height="16" />
+      <symbol id="216:12502" name="Statre=Disabled" x="4" y="22" width="16" height="16" />
+      <symbol id="216:12512" name="Statre=Disabled (1-bit)" x="22" y="22" width="16" height="16" />
+    </frame>
+    <frame id="216:12419" name="Small icon/Server" x="399" y="924" width="42" height="42">
+      <symbol id="208:11324" name="State=Rest" x="4" y="4" width="16" height="16" />
+      <symbol id="216:12431" name="State=Selected" x="22" y="4" width="16" height="16" />
+      <symbol id="216:12453" name="State=Disabled" x="4" y="22" width="16" height="16" />
+      <symbol id="216:12475" name="State=Disabled (1-bit)" x="22" y="22" width="16" height="16" />
+    </frame>
+    <frame id="216:12388" name="Small icon/Hard drive" x="353" y="924" width="42" height="42">
+      <symbol id="208:11329" name="State=Rest" x="4" y="4" width="16" height="16" />
+      <symbol id="216:12394" name="State=Selected" x="22" y="4" width="16" height="16" />
+      <symbol id="216:12404" name="State=Disabled" x="4" y="22" width="16" height="16" />
+      <symbol id="216:12414" name="State=Disabled (1-bit)" x="22" y="22" width="16" height="16" />
+    </frame>
+    <frame id="216:12315" name="Small icon/Folder open" x="307" y="925" width="42" height="42">
+      <symbol id="208:11332" name="State=Rest" x="4" y="4" width="16" height="16" />
+      <symbol id="216:12328" name="State=Selected" x="22" y="4" width="16" height="16" />
+      <symbol id="216:12352" name="State=Disabled" x="4" y="22" width="16" height="16" />
+      <symbol id="216:12376" name="State=Disabled (1-bit)" x="22" y="22" width="16" height="16" />
+    </frame>
+    <frame id="216:12271" name="Small icon/Folder" x="261" y="925" width="42" height="42">
+      <symbol id="208:11327" name="State=Rest" x="4" y="4" width="16" height="16" />
+      <symbol id="216:12277" name="State=Selected" x="22" y="4" width="16" height="16" />
+      <symbol id="216:12287" name="State=Disabled" x="4" y="22" width="16" height="16" />
+      <symbol id="216:12297" name="State=Disabled (1-bit)" x="22" y="22" width="16" height="16" />
+    </frame>
+    <frame id="216:12225" name="Small icon/Floppy disc" x="215" y="925" width="42" height="42">
+      <symbol id="208:11326" name="State=Rest" x="4" y="4" width="16" height="16" />
+      <symbol id="216:12232" name="State=Selected" x="22" y="4" width="16" height="16" />
+      <symbol id="216:12244" name="State=Disabled" x="4" y="22" width="16" height="16" />
+      <symbol id="216:12256" name="State=Disabled (1-bit)" x="22" y="22" width="16" height="16" />
+    </frame>
+    <frame id="216:12163" name="Small icon/Finder" x="169" y="925" width="42" height="42">
+      <symbol id="208:11331" name="State=Rest" x="4" y="4" width="16" height="16" />
+      <symbol id="216:12174" name="State=Selected" x="22" y="4" width="16" height="16" />
+      <symbol id="216:12194" name="State=Disabled" x="4" y="22" width="16" height="16" />
+      <symbol id="216:12214" name="State=Disabled (1-bit)" x="22" y="22" width="16" height="16" />
+    </frame>
+    <frame id="214:12131" name="Small icon/Document" x="123" y="924" width="42" height="42">
+      <symbol id="208:11323" name="State=Rest" x="4" y="4" width="16" height="16" />
+      <symbol id="214:12137" name="State=Selected" x="22" y="4" width="16" height="16" />
+      <symbol id="214:12147" name="State=Disabled" x="4" y="22" width="16" height="16" />
+      <symbol id="214:12157" name="State=Disabled (1-bit)" x="22" y="22" width="16" height="16" />
+    </frame>
+    <frame id="214:12099" name="Small icon/Desktop" x="77" y="924" width="42" height="42">
+      <symbol id="208:11330" name="State=Rest" x="4" y="4" width="16" height="16" />
+      <symbol id="214:12105" name="State=Selected" x="22" y="4" width="16" height="16" />
+      <symbol id="214:12115" name="State=Disabled" x="4" y="22" width="16" height="16" />
+      <symbol id="214:12125" name="State=Disabled (1-bit)" x="22" y="22" width="16" height="16" />
+    </frame>
+    <frame id="212:11873" name="Small icon/App" x="29" y="924" width="44" height="42">
+      <symbol id="208:11322" name="State=Rest" x="4" y="4" width="16" height="16" />
+      <symbol id="212:11900" name="State=Disabled" x="4" y="22" width="16" height="16" />
+      <symbol id="214:11952" name="State=Selected" x="22" y="4" width="16" height="16" />
+      <symbol id="214:12004" name="State=Disabled (1-bit)" x="22" y="22" width="16" height="16" />
+    </frame>
+    <frame id="78:7866" name="Finder icons" x="29" y="250" width="504" height="650">
+      <frame id="1:3427" name="Alarm clock" x="0" y="0" width="72" height="88">
+        <symbol id="1:3428" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:3787" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:3876" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:3955" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:1670" name="App" x="88" y="0" width="72" height="88">
+        <symbol id="1:1671" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:1755" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:1839" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:1868" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:2497" name="AppleShare" x="176" y="0" width="72" height="88">
+        <symbol id="1:2498" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:2590" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:2617" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:2660" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:3992" name="Battery" x="264" y="0" width="72" height="88">
+        <symbol id="1:3993" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:4044" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:4057" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:4075" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="79:8714" name="Calculator" x="352" y="0" width="72" height="88">
+        <symbol id="79:8712" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="79:8713" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="79:8710" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="79:8711" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:2674" name="Chooser" x="0" y="112" width="72" height="88">
+        <symbol id="1:2715" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:2775" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:2675" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:2698" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:1157" name="Clipboard" x="88" y="112" width="72" height="88">
+        <symbol id="1:1158" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:1402" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:1454" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:1535" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:1897" name="Document" x="176" y="112" width="72" height="88">
+        <symbol id="1:1898" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:1919" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:1940" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:1954" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:257" name="Finder" x="264" y="112" width="72" height="88">
+        <symbol id="1:258" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:274" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+        <symbol id="1:289" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:304" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+      </frame>
+      <frame id="1:2308" name="Floppy" x="352" y="112" width="72" height="89">
+        <symbol id="1:2309" name="Size=Large, Color=8-bit" x="9" y="8" width="32" height="32" />
+        <symbol id="1:2343" name="Size=Small, Color=8-bit" x="48" y="17" width="16" height="16" />
+        <symbol id="1:2359" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:2381" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:1968" name="Folder" x="0" y="225" width="72" height="88">
+        <symbol id="1:1969" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:1979" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:2052" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+        <symbol id="1:2064" name="Size=Large, Color=8-bit" x="9" y="4" width="32" height="32" />
+      </frame>
+      <frame id="1:2427" name="Folder: Apple Menu" x="88" y="225" width="72" height="88">
+        <symbol id="1:2428" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:2452" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:2476" name="Size=Small, Color=8-bit" x="48" y="19" width="16" height="16" />
+        <symbol id="1:2493" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="79:8262" name="Folder: Control panels" x="176" y="225" width="72" height="88">
+        <symbol id="79:8261" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="79:8259" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="79:8258" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="79:8260" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:2396" name="Folder: System" x="264" y="225" width="72" height="88">
+        <symbol id="1:2397" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:2400" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:2403" name="Size=Small, Color=8-bit" x="48" y="19" width="16" height="16" />
+        <symbol id="1:2417" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:3116" name="Font: Bitmap" x="352" y="225" width="72" height="88">
+        <symbol id="1:3117" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:3156" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:3181" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:3220" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:2938" name="Font: Suitcase" x="0" y="337" width="72" height="88">
+        <symbol id="1:2939" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:2997" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:3027" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:3086" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:3244" name="Font: TrueType" x="88" y="337" width="72" height="88">
+        <symbol id="1:3245" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:3303" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:3336" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:3394" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:4541" name="Help" x="176" y="337" width="56" height="32">
+        <symbol id="1:4542" name="Color=8-bit" x="8" y="8" width="16" height="16" />
+        <symbol id="1:4576" name="Color=1-bit" x="32" y="8" width="16" height="16" />
+      </frame>
+      <frame id="78:7865" name="Key Caps" x="248" y="337" width="72" height="88">
+        <symbol id="78:7864" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="78:7863" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="78:7862" name="Size=Small, Color=8-bit" x="48" y="18" width="16" height="16" />
+        <symbol id="78:7861" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:974" name="Mac IIci" x="336" y="337" width="48" height="88">
+        <symbol id="1:975" name="Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:997" name="Color=1-bit" x="8" y="48" width="32" height="32" />
+      </frame>
+      <frame id="1:898" name="Mac IIfx" x="400" y="337" width="48" height="88">
+        <symbol id="1:899" name="Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:949" name="Color=1-bit" x="8" y="48" width="32" height="32" />
+      </frame>
+      <frame id="1:860" name="Mac LC" x="0" y="449" width="72" height="88">
+        <symbol id="1:861" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:870" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+        <symbol id="1:879" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:889" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+      </frame>
+      <frame id="1:470" name="Mac Portable" x="88" y="449" width="72" height="88">
+        <symbol id="1:471" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:600" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:727" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:769" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:1009" name="Mac SE" x="176" y="449" width="72" height="88">
+        <symbol id="1:1010" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:1083" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:1105" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:1141" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:810" name="Mac SI" x="264" y="449" width="72" height="88">
+        <symbol id="1:811" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:823" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:836" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+        <symbol id="1:848" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+      </frame>
+      <frame id="1:2846" name="Notepad" x="352" y="449" width="72" height="88">
+        <symbol id="1:2847" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:2884" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:2899" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:2928" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="77:20575" name="Puzzle" x="0" y="561" width="72" height="88">
+        <symbol id="77:20571" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="77:20574" name="Size=Small, Color=8-bit" x="48" y="20" width="16" height="16" />
+        <symbol id="77:20572" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="77:20573" name="Size=Small, Color=1-bit" x="48" y="60" width="16" height="16" />
+      </frame>
+      <frame id="80:5101" name="Scrapbook" x="88" y="561" width="72" height="88">
+        <symbol id="80:5100" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="80:5099" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="80:5097" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="80:5098" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:4115" name="Trash" x="176" y="561" width="136" height="89">
+        <symbol id="1:4116" name="State=Empty, Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:4198" name="State=Full, Size=Large, Color=8-bit" x="72" y="9" width="32" height="32" />
+        <symbol id="1:4379" name="State=Empty, Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:4390" name="State=Full, Size=Small, Color=8-bit" x="112" y="17" width="16" height="16" />
+        <symbol id="1:4454" name="State=Empty, Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:4469" name="State=Full, Size=Large, Color=1-bit" x="72" y="49" width="32" height="32" />
+        <symbol id="1:4495" name="State=Empty, Size=Small, Color=1-bit" x="48" y="56" width="14" height="16" />
+        <symbol id="1:4512" name="State=Full, Size=Small, Color=1-bit" x="112" y="57" width="16" height="16" />
+      </frame>
+      <frame id="1:2792" name="User" x="328" y="561" width="72" height="88">
+        <symbol id="1:2793" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:2798" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:2805" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:2810" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+      <frame id="1:2815" name="User: Group" x="416" y="561" width="72" height="88">
+        <symbol id="1:2816" name="Size=Large, Color=8-bit" x="8" y="8" width="32" height="32" />
+        <symbol id="1:2824" name="Size=Small, Color=8-bit" x="48" y="16" width="16" height="16" />
+        <symbol id="1:2831" name="Size=Large, Color=1-bit" x="8" y="48" width="32" height="32" />
+        <symbol id="1:2839" name="Size=Small, Color=1-bit" x="48" y="56" width="16" height="16" />
+      </frame>
+    </frame>
+    <frame id="1:164" name="Watch" x="328" y="138" width="104" height="56">
+      <symbol id="1:234" name="Frame=8" x="80" y="32" width="16" height="16" />
+      <symbol id="1:223" name="Frame=7" x="56" y="32" width="16" height="16" />
+      <symbol id="1:212" name="Frame=6" x="32" y="32" width="16" height="16" />
+      <symbol id="1:201" name="Frame=5" x="8" y="32" width="16" height="16" />
+      <symbol id="1:189" name="Frame=4" x="80" y="8" width="16" height="16" />
+      <symbol id="1:246" name="Frame=3" x="56" y="8" width="16" height="16" />
+      <symbol id="1:176" name="Frame=2" x="32" y="8" width="16" height="16" />
+      <symbol id="1:165" name="Frame=Default" x="8" y="8" width="16" height="16" />
+    </frame>
+    <symbol id="103:4178" name="Watch base" x="308" y="139" width="16" height="16" />
+    <symbol id="1:4086" name="Mac: HD" x="264" y="142" width="32" height="32" />
+    <symbol id="1:1632" name="Stop" x="223" y="190" width="32" height="32" />
+    <symbol id="1:1561" name="Dialog" x="179" y="190" width="32" height="32" />
+    <symbol id="1:1593" name="Alert" x="135" y="190" width="32" height="32" />
+    <symbol id="1:397" name="Crash" x="223" y="142" width="32" height="32" />
+    <symbol id="1:363" name="Sad mac" x="179" y="142" width="32" height="32" />
+    <symbol id="1:340" name="Happy mac" x="135" y="142" width="32" height="32" />
+    <frame id="1:434" name="Welcome" x="75" y="138" width="48" height="88">
+      <symbol id="1:435" name="Color=8-bit" x="8" y="8" width="32" height="32" />
+      <symbol id="1:445" name="Color=1-bit" x="8" y="48" width="32" height="32" />
+    </frame>
+    <frame id="1:455" name="Apple" x="37" y="138" width="32" height="56">
+      <symbol id="1:456" name="Color=8-bit" x="8" y="8" width="16" height="16" />
+      <symbol id="1:463" name="Color=1-bit" x="8" y="32" width="16" height="16" />
+    </frame>
+    <symbol id="1:4093" name="Finder item/Large" x="28" y="58" width="71" height="44" />
+    <symbol id="1:4097" name="Finder item/Small" x="117" y="72" width="87" height="16" />
+  </frame>
+  <frame id="1:18" name="Controls" x="208" y="-149" width="523" height="932">
+    <instance id="1:19" name="Page title" x="2" y="2" width="519" height="36" />
+    <frame id="128:6798" name="Outline triangle" x="322" y="757" width="67" height="51">
+      <symbol id="128:6797" name="Open=False" x="15" y="20" width="11" height="11" />
+      <symbol id="128:6796" name="Open=True" x="36" y="20" width="11" height="11" />
+    </frame>
+    <frame id="227:27399" name="Base elements/Pop up label" x="150" y="847" width="145" height="56">
+      <symbol id="227:27398" name="State=Rest" x="17" y="20" width="50" height="16" />
+      <symbol id="227:27397" name="State=Selected" x="75" y="20" width="50" height="16" />
+    </frame>
+    <frame id="73:3710" name="Base elements/Label" x="149" y="757" width="160" height="77">
+      <symbol id="73:3711" name="Size=Large, State=Active" x="20" y="50" width="35" height="12" />
+      <symbol id="142:4114" name="Size=Large, State=Disabled (1-bit)" x="112" y="50" width="35" height="12" />
+      <symbol id="73:3713" name="Size=Large, State=Disabled" x="66" y="50" width="35" height="12" />
+      <symbol id="73:3715" name="Size=Small, State=Disabled" x="69" y="15" width="22" height="12" />
+      <symbol id="73:3717" name="Size=Small, State=Active" x="20" y="15" width="22" height="12" />
+      <symbol id="142:4116" name="Size=Small, State=Disabled (1-bit)" x="112" y="15" width="22" height="12" />
+    </frame>
+    <frame id="73:3740" name="Base elements/Check outline" x="87" y="809" width="45" height="24">
+      <symbol id="73:3741" name="State=Rest" x="6" y="5" width="12" height="12" />
+      <symbol id="73:3743" name="State=Press" x="27" y="5" width="12" height="12" />
+    </frame>
+    <frame id="73:3719" name="Base elements/Check" x="86" y="757" width="52" height="40">
+      <symbol id="73:3720" name="Selected=False, State=Rest" x="8" y="6" width="12" height="12" />
+      <symbol id="73:3722" name="Selected=False, State=Press" x="8" y="23" width="12" height="12" />
+      <symbol id="73:3724" name="Selected=True, State=Rest" x="29" y="6" width="12" height="12" />
+      <symbol id="73:3726" name="Selected=True, State=Press" x="29" y="23" width="12" height="12" />
+    </frame>
+    <frame id="73:3735" name="Base elements/Radio outline" x="23" y="805" width="55" height="28">
+      <symbol id="73:3736" name="State=Press" x="27" y="8" width="12" height="12" />
+      <symbol id="73:3738" name="State=Rest" x="6" y="8" width="12" height="12" />
+    </frame>
+    <frame id="73:3728" name="Base elements/Radio" x="23" y="757" width="55" height="28">
+      <symbol id="73:3729" name="Selected=True" x="7" y="8" width="12" height="12" />
+      <symbol id="73:3732" name="Selected=False" x="29" y="8" width="12" height="12" />
+    </frame>
+    <symbol id="127:6557" name="Scrolling list" x="23" y="556" width="228" height="186" />
+    <symbol id="73:3755" name="Fieldset" x="23" y="412" width="283" height="125" />
+    <symbol id="73:3703" name="Pop-up menu base" x="277" y="301" width="157" height="19" />
+    <symbol id="227:27408" name="Pop-up menu" x="272" y="260" width="207" height="19" />
+    <symbol id="73:3745" name="Text field" x="23" y="368" width="170" height="22" />
+    <frame id="73:3748" name="Text input" x="23" y="260" width="234" height="95">
+      <symbol id="73:3749" name="Label position=Left" x="9" y="13" width="215" height="22" />
+      <symbol id="73:3752" name="Label position=Top" x="9" y="43" width="215" height="39" />
+    </frame>
+    <symbol id="127:6518" name="Little arrows" x="165" y="224" width="15" height="25" />
+    <symbol id="73:3697" name="Checkbox" x="96" y="229" width="51" height="12" />
+    <symbol id="73:3700" name="Radio button" x="23" y="229" width="51" height="12" />
+    <frame id="73:3378" name="Button" x="23" y="54" width="305" height="160">
+      <symbol id="73:3379" name="Style=Default, State=Rest" x="20" y="67" width="88" height="28" />
+      <symbol id="73:3438" name="Style=Default, State=Pressed" x="114" y="67" width="88" height="28" />
+      <symbol id="73:3498" name="Style=Regular, State=Rest" x="24" y="20" width="80" height="20" />
+      <symbol id="73:3521" name="Style=Secondary, State=Rest" x="24" y="128" width="80" height="16" />
+      <symbol id="73:3544" name="Style=Regular, State=Pressed" x="118" y="20" width="80" height="20" />
+      <symbol id="73:3568" name="Style=Secondary, State=Pressed" x="118" y="128" width="80" height="16" />
+      <symbol id="73:3592" name="Style=Default, State=Disabled" x="208" y="67" width="88" height="28" />
+      <symbol id="73:3651" name="Style=Regular, State=Disabled" x="208" y="20" width="80" height="20" />
+      <symbol id="73:3674" name="Style=Secondary, State=Disabled" x="208" y="128" width="80" height="16" />
+    </frame>
+    <frame id="142:4586" name="Progress bar" x="277" y="342" width="177" height="51">
+      <symbol id="127:6681" name="Color=8-bit" x="8" y="9" width="161" height="11" />
+      <symbol id="142:4589" name="Color=1-bit" x="8" y="28" width="161" height="11" />
+    </frame>
+  </frame>
+  <frame id="1:16" name="Windows" x="-995" y="-149" width="1155" height="2533">
+    <instance id="1:17" name="Page title" x="2" y="2" width="1151" height="36" />
+    <frame id="128:6906" name="List view icons/Selected" x="57" y="2350" width="47" height="68">
+      <symbol id="142:4629" name="Color=1-bit, Type=Folder" x="27" y="8" width="12" height="12" />
+      <symbol id="128:6911" name="Color=8-bit, Type=Folder" x="8" y="8" width="12" height="12" />
+      <symbol id="142:4633" name="Color=1-bit, Type=Document" x="27" y="28" width="12" height="12" />
+      <symbol id="128:7010" name="Color=8-bit, Type=Document" x="8" y="28" width="12" height="12" />
+      <symbol id="142:4636" name="Color=1-bit, Type=Application" x="27" y="48" width="12" height="12" />
+      <symbol id="128:7013" name="Color=8-bit, Type=Application" x="8" y="48" width="12" height="12" />
+    </frame>
+    <frame id="128:7045" name="List item name" x="112" y="2350" width="256" height="52">
+      <symbol id="128:7040" name="State=Rest" x="20" y="20" width="88" height="12" />
+      <symbol id="128:7057" name="State=Selected" x="128" y="20" width="88" height="12" />
+    </frame>
+    <symbol id="144:4130" name="Date" x="271" y="2418" width="124" height="12" />
+    <frame id="144:4164" name="Size" x="114" y="2412" width="70" height="73">
+      <symbol id="144:4163" name="Null=False" x="20" y="20" width="30" height="12" />
+      <symbol id="144:4162" name="Null=True" x="43" y="41" width="6" height="12" />
+    </frame>
+    <frame id="144:4188" name="Text" x="196" y="2412" width="67" height="73">
+      <symbol id="144:4187" name="Null=False" x="20" y="20" width="27" height="12" />
+      <symbol id="144:4186" name="Null=True" x="20" y="41" width="7" height="12" />
+    </frame>
+    <frame id="145:4388" name="List view icons/Rest" x="20" y="2350" width="29" height="68">
+      <symbol id="128:6905" name="Type=Folder" x="8" y="8" width="12" height="12" />
+      <symbol id="128:6979" name="Type=Document" x="8" y="28" width="12" height="12" />
+      <symbol id="128:6980" name="Type=Application" x="9" y="48" width="12" height="12" />
+    </frame>
+    <frame id="147:4746" name="List row" x="19" y="2222" width="594" height="105">
+      <symbol id="147:4745" name="Level=L1" x="20" y="20" width="491" height="16" />
+      <symbol id="147:4744" name="Level=L2" x="20" y="47" width="491" height="16" />
+      <symbol id="147:4743" name="Level=L3" x="20" y="73" width="491" height="16" />
+    </frame>
+    <frame id="68:1775" name="Base elements/Window bg" x="722" y="2337" width="342" height="130">
+      <symbol id="68:1776" name="State=Active" x="20" y="20" width="139" height="90" />
+      <symbol id="68:1777" name="State=Inactive" x="183" y="20" width="139" height="90" />
+    </frame>
+    <symbol id="68:1820" name="Base elements/Modal border v" x="694" y="2146" width="3" height="119" />
+    <symbol id="68:1823" name="Base elements/Modal border h" x="697" y="1996" width="298" height="3" />
+    <frame id="68:1826" name="Base elements/Modal corner" x="663" y="1997" width="27" height="24">
+      <symbol id="68:1827" name="Orientation=Lower right" x="15" y="14" width="3" height="3" />
+      <symbol id="68:1831" name="Orientation=Lower left" x="9" y="14" width="3" height="3" />
+      <symbol id="68:1835" name="Orientation=Upper left" x="9" y="7" width="3" height="3" />
+      <symbol id="68:1839" name="Orientation=Upper right" x="15" y="7" width="3" height="3" />
+    </frame>
+    <frame id="177:8513" name="Dialog border" x="722" y="2015" width="387" height="295">
+      <symbol id="68:1799" name="Color=8-bit" x="20" y="20" width="347" height="123" />
+      <symbol id="177:8544" name="Color=1-bit" x="20" y="151" width="347" height="123" />
+    </frame>
+    <frame id="68:2020" name="Base elements/Scroll bar" x="20" y="1879" width="280" height="320">
+      <symbol id="68:2021" name="Direction=Horizontal, State=Enabled, Color=8-bit" x="20" y="210" width="225" height="15" />
+      <symbol id="68:2026" name="Direction=Horizontal, State=Disabled, Color=8-bit" x="20" y="233" width="225" height="15" />
+      <symbol id="139:5761" name="Direction=Horizontal, State=Enabled, Color=1-bit" x="20" y="269" width="225" height="15" />
+      <symbol id="139:5766" name="Direction=Horizontal, State=Disabled, Color=1-bit" x="20" y="292" width="225" height="15" />
+      <symbol id="68:2030" name="Direction=Horizontal, State=Inactive, Color=8-bit" x="20" y="251" width="225" height="15" />
+      <symbol id="68:2034" name="Direction=Vertical, State=Enabled, Color=8-bit" x="170" y="20" width="15" height="158" />
+      <symbol id="139:5889" name="Direction=Vertical, State=Enabled, Color=1-bit" x="229" y="20" width="15" height="158" />
+      <symbol id="68:2039" name="Direction=Vertical, State=Disabled, Color=8-bit" x="191" y="20" width="15" height="158" />
+      <symbol id="139:5894" name="Direction=Vertical, State=Disabled, Color=1-bit" x="250" y="20" width="15" height="158" />
+      <symbol id="68:2043" name="Direction=Vertical, State=Inactive, Color=8-bit" x="212" y="20" width="15" height="158" />
+    </frame>
+    <frame id="68:1843" name="Base elements/Window title" x="309" y="1908" width="156" height="118">
+      <symbol id="68:1844" name="State=Active, Color=8-bit" x="23" y="15" width="113" height="15" />
+      <symbol id="68:1846" name="State=Inactive, Color=8-bit" x="23" y="48" width="113" height="15" />
+      <symbol id="142:4592" name="State=Active, Color=1-bit" x="23" y="81" width="113" height="15" />
+    </frame>
+    <frame id="68:1854" name="Base elements/Scroll arrow/8-bit" x="31" y="1892" width="46" height="23">
+      <symbol id="68:1855" name="State=Active" x="3" y="5" width="11" height="10" />
+      <symbol id="68:1872" name="State=Pressed" x="17" y="5" width="11" height="10" />
+      <symbol id="68:1889" name="State=Disabled" x="31" y="5" width="11" height="10" />
+    </frame>
+    <frame id="68:1905" name="Base elements/Scroll button/8-bit" x="31" y="1953" width="151" height="54">
+      <symbol id="68:1906" name="Direction=Up, State=Active" x="19" y="5" width="14" height="14" />
+      <symbol id="68:1909" name="Direction=Up, State=Pressed" x="69" y="5" width="14" height="14" />
+      <symbol id="68:1912" name="Direction=Up, State=Disabled" x="118" y="5" width="14" height="14" />
+      <symbol id="68:1914" name="Direction=Left, State=Active" x="4" y="20" width="14" height="14" />
+      <symbol id="68:1917" name="Direction=Left, State=Pressed" x="54" y="20" width="14" height="14" />
+      <symbol id="68:1920" name="Direction=Left, State=Disabled" x="103" y="20" width="14" height="14" />
+      <symbol id="68:1922" name="Direction=Right, State=Active" x="33" y="20" width="14" height="14" />
+      <symbol id="68:1925" name="Direction=Right, State=Pressed" x="83" y="20" width="14" height="14" />
+      <symbol id="68:1928" name="Direction=Right, State=Disabled" x="132" y="20" width="14" height="14" />
+      <symbol id="68:1930" name="Direction=Down, State=Active" x="19" y="34" width="14" height="14" />
+      <symbol id="68:1933" name="Direction=Down, State=Pressed" x="69" y="34" width="14" height="14" />
+      <symbol id="68:1936" name="Direction=Down, State=Disabled" x="118" y="34" width="14" height="14" />
+    </frame>
+    <frame id="139:4789" name="Base elements/Scroll button/1-bit" x="31" y="2017" width="103" height="54">
+      <symbol id="139:4790" name="Direction=Up, State=Active" x="19" y="5" width="14" height="14" />
+      <symbol id="139:4793" name="Direction=Up, State=Pressed" x="69" y="5" width="14" height="14" />
+      <symbol id="139:4798" name="Direction=Left, State=Active" x="4" y="20" width="14" height="14" />
+      <symbol id="139:4801" name="Direction=Left, State=Pressed" x="54" y="20" width="14" height="14" />
+      <symbol id="139:4806" name="Direction=Right, State=Active" x="33" y="20" width="14" height="14" />
+      <symbol id="139:4809" name="Direction=Right, State=Pressed" x="83" y="20" width="14" height="14" />
+      <symbol id="139:4814" name="Direction=Down, State=Active" x="19" y="34" width="14" height="14" />
+      <symbol id="139:4817" name="Direction=Down, State=Pressed" x="69" y="34" width="14" height="14" />
+    </frame>
+    <frame id="68:1980" name="Base elements/Scroll box" x="106" y="1892" width="76" height="52">
+      <symbol id="68:1981" name="Direction=Vertical, Color=8-bit" x="20" y="8" width="14" height="16" />
+      <symbol id="68:1997" name="Direction=Horizontal, Color=8-bit" x="40" y="9" width="16" height="14" />
+      <symbol id="139:4748" name="Direction=Vertical, Color=1-bit" x="20" y="30" width="14" height="16" />
+      <symbol id="139:4763" name="Direction=Horizontal, Color=1-bit" x="40" y="31" width="16" height="14" />
+    </frame>
+    <symbol id="128:6837" name="List header item" x="309" y="1879" width="24" height="16" />
+    <frame id="68:1948" name="Base elements/Zoom box" x="364" y="2041" width="50" height="50">
+      <symbol id="68:1949" name="State=Rest, Color=8-bit" x="8" y="8" width="13" height="13" />
+      <symbol id="68:1961" name="State=Pressed, Color=8-bit" x="29" y="8" width="13" height="13" />
+      <symbol id="139:4562" name="State=Rest, Color=1-bit" x="8" y="29" width="13" height="13" />
+      <symbol id="139:4570" name="State=Pressed, Color=1-bit" x="29" y="29" width="13" height="13" />
+    </frame>
+    <frame id="68:1938" name="Base elements/Close box" x="309" y="2041" width="50" height="50">
+      <symbol id="68:1939" name="State=Rest, Color=8-bit" x="8" y="8" width="13" height="13" />
+      <symbol id="68:1945" name="State=Pressed, Color=8-bit" x="29" y="8" width="13" height="13" />
+      <symbol id="139:4540" name="State=State4, Color=1-bit" x="8" y="29" width="13" height="13" />
+      <symbol id="139:4546" name="State=State3, Color=1-bit" x="29" y="29" width="13" height="13" />
+    </frame>
+    <frame id="139:4576" name="Base elements/Resize btn" x="421" y="2041" width="31" height="54">
+      <symbol id="68:1964" name="Color=8-bit" x="8" y="8" width="15" height="15" />
+      <symbol id="139:4590" name="Color=1-bit" x="8" y="31" width="15" height="15" />
+    </frame>
+    <frame id="139:4702" name="Base elements/Title bar bg" x="459" y="2041" width="39" height="55">
+      <symbol id="68:2013" name="Color=8-bit" x="8" y="8" width="23" height="15" />
+      <symbol id="139:4710" name="Color=1-bit" x="8" y="28" width="23" height="15" />
+    </frame>
+    <frame id="139:4780" name="Base elements/Scroll arrow/1-bit" x="32" y="1923" width="32" height="21">
+      <symbol id="139:4784" name="State=Pressed" x="17" y="5" width="12" height="10" />
+      <symbol id="139:4786" name="State=Rest" x="3" y="5" width="12" height="10" />
+    </frame>
+    <frame id="177:7932" name="Title bar: Utility" x="499" y="1879" width="387" height="82">
+      <symbol id="177:7933" name="Color=8-bit" x="20" y="20" width="347" height="12" />
+      <symbol id="177:7943" name="Color=1-bit" x="20" y="50" width="347" height="12" />
+    </frame>
+    <frame id="177:7974" name="Base elements/Zoom box" x="364" y="2098" width="46" height="50">
+      <symbol id="177:7975" name="State=Rest, Color=8-bit" x="8" y="8" width="9" height="9" />
+      <symbol id="177:7983" name="State=Pressed, Color=8-bit" x="29" y="8" width="9" height="9" />
+      <symbol id="177:7986" name="State=Rest, Color=1-bit" x="8" y="29" width="9" height="9" />
+      <symbol id="177:7989" name="State=Pressed, Color=1-bit" x="29" y="29" width="9" height="9" />
+    </frame>
+    <frame id="177:7992" name="Base elements/Close box/Small" x="309" y="2098" width="46" height="50">
+      <symbol id="177:7993" name="State=Rest, Color=8-bit" x="8" y="8" width="9" height="9" />
+      <symbol id="177:7999" name="State=Pressed, Color=8-bit" x="29" y="8" width="9" height="9" />
+      <symbol id="177:8002" name="State=State4, Color=1-bit" x="8" y="29" width="9" height="9" />
+      <symbol id="177:8004" name="State=State3, Color=1-bit" x="29" y="29" width="9" height="9" />
+    </frame>
+    <symbol id="68:1848" name="Base elements/Scroll btn bg" x="310" y="2156" width="14" height="14" />
+    <frame id="128:6799" name="Base elements" x="20" y="1739" width="525" height="112">
+      <symbol id="68:1809" name="View=Icon" x="20" y="20" width="493" height="20" />
+      <symbol id="128:6811" name="View=List" x="20" y="60" width="493" height="20" />
+    </frame>
+    <frame id="152:4823" name="Title bar: Dialog" x="567" y="1739" width="387" height="112">
+      <symbol id="68:2047" name="Color=8-bit" x="20" y="20" width="347" height="18" />
+      <symbol id="152:4844" name="Color=1-bit" x="20" y="63" width="347" height="18" />
+    </frame>
+    <frame id="68:1778" name="Title bar: Window" x="20" y="1583" width="1031" height="128">
+      <symbol id="68:1779" name="State=Active, Color=8-bit" x="20" y="20" width="434" height="38" />
+      <symbol id="68:1790" name="State=Inactive, Color=8-bit" x="20" y="75" width="434" height="38" />
+      <symbol id="152:4662" name="State=Active, Color=1-bit" x="472" y="20" width="434" height="38" />
+      <symbol id="152:4673" name="State=Inactive, Color=1-bit" x="472" y="75" width="434" height="38" />
+    </frame>
+    <frame id="128:6822" name="Items" x="620" y="324" width="24" height="16" />
+    <frame id="227:27920" name="New document dialog" x="565" y="1120" width="436" height="347">
+      <instance id="227:27489" name="Dialog base" x="0" y="0" width="436" height="347" />
+      <frame id="227:27919" name="Dialog content" x="20" y="35" width="397" height="289">
+        <frame id="227:27825" name="Inputs" x="0" y="3" width="308" height="283">
+          <frame id="227:27662" name="Fieldset" x="0" y="37" width="306" height="151">
+            <frame id="227:27663" name="Label" x="0" y="0" width="306" height="14">
+              <rounded-rectangle id="227:27664" name="Path" x="0" y="6" width="15" height="2" />
+              <frame id="227:27665" name="Label" x="15" y="0" width="122" height="14">
+                <text id="227:27666" name="Image Size: 532K" x="5" y="0" width="114" height="12" />
+              </frame>
+              <rounded-rectangle id="227:27667" name="Path" x="137" y="6" width="169" height="2" />
+            </frame>
+            <frame id="227:27668" name="Content" x="0" y="8" width="306" height="143">
+              <frame id="227:27700" name="Fields" x="16" y="18" width="272" height="111">
+                <instance id="227:27701" name="Text input" x="31" y="0" width="119" height="22" />
+                <instance id="227:27702" name="Text input" x="27" y="30" width="123" height="22" />
+                <instance id="227:27703" name="Text input" x="0" y="60" width="150" height="22" />
+                <instance id="227:27704" name="Pop-up menu" x="27" y="92" width="168" height="19" />
+                <instance id="227:27705" name="Pop-up menu base" x="158" y="1" width="95" height="19" />
+                <instance id="227:27706" name="Pop-up menu base" x="158" y="32" width="83" height="19" />
+                <instance id="227:27707" name="Pop-up menu base" x="158" y="62" width="114" height="19" />
+              </frame>
+            </frame>
+          </frame>
+          <frame id="227:27671" name="Fieldset" x="0" y="201" width="307" height="85">
+            <frame id="227:27672" name="Label" x="0" y="0" width="307" height="14">
+              <rounded-rectangle id="227:27673" name="Path" x="0" y="6" width="15" height="2" />
+              <frame id="227:27674" name="Label" x="15" y="0" width="67" height="14">
+                <text id="227:27675" name="Contents" x="5" y="0" width="59" height="12" />
+              </frame>
+              <rounded-rectangle id="227:27676" name="Path" x="82" y="6" width="225" height="2" />
+            </frame>
+            <frame id="227:27677" name="Content" x="0" y="8" width="307" height="77">
+              <instance id="227:27678" name="Radio button" x="33" y="13" width="54" height="12" />
+              <instance id="227:27679" name="Radio button" x="33" y="33" width="134" height="12" />
+              <instance id="227:27680" name="Radio button" x="33" y="53" width="139" height="12" />
+            </frame>
+          </frame>
+          <instance id="227:27818" name="Text input" x="9" y="0" width="297" height="22" />
+          <frame id="227:27764" name="Pop-up menu" x="94" y="123" width="117" height="83">
+            <frame id="227:27765" name="Menu items" x="1" y="1" width="114" height="80">
+              <instance id="227:27766" name="Base/Menu item" x="0" y="0" width="114" height="16" />
+              <instance id="227:27767" name="Base/Menu item" x="0" y="16" width="114" height="16" />
+              <instance id="227:27768" name="Base/Menu item" x="0" y="32" width="114" height="16" />
+              <instance id="227:27769" name="Base/Menu item" x="0" y="48" width="114" height="16" />
+              <instance id="227:27770" name="Base/Menu item" x="0" y="64" width="114" height="16" />
+            </frame>
+            <instance id="227:27772" name="Base/Menu bg" x="0" y="0" width="117" height="83" />
+          </frame>
+        </frame>
+        <frame id="227:27918" name="Buttons" x="329" y="0" width="68" height="54">
+          <instance id="227:27843" name="Button" x="0" y="0" width="68" height="28" />
+          <instance id="227:27842" name="Button" x="4" y="34" width="60" height="20" />
+        </frame>
+      </frame>
+    </frame>
+    <symbol id="68:2059" name="Dialog: Alert" x="88" y="1440" width="366" height="111" />
+    <symbol id="3:5673" name="Dialog base/Welcome to Macintosh" x="42" y="1282" width="448" height="126" />
+    <frame id="177:8103" name="Utility window base" x="20" y="1120" width="442" height="132">
+      <symbol id="177:8102" name="Color=1-bit" x="227" y="20" width="195" height="92" />
+      <symbol id="177:8101" name="Color=8-bit" x="20" y="20" width="195" height="92" />
+    </frame>
+    <instance id="227:27456" name="Utility window base" x="486" y="1125" width="27" height="122" />
+    <frame id="177:8142" name="Dialog base" x="20" y="669" width="1104" height="423">
+      <symbol id="68:1772" name="Type=Movable, Color=8-bit" x="380" y="20" width="344" height="181" />
+      <symbol id="177:8190" name="Type=Modal, Color=8-bit" x="20" y="20" width="344" height="181" />
+      <symbol id="68:2056" name="Type=Modeless, Color=8-bit" x="740" y="20" width="344" height="181" />
+      <symbol id="177:8362" name="Type=Type6, Color=1-bit" x="380" y="222" width="344" height="181" />
+      <symbol id="177:8367" name="Type=Type5, Color=1-bit" x="20" y="222" width="344" height="181" />
+      <symbol id="177:8371" name="Type=Type4, Color=1-bit" x="740" y="222" width="344" height="181" />
+    </frame>
+    <frame id="68:1755" name="Document window base" x="20" y="62" width="1101" height="579">
+      <symbol id="68:1756" name="State=Inactive, Color=8-bit" x="8" y="303" width="533" height="256" />
+      <symbol id="152:4416" name="State=Inactive, Color=1-bit" x="559" y="303" width="533" height="256" />
+      <symbol id="68:1764" name="State=Active, Color=8-bit" x="9" y="20" width="533" height="256" />
+      <symbol id="152:4424" name="State=Active, Color=1-bit" x="560" y="20" width="533" height="256" />
+    </frame>
+  </frame>
+  <frame id="1:4" name="Menus" x="-1811" y="-149" width="768" height="832">
+    <instance id="1:5" name="Page title" x="2" y="2" width="764" height="36" />
+    <symbol id="3:5921" name="Base/Menu bg" x="596" y="548" width="140" height="147" />
+    <symbol id="76:3839" name="Base/Key commands" x="407" y="590" width="48" height="14" />
+    <frame id="139:5970" name="Base/Divider" x="596" y="472" width="149" height="64">
+      <symbol id="3:5924" name="Color=8-bit" x="8" y="8" width="133" height="16" />
+      <symbol id="139:5973" name="Color=1-bit" x="8" y="40" width="133" height="16" />
+    </frame>
+    <frame id="223:14973" name="Base/File browser menu item" x="406" y="470" width="179" height="104">
+      <symbol id="223:14974" name="State=Active" x="8" y="8" width="163" height="16" />
+      <symbol id="223:14980" name="State=Selected" x="8" y="32" width="163" height="16" />
+      <symbol id="223:15189" name="State=Disabled" x="8" y="56" width="163" height="16" />
+      <symbol id="223:15238" name="State=Disabled (1-bit)" x="8" y="80" width="163" height="16" />
+    </frame>
+    <frame id="3:5926" name="Base/Menu item" x="213" y="470" width="179" height="208">
+      <symbol id="3:5927" name="Type=Action, State=Active" x="8" y="8" width="163" height="16" />
+      <symbol id="3:5954" name="Type=Action, State=Hover" x="8" y="32" width="163" height="16" />
+      <symbol id="3:5945" name="Type=Action, State=Disabled" x="8" y="56" width="163" height="16" />
+      <symbol id="139:6002" name="Type=Action, State=Disabled (1-bit)" x="8" y="80" width="163" height="16" />
+      <symbol id="3:5963" name="Type=Heirarchical, State=Active" x="8" y="112" width="163" height="16" />
+      <symbol id="3:5971" name="Type=Heirarchical, State=Hover" x="8" y="136" width="163" height="16" />
+      <symbol id="3:5967" name="Type=Heirarchical, State=Disabled" x="8" y="160" width="163" height="16" />
+      <symbol id="139:6108" name="Type=Heirarchical, State=Disabled (1-bit)" x="8" y="184" width="163" height="16" />
+    </frame>
+    <frame id="223:13673" name="Base/Apple menu item" x="24" y="470" width="179" height="56">
+      <symbol id="223:13674" name="State=Active" x="8" y="8" width="163" height="16" />
+      <symbol id="223:13699" name="State=Hover" x="8" y="32" width="163" height="16" />
+    </frame>
+    <frame id="3:5911" name="Base/Menu bar item" x="170" y="406" width="246" height="40">
+      <symbol id="3:5912" name="State=Rest" x="10" y="11" width="52" height="18" />
+      <symbol id="139:5964" name="State=Disabled (1-bit)" x="178" y="11" width="52" height="18" />
+      <symbol id="112:6438" name="State=Disabled" x="126" y="11" width="52" height="18" />
+      <symbol id="3:5914" name="State=Pressed" x="68" y="11" width="52" height="18" />
+    </frame>
+    <symbol id="3:5975" name="Base/Application menu button" x="123" y="416" width="34" height="18" />
+    <frame id="3:5916" name="Base/Apple menu button" x="24" y="405" width="85" height="40">
+      <symbol id="3:5917" name="State=Rest" x="14" y="11" width="29" height="18" />
+      <symbol id="3:5919" name="State=Pressed" x="48" y="11" width="29" height="18" />
+    </frame>
+    <frame id="223:16257" name="Pop-up menu" x="526" y="128" width="95" height="99">
+      <frame id="223:16258" name="Menu items" x="1" y="1" width="92" height="96">
+        <instance id="223:16259" name="Base/Menu item" x="0" y="0" width="92" height="16" />
+        <instance id="223:16260" name="Base/Menu item" x="0" y="16" width="92" height="16" />
+        <instance id="223:16312" name="Base/Menu item" x="0" y="32" width="92" height="16" />
+        <instance id="223:16319" name="Base/Menu item" x="0" y="48" width="92" height="16" />
+        <instance id="223:16326" name="Base/Menu item" x="0" y="64" width="92" height="16" />
+        <instance id="223:16334" name="Base/Menu item" x="0" y="80" width="92" height="16" />
+      </frame>
+      <instance id="223:16264" name="Base/Menu bg" x="0" y="0" width="95" height="99" />
+    </frame>
+    <frame id="223:15417" name="File browser menu" x="368" y="231" width="142" height="51">
+      <frame id="223:15418" name="Menu items" x="1" y="1" width="139" height="48">
+        <instance id="223:15419" name="Base/File browser menu item" x="0" y="0" width="139" height="16" />
+        <instance id="223:15689" name="Base/File browser menu item" x="0" y="16" width="139" height="16" />
+        <instance id="223:15710" name="Base/File browser menu item" x="0" y="32" width="139" height="16" />
+      </frame>
+      <instance id="223:15435" name="Base/Menu bg" x="0" y="0" width="142" height="51" />
+    </frame>
+    <frame id="223:15724" name="Application menu" x="369" y="128" width="142" height="85">
+      <frame id="223:15725" name="Menu items" x="1" y="1" width="139" height="82">
+        <instance id="223:15726" name="Base/Menu item" x="0" y="0" width="139" height="16" />
+        <instance id="223:15727" name="Base/Menu item" x="0" y="16" width="139" height="16" />
+        <instance id="223:15728" name="Base/Menu item" x="0" y="32" width="139" height="16" />
+        <instance id="223:15810" name="Base/Divider" x="0" y="48" width="133" height="16" />
+        <instance id="223:15825" name="Base/Menu item" x="0" y="64" width="139" height="18" />
+      </frame>
+      <instance id="223:15729" name="Base/Menu bg" x="0" y="0" width="142" height="85" />
+    </frame>
+    <frame id="3:5892" name="Pull-down menu" x="212" y="128" width="142" height="259">
+      <frame id="3:5893" name="Menu items" x="1" y="1" width="139" height="256">
+        <instance id="3:5894" name="Base/Menu item" x="0" y="0" width="139" height="16" />
+        <instance id="3:5895" name="Base/Menu item" x="0" y="16" width="139" height="16" />
+        <instance id="3:5896" name="Base/Menu item" x="0" y="32" width="139" height="16" />
+        <instance id="3:5897" name="Base/Menu item" x="0" y="48" width="139" height="16" />
+        <instance id="3:5898" name="Base/Divider" x="0" y="64" width="139" height="16" />
+        <instance id="3:5899" name="Base/Menu item" x="0" y="80" width="139" height="16" />
+        <instance id="3:5900" name="Base/Menu item" x="0" y="96" width="139" height="16" />
+        <instance id="3:5901" name="Base/Menu item" x="0" y="112" width="139" height="16" />
+        <instance id="3:5902" name="Base/Menu item" x="0" y="128" width="139" height="16" />
+        <instance id="3:5903" name="Base/Menu item" x="0" y="144" width="139" height="16" />
+        <instance id="3:5904" name="Base/Divider" x="0" y="160" width="139" height="16" />
+        <instance id="3:5905" name="Base/Menu item" x="0" y="176" width="139" height="16" />
+        <instance id="3:5906" name="Base/Menu item" x="0" y="192" width="139" height="16" />
+        <instance id="3:5907" name="Base/Divider" x="0" y="208" width="139" height="16" />
+        <instance id="3:5908" name="Base/Menu item" x="0" y="224" width="139" height="16" />
+        <instance id="3:5909" name="Base/Menu item" x="0" y="240" width="139" height="16" />
+      </frame>
+      <instance id="3:5910" name="Base/Menu bg" x="0" y="0" width="142" height="259" />
+    </frame>
+    <frame id="77:16432" name="Apple menu" x="24" y="129" width="180" height="196">
+      <frame id="77:16433" name="Menu items" x="1" y="0" width="177" height="194">
+        <instance id="77:16434" name="Base/Menu item" x="0" y="0" width="177" height="16" />
+        <instance id="77:16438" name="Base/Divider" x="0" y="16" width="177" height="16" />
+        <instance id="77:16435" name="Base/Apple menu item" x="0" y="32" width="177" height="18" />
+        <instance id="77:16436" name="Base/Apple menu item" x="0" y="50" width="177" height="18" />
+        <instance id="77:16437" name="Base/Apple menu item" x="0" y="68" width="177" height="18" />
+        <instance id="77:16439" name="Base/Apple menu item" x="0" y="86" width="177" height="18" />
+        <instance id="77:16440" name="Base/Apple menu item" x="0" y="104" width="177" height="18" />
+        <instance id="77:16441" name="Base/Apple menu item" x="0" y="122" width="177" height="18" />
+        <instance id="77:16442" name="Base/Apple menu item" x="0" y="140" width="177" height="18" />
+        <instance id="77:16445" name="Base/Apple menu item" x="0" y="158" width="177" height="18" />
+        <instance id="77:16446" name="Base/Apple menu item" x="0" y="176" width="177" height="18" />
+      </frame>
+      <instance id="77:16450" name="Base/Menu bg" x="0" y="0" width="180" height="196" />
+    </frame>
+    <rounded-rectangle id="3:5873" name="Rectangle" x="16" y="54" width="736" height="49" />
+    <symbol id="3:5874" name="Menu bar" x="30" y="69" width="708" height="19" />
+  </frame>
+  <frame id="73:8994" name="Fonts" x="-2372" y="-149" width="513" height="336">
+    <instance id="73:8995" name="Page title" x="2" y="2" width="511" height="36" />
+    <instance id="73:9431" name="Base/Divider" x="33" y="303" width="438" height="16" />
+    <instance id="73:9433" name="Button" x="411" y="187" width="60" height="16" />
+    <text id="73:9291" name="ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789" x="33" y="211" width="426" height="84" />
+    <text id="73:9290" name="ChiKareGo2 by Giles Booth" x="33" y="189" width="147" height="12" />
+    <instance id="73:9427" name="Base/Divider" x="33" y="165" width="438" height="16" />
+    <instance id="73:9368" name="Button" x="411" y="77" width="60" height="16" />
+    <text id="73:9289" name="ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789" x="33" y="101" width="390" height="56" />
+    <text id="73:9288" name="FindersKeepers by Giles Booth" x="33" y="79" width="140" height="12" />
+    <instance id="73:9429" name="Base/Divider" x="33" y="55" width="438" height="16" />
+  </frame>
+  <instance id="227:27205" name="Balloon help" x="-2950" y="-240" width="130" height="91" />
+</canvas>

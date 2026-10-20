@@ -1,0 +1,341 @@
+{
+  "schemaVersion": 1,
+  "category": "buttons",
+  "status": "PARTIAL_CACHED_SOURCE_MAPPING_NOT_CONFORMANCE",
+  "sourceNodeIds": [
+    "73:3379",
+    "73:3438",
+    "73:3592",
+    "73:3498",
+    "73:3544",
+    "73:3651",
+    "73:3521",
+    "73:3568",
+    "73:3674"
+  ],
+  "requiredStateDefinitions": [
+    "rest",
+    "pressed",
+    "focused",
+    "disabled"
+  ],
+  "conditionalStates": [
+    {
+      "state": "hover",
+      "condition": "Where the platform uses hover feedback."
+    },
+    {
+      "state": "default",
+      "condition": "Default Button only."
+    },
+    {
+      "state": "destructive",
+      "condition": "Only if explicitly defined by the SLOPOS language."
+    }
+  ],
+  "items": [
+    {
+      "id": "button.regular",
+      "name": "Regular Button",
+      "sourceNodeId": "73:3498",
+      "widthPx": 80,
+      "heightPx": 20,
+      "contractExample": [
+        80,
+        20
+      ],
+      "exampleAuthority": "EXAMPLE_ONLY",
+      "states": [
+        "rest",
+        "pressed",
+        "focused",
+        "disabled"
+      ],
+      "sourceNodeIds": [
+        "73:3498",
+        "73:3544",
+        "73:3651"
+      ],
+      "sourceParentNodeId": "73:3378",
+      "sourceMappingStatus": "MAPPED",
+      "sourceMappingBasis": "Regular button Rest representative; source variants identify Rest, Pressed and Disabled. Focus behavior remains unknown.",
+      "sourceMetadataStatus": "HISTORICAL_CACHED_XML_REVISION_UNKNOWN",
+      "geometryStatus": "CACHED_SOURCE_NODE_BOUNDS_ONLY"
+    },
+    {
+      "id": "button.default",
+      "name": "Default Button",
+      "sourceNodeId": "73:3379",
+      "widthPx": 88,
+      "heightPx": 28,
+      "contractExample": [
+        88,
+        28
+      ],
+      "exampleAuthority": "EXAMPLE_ONLY",
+      "states": [
+        "rest",
+        "pressed",
+        "focused",
+        "disabled",
+        "default"
+      ],
+      "sourceNodeIds": [
+        "73:3379",
+        "73:3438",
+        "73:3592"
+      ],
+      "sourceParentNodeId": "73:3378",
+      "sourceMappingStatus": "MAPPED",
+      "sourceMappingBasis": "Default button Rest representative; the source Style label does not specify default-action keyboard behavior.",
+      "sourceMetadataStatus": "HISTORICAL_CACHED_XML_REVISION_UNKNOWN",
+      "geometryStatus": "CACHED_SOURCE_NODE_BOUNDS_ONLY"
+    },
+    {
+      "id": "button.secondary",
+      "name": "Secondary Button",
+      "sourceNodeId": "73:3521",
+      "widthPx": 80,
+      "heightPx": 16,
+      "contractExample": [
+        80,
+        16
+      ],
+      "exampleAuthority": "EXAMPLE_ONLY",
+      "states": [
+        "rest",
+        "pressed",
+        "focused",
+        "disabled"
+      ],
+      "sourceNodeIds": [
+        "73:3521",
+        "73:3568",
+        "73:3674"
+      ],
+      "sourceParentNodeId": "73:3378",
+      "sourceMappingStatus": "MAPPED",
+      "sourceMappingBasis": "Secondary button Rest representative; source variants identify Rest, Pressed and Disabled.",
+      "sourceMetadataStatus": "HISTORICAL_CACHED_XML_REVISION_UNKNOWN",
+      "geometryStatus": "CACHED_SOURCE_NODE_BOUNDS_ONLY"
+    },
+    {
+      "id": "button.icon",
+      "name": "Icon Button",
+      "sourceNodeId": null,
+      "widthPx": null,
+      "heightPx": null,
+      "contractExample": null,
+      "exampleAuthority": "NOT_EXTRACTED",
+      "states": [
+        "rest",
+        "pressed",
+        "focused",
+        "disabled"
+      ]
+    },
+    {
+      "id": "button.repeat_arrow",
+      "name": "Repeat/Arrow Button",
+      "classification": "OPTIONAL_VARIANT",
+      "condition": "Where referenced.",
+      "sourceNodeId": null,
+      "widthPx": null,
+      "heightPx": null,
+      "contractExample": null,
+      "exampleAuthority": "NOT_EXTRACTED",
+      "states": [
+        "rest",
+        "pressed",
+        "focused",
+        "disabled"
+      ]
+    }
+  ],
+  "exampleProvenance": "AGENTS.md §5, prior observation dated 2026-09-24; examples only, not conformance values.",
+  "source": {
+    "fileKey": "LGMlwNCoVdakZxDBvPKg1W",
+    "rootPageNodeId": "0:1",
+    "sourceRevision": null,
+    "sourceScale": null,
+    "fontStatus": "UNKNOWN",
+    "licenseStatus": "UNKNOWN",
+    "metadataFile": "source-metadata.xml",
+    "metadataSha256": "9a0ee26ac340cccea6b5ca1ab019573a0ab3f8053e5df86b92eaa872570220d4",
+    "nodeCatalogFile": "source-nodes.json",
+    "metadataStatus": "HISTORICAL_CACHED_XML_REVISION_UNKNOWN",
+    "geometryStatus": "CACHED_SOURCE_NODE_BOUNDS_ONLY",
+    "geometryUnits": "XML logical coordinates; source scale unverified. widthPx/heightPx retain draft field names and record source bounds, not physical pixels or fixed control sizes.",
+    "retrievedUtc": null,
+    "retrievalNotes": "Retained artifact has no embedded retrieval timestamp or source revision. The archived inventory reports retrieval at 2026-10-02 05:20:33 UTC; this is a historical record, not a fresh Figma request.",
+    "currentConformance": "NOT_RUN"
+  },
+  "sourceContainerNodeId": "73:3378",
+  "sourceVariants": [
+    {
+      "nodeId": "73:3379",
+      "name": "Style=Default, State=Rest",
+      "type": "symbol",
+      "parentNodeId": "73:3378",
+      "geometry": {
+        "x": 20,
+        "y": 67,
+        "width": 88,
+        "height": 28
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Style": "Default",
+        "State": "Rest"
+      }
+    },
+    {
+      "nodeId": "73:3438",
+      "name": "Style=Default, State=Pressed",
+      "type": "symbol",
+      "parentNodeId": "73:3378",
+      "geometry": {
+        "x": 114,
+        "y": 67,
+        "width": 88,
+        "height": 28
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Style": "Default",
+        "State": "Pressed"
+      }
+    },
+    {
+      "nodeId": "73:3592",
+      "name": "Style=Default, State=Disabled",
+      "type": "symbol",
+      "parentNodeId": "73:3378",
+      "geometry": {
+        "x": 208,
+        "y": 67,
+        "width": 88,
+        "height": 28
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Style": "Default",
+        "State": "Disabled"
+      }
+    },
+    {
+      "nodeId": "73:3498",
+      "name": "Style=Regular, State=Rest",
+      "type": "symbol",
+      "parentNodeId": "73:3378",
+      "geometry": {
+        "x": 24,
+        "y": 20,
+        "width": 80,
+        "height": 20
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Style": "Regular",
+        "State": "Rest"
+      }
+    },
+    {
+      "nodeId": "73:3544",
+      "name": "Style=Regular, State=Pressed",
+      "type": "symbol",
+      "parentNodeId": "73:3378",
+      "geometry": {
+        "x": 118,
+        "y": 20,
+        "width": 80,
+        "height": 20
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Style": "Regular",
+        "State": "Pressed"
+      }
+    },
+    {
+      "nodeId": "73:3651",
+      "name": "Style=Regular, State=Disabled",
+      "type": "symbol",
+      "parentNodeId": "73:3378",
+      "geometry": {
+        "x": 208,
+        "y": 20,
+        "width": 80,
+        "height": 20
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Style": "Regular",
+        "State": "Disabled"
+      }
+    },
+    {
+      "nodeId": "73:3521",
+      "name": "Style=Secondary, State=Rest",
+      "type": "symbol",
+      "parentNodeId": "73:3378",
+      "geometry": {
+        "x": 24,
+        "y": 128,
+        "width": 80,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Style": "Secondary",
+        "State": "Rest"
+      }
+    },
+    {
+      "nodeId": "73:3568",
+      "name": "Style=Secondary, State=Pressed",
+      "type": "symbol",
+      "parentNodeId": "73:3378",
+      "geometry": {
+        "x": 118,
+        "y": 128,
+        "width": 80,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Style": "Secondary",
+        "State": "Pressed"
+      }
+    },
+    {
+      "nodeId": "73:3674",
+      "name": "Style=Secondary, State=Disabled",
+      "type": "symbol",
+      "parentNodeId": "73:3378",
+      "geometry": {
+        "x": 208,
+        "y": 128,
+        "width": 80,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Style": "Secondary",
+        "State": "Disabled"
+      }
+    }
+  ],
+  "historicalReference": {
+    "artifact": "spec-set.tar.gz",
+    "sha256": "8e27362944f280d9682110ef8a17aaedafbf0808661b1a7519e5e9f9c62b43d1",
+    "scope": "Archived button and menu variant IDs, names, parent IDs and bounds reconciled against source-metadata.xml. Layer styles, fonts, licenses and behavior were not recovered."
+  },
+  "unresolved": [
+    "Current Figma revision and source scale.",
+    "Focused/hover/destructive states and the semantics of default-action behavior.",
+    "Icon/repeat-arrow button source correspondence.",
+    "Layer-level colors, border/corner pixels, padding, text baselines, font metrics and redistribution licenses.",
+    "Pointer/keyboard state transitions, accessible roles and independent conformance."
+  ]
+}

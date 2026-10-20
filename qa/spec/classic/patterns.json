@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "category": "patterns",
+  "status": "SOURCE_PENDING",
+  "sourceNodeIds": [],
+  "requiredComponent": {
+    "id": "primitive.pattern_fill",
+    "geometry": null,
+    "tileSizePx": null,
+    "scaleRule": null,
+    "variants": []
+  },
+  "notes": [
+    "The public viewer showed a Patterns section; no pattern nodes or values were extracted."
+  ]
+}

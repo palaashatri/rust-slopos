@@ -1,0 +1,840 @@
+{
+  "schemaVersion": 1,
+  "category": "menus",
+  "status": "PARTIAL_CACHED_SOURCE_MAPPING_NOT_CONFORMANCE",
+  "sourceNodeIds": [
+    "3:5921",
+    "76:3839",
+    "139:5970",
+    "3:5924",
+    "139:5973",
+    "223:14973",
+    "223:14974",
+    "223:14980",
+    "223:15189",
+    "223:15238",
+    "3:5926",
+    "3:5927",
+    "3:5954",
+    "3:5945",
+    "139:6002",
+    "3:5963",
+    "3:5971",
+    "3:5967",
+    "139:6108",
+    "223:13673",
+    "223:13674",
+    "223:13699",
+    "3:5911",
+    "3:5912",
+    "139:5964",
+    "112:6438",
+    "3:5914",
+    "3:5975",
+    "3:5916",
+    "3:5917",
+    "3:5919",
+    "3:5874"
+  ],
+  "items": [
+    {
+      "id": "menu.bar",
+      "name": "Menu Bar",
+      "sourceNodeId": "3:5874",
+      "heightPx": 19,
+      "contractExampleHeightPx": 19,
+      "exampleAuthority": "EXAMPLE_ONLY",
+      "states": [
+        "active",
+        "inactive"
+      ],
+      "sourceNodeIds": [
+        "3:5874"
+      ],
+      "sourceParentNodeId": "1:4",
+      "sourceMappingStatus": "MAPPED",
+      "sourceMappingBasis": "Named Menu bar symbol; source width is fixture composition width, not a fixed desktop width.",
+      "sourceMetadataStatus": "HISTORICAL_CACHED_XML_REVISION_UNKNOWN",
+      "geometryStatus": "CACHED_SOURCE_NODE_BOUNDS_ONLY",
+      "widthPx": 708
+    },
+    {
+      "id": "menu.menu",
+      "name": "Menu",
+      "sourceNodeId": null,
+      "widthPx": null,
+      "heightPx": null,
+      "candidateSourceNodeIds": [
+        "223:16257",
+        "223:15417",
+        "223:15724",
+        "3:5892",
+        "77:16432"
+      ],
+      "sourceMappingNotes": "Named example menu compositions have different bounds; no single canonical Menu source has been selected."
+    },
+    {
+      "id": "menu.item",
+      "name": "Menu Item",
+      "sourceNodeId": "3:5927",
+      "heightPx": 16,
+      "contractExampleHeightPx": 16,
+      "exampleAuthority": "EXAMPLE_ONLY",
+      "variants": [
+        "Action",
+        "Hierarchical"
+      ],
+      "states": [
+        "active",
+        "hover",
+        "disabled"
+      ],
+      "sourceNodeIds": [
+        "3:5927",
+        "3:5954",
+        "3:5945",
+        "139:6002",
+        "3:5963",
+        "3:5971",
+        "3:5967",
+        "139:6108"
+      ],
+      "sourceParentNodeId": "3:5926",
+      "sourceMappingStatus": "MAPPED",
+      "sourceMappingBasis": "Base/Menu item Action Active representative; raw source Type=Heirarchical spelling is retained in menus.json.",
+      "sourceMetadataStatus": "HISTORICAL_CACHED_XML_REVISION_UNKNOWN",
+      "geometryStatus": "CACHED_SOURCE_NODE_BOUNDS_ONLY",
+      "widthPx": 163
+    },
+    {
+      "id": "menu.checked_item",
+      "name": "Checked Menu Item",
+      "sourceNodeId": null,
+      "states": [
+        "checked",
+        "unchecked",
+        "disabled"
+      ]
+    },
+    {
+      "id": "menu.radio_item",
+      "name": "Radio Menu Item",
+      "classification": "OPTIONAL_VARIANT",
+      "sourceNodeId": null,
+      "states": [
+        "selected",
+        "unselected",
+        "disabled"
+      ]
+    },
+    {
+      "id": "menu.separator",
+      "name": "Menu Separator",
+      "sourceNodeId": "3:5924",
+      "sourceNodeIds": [
+        "3:5924",
+        "139:5973"
+      ],
+      "sourceParentNodeId": "139:5970",
+      "sourceMappingStatus": "MAPPED",
+      "sourceMappingBasis": "Base/Divider 8-bit representative with 1-bit variant; symbol bounds do not expose divider line thickness or padding.",
+      "sourceMetadataStatus": "HISTORICAL_CACHED_XML_REVISION_UNKNOWN",
+      "geometryStatus": "CACHED_SOURCE_NODE_BOUNDS_ONLY",
+      "widthPx": 133,
+      "heightPx": 16
+    },
+    {
+      "id": "menu.shortcut_label",
+      "name": "Shortcut/Command Label",
+      "sourceNodeId": "76:3839",
+      "sourceNodeIds": [
+        "76:3839"
+      ],
+      "sourceParentNodeId": "1:4",
+      "sourceMappingStatus": "MAPPED",
+      "sourceMappingBasis": "Named Base/Key commands symbol; text, font and command semantics are unextracted.",
+      "sourceMetadataStatus": "HISTORICAL_CACHED_XML_REVISION_UNKNOWN",
+      "geometryStatus": "CACHED_SOURCE_NODE_BOUNDS_ONLY",
+      "widthPx": 48,
+      "heightPx": 14
+    },
+    {
+      "id": "menu.application_host",
+      "name": "Application Menu Host",
+      "sourceNodeId": null,
+      "candidateSourceNodeIds": [
+        "223:15724"
+      ],
+      "sourceMappingNotes": "Application menu is an example composition; a runtime menu-host mapping is not established."
+    },
+    {
+      "id": "menu.context_menu",
+      "name": "Context Menu",
+      "sourceNodeId": null
+    }
+  ],
+  "observedExampleNodeIds": [
+    {
+      "nodeId": "85:18397",
+      "name": "Menu",
+      "role": "example frame from root-page metadata; underlying component mapping not established"
+    },
+    {
+      "nodeId": "85:18399",
+      "name": "Base/Menu item",
+      "role": "instance in example frame; not a main-component source ID"
+    },
+    {
+      "nodeId": "85:18415",
+      "name": "Base/Menu bg",
+      "role": "instance in example frame; not a main-component source ID"
+    }
+  ],
+  "exampleProvenance": "AGENTS.md §5 records menu-bar/menu-row measurements and Active/Hover/Disabled plus Action/Hierarchical examples; exact component mappings and metrics remain pending.",
+  "source": {
+    "fileKey": "LGMlwNCoVdakZxDBvPKg1W",
+    "rootPageNodeId": "0:1",
+    "sourceRevision": null,
+    "sourceScale": null,
+    "fontStatus": "UNKNOWN",
+    "licenseStatus": "UNKNOWN",
+    "metadataFile": "source-metadata.xml",
+    "metadataSha256": "9a0ee26ac340cccea6b5ca1ab019573a0ab3f8053e5df86b92eaa872570220d4",
+    "nodeCatalogFile": "source-nodes.json",
+    "metadataStatus": "HISTORICAL_CACHED_XML_REVISION_UNKNOWN",
+    "geometryStatus": "CACHED_SOURCE_NODE_BOUNDS_ONLY",
+    "geometryUnits": "XML logical coordinates; source scale unverified. widthPx/heightPx retain draft field names and record source bounds, not physical pixels or fixed control sizes.",
+    "retrievedUtc": null,
+    "retrievalNotes": "Retained artifact has no embedded retrieval timestamp or source revision. The archived inventory reports retrieval at 2026-10-02 05:20:33 UTC; this is a historical record, not a fresh Figma request.",
+    "currentConformance": "NOT_RUN"
+  },
+  "sourceContainerNodeId": "1:4",
+  "sourceVariants": [
+    {
+      "nodeId": "3:5921",
+      "name": "Base/Menu bg",
+      "type": "symbol",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 596,
+        "y": 548,
+        "width": 140,
+        "height": 147
+      },
+      "childNodeIds": []
+    },
+    {
+      "nodeId": "76:3839",
+      "name": "Base/Key commands",
+      "type": "symbol",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 407,
+        "y": 590,
+        "width": 48,
+        "height": 14
+      },
+      "childNodeIds": []
+    },
+    {
+      "nodeId": "139:5970",
+      "name": "Base/Divider",
+      "type": "frame",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 596,
+        "y": 472,
+        "width": 149,
+        "height": 64
+      },
+      "childNodeIds": [
+        "3:5924",
+        "139:5973"
+      ]
+    },
+    {
+      "nodeId": "3:5924",
+      "name": "Color=8-bit",
+      "type": "symbol",
+      "parentNodeId": "139:5970",
+      "geometry": {
+        "x": 8,
+        "y": 8,
+        "width": 133,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Color": "8-bit"
+      }
+    },
+    {
+      "nodeId": "139:5973",
+      "name": "Color=1-bit",
+      "type": "symbol",
+      "parentNodeId": "139:5970",
+      "geometry": {
+        "x": 8,
+        "y": 40,
+        "width": 133,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Color": "1-bit"
+      }
+    },
+    {
+      "nodeId": "223:14973",
+      "name": "Base/File browser menu item",
+      "type": "frame",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 406,
+        "y": 470,
+        "width": 179,
+        "height": 104
+      },
+      "childNodeIds": [
+        "223:14974",
+        "223:14980",
+        "223:15189",
+        "223:15238"
+      ]
+    },
+    {
+      "nodeId": "223:14974",
+      "name": "State=Active",
+      "type": "symbol",
+      "parentNodeId": "223:14973",
+      "geometry": {
+        "x": 8,
+        "y": 8,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "State": "Active"
+      }
+    },
+    {
+      "nodeId": "223:14980",
+      "name": "State=Selected",
+      "type": "symbol",
+      "parentNodeId": "223:14973",
+      "geometry": {
+        "x": 8,
+        "y": 32,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "State": "Selected"
+      }
+    },
+    {
+      "nodeId": "223:15189",
+      "name": "State=Disabled",
+      "type": "symbol",
+      "parentNodeId": "223:14973",
+      "geometry": {
+        "x": 8,
+        "y": 56,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "State": "Disabled"
+      }
+    },
+    {
+      "nodeId": "223:15238",
+      "name": "State=Disabled (1-bit)",
+      "type": "symbol",
+      "parentNodeId": "223:14973",
+      "geometry": {
+        "x": 8,
+        "y": 80,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "State": "Disabled (1-bit)"
+      }
+    },
+    {
+      "nodeId": "3:5926",
+      "name": "Base/Menu item",
+      "type": "frame",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 213,
+        "y": 470,
+        "width": 179,
+        "height": 208
+      },
+      "childNodeIds": [
+        "3:5927",
+        "3:5954",
+        "3:5945",
+        "139:6002",
+        "3:5963",
+        "3:5971",
+        "3:5967",
+        "139:6108"
+      ]
+    },
+    {
+      "nodeId": "3:5927",
+      "name": "Type=Action, State=Active",
+      "type": "symbol",
+      "parentNodeId": "3:5926",
+      "geometry": {
+        "x": 8,
+        "y": 8,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Type": "Action",
+        "State": "Active"
+      }
+    },
+    {
+      "nodeId": "3:5954",
+      "name": "Type=Action, State=Hover",
+      "type": "symbol",
+      "parentNodeId": "3:5926",
+      "geometry": {
+        "x": 8,
+        "y": 32,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Type": "Action",
+        "State": "Hover"
+      }
+    },
+    {
+      "nodeId": "3:5945",
+      "name": "Type=Action, State=Disabled",
+      "type": "symbol",
+      "parentNodeId": "3:5926",
+      "geometry": {
+        "x": 8,
+        "y": 56,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Type": "Action",
+        "State": "Disabled"
+      }
+    },
+    {
+      "nodeId": "139:6002",
+      "name": "Type=Action, State=Disabled (1-bit)",
+      "type": "symbol",
+      "parentNodeId": "3:5926",
+      "geometry": {
+        "x": 8,
+        "y": 80,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Type": "Action",
+        "State": "Disabled (1-bit)"
+      }
+    },
+    {
+      "nodeId": "3:5963",
+      "name": "Type=Heirarchical, State=Active",
+      "type": "symbol",
+      "parentNodeId": "3:5926",
+      "geometry": {
+        "x": 8,
+        "y": 112,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Type": "Heirarchical",
+        "State": "Active"
+      }
+    },
+    {
+      "nodeId": "3:5971",
+      "name": "Type=Heirarchical, State=Hover",
+      "type": "symbol",
+      "parentNodeId": "3:5926",
+      "geometry": {
+        "x": 8,
+        "y": 136,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Type": "Heirarchical",
+        "State": "Hover"
+      }
+    },
+    {
+      "nodeId": "3:5967",
+      "name": "Type=Heirarchical, State=Disabled",
+      "type": "symbol",
+      "parentNodeId": "3:5926",
+      "geometry": {
+        "x": 8,
+        "y": 160,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Type": "Heirarchical",
+        "State": "Disabled"
+      }
+    },
+    {
+      "nodeId": "139:6108",
+      "name": "Type=Heirarchical, State=Disabled (1-bit)",
+      "type": "symbol",
+      "parentNodeId": "3:5926",
+      "geometry": {
+        "x": 8,
+        "y": 184,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "Type": "Heirarchical",
+        "State": "Disabled (1-bit)"
+      }
+    },
+    {
+      "nodeId": "223:13673",
+      "name": "Base/Apple menu item",
+      "type": "frame",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 24,
+        "y": 470,
+        "width": 179,
+        "height": 56
+      },
+      "childNodeIds": [
+        "223:13674",
+        "223:13699"
+      ]
+    },
+    {
+      "nodeId": "223:13674",
+      "name": "State=Active",
+      "type": "symbol",
+      "parentNodeId": "223:13673",
+      "geometry": {
+        "x": 8,
+        "y": 8,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "State": "Active"
+      }
+    },
+    {
+      "nodeId": "223:13699",
+      "name": "State=Hover",
+      "type": "symbol",
+      "parentNodeId": "223:13673",
+      "geometry": {
+        "x": 8,
+        "y": 32,
+        "width": 163,
+        "height": 16
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "State": "Hover"
+      }
+    },
+    {
+      "nodeId": "3:5911",
+      "name": "Base/Menu bar item",
+      "type": "frame",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 170,
+        "y": 406,
+        "width": 246,
+        "height": 40
+      },
+      "childNodeIds": [
+        "3:5912",
+        "139:5964",
+        "112:6438",
+        "3:5914"
+      ]
+    },
+    {
+      "nodeId": "3:5912",
+      "name": "State=Rest",
+      "type": "symbol",
+      "parentNodeId": "3:5911",
+      "geometry": {
+        "x": 10,
+        "y": 11,
+        "width": 52,
+        "height": 18
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "State": "Rest"
+      }
+    },
+    {
+      "nodeId": "139:5964",
+      "name": "State=Disabled (1-bit)",
+      "type": "symbol",
+      "parentNodeId": "3:5911",
+      "geometry": {
+        "x": 178,
+        "y": 11,
+        "width": 52,
+        "height": 18
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "State": "Disabled (1-bit)"
+      }
+    },
+    {
+      "nodeId": "112:6438",
+      "name": "State=Disabled",
+      "type": "symbol",
+      "parentNodeId": "3:5911",
+      "geometry": {
+        "x": 126,
+        "y": 11,
+        "width": 52,
+        "height": 18
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "State": "Disabled"
+      }
+    },
+    {
+      "nodeId": "3:5914",
+      "name": "State=Pressed",
+      "type": "symbol",
+      "parentNodeId": "3:5911",
+      "geometry": {
+        "x": 68,
+        "y": 11,
+        "width": 52,
+        "height": 18
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "State": "Pressed"
+      }
+    },
+    {
+      "nodeId": "3:5975",
+      "name": "Base/Application menu button",
+      "type": "symbol",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 123,
+        "y": 416,
+        "width": 34,
+        "height": 18
+      },
+      "childNodeIds": []
+    },
+    {
+      "nodeId": "3:5916",
+      "name": "Base/Apple menu button",
+      "type": "frame",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 24,
+        "y": 405,
+        "width": 85,
+        "height": 40
+      },
+      "childNodeIds": [
+        "3:5917",
+        "3:5919"
+      ]
+    },
+    {
+      "nodeId": "3:5917",
+      "name": "State=Rest",
+      "type": "symbol",
+      "parentNodeId": "3:5916",
+      "geometry": {
+        "x": 14,
+        "y": 11,
+        "width": 29,
+        "height": 18
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "State": "Rest"
+      }
+    },
+    {
+      "nodeId": "3:5919",
+      "name": "State=Pressed",
+      "type": "symbol",
+      "parentNodeId": "3:5916",
+      "geometry": {
+        "x": 48,
+        "y": 11,
+        "width": 29,
+        "height": 18
+      },
+      "childNodeIds": [],
+      "sourceVariantProperties": {
+        "State": "Pressed"
+      }
+    },
+    {
+      "nodeId": "3:5874",
+      "name": "Menu bar",
+      "type": "symbol",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 30,
+        "y": 69,
+        "width": 708,
+        "height": 19
+      },
+      "childNodeIds": []
+    }
+  ],
+  "sourceCompositions": [
+    {
+      "nodeId": "223:16257",
+      "name": "Pop-up menu",
+      "type": "frame",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 526,
+        "y": 128,
+        "width": 95,
+        "height": 99
+      },
+      "childNodeIds": [
+        "223:16258",
+        "223:16264"
+      ]
+    },
+    {
+      "nodeId": "223:15417",
+      "name": "File browser menu",
+      "type": "frame",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 368,
+        "y": 231,
+        "width": 142,
+        "height": 51
+      },
+      "childNodeIds": [
+        "223:15418",
+        "223:15435"
+      ]
+    },
+    {
+      "nodeId": "223:15724",
+      "name": "Application menu",
+      "type": "frame",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 369,
+        "y": 128,
+        "width": 142,
+        "height": 85
+      },
+      "childNodeIds": [
+        "223:15725",
+        "223:15729"
+      ]
+    },
+    {
+      "nodeId": "3:5892",
+      "name": "Pull-down menu",
+      "type": "frame",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 212,
+        "y": 128,
+        "width": 142,
+        "height": 259
+      },
+      "childNodeIds": [
+        "3:5893",
+        "3:5910"
+      ]
+    },
+    {
+      "nodeId": "77:16432",
+      "name": "Apple menu",
+      "type": "frame",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 24,
+        "y": 129,
+        "width": 180,
+        "height": 196
+      },
+      "childNodeIds": [
+        "77:16433",
+        "77:16450"
+      ]
+    },
+    {
+      "nodeId": "3:5874",
+      "name": "Menu bar",
+      "type": "symbol",
+      "parentNodeId": "1:4",
+      "geometry": {
+        "x": 30,
+        "y": 69,
+        "width": 708,
+        "height": 19
+      },
+      "childNodeIds": []
+    }
+  ],
+  "historicalReference": {
+    "artifact": "spec-set.tar.gz",
+    "sha256": "8e27362944f280d9682110ef8a17aaedafbf0808661b1a7519e5e9f9c62b43d1",
+    "scope": "Archived button and menu variant IDs, names, parent IDs and bounds reconciled against source-metadata.xml. Layer styles, fonts, licenses and behavior were not recovered."
+  },
+  "unresolved": [
+    "Current Figma revision and source scale.",
+    "Generic Menu has multiple example compositions and no uniquely selected canonical source node.",
+    "Checked/radio semantics and a canonical context-menu source are not exposed by the XML.",
+    "Application menu composition 223:15724 does not establish the runtime Application Menu Host contract.",
+    "Colors, typography, baseline, padding, bevel/pattern and line geometry.",
+    "Menu opening/dismissal, keyboard traversal, focus restoration, accessible semantics and conformance."
+  ]
+}
