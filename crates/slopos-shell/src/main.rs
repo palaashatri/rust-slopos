@@ -2,7 +2,6 @@
 
 pub mod app_finder;
 pub mod app_index;
-pub mod gmenu;
 pub mod launcher;
 pub mod menu;
 pub mod notifications;
@@ -66,7 +65,19 @@ fn main() {
     #[allow(deprecated)]
     let (status_sender, status_receiver) = glib::MainContext::channel(glib::Priority::default());
     let topbar_status = topbar.clone();
-    status_receiver.attach(None, move |status| {
+    status_receiver.attach(None, move |status: services::SystemStatus| {
+        if let Some(warning) = status.power_notification {
+            let (summary, icon) = if warning.critical {
+                ("Battery critically low", "battery-low-symbolic")
+            } else {
+                ("Battery low", "battery-low-symbolic")
+            };
+            NotificationServer::show_toast(
+                summary,
+                &format!("Battery has {}% charge remaining.", warning.percentage),
+                icon,
+            );
+        }
         topbar_status.update_system_status(&status);
         glib::ControlFlow::Continue
     });

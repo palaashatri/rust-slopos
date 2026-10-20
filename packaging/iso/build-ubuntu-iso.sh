@@ -63,7 +63,9 @@ chroot chroot /bin/bash -c "
     xfce4-terminal \
     network-manager \
     pipewire \
+    pipewire-pulse \
     wireplumber \
+    pulseaudio-utils \
     pavucontrol \
     upower
 "
