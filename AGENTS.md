@@ -4,14 +4,16 @@ SLOPOS-I is an experimental X11 desktop environment for Linux in a Classic Mac O
 
 This file is the short, always-loaded instruction sheet for coding agents. The full requirements, architecture, application inventory, acceptance gates and evidence ledger are in [`docs/CONTRACT.md`](docs/CONTRACT.md) (§ numbers below refer to it). Read the contract sections relevant to your task before changing code; you do not need to read all 3,500 lines for a small fix.
 
-## Current state (2026-10-20)
+## Current state (2026-10-20, after the all-branches integration)
 
-- The workspace has eight packages: the four legacy GTK3 "donor" crates (`slopos-session`, `slopos-shell`, `slopos-settings`, `slopos-catalogue`) plus the partial bootstrap `crates/slopos-core`, `crates/slopos-services`, `crates/slopos-ui` and `tools/slopos-ui-gallery` (committed 2026-10-20 from a previously uncommitted working tree).
-- The target architecture (`slopos-ui` component library → `slopos-appkit` → native apps, Dock, applets, OSD, typed system providers) **does not exist yet** beyond that partial bootstrap on `main`. See contract Part II for the subsystem table.
-- CI runs the four cargo checks (`build`, `test`, `clippy -D warnings`, `fmt --check`) plus the Python architecture/QA checkers. The most recent guest-recorded workspace run (2026-10-03, on the pre-merge working tree) reported 205 passed / 0 failed / 11 ignored; **the merged `main` commit itself has not been executed locally or in a guest** — treat its build/test status as NOT_RUN until CI reports it, and check CI (`gh run list`) for the live status rather than trusting this line.
-- Pre-merge observation (2026-10-20): `main` CI was red on one job, the *AT-SPI translated-locale matrix (fr_FR.UTF-8)* job. Re-check after any push.
-- All branches are merged into `main` as of 2026-10-20: `agent/qa-01-required-runner-map`, `agent/spec-01-schema-inventory` (Classic spec JSON under `qa/spec/classic/`) and `claude/rewrite-agents-md` (this file split). The branches are retained for audit history. The UI gallery source (`tools/slopos-ui-gallery`) and the spec/QA work are committed on `main`; only VM-side scratch (captured evidence directories on the deleted VM) was lost. Commit and push work from VMs at least daily.
-- Older data files under `qa/` cite sections as `AGENTS.md §N`; they mean `docs/CONTRACT.md` §N.
+- Eight workspace packages: the four legacy GTK3 "donor" crates (`slopos-session`, `slopos-shell`, `slopos-settings`, `slopos-catalogue`) plus the partial bootstrap `slopos-core`, `slopos-services` (NetworkManager, audio, brightness, power, timedate, Bluetooth, MPRIS, UDisks providers), `slopos-ui` (button plate/button, layout, accessibility base) and `tools/slopos-ui-gallery`. There is still no `slopos-appkit`, Dock, applet framework, OSD or native app.
+- Verified at `b332657` in a container (Rust 1.97, because the pinned 1.99.0 couldn't be downloaded there): build, **205 tests passed / 11 ignored**, clippy `-D warnings` and fmt all pass. Contract Part II.L, *2026-10-20 post-integration container check*, has the details.
+- **CI on `main` is red in 4 jobs**, each with a known cause:
+  1. *lockfile consistency* — two pytest cases broke in the spec-01 merge (F-QA-08). Fix the tests, not the checker.
+  2. and 3. *.deb* and *pkg.tar.zst payload contract* — the session descriptor runs `slopos-session` instead of `start-slopos-i` (F-PKG-01). This is a real bug: display-manager logins get no global-menu export and no desktop icons. The Arch job also lacks `bsdtar` on the new Ubuntu 26 runner (F-CI-01).
+  4. *Debian Live ISO* — failing since before the merge; cause unknown.
+- Fabricated network/sound state and the `xdotool` menu fallbacks are gone. Still open: the About dialog in `topbar.rs` calls the desktop "consumer-ready" (F-CLAIM-01), and Settings shows no live network state even though `slopos-services::network` can provide it.
+- All agent branches are merged; they are kept only for history. Older `qa/` data files that cite `AGENTS.md §N` mean `docs/CONTRACT.md` §N.
 
 ## Commands
 
@@ -73,7 +75,7 @@ Graphical and integration QA lives in `scripts/run-*-qa.sh` (Xvfb/Openbox, AT-SP
 
 ## Rules
 
-1. **Never display invented system state.** No hard-coded interfaces, SSIDs, IPs, devices or levels. If a provider is missing, show "unavailable". Known violations to fix, not copy: `slopos-settings/src/panels/network.rs`, `panels/sound.rs`, and the static network labels and `xdotool` Cut/Copy/Paste fallbacks in `slopos-shell/src/topbar.rs` (contract Part II §D).
+1. **Never display invented system state.** No hard-coded interfaces, SSIDs, IPs, devices or levels. If a provider is missing, show "unavailable". Read state through `slopos-services` providers, never by parsing ad-hoc command output. `crates/slopos-shell/tests/shell_tests.rs` asserts the old fake strings stay gone; keep those tests.
 2. A missing UI control becomes a `slopos-ui` task, not an app-local workaround.
 3. Don't weaken, skip or delete tests or CI jobs to get green. A skipped gate is reported as NOT_RUN, never PASS.
 4. Don't claim a feature works because it compiles or a screenshot was captured. Screenshots in `docs/screenshots/` need a note saying what they do and don't show.

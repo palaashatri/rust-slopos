@@ -3073,14 +3073,14 @@ No contemporary screenshots in this audit establish graphical or pixel conforman
 
 | Finding | Inspected source | Status and required remediation |
 |---|---|---|
-| F-NET-01: invented Settings state | `crates/slopos-settings/src/panels/network.rs` | FAIL: hard-coded `eth0`, link speed, IP/gateway and named SSIDs; implement SVC-01/02 and APP-02. |
+| F-NET-01: invented Settings state | `crates/slopos-settings/src/panels/network.rs` | CLOSED at `b332657` (`621cab9`): fabricated rows removed; the panel now offers only `nm-connection-editor`. Still open: show live state from `slopos-services::network` (SVC-01/02, APP-02). |
 | F-NET-02: invented menu state | `crates/slopos-shell/src/topbar.rs` | ORIGINAL AUDIT FAIL: fixed in a bounded donor patch recorded in K—the fabricated interface/SSID rows are replaced by explicit unavailable detail. The separate topbar summary still uses the legacy adapter and is not provider-completeness evidence. |
 | F-AUDIO-01: partial/fake Sound state | `crates/slopos-settings/src/panels/sound.rs` | FAIL: sample device/initial levels, incomplete input/device control/read-back, direct command paths. SVC-03/APP-02. |
 | F-MENU-01: guessed app actions | `crates/slopos-shell/src/topbar.rs` | ORIGINAL AUDIT FAIL: `xdotool` Edit, refresh and cleanup fallbacks removed in DONOR-MENU-TRUTH-02. GTK exported application menus and guaranteed X11 window actions remain; no claim that donor fallback menus complete the target global-menu contract. |
 | F-MENU-02: duplicate menu code | `crates/slopos-shell/src/gmenu.rs`, `crates/slopos-shell/src/menu/gmenu.rs` | ORIGINAL AUDIT FAIL: unused root `gmenu.rs` and duplicate module registration removed; the runtime bridge remains `menu::gmenu`, preserving GTK and KDE exporter property handling. |
 | F-MENU-03: adapter truth | `crates/slopos-shell/src/menu/gmenu.rs` | Static risk: GTK/KDE property fallbacks feed GIO GMenu construction. This is not evidence of DBusMenu support; define/test adapters before advertising compatibility. |
 | F-SHELL-01: mixed responsibilities | `crates/slopos-shell/src/topbar.rs` | Migration required: menus, service UI, spawning, session actions and presentation share one large file. Allocate extraction to one owner at a time. |
-| F-CLAIM-01: stale production claim | `crates/slopos-shell/src/topbar.rs` About text | FAIL: “consumer-ready” is unsupported by the ledger. Correct during the migration tranche. |
+| F-CLAIM-01: stale production claim | `crates/slopos-shell/src/topbar.rs` About text | FAIL (re-confirmed at `b332657`): the About dialog in `topbar.rs` still says “An original, consumer-ready Linux desktop.” Replace with alpha wording. |
 | F-DOCK-01: obsolete implementation assumption | `crates/slopos-shell/src/main.rs` | Contains a dockless comment; required new Dock is MISSING. Contract supersedes the comment; do not revive the old strip. |
 
 Earlier Date/Time initialization/read-back uncertainty remains OPEN; this audit did not freshly inspect or execute that panel.
@@ -3154,6 +3154,10 @@ The active blockers are the absent spec/UI/appkit platform and conformance harne
 Start VM-00, SPEC-01 and QA-00 as in §21; then bootstrap common interfaces and dispatch independent foundation tasks. Do not begin native application polishing while its controls are missing. Fix misleading/fabricated production state under explicitly assigned migration tasks.
 
 External access blockers (VM/storage, Figma source, physical devices, signing/publication credentials) must name the exact missing access and impacted gate. Continue independent ready work. Do not ask for new product choices already settled in §0.1.
+
+### 2026-10-20 next actions (post-integration audit)
+
+In order: (1) F-PKG-01 session descriptor → `start-slopos-i`, which also clears two package jobs; (2) F-QA-08 test repair and F-CI-01 `bsdtar` install, then diagnose the Debian Live ISO job; (3) F-CLAIM-01 About text; (4) APP-02 network: read-only live state from `slopos-services::network` in the legacy panel as a truthful-state fix, then Wi-Fi join; (5) SHELL Dock on `slopos-ui`; (6) volume/brightness OSD with media keys on the existing providers; (7) first native proof app (Calculator); (8) a CI-built ISO that boots to the session in QEMU. Items 4–8 map to the §21 task IDs; the coordinator records ownership in Part II.M before work starts.
 
 ## J. Justified and unjustified claims
 
@@ -3481,6 +3485,28 @@ At the owner's explicit instruction, the coordinator integrated every open branc
 Verification for this checkpoint was **text-only on the macOS host, without executing repository code** (§0.2.6): all 23 JSON files under `qa/spec/` plus `qa/release-runner-inventory.json` parse; a static render of `EXPECTED_RUNNER_TEMPLATE` is byte-identical to `scripts/run-release-qa.sh`; `REQUIRED_RUNNER_SCRIPTS` in the checker equals the 13-entry manifest in the same order; all 13 pinned SHA-256 digests match their script files; `bash -n scripts/run-release-qa.sh` and `ast.parse` of the four changed Python files succeed; no merge-conflict markers remain.
 
 **No cargo build/test/clippy/fmt, no pytest, and no graphical or guest QA ran for this merge — all of it is NOT_RUN at the merged SHA.** Guest VM access was unavailable (VM-00 blocked above) and the host policy forbids executing repository code. The last guest-recorded workspace run (2026-10-03, on the pre-merge working tree) reported 205 passed / 0 failed / 11 ignored and does not cover this SHA. The spec branch's checker/test additions and their CI registration were never executed anywhere before this merge (SPEC-01-CACHED-* guest checks remain NOT_RUN). GitHub CI runs after the push; its result for the merged SHA is authoritative and must be read from Actions, not inferred from this entry.
+
+### 2026-10-20 post-integration container check and CI triage
+
+Run by an external audit agent at merged `main` `b332657` in a disposable Ubuntu 24.04 x86-64 container (not the guest VM; §28 still applies to graphical, install and hardware evidence). Rust 1.97.0 was used because the pinned 1.99.0 toolchain could not be downloaded there.
+
+| Gate | Result |
+|---|---|
+| `cargo build --workspace --all-targets --locked` | PASS |
+| `cargo test --workspace --locked` | PASS — 205 passed, 0 failed, 11 ignored (matches the 2026-10-03 guest count) |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo fmt --all -- --check` | PASS |
+| `check-architecture.py`, `check-release-runner-inventory.py`, `check-classic-source-mapping.py` | PASS |
+| pytest: architecture, release-runner, classic-mapping suites | **FAIL — 111 passed, 2 failed** |
+| `dpkg-buildpackage --build=binary` + the workflow's payload smoke check | **FAIL** at the session-descriptor check (see F-PKG-01) |
+
+GitHub Actions on `b332657`: 18 jobs passed; *lockfile consistency*, *Exact-head .deb build + payload contract*, *Exact-head pkg.tar.zst build + payload contract* and *Debian x86_64 Live ISO* failed. Causes found:
+
+- **F-QA-08 (merge regression).** `test_failed_gate_replaces_stale_pass_and_stops_runner[First gate]` and `test_rejects_synchronized_aggregate_runner_registration` arrived from `agent/spec-01-schema-inventory` and assume the old, unpinned fixture (`run-first-qa.sh`, a single error). `a997f9e` pins the 13 real runner scripts by SHA-256, so the fixture cannot replace them and registering the aggregate runner now also breaks the required set. Each parent passes on its own (42 and 40 tests); the merge `c64d39a` fails 2. Fix: intercept `bash <pinned script>` with a fake `bash` on `PATH` instead of writing new scripts, use `FIRST_GATE_LABEL`, and assert the aggregate error is *among* the errors.
+- **F-PKG-01 (product defect).** `packaging/slopos-i.desktop` has `Exec=slopos-session` (unchanged since 2026-08-14); both package workflows require `Exec=/usr/bin/start-slopos-i`. The workflows are right: a display-manager login (GDM, LightDM, SDDM) skips `start-slopos-i`, so it gets no `appmenu-gtk-module`/`UBUNTU_MENUPROXY` global-menu export, no PCManFM desktop supervision and no default Platinum wallpaper; only `tuigreet` logins run the launcher. Fix: descriptor `Exec=`/`TryExec=start-slopos-i`, rewritten to `/usr/bin/start-slopos-i` by `packaging/debian/rules` and `packaging/arch/PKGBUILD`, and to `$PREFIX/bin/start-slopos-i` by `scripts/install-session-files.sh`. Verified locally that a deb built with that change passes the workflow's smoke check.
+- **F-CI-01.** The Arch payload step exits 127: `bsdtar` is missing on `ubuntu-latest`, which moved to Ubuntu 26 on 2026-10-19. Install `libarchive-tools` in that step.
+- **Debian Live ISO** was already failing at `dd81c67`, before this integration; not diagnosed (job logs were not readable from the audit environment).
+
+Truthful-state status at `b332657`: the hard-coded network interface/SSID text, static top-bar network labels, `xdotool` Cut/Copy/Paste fallbacks are gone (F-NET-01/02, F-MENU-01 closed by `621cab9`, statically confirmed). F-CLAIM-01 remains open: the About dialog still calls the desktop "consumer-ready". The Network panel now only offers `nm-connection-editor`; it does not yet read the existing `slopos-services::network` provider, so no live network state is shown anywhere in Settings.
 
 ## M. Active task and ownership register
 
