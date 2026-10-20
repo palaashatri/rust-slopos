@@ -3474,9 +3474,17 @@ For each integrated tranche record the tested source commit, reviewed paths, tas
 
 The coordinator owns this update in the same PR; workers provide the data. Follow §0.7 for a documentation-only ledger commit after a tested code commit. Never infer PASS from file existence, a successful screenshot capture, a previous revision or another agent's summary.
 
+### 2026-10-20 integration merge checkpoint
+
+At the owner's explicit instruction, the coordinator integrated every open branch into `main` on top of base `452e3d0`: `agent/qa-01-required-runner-map` (commits `716637e`, `621cab9`, `a997f9e`, `28f5df0`, `a474fcb`, `3dd0b24`), `agent/spec-01-schema-inventory` (`4d98d31`), and `claude/rewrite-agents-md` (`07ec521`, `a78d7d9`). Integration commits on `main`: `0d4feae` relocated the guest-extracted spec dataset intact to `qa/spec/classic-guest-extraction/` so the spec branch's canonical `qa/spec/classic/` could land without add/add conflicts; `c64d39a` is the spec merge; `40aefd3` adopts the AGENTS.md split, moving this contract to `docs/CONTRACT.md`. The two previously uncommitted `.serena/project.yml` files were committed as `3dd0b24` and `4d98d31`. All three branches are fully contained in `main` and retained for audit history; no PR review occurred — this was a direct owner-instructed integration.
+
+Verification for this checkpoint was **text-only on the macOS host, without executing repository code** (§0.2.6): all 23 JSON files under `qa/spec/` plus `qa/release-runner-inventory.json` parse; a static render of `EXPECTED_RUNNER_TEMPLATE` is byte-identical to `scripts/run-release-qa.sh`; `REQUIRED_RUNNER_SCRIPTS` in the checker equals the 13-entry manifest in the same order; all 13 pinned SHA-256 digests match their script files; `bash -n scripts/run-release-qa.sh` and `ast.parse` of the four changed Python files succeed; no merge-conflict markers remain.
+
+**No cargo build/test/clippy/fmt, no pytest, and no graphical or guest QA ran for this merge — all of it is NOT_RUN at the merged SHA.** Guest VM access was unavailable (VM-00 blocked above) and the host policy forbids executing repository code. The last guest-recorded workspace run (2026-10-03, on the pre-merge working tree) reported 205 passed / 0 failed / 11 ignored and does not cover this SHA. The spec branch's checker/test additions and their CI registration were never executed anywhere before this merge (SPEC-01-CACHED-* guest checks remain NOT_RUN). GitHub CI runs after the push; its result for the merged SHA is authoritative and must be read from Actions, not inferred from this entry.
+
 ## M. Active task and ownership register
 
-This register reflects the preparation state as of 2026-10-07 IST; the status at the original contract audit remains historical.
+This register reflects the preparation state as of 2026-10-07 IST, amended by the 2026-10-20 integration checkpoint above (all branches merged into `main`; task statuses unchanged until a guest run at the merged SHA). The status at the original contract audit remains historical.
 
 | Task | State | Owner/worktree/base | Dependencies or next action |
 |---|---|---|---|
