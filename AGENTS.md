@@ -10,7 +10,7 @@ This file is the short, always-loaded instruction sheet for coding agents. The f
 - The target architecture (`slopos-ui` component library → `slopos-appkit` → native apps, Dock, applets, OSD, typed system providers) **does not exist yet** on `main`. See contract Part II for the subsystem table.
 - `cargo build`, `cargo test` (76 tests), `cargo clippy -D warnings` and `cargo fmt --check` pass on `main`.
 - `main` CI is red on one job: *AT-SPI translated-locale matrix (fr_FR.UTF-8)*.
-- Unmerged work: `agent/spec-01-schema-inventory` (one commit adding the Classic spec JSON under `qa/spec/classic/`, no PR yet). `agent/qa-01-release-runner-inventory` is already in `main`, although contract Part II still lists it as unmerged. The UI gallery shown in the README screenshots was never committed — if you have that worktree, push it to a branch before doing anything else.
+- Unmerged work: `agent/spec-01-schema-inventory` (one commit adding the Classic spec JSON under `qa/spec/classic/`, no PR yet). `agent/qa-01-release-runner-inventory` is already in `main`, although contract Part II still lists it as unmerged. The UI gallery shown in the README screenshots (nine button-plate fixtures, no text) was never committed, and the VM holding it has been deleted; treat it as lost and rebuild it as the first `slopos-ui` task. Commit and push work from VMs at least daily.
 
 ## Commands
 
