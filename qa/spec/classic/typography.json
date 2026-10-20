@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "status": "PARTIAL_EXTRACTION",
+  "source": {
+    "file_key": "LGMlwNCoVdakZxDBvPKg1W",
+    "node_id": "73:8994",
+    "node_name": "Fonts",
+    "revision": "UNKNOWN",
+    "canonical_scale": 1,
+    "metadata": {
+      "source_kind": "Figma metadata XML snapshot",
+      "artifact_name": "canonical-metadata.xml",
+      "artifact_sha256": "9a0ee26ac340cccea6b5ca1ab019573a0ab3f8053e5df86b92eaa872570220d4",
+      "artifact_mtime": "2026-10-02T10:50:34+05:30",
+      "artifact_mtime_is_source_retrieval_time": false
+    },
+    "design_context": "NOT_RETRIEVED_RATE_LIMITED",
+    "screenshot": "NOT_RETRIEVED_RATE_LIMITED",
+    "observed_at_utc": "2026-10-02T07:15:12Z"
+  },
+  "page_geometry": {
+    "units": "FIGMA_DOCUMENT_UNITS",
+    "width": 513,
+    "height": 336,
+    "source_geometry_status": "EXTRACTED_METADATA"
+  },
+  "specimens": [
+    {
+      "source_node_id": "73:9288",
+      "display_label": "FindersKeepers by Giles Booth",
+      "family_name_from_label": "FindersKeepers",
+      "creator_from_label": "Giles Booth",
+      "label_geometry": { "x": 33, "y": 79, "width": 140, "height": 12 },
+      "specimen_node_id": "73:9289",
+      "specimen_text": "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789",
+      "specimen_text_source": "METADATA_TEXT_LAYER_NAME",
+      "specimen_geometry": { "x": 33, "y": 101, "width": 390, "height": 56 },
+      "geometry_units": "FIGMA_DOCUMENT_UNITS",
+      "typeface_metadata": {
+        "identification_status": "LABEL_ONLY",
+        "internal_family_name": "UNKNOWN",
+        "font_version": "UNKNOWN",
+        "weight": "UNKNOWN",
+        "size": "UNKNOWN",
+        "baseline": "UNKNOWN",
+        "line_height": "UNKNOWN",
+        "letter_spacing": "UNKNOWN",
+        "scaling_rule": "UNKNOWN",
+        "production_role": "UNKNOWN"
+      },
+      "license": {
+        "source_label": "Creative Commons Attribution",
+        "exact_license_and_version": "UNKNOWN",
+        "redistribution": "UNKNOWN",
+        "source_url": "https://www.pentacom.jp/pentacom/bitfontmaker2/gallery/?id=3809",
+        "retrieved_date_utc": "2026-10-02",
+        "note": "The creator page reports the generic label only; no version or redistribution terms were established."
+      }
+    },
+    {
+      "source_node_id": "73:9290",
+      "display_label": "ChiKareGo2 by Giles Booth",
+      "family_name_from_label": "ChiKareGo2",
+      "creator_from_label": "Giles Booth",
+      "label_geometry": { "x": 33, "y": 189, "width": 147, "height": 12 },
+      "specimen_node_id": "73:9291",
+      "specimen_text": "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789",
+      "specimen_text_source": "METADATA_TEXT_LAYER_NAME",
+      "specimen_geometry": { "x": 33, "y": 211, "width": 426, "height": 84 },
+      "geometry_units": "FIGMA_DOCUMENT_UNITS",
+      "typeface_metadata": {
+        "identification_status": "LABEL_ONLY",
+        "internal_family_name": "UNKNOWN",
+        "font_version": "UNKNOWN",
+        "weight": "UNKNOWN",
+        "size": "UNKNOWN",
+        "baseline": "UNKNOWN",
+        "line_height": "UNKNOWN",
+        "letter_spacing": "UNKNOWN",
+        "scaling_rule": "UNKNOWN",
+        "production_role": "UNKNOWN"
+      },
+      "license": {
+        "source_label": "Creative Commons Attribution",
+        "exact_license_and_version": "UNKNOWN",
+        "redistribution": "UNKNOWN",
+        "source_url": "https://www.pentacom.jp/pentacom/bitfontmaker2/gallery/?id=3780",
+        "retrieved_date_utc": "2026-10-02",
+        "note": "The creator page reports the generic label only; no version or redistribution terms were established."
+      }
+    }
+  ],
+  "other_page_nodes": [
+    { "source_node_id": "73:8995", "name": "Page title", "geometry": { "x": 2, "y": 2, "width": 511, "height": 36 } },
+    { "source_node_id": "73:9429", "name": "Base/Divider", "geometry": { "x": 33, "y": 55, "width": 438, "height": 16 } },
+    { "source_node_id": "73:9368", "name": "Button", "geometry": { "x": 411, "y": 77, "width": 60, "height": 16 } },
+    { "source_node_id": "73:9427", "name": "Base/Divider", "geometry": { "x": 33, "y": 165, "width": 438, "height": 16 } },
+    { "source_node_id": "73:9433", "name": "Button", "geometry": { "x": 411, "y": 187, "width": 60, "height": 16 } },
+    { "source_node_id": "73:9431", "name": "Base/Divider", "geometry": { "x": 33, "y": 303, "width": 438, "height": 16 } }
+  ],
+  "limitations": [
+    "The cached XML exposes layer labels and bounding boxes, not rendered font attributes or per-glyph metrics.",
+    "The source revision and snapshot retrieval time were not recorded in the cached metadata artifact.",
+    "Figma get_design_context and screenshot retrieval were blocked by the account's Starter-plan MCP call limit on 2026-10-02.",
+    "The creator pages report Creative Commons Attribution without a version; redistribution rights for the intended project use remain UNKNOWN.",
+    "No font files or artwork were downloaded, copied, or bundled."
+  ]
+}

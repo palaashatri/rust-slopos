@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "status": "PARTIAL_EXTRACTION_NOT_CONFORMANCE",
+  "source": {
+    "file_key": "LGMlwNCoVdakZxDBvPKg1W",
+    "component_set": "73:3378",
+    "file_revision": "UNKNOWN",
+    "retrieved_utc": "2026-10-02 05:36:54 UTC",
+    "method": "Figma application connector metadata and design context",
+    "canonical_scale": 1
+  },
+  "variants": [
+    {"node": "73:3379", "style": "Default", "state": "Rest", "width": 88, "height": 28},
+    {"node": "73:3438", "style": "Default", "state": "Pressed", "width": 88, "height": 28},
+    {"node": "73:3592", "style": "Default", "state": "Disabled", "width": 88, "height": 28},
+    {"node": "73:3498", "style": "Regular", "state": "Rest", "width": 80, "height": 20},
+    {"node": "73:3544", "style": "Regular", "state": "Pressed", "width": 80, "height": 20},
+    {"node": "73:3651", "style": "Regular", "state": "Disabled", "width": 80, "height": 20},
+    {"node": "73:3521", "style": "Secondary", "state": "Rest", "width": 80, "height": 16},
+    {"node": "73:3568", "style": "Secondary", "state": "Pressed", "width": 80, "height": 16},
+    {"node": "73:3674", "style": "Secondary", "state": "Disabled", "width": 80, "height": 16}
+  ],
+  "extracted_details": {
+    "Regular/Rest": {
+      "background": {"color": "#ffffff", "inset": 1, "node": "137:7677"},
+      "border": {"color": "#000000", "width": 1, "edge_end_inset": 3, "corner_box": 3},
+      "label": {"font": "ChiKareGo2", "style": "Medium", "size": 16, "color": "#000000", "horizontal_alignment": "center", "top_from_center": -9, "baseline": "UNKNOWN"},
+      "corner_pixels": "UNKNOWN"
+    },
+    "Default/Rest": {
+      "background": {"color": "#ffffff", "inset": 5, "node": "137:7678"},
+      "outer_border": {"color": "#000000", "width": 3, "edge_end_inset": 6, "corner_box": 6},
+      "inner_border": {"inset": 4, "color": "#000000", "width": 1, "edge_end_inset": 3, "corner_box": 3},
+      "label": {"font": "ChiKareGo2", "style": "Medium", "size": 16, "color": "#000000", "horizontal_alignment": "center", "top_from_center": -9, "baseline": "UNKNOWN"},
+      "corner_pixels": "UNKNOWN"
+    }
+  },
+  "extracted_label_states": {
+    "Default/Rest": {
+      "source_node": "73:3437",
+      "font": "ChiKareGo2",
+      "style": "Medium",
+      "size": 16,
+      "color": "#000000",
+      "horizontal_alignment": "center",
+      "top_from_center": -9
+    },
+    "Default/Pressed": {
+      "source_node": "73:3497",
+      "font": "ChiKareGo2",
+      "style": "Medium",
+      "size": 16,
+      "color": "#ffffff",
+      "horizontal_alignment": "center",
+      "top_from_center": -9
+    },
+    "Default/Disabled": {
+      "source_node": "73:3650",
+      "font": "ChiKareGo2",
+      "style": "Medium",
+      "size": 16,
+      "color": "#c0c0c0",
+      "horizontal_alignment": "center",
+      "top_from_center": -9
+    },
+    "Regular/Rest": {
+      "source_node": "73:3437",
+      "font": "ChiKareGo2",
+      "style": "Medium",
+      "size": 16,
+      "color": "#000000",
+      "horizontal_alignment": "center",
+      "top_from_center": -9
+    },
+    "Regular/Pressed": {
+      "source_node": "73:3497",
+      "font": "ChiKareGo2",
+      "style": "Medium",
+      "size": 16,
+      "color": "#ffffff",
+      "horizontal_alignment": "center",
+      "top_from_center": -9
+    },
+    "Regular/Disabled": {
+      "source_node": "73:3650",
+      "font": "ChiKareGo2",
+      "style": "Medium",
+      "size": 16,
+      "color": "#c0c0c0",
+      "horizontal_alignment": "center",
+      "top_from_center": -9
+    },
+    "Secondary/Rest": {
+      "source_node": "73:3543",
+      "font": "FindersKeepers",
+      "style": "Medium",
+      "size": 16,
+      "color": "#000000",
+      "horizontal_alignment": "center",
+      "horizontal_offset": 0.5,
+      "top_from_center": -7
+    },
+    "Secondary/Pressed": {
+      "source_node": "73:3591",
+      "font": "FindersKeepers",
+      "style": "Medium",
+      "size": 16,
+      "color": "#ffffff",
+      "horizontal_alignment": "center",
+      "horizontal_offset": 0.5,
+      "top_from_center": -7
+    },
+    "Secondary/Disabled": {
+      "source_node": "73:3696",
+      "font": "FindersKeepers",
+      "style": "Medium",
+      "size": 16,
+      "color": "#c0c0c0",
+      "horizontal_alignment": "center",
+      "horizontal_offset": 0.5,
+      "top_from_center": -7
+    }
+  },
+  "source_context": {
+    "node": "73:3378",
+    "method": "Figma get_design_context",
+    "retrieved_utc": "2026-10-02 07:08:58 UTC"
+  },
+  "visual_observations": {
+    "source_page": "Controls",
+    "method": "public read-only Figma canvas screenshot at 800% with pixel grid, 2026-10-02",
+    "precision": "QUALITATIVE_NOT_PIXEL_MEASURED",
+    "observations": {
+      "Regular/Rest": "white plate with black pixel-stepped outline",
+      "Regular/Pressed": "black plate with white label",
+      "Regular/Disabled": "white plate with light-gray outline and label",
+      "Default/Rest": "white plate with heavy black outer frame and inset black rule",
+      "Default/Pressed": "black plate with white inset rule",
+      "Default/Disabled": "white plate with light-gray outer frame and inset dark rule",
+      "Secondary/Rest": "white plate with black pixel-stepped outline",
+      "Secondary/Pressed": "black plate with white label",
+      "Secondary/Disabled": "white plate with light-gray outline and label"
+    },
+    "exact_corner_pixels_and_unextracted_state_geometry": "UNKNOWN",
+    "screenshot_archived": false
+  },
+  "implementation": {
+    "status": "PARTIAL_GEOMETRY_FIXTURE_NOT_CONFORMANCE",
+    "implemented_variants": ["Regular", "Default", "Secondary"],
+    "implemented_states": ["Rest", "Pressed", "Disabled"],
+    "known_gaps": [
+      "No labels or text rendering",
+      "Disabled border color is provisional pending exact source extraction",
+      "Only selected raster pixels are independently asserted",
+      "No pointer, keyboard, focus, action, or accessibility behavior"
+    ]
+  },
+  "unresolved": [
+    "Exact source revision",
+    "Remaining variant drawing details",
+    "Clean-room corner pixel geometry",
+    "Redistributable font license version and metrics",
+    "Interaction, keyboard and accessible behavior contract",
+    "Guest schema, independent conformance and integer-scale verification"
+  ],
+  "asset_policy": "GEOMETRY_ONLY_UNTIL_LICENSE_REVIEW"
+}

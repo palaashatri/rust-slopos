@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "status": "PARTIAL_EXTRACTION_NOT_CONFORMANCE",
+  "source_file": "LGMlwNCoVdakZxDBvPKg1W",
+  "source_root": "0:1",
+  "source_revision": "UNKNOWN",
+  "canonical_scale": 1,
+  "inventory": "inventory.json",
+  "inventory_schema": "inventory.schema.json",
+  "requirement_catalog": "requirements.json",
+  "requirement_schema": "requirements.schema.json",
+  "partial_specs": ["buttons.json", "colors.json", "menus.json", "typography.json"],
+  "gallery_fixtures": ["surface-gallery.json"],
+  "pending_specs": ["metrics", "patterns", "icons", "selection-controls", "text-fields", "scrollbars", "lists", "windows", "file-items", "dialogs"],
+  "conformance": "NOT_RUN",
+  "font_license_version": "UNKNOWN",
+  "raw_metadata_sha256": "9a0ee26ac340cccea6b5ca1ab019573a0ab3f8053e5df86b92eaa872570220d4"
+}
