@@ -40,4 +40,4 @@ Release engineering may create temporary local APT/Pacman repositories inside de
 
 Test keys and local endpoints must be clearly marked as ephemeral and must never be copied into user-facing enrollment documentation.
 
-All local repository generation, package installation and validation must follow the VM-only execution and disk-space policies in the root [AGENTS.md](../../AGENTS.md).
+All local repository generation, package installation and validation must follow the VM-only execution and disk-space policies in the root [AGENTS.md](../../AGENTS.md) and [docs/CONTRACT.md](../../docs/CONTRACT.md) §28–29.

@@ -34,7 +34,7 @@ Known current gaps include:
 - canonical About and accessory utility surfaces are still missing;
 - current build/runtime/visual evidence must be regenerated in a compliant Linux VM.
 
-See [AGENTS.md](AGENTS.md#part-ii--current-audit-and-evidence-ledger) for the current evidence-backed audit and blocker ledger.
+See [docs/CONTRACT.md](docs/CONTRACT.md#part-ii--current-audit-and-evidence-ledger) for the current evidence-backed audit and blocker ledger.
 
 ## Latest UI progress
 
@@ -44,7 +44,7 @@ Fresh Ubuntu 24.04 VM captures of the current SLOPOS UI button-plate gallery (20
 | --- | --- |
 | ![Button-plate gallery at 1×](docs/screenshots/current-button-plate-1x.png) | ![Button-plate gallery at 2×](docs/screenshots/current-button-plate-2x.png) |
 
-These recaptures are pixel-identical to the October 2 captures; they document the current fixture, not a new visual change. The fixture draws only nine plate variants (Regular, Default and Secondary × Rest, Pressed and Disabled). It does not show text, interactive controls or accessibility behavior, and is not a Figma-conformance pass. The gallery implementation is not included in the pushed screenshot/QA commit, so these images do not verify that commit's UI source. Recent verified progress is QA hardening, not a UI milestone. See [AGENTS.md](AGENTS.md#part-ii--current-audit-and-evidence-ledger) for task status.
+These recaptures are pixel-identical to the October 2 captures; they document the current fixture, not a new visual change. The fixture draws only nine plate variants (Regular, Default and Secondary × Rest, Pressed and Disabled). It does not show text, interactive controls or accessibility behavior, and is not a Figma-conformance pass. The gallery implementation is not included in the pushed screenshot/QA commit, so these images do not verify that commit's UI source. Recent verified progress is QA hardening, not a UI milestone. See [docs/CONTRACT.md](docs/CONTRACT.md#part-ii--current-audit-and-evidence-ledger) for task status.
 
 ## Canonical design direction
 
@@ -107,7 +107,7 @@ foundation
 
 A higher-level surface is not considered finished while a lower-level component it depends on is still approximate.
 
-The full engineering contract lives in [AGENTS.md](AGENTS.md).
+The full engineering contract lives in [docs/CONTRACT.md](docs/CONTRACT.md); agent instructions are in [AGENTS.md](AGENTS.md).
 
 ## Development environment
 
@@ -131,7 +131,7 @@ The build clone and build output should live on guest storage, not a host shared
 
 Primary visual QA must be performed in a real graphical X11 session inside the VM. Xvfb/container testing may be used as a secondary deterministic layer inside the VM.
 
-The project also enforces disk-space budgets so build caches, Rust targets, VM snapshots, package staging and media artifacts do not exhaust the host or guest. See [AGENTS.md](AGENTS.md).
+The project also enforces disk-space budgets so build caches, Rust targets, VM snapshots, package staging and media artifacts do not exhaust the host or guest. See [docs/CONTRACT.md](docs/CONTRACT.md) §29.
 
 ## Build from source
 
@@ -167,7 +167,8 @@ Repository-generation infrastructure may exist in source, but public package-man
 
 ## Useful project documents
 
-- [AGENTS.md](AGENTS.md) — single project-wide source of truth: engineering contract, architecture, plans, audit evidence and blockers.
+- [AGENTS.md](AGENTS.md) — concise instructions for coding agents: commands, rules and workflow.
+- [docs/CONTRACT.md](docs/CONTRACT.md) — engineering contract: requirements, architecture, plans, audit evidence and blockers.
 - [packaging/browser/README.md](packaging/browser/README.md) — scoped upstream browser integration.
 - [packaging/repo/README.md](packaging/repo/README.md) — current package-repository status and future publication contract.
 
