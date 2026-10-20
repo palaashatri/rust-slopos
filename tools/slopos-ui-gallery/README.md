@@ -20,4 +20,4 @@ plate geometry, not text or interactive controls. Both fixtures support scales
 are outside the client capture region. Remaining components, interaction
 matrices and accessibility/conformance gates are still pending.
 
-Guest execution evidence and task ownership live in the root `AGENTS.md`.
+Guest execution evidence and task ownership live in [`docs/CONTRACT.md`](../../docs/CONTRACT.md).

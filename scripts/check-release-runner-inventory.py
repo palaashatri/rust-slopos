@@ -95,7 +95,7 @@ CORE_GATE_CALLS = (
 EXPECTED_RUNNER_TEMPLATE = r'''#!/usr/bin/env bash
 # SLOPOS-I release evidence runner.
 # This script executes objective gates and records their results. It does not
-# assign product-readiness or visual scores to itself; AGENTS.md Part II owns that audit.
+# assign product-readiness or visual scores to itself; docs/CONTRACT.md Part II owns that audit.
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
