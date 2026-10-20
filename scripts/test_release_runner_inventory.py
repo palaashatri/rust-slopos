@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -11,6 +12,76 @@ import pytest
 
 
 CHECKER_PATH = Path(__file__).with_name("check-release-runner-inventory.py")
+EXPECTED_REQUIRED_RUNNER_SCRIPTS = (
+    (
+        "clean-install",
+        "scripts/run-clean-install-qa.sh",
+        "a8ae73ba4adc3e55b6eca45505fe4c2be6a90e399fc35473111eca291ccd992b",
+    ),
+    (
+        "catalogue",
+        "scripts/run-catalogue-qa.sh",
+        "05f726210b411937bd3bee84b32229a1ed454cc221fa5ba1a830aa6710899686",
+    ),
+    (
+        "virtual-services",
+        "scripts/run-virtual-services-qa.sh",
+        "b2b7a20211db1decabe20c68504bcf30c7a0a9e85fc4a91a44f44aea263d2b9c",
+    ),
+    (
+        "settings-services",
+        "scripts/run-settings-service-qa.sh",
+        "788f888cd50faeb7cd4a4cb13e144fdfdb0da8b2ae6b4ce9a178b2cce5e3f2c3",
+    ),
+    (
+        "multimonitor",
+        "scripts/run-multimonitor-qa.sh",
+        "9ef36f254e51d3e5d9d5524b272b71b9788129e835aea3cab0b94e3a5d475599",
+    ),
+    (
+        "resolution",
+        "scripts/run-resolution-qa.sh",
+        "cf6bfea83b41608586b7447011f6e1004d9e9ba9e62ab995b867b6fc4f4f8ecb",
+    ),
+    (
+        "recovery",
+        "scripts/run-recovery-qa.sh",
+        "5cb25fa4f5696bc63957e80886d89338515b7a9a119d4d51c30efcfa220af81a",
+    ),
+    (
+        "security-failure",
+        "scripts/run-security-failure-qa.sh",
+        "9ff6ee540f7f66e528e5646c7a2a20d905dc8204b04c691ec8a254a6d0399b3e",
+    ),
+    (
+        "session-performance",
+        "scripts/benchmark-x11-session.sh",
+        "d18875f6221e8f06c1eb42df8d9631d44cdbb586e1ad485ee90c90b273944f32",
+    ),
+    (
+        "accessibility-tree",
+        "scripts/run-atspi-qa.sh",
+        "d2fcb2c5bea48b067356cd65de23789a5b901c290dd3a231e7bc5625bba1868e",
+    ),
+    (
+        "debian-package",
+        "scripts/run-debian-package-qa.sh",
+        "d43cd2b0872498703ee3a47477382a4ae95803103093c77958c974ff065830ed",
+    ),
+    (
+        "package-repositories",
+        "scripts/generate-package-repos.sh",
+        "a3287841c29389aa7937d1b454e185d61831f4b09d2493efc579f6d686167f60",
+    ),
+    (
+        "canonical-visual",
+        "scripts/run-canonical-visual-qa.sh",
+        "d9059acf18dc23cffe2f97d26eef560bff77ab4b4bae9ec235c6dddac52fb0b4",
+    ),
+)
+FIRST_GATE_LABEL = "Gate clean-install"
+FIRST_GATE_SCRIPT = "scripts/run-clean-install-qa.sh"
+SECOND_GATE_SCRIPT = "scripts/run-catalogue-qa.sh"
 CHECKER_SPEC = importlib.util.spec_from_file_location(
     "release_runner_inventory", CHECKER_PATH
 )
@@ -33,28 +104,33 @@ def write_fixture(root: Path) -> dict[str, Any]:
     (root / "qa").mkdir(parents=True)
     scripts_directory = root / "scripts"
     scripts_directory.mkdir()
-    runner_records = [
-        {
-            "id": "first-gate",
-            "label": "First gate",
-            "script": "scripts/run-first-qa.sh",
-        },
-        {
-            "id": "second-gate",
-            "label": "Second gate",
-            "script": "scripts/run-second-qa.sh",
-        },
-    ]
-    for record in runner_records:
-        script = root / record["script"]
-        script.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
-        script.chmod(0o755)
+    source_root = Path(__file__).resolve().parents[1]
+    runner_records = []
+    for gate_id, script, expected_sha256 in EXPECTED_REQUIRED_RUNNER_SCRIPTS:
+        source_script = source_root / script
+        fixture_script = root / script
+        content = source_script.read_bytes()
+        assert hashlib.sha256(content).hexdigest() == expected_sha256
+        fixture_script.write_bytes(content)
+        fixture_script.chmod(0o755)
+        runner_records.append(
+            {
+                "id": gate_id,
+                "label": f"Gate {gate_id}",
+                "script": script,
+                "sha256": expected_sha256,
+            }
+        )
     manifest = {"schema_version": 1, "runners": runner_records}
+    write_manifest(root, manifest)
+    write_runner(root, manifest)
+    return manifest
+
+
+def write_manifest(root: Path, manifest: dict[str, Any]) -> None:
     (root / "qa" / "release-runner-inventory.json").write_text(
         json.dumps(manifest), encoding="utf-8"
     )
-    write_runner(root, manifest)
-    return manifest
 
 
 def write_runner(root: Path, manifest: dict[str, Any]) -> Path:
@@ -70,7 +146,7 @@ def inject_before_first_manifest_gate(
 ) -> Path:
     runner_path = root / "scripts" / "run-release-qa.sh"
     runner_source = runner_path.read_text(encoding="utf-8")
-    first_gate = 'run_gate "First gate" bash scripts/run-first-qa.sh\n'
+    first_gate = f'run_gate "{FIRST_GATE_LABEL}" bash {FIRST_GATE_SCRIPT}\n'
     assert first_gate in runner_source
     runner_path.write_text(
         runner_source.replace(
@@ -114,6 +190,86 @@ def test_accepts_complete_executable_inventory(tmp_path: Path) -> None:
     write_fixture(tmp_path)
 
     assert validate_inventory(tmp_path) == []
+
+
+def test_repository_inventory_matches_canonical_required_runner_scripts() -> None:
+    root = Path(__file__).resolve().parents[1]
+    manifest = json.loads(
+        (root / "qa" / "release-runner-inventory.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert [
+        (entry["id"], entry["script"], entry["sha256"])
+        for entry in manifest["runners"]
+    ] == list(EXPECTED_REQUIRED_RUNNER_SCRIPTS)
+    for _, script, expected_sha256 in EXPECTED_REQUIRED_RUNNER_SCRIPTS:
+        assert (
+            hashlib.sha256((root / script).read_bytes()).hexdigest()
+            == expected_sha256
+        )
+
+
+def test_rejects_omitting_a_required_runner_even_when_template_matches(
+    tmp_path: Path,
+) -> None:
+    manifest = write_fixture(tmp_path)
+    manifest["runners"].pop()
+    write_manifest(tmp_path, manifest)
+    write_runner(tmp_path, manifest)
+
+    errors = validate_inventory(tmp_path)
+
+    assert any("required runner set" in error for error in errors), errors
+
+
+def test_rejects_rerouting_a_required_runner_to_an_unregistered_script(
+    tmp_path: Path,
+) -> None:
+    manifest = write_fixture(tmp_path)
+    replacement_script = "scripts/run-unregistered-gate.sh"
+    replacement_path = tmp_path / replacement_script
+    replacement_path.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    replacement_path.chmod(0o755)
+    manifest["runners"][0]["script"] = replacement_script
+    write_manifest(tmp_path, manifest)
+    write_runner(tmp_path, manifest)
+
+    errors = validate_inventory(tmp_path)
+
+    assert any("required runner set" in error for error in errors), errors
+
+
+def test_rejects_required_runner_body_change_without_digest_update(
+    tmp_path: Path,
+) -> None:
+    manifest = write_fixture(tmp_path)
+    script = tmp_path / manifest["runners"][0]["script"]
+    script.write_text("#!/usr/bin/env bash\ntrue\n", encoding="utf-8")
+
+    errors = validate_inventory(tmp_path)
+
+    assert any("sha256 mismatch" in error for error in errors), errors
+
+
+def test_rejects_changed_runner_even_when_manifest_digest_is_updated(
+    tmp_path: Path,
+) -> None:
+    manifest = write_fixture(tmp_path)
+    record = manifest["runners"][0]
+    script = tmp_path / record["script"]
+    changed_content = b"#!/usr/bin/env bash\nexit 0\n"
+    script.write_bytes(changed_content)
+    record["sha256"] = hashlib.sha256(changed_content).hexdigest()
+    write_manifest(tmp_path, manifest)
+    write_runner(tmp_path, manifest)
+
+    errors = validate_inventory(tmp_path)
+
+    assert any(
+        "required runner set, order, and sha256" in error for error in errors
+    ), errors
 
 
 @pytest.mark.parametrize(
@@ -212,7 +368,7 @@ def test_rejects_runner_calls_outside_manifest_order(tmp_path: Path) -> None:
 
 def test_rejects_missing_required_runner(tmp_path: Path) -> None:
     write_fixture(tmp_path)
-    (tmp_path / "scripts" / "run-first-qa.sh").unlink()
+    (tmp_path / FIRST_GATE_SCRIPT).unlink()
 
     errors = validate_inventory(tmp_path)
 
@@ -221,7 +377,7 @@ def test_rejects_missing_required_runner(tmp_path: Path) -> None:
 
 def test_rejects_non_executable_required_runner(tmp_path: Path) -> None:
     write_fixture(tmp_path)
-    (tmp_path / "scripts" / "run-first-qa.sh").chmod(0o644)
+    (tmp_path / FIRST_GATE_SCRIPT).chmod(0o644)
 
     errors = validate_inventory(tmp_path)
 
@@ -230,9 +386,9 @@ def test_rejects_non_executable_required_runner(tmp_path: Path) -> None:
 
 def test_rejects_symlinked_required_runner(tmp_path: Path) -> None:
     write_fixture(tmp_path)
-    first_runner = tmp_path / "scripts" / "run-first-qa.sh"
+    first_runner = tmp_path / FIRST_GATE_SCRIPT
     first_runner.unlink()
-    first_runner.symlink_to("run-second-qa.sh")
+    first_runner.symlink_to(Path(SECOND_GATE_SCRIPT).name)
 
     errors = validate_inventory(tmp_path)
 
