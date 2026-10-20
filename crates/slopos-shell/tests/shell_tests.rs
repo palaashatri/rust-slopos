@@ -58,8 +58,37 @@ fn topbar_is_a_real_global_menu_host_not_the_old_placeholder() {
 }
 
 #[test]
+fn fallback_menu_does_not_fake_application_edit_or_desktop_hotkeys() {
+    let topbar = include_str!("../src/topbar.rs");
+    assert!(!topbar.contains("xdotool"));
+    for label in [
+        "Cut (Ctrl+X)",
+        "Copy (Ctrl+C)",
+        "Paste (Ctrl+V)",
+        "Select All (Ctrl+A)",
+        "Refresh Desktop (F5)",
+        "Clean Up Desktop",
+    ] {
+        assert!(!topbar.contains(label), "fake fallback command: {label}");
+    }
+}
+
+#[test]
+fn sleep_menu_uses_the_typed_power_provider_without_command_fallback() {
+    let topbar = include_str!("../src/topbar.rs");
+    let session = include_str!("../src/services/session.rs");
+    let monitor = include_str!("../src/services/monitor.rs");
+    assert!(topbar.contains("services::power::request_suspend"));
+    assert!(!topbar.contains("session::can_suspend()"));
+    assert!(topbar.contains("status.suspend_capability"));
+    assert!(monitor.contains("suspend_capability"));
+    assert!(!session.contains("pub fn suspend_system"));
+    assert!(!session.contains("SUSPEND_CAPABILITY"));
+}
+
+#[test]
 fn gtk_gmenu_bridge_uses_the_native_export_protocol() {
-    let bridge = include_str!("../src/gmenu.rs");
+    let bridge = include_str!("../src/menu/gmenu.rs");
     for property in [
         "_GTK_UNIQUE_BUS_NAME",
         "_GTK_MENUBAR_OBJECT_PATH",
@@ -78,6 +107,15 @@ fn gtk_gmenu_bridge_uses_the_native_export_protocol() {
     assert!(bridge.contains("insert_action_group(\"app\""));
     assert!(bridge.contains("insert_action_group(\"win\""));
     assert!(!bridge.contains("com.canonical.dbusmenu"));
+}
+
+#[test]
+fn shell_registers_only_the_single_global_menu_bridge() {
+    let entry = include_str!("../src/main.rs");
+    let menu_module = include_str!("../src/menu/mod.rs");
+    assert!(!entry.contains("pub mod gmenu;"));
+    assert!(entry.contains("pub mod menu;"));
+    assert!(menu_module.contains("pub mod gmenu;"));
 }
 
 #[test]
@@ -227,6 +265,41 @@ fn settings_keeps_five_builtin_panels_and_delegates_four_external_panels() {
     assert!(probe.contains("BUILT_INS = ["));
     assert!(probe.contains("SETTINGS_BUILTIN_CONTROLS_ENABLED=5"));
     assert!(probe.contains("SETTINGS_BUILTIN_APPEARANCE_ENABLED=1"));
+}
+
+#[test]
+fn sound_settings_uses_the_shared_audio_provider_without_fabricated_devices() {
+    let sound = include_str!("../../slopos-settings/src/panels/sound.rs");
+    let manifest = include_str!("../../slopos-settings/Cargo.toml");
+    assert!(manifest.contains("slopos-services ="));
+    for provider_api in [
+        "AudioClient::new()",
+        "watcher_client.watch()",
+        "audio_client.clone()",
+        "set_output_volume(",
+        "set_output_muted(",
+        "set_input_volume(",
+        "set_input_muted(",
+    ] {
+        assert!(
+            sound.contains(provider_api),
+            "missing shared audio API {provider_api}"
+        );
+    }
+    assert!(sound.contains("stop_audio.send(())"));
+    for fabricated_state in [
+        "Built-in Analog Stereo Speakers",
+        "Headphones / Line Out",
+        "Digital Output (HDMI / DisplayPort)",
+        "set-sink-volume",
+        "set-sink-mute",
+        "amixer",
+    ] {
+        assert!(
+            !sound.contains(fabricated_state),
+            "found bypass/fake state {fabricated_state}"
+        );
+    }
 }
 
 #[test]
@@ -398,6 +471,46 @@ fn custom_prefix_installation_forwards_all_desktop_resources() {
 }
 
 #[test]
+fn shell_battery_status_uses_the_shared_power_provider_without_sysfs_fallbacks() {
+    let monitor = include_str!("../src/services/monitor.rs");
+    let entry = include_str!("../src/main.rs");
+    let provider = include_str!("../../slopos-services/src/power.rs");
+    assert!(monitor.contains("PowerClient::connect()"));
+    assert!(monitor.contains("client.watch()"));
+    assert!(monitor.contains("PowerEvent::Changed(snapshot)"));
+    assert!(provider.contains("org.freedesktop.UPower"));
+    assert!(provider.contains("CanSuspend"));
+    assert!(monitor.contains("PowerEvent::LowBattery"));
+    assert!(monitor.contains("PowerEvent::CriticalBattery"));
+    assert!(entry.contains("NotificationServer::show_toast"));
+    assert!(!monitor.contains("query_battery_state"));
+    assert!(!monitor.contains("/sys/class/power_supply"));
+}
+
+#[test]
+fn network_settings_do_not_invent_connections_or_expose_inert_controls() {
+    let panel = include_str!("../../slopos-settings/src/panels/network.rs");
+    for fabricated_state in [
+        "SLOPOS-Fast-5G",
+        "Home-Network-Guest",
+        "CoffeeShop_Free_WiFi",
+        "192.168.1.100",
+        "1000 Mbps Full Duplex",
+        "Switch::new()",
+        "Button::with_label(\"Connect\")",
+    ] {
+        assert!(
+            !panel.contains(fabricated_state),
+            "Network Settings fabricates or implies state: {fabricated_state}"
+        );
+    }
+    assert!(panel.contains("Live network details and controls are not available"));
+    assert!(panel.contains("Command::new(\"nm-connection-editor\").spawn()"));
+    assert!(panel.contains("Err(error) => status.set_text"));
+    assert!(!panel.contains("let _ = Command::new"));
+}
+
+#[test]
 fn shipping_sources_do_not_reintroduce_wayland_or_vision() {
     for source in [
         include_str!("../../../install.sh"),
@@ -426,6 +539,8 @@ fn event_driven_architecture_replaces_periodic_subprocess_polling() {
     let shell_main = include_str!("../src/main.rs");
     let x11_events = include_str!("../src/x11/events.rs");
     let monitor = include_str!("../src/services/monitor.rs");
+    let audio = include_str!("../src/services/audio.rs");
+    let topbar = include_str!("../src/topbar.rs");
 
     assert!(shell_main.contains("AppIndex::start"));
     assert!(shell_main.contains("SystemMonitor::start"));
@@ -438,10 +553,15 @@ fn event_driven_architecture_replaces_periodic_subprocess_polling() {
     assert!(x11_events.contains("Event::LeaveNotify"));
     assert!(!x11_events.contains("query_pointer"));
 
-    // Ensure system monitor uses D-Bus and PipeWire/Pulse event streaming rather than subprocess polling loops
-    assert!(monitor.contains("pactl"));
-    assert!(monitor.contains("subscribe"));
+    // Ensure shell audio state and controls use the shared audio provider.
+    assert!(monitor.contains("audio::watch_audio_changes"));
     assert!(monitor.contains("receive_all_signals"));
+    assert!(!monitor.contains("pactl"));
+    assert!(audio.contains("AudioClient"));
+    assert!(topbar.contains("audio::adjust_default_output_volume"));
+    assert!(topbar.contains("audio::toggle_default_output_mute"));
+    assert!(!topbar.contains("wpctl"));
+    assert!(!topbar.contains("pactl"));
 }
 
 #[test]

@@ -20,12 +20,6 @@ const SWITCH_USER_COMMANDS: &[(&str, &[&str])] = &[
     ("kdmctl", &["reserve"]),
 ];
 
-const SUSPEND_COMMANDS: &[(&str, &[&str])] = &[
-    ("systemctl", &["suspend"]),
-    ("loginctl", &["suspend"]),
-    ("pm-suspend", &[]),
-];
-
 const REBOOT_COMMANDS: &[(&str, &[&str])] = &[
     ("systemctl", &["reboot"]),
     ("loginctl", &["reboot"]),
@@ -122,10 +116,6 @@ pub fn switch_user() -> bool {
     try_commands(SWITCH_USER_COMMANDS)
 }
 
-pub fn suspend_system() -> bool {
-    try_commands(SUSPEND_COMMANDS)
-}
-
 pub fn reboot_system() -> bool {
     try_commands(REBOOT_COMMANDS)
 }
@@ -136,10 +126,6 @@ pub fn poweroff_system() -> bool {
 
 pub fn can_switch_user() -> bool {
     resolve_first_command(SWITCH_USER_COMMANDS).is_some()
-}
-
-pub fn can_suspend() -> bool {
-    resolve_first_command(SUSPEND_COMMANDS).is_some()
 }
 
 pub fn can_reboot() -> bool {

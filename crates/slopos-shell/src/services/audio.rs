@@ -1,6 +1,11 @@
-//! Audio status adapter.
+//! Shared audio-service client for shell status and media controls.
 
-use std::process::Command;
+use slopos_services::audio::{AudioClient, AudioEventStream, AudioSnapshot};
+use std::sync::OnceLock;
+use tokio::{
+    runtime::{Builder, Runtime},
+    task::JoinHandle,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AudioState {
@@ -8,65 +13,130 @@ pub struct AudioState {
     pub is_muted: bool,
 }
 
+static AUDIO_CLIENT: OnceLock<AudioClient> = OnceLock::new();
+static AUDIO_RUNTIME: OnceLock<Runtime> = OnceLock::new();
+
+fn client() -> AudioClient {
+    AUDIO_CLIENT.get_or_init(AudioClient::new).clone()
+}
+
+fn runtime() -> &'static Runtime {
+    AUDIO_RUNTIME.get_or_init(|| {
+        Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .expect("create shared audio-service runtime")
+    })
+}
+
 pub fn query_audio_state() -> Option<AudioState> {
-    // 1. Try wpctl (PipeWire / WirePlumber)
-    if let Ok(output) = Command::new("wpctl")
-        .args(["get-volume", "@DEFAULT_AUDIO_SINK@"])
-        .output()
-    {
-        if output.status.success() {
-            let text = String::from_utf8_lossy(&output.stdout);
-            // Example format: "Volume: 0.65 [MUTED]" or "Volume: 0.65"
-            let is_muted = text.contains("[MUTED]");
-            if let Some(vol_str) = text.split("Volume:").nth(1) {
-                let clean = vol_str.replace("[MUTED]", "").trim().to_string();
-                if let Ok(vol_float) = clean.parse::<f32>() {
-                    let volume_percent = (vol_float * 100.0).round().clamp(0.0, 150.0) as u8;
-                    return Some(AudioState {
-                        volume_percent,
-                        is_muted,
-                    });
-                }
-            }
-        }
+    runtime()
+        .block_on(client().snapshot())
+        .ok()
+        .as_ref()
+        .and_then(audio_state_from_snapshot)
+}
+
+pub fn audio_state_from_snapshot(snapshot: &AudioSnapshot) -> Option<AudioState> {
+    let name = snapshot.default_output.as_deref()?;
+    let output = snapshot.outputs.iter().find(|device| device.name == name)?;
+    let channels = &output.volume_millipercent;
+    if channels.is_empty() {
+        return None;
     }
-
-    // 2. Try pactl (PulseAudio / PipeWire-Pulse)
-    if let Ok(output) = Command::new("pactl")
-        .args(["get-sink-volume", "@DEFAULT_SINK@"])
-        .output()
-    {
-        if output.status.success() {
-            let text = String::from_utf8_lossy(&output.stdout);
-            // Example format: "... /  65% / ..."
-            for part in text.split('/') {
-                let trimmed = part.trim();
-                if let Some(pct_str) = trimmed.strip_suffix('%') {
-                    if let Ok(pct) = pct_str.trim().parse::<u8>() {
-                        let is_muted = Command::new("pactl")
-                            .args(["get-sink-mute", "@DEFAULT_SINK@"])
-                            .output()
-                            .ok()
-                            .map(|o| String::from_utf8_lossy(&o.stdout).contains("yes"))
-                            .unwrap_or(false);
-
-                        return Some(AudioState {
-                            volume_percent: pct,
-                            is_muted,
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    None
+    let volume =
+        channels.iter().map(|value| u64::from(*value)).sum::<u64>() / channels.len() as u64;
+    Some(AudioState {
+        volume_percent: ((volume + 500) / 1000).min(150) as u8,
+        is_muted: output.muted,
+    })
 }
 
 pub fn audio_label_text(state: Option<&AudioState>) -> String {
     match state {
-        Some(s) if s.is_muted => "Mute".to_string(),
-        Some(s) => format!("{}%", s.volume_percent),
-        None => "—".to_string(),
+        Some(state) if state.is_muted => "Mute".to_owned(),
+        Some(state) => format!("{}%", state.volume_percent),
+        None => "—".to_owned(),
+    }
+}
+
+pub fn watch_audio_changes<F>(mut callback: F) -> JoinHandle<()>
+where
+    F: FnMut(Option<AudioState>) + Send + 'static,
+{
+    let client = client();
+    runtime().spawn(async move {
+        let mut events: AudioEventStream = client.watch();
+        while let Some(update) = events.next().await {
+            callback(update.ok().as_ref().and_then(audio_state_from_snapshot));
+        }
+        events.close().await;
+    })
+}
+
+pub fn adjust_default_output_volume(delta: i16) {
+    runtime().spawn(async move {
+        let client = client();
+        if let Err(error) = client.adjust_default_output_volume(delta).await {
+            log::warn!("Could not change output volume: {error}");
+        }
+    });
+}
+
+pub fn toggle_default_output_mute() {
+    runtime().spawn(async move {
+        let client = client();
+        if let Err(error) = client.toggle_default_output_mute().await {
+            log::warn!("Could not toggle output mute: {error}");
+        }
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use slopos_core::capability::Availability;
+    use slopos_services::audio::{AudioDevice, AudioDirection};
+
+    #[test]
+    fn status_uses_default_output_and_averages_channel_levels() {
+        let snapshot = AudioSnapshot {
+            revision: 2,
+            availability: Availability::Available,
+            default_output: Some("speaker".into()),
+            default_input: None,
+            outputs: vec![AudioDevice {
+                index: 0,
+                name: "speaker".into(),
+                description: None,
+                direction: AudioDirection::Output,
+                muted: false,
+                volume_millipercent: vec![49_500, 50_500],
+                is_default: true,
+            }],
+            inputs: Vec::new(),
+        };
+        assert_eq!(
+            audio_state_from_snapshot(&snapshot),
+            Some(AudioState {
+                volume_percent: 50,
+                is_muted: false,
+            })
+        );
+    }
+
+    #[test]
+    fn absent_default_output_is_not_replaced_with_a_fallback() {
+        let snapshot = AudioSnapshot {
+            revision: 1,
+            availability: Availability::UnsupportedHardware,
+            default_output: None,
+            default_input: None,
+            outputs: Vec::new(),
+            inputs: Vec::new(),
+        };
+        assert_eq!(audio_state_from_snapshot(&snapshot), None);
+        assert_eq!(audio_label_text(None), "—");
     }
 }

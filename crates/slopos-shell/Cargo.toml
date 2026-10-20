@@ -10,6 +10,8 @@ name = "slopos-shell"
 path = "src/main.rs"
 
 [dependencies]
+slopos-core = { path = "../slopos-core" }
+slopos-services = { path = "../slopos-services" }
 gtk = { workspace = true }
 gdk = { workspace = true }
 glib = { workspace = true }

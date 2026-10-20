@@ -60,6 +60,7 @@ pavucontrol
 pipewire
 pipewire-pulse
 wireplumber
+pulseaudio-utils
 blueman
 upower
 xfce4-power-manager

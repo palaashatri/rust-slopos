@@ -5,6 +5,7 @@
 
 use crate::launcher::Launcher;
 use crate::menu::gmenu::{self, GtkMenuExporter};
+use crate::services::audio;
 use crate::services::clock;
 use crate::services::session;
 use crate::services::SystemStatus;
@@ -16,6 +17,7 @@ use gtk::{
     Align, Box as GtkBox, Button, Dialog, DialogFlags, IconSize, Image, Label, Menu, MenuItem,
     Orientation, ResponseType, SeparatorMenuItem, Window, WindowPosition, WindowType,
 };
+use slopos_services::power::SuspendCapability;
 use std::cell::{Cell, RefCell};
 use std::env;
 use std::path::{Path, PathBuf};
@@ -38,6 +40,9 @@ pub struct TopBar {
     launcher: Rc<Launcher>,
     active_menu_state: RefCell<Option<GtkMenuExporter>>,
     current_active_window: Cell<Option<u32>>,
+    suspend_capability: Cell<Option<SuspendCapability>>,
+    system_sleep_item: MenuItem,
+    desktop_sleep_item: RefCell<Option<MenuItem>>,
 }
 
 impl TopBar {
@@ -75,7 +80,7 @@ impl TopBar {
         } else {
             system_button.set_label("S");
         }
-        let system_menu = build_system_menu();
+        let (system_menu, system_sleep_item) = build_system_menu(None);
         let menu_ref = system_menu.clone();
         system_button.connect_clicked(move |button| {
             menu_ref.popup_at_widget(
@@ -226,6 +231,9 @@ impl TopBar {
             launcher,
             active_menu_state: RefCell::new(None),
             current_active_window: Cell::new(None),
+            suspend_capability: Cell::new(None),
+            system_sleep_item,
+            desktop_sleep_item: RefCell::new(None),
         });
 
         topbar.show_desktop_state();
@@ -248,6 +256,11 @@ impl TopBar {
         } else {
             self.battery_label.set_text("");
             self.battery_box.set_visible(false);
+        }
+        self.suspend_capability.set(status.suspend_capability);
+        set_suspend_menu_state(&self.system_sleep_item, status.suspend_capability);
+        if let Some(item) = self.desktop_sleep_item.borrow().as_ref() {
+            set_suspend_menu_state(item, status.suspend_capability);
         }
     }
 
@@ -304,7 +317,9 @@ impl TopBar {
         for child in self.global_menu_host.children() {
             self.global_menu_host.remove(&child);
         }
-        let desktop_menu = build_desktop_menu_bar(self.launcher.clone());
+        let (desktop_menu, sleep_item) =
+            build_desktop_menu_bar(self.launcher.clone(), self.suspend_capability.get());
+        self.desktop_sleep_item.replace(Some(sleep_item));
         self.global_menu_host
             .pack_start(&desktop_menu, false, false, 0);
         self.global_menu_host.show_all();
@@ -344,6 +359,7 @@ impl TopBar {
             self.global_menu_host.remove(&child);
         }
         *self.active_menu_state.borrow_mut() = None;
+        self.desktop_sleep_item.replace(None);
 
         if let Some(exporter) = next {
             match gmenu::build_menu_bar(&exporter) {
@@ -369,7 +385,9 @@ impl TopBar {
             self.global_menu_host.pack_start(&win_menu, false, false, 0);
             self.global_menu_host.show_all();
         } else {
-            let desktop_menu = build_desktop_menu_bar(self.launcher.clone());
+            let (desktop_menu, sleep_item) =
+                build_desktop_menu_bar(self.launcher.clone(), self.suspend_capability.get());
+            self.desktop_sleep_item.replace(Some(sleep_item));
             self.global_menu_host
                 .pack_start(&desktop_menu, false, false, 0);
             self.global_menu_host.show_all();
@@ -459,7 +477,10 @@ fn screen_geometry() -> (i32, i32) {
         .unwrap_or((1280, 800))
 }
 
-fn build_desktop_menu_bar(launcher: Rc<Launcher>) -> gtk::MenuBar {
+fn build_desktop_menu_bar(
+    launcher: Rc<Launcher>,
+    suspend_capability: Option<SuspendCapability>,
+) -> (gtk::MenuBar, MenuItem) {
     let bar = gtk::MenuBar::new();
     bar.style_context().add_class("slopos-menu-bar");
 
@@ -504,42 +525,9 @@ fn build_desktop_menu_bar(launcher: Rc<Launcher>) -> gtk::MenuBar {
     file_item.set_submenu(Some(&file_menu));
     bar.append(&file_item);
 
-    // Edit
-    let edit_item = MenuItem::with_label("Edit");
-    let edit_menu = Menu::new();
-    let cut = MenuItem::with_label("Cut (Ctrl+X)");
-    cut.connect_activate(|_| {
-        spawn_resolved("xdotool", &["key", "ctrl+x"]);
-    });
-    edit_menu.append(&cut);
-    let copy = MenuItem::with_label("Copy (Ctrl+C)");
-    copy.connect_activate(|_| {
-        spawn_resolved("xdotool", &["key", "ctrl+c"]);
-    });
-    edit_menu.append(&copy);
-    let paste = MenuItem::with_label("Paste (Ctrl+V)");
-    paste.connect_activate(|_| {
-        spawn_resolved("xdotool", &["key", "ctrl+v"]);
-    });
-    edit_menu.append(&paste);
-    let select_all = MenuItem::with_label("Select All (Ctrl+A)");
-    select_all.connect_activate(|_| {
-        spawn_resolved("xdotool", &["key", "ctrl+a"]);
-    });
-    edit_menu.append(&select_all);
-    edit_menu.show_all();
-    edit_item.set_submenu(Some(&edit_menu));
-    bar.append(&edit_item);
-
     // View
     let view_item = MenuItem::with_label("View");
     let view_menu = Menu::new();
-    let refresh = MenuItem::with_label("Refresh Desktop (F5)");
-    refresh.connect_activate(|_| {
-        spawn_resolved("xdotool", &["key", "F5"]);
-    });
-    view_menu.append(&refresh);
-    view_menu.append(&SeparatorMenuItem::new());
     let settings = MenuItem::with_label("Control Panels…");
     settings.connect_activate(|_| spawn_resolved("slopos-settings", &[]));
     view_menu.append(&settings);
@@ -553,11 +541,6 @@ fn build_desktop_menu_bar(launcher: Rc<Launcher>) -> gtk::MenuBar {
     // Special
     let special_item = MenuItem::with_label("Special");
     let special_menu = Menu::new();
-    let cleanup = MenuItem::with_label("Clean Up Desktop");
-    cleanup.connect_activate(|_| {
-        spawn_resolved("xdotool", &["key", "ctrl+r"]);
-    });
-    special_menu.append(&cleanup);
     let empty_trash = MenuItem::with_label("Empty Trash");
     empty_trash.connect_activate(|_| {
         if let Ok(home) = env::var("HOME") {
@@ -596,14 +579,8 @@ fn build_desktop_menu_bar(launcher: Rc<Launcher>) -> gtk::MenuBar {
     }
     special_menu.append(&switch_user);
     let sleep = MenuItem::with_label("Sleep");
-    if session::can_suspend() {
-        sleep.connect_activate(|_| {
-            session::suspend_system();
-        });
-    } else {
-        sleep.set_sensitive(false);
-        sleep.set_tooltip_text(Some("System suspend is not supported on this host"));
-    }
+    set_suspend_menu_state(&sleep, suspend_capability);
+    sleep.connect_activate(|_| request_suspend());
     special_menu.append(&sleep);
     let restart = MenuItem::with_label("Restart…");
     restart.connect_activate(|_| {
@@ -639,7 +616,7 @@ fn build_desktop_menu_bar(launcher: Rc<Launcher>) -> gtk::MenuBar {
     bar.append(&help_item);
 
     bar.show_all();
-    bar
+    (bar, sleep)
 }
 
 fn build_window_action_menu_bar(window_id: u32, app_title: &str) -> gtk::MenuBar {
@@ -657,33 +634,6 @@ fn build_window_action_menu_bar(window_id: u32, app_title: &str) -> gtk::MenuBar
     file_menu.show_all();
     file_item.set_submenu(Some(&file_menu));
     bar.append(&file_item);
-
-    // Edit
-    let edit_item = MenuItem::with_label("Edit");
-    let edit_menu = Menu::new();
-    let cut = MenuItem::with_label("Cut (Ctrl+X)");
-    cut.connect_activate(|_| {
-        spawn_resolved("xdotool", &["key", "ctrl+x"]);
-    });
-    edit_menu.append(&cut);
-    let copy = MenuItem::with_label("Copy (Ctrl+C)");
-    copy.connect_activate(|_| {
-        spawn_resolved("xdotool", &["key", "ctrl+c"]);
-    });
-    edit_menu.append(&copy);
-    let paste = MenuItem::with_label("Paste (Ctrl+V)");
-    paste.connect_activate(|_| {
-        spawn_resolved("xdotool", &["key", "ctrl+v"]);
-    });
-    edit_menu.append(&paste);
-    let select_all = MenuItem::with_label("Select All (Ctrl+A)");
-    select_all.connect_activate(|_| {
-        spawn_resolved("xdotool", &["key", "ctrl+a"]);
-    });
-    edit_menu.append(&select_all);
-    edit_menu.show_all();
-    edit_item.set_submenu(Some(&edit_menu));
-    bar.append(&edit_item);
 
     // Window
     let win_item = MenuItem::with_label("Window");
@@ -727,7 +677,7 @@ fn build_window_action_menu_bar(window_id: u32, app_title: &str) -> gtk::MenuBar
     bar
 }
 
-fn build_system_menu() -> Menu {
+fn build_system_menu(suspend_capability: Option<SuspendCapability>) -> (Menu, MenuItem) {
     let menu = Menu::new();
     menu.style_context().add_class("slopos-system-menu");
 
@@ -816,14 +766,8 @@ fn build_system_menu() -> Menu {
     menu.append(&switch_user);
 
     let sleep = MenuItem::with_label("Sleep");
-    if session::can_suspend() {
-        sleep.connect_activate(|_| {
-            session::suspend_system();
-        });
-    } else {
-        sleep.set_sensitive(false);
-        sleep.set_tooltip_text(Some("Suspend is not supported on this host"));
-    }
+    set_suspend_menu_state(&sleep, suspend_capability);
+    sleep.connect_activate(|_| request_suspend());
     menu.append(&sleep);
 
     let logout = MenuItem::with_label("Log Out…");
@@ -865,13 +809,40 @@ fn build_system_menu() -> Menu {
     }
     menu.append(&shutdown);
     menu.show_all();
-    menu
+    (menu, sleep)
 }
 
 fn show_message(title: &str, message: &str) {
     let dialog = slopos_dialog(title, message, &[("Close", ResponseType::Close)]);
     dialog.connect_response(|dialog, _| dialog.close());
     dialog.show_all();
+}
+
+fn request_suspend() {
+    if let Err(error) = crate::services::power::request_suspend(|result| {
+        if let Err(error) = result {
+            show_message("Unable to suspend", &error);
+        }
+    }) {
+        show_message("Unable to suspend", &error.to_string());
+    }
+}
+
+fn set_suspend_menu_state(item: &MenuItem, capability: Option<SuspendCapability>) {
+    let (enabled, tooltip) = suspend_menu_presentation(capability);
+    item.set_sensitive(enabled);
+    item.set_tooltip_text(Some(tooltip));
+}
+
+fn suspend_menu_presentation(capability: Option<SuspendCapability>) -> (bool, &'static str) {
+    match capability {
+        Some(SuspendCapability::Available) => (true, "Suspend the computer"),
+        Some(SuspendCapability::RequiresAuthorization) => {
+            (true, "Authentication may be required to suspend")
+        }
+        Some(SuspendCapability::Unavailable) => (false, "System suspend is unavailable"),
+        Some(SuspendCapability::Unknown) | None => (false, "Checking suspend capability"),
+    }
 }
 
 fn confirm_action<F>(title: &str, message: &str, action: F)
@@ -996,44 +967,15 @@ fn build_sound_menu() -> Menu {
     menu.append(&header);
 
     let vol_up = MenuItem::with_label("Volume Up (+5%)");
-    vol_up.connect_activate(|_| {
-        if session::resolve_program("pactl").is_some() {
-            spawn_resolved("pactl", &["set-sink-volume", "@DEFAULT_SINK@", "+5%"]);
-        } else {
-            spawn_resolved("amixer", &["set", "Master", "5%+"]);
-        }
-    });
+    vol_up.connect_activate(|_| audio::adjust_default_output_volume(5));
     menu.append(&vol_up);
 
     let vol_down = MenuItem::with_label("Volume Down (-5%)");
-    vol_down.connect_activate(|_| {
-        if session::resolve_program("pactl").is_some() {
-            spawn_resolved("pactl", &["set-sink-volume", "@DEFAULT_SINK@", "-5%"]);
-        } else {
-            spawn_resolved("amixer", &["set", "Master", "5%-"]);
-        }
-    });
+    vol_down.connect_activate(|_| audio::adjust_default_output_volume(-5));
     menu.append(&vol_down);
 
-    let mute_item = gtk::CheckMenuItem::with_label("Mute Audio Output");
-    mute_item.connect_toggled(|item| {
-        let is_muted = item.is_active();
-        if session::resolve_program("pactl").is_some() {
-            spawn_resolved(
-                "pactl",
-                &[
-                    "set-sink-mute",
-                    "@DEFAULT_SINK@",
-                    if is_muted { "1" } else { "0" },
-                ],
-            );
-        } else {
-            spawn_resolved(
-                "amixer",
-                &["set", "Master", if is_muted { "mute" } else { "unmute" }],
-            );
-        }
-    });
+    let mute_item = MenuItem::with_label("Toggle Output Mute");
+    mute_item.connect_activate(|_| audio::toggle_default_output_mute());
     menu.append(&mute_item);
 
     menu.append(&SeparatorMenuItem::new());
@@ -1058,11 +1000,9 @@ fn build_network_menu() -> Menu {
     header.set_sensitive(false);
     menu.append(&header);
 
-    let eth_status = MenuItem::with_label("Ethernet: Connected (eth0)");
-    menu.append(&eth_status);
-
-    let wifi_status = MenuItem::with_label("Wi-Fi: Active (SLOPOS-Fast-5G)");
-    menu.append(&wifi_status);
+    let status = MenuItem::with_label("Network details unavailable");
+    status.set_sensitive(false);
+    menu.append(&status);
 
     menu.append(&SeparatorMenuItem::new());
 
@@ -1105,5 +1045,14 @@ mod tests {
     fn test_compact_title_fallback() {
         assert_eq!(compact_title(""), "SLOPOS Desktop");
         assert_eq!(compact_title("Calculator"), "Calculator");
+    }
+
+    #[test]
+    fn suspend_menu_is_enabled_only_for_actionable_logind_capabilities() {
+        assert!(suspend_menu_presentation(Some(SuspendCapability::Available)).0);
+        assert!(suspend_menu_presentation(Some(SuspendCapability::RequiresAuthorization)).0);
+        assert!(!suspend_menu_presentation(Some(SuspendCapability::Unavailable)).0);
+        assert!(!suspend_menu_presentation(Some(SuspendCapability::Unknown)).0);
+        assert!(!suspend_menu_presentation(None).0);
     }
 }
