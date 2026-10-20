@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "status": "PARTIAL_EXTRACTION_NOT_CONFORMANCE",
+  "source": {
+    "file_key": "LGMlwNCoVdakZxDBvPKg1W",
+    "page_node": "1:4",
+    "page_source_name": "Menus",
+    "page_bounds": {
+      "x": -1811,
+      "y": -149,
+      "width": 768,
+      "height": 832,
+      "unit": "Figma logical pixels"
+    },
+    "source_revision": "UNKNOWN",
+    "canonical_scale": 1,
+    "metadata": {
+      "status": "CACHED_METADATA_USED; LIVE_MCP_REFRESH_BLOCKED",
+      "method": "Figma MCP page metadata XML; existing project inventory cross-check",
+      "metadata_sha256": "9a0ee26ac340cccea6b5ca1ab019573a0ab3f8053e5df86b92eaa872570220d4",
+      "local_copy_mtime_utc": "2026-10-02T05:20:34Z",
+      "source_retrieval_time_utc": "UNKNOWN"
+    },
+    "current_page_view": {
+      "method": "Read-only Figma browser canvas inspection",
+      "observed_utc_interval": "2026-10-02T07:12:57Z to 2026-10-02T07:16:03Z",
+      "zoom_percent": 96,
+      "visual_observations": [
+        "The page shows a menu bar, Apple menu, pull-down menu, application menu, file-browser menu, pop-up menu, key-command labels, action and hierarchical item examples, and checked/disabled-looking examples.",
+        "Black and white menu artwork is visible in the current canvas rendering; no source layer paint values were available in the viewer."
+      ]
+    },
+    "design_context": {
+      "status": "BLOCKED_RATE_LIMIT",
+      "method": "Figma get_design_context requested with screenshot per figma-design-to-code skill",
+      "result": "Figma MCP Starter plan tool-call limit reached; no design-context payload returned.",
+      "retrieved_utc": "UNKNOWN"
+    },
+    "fonts": "UNKNOWN",
+    "font_version_and_license": "UNKNOWN",
+    "file_revision_history": "UNKNOWN"
+  },
+  "component_variants": [
+    {"source_node": "3:5921", "source_name": "Base/Menu bg", "normalized_type": "menu_background", "source_component": "Menus", "parent_node": "1:4", "x": 596, "y": 548, "width": 140, "height": 147, "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "76:3839", "source_name": "Base/Key commands", "normalized_type": "shortcut_command_label", "source_component": "Menus", "parent_node": "1:4", "x": 407, "y": 590, "width": 48, "height": 14, "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "139:5970", "source_name": "Base/Divider", "normalized_type": "separator_component_set", "source_component": "Menus", "parent_node": "1:4", "x": 596, "y": 472, "width": 149, "height": 64, "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5924", "source_name": "Color=8-bit", "normalized_type": "separator", "source_component": "Menus/Base/Divider", "parent_node": "139:5970", "x": 8, "y": 8, "width": 133, "height": 16, "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "139:5973", "source_name": "Color=1-bit", "normalized_type": "separator", "source_component": "Menus/Base/Divider", "parent_node": "139:5970", "x": 8, "y": 40, "width": 133, "height": 16, "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "223:14973", "source_name": "Base/File browser menu item", "normalized_type": "file_browser_menu_item_component_set", "source_component": "Menus", "parent_node": "1:4", "x": 406, "y": 470, "width": 179, "height": 104, "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "223:14974", "source_name": "State=Active", "normalized_type": "file_browser_menu_item", "source_component": "Menus/Base/File browser menu item", "parent_node": "223:14973", "x": 8, "y": 8, "width": 163, "height": 16, "state": "Active", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "223:14980", "source_name": "State=Selected", "normalized_type": "file_browser_menu_item", "source_component": "Menus/Base/File browser menu item", "parent_node": "223:14973", "x": 8, "y": 32, "width": 163, "height": 16, "state": "Selected", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "223:15189", "source_name": "State=Disabled", "normalized_type": "file_browser_menu_item", "source_component": "Menus/Base/File browser menu item", "parent_node": "223:14973", "x": 8, "y": 56, "width": 163, "height": 16, "state": "Disabled", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "223:15238", "source_name": "State=Disabled (1-bit)", "normalized_type": "file_browser_menu_item", "source_component": "Menus/Base/File browser menu item", "parent_node": "223:14973", "x": 8, "y": 80, "width": 163, "height": 16, "state": "Disabled (1-bit)", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5926", "source_name": "Base/Menu item", "normalized_type": "menu_item_component_set", "source_component": "Menus", "parent_node": "1:4", "x": 213, "y": 470, "width": 179, "height": 208, "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5927", "source_name": "Type=Action, State=Active", "normalized_type": "action_menu_item", "source_component": "Menus/Base/Menu item", "parent_node": "3:5926", "x": 8, "y": 8, "width": 163, "height": 16, "type": "Action", "state": "Active", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5954", "source_name": "Type=Action, State=Hover", "normalized_type": "action_menu_item", "source_component": "Menus/Base/Menu item", "parent_node": "3:5926", "x": 8, "y": 32, "width": 163, "height": 16, "type": "Action", "state": "Hover", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5945", "source_name": "Type=Action, State=Disabled", "normalized_type": "action_menu_item", "source_component": "Menus/Base/Menu item", "parent_node": "3:5926", "x": 8, "y": 56, "width": 163, "height": 16, "type": "Action", "state": "Disabled", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "139:6002", "source_name": "Type=Action, State=Disabled (1-bit)", "normalized_type": "action_menu_item", "source_component": "Menus/Base/Menu item", "parent_node": "3:5926", "x": 8, "y": 80, "width": 163, "height": 16, "type": "Action", "state": "Disabled (1-bit)", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5963", "source_name": "Type=Heirarchical, State=Active", "normalized_type": "hierarchical_menu_item", "source_component": "Menus/Base/Menu item", "parent_node": "3:5926", "x": 8, "y": 112, "width": 163, "height": 16, "type": "Heirarchical", "state": "Active", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5971", "source_name": "Type=Heirarchical, State=Hover", "normalized_type": "hierarchical_menu_item", "source_component": "Menus/Base/Menu item", "parent_node": "3:5926", "x": 8, "y": 136, "width": 163, "height": 16, "type": "Heirarchical", "state": "Hover", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5967", "source_name": "Type=Heirarchical, State=Disabled", "normalized_type": "hierarchical_menu_item", "source_component": "Menus/Base/Menu item", "parent_node": "3:5926", "x": 8, "y": 160, "width": 163, "height": 16, "type": "Heirarchical", "state": "Disabled", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "139:6108", "source_name": "Type=Heirarchical, State=Disabled (1-bit)", "normalized_type": "hierarchical_menu_item", "source_component": "Menus/Base/Menu item", "parent_node": "3:5926", "x": 8, "y": 184, "width": 163, "height": 16, "type": "Heirarchical", "state": "Disabled (1-bit)", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "223:13673", "source_name": "Base/Apple menu item", "normalized_type": "apple_menu_item_component_set", "source_component": "Menus", "parent_node": "1:4", "x": 24, "y": 470, "width": 179, "height": 56, "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "223:13674", "source_name": "State=Active", "normalized_type": "apple_menu_item", "source_component": "Menus/Base/Apple menu item", "parent_node": "223:13673", "x": 8, "y": 8, "width": 163, "height": 16, "state": "Active", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "223:13699", "source_name": "State=Hover", "normalized_type": "apple_menu_item", "source_component": "Menus/Base/Apple menu item", "parent_node": "223:13673", "x": 8, "y": 32, "width": 163, "height": 16, "state": "Hover", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5911", "source_name": "Base/Menu bar item", "normalized_type": "menu_bar_item_component_set", "source_component": "Menus", "parent_node": "1:4", "x": 170, "y": 406, "width": 246, "height": 40, "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5912", "source_name": "State=Rest", "normalized_type": "menu_bar_item", "source_component": "Menus/Base/Menu bar item", "parent_node": "3:5911", "x": 10, "y": 11, "width": 52, "height": 18, "state": "Rest", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "139:5964", "source_name": "State=Disabled (1-bit)", "normalized_type": "menu_bar_item", "source_component": "Menus/Base/Menu bar item", "parent_node": "3:5911", "x": 178, "y": 11, "width": 52, "height": 18, "state": "Disabled (1-bit)", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "112:6438", "source_name": "State=Disabled", "normalized_type": "menu_bar_item", "source_component": "Menus/Base/Menu bar item", "parent_node": "3:5911", "x": 126, "y": 11, "width": 52, "height": 18, "state": "Disabled", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5914", "source_name": "State=Pressed", "normalized_type": "menu_bar_item", "source_component": "Menus/Base/Menu bar item", "parent_node": "3:5911", "x": 68, "y": 11, "width": 52, "height": 18, "state": "Pressed", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5975", "source_name": "Base/Application menu button", "normalized_type": "application_menu_button", "source_component": "Menus", "parent_node": "1:4", "x": 123, "y": 416, "width": 34, "height": 18, "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5916", "source_name": "Base/Apple menu button", "normalized_type": "apple_menu_button_component_set", "source_component": "Menus", "parent_node": "1:4", "x": 24, "y": 405, "width": 85, "height": 40, "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5917", "source_name": "State=Rest", "normalized_type": "apple_menu_button", "source_component": "Menus/Base/Apple menu button", "parent_node": "3:5916", "x": 14, "y": 11, "width": 29, "height": 18, "state": "Rest", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5919", "source_name": "State=Pressed", "normalized_type": "apple_menu_button", "source_component": "Menus/Base/Apple menu button", "parent_node": "3:5916", "x": 48, "y": 11, "width": 29, "height": 18, "state": "Pressed", "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"},
+    {"source_node": "3:5874", "source_name": "Menu bar", "normalized_type": "menu_bar", "source_component": "Menus", "parent_node": "1:4", "x": 30, "y": 69, "width": 708, "height": 19, "classification": "REQUIRED", "geometry_status": "METADATA_EXTRACTED", "style": "UNKNOWN", "interaction": "UNKNOWN", "accessibility": "UNKNOWN"}
+  ],
+  "page_compositions": [
+    {"source_node": "223:16257", "source_name": "Pop-up menu", "normalized_type": "popup_menu", "x": 526, "y": 128, "width": 95, "height": 99, "children": ["223:16258", "223:16259", "223:16260", "223:16312", "223:16319", "223:16326", "223:16334", "223:16264"], "visible_content_observation": "Six menu rows are visible; one row has a checkmark. Exact semantics and text are UNKNOWN."},
+    {"source_node": "223:15417", "source_name": "File browser menu", "normalized_type": "file_browser_menu", "x": 368, "y": 231, "width": 142, "height": 51, "children": ["223:15418", "223:15419", "223:15689", "223:15710", "223:15435"]},
+    {"source_node": "223:15724", "source_name": "Application menu", "normalized_type": "application_menu", "x": 369, "y": 128, "width": 142, "height": 85, "children": ["223:15725", "223:15726", "223:15727", "223:15728", "223:15810", "223:15825", "223:15729"]},
+    {"source_node": "3:5892", "source_name": "Pull-down menu", "normalized_type": "pulldown_menu", "x": 212, "y": 128, "width": 142, "height": 259, "children": ["3:5893", "3:5894", "3:5895", "3:5896", "3:5897", "3:5898", "3:5899", "3:5900", "3:5901", "3:5902", "3:5903", "3:5904", "3:5905", "3:5906", "3:5907", "3:5908", "3:5909", "3:5910"]},
+    {"source_node": "77:16432", "source_name": "Apple menu", "normalized_type": "apple_menu", "x": 24, "y": 129, "width": 180, "height": 196, "children": ["77:16433", "77:16434", "77:16438", "77:16435", "77:16436", "77:16437", "77:16439", "77:16440", "77:16441", "77:16442", "77:16445", "77:16446", "77:16450"]},
+    {"source_node": "3:5874", "source_name": "Menu bar", "normalized_type": "menu_bar", "x": 30, "y": 69, "width": 708, "height": 19, "children": []}
+  ],
+  "required_menu_contract_mapping": {
+    "menu_bar": {"classification": "REQUIRED", "source_nodes": ["3:5874"]},
+    "menu": {"classification": "REQUIRED", "source_nodes": ["223:16257", "223:15417", "223:15724", "3:5892", "77:16432"]},
+    "menu_item": {"classification": "REQUIRED", "source_nodes": ["3:5927", "3:5954", "3:5945", "139:6002"]},
+    "hierarchical_submenu_item": {"classification": "REQUIRED", "source_nodes": ["3:5963", "3:5971", "3:5967", "139:6108"], "source_spelling": "Heirarchical"},
+    "checked_menu_item": {"classification": "REQUIRED", "source_node": "UNKNOWN", "note": "A checkmark is visible in the pop-up example; component node and semantic contract are not extracted."},
+    "radio_menu_item": {"classification": "REQUIRED_WHERE_NEEDED", "source_node": "UNKNOWN", "note": "A checkmark is visible in a list of options; radio semantics are not established by the available metadata/view."},
+    "disabled_menu_item": {"classification": "REQUIRED", "source_nodes": ["3:5945", "139:6002", "3:5967", "139:6108", "223:15189", "223:15238"]},
+    "separator": {"classification": "REQUIRED", "source_nodes": ["3:5924", "139:5973"]},
+    "shortcut_command_label": {"classification": "REQUIRED", "source_nodes": ["76:3839"]},
+    "application_menu_host": {"classification": "REQUIRED", "source_nodes": ["223:15724"]},
+    "context_menu": {"classification": "REQUIRED", "source_node": "UNKNOWN", "note": "No context-menu-named node was present in the extracted page metadata."}
+  },
+  "style_and_behavior": {
+    "colors": "UNKNOWN at layer/property level",
+    "font_family_size_weight_baseline": "UNKNOWN",
+    "padding_margins_and_text_offsets": "UNKNOWN except for source-frame child coordinates above",
+    "border_bevel_shadow_and_pattern": "UNKNOWN",
+    "icon_box_and_asset_identity": "UNKNOWN; no artwork or assets copied",
+    "interaction_state_transitions": "UNKNOWN",
+    "keyboard_behavior": "UNKNOWN",
+    "accessibility_roles_names_states_and_focus_order": "UNKNOWN",
+    "source_scale_semantics": "UNKNOWN beyond the existing project convention canonical_scale=1"
+  },
+  "asset_policy": "GEOMETRY_ONLY_UNTIL_LICENSE_REVIEW",
+  "unresolved": [
+    "Live Figma MCP metadata/design-context retrieval was blocked by the Starter plan tool-call limit; the XML metadata is a cached project artifact, not a fresh extraction.",
+    "Exact source revision and revision history.",
+    "Layer-level fill, stroke, effect, typography and text baseline details for every menu variant.",
+    "Checked/radio semantic component nodes and context-menu source node.",
+    "Interaction, keyboard, dismissal, focus-restoration and accessibility contracts.",
+    "Font version, license, metrics and redistribution permission.",
+    "The browser viewer indicates that screen-reader support for the board is disabled; no accessibility inspection was performed."
+  ]
+}

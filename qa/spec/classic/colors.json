@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "status": "PARTIAL_EXTRACTION_NOT_CONFORMANCE",
+  "source_file": "LGMlwNCoVdakZxDBvPKg1W",
+  "source_revision": "UNKNOWN",
+  "colors": {
+    "neutral/white": {"rgba": [255, 255, 255, 255], "source_node": "137:7677", "source_context": "73:3498"},
+    "neutral/black": {"rgba": [0, 0, 0, 255], "source_node": "73:3500", "source_context": "73:3498"}
+  },
+  "remaining_palette": "UNKNOWN",
+  "transparent_clear": {"rgba": [0, 0, 0, 0], "provenance": "SLOPOS raster clear operation, not an extracted reference token"},
+  "conformance": "NOT_RUN"
+}

@@ -1,0 +1,2618 @@
+{
+  "schema_version": 1,
+  "catalog_status": "CONTRACT_REQUIREMENTS_ONLY",
+  "contract_source": {
+    "document": "AGENTS.md",
+    "sections": [
+      "9.4",
+      "9.5",
+      "9.6",
+      "9.7",
+      "9.8",
+      "9.9",
+      "9.10",
+      "9.11",
+      "9.12",
+      "9.13"
+    ],
+    "requirement_status": "KNOWN",
+    "scope": "Contract-derived requirements only; no unrecorded design values or behavior are supplied."
+  },
+  "figma_reference": {
+    "file_key": "LGMlwNCoVdakZxDBvPKg1W",
+    "root_node": "0:1",
+    "source_revision": "UNKNOWN",
+    "source_coverage_status": "PARTIAL",
+    "source_mapping_policy": "Attach node IDs only for direct exact mappings recorded in existing buttons.json or menus.json; all other mappings remain unresolved."
+  },
+  "assessment": {
+    "contract_requirements": "KNOWN",
+    "figma_source_coverage": "PARTIAL",
+    "design_details": "PARTIAL",
+    "implementation": "NOT_ASSESSED",
+    "conformance": "NOT_ASSESSED"
+  },
+  "uniqueness": "Stable IDs are object keys within disjoint category prefixes; object keys are unique in the JSON data model.",
+  "requirements": {
+    "components": {
+      "component.primitive.surface": {
+        "name": "Surface",
+        "section": "9.4",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Surface`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.primitive.text": {
+        "name": "Text",
+        "section": "9.4",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Text`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.primitive.icon": {
+        "name": "Icon",
+        "section": "9.4",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Icon`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.primitive.image": {
+        "name": "Image",
+        "section": "9.4",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Image`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.primitive.separator": {
+        "name": "Separator",
+        "section": "9.4",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Separator`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.primitive.rule": {
+        "name": "Rule",
+        "section": "9.4",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Rule`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.primitive.pattern_fill": {
+        "name": "PatternFill",
+        "section": "9.4",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `PatternFill`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.primitive.bevel": {
+        "name": "Bevel",
+        "section": "9.4",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Bevel`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.primitive.focus_ring": {
+        "name": "FocusRing",
+        "section": "9.4",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `FocusRing`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.primitive.selection_highlight": {
+        "name": "SelectionHighlight",
+        "section": "9.4",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `SelectionHighlight`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.primitive.spacer": {
+        "name": "Spacer",
+        "section": "9.4",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Spacer`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.layout.row": {
+        "name": "Row",
+        "section": "9.5",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Row`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.layout.column": {
+        "name": "Column",
+        "section": "9.5",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Column`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.layout.grid": {
+        "name": "Grid",
+        "section": "9.5",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Grid`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.layout.overlay": {
+        "name": "Overlay",
+        "section": "9.5",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Overlay`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.layout.stack": {
+        "name": "Stack",
+        "section": "9.5",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Stack`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.layout.split_pane": {
+        "name": "SplitPane",
+        "section": "9.5",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `SplitPane`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.layout.scroll_view": {
+        "name": "ScrollView",
+        "section": "9.5",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `ScrollView`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.layout.group_box": {
+        "name": "GroupBox",
+        "section": "9.5",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `GroupBox`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.layout.inset": {
+        "name": "Inset",
+        "section": "9.5",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Inset`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.layout.align": {
+        "name": "Align",
+        "section": "9.5",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Align`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.layout.fixed_canonical_layout": {
+        "name": "FixedCanonicalLayout",
+        "section": "9.5",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "FixedCanonicalLayout for exact reference compositions where appropriate.",
+        "condition": "where appropriate for exact reference compositions",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.button.regular": {
+        "name": "Regular Button",
+        "section": "9.6",
+        "kind": "variant",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Regular Button`.",
+        "family": "Buttons",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "73:3498",
+            "73:3544",
+            "73:3651"
+          ],
+          "source_specs": [
+            "buttons.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.button.default": {
+        "name": "Default Button",
+        "section": "9.6",
+        "kind": "variant",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Default Button`.",
+        "family": "Buttons",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "73:3379",
+            "73:3438",
+            "73:3592"
+          ],
+          "source_specs": [
+            "buttons.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.button.secondary": {
+        "name": "Secondary Button",
+        "section": "9.6",
+        "kind": "variant",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Secondary Button`.",
+        "family": "Buttons",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "73:3521",
+            "73:3568",
+            "73:3674"
+          ],
+          "source_specs": [
+            "buttons.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.button.icon": {
+        "name": "Icon Button",
+        "section": "9.6",
+        "kind": "variant",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Icon Button`.",
+        "family": "Buttons",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.button.repeat_arrow": {
+        "name": "Repeat/Arrow Button",
+        "section": "9.6",
+        "kind": "variant",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "Repeat/Arrow Button where referenced.",
+        "condition": "where referenced",
+        "family": "Buttons",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.selection.checkbox": {
+        "name": "Checkbox",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Checkbox`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.selection.radio_button": {
+        "name": "Radio Button",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Radio Button`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.selection.disclosure_triangle": {
+        "name": "Disclosure Triangle",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Disclosure Triangle`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.selection.toggle": {
+        "name": "Toggle",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "Toggle where a real use case exists.",
+        "condition": "where a real use case exists",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.text_entry.text_field": {
+        "name": "Text Field",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Text Field`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.text_entry.search_field": {
+        "name": "Search Field",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Search Field`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.text_entry.password_field": {
+        "name": "Password Field",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Password Field`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.text_entry.multi_line_text_area": {
+        "name": "Multi-line Text Area",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Multi-line Text Area`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.text_entry.numeric_field": {
+        "name": "Numeric Field",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Numeric Field`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.text_entry.editable_label": {
+        "name": "Editable Label",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "Editable Label where required for file rename.",
+        "condition": "where required for file rename",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.choice.pop_up_button": {
+        "name": "Pop-up Button",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Pop-up Button`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.choice.combo_choice": {
+        "name": "Combo/Choice control",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Combo/Choice control`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.choice.stepper": {
+        "name": "Stepper",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Stepper`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.choice.slider": {
+        "name": "Slider",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`Slider`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.choice.segmented_control": {
+        "name": "segmented control",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "segmented control only if the canonical specification explicitly requires one.",
+        "condition": "only if the canonical specification explicitly requires one",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.progress.determinate_progress": {
+        "name": "determinate progress",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`determinate progress`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.progress.indeterminate_progress": {
+        "name": "indeterminate progress",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "`indeterminate progress`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.progress.busy_indicator": {
+        "name": "busy indicator",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "busy indicator if required.",
+        "condition": "if required",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.progress.meter": {
+        "name": "meter",
+        "section": "9.6",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "meter where required.",
+        "condition": "where required",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.collection.list_view": {
+        "name": "List View",
+        "section": "9.7",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `List View`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.collection.list_row": {
+        "name": "List Row",
+        "section": "9.7",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `List Row`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.collection.table_view": {
+        "name": "Table View",
+        "section": "9.7",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Table View`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.collection.table_header": {
+        "name": "Table Header",
+        "section": "9.7",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Table Header`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.collection.tree_outline_view": {
+        "name": "Tree/Outline View",
+        "section": "9.7",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Tree/Outline View`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.collection.icon_view": {
+        "name": "Icon View",
+        "section": "9.7",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Icon View`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.collection.file_item": {
+        "name": "File Item",
+        "section": "9.7",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `File Item`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.collection.desktop_item": {
+        "name": "Desktop Item",
+        "section": "9.7",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Desktop Item`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.collection.empty_state": {
+        "name": "Empty State",
+        "section": "9.7",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Empty State`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.collection.status_row": {
+        "name": "Status Row",
+        "section": "9.7",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Status Row`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.scrolling.vertical_scrollbar": {
+        "name": "Vertical Scrollbar",
+        "section": "9.8",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Vertical Scrollbar`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.scrolling.horizontal_scrollbar": {
+        "name": "Horizontal Scrollbar",
+        "section": "9.8",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Horizontal Scrollbar`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.scrolling.scroll_thumb": {
+        "name": "Scroll Thumb",
+        "section": "9.8",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Scroll Thumb`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.scrolling.scroll_arrow": {
+        "name": "Scroll Arrow",
+        "section": "9.8",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Scroll Arrow`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.scrolling.track": {
+        "name": "Track",
+        "section": "9.8",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Track`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.scrolling.corner_resize_affordance": {
+        "name": "Corner/resize affordance",
+        "section": "9.8",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "Corner/resize affordance where applicable.",
+        "condition": "where applicable",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.menu.menu_bar": {
+        "name": "Menu Bar",
+        "section": "9.9",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Menu Bar`.",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "3:5874"
+          ],
+          "source_specs": [
+            "menus.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.menu.menu": {
+        "name": "Menu",
+        "section": "9.9",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Menu`.",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "223:16257",
+            "223:15417",
+            "223:15724",
+            "3:5892",
+            "77:16432"
+          ],
+          "source_specs": [
+            "menus.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.menu.menu_item": {
+        "name": "Menu Item",
+        "section": "9.9",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Menu Item`.",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "3:5926",
+            "3:5927",
+            "3:5954",
+            "3:5945",
+            "139:6002"
+          ],
+          "source_specs": [
+            "menus.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.menu.hierarchical_submenu_item": {
+        "name": "Hierarchical/Submenu Item",
+        "section": "9.9",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Hierarchical/Submenu Item`.",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "3:5963",
+            "3:5971",
+            "3:5967",
+            "139:6108"
+          ],
+          "source_specs": [
+            "menus.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.menu.checked_menu_item": {
+        "name": "Checked Menu Item",
+        "section": "9.9",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Checked Menu Item`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.menu.radio_menu_item": {
+        "name": "Radio Menu Item",
+        "section": "9.9",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "Radio Menu Item where needed.",
+        "condition": "where needed",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.menu.disabled_menu_item": {
+        "name": "Disabled Menu Item",
+        "section": "9.9",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Disabled Menu Item`.",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "3:5945",
+            "139:6002",
+            "3:5967",
+            "139:6108",
+            "223:15189",
+            "223:15238"
+          ],
+          "source_specs": [
+            "menus.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.menu.separator": {
+        "name": "Separator",
+        "section": "9.9",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Separator`.",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "3:5924",
+            "139:5973"
+          ],
+          "source_specs": [
+            "menus.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.menu.shortcut_command_label": {
+        "name": "Shortcut/Command label",
+        "section": "9.9",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Shortcut/Command label`.",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "76:3839"
+          ],
+          "source_specs": [
+            "menus.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.menu.application_menu_host": {
+        "name": "Application menu host",
+        "section": "9.9",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Application menu host`.",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "223:15724"
+          ],
+          "source_specs": [
+            "menus.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.menu.context_menu": {
+        "name": "Context menu",
+        "section": "9.9",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "At minimum: `Context menu`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.window_content.alert": {
+        "name": "Alert",
+        "section": "9.10",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Required: `Alert`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.window_content.confirmation_dialog": {
+        "name": "Confirmation Dialog",
+        "section": "9.10",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Required: `Confirmation Dialog`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.window_content.error_dialog": {
+        "name": "Error Dialog",
+        "section": "9.10",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Required: `Error Dialog`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.window_content.information_dialog": {
+        "name": "Information Dialog",
+        "section": "9.10",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Required: `Information Dialog`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.window_content.progress_dialog": {
+        "name": "Progress Dialog",
+        "section": "9.10",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Required: `Progress Dialog`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.window_content.file_open_dialog": {
+        "name": "File Open Dialog",
+        "section": "9.10",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Required: `File Open Dialog`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.window_content.file_save_dialog": {
+        "name": "File Save Dialog",
+        "section": "9.10",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Required: `File Save Dialog`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.window_content.open_with_dialog": {
+        "name": "Open With Dialog",
+        "section": "9.10",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Required: `Open With Dialog`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.window_content.properties_dialog": {
+        "name": "Properties Dialog",
+        "section": "9.10",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Required: `Properties Dialog`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.window_content.preferences_control_panel_content": {
+        "name": "Preferences/Control Panel content",
+        "section": "9.10",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Required: `Preferences/Control Panel content`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.window_content.about_system_information_content": {
+        "name": "About/System Information content",
+        "section": "9.10",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Required: `About/System Information content`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.window_content.utility_window_layout": {
+        "name": "utility-window layout",
+        "section": "9.10",
+        "kind": "component",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Required: `utility-window layout`.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.navigation.toolbar": {
+        "name": "Toolbar",
+        "section": "9.11",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "Toolbar where needed.",
+        "condition": "where needed",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.navigation.status_bar": {
+        "name": "Status Bar",
+        "section": "9.11",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "Status Bar where needed.",
+        "condition": "where needed",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.navigation.path_location_bar": {
+        "name": "Path/Location Bar",
+        "section": "9.11",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "Path/Location Bar where needed.",
+        "condition": "where needed",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.navigation.breadcrumb_path_control": {
+        "name": "Breadcrumb/Path control",
+        "section": "9.11",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "Breadcrumb/Path control if adopted by Files.",
+        "condition": "if adopted by Files",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.navigation.sidebar": {
+        "name": "Sidebar",
+        "section": "9.11",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "Sidebar only where an explicit application workflow requires it and where it can be reconciled with the canonical visual language.",
+        "condition": "only where an explicit application workflow requires it and where it can be reconciled with the canonical visual language",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.navigation.tab_strip": {
+        "name": "Tab strip",
+        "section": "9.11",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "Tab strip only where product requirements justify tabs.",
+        "condition": "only where product requirements justify tabs",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.navigation.inspector_info_panel": {
+        "name": "Inspector/Info panel",
+        "section": "9.11",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "Inspector/Info panel where needed.",
+        "condition": "where needed",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "component.navigation.split_view_divider": {
+        "name": "split-view divider",
+        "section": "9.11",
+        "kind": "component",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "split-view divider where needed.",
+        "condition": "where needed",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      }
+    },
+    "states": {
+      "state.button.rest": {
+        "name": "rest",
+        "section": "9.6",
+        "group": "Buttons",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "rest.",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "73:3379",
+            "73:3498",
+            "73:3521"
+          ],
+          "source_specs": [
+            "buttons.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "state.button.hover": {
+        "name": "hover",
+        "section": "9.6",
+        "group": "Buttons",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "hover if the platform uses hover feedback.",
+        "condition": "if the platform uses hover feedback",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "state.button.pressed": {
+        "name": "pressed",
+        "section": "9.6",
+        "group": "Buttons",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "pressed.",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "73:3438",
+            "73:3544",
+            "73:3568"
+          ],
+          "source_specs": [
+            "buttons.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "state.button.focused": {
+        "name": "focused",
+        "section": "9.6",
+        "group": "Buttons",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "focused.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "state.button.disabled": {
+        "name": "disabled",
+        "section": "9.6",
+        "group": "Buttons",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "disabled.",
+        "source": {
+          "mapping_status": "EXACT_MATCH",
+          "source_nodes": [
+            "73:3592",
+            "73:3651",
+            "73:3674"
+          ],
+          "source_specs": [
+            "buttons.json"
+          ],
+          "detail_status": "PARTIAL"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "state.button.default": {
+        "name": "default",
+        "section": "9.6",
+        "group": "Buttons",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "default.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "state.button.destructive": {
+        "name": "destructive",
+        "section": "9.6",
+        "group": "Buttons",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "destructive only if explicitly defined by the SLOPOS language.",
+        "condition": "only if explicitly defined by the SLOPOS language",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "state.selection.unchecked_unselected": {
+        "name": "unchecked/unselected",
+        "section": "9.6",
+        "group": "Selection controls",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "unchecked/unselected.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "state.selection.checked_selected": {
+        "name": "checked/selected",
+        "section": "9.6",
+        "group": "Selection controls",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "checked/selected.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "state.selection.pressed": {
+        "name": "pressed",
+        "section": "9.6",
+        "group": "Selection controls",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "pressed.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "state.selection.focused": {
+        "name": "focused",
+        "section": "9.6",
+        "group": "Selection controls",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "focused.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "state.selection.disabled": {
+        "name": "disabled",
+        "section": "9.6",
+        "group": "Selection controls",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "disabled.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "state.selection.mixed_indeterminate": {
+        "name": "mixed/indeterminate",
+        "section": "9.6",
+        "group": "Selection controls",
+        "classification": "OPTIONAL_VARIANT",
+        "normative_force": "MUST_IF_APPLICABLE",
+        "contract_status": "KNOWN",
+        "contract_basis": "mixed/indeterminate where semantically required.",
+        "condition": "where semantically required",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      }
+    },
+    "behaviors": {
+      "behavior.layout.no_arbitrary_magic_padding": {
+        "name": "Do not use arbitrary magic padding in application crates.",
+        "section": "9.5",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST_NOT",
+        "contract_status": "KNOWN",
+        "contract_basis": "Do not use arbitrary magic padding in application crates.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.text_entry.mature_engine_reuse": {
+        "name": "Text editing may reuse mature GTK text infrastructure internally.",
+        "section": "9.6",
+        "kind": "permission",
+        "classification": "PERMITTED",
+        "normative_force": "MAY",
+        "contract_status": "KNOWN",
+        "contract_basis": "Text-editing implementation may reuse mature GTK text infrastructure internally.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.text_entry.geometry_owned": {
+        "name": "Visible text-entry geometry is SLOPOS-owned.",
+        "section": "9.6",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Visible geometry, focus, selection, disabled state and surrounding chrome are SLOPOS-owned.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.text_entry.focus_owned": {
+        "name": "Text-entry focus is SLOPOS-owned.",
+        "section": "9.6",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Visible geometry, focus, selection, disabled state and surrounding chrome are SLOPOS-owned.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.text_entry.selection_owned": {
+        "name": "Text-entry selection is SLOPOS-owned.",
+        "section": "9.6",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Visible geometry, focus, selection, disabled state and surrounding chrome are SLOPOS-owned.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.text_entry.disabled_state_owned": {
+        "name": "Text-entry disabled state is SLOPOS-owned.",
+        "section": "9.6",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Visible geometry, focus, selection, disabled state and surrounding chrome are SLOPOS-owned.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.text_entry.surrounding_chrome_owned": {
+        "name": "Text-entry surrounding chrome is SLOPOS-owned.",
+        "section": "9.6",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Visible geometry, focus, selection, disabled state and surrounding chrome are SLOPOS-owned.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.collections.keyboard_navigation": {
+        "name": "Collection components support keyboard navigation.",
+        "section": "9.7",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Collection components must support keyboard navigation and accessible selection semantics.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.collections.accessible_selection_semantics": {
+        "name": "Collection components support accessible selection semantics.",
+        "section": "9.7",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Collection components must support keyboard navigation and accessible selection semantics.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.scrolling.consistency": {
+        "name": "Scrolling behavior is consistent across all native apps.",
+        "section": "9.8",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Scrolling behavior must be consistent across all native apps.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.menus.state_from_figma": {
+        "name": "Menu state derives from the Figma specification.",
+        "section": "9.9",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Menu state and geometry must derive from the Figma specification.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.menus.geometry_from_figma": {
+        "name": "Menu geometry derives from the Figma specification.",
+        "section": "9.9",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Menu state and geometry must derive from the Figma specification.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.windows.decoration_ownership": {
+        "name": "Window-manager decorations are owned by the WM/theme integration.",
+        "section": "9.10",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Window-manager decorations are owned by the WM/theme integration.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.windows.native_content_components": {
+        "name": "Native window content uses SLOPOS components.",
+        "section": "9.10",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Native window content uses SLOPOS components.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.windows.modal_transient_host": {
+        "name": "Modal/transient host behavior is provided.",
+        "section": "9.10",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "modal/transient host behavior.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.navigation.no_modern_sidebar_card_default": {
+        "name": "Do not default to modern sidebars or cards merely because GTK makes them convenient.",
+        "section": "9.11",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST_NOT",
+        "contract_status": "KNOWN",
+        "contract_basis": "Do not default to modern sidebars or cards merely because GTK makes them convenient.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.icons.original_or_licensed": {
+        "name": "Icon assets are original or license-compatible.",
+        "section": "9.12",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "Assets must be original or license-compatible.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.icons.alignment_owned": {
+        "name": "The UI library controls icon alignment.",
+        "section": "9.12",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "The UI library controls icon alignment and scaling.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.icons.scaling_owned": {
+        "name": "The UI library controls icon scaling.",
+        "section": "9.12",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "The UI library controls icon alignment and scaling.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "behavior.typography.shared_sizes": {
+        "name": "First-party applications may not invent unrelated font sizes.",
+        "section": "9.13",
+        "kind": "behavior",
+        "classification": "REQUIRED",
+        "normative_force": "MUST_NOT",
+        "contract_status": "KNOWN",
+        "contract_basis": "First-party applications may not invent unrelated font sizes.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      }
+    },
+    "assets": {
+      "asset.icons.device_icons": {
+        "name": "device icons",
+        "section": "9.12",
+        "kind": "asset_family",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "SLOPOS must define device icons.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "asset.icons.folder_icons": {
+        "name": "folder icons",
+        "section": "9.12",
+        "kind": "asset_family",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "SLOPOS must define folder icons.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "asset.icons.file_type_icons": {
+        "name": "file-type icons",
+        "section": "9.12",
+        "kind": "asset_family",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "SLOPOS must define file-type icons.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "asset.icons.action_icons": {
+        "name": "action icons",
+        "section": "9.12",
+        "kind": "asset_family",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "SLOPOS must define action icons.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "asset.icons.status_icons": {
+        "name": "status icons",
+        "section": "9.12",
+        "kind": "asset_family",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "SLOPOS must define status icons.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "asset.icons.application_icons": {
+        "name": "application icons",
+        "section": "9.12",
+        "kind": "asset_family",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "SLOPOS must define application icons.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "asset.icons.high_dpi_variants": {
+        "name": "high-DPI variants",
+        "section": "9.12",
+        "kind": "asset_family",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "SLOPOS must define high-DPI variants.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED"
+      },
+      "asset.icons.canonical_sizes": {
+        "name": "canonical icon sizes",
+        "section": "9.12",
+        "kind": "asset_size",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "SLOPOS must define canonical icon sizes.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED",
+        "value_status": "UNKNOWN"
+      }
+    },
+    "typography_roles": {
+      "type.role.global_menu_text": {
+        "name": "global menu text",
+        "section": "9.13",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "The library must define the shared role `global menu text`; each role defines family, size, weight, baseline, line height and scaling rule.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED",
+        "properties": {
+          "family": {
+            "value_status": "UNKNOWN"
+          },
+          "size": {
+            "value_status": "UNKNOWN"
+          },
+          "weight": {
+            "value_status": "UNKNOWN"
+          },
+          "baseline": {
+            "value_status": "UNKNOWN"
+          },
+          "line height": {
+            "value_status": "UNKNOWN"
+          },
+          "scaling rule": {
+            "value_status": "UNKNOWN"
+          }
+        }
+      },
+      "type.role.window_title_text": {
+        "name": "window/title text",
+        "section": "9.13",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "The library must define the shared role `window/title text`; each role defines family, size, weight, baseline, line height and scaling rule.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED",
+        "properties": {
+          "family": {
+            "value_status": "UNKNOWN"
+          },
+          "size": {
+            "value_status": "UNKNOWN"
+          },
+          "weight": {
+            "value_status": "UNKNOWN"
+          },
+          "baseline": {
+            "value_status": "UNKNOWN"
+          },
+          "line height": {
+            "value_status": "UNKNOWN"
+          },
+          "scaling rule": {
+            "value_status": "UNKNOWN"
+          }
+        }
+      },
+      "type.role.body_text": {
+        "name": "body text",
+        "section": "9.13",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "The library must define the shared role `body text`; each role defines family, size, weight, baseline, line height and scaling rule.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED",
+        "properties": {
+          "family": {
+            "value_status": "UNKNOWN"
+          },
+          "size": {
+            "value_status": "UNKNOWN"
+          },
+          "weight": {
+            "value_status": "UNKNOWN"
+          },
+          "baseline": {
+            "value_status": "UNKNOWN"
+          },
+          "line height": {
+            "value_status": "UNKNOWN"
+          },
+          "scaling rule": {
+            "value_status": "UNKNOWN"
+          }
+        }
+      },
+      "type.role.secondary_text": {
+        "name": "secondary text",
+        "section": "9.13",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "The library must define the shared role `secondary text`; each role defines family, size, weight, baseline, line height and scaling rule.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED",
+        "properties": {
+          "family": {
+            "value_status": "UNKNOWN"
+          },
+          "size": {
+            "value_status": "UNKNOWN"
+          },
+          "weight": {
+            "value_status": "UNKNOWN"
+          },
+          "baseline": {
+            "value_status": "UNKNOWN"
+          },
+          "line height": {
+            "value_status": "UNKNOWN"
+          },
+          "scaling rule": {
+            "value_status": "UNKNOWN"
+          }
+        }
+      },
+      "type.role.list_text": {
+        "name": "list text",
+        "section": "9.13",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "The library must define the shared role `list text`; each role defines family, size, weight, baseline, line height and scaling rule.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED",
+        "properties": {
+          "family": {
+            "value_status": "UNKNOWN"
+          },
+          "size": {
+            "value_status": "UNKNOWN"
+          },
+          "weight": {
+            "value_status": "UNKNOWN"
+          },
+          "baseline": {
+            "value_status": "UNKNOWN"
+          },
+          "line height": {
+            "value_status": "UNKNOWN"
+          },
+          "scaling rule": {
+            "value_status": "UNKNOWN"
+          }
+        }
+      },
+      "type.role.icon_label_text": {
+        "name": "icon-label text",
+        "section": "9.13",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "The library must define the shared role `icon-label text`; each role defines family, size, weight, baseline, line height and scaling rule.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED",
+        "properties": {
+          "family": {
+            "value_status": "UNKNOWN"
+          },
+          "size": {
+            "value_status": "UNKNOWN"
+          },
+          "weight": {
+            "value_status": "UNKNOWN"
+          },
+          "baseline": {
+            "value_status": "UNKNOWN"
+          },
+          "line height": {
+            "value_status": "UNKNOWN"
+          },
+          "scaling rule": {
+            "value_status": "UNKNOWN"
+          }
+        }
+      },
+      "type.role.section_title": {
+        "name": "section title",
+        "section": "9.13",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "The library must define the shared role `section title`; each role defines family, size, weight, baseline, line height and scaling rule.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED",
+        "properties": {
+          "family": {
+            "value_status": "UNKNOWN"
+          },
+          "size": {
+            "value_status": "UNKNOWN"
+          },
+          "weight": {
+            "value_status": "UNKNOWN"
+          },
+          "baseline": {
+            "value_status": "UNKNOWN"
+          },
+          "line height": {
+            "value_status": "UNKNOWN"
+          },
+          "scaling rule": {
+            "value_status": "UNKNOWN"
+          }
+        }
+      },
+      "type.role.utility_display_text": {
+        "name": "utility display text",
+        "section": "9.13",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "The library must define the shared role `utility display text`; each role defines family, size, weight, baseline, line height and scaling rule.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED",
+        "properties": {
+          "family": {
+            "value_status": "UNKNOWN"
+          },
+          "size": {
+            "value_status": "UNKNOWN"
+          },
+          "weight": {
+            "value_status": "UNKNOWN"
+          },
+          "baseline": {
+            "value_status": "UNKNOWN"
+          },
+          "line height": {
+            "value_status": "UNKNOWN"
+          },
+          "scaling rule": {
+            "value_status": "UNKNOWN"
+          }
+        }
+      },
+      "type.role.monospace_text": {
+        "name": "monospace text",
+        "section": "9.13",
+        "classification": "REQUIRED",
+        "normative_force": "MUST",
+        "contract_status": "KNOWN",
+        "contract_basis": "The library must define the shared role `monospace text`; each role defines family, size, weight, baseline, line height and scaling rule.",
+        "source": {
+          "mapping_status": "UNRESOLVED",
+          "source_nodes": [],
+          "source_specs": [],
+          "detail_status": "UNKNOWN"
+        },
+        "implementation_status": "NOT_ASSESSED",
+        "properties": {
+          "family": {
+            "value_status": "UNKNOWN"
+          },
+          "size": {
+            "value_status": "UNKNOWN"
+          },
+          "weight": {
+            "value_status": "UNKNOWN"
+          },
+          "baseline": {
+            "value_status": "UNKNOWN"
+          },
+          "line height": {
+            "value_status": "UNKNOWN"
+          },
+          "scaling rule": {
+            "value_status": "UNKNOWN"
+          }
+        }
+      }
+    }
+  }
+}

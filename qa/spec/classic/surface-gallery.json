@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "kind": "SLOPOS_QA_FIXTURE",
+  "status": "NOT_A_REFERENCE_COMPONENT_CONFORMANCE_CLAIM",
+  "logical_surface": {"width": 160, "height": 90, "rgba": [255, 255, 255, 255]},
+  "logical_rectangle": {"x": 20, "y": 20, "width": 80, "height": 20, "rgba": [0, 0, 0, 255]},
+  "capture_scales": [1, 2],
+  "scaling": "INTEGER_PIXEL_PRESERVING",
+  "capture_region": "CLIENT_CONTENT_ONLY",
+  "purpose": "Verify real surface rendering and GTK device-scale composition, not button appearance or desktop chrome"
+}
