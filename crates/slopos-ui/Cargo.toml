@@ -1,0 +1,11 @@
+[package]
+name = "slopos-ui"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS-owned Classic UI components"
+
+[dependencies]
+gtk.workspace = true
+pangocairo.workspace = true
+thiserror.workspace = true
