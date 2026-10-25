@@ -78,7 +78,7 @@ Every subsystem requires reproducible positive and negative tests, explicitly sc
 
 Study [Vinix](https://vinix-os.org/) for user-space ABI compatibility and full-system memory discipline, and [VitruvianOS](https://v-os.dev/) for reliable Linux-backed desktop integration: session supervision, metadata-aware Files and common media APIs. These are *design references*, not copied dependencies or features claimed complete. See [contract §21.8.1–2](docs/CONTRACT.md#2181-lessons-from-vinix-and-vitruvianos--compatibility-and-low-latency-integration).
 
-**Only independently authored projects with verified source/asset rights qualify as bundled first-party apps.** Candidate suite: Loom, ClipKit, JWhisper, JVosk, JForge, PyForge, Donkey and ICStudio; JTorch and Benchmarks belong in optional developer tools, not the default boot image. **Tricycle and texture-auto-upscaler are upstream forks and explicitly excluded.** Keep core installations minimal; make resource-heavy apps optional, and consider PARAMA targets only after actual platform/runtime bring-up.
+**Only independently authored projects with verified source/asset rights qualify as bundled first-party apps.** Candidate suite: Loom, ClipKit, JWhisper, JVosk, JForge, PyForge, Donkey and ICStudio; **JTorch and Benchmarks are not SLOPOS first-party application candidates or optional curated catalog entries**: they remain independent library/benchmark tooling projects. Their own portability and Pi Zero 2 W efficiency goals are unchanged. **Tricycle and texture-auto-upscaler are upstream forks and explicitly excluded.** Keep core installations minimal; make resource-heavy apps optional, and consider PARAMA targets only after actual platform/runtime bring-up.
 
 ## Canonical design direction
 
