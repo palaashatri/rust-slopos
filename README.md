@@ -58,6 +58,8 @@ Next product steps, in priority order. Each one is something a person using SLOP
 6. **A first native app on `slopos-ui`** (Calculator is the smallest), as proof that the component library can carry a real app.
 7. **A bootable install image a new user can try**: an ISO that boots to the SLOPOS-I session in QEMU, built and boot-tested in CI.
 
+**Longer-term feature goal (not a SLOPOS-I release blocker): SLOPOS Intelligence.** An opt-in, local-first AI operator that visibly controls desktop applications through typed actions, accessibility semantics and bounded screen/visual input, with verification, an immediate stop control and consent for sensitive actions. Text-first; optional voice later. This is **planned, not implemented**. Architecture, scope and future acceptance milestones: [engineering contract §21.6](docs/CONTRACT.md#216-future-feature-goal--slopos-intelligence).
+
 ## Canonical design direction
 
 The visual/component reference is the community **Classic Macintosh UI Kit** in Figma:
