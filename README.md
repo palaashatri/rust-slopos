@@ -74,6 +74,12 @@ SLOPOS will favor **tested platform infrastructure over needless rewrites**, whi
 
 Every subsystem requires reproducible positive and negative tests, explicitly scoped benchmarks, license/provenance review (including any copyleft obligations), and human-reviewed AI-authored diffs. Failures and unrun gates remain visible. See [engineering contract §21.8](docs/CONTRACT.md#218-platform-compatibility-reuse-and-evidence-discipline).
 
+### Integration lessons and first-party ecosystem
+
+Study [Vinix](https://vinix-os.org/) for user-space ABI compatibility and full-system memory discipline, and [VitruvianOS](https://v-os.dev/) for reliable Linux-backed desktop integration: session supervision, metadata-aware Files and common media APIs. These are *design references*, not copied dependencies or features claimed complete. See [contract §21.8.1–2](docs/CONTRACT.md#2181-lessons-from-vinix-and-vitruvianos--compatibility-and-low-latency-integration).
+
+**Only independently authored projects with verified source/asset rights qualify as bundled first-party apps.** Candidate suite: Loom, ClipKit, JWhisper, JVosk, JForge, PyForge, Donkey and ICStudio; **JTorch and Benchmarks are not SLOPOS first-party application candidates or optional curated catalog entries**: they remain independent library/benchmark tooling projects. Their own portability and Pi Zero 2 W efficiency goals are unchanged. **Tricycle and texture-auto-upscaler are upstream forks and explicitly excluded.** Keep core installations minimal; make resource-heavy apps optional, and consider PARAMA targets only after actual platform/runtime bring-up.
+
 ### Edge-device efficiency goal
 
 The **Raspberry Pi Zero 2 W** (quad-core Cortex-A53, **512 MB RAM**) is the future low-end reference device for SLOPOS. Basic menus, input, file browsing and small native tasks should remain responsive, while large work may run longer with progress and cancellation. Support **minimum**, **standard** and **accelerated** capability tiers, with lazy services, strict memory/idle CPU budgets and truthful fallback where optional ML, GPU effects or codecs are not suitable. Architecture and actual board support are **not verified**.
