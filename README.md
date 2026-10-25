@@ -74,6 +74,12 @@ SLOPOS will favor **tested platform infrastructure over needless rewrites**, whi
 
 Every subsystem requires reproducible positive and negative tests, explicitly scoped benchmarks, license/provenance review (including any copyleft obligations), and human-reviewed AI-authored diffs. Failures and unrun gates remain visible. See [engineering contract §21.8](docs/CONTRACT.md#218-platform-compatibility-reuse-and-evidence-discipline).
 
+### Integration lessons and first-party ecosystem
+
+Study [Vinix](https://vinix-os.org/) for user-space ABI compatibility and full-system memory discipline, and [VitruvianOS](https://v-os.dev/) for reliable Linux-backed desktop integration: session supervision, metadata-aware Files and common media APIs. These are *design references*, not copied dependencies or features claimed complete. See [contract §21.8.1–2](docs/CONTRACT.md#2181-lessons-from-vinix-and-vitruvianos--compatibility-and-low-latency-integration).
+
+**Only independently authored projects with verified source/asset rights qualify as bundled first-party apps.** Candidate suite: Loom, ClipKit, JWhisper, JVosk, JForge, PyForge, Donkey and ICStudio; JTorch and Benchmarks belong in optional developer tools, not the default boot image. **Tricycle and texture-auto-upscaler are upstream forks and explicitly excluded.** Keep core installations minimal; make resource-heavy apps optional, and consider PARAMA targets only after actual platform/runtime bring-up.
+
 ## Canonical design direction
 
 The visual/component reference is the community **Classic Macintosh UI Kit** in Figma:
