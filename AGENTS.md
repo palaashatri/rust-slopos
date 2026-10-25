@@ -82,7 +82,7 @@ Graphical and integration QA lives in `scripts/run-*-qa.sh` (Xvfb/Openbox, AT-SP
 
 ## Cross-generation feature goals (§21.7)
 
-The full SLOPOS platform vision is captured in `docs/CONTRACT.md` §21.7 and **does not change the SLOPOS-I release gates**. Future, not-yet-implemented tracks: a fully themeable first-party UI toolkit with **System 7/Platinum Classic**, **Sinty-inspired SLOPOS Modern**, independent desktop layouts and third-party themes/icon packs (Loom Design Bible remains a creative-suite bridge); Loom Writer/Sheets/Present integration while preserving Loom's own Rust/Slint and cross-platform status; local-first Vision/Live Text, Copy Subject, Visual Look Up, dictation/writing assistance; permissioned Bixby-style desktop automation (§21.6); an independently proven SLOPOS-owned compositor with HDR/VRR, Spaces and live wallpapers; and **SLOPOS as PARAMA's intended complete desktop above SURYA**, only once genuine kernel/user-space/security/driver/graphics gates exist.
+The full SLOPOS platform vision is captured in `docs/CONTRACT.md` §21.7 and **does not change the SLOPOS-I release gates**. Future, not-yet-implemented tracks: a fully themeable first-party UI toolkit with **System 7/Platinum Classic**, **Sinty-inspired SLOPOS Modern**, independent desktop layouts and third-party themes/icon packs, all governed by the SLOPOS Design Bible in contract §5.2 (its structure is ported from Loom's Design Bible, which keeps its own values and remains the creative-suite bridge); Loom Writer/Sheets/Present integration while preserving Loom's own Rust/Slint and cross-platform status; local-first Vision/Live Text, Copy Subject, Visual Look Up, dictation/writing assistance; permissioned Bixby-style desktop automation (§21.6); an independently proven SLOPOS-owned compositor with HDR/VRR, Spaces and live wallpapers; and **SLOPOS as PARAMA's intended complete desktop above SURYA**, only once genuine kernel/user-space/security/driver/graphics gates exist.
 
 The **12 licensed Lucide SVG symbolic app-list prototypes** and pinned icon manifest live in `assets/icons/symbolic/`; they are not runtime-integrated or full-color brand artworks. Future branded Dock/launcher icons must be original and validated. Themes must separate visual styles, desktop layouts, icon packs and user accessibility prefs; follow §21.7.1 rather than implementing per-app theme switches. Preserve clean-room rights for the Sinty reference. Keep Loom, PARAMA and SLOPOS separate. Do not implement future work on the current SLOPOS-I branch without an owner-approved scoped task, bypass `slopos-ui`/appkit requirements, falsely mark third-party compatibility, or silently turn planned goals into product readiness claims. Future task identifiers: FUT-UI, FUT-LOOM, FUT-VISION, FUT-COMP, FUT-PARAMA.
 
@@ -130,6 +130,7 @@ The **12 licensed Lucide SVG symbolic app-list prototypes** and pinned icon mani
 - The four cargo checks pass locally; changed shell scripts pass `bash -n`.
 - New behaviour has a test, or the PR explains why it can't (e.g. needs real hardware).
 - No new fake state, no new raw-GTK first-party UI.
+- User-visible UI changes pass the design review checklist in contract §5.2.8 and introduce none of the §5.2.7 anti-patterns.
 - If the change closes or adds a known defect, `docs/CONTRACT.md` Part II is updated.
 
 ## Further reading in `docs/CONTRACT.md`
@@ -137,6 +138,7 @@ The **12 licensed Lucide SVG symbolic app-list prototypes** and pinned icon mani
 | Task | Sections |
 |---|---|
 | UI library, spec, gallery | §2, §5, §9–11, §25, §27 |
+| Design language, principles, tokens, theme matrix, anti-patterns, design review | §5.2 (SLOPOS Design Bible) |
 | Appkit and native apps | §12, §15–19 |
 | Shell, providers, X11 | §13–14, §18, §22–24 |
 | QA, release, evidence | §28–33, Part II |
