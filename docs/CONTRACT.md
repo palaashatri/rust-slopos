@@ -2265,6 +2265,86 @@ Nothing in this section may be marked COMPLETE without implementation and task-s
 
 ---
 
+## 21.7 Cross-generation vision: SLOPOS as a coherent desktop platform
+
+**Status: FUTURE FEATURE GOALS / NOT IMPLEMENTED**, except for individually audited foundations elsewhere in this contract. This section captures long-term aspirations, not new deliverables or hidden release gates for SLOPOS-I. Keep §3's SLOPOS-I scope and §21.5's milestones authoritative: **Rust + X11/Openbox + Platinum Classic** remain settled for the present generation. Do not start a Wayland compositor, PARAMA port, Loom port or model feature merely because this roadmap exists. Evaluate ambitious work as independently scoped, explicitly approved follow-on milestones, without derailing the required UI-first migration.
+
+The long-term product aim is one cohesive SLOPOS experience across session, window management, native applications, creative tools, accessibility, on-device intelligence and eventually an independent operating-system host. Keep the SLOPOS, [Loom](https://github.com/palaashatri/rust-loom) and [PARAMA](https://github.com/palaashatri/parama) repositories separate: each has its own architectural contract, release matrix and evidence ledger. Cross-project integration means versioned interfaces, not an unsupported claim of compatibility.
+
+### 21.7.1 Shared native UI toolkit and consistent, selectable design systems
+
+Continue building the SLOPOS-owned **\`slopos-ui\` + \`slopos-appkit\`** foundation into a genuine desktop component and application framework: shared geometry, widgets, typography, icons, controls, accessibility, menus, window chrome, dialogs, document/action lifecycle and consistent input behavior. The toolkit owns first-party app UI; the platform backend owns presentation/windowing; service providers own real OS state. No separate app-local style implementations.
+
+- **Classic appearance:** System 7 / classic Macintosh, continuing the canonical **Platinum Classic** clean-room specifications, System 7–Mac OS 9 interaction ideas and Figma-based acceptance. Never ship proprietary Apple fonts, logos, sounds, artwork or copied assets. Preserve compact desktop density, global menu, deliberate window controls and keyboard behavior.
+- **Alternative modern appearance:** a **Loom Design Bible-inspired theme** can be selectable *system-wide* while remaining its own original SLOPOS implementation. Map Loom's documented semantic design tokens, spacing, typography, iconography and interaction principles into versioned SLOPOS theme tokens/components; do not equate Loom's Slint widgets with SLOPOS's GTK-backed components.
+- Switching themes must carry through all **participating SLOPOS-native** apps and shell surfaces—menu bar, Dock, launcher, Settings, widgets, dialogs, notifications, title bars and window controls—without changing action IDs, app data, accessibility semantics, keyboard shortcuts or persistence. Include font customization, high-contrast/reduced-motion modes and appropriate light/dark palettes.
+- Third-party applications are interoperable but not promised perfect system-wide theming; their support is subject to their own toolkit/protocol capabilities. Define first-party and third-party coverage separately.
+
+**Acceptance direction:** versioned token/spec comparison, gallery and independent visual checks at multiple display scales; keyboard/accessibility parity under both themes; live theme change across at least three native apps plus shell surfaces without a restart or save-data loss. Missing atoms return to the common UI library queue.
+
+### 21.7.2 Loom creative suite as an integrated application family
+
+Treat Loom as the preferred creative suite accessible from SLOPOS, **not as a fork or compulsory rewrite**. Loom keeps its own Rust + Slint, cross-platform builds, original visual identity and document engines; SLOPOS owns the shell and desktop services.
+
+- Initial integration targets Loom **Writer, Sheets and Present**. Loom **Photo, Motion, Video, Studio and Encode** remain later Loom-scoped goals; never infer they are shipping or accepted.
+- Create a versioned SLOPOS ↔ Loom desktop-adapter contract for application launch and file associations, native file open/save and URI handoff, clipboard and drag/drop, global menus/commands, notifications, sharing, accessibility and consistent application lifecycle. Reuse Loom's existing adapters where actual behavior is verified.
+- Apply the selected SLOPOS appearance with an explicit **theme-token and chrome adapter** wherever Loom supports it; retain Loom's cross-platform default design on other systems. If future exact visual parity requires a port to SLOPOS UI, approve and prove that migration separately—**do not** undermine Loom's Slint architecture by fiat.
+- Expose permissioned document actions for SLOPOS Intelligence (§21.6) and on-device Vision (§21.7.3) instead of unnecessarily screen-scraping or copying sensitive document contents.
+
+**Acceptance direction:** graphical Linux VM demonstration of Writer/Sheets/Present launch, real menu action invocation, clean Save/Reopen, native file picker/clipboard handoff and selection-theme consistency. Record unsupported menu/toolkit scenarios truthfully. A documentation adapter design is not an integrated application.
+
+### 21.7.3 SLOPOS Vision: on-device ML capabilities
+
+Provide local-first, opt-in media and text intelligence inspired by useful **Apple Vision / Live Text / Visual Look Up-style workflows**, using original code and properly licensed model packages. Target reusable services callable by SLOPOS Files, Screenshot & Recorder, Image Viewer, Notes, Loom (through adapters) and the AI desktop operator. Do **not** claim Apple feature/model parity without a tested capability matrix.
+
+- **Live Text:** local OCR and text selection from screenshots, images, scans and supported video frames; copy/search with visible confidence, language and rotation behavior; optional local translation adapters.
+- **Copy Subject:** foreground segmentation, user-correctable preview and transparent PNG/clipboard export; retain the original document and report uncertain masks.
+- **Visual Look Up:** opt-in local visual categorization/recognition with calibrated uncertainty, provenance and clear offline limitations; any web retrieval is separately consented.
+- **Dictation and writing tools:** offline speech recognition, optional TTS, selection-scoped proofreading/rewrite/summarization and accessible review of changes. No silent uploads or destructive text replacement.
+- **Inference infrastructure:** versioned model provider ABI, integrity/license/provenance checks, CPU fallback, optional GPU/accelerator inference, bounded resource use, permission-scoped screen/document access, graceful unavailable states and honest performance measurements. Local inference must function without an account or mandatory remote service.
+- **Responsibility boundary:** Vision analyzes permitted data; §21.6 SLOPOS Intelligence plans/acts. Neither directly bypasses OS privileges or grabs arbitrary user secrets.
+
+**Acceptance direction:** offline VM image/OCR and subject-cutout fixtures with ground truth and false-positive cases, usable selection/copy/alpha export, model-license audit, privacy/no-network checks, latency/CPU and optional GPU measurements, and real multi-app handoff.
+
+### 21.7.4 Future SLOPOS-owned Wayland compositor and advanced display stack
+
+After the X11/Openbox desktop reaches a defensible quality bar, investigate a **SLOPOS-owned compositor** with display-server/window-manager authority rather than depending indefinitely on Openbox. This is a **new-generation feasibility gate**, not permission to change SLOPOS-I. Evaluate **Rust/Smithay** against an explicitly designed **C/C++** alternative for protocol completeness, isolation, maintenance, resource use and testability before fixing the implementation language.
+
+- Planned protocol/service coverage: Wayland xdg-shell, appropriate layer surfaces, XWayland interoperability, clipboard/drag-drop, portals, screenshot/recording and permissioned input/remote-desktop facilities, focus/modal constraints, global menu/action bridges, workspaces/Spaces, animated transitions, multi-monitor hotplug, varied DPI/fractional scaling and resilience to compositor restart.
+- Planned rendering/output goals: HDR and wide color gamut with correct color management/ICC and tone mapping, VRR/adaptive sync, frame pacing, fullscreen/direct scanout when valid, responsive animations, high refresh rates and tested GPU/driver fallbacks. Do not assert HDR/VRR from protocol build or VM capture; require real hardware/driver capability and user-visible validation.
+- **Live wallpapers** are a first-class future desktop capability, subject to fullscreen pause, battery/resource throttling, reduced motion, lock-screen handling, multi-output support and performance verification.
+- Keep shared SLOPOS UI controls, appkit actions, desktop intelligence and provider APIs window-system agnostic; supply isolated X11 and future Wayland adapters rather than embedding input injection or compositor details into application logic.
+- Preserve desired macOS-like *usability* traits through original implementations: global app menu, configurable window-control meanings, accessible Dock with dodge/hide, screenshot/recording, consistent Finder-like/Explorer-like navigation policies and integrated native apps.
+
+**Acceptance direction:** cold boot and restart to a **real** Wayland session, compositing/surface/input/focus tests, XWayland and modal/clipboard coverage, mixed-DPI/display hotplug and real hardware HDR/VRR demonstrations. SLOPOS-I's X11 status is unchanged until independently verified migration gates exist.
+
+### 21.7.5 PARAMA OS integration when PARAMA is actually capable
+
+The independent [PARAMA](https://github.com/palaashatri/parama) project aims for a capability-based OS with **BRAHMA** kernel, **GARUDA** supervision, user-space drivers and **SURYA** composition. Current PARAMA milestones remain early kernel/boot research; it is **not** presently capable of hosting SLOPOS or Linux applications. SLOPOS must continue running on Linux regardless of PARAMA progress.
+
+- Define a potential portable \`PlatformBackend\` interface for SLOPOS-native app/runtime services (threads/processes, capabilities, IPC, files, display/input, clipboard, storage, network, audio, security) that does **not** change SLOPOS-I's Linux adapters.
+- Only begin a PARAMA target prototype after PARAMA independently proves user mode, per-process isolation, capability/IPC enforcement, application loading, graphical surfaces, input and basic file/app lifecycle. Later distribution-grade support additionally needs reliable drivers, storage, network, audio, recovery/update and real-hardware validation.
+- **One compositor ownership model:** integrate the SLOPOS shell/toolkit as a client of PARAMA's SURYA, or explicitly port/replace SURYA via a reviewed compatible contract. Do not run two competing compositors or treat a Linux syscall layer as native PARAMA support.
+- Preserve the existing SLOPOS Linux release track, theme/toolkit semantics and security boundaries. Do not promise binary compatibility for Linux, Rust/Slint/GTK applications or Loom until required ABIs/runtimes/graphics backends and packaging are concretely implemented and tested.
+
+**Acceptance direction:** separate PARAMA VM builds showing a native SLOPOS UI sample app under an enforced capability policy, denied access tests, input-to-render journey, save/reopen only after filesystem semantics exist and crash/restart recovery. Record per-platform availability; a PARAMA splash or framebuffer drawing is not integration.
+
+### 21.7.6 Future platform backlog and sequencing
+
+The above initiatives form a **coordinated long-term product vision**, not a single giant implementation milestone. First make the present desktop truthful and usable, then add cross-app integration and ML, and pursue compositor/PARAMA experiments in independently guarded tracks. Useful additional goals retained from prior product discussions include full native app consistency, modern global search, on-device text/vision flows, live wallpapers, reliable screenshot/recording, customizable window buttons, robust gaming/fullscreen behavior, HDR/VRR, multi-display ergonomics and eventually privacy-conscious device/Android interoperability. Each must receive an explicit scope, dependency list, test fixtures and current evidence before any readiness claim.
+
+| Future ID | Area | Prerequisite and proposed verification |
+|---|---|---|
+| FUT-UI | Dual visual languages + native toolkit | \`slopos-ui\`, appkit, accessible apps; atomic components and whole-desktop theme-switch conformance |
+| FUT-LOOM | Loom desktop adapters | Existing Loom native Linux builds and SLOPOS services; real Writer/Sheets/Present workflow in a graphical Linux VM |
+| FUT-VISION | Offline vision/ML system | Permissioned capture, model provider, image/document handoff; OCR, subject copy and local-inference QA with privacy checks |
+| FUT-COMP | Own compositor + graphics | Proven X11 baseline, dedicated compositor design/VM/hardware gate; working Wayland session, XWayland, HDR/VRR on capable displays |
+| FUT-PARAMA | Optional native PARAMA host | Independent PARAMA Ring 3, capabilities, drivers, SURYA and loader milestones; sandboxed native SLOPOS sample under PARAMA in QEMU/VirtualBox |
+
+Do not promote **FUT-*** into SLOPOS-I's required §37 acceptance or source-code task backlog automatically. Review the scope and platform compatibility with the owner and independently record evidence before scheduling any feature implementation.
+
+---
+
 # 22. System providers and truthful state
 
 An enabled control must execute the behavior it advertises.
