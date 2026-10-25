@@ -2218,6 +2218,53 @@ Keep fixes for fabricated production state and misleading readiness text in the 
 
 ---
 
+## 21.6 Future feature goal — SLOPOS Intelligence
+
+**Status: PLANNED / NOT IMPLEMENTED. Priority: post-core-desktop; not a SLOPOS-I alpha, daily-use release candidate or production gate under §21.5/§37.** This is an architectural and user-experience goal, not permission to build new shell UI before `slopos-ui` and `slopos-appkit` are ready. Prototype its backend independently in the mandated disposable Linux VM after the needed platform interfaces are stable.
+
+### User-facing outcome
+
+Provide an opt-in, local-first AI desktop operator invoked through text, a global shortcut and eventually voice. It understands a natural-language objective, decomposes it into observable steps, **visibly operates the actual SLOPOS desktop** (opens/focuses windows, moves the cursor, clicks, types, navigates menus, captures screenshots) and verifies each result before proceeding. It must be pausable, interruptible and explicitly disclose what it is doing.
+
+Representative journeys, not present capabilities:
+
+1. "Open Files, select the three newest screenshots, archive them and place the ZIP on the desktop."
+2. "Open Control Panels, change a supported preference and show the authoritative applied state."
+3. "Capture the active window, open the resulting image in the viewer, and save it to the requested location."
+4. "Navigate a supported third-party application through its accessible controls; if semantics are absent, use an approved visual-control fallback." Never promise universal arbitrary-app support.
+
+### Proposed architecture (target paths, not existing crates)
+
+- `crates/slopos-automation/`: window enumeration/focus, screenshot capture, X11/XTest input injection and AT-SPI2 accessibility observation/actions, behind typed backend interfaces. Restrict operations to the active, authorized user session.
+- `crates/slopos-intelligence/`: opt-in model/provider interface, task planner, bounded action executor, observation/verification loop, recovery, permission/policy engine and sanitized local task history. Local model support is the default goal; optional remote inference requires separate informed opt-in and a clear account of transmitted content.
+- `crates/slopos-assistant/` or an allocated `slopos-shell` surface: non-focus-stealing task HUD, keyboard/text command input, action preview, confirmations, pause/stop, progress and errors. Voice recognition/TTS are later optional adapters, not a dependency for the first slice.
+- First-party apps expose stable typed `slopos-appkit` actions and useful accessibility labels/states; prefer shared `slopos-services` commands/read-back for reliable system mutations. The operator does **not** implement duplicate NetworkManager/audio/display provider logic or bypass normal authorization.
+- The intelligence/planning layer must not depend on X11-specific types. X11/Openbox is the only backend for SLOPOS-I; any future Wayland backend is separately scoped and is not authorized by this goal.
+
+**Execution precedence:** authorized typed system/app action with authoritative read-back → AT-SPI2 named role/action/state traversal → bounded screenshot/vision-assisted coordinate actions as fallback. A system action may reveal its outcome in an actual app window; it must not be represented as visible clicking if no visible clicking occurred. The executor re-observes after each meaningful step rather than running a blind fixed click script. Do not give an LLM unconstrained shell execution, unrestricted file writes or unrestricted synthetic input.
+
+### Privacy, security and reliability requirements
+
+- Off by default; clear per-task permission and an always-visible operating indicator. Provide immediate stop shortcut, user takeover, timeout/step/action budgets and cancellation without leaving synthetic keys/buttons held.
+- Separate read-only actions, ordinary reversible writes, and sensitive/destructive/external actions (deletion, payments, messaging, credential entry, permission or security changes); the latter require explicit context-specific user confirmation. No silent approval chaining.
+- Mask or exclude secrets/secure text, private window contents and unrelated applications wherever possible; never intentionally send screenshots, accessibility trees or credentials to remote services without explicit opt-in. Support per-app and per-action deny rules; redact logs and clear task data.
+- Record that X11 cannot enforce strong per-app input/screen isolation against other local X clients: consent, masking and policy are best-effort protections, **not** an OS-level sandbox or confidentiality guarantee.
+- Fail closed when the UI target cannot be identified confidently, state is stale, input focus differs, the screen is locked, a permission is denied or a verification step fails. Do not fabricate completion, app state or results.
+
+### Future milestone packets and testable acceptance
+
+| ID | Dependencies | First independently verifiable acceptance |
+|---|---|---|
+| AI-01 Observe/act foundation | PLAT-01, QA-01 | In a disposable graphical X11 VM, enumerate/focus a test window, inspect AT-SPI2 tree, inject bounded click/type, capture the actual display and restore input state. Demonstrate permission denial, stop and teardown. |
+| AI-02 Typed planner/executor | AI-01, applicable KIT/SVC interfaces | Using deterministic stub planner and mocked providers, execute/verify a multi-step scenario, recover from wrong window/absent control, cancel safely, and reject unapproved system mutations. No model-quality claim from stub tests. |
+| AI-03 First-party visible journey | AI-02, native Files/Control Panels/Screenshot functions | Execute at least one user-observable cross-app journey on real X11/Openbox with true read-back, on-screen progress, task stop and explicit confirmation where required; collect ordered action/observation evidence in a VM. |
+| AI-04 Third-party/vision fallback | AI-03 | Demonstrate accessible third-party navigation, one deliberately inaccessible fixture requiring screenshot/vision fallback, misidentification rejection and safe failure. Report app coverage; no universal-compatibility claims. |
+| AI-05 Speech and model choices | AI-03 | Opt-in local text/model baseline; separately verify offline operation, voice activation/transcription if implemented, resource limits, data handling and remote-model consent if offered. |
+
+Nothing in this section may be marked COMPLETE without implementation and task-specific evidence. These milestones are an **optional later roadmap**, not new blocking gates for existing SLOPOS-I release scope.
+
+---
+
 # 22. System providers and truthful state
 
 An enabled control must execute the behavior it advertises.
