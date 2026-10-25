@@ -86,6 +86,14 @@ The full SLOPOS platform vision is captured in `docs/CONTRACT.md` §21.7 and **d
 
 Keep Loom, PARAMA and SLOPOS separate. Do not implement future work on the current SLOPOS-I branch without an owner-approved scoped task, bypass `slopos-ui`/appkit requirements, falsely mark third-party compatibility, or silently turn planned goals into product readiness claims. Future task identifiers: FUT-UI, FUT-LOOM, FUT-VISION, FUT-COMP, FUT-PARAMA.
 
+## Platform engineering discipline (§21.8)
+
+- **Reuse mature infrastructure; own the experience.** Before building a compositor, protocol bridge, compatibility engine or driver, compare available upstream alternatives, document missing behavior/licensing and specify a small replaceable adapter. Preserve one authoritative system-service provider per domain.
+- **Compatibility is a complete user workflow:** installation, launch, interaction, persistence, exit/restart and failure recovery, with a bounded per-app/runtime/distro matrix. Wine/Proton are the Linux default to evaluate; Raven is an experimental alternative requiring independent display-server and license assessment—not a dependency or a claim of support.
+- Validate real GTK/Qt/Slint/native/Windows-app journeys in an isolated graphical Linux VM; hardware graphics/HDR/VRR claims require separate physical tests. Capture failed stages and exact binaries/configuration. No "works" from a build, screenshot or stub.
+- Benchmark repeated matched workloads (startup, responsiveness, resource use, correctness and failures). No cherry-picked one-run superiority claims. Review source-level dependencies, imports, redistributable assets and GPL obligations before bringing in third-party code.
+- Coding agents preserve approved architecture, implement typed contracts, test negative cases, document evidence and `NOT_RUN` gates, and update the existing truth ledger—not new status documents. This discipline applies to current tasks **without authorizing future §21.6/§21.7 features**.
+
 ## Rules
 
 1. **Never display invented system state.** No hard-coded interfaces, SSIDs, IPs, devices or levels. If a provider is missing, show "unavailable". Read state through `slopos-services` providers, never by parsing ad-hoc command output. `crates/slopos-shell/tests/shell_tests.rs` asserts the old fake strings stay gone; keep those tests.
@@ -120,3 +128,4 @@ Keep Loom, PARAMA and SLOPOS separate. Do not implement future work on the curre
 | Production-readiness definition | §35–37 |
 | Future SLOPOS Intelligence feature goal | §21.6 (AI-01–AI-05) |
 | Broader SLOPOS platform vision, Loom/Vision/compositor/PARAMA | §21.7 (FUT-*) |
+| Compatibility, reuse, benchmarks, licenses, agent evidence | §21.8 |
