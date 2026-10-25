@@ -2273,7 +2273,7 @@ The long-term product aim is one cohesive SLOPOS experience across session, wind
 
 ### 21.7.1 Shared native UI toolkit and consistent, selectable design systems
 
-Continue building the SLOPOS-owned **\`slopos-ui\` + \`slopos-appkit\`** foundation into a genuine desktop component and application framework: shared geometry, widgets, typography, icons, controls, accessibility, menus, window chrome, dialogs, document/action lifecycle and consistent input behavior. The toolkit owns first-party app UI; the platform backend owns presentation/windowing; service providers own real OS state. No separate app-local style implementations.
+Continue building the SLOPOS-owned **`slopos-ui` + `slopos-appkit`** foundation into a genuine desktop component and application framework: shared geometry, widgets, typography, icons, controls, accessibility, menus, window chrome, dialogs, document/action lifecycle and consistent input behavior. The toolkit owns first-party app UI; the platform backend owns presentation/windowing; service providers own real OS state. No separate app-local style implementations.
 
 - **Classic appearance:** System 7 / classic Macintosh, continuing the canonical **Platinum Classic** clean-room specifications, System 7–Mac OS 9 interaction ideas and Figma-based acceptance. Never ship proprietary Apple fonts, logos, sounds, artwork or copied assets. Preserve compact desktop density, global menu, deliberate window controls and keyboard behavior.
 - **Alternative modern appearance:** a **Loom Design Bible-inspired theme** can be selectable *system-wide* while remaining its own original SLOPOS implementation. Map Loom's documented semantic design tokens, spacing, typography, iconography and interaction principles into versioned SLOPOS theme tokens/components; do not equate Loom's Slint widgets with SLOPOS's GTK-backed components.
@@ -2322,7 +2322,7 @@ After the X11/Openbox desktop reaches a defensible quality bar, investigate a **
 
 The independent [PARAMA](https://github.com/palaashatri/parama) project aims for a capability-based OS with **BRAHMA** kernel, **GARUDA** supervision, user-space drivers and **SURYA** composition. Current PARAMA milestones remain early kernel/boot research; it is **not** presently capable of hosting SLOPOS or Linux applications. SLOPOS must continue running on Linux regardless of PARAMA progress.
 
-- Define a potential portable \`PlatformBackend\` interface for SLOPOS-native app/runtime services (threads/processes, capabilities, IPC, files, display/input, clipboard, storage, network, audio, security) that does **not** change SLOPOS-I's Linux adapters.
+- Define a potential portable `PlatformBackend` interface for SLOPOS-native app/runtime services (threads/processes, capabilities, IPC, files, display/input, clipboard, storage, network, audio, security) that does **not** change SLOPOS-I's Linux adapters.
 - Only begin a PARAMA target prototype after PARAMA independently proves user mode, per-process isolation, capability/IPC enforcement, application loading, graphical surfaces, input and basic file/app lifecycle. Later distribution-grade support additionally needs reliable drivers, storage, network, audio, recovery/update and real-hardware validation.
 - **One compositor ownership model:** integrate the SLOPOS shell/toolkit as a client of PARAMA's SURYA, or explicitly port/replace SURYA via a reviewed compatible contract. Do not run two competing compositors or treat a Linux syscall layer as native PARAMA support.
 - Preserve the existing SLOPOS Linux release track, theme/toolkit semantics and security boundaries. Do not promise binary compatibility for Linux, Rust/Slint/GTK applications or Loom until required ABIs/runtimes/graphics backends and packaging are concretely implemented and tested.
@@ -2335,7 +2335,7 @@ The above initiatives form a **coordinated long-term product vision**, not a sin
 
 | Future ID | Area | Prerequisite and proposed verification |
 |---|---|---|
-| FUT-UI | Dual visual languages + native toolkit | \`slopos-ui\`, appkit, accessible apps; atomic components and whole-desktop theme-switch conformance |
+| FUT-UI | Dual visual languages + native toolkit | `slopos-ui`, appkit, accessible apps; atomic components and whole-desktop theme-switch conformance |
 | FUT-LOOM | Loom desktop adapters | Existing Loom native Linux builds and SLOPOS services; real Writer/Sheets/Present workflow in a graphical Linux VM |
 | FUT-VISION | Offline vision/ML system | Permissioned capture, model provider, image/document handoff; OCR, subject copy and local-inference QA with privacy checks |
 | FUT-COMP | Own compositor + graphics | Proven X11 baseline, dedicated compositor design/VM/hardware gate; working Wayland session, XWayland, HDR/VRR on capable displays |
