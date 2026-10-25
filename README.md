@@ -86,6 +86,10 @@ The **Raspberry Pi Zero 2 W** (quad-core Cortex-A53, **512 MB RAM**) is the futu
 
 Initial 720p reference and proposed performance/pressure gates, including **≥128 MiB `MemAvailable` at minimal idle**, are **unverified targets** pending actual hardware profiling. This does **not** make a future ARM port a release gate for present SLOPOS-I. See [engineering contract §21.9](docs/CONTRACT.md#219-edge-first-efficiency-and-raspberry-pi-zero-2-w-reference-target).
 
+### 2027 readiness
+
+The desktop world is moving to Wayland: GNOME 50 removed its own X11 session, KDE Plasma 6.8 is Wayland-only, and GTK 4 has deprecated its X11 backend. SLOPOS-I stays on X11 and Openbox for this generation, so it now explicitly tracks the risks this brings: which distributions and login managers still run an X11 session, the future of the GTK 3 bindings under the UI library, portal setup for Flatpak apps, WCAG 2.2-level accessibility and software supply-chain hygiene. These items are planned, not done. See [engineering contract §21.10](docs/CONTRACT.md#2110-2027-readiness-baseline--platform-toolkit-compatibility-and-supply-chain).
+
 ## Canonical design direction
 
 The visual/component reference is the community **Classic Macintosh UI Kit** in Figma:
