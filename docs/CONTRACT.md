@@ -2396,6 +2396,43 @@ A compatibility task must declare a **bounded matrix** rather than claim "all ap
 
 ---
 
+### 21.8.1 Lessons from Vinix and VitruvianOS — compatibility and low-latency integration
+
+**Research direction only; no upstream source has been imported.** Sources to review: [Vinix](https://vinix-os.org/) (independent kernel with Linux/Alpine userspace binary-compatibility goals) and [VitruvianOS](https://v-os.dev/blog/) (BeOS-inspired Linux desktop with kernel/user-space integration). Check exact upstream commit, implementation and license before any dependency is added. These are complementary design examples, not proof that their stated compatibility or memory benchmarks generalize.
+
+- **VitruvianOS lesson: make the desktop coherent without replacing Linux.** Keep SLOPOS Linux-facing APIs abstract and make system-service extensions through stable, permissioned user-space adapters. Prefer existing Linux logind/systemd --user, D-Bus, XDG portals, inotify/fanotify and extended attributes over a bespoke privileged kernel module unless an independently measured gap justifies one. Use one provider for each capability.
+- **Janus-inspired session supervision, without copying Janus:** define a deterministic SLOPOS session lifecycle: authenticated login/seat, managed X11/Openbox or future compositor, session services, shell/application startup, health/restart, VT/seat handoff, orderly logout and resource cleanup. Validate display-manager and greeter paths equivalently. Reuse logind/libseat and user service managers where appropriate; no duplicated privilege escalation.
+- **Metadata-aware Files:** optional typed file tags and user-controlled metadata queries using supported filesystem attributes plus bounded, resumable indexing. Never replace the filesystem or assume all mounts support xattrs. Disable or throttle indexing on Pi Zero 2 W/microSD; basic Files must work without a daemon, database, network or full-tree scan.
+- **Unified media capabilities:** prefer PipeWire for capture/playback, GStreamer/FFmpeg where a verified adapter fits, and shared permissions for media conversion/transcription across SLOPOS and Loom/ClipKit/JWhisper/JVosk. Don't fork codecs just to share branding; keep runtime dependencies lazy and optional.
+- **Vinix lesson: userspace compatibility and resource discipline matter.** SLOPOS on Linux already has Linux ABI support; do not reimplement it here. Make ELF native apps and Wine/Proton launch/install/persistence/rollback reliable through a test matrix. Test idle footprint and responsiveness of the **entire** desktop plus representative apps, not just one shell process; a lightweight shell does not guarantee a heavyweight suite can fit 512 MB.
+
+**Future experimental gates (not current implementation authorization):** `INT-SESSION` real login/suspend/restart/VT/shutdown failure tests; `INT-META` metadata on ext4/xattr-capable and unsupported mounts with privacy/performance controls; `INT-MEDIA` one genuine audio/video capture-to-native-app workflow; `INT-COMPAT` real native and Wine install/launch/save/restart/uninstall comparison. Store evidence in existing Part II instead of a new truth document.
+
+### 21.8.2 Curated first-party application policy — owned sources only
+
+**First-party means independently authored/maintained SLOPOS ecosystem software with audited code/asset provenance, not merely a repository with `fork=false`.** Only owner-authored projects may be branded/curated as SLOPOS/PARAMA first-party applications. A GitHub fork or unreviewed third-party import may be used under its license as an *external dependency* or optional third-party package, never represented as original first-party software. Before inclusion, confirm source lineage, licenses, contributor notices, bundled models/media and redistributability. Retain project autonomy and upstream identities; SLOPOS provides desktop integration, not forced toolkit rewrites.
+
+**Eligible candidate repositories, all still subject to real packaging, supported-host and owner-authorship reviews:**
+
+| Candidate | Intended role | Edge/device policy |
+|---|---|---|
+| [Loom](https://github.com/palaashatri/rust-loom) | Writer/Sheets/Present productivity suite | Separately installable; small-document profiles; no default 512 MB preload; preserve Rust/Slint |
+| [ClipKit](https://github.com/palaashatri/rust-clipkit) | Downloads/media tasks | Streaming transfers, bounded queues, adapter to existing ffmpeg; no forced media runtime at idle |
+| [JWhisper](https://github.com/palaashatri/jwhisper) / [JVosk](https://github.com/palaashatri/jvosk) | Transcription/dictation engine providers | Small-model and streaming profiles; per-model memory preflight, optional disabled/offloaded work with informed consent |
+| [JForge](https://github.com/palaashatri/jforge) / [PyForge](https://github.com/palaashatri/pyforge) | Local image/ML studios | Optional installs; no generative model loaded by default on 512 MB; opt-in remote only, never silently |
+| [Donkey](https://github.com/palaashatri/donkey) | Reverse-engineering workbench | Optional developer app; lazy disassembly/indexing and bounded decompiler jobs |
+| [ICStudio](https://github.com/palaashatri/icstudio) | EDA workbench | Optional professional app; lazy schematic rendering/simulation, cache caps |
+
+**Not first-party desktop candidates (even as optional catalog entries):** [JTorch](https://github.com/palaashatri/jtorch) remains an independent Java tensor/autograd **library**; [Benchmarks](https://github.com/palaashatri/benchmarks) remains an independent JVM benchmarking/QA **tool**. Do not add branded launcher icons, first-party app entries, SLOPOS/PARAMA-specific integration milestones or default runtime dependencies for either. Their normal source distributions may remain usable on any independently supported platform, and their Pi Zero 2 W resource-efficiency goals remain valuable. An actual future GUI product would require a separate owner decision and full app acceptance; a library's demos or a CLI do not automatically qualify it.
+
+**Explicit fork exclusions:** [Tricycle](https://github.com/palaashatri/tricycle) is a fork of `kmcclive/tricycle`; [texture-auto-upscaler](https://github.com/palaashatri/texture-auto-upscaler) is a fork of `veryCoolTimo/texture-auto-upscaler`. **Neither is an owner-authored first-party bundle candidate.** Avoid duplicate brand/product slots for their features; choose authored ClipKit's existing FFmpeg adapter for media tasks, and separately review licensing for any permitted upstream reuse. Other verified original projects may be proposed later through the same policy, never added to this list by name similarity alone.
+
+**Distribution tiers:** (1) `core-minimal`: only fundamental SLOPOS shell, settings, files and recovery tools; (2) `first-party-catalog`: user-selectable supported applications, no implicit background services; (3) `desktop-full`: convenience meta-package on sufficiently capable hardware, subject to image size/RAM and opt-in review. Only apps proven functional and compatible are installable, and no unsupported PARAMA executables or 512 MB-heavy model stacks may be advertised as ready.
+
+**Platform targets:** Linux/SLOPOS is the first real integration target. **PARAMA/SURYA is a future source-port/backend target** contingent on user processes, ABI, graphics, input, filesystem, security and a compatible runtime/toolkit. A Java Swing app implies future Java/JDK/AWT/Swing port; Python/Diffusers implies future interpreter/native dependency/graphics port; Rust/Iced/Slint implies platform backends. A written roadmap is not binary compatibility. Desktop entry, file dialogs, theme/icon roles, menu integration, accessibility and permissioned document actions must be tested per actual host.
+
+**Acceptance:** build/package provenance, real launch+file/clipboard/menu flow and failure recovery under Linux SLOPOS; low-memory/offload profile as relevant; no bundled binary unless the exact platform/runtime is proven; first-party curated source inventory must pass a fork/original-asset/licensing audit. Track readiness without claiming shipped support.
+
 # 22. System providers and truthful state
 
 An enabled control must execute the behavior it advertises.
