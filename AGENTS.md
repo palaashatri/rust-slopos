@@ -82,9 +82,9 @@ Graphical and integration QA lives in `scripts/run-*-qa.sh` (Xvfb/Openbox, AT-SP
 
 ## Cross-generation feature goals (§21.7)
 
-The full SLOPOS platform vision is captured in \`docs/CONTRACT.md\` §21.7 and **does not change the SLOPOS-I release gates**. Future, not-yet-implemented tracks: a first-party accessible UI toolkit with consistent **System 7/Platinum Classic** and optional **Loom Design Bible**-inspired whole-desktop themes; Loom Writer/Sheets/Present integration while preserving Loom's own Rust/Slint and cross-platform status; local-first Vision/Live Text, Copy Subject, Visual Look Up, dictation/writing assistance; permissioned Bixby-style desktop automation (§21.6); an independently proven SLOPOS-owned compositor with HDR/VRR, Spaces and live wallpapers; and **optional PARAMA hosting only once its real kernel/user-space/security/driver/graphics gates exist**.
+The full SLOPOS platform vision is captured in `docs/CONTRACT.md` §21.7 and **does not change the SLOPOS-I release gates**. Future, not-yet-implemented tracks: a first-party accessible UI toolkit with consistent **System 7/Platinum Classic** and optional **Loom Design Bible**-inspired whole-desktop themes; Loom Writer/Sheets/Present integration while preserving Loom's own Rust/Slint and cross-platform status; local-first Vision/Live Text, Copy Subject, Visual Look Up, dictation/writing assistance; permissioned Bixby-style desktop automation (§21.6); an independently proven SLOPOS-owned compositor with HDR/VRR, Spaces and live wallpapers; and **optional PARAMA hosting only once its real kernel/user-space/security/driver/graphics gates exist**.
 
-Keep Loom, PARAMA and SLOPOS separate. Do not implement future work on the current SLOPOS-I branch without an owner-approved scoped task, bypass \`slopos-ui\`/appkit requirements, falsely mark third-party compatibility, or silently turn planned goals into product readiness claims. Future task identifiers: FUT-UI, FUT-LOOM, FUT-VISION, FUT-COMP, FUT-PARAMA.
+Keep Loom, PARAMA and SLOPOS separate. Do not implement future work on the current SLOPOS-I branch without an owner-approved scoped task, bypass `slopos-ui`/appkit requirements, falsely mark third-party compatibility, or silently turn planned goals into product readiness claims. Future task identifiers: FUT-UI, FUT-LOOM, FUT-VISION, FUT-COMP, FUT-PARAMA.
 
 ## Rules
 
