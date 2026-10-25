@@ -2078,6 +2078,9 @@ dependencies = [
 [[package]]
 name = "slopos-core"
 version = "0.1.0"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "slopos-services"
@@ -2098,11 +2101,7 @@ dependencies = [
  "env_logger",
  "libc",
  "log",
- "serde",
- "serde_json",
- "tokio",
- "x11rb",
- "zbus",
+ "slopos-core",
 ]
 
 [[package]]

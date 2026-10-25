@@ -25,9 +25,11 @@ Artifacts:
   packaging/slopos-i.desktop → \$SESSION_DIR/slopos-i.desktop
   scripts/start-slopos-i     → \$PREFIX/bin/start-slopos-i
 
-The installed session descriptor uses \$PREFIX/bin/slopos-session for both
-Exec and TryExec so custom-prefix installs remain discoverable by display
-managers whose environment does not include that prefix.
+The installed session descriptor uses \$PREFIX/bin/start-slopos-i for both
+Exec and TryExec. start-slopos-i sets up the desktop (global menus, desktop
+icons, wallpaper) and then runs slopos-session, so display-manager logins and
+tuigreet logins get the same session. Absolute paths keep custom-prefix
+installs discoverable by display managers whose PATH lacks that prefix.
 EOF
 }
 
@@ -79,7 +81,7 @@ run_install() {
 
 install_session_descriptor() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    echo "DRY-RUN install -Dm644 $XSESSION_SRC $XSESSION_DST (Exec=$PREFIX/bin/slopos-session)"
+    echo "DRY-RUN install -Dm644 $XSESSION_SRC $XSESSION_DST (Exec=$PREFIX/bin/start-slopos-i)"
     return
   fi
 
@@ -92,11 +94,11 @@ install_session_descriptor() {
     case "$line" in
       Exec=*)
         saw_exec=1
-        printf 'Exec=%s\n' "$PREFIX/bin/slopos-session"
+        printf 'Exec=%s\n' "$PREFIX/bin/start-slopos-i"
         ;;
       TryExec=*)
         saw_tryexec=1
-        printf 'TryExec=%s\n' "$PREFIX/bin/slopos-session"
+        printf 'TryExec=%s\n' "$PREFIX/bin/start-slopos-i"
         ;;
       *) printf '%s\n' "$line" ;;
     esac
