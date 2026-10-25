@@ -2396,6 +2396,47 @@ A compatibility task must declare a **bounded matrix** rather than claim "all ap
 
 ---
 
+## 21.9 Edge-first efficiency and Raspberry Pi Zero 2 W reference target
+
+**Status: FUTURE PORTABILITY / PERFORMANCE GOAL, NOT VERIFIED SUPPORT AND NOT AN AUTOMATIC SLOPOS-I RELEASE BLOCKER.** The Raspberry Pi Zero 2 W is the deliberate **floor-reference efficiency device** for SLOPOS and its optional applications, not the only supported computer. Hardware reference: 4× 1 GHz Cortex-A53 (ARMv8-A/AArch64), **512 MB LPDDR2 shared with graphics**, VideoCore IV GPU, microSD I/O and 2.4 GHz Wi-Fi. The official hardware specification must be used rather than assumptions based on modern Pi 4/5 hardware: https://www.raspberrypi.com/documentation/computers/zero.html. Inference, driver and framework compatibility on this board require actual investigation; running a CI build or AArch64 VM is *not* proof of board compatibility.
+
+### User-visible performance contract
+
+- **Responsive small work:** ordinary desktop navigation, app menu operations, typing, window switching, settings changes, file browsing, opening a small note and calculator tasks must feel interactive with no UI-thread waits on network, disk, parsing, codecs, model loading or D-Bus. External network and storage latency may increase *completion time* but must not freeze unrelated input or misrepresent pending state.
+- **Graceful large work:** batch operations, large archives/files, long transcoding, scans and AI jobs may take longer, but must stay bounded, cancellable, progress-reporting and recoverable. Streaming, bounded queues, incremental parsing/painting and backpressure are preferred over materializing entire large datasets. Distinguish cancellation from successful completion.
+- **Feature/capability tiers:** a **minimum edge session** includes shell, Files, Control Panels, terminal, calculator, notes and basic services with a simple visual theme; a **standard session** may add richer media and document functionality as separately measured; **accelerated/high-end features** (HDR/VRR, animated wallpapers, demanding local ML, heavy app workloads) are optional and never start expensive background daemons by default on edge hardware. Give truthful unavailable/degraded explanations and permit remote/offloaded jobs only with explicit user consent. Core offline navigation must work without an AI model or network.
+- **Implementation mechanisms:** lazy application/services startup; task-local bounded worker pools; memory-mapped or streamed data only where correct; texture/thumbnail/icon caches with explicit upper bounds and eviction; window/damage-based redraw; avoid idle animations, polling and excessive compositing; use efficient icon assets and lightweight fallbacks for blur/shadows. Do not replace a proven system library with homegrown code without benchmark and maintenance evidence (§21.8).
+- **Architecture/platform:** SLOPOS-I remains Linux/X11/Openbox (§3). Research a **Linux AArch64** armv8 baseline (armhf optional if dependency/API and ABI tests justify it), cross-build and package dependencies, actual kernel GPU/display/graphics stack, and GTK/X11 functionality. Future Wayland and PARAMA ARM64 are independent gates. Don't label a Pi-compatible CPU binary a supported device without real display/input/audio/network integration.
+
+### Instrumented edge benchmarks and provisional budgets
+
+First record a clean **actual Pi Zero 2 W baseline**: OS image/32- or 64-bit ABI, kernel, Xorg or other session, storage type, resolution (begin with **1280×720**, then test 1920×1080), GPU memory reservation, CMA, swap/zram status, services, device clocks, temperature/throttling and free memory. Run both cold and warmed cases over repeated trials; keep machine-wide and process-tree PSS/RSS, `MemAvailable`, swap pressure, CPU usage, UI event latency, frame pacing, disk I/O and energy if measurable. VM/emulation results are separate evidence with limitations.
+
+**Initial design targets only—subject to actual hardware calibration, not claimed passes:**
+
+| Scenario | Provisional quality target |
+|---|---|
+| Minimal idle desktop | **≥128 MiB `MemAvailable`** with all required edge-session services running at 720p, on the declared OS image; stable steady-state idle CPU without unnecessary high-frequency timers; distinguish kernel/cache accounting from per-process PSS. |
+| Local input/menus | Keyboard input/visible state **p95 ≤150 ms** and ordinary menu invocation **p95 ≤250 ms** during idle/light load, separately report worst-case and blocked operations. |
+| Window/frame responsiveness | Damage-driven rendering, no continuously rendered frames while visually idle; prefer **30 fps or better when interaction warrants it** at 720p if the actual driver permits, with honest frame-time distribution instead of an empty animation benchmark. |
+| Memory pressure and reliability | No application/system OOM, unbounded resident-growth loop, uncontrolled swap storm or unsaved-data loss in the declared small-workload suite; demonstrate cancellation/clean restart under constrained memory. |
+| Heavy/unsupported operation | UI remains usable, task can be cancelled or safely offloaded, and the exact local CPU/GPU/model/codec or dependency limitation is reported. No fabricated "fast" or "supported" status. |
+
+These are **aspirational candidate limits** until the hardware baseline and user-approved budgets are recorded. Missing hardware measurements remain `NOT_RUN`. Never weaken safety, output correctness, keyboard/accessibility, data integrity or a reproducible failure to meet a speed target.
+
+### Future acceptance backlog
+
+| ID | Depends on | Evidence to collect |
+|---|---|---|
+| EDGE-01 | QA-01, platform boot baseline | Real Pi Zero 2 W system inventory, instrumented reference workloads, memory/CPU/frame traces, temperature/power conditions and file/ABI/toolchain matrix. Record inability to test as `BLOCKED`, not pass. |
+| EDGE-02 | Minimum shell/apps, EDGE-01 | Run real Files/Settings/Calculator/Notes, menu/Dock and lifecycle journeys within validated memory/interaction budgets. Verify idle, repeated launch, low-storage and cancellation/failure cases. |
+| EDGE-03 | Optional media/Vision/Loom adapters | Capability-aware feature loading, small real document/media handoff, absence of idle ML/model loading and safe offload/unsupported cases under 512 MB. Report per-app compatibility separately. |
+| EDGE-04 | Future compositor or PARAMA backend as applicable | Repeat hardware tests on the relevant *actual* backend; never transfer X11 performance or emulator success to Wayland/PARAMA by assumption. |
+
+For *all future first-party apps*, require an **edge profile** (memory budget, normal startup and steady-state measurements, idle CPU/polling, no-network behavior, bounded input/file work, cancellation), plus a justified exception matrix where hardware or format constraints make some features unavailable. Optimize after profiling and preserve the modern and Classic design system/feature contracts; edge mode is an implementation capability tier, not a separate ugly, inaccessible product.
+
+---
+
 # 22. System providers and truthful state
 
 An enabled control must execute the behavior it advertises.
