@@ -66,6 +66,12 @@ SLOPOS is intended to grow beyond the current X11/Openbox desktop without making
 
 These are **feature goals**, not current capabilities, dates or acceptance claims. Loom, PARAMA and SLOPOS stay in separate repositories with versioned interfaces and independent QA. See [§21.6–21.7 of the engineering contract](docs/CONTRACT.md#217-cross-generation-vision-slopos-as-a-coherent-desktop-platform).
 
+### Compatibility and engineering quality
+
+SLOPOS will favor **tested platform infrastructure over needless rewrites**, while owning a coherent native UI and typed integration APIs. On Linux, Windows applications should be supported through a verified **Wine/Proton** workflow; alternative runtimes such as Raven remain **experimental evaluations**, not shipped integration. A program merely launching is not compatibility: installation, real interaction, persistence, recovery and uninstall must be tested and reported per app/version. GPU/display behavior is validated separately on physical hardware.
+
+Every subsystem requires reproducible positive and negative tests, explicitly scoped benchmarks, license/provenance review (including any copyleft obligations), and human-reviewed AI-authored diffs. Failures and unrun gates remain visible. See [engineering contract §21.8](docs/CONTRACT.md#218-platform-compatibility-reuse-and-evidence-discipline).
+
 ## Canonical design direction
 
 The visual/component reference is the community **Classic Macintosh UI Kit** in Figma:
