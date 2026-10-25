@@ -2345,6 +2345,44 @@ Do not promote **FUT-*** into SLOPOS-I's required §37 acceptance or source-code
 
 ---
 
+## 21.8 Platform compatibility, reuse and evidence discipline
+
+**Applies immediately to newly scoped work; not a claim that the targets below are implemented.** This discipline takes lessons from experimental Windows compatibility runtimes such as [Raven](https://useraven.org/news/introducing-raven/), without making Raven a required dependency or replacing the release gates in §21.5 or §37. Preserve SLOPOS-I's Linux, X11/Openbox, Rust, UI-first and VM-only constraints (§3, §28). The future SLOPOS compositor and PARAMA compatibility remain separate, unapproved implementation tracks.
+
+### Own differentiated experience; reuse proven infrastructure
+
+1. Before writing a substantial new engine, protocol, driver or platform subsystem, document the exact missing capability, evaluated upstream alternatives, the technical reason each is insufficient, ABI/support burden, license and update strategy, and the **smallest replaceable adapter** needed. Prefer tested Linux services, DRM/Mesa, text/graphics/IME/accessibility infrastructure, portals and established application runtimes where their contracts suffice. No automatic "rewrite everything" goal.
+2. Keep SLOPOS-owned typed interfaces for launch, windows/surfaces, file/URI associations, notifications, menus/actions, accessibility, capture and input permission, theme tokens and provider-backed state. Adapt upstream technology behind these contracts; do not leak vendor or window-server details into native apps. One implementation must own each system truth or command.
+3. Compatibility is an **end-to-end user promise**, not evidence that a process launches. Install, discover, open, interact, persist, update, uninstall, and recover from failure using the actual applications and desktop UI. Define which guarantees cover native SLOPOS, GTK/Qt/Slint, Electron, AppImage, Wine/Proton, and—only if independently demonstrated—alternative Windows runtimes.
+4. **Windows applications:** on the existing Linux session, prefer Wine/Proton as the maintained default and test launchers, file associations, installation/prefix isolation, per-application configuration, restore/recovery and honest security boundaries. Keep a proposed **runtime-neutral launcher/manager** behind typed capabilities. Raven is a research candidate, not a shipped or assumed X11-compatible backend; establish its current host and display requirements in an isolated experiment before claiming support. Avoid developing a second PE/NT implementation inside SLOPOS.
+5. **Hardware:** on Linux, inherit graphics/input/audio/network drivers from the supported Linux kernel/userspace stack; SLOPOS does not "port drivers" to be a DE. A future custom compositor must consume real DRM/KMS, Mesa and driver capabilities with separate physical-hardware verification (§21.7.4). PARAMA driver adaptation belongs in PARAMA's own gates, never silently in a Linux-DE milestone.
+
+### Compatibility proof and comparative measurements
+
+A compatibility task must declare a **bounded matrix** rather than claim "all apps work." Store the active matrix and its actual test evidence in the existing QA/evidence inventory (no competing Markdown status documents). At minimum, each target records:
+
+| Field | Required evidence |
+|---|---|
+| Subject | App/runtime version, distro/kernel/session, display server/WM, hardware or VM configuration, relevant drivers, build SHA and test date |
+| Lifecycle | Install → launch → UI interaction → save/exit → relaunch → uninstall/rollback where applicable |
+| User interactions | Real keyboard/mouse, accessibility, menus/clipboard/drag-drop, dialogs, window geometry, scale and focus |
+| Outcomes | `PASS`, `FAIL`, `BLOCKED` or `NOT_RUN` **per stage**, exact observation and logs/screenshots/traces; `PASS` never means a lower stage alone worked |
+| Negative cases | Missing dependency, bad installer/input, permission denied, unavailable service, crash/restart, read/write failure and cleanup |
+| Regression | Deterministic test seed/fixtures and rerun instructions, plus separate real-app graphical VM and physical-hardware evidence as relevant |
+
+- Initial illustrative workload classes: native SLOPOS Files/settings/screenshot flows; ordinary GTK and Qt editors/file dialogs; a Slint/Loom app once available; a Windows native-API utility and installer under Wine; a game or GPU-intensive workload only with documented graphics hardware and driver support. **Do not assert any of these already pass.**
+- For performance comparisons, pin the runtime/app binary, platform configuration, rendering mode and workload; capture baseline and candidate with multiple warm/cold runs, distributions (at least median and a tail statistic), peak memory, startup latency and failures. Include GPU/CPU utilization where meaningful. Do not generalize a single benchmark or a smaller compatibility surface into "faster than Wine/KDE/GNOME."
+- A screenshot proves only the captured frame; a process listing proves only process existence; a test double proves only its stated contract. Use separate build/unit, protocol/integration, actual UI journey, recovery, hardware and install/remove gates. Keep failing results visible.
+
+### Dependencies, licensing and AI-agent review
+
+- Keep per-component provenance (source URL, exact version/commit, hash where distributable, license, redistribution obligations and update owner). Check licenses at source-file, library, model/asset and linked/distributed-artifact levels, not just the upstream website banner. GPL-licensed driver/runtime components require a reviewed architecture and redistribution decision; **no unreviewed code import or automatic change to SLOPOS's MIT license**.
+- A coding agent must identify the authoritative abstraction and existing implementation first, propose the smallest coherent change, enumerate affected contracts and security boundaries, and provide independent tests, failure traces and reviewable diffs. Do not accept a generated checklist, stub, sample screenshot or unconditional success message as feature proof.
+- Every task handoff and PR must state **scope, non-goals, dependencies reused, compatibility matrix rows exercised, exact commands/environment, observed failures, resource/benchmark data when relevant, license impact, and remaining `NOT_RUN` gates**. Keep current readiness in Part II; no separate truth file and no changing release gates to conceal a defect.
+- Cross-project experiments with Loom or PARAMA must preserve their independent ABI/design requirements and roadmap locks (§21.7). Future optional runtime work starts only after explicit owner-scoped authorization and a portable interface design.
+
+---
+
 # 22. System providers and truthful state
 
 An enabled control must execute the behavior it advertises.
