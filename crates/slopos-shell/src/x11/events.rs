@@ -7,7 +7,6 @@ use super::windows;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
 use x11rb::connection::Connection;
 use x11rb::protocol::randr::{ConnectionExt as RandrConnectionExt, NotifyMask};
 use x11rb::protocol::xproto::{
@@ -139,10 +138,10 @@ impl X11EventBus {
                     windows: fetch_client_list(conn, root, &atoms),
                 });
 
+                // Block until the X server sends something: no idle wakeups.
                 while running_clone.load(Ordering::Relaxed) {
-                    let event = match conn.poll_for_event() {
-                        Ok(Some(event)) => Some(event),
-                        Ok(None) => None,
+                    let event = match conn.wait_for_event() {
+                        Ok(event) => Some(event),
                         Err(error) => {
                             log::error!("X11 connection error in event loop: {error}");
                             break;
@@ -265,8 +264,6 @@ impl X11EventBus {
                             _ => {}
                         }
                     }
-
-                    thread::sleep(Duration::from_millis(16));
                 }
 
                 if trigger_win != 0 {

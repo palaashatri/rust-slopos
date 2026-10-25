@@ -13,7 +13,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::env;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -75,21 +74,27 @@ impl FreedesktopNotifications {
         } else {
             replaces_id
         };
-        let _ = self.sender.send(UiCommand::Show {
-            id,
-            summary: summary.to_string(),
-            body: body.to_string(),
-            icon: app_icon.to_string(),
-            expire_timeout_ms: expire_timeout,
-        });
+        dispatch(
+            &self.sender,
+            UiCommand::Show {
+                id,
+                summary: summary.to_string(),
+                body: body.to_string(),
+                icon: app_icon.to_string(),
+                expire_timeout_ms: expire_timeout,
+            },
+        );
         id
     }
 
     fn close_notification(&self, id: u32) {
-        let _ = self.sender.send(UiCommand::Close {
-            id,
-            reason: REASON_CLOSED,
-        });
+        dispatch(
+            &self.sender,
+            UiCommand::Close {
+                id,
+                reason: REASON_CLOSED,
+            },
+        );
     }
 
     #[zbus(out_args("name", "vendor", "version", "spec_version"))]
@@ -123,13 +128,16 @@ impl NotificationServer {
             log::warn!("Notification requested before presenter initialization: {summary}");
             return;
         };
-        let _ = sender.send(UiCommand::Show {
-            id: next_notification_id(),
-            summary: summary.to_string(),
-            body: body.to_string(),
-            icon: icon.to_string(),
-            expire_timeout_ms: 6000,
-        });
+        dispatch(
+            sender,
+            UiCommand::Show {
+                id: next_notification_id(),
+                summary: summary.to_string(),
+                body: body.to_string(),
+                icon: icon.to_string(),
+                expire_timeout_ms: 6000,
+            },
+        );
     }
 }
 
@@ -153,7 +161,7 @@ fn spawn_dbus_service(sender: Sender<UiCommand>) {
         };
 
         log::info!("SLOPOS owns {NOTIFICATION_BUS_NAME}");
-        let _ = sender.send(UiCommand::DbusConnection(connection));
+        dispatch(&sender, UiCommand::DbusConnection(connection));
         // zbus runs its internal executor for the lifetime of the connection.
         // Keep this dedicated server thread parked until the process exits.
         loop {
@@ -162,13 +170,42 @@ fn spawn_dbus_service(sender: Sender<UiCommand>) {
     });
 }
 
-fn install_ui_pump(receiver: Receiver<UiCommand>) {
-    let windows: Rc<RefCell<HashMap<u32, Window>>> = Rc::new(RefCell::new(HashMap::new()));
-    let dbus_connection: Rc<RefCell<Option<zbus::blocking::Connection>>> =
-        Rc::new(RefCell::new(None));
+struct UiPump {
+    receiver: Receiver<UiCommand>,
+    windows: Rc<RefCell<HashMap<u32, Window>>>,
+    dbus_connection: Rc<RefCell<Option<zbus::blocking::Connection>>>,
+}
 
-    glib::timeout_add_local(Duration::from_millis(25), move || {
-        while let Ok(command) = receiver.try_recv() {
+thread_local! {
+    // Lives on the GTK thread; other threads reach it through `dispatch`.
+    static UI_PUMP: RefCell<Option<UiPump>> = const { RefCell::new(None) };
+}
+
+fn install_ui_pump(receiver: Receiver<UiCommand>) {
+    UI_PUMP.with(|pump| {
+        *pump.borrow_mut() = Some(UiPump {
+            receiver,
+            windows: Rc::new(RefCell::new(HashMap::new())),
+            dbus_connection: Rc::new(RefCell::new(None)),
+        });
+    });
+}
+
+/// Queue a command and wake the GTK main loop to handle it. Safe to call from
+/// any thread; nothing polls for commands.
+fn dispatch(sender: &Sender<UiCommand>, command: UiCommand) {
+    if sender.send(command).is_ok() {
+        glib::idle_add_once(drain_ui_commands);
+    }
+}
+
+fn drain_ui_commands() {
+    UI_PUMP.with(|pump| {
+        let pump = pump.borrow();
+        let Some(pump) = pump.as_ref() else {
+            return;
+        };
+        while let Ok(command) = pump.receiver.try_recv() {
             match command {
                 UiCommand::Show {
                     id,
@@ -182,21 +219,20 @@ fn install_ui_pump(receiver: Receiver<UiCommand>) {
                     &body,
                     &icon,
                     expire_timeout_ms,
-                    windows.clone(),
-                    dbus_connection.clone(),
+                    pump.windows.clone(),
+                    pump.dbus_connection.clone(),
                 ),
                 UiCommand::Close { id, reason } => {
-                    if let Some(window) = windows.borrow_mut().remove(&id) {
+                    if let Some(window) = pump.windows.borrow_mut().remove(&id) {
                         window.close();
-                        emit_closed(dbus_connection.borrow().as_ref(), id, reason);
+                        emit_closed(pump.dbus_connection.borrow().as_ref(), id, reason);
                     }
                 }
                 UiCommand::DbusConnection(connection) => {
-                    *dbus_connection.borrow_mut() = Some(connection);
+                    *pump.dbus_connection.borrow_mut() = Some(connection);
                 }
             }
         }
-        glib::ControlFlow::Continue
     });
 }
 
@@ -234,16 +270,15 @@ fn show_window(
         glib::Propagation::Proceed
     });
     set_accessible_name(&window, "SLOPOS notification");
-    let (screen_width, screen_height) = screen_geometry();
+    let area = work_area();
     let width = 340;
     let height = 116;
     let stack_index = windows.borrow().len().min(3) as i32;
-    let y = notification_top_y(stack_index, screen_height, height);
     window.set_default_size(width, height);
     window.set_position(WindowPosition::None);
     window.move_(
-        (screen_width - width - 12).max(0),
-        y.min((screen_height - height - 12).max(36)),
+        (area.x + area.width - width - 12).max(area.x),
+        notification_top_y(stack_index, area, height),
     );
     window.set_decorated(false);
     window.set_keep_above(true);
@@ -408,48 +443,44 @@ fn next_notification_id() -> u32 {
     }
 }
 
-fn screen_geometry() -> (i32, i32) {
-    let Ok(output) = Command::new("xrandr").arg("--current").output() else {
-        return (1280, 800);
-    };
-    if !output.status.success() {
-        return (1280, 800);
-    }
-
-    let text = String::from_utf8_lossy(&output.stdout);
-    for line in text.lines() {
-        let Some(after_current) = line.split("current ").nth(1) else {
-            continue;
-        };
-        let Some(dimensions) = after_current.split(',').next() else {
-            continue;
-        };
-        let mut parts = dimensions.split('x').map(str::trim);
-        let (Some(width), Some(height)) = (parts.next(), parts.next()) else {
-            continue;
-        };
-        if let (Ok(width), Ok(height)) = (width.parse::<i32>(), height.parse::<i32>()) {
-            let scale = env::var("GDK_SCALE")
-                .ok()
-                .and_then(|value| value.parse::<i32>().ok())
-                .filter(|scale| *scale > 0)
-                .unwrap_or(1);
-            return ((width / scale).max(1), (height / scale).max(1));
-        }
-    }
-    (1280, 800)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Area {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
 }
 
-// Openbox reserves 26px for the SLOPOS top bar and the bar itself is 26px
-// tall. Keep notifications below both regions so a toast never obscures the
-// menu/status controls, even when it is kept above normal application windows.
-fn notification_top_y(stack_index: i32, screen_height: i32, height: i32) -> i32 {
-    const OPENBOX_TOP_MARGIN: i32 = 26;
-    const TOPBAR_HEIGHT: i32 = 26;
-    const TOPBAR_GAP: i32 = 8;
-    let minimum = OPENBOX_TOP_MARGIN + TOPBAR_HEIGHT + TOPBAR_GAP;
-    let desired = minimum + (stack_index.max(0) * 124);
-    desired.min((screen_height - height - 12).max(minimum))
+/// The primary monitor's work area: the screen minus panels such as the menu
+/// bar, as reported by the window manager.
+fn work_area() -> Area {
+    gdk::Display::default()
+        .and_then(|display| display.primary_monitor().or_else(|| display.monitor(0)))
+        .map(|monitor| {
+            let rect = monitor.workarea();
+            Area {
+                x: rect.x(),
+                y: rect.y(),
+                width: rect.width().max(1),
+                height: rect.height().max(1),
+            }
+        })
+        .unwrap_or(Area {
+            x: 0,
+            y: 26,
+            width: 1280,
+            height: 774,
+        })
+}
+
+/// Toasts stack downward from just below the top of the work area, which
+/// already excludes the menu bar, and never run off its bottom edge.
+fn notification_top_y(stack_index: i32, area: Area, height: i32) -> i32 {
+    const GAP: i32 = 8;
+    const STEP: i32 = 124;
+    let top = area.y + GAP;
+    let desired = top + stack_index.max(0) * STEP;
+    desired.min((area.y + area.height - height - GAP).max(top))
 }
 
 #[cfg(test)]
@@ -466,9 +497,19 @@ mod tests {
     }
 
     #[test]
-    fn notifications_start_below_the_reserved_top_bar() {
-        assert_eq!(notification_top_y(0, 800, 116), 60);
-        assert_eq!(notification_top_y(1, 800, 116), 184);
-        assert!(notification_top_y(3, 180, 116) >= 60);
+    fn notifications_start_just_below_the_work_area_top() {
+        let area = Area {
+            x: 0,
+            y: 26,
+            width: 1280,
+            height: 774,
+        };
+        assert_eq!(notification_top_y(0, area, 116), 34);
+        assert_eq!(notification_top_y(1, area, 116), 158);
+        let short = Area {
+            height: 154,
+            ..area
+        };
+        assert_eq!(notification_top_y(3, short, 116), 56);
     }
 }

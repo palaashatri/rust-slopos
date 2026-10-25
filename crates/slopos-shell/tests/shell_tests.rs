@@ -348,14 +348,18 @@ fn install_and_native_packages_ship_icons_and_both_appearances() {
 
 #[test]
 fn session_reloads_appearance_without_reintroducing_display_stack_scope() {
-    let session = include_str!("../../slopos-session/src/main.rs");
-    assert!(session.contains("fn appearance()"));
-    assert!(session.contains("#25272B"));
-    assert!(session.contains("#758090"));
-    assert!(session.contains("rc-graphite.xml"));
-    assert!(session.contains("resolve_openbox_config"));
-    for obsolete in ["wayland", "smithay", "wlroots", "xwayland"] {
-        assert!(!session.to_ascii_lowercase().contains(obsolete));
+    let main = include_str!("../../slopos-session/src/main.rs");
+    let environment = include_str!("../../slopos-session/src/environment.rs");
+    assert!(environment.contains("pub fn appearance()"));
+    assert!(environment.contains("rc-graphite.xml"));
+    assert!(environment.contains("pub fn openbox_config()"));
+    // The session must not write other desktops' configuration files.
+    assert!(!environment.contains(".gtkrc-2.0\")"));
+    assert!(!environment.contains("\"openbox\").join(\"rc.xml\")"));
+    for source in [main, environment] {
+        for obsolete in ["wayland", "smithay", "wlroots", "xwayland"] {
+            assert!(!source.to_ascii_lowercase().contains(obsolete));
+        }
     }
 }
 
@@ -552,10 +556,16 @@ fn event_driven_architecture_replaces_periodic_subprocess_polling() {
     assert!(x11_events.contains("Event::EnterNotify"));
     assert!(x11_events.contains("Event::LeaveNotify"));
     assert!(!x11_events.contains("query_pointer"));
+    // The event thread blocks on the X server instead of polling.
+    assert!(x11_events.contains("wait_for_event"));
+    assert!(!x11_events.contains("poll_for_event"));
+    assert!(!shell_main.contains("timeout_add_local"));
 
     // Ensure shell audio state and controls use the shared audio provider.
     assert!(monitor.contains("audio::watch_audio_changes"));
-    assert!(monitor.contains("receive_all_signals"));
+    assert!(monitor.contains("network::watch"));
+    let monitor_runtime = monitor.split("#[cfg(test)]").next().unwrap_or(monitor);
+    assert!(!monitor_runtime.contains("recv_timeout"));
     assert!(!monitor.contains("pactl"));
     assert!(audio.contains("AudioClient"));
     assert!(topbar.contains("audio::adjust_default_output_volume"));

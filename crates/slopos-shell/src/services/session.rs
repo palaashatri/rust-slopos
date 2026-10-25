@@ -1,8 +1,7 @@
 //! Session power and state actions via standards-compliant APIs (D-Bus / logind) and verified command fallbacks.
 
-use std::env;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::path::PathBuf;
+use std::sync::OnceLock;
 
 /// Verified concrete locker binaries that directly lock X11 displays.
 const CONCRETE_LOCKER_COMMANDS: &[(&str, &[&str])] = &[
@@ -116,35 +115,86 @@ pub fn switch_user() -> bool {
     try_commands(SWITCH_USER_COMMANDS)
 }
 
-pub fn reboot_system() -> bool {
-    try_commands(REBOOT_COMMANDS)
+/// Reboot through logind (which handles polkit authorization and inhibitors),
+/// falling back to the classic commands.
+pub fn reboot_system() -> Result<(), String> {
+    logind_call("Reboot").or_else(|error| {
+        if try_commands(REBOOT_COMMANDS) {
+            Ok(())
+        } else {
+            Err(error)
+        }
+    })
 }
 
-pub fn poweroff_system() -> bool {
-    try_commands(POWEROFF_COMMANDS)
+pub fn poweroff_system() -> Result<(), String> {
+    logind_call("PowerOff").or_else(|error| {
+        if try_commands(POWEROFF_COMMANDS) {
+            Ok(())
+        } else {
+            Err(error)
+        }
+    })
+}
+
+fn logind_proxy(
+    connection: &zbus::blocking::Connection,
+) -> zbus::Result<zbus::blocking::Proxy<'_>> {
+    zbus::blocking::Proxy::new(
+        connection,
+        "org.freedesktop.login1",
+        "/org/freedesktop/login1",
+        "org.freedesktop.login1.Manager",
+    )
+}
+
+fn logind_call(method: &str) -> Result<(), String> {
+    let connection = zbus::blocking::Connection::system()
+        .map_err(|error| format!("the system bus is unavailable: {error}"))?;
+    let proxy = logind_proxy(&connection).map_err(|error| error.to_string())?;
+    // `true` lets polkit ask for a password when one is required.
+    proxy
+        .call::<_, _, ()>(method, &(true,))
+        .map_err(|error| format!("logind refused {method}: {error}"))
+}
+
+/// `Can*` answers are "yes", "challenge" (needs authentication), "no" or "na".
+fn logind_can(method: &str) -> bool {
+    let Ok(connection) = zbus::blocking::Connection::system() else {
+        return false;
+    };
+    let Ok(proxy) = logind_proxy(&connection) else {
+        return false;
+    };
+    proxy
+        .call::<_, _, String>(method, &())
+        .map(|answer| matches!(answer.as_str(), "yes" | "challenge"))
+        .unwrap_or(false)
 }
 
 pub fn can_switch_user() -> bool {
     resolve_first_command(SWITCH_USER_COMMANDS).is_some()
 }
 
+// Menus are rebuilt on focus changes, so ask logind once per shell lifetime.
 pub fn can_reboot() -> bool {
-    resolve_first_command(REBOOT_COMMANDS).is_some()
+    static CAN: OnceLock<bool> = OnceLock::new();
+    *CAN.get_or_init(|| logind_can("CanReboot") || resolve_first_command(REBOOT_COMMANDS).is_some())
 }
 
 pub fn can_poweroff() -> bool {
-    resolve_first_command(POWEROFF_COMMANDS).is_some()
+    static CAN: OnceLock<bool> = OnceLock::new();
+    *CAN.get_or_init(|| {
+        logind_can("CanPowerOff") || resolve_first_command(POWEROFF_COMMANDS).is_some()
+    })
 }
 
 fn try_commands(candidates: &[(&str, &[&str])]) -> bool {
-    for &(prog, args) in candidates {
-        if let Some(path) = resolve_program(prog) {
-            if Command::new(path).args(args).spawn().is_ok() {
-                return true;
-            }
-        }
-    }
-    false
+    candidates.iter().any(|&(program, args)| {
+        resolve_program(program)
+            .map(|path| slopos_core::process::spawn_detached(&path, args).is_ok())
+            .unwrap_or(false)
+    })
 }
 
 pub fn resolve_first_command(
@@ -159,29 +209,5 @@ pub fn resolve_first_command(
 }
 
 pub fn resolve_program(program: &str) -> Option<PathBuf> {
-    if program.starts_with("slopos-") {
-        if let Ok(executable) = env::current_exe() {
-            if let Some(parent) = executable.parent() {
-                let sibling = parent.join(program);
-                if sibling.is_file() {
-                    return Some(sibling);
-                }
-            }
-        }
-        let local = PathBuf::from("scripts").join(program);
-        if local.is_file() {
-            return Some(local);
-        }
-    }
-
-    let path = Path::new(program);
-    if path.components().count() > 1 {
-        return path.is_file().then(|| path.to_path_buf());
-    }
-
-    env::var_os("PATH").and_then(|paths| {
-        env::split_paths(&paths)
-            .map(|directory| directory.join(program))
-            .find(|candidate| candidate.is_file())
-    })
+    slopos_core::process::resolve_program(program)
 }

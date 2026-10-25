@@ -1,8 +1,8 @@
 [Desktop Entry]
 Name=SLOPOS-I
-Comment=Original SLOPOS-I X11 Desktop Environment
-Exec=slopos-session
-TryExec=slopos-session
+Comment=SLOPOS-I X11 desktop (alpha)
+Exec=/usr/bin/start-slopos-i
+TryExec=/usr/bin/start-slopos-i
 Icon=desktop-environment
 Type=Application
 DesktopNames=SLOPOS

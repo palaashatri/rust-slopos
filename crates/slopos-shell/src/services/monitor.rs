@@ -10,13 +10,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::task::JoinHandle;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SystemStatus {
     pub audio_text: String,
-    pub network_text: String,
+    pub network: network::NetworkSummary,
     pub battery_text: Option<String>,
     pub power_notification: Option<PowerNotification>,
     pub suspend_capability: Option<SuspendCapability>,
@@ -33,11 +33,10 @@ impl SystemStatus {
         audio_state: Option<audio::AudioState>,
         power_state: Option<PowerSnapshot>,
         power_notification: Option<PowerNotification>,
+        network: Option<network::NetworkSummary>,
     ) -> Self {
         let audio_text = audio::audio_label_text(audio_state.as_ref());
-
-        let network_state = network::query_network_status();
-        let network_text = network::network_label_text(&network_state);
+        let network = network.unwrap_or_else(network::NetworkSummary::checking);
 
         let battery_text = power_state
             .as_ref()
@@ -53,7 +52,7 @@ impl SystemStatus {
 
         Self {
             audio_text,
-            network_text,
+            network,
             battery_text,
             power_notification,
             suspend_capability,
@@ -162,120 +161,56 @@ impl SystemMonitor {
             })
             .expect("spawn power provider worker");
 
-        // 2. D-Bus system signal subscriber thread (UPower, NetworkManager, BlueZ)
-        let running_dbus = running.clone();
-        let trigger_dbus = trigger_tx.clone();
-        let _ = thread::Builder::new()
-            .name("slopos-dbus-sub".to_string())
-            .spawn(move || {
-                while running_dbus.load(Ordering::Relaxed) {
-                    let conn = match zbus::blocking::Connection::system() {
-                        Ok(c) => c,
-                        Err(_) => {
-                            thread::sleep(Duration::from_secs(5));
-                            continue;
-                        }
-                    };
+        // 2. NetworkManager status (event-driven, reconnecting).
+        let current_network = Arc::new(Mutex::new(None));
+        let network_for_worker = current_network.clone();
+        let trigger_network = trigger_tx.clone();
+        network::watch(move |summary| {
+            *network_for_worker
+                .lock()
+                .expect("network state lock poisoned") = Some(summary);
+            let _ = trigger_network.send(());
+        });
 
-                    let nm_proxy = zbus::blocking::Proxy::new(
-                        &conn,
-                        "org.freedesktop.NetworkManager",
-                        "/org/freedesktop/NetworkManager",
-                        "org.freedesktop.NetworkManager",
-                    );
-
-                    if let Ok(proxy) = nm_proxy {
-                        if let Ok(iter) = proxy.receive_all_signals() {
-                            for _ in iter {
-                                if !running_dbus.load(Ordering::Relaxed) {
-                                    break;
-                                }
-                                let _ = trigger_dbus.send(());
-                            }
-                        }
-                    } else {
-                        thread::sleep(Duration::from_secs(5));
-                    }
-                }
-            });
-
-        // 3. Central status aggregator worker
+        // 3. Status aggregator: publishes only real changes, never polls.
         let running_agg = running.clone();
         let audio_for_aggregator = current_audio;
         let aggregator_handle = thread::Builder::new()
             .name("slopos-status-agg".to_string())
             .spawn(move || {
-                let mut last_status = SystemStatus::collect(
-                    audio_for_aggregator
-                        .lock()
-                        .expect("audio state lock poisoned")
-                        .clone(),
-                    current_power
-                        .lock()
-                        .expect("power state lock poisoned")
-                        .clone(),
-                    *current_power_notification
-                        .lock()
-                        .expect("power warning lock poisoned"),
-                );
+                let collect = || {
+                    SystemStatus::collect(
+                        audio_for_aggregator
+                            .lock()
+                            .expect("audio state lock poisoned")
+                            .clone(),
+                        current_power
+                            .lock()
+                            .expect("power state lock poisoned")
+                            .clone(),
+                        *current_power_notification
+                            .lock()
+                            .expect("power warning lock poisoned"),
+                        current_network
+                            .lock()
+                            .expect("network state lock poisoned")
+                            .clone(),
+                    )
+                };
+                let mut last_status = collect();
                 callback(last_status.clone());
 
-                let mut last_collect = Instant::now();
-
-                while running_agg.load(Ordering::Relaxed) {
-                    match trigger_rx.recv_timeout(Duration::from_secs(10)) {
-                        Ok(()) => {
-                            if !running_agg.load(Ordering::Relaxed) {
-                                break;
-                            }
-                            // Drain queued triggers to debounce rapid bursts
-                            while trigger_rx.try_recv().is_ok() {}
-
-                            if last_collect.elapsed() >= Duration::from_millis(150) {
-                                last_collect = Instant::now();
-                                let new_status = SystemStatus::collect(
-                                    audio_for_aggregator
-                                        .lock()
-                                        .expect("audio state lock poisoned")
-                                        .clone(),
-                                    current_power
-                                        .lock()
-                                        .expect("power state lock poisoned")
-                                        .clone(),
-                                    *current_power_notification
-                                        .lock()
-                                        .expect("power warning lock poisoned"),
-                                );
-                                if new_status != last_status {
-                                    last_status = new_status.clone();
-                                    callback(new_status);
-                                }
-                            }
-                        }
-                        Err(mpsc::RecvTimeoutError::Timeout) => {
-                            if !running_agg.load(Ordering::Relaxed) {
-                                break;
-                            }
-                            // Infrequent sanity heartbeat in case kernel sysfs changed without D-Bus signals
-                            let new_status = SystemStatus::collect(
-                                audio_for_aggregator
-                                    .lock()
-                                    .expect("audio state lock poisoned")
-                                    .clone(),
-                                current_power
-                                    .lock()
-                                    .expect("power state lock poisoned")
-                                    .clone(),
-                                *current_power_notification
-                                    .lock()
-                                    .expect("power warning lock poisoned"),
-                            );
-                            if new_status != last_status {
-                                last_status = new_status.clone();
-                                callback(new_status);
-                            }
-                        }
-                        Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                while trigger_rx.recv().is_ok() {
+                    if !running_agg.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    // Coalesce a burst of provider updates into one refresh.
+                    thread::sleep(Duration::from_millis(50));
+                    while trigger_rx.try_recv().is_ok() {}
+                    let new_status = collect();
+                    if new_status != last_status {
+                        last_status = new_status.clone();
+                        callback(new_status);
                     }
                 }
             })
@@ -335,7 +270,7 @@ mod tests {
             .recv_timeout(Duration::from_secs(2))
             .expect("initial status collected");
         assert!(!initial.audio_text.is_empty());
-        assert!(!initial.network_text.is_empty());
+        assert!(!initial.network.label.is_empty());
 
         // Trigger an event refresh
         monitor.trigger_refresh();
@@ -347,7 +282,7 @@ mod tests {
 
     #[test]
     fn unavailable_battery_state_does_not_create_a_battery_label() {
-        let status = SystemStatus::collect(None, None, None);
+        let status = SystemStatus::collect(None, None, None, None);
         assert!(status.battery_text.is_none());
     }
 
@@ -362,7 +297,7 @@ mod tests {
             lid_present: false,
             lid_closed: None,
         };
-        let status = SystemStatus::collect(None, Some(snapshot), None);
+        let status = SystemStatus::collect(None, Some(snapshot), None, None);
         assert_eq!(
             status.suspend_capability,
             Some(SuspendCapability::RequiresAuthorization)

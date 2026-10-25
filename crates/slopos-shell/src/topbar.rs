@@ -17,16 +17,12 @@ use gtk::{
     Align, Box as GtkBox, Button, Dialog, DialogFlags, IconSize, Image, Label, Menu, MenuItem,
     Orientation, ResponseType, SeparatorMenuItem, Window, WindowPosition, WindowType,
 };
+use slopos_core::process::{self, FILE_MANAGERS, TERMINALS, TEXT_EDITORS};
 use slopos_services::power::SuspendCapability;
 use std::cell::{Cell, RefCell};
 use std::env;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::path::Path;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
-
-static OPEN_SYSTEM_MENU: AtomicBool = AtomicBool::new(false);
 
 pub struct TopBar {
     window: Window,
@@ -34,6 +30,8 @@ pub struct TopBar {
     _clock_label: Label,
     audio_label: Label,
     network_label: Label,
+    network_icon: Image,
+    network_menu: Menu,
     battery_box: GtkBox,
     battery_label: Label,
     global_menu_host: GtkBox,
@@ -167,17 +165,17 @@ impl TopBar {
             .add_class("slopos-menubar-control");
         set_accessible_name(&network_button, "Network connections");
         let network_box = GtkBox::new(Orientation::Horizontal, 3);
-        network_box.pack_start(
-            &Image::from_icon_name(Some("network-wireless-symbolic"), IconSize::Menu),
-            false,
-            false,
-            0,
-        );
-        let network_label = Label::new(Some("Net: --"));
+        let network_icon = Image::from_icon_name(Some("network-offline-symbolic"), IconSize::Menu);
+        network_box.pack_start(&network_icon, false, false, 0);
+        let network_label = Label::new(Some("…"));
         network_box.pack_start(&network_label, false, false, 0);
         network_button.add(&network_box);
         network_button.set_tooltip_text(Some("Network & Wi-Fi connections"));
-        let network_menu = build_network_menu();
+        let network_menu = Menu::new();
+        fill_network_menu(
+            &network_menu,
+            &crate::services::network::NetworkSummary::checking(),
+        );
         let network_menu_ref = network_menu.clone();
         network_button.connect_clicked(move |button| {
             network_menu_ref.popup_at_widget(
@@ -225,6 +223,8 @@ impl TopBar {
             _clock_label: clock_label.clone(),
             audio_label,
             network_label,
+            network_icon,
+            network_menu,
             battery_box,
             battery_label,
             global_menu_host,
@@ -249,7 +249,10 @@ impl TopBar {
 
     pub fn update_system_status(&self, status: &SystemStatus) {
         self.audio_label.set_text(&status.audio_text);
-        self.network_label.set_text(&status.network_text);
+        self.network_label.set_text(&status.network.label);
+        self.network_icon
+            .set_from_icon_name(Some(status.network.icon), IconSize::Menu);
+        fill_network_menu(&self.network_menu, &status.network);
         if let Some(battery_text) = &status.battery_text {
             self.battery_label.set_text(battery_text);
             self.battery_box.set_visible(true);
@@ -395,14 +398,9 @@ impl TopBar {
     }
 }
 
+/// `SIGUSR2` (sent by the Ctrl+F2 listener and by automation) opens the
+/// system menu with keyboard focus on its first item.
 fn install_system_menu_signal_bridge(button: &Button, menu: &Menu) {
-    unsafe {
-        libc::signal(
-            libc::SIGUSR2,
-            system_menu_signal_handler as *const () as usize,
-        );
-    }
-
     let keyboard_open_pending = Rc::new(Cell::new(false));
     let map_pending = keyboard_open_pending.clone();
     menu.connect_map(move |menu| {
@@ -418,23 +416,17 @@ fn install_system_menu_signal_bridge(button: &Button, menu: &Menu) {
 
     let button = button.clone();
     let menu = menu.clone();
-    glib::timeout_add_local(Duration::from_millis(80), move || {
-        if OPEN_SYSTEM_MENU.swap(false, Ordering::SeqCst) {
-            keyboard_open_pending.set(true);
-            menu.popup_at_widget(
-                &button,
-                gdk::Gravity::SouthWest,
-                gdk::Gravity::NorthWest,
-                None,
-            );
-            log::info!("SLOPOS_SYSTEM_MENU_KEYBOARD_OPENED");
-        }
+    glib::unix_signal_add_local(libc::SIGUSR2, move || {
+        keyboard_open_pending.set(true);
+        menu.popup_at_widget(
+            &button,
+            gdk::Gravity::SouthWest,
+            gdk::Gravity::NorthWest,
+            None,
+        );
+        log::info!("SLOPOS_SYSTEM_MENU_KEYBOARD_OPENED");
         glib::ControlFlow::Continue
     });
-}
-
-extern "C" fn system_menu_signal_handler(_sig: libc::c_int) {
-    OPEN_SYSTEM_MENU.store(true, Ordering::SeqCst);
 }
 
 fn is_shell_surface(title: &str) -> bool {
@@ -485,87 +477,161 @@ fn build_desktop_menu_bar(
     bar.style_context().add_class("slopos-menu-bar");
 
     // File
-    let file_item = MenuItem::with_label("File");
     let file_menu = Menu::new();
     let new_folder = MenuItem::with_label("New Folder");
-    new_folder.connect_activate(|_| {
-        if let Ok(home) = env::var("HOME") {
-            let desktop = PathBuf::from(home).join("Desktop");
-            let target = if desktop.is_dir() {
-                desktop.join("Untitled Folder")
-            } else if let Ok(h) = env::var("HOME") {
-                PathBuf::from(h).join("Untitled Folder")
-            } else {
-                PathBuf::from("/tmp/Untitled Folder")
-            };
-            let _ = std::fs::create_dir_all(target);
-        }
+    new_folder.connect_activate(|_| match crate::desktop_files::create_untitled_folder() {
+        Ok(path) => log::info!("Created {}", path.display()),
+        Err(error) => show_message("Could not create a folder", &error),
     });
     file_menu.append(&new_folder);
-
-    let open_files = MenuItem::with_label("Open File Manager…");
-    open_files.connect_activate(|_| spawn_resolved("pcmanfm", &[]));
-    file_menu.append(&open_files);
-
-    let new_doc = MenuItem::with_label("New Text Document…");
-    new_doc.connect_activate(|_| spawn_resolved("mousepad", &[]));
-    file_menu.append(&new_doc);
-
-    let open_term = MenuItem::with_label("Open Terminal…");
-    open_term.connect_activate(|_| spawn_resolved("xfce4-terminal", &[]));
-    file_menu.append(&open_term);
-
+    file_menu.append(&program_item(
+        "Open File Manager…",
+        FILE_MANAGERS,
+        "No file manager is installed",
+    ));
+    file_menu.append(&program_item(
+        "New Text Document…",
+        TEXT_EDITORS,
+        "No text editor is installed",
+    ));
+    file_menu.append(&program_item(
+        "Open Terminal…",
+        TERMINALS,
+        "No terminal emulator is installed",
+    ));
     file_menu.append(&SeparatorMenuItem::new());
     let find_apps = MenuItem::with_label("Find Applications… (Super+Space)");
     let launcher_ref = launcher.clone();
     find_apps.connect_activate(move |_| launcher_ref.toggle());
     file_menu.append(&find_apps);
-
-    file_menu.show_all();
-    file_item.set_submenu(Some(&file_menu));
-    bar.append(&file_item);
+    append_submenu(&bar, "File", &file_menu);
 
     // View
-    let view_item = MenuItem::with_label("View");
     let view_menu = Menu::new();
-    let settings = MenuItem::with_label("Control Panels…");
-    settings.connect_activate(|_| spawn_resolved("slopos-settings", &[]));
-    view_menu.append(&settings);
-    let catalogue = MenuItem::with_label("Software Catalogue…");
-    catalogue.connect_activate(|_| spawn_resolved("slopos-catalogue", &[]));
-    view_menu.append(&catalogue);
-    view_menu.show_all();
-    view_item.set_submenu(Some(&view_menu));
-    bar.append(&view_item);
+    view_menu.append(&slopos_item("Control Panels…", "slopos-settings", &[]));
+    view_menu.append(&slopos_item("Software…", "slopos-catalogue", &[]));
+    append_submenu(&bar, "View", &view_menu);
 
     // Special
-    let special_item = MenuItem::with_label("Special");
     let special_menu = Menu::new();
-    let empty_trash = MenuItem::with_label("Empty Trash");
+    let empty_trash = MenuItem::with_label("Empty Trash…");
     empty_trash.connect_activate(|_| {
-        if let Ok(home) = env::var("HOME") {
-            let trash = PathBuf::from(home).join(".local/share/Trash");
-            let files_dir = trash.join("files");
-            let info_dir = trash.join("info");
-            let _ = std::fs::remove_dir_all(&files_dir);
-            let _ = std::fs::remove_dir_all(&info_dir);
-            let _ = std::fs::create_dir_all(&files_dir);
-            let _ = std::fs::create_dir_all(&info_dir);
-        }
-        let _ = Command::new("trash-empty").spawn();
+        confirm_action(
+            "Empty Trash",
+            "Permanently delete all items in the Trash? This cannot be undone.",
+            || {
+                if let Err(error) = crate::desktop_files::empty_trash() {
+                    show_message("Could not empty the Trash", &error);
+                }
+            },
+        );
     });
     special_menu.append(&empty_trash);
     special_menu.append(&SeparatorMenuItem::new());
+    let sleep = append_session_items(&special_menu, suspend_capability, false);
+    append_submenu(&bar, "Special", &special_menu);
+
+    // Help
+    let help_menu = Menu::new();
+    let about = MenuItem::with_label("About SLOPOS-I…");
+    about.connect_activate(|_| show_message("About SLOPOS-I", &about_text()));
+    help_menu.append(&about);
+    append_submenu(&bar, "Help", &help_menu);
+
+    bar.show_all();
+    (bar, sleep)
+}
+
+/// Menu shown for an application that does not export its own menu: real
+/// window-management commands only.
+fn build_window_action_menu_bar(window_id: u32, _app_title: &str) -> gtk::MenuBar {
+    let bar = gtk::MenuBar::new();
+    bar.style_context().add_class("slopos-menu-bar");
+
+    let window_menu = Menu::new();
+    let minimize = MenuItem::with_label("Minimize (Super+M)");
+    minimize.connect_activate(move |_| crate::x11::windows::send_minimize_window(window_id));
+    window_menu.append(&minimize);
+    let maximize = MenuItem::with_label("Zoom (Super+F)");
+    maximize.connect_activate(move |_| crate::x11::windows::send_toggle_maximize_window(window_id));
+    window_menu.append(&maximize);
+    window_menu.append(&SeparatorMenuItem::new());
+    let close = MenuItem::with_label("Close Window (Super+Q)");
+    close.connect_activate(move |_| crate::x11::windows::send_close_window(window_id));
+    window_menu.append(&close);
+    append_submenu(&bar, "Window", &window_menu);
+
+    bar.show_all();
+    bar
+}
+
+fn append_submenu(bar: &gtk::MenuBar, title: &str, menu: &Menu) {
+    let item = MenuItem::with_label(title);
+    menu.show_all();
+    item.set_submenu(Some(menu));
+    bar.append(&item);
+}
+
+/// An item that launches the first installed program from `candidates`, or a
+/// disabled item explaining what is missing.
+fn program_item(
+    label: &str,
+    candidates: &'static [(&'static str, &'static [&'static str])],
+    missing: &str,
+) -> MenuItem {
+    let item = MenuItem::with_label(label);
+    match process::first_available(candidates) {
+        Some((path, args)) => {
+            item.connect_activate(move |_| {
+                if let Err(error) = process::spawn_detached(&path, args) {
+                    show_message("Could not open the application", &error.to_string());
+                }
+            });
+        }
+        None => {
+            item.set_sensitive(false);
+            item.set_tooltip_text(Some(missing));
+        }
+    }
+    item
+}
+
+/// An item for one of SLOPOS's own programs, disabled when it is not installed.
+fn slopos_item(label: &str, program: &'static str, args: &'static [&'static str]) -> MenuItem {
+    let item = MenuItem::with_label(label);
+    if process::resolve_program(program).is_some() {
+        item.connect_activate(move |_| spawn_resolved(program, args));
+    } else {
+        item.set_sensitive(false);
+        item.set_tooltip_text(Some(&format!("{program} is not installed")));
+    }
+    item
+}
+
+/// Lock, Switch User, Sleep, Log Out (optional), Restart and Shut Down, with
+/// every item enabled only when the system can actually do it. Returns the
+/// Sleep item so suspend capability updates can reach it.
+fn append_session_items(
+    menu: &Menu,
+    suspend_capability: Option<SuspendCapability>,
+    include_logout: bool,
+) -> MenuItem {
     let lock = MenuItem::with_label("Lock Screen");
     if session::can_lock_screen() {
         lock.connect_activate(|_| {
-            session::lock_screen();
+            if !session::lock_screen() {
+                show_message(
+                    "Could not lock the screen",
+                    "The screen locker did not start.",
+                );
+            }
         });
     } else {
         lock.set_sensitive(false);
         lock.set_tooltip_text(Some("No supported screen locker is installed"));
     }
-    special_menu.append(&lock);
+    menu.append(&lock);
+
     let switch_user = MenuItem::with_label("Switch User…");
     if session::can_switch_user() {
         switch_user.connect_activate(|_| {
@@ -573,108 +639,75 @@ fn build_desktop_menu_bar(
         });
     } else {
         switch_user.set_sensitive(false);
-        switch_user.set_tooltip_text(Some(
-            "User switching is not supported by the active display manager",
-        ));
+        switch_user.set_tooltip_text(Some("The display manager does not support switching users"));
     }
-    special_menu.append(&switch_user);
+    menu.append(&switch_user);
+
     let sleep = MenuItem::with_label("Sleep");
     set_suspend_menu_state(&sleep, suspend_capability);
     sleep.connect_activate(|_| request_suspend());
-    special_menu.append(&sleep);
+    menu.append(&sleep);
+    menu.append(&SeparatorMenuItem::new());
+
+    if include_logout {
+        let logout = MenuItem::with_label("Log Out…");
+        logout.connect_activate(|_| {
+            confirm_action(
+                "Log Out",
+                "Log out of SLOPOS-I now? Unsaved work in open applications may be lost.",
+                || {
+                    if let Err(error) = process::launch("slopos-session", &["--logout"]) {
+                        show_message("Could not log out", &error);
+                    }
+                },
+            );
+        });
+        menu.append(&logout);
+    }
+
     let restart = MenuItem::with_label("Restart…");
-    restart.connect_activate(|_| {
-        confirm_action("Restart", "Restart this computer now?", || {
-            session::reboot_system();
+    if session::can_reboot() {
+        restart.connect_activate(|_| {
+            confirm_action("Restart", "Restart this computer now?", || {
+                if let Err(error) = session::reboot_system() {
+                    show_message("Could not restart", &error);
+                }
+            });
         });
-    });
-    special_menu.append(&restart);
+    } else {
+        restart.set_sensitive(false);
+        restart.set_tooltip_text(Some(
+            "This system does not allow restarting from the desktop",
+        ));
+    }
+    menu.append(&restart);
+
     let shutdown = MenuItem::with_label("Shut Down…");
-    shutdown.connect_activate(|_| {
-        confirm_action("Shut Down", "Shut down this computer now?", || {
-            session::poweroff_system();
+    if session::can_poweroff() {
+        shutdown.connect_activate(|_| {
+            confirm_action("Shut Down", "Shut down this computer now?", || {
+                if let Err(error) = session::poweroff_system() {
+                    show_message("Could not shut down", &error);
+                }
+            });
         });
-    });
-    special_menu.append(&shutdown);
-    special_menu.show_all();
-    special_item.set_submenu(Some(&special_menu));
-    bar.append(&special_item);
-
-    // Help
-    let help_item = MenuItem::with_label("Help");
-    let help_menu = Menu::new();
-    let about = MenuItem::with_label("About SLOPOS-I…");
-    about.connect_activate(|_| {
-        show_message(
-            "About SLOPOS-I",
-            "SLOPOS-I Desktop Environment\n\nRelease: 0.1.0-alpha\nPlatform: X11 / Linux\nLicense: MIT\n\nAn original, consumer-ready Linux desktop.",
-        );
-    });
-    help_menu.append(&about);
-    help_menu.show_all();
-    help_item.set_submenu(Some(&help_menu));
-    bar.append(&help_item);
-
-    bar.show_all();
-    (bar, sleep)
+    } else {
+        shutdown.set_sensitive(false);
+        shutdown.set_tooltip_text(Some(
+            "This system does not allow shutting down from the desktop",
+        ));
+    }
+    menu.append(&shutdown);
+    sleep
 }
 
-fn build_window_action_menu_bar(window_id: u32, app_title: &str) -> gtk::MenuBar {
-    let bar = gtk::MenuBar::new();
-    bar.style_context().add_class("slopos-menu-bar");
-
-    // File
-    let file_item = MenuItem::with_label("File");
-    let file_menu = Menu::new();
-    let close_win = MenuItem::with_label("Close Window (Super+Q)");
-    close_win.connect_activate(move |_| {
-        crate::x11::windows::send_close_window(window_id);
-    });
-    file_menu.append(&close_win);
-    file_menu.show_all();
-    file_item.set_submenu(Some(&file_menu));
-    bar.append(&file_item);
-
-    // Window
-    let win_item = MenuItem::with_label("Window");
-    let win_menu = Menu::new();
-    let minimize = MenuItem::with_label("Minimize (Super+M)");
-    minimize.connect_activate(move |_| {
-        crate::x11::windows::send_minimize_window(window_id);
-    });
-    win_menu.append(&minimize);
-    let maximize = MenuItem::with_label("Maximize (Super+F)");
-    maximize.connect_activate(move |_| {
-        crate::x11::windows::send_toggle_maximize_window(window_id);
-    });
-    win_menu.append(&maximize);
-    let close = MenuItem::with_label("Close (Super+Q)");
-    close.connect_activate(move |_| {
-        crate::x11::windows::send_close_window(window_id);
-    });
-    win_menu.append(&close);
-    win_menu.show_all();
-    win_item.set_submenu(Some(&win_menu));
-    bar.append(&win_item);
-
-    // Help
-    let help_item = MenuItem::with_label("Help");
-    let help_menu = Menu::new();
-    let title_owned = app_title.to_string();
-    let about = MenuItem::with_label(&format!("About {title_owned}…"));
-    about.connect_activate(move |_| {
-        show_message(
-            &format!("About {title_owned}"),
-            &format!("{title_owned}\n\nRunning on SLOPOS-I Desktop Environment."),
-        );
-    });
-    help_menu.append(&about);
-    help_menu.show_all();
-    help_item.set_submenu(Some(&help_menu));
-    bar.append(&help_item);
-
-    bar.show_all();
-    bar
+fn about_text() -> String {
+    format!(
+        "SLOPOS-I {}\n\nAn experimental X11 desktop environment for Linux.\n\
+         This is an alpha release: expect missing features and rough edges.\n\n\
+         MIT License",
+        env!("CARGO_PKG_VERSION")
+    )
 }
 
 fn build_system_menu(suspend_capability: Option<SuspendCapability>) -> (Menu, MenuItem) {
@@ -682,12 +715,7 @@ fn build_system_menu(suspend_capability: Option<SuspendCapability>) -> (Menu, Me
     menu.style_context().add_class("slopos-system-menu");
 
     let about = MenuItem::with_label("About SLOPOS-I…");
-    about.connect_activate(|_| {
-        show_message(
-            "About SLOPOS-I",
-            "SLOPOS-I Desktop Environment\n\nRelease: 0.1.0-alpha\nPlatform: X11 / Linux\nLicense: MIT\n\nAn original, consumer-ready Linux desktop.",
-        );
-    });
+    about.connect_activate(|_| show_message("About SLOPOS-I", &about_text()));
     menu.append(&about);
     menu.append(&SeparatorMenuItem::new());
 
@@ -741,73 +769,7 @@ fn build_system_menu(suspend_capability: Option<SuspendCapability>) -> (Menu, Me
 
     menu.append(&SeparatorMenuItem::new());
 
-    let lock = MenuItem::with_label("Lock Screen");
-    if session::can_lock_screen() {
-        lock.connect_activate(|_| {
-            session::lock_screen();
-        });
-    } else {
-        lock.set_sensitive(false);
-        lock.set_tooltip_text(Some("No supported screen locker is installed"));
-    }
-    menu.append(&lock);
-
-    let switch_user = MenuItem::with_label("Switch User…");
-    if session::can_switch_user() {
-        switch_user.connect_activate(|_| {
-            session::switch_user();
-        });
-    } else {
-        switch_user.set_sensitive(false);
-        switch_user.set_tooltip_text(Some(
-            "No supported display-manager switch utility is installed",
-        ));
-    }
-    menu.append(&switch_user);
-
-    let sleep = MenuItem::with_label("Sleep");
-    set_suspend_menu_state(&sleep, suspend_capability);
-    sleep.connect_activate(|_| request_suspend());
-    menu.append(&sleep);
-
-    let logout = MenuItem::with_label("Log Out…");
-    logout.connect_activate(|_| {
-        confirm_action("Log Out", "Log out of SLOPOS-I now?", || {
-            if let Some(session_ctl) = session::resolve_program("slopos-session") {
-                if let Err(error) = Command::new(&session_ctl).arg("--logout").spawn() {
-                    log::warn!("Failed to invoke session logout: {error}");
-                    std::process::exit(0);
-                }
-            } else {
-                std::process::exit(0);
-            }
-        });
-    });
-    menu.append(&logout);
-
-    let restart = MenuItem::with_label("Restart…");
-    if session::can_reboot() {
-        restart.connect_activate(|_| {
-            confirm_action("Restart", "Restart this computer now?", || {
-                session::reboot_system();
-            });
-        });
-    } else {
-        restart.set_sensitive(false);
-    }
-    menu.append(&restart);
-
-    let shutdown = MenuItem::with_label("Shut Down…");
-    if session::can_poweroff() {
-        shutdown.connect_activate(|_| {
-            confirm_action("Shut Down", "Shut down this computer now?", || {
-                session::poweroff_system();
-            });
-        });
-    } else {
-        shutdown.set_sensitive(false);
-    }
-    menu.append(&shutdown);
+    let sleep = append_session_items(&menu, suspend_capability, true);
     menu.show_all();
     (menu, sleep)
 }
@@ -902,12 +864,9 @@ fn slopos_dialog(title: &str, message: &str, buttons: &[(&str, ResponseType)]) -
 }
 
 fn spawn_resolved(program: &str, args: &[&str]) {
-    let Some(path) = session::resolve_program(program) else {
-        log::warn!("Cannot launch {program}: command not found");
-        return;
-    };
-    if let Err(error) = Command::new(&path).args(args).spawn() {
-        log::warn!("Failed to launch {}: {error}", path.display());
+    if let Err(error) = process::launch(program, args) {
+        log::warn!("{error}");
+        show_message("Could not open the application", &error);
     }
 }
 
@@ -982,7 +941,7 @@ fn build_sound_menu() -> Menu {
 
     let settings_item = MenuItem::with_label("Sound Preferences…");
     settings_item.connect_activate(|_| {
-        if session::resolve_program("slopos-settings").is_some() {
+        if process::resolve_program("slopos-settings").is_some() {
             spawn_resolved("slopos-settings", &["--sound"]);
         } else {
             spawn_resolved("pavucontrol", &[]);
@@ -994,30 +953,31 @@ fn build_sound_menu() -> Menu {
     menu
 }
 
-fn build_network_menu() -> Menu {
-    let menu = Menu::new();
-    let header = MenuItem::with_label("Network Connections");
+/// Rebuild the network menu from the latest provider summary.
+fn fill_network_menu(menu: &Menu, summary: &crate::services::network::NetworkSummary) {
+    for child in menu.children() {
+        menu.remove(&child);
+    }
+    let header = MenuItem::with_label("Network");
     header.set_sensitive(false);
     menu.append(&header);
-
-    let status = MenuItem::with_label("Network details unavailable");
-    status.set_sensitive(false);
-    menu.append(&status);
-
+    for line in &summary.details {
+        let item = MenuItem::with_label(line);
+        item.set_sensitive(false);
+        menu.append(&item);
+    }
     menu.append(&SeparatorMenuItem::new());
 
     let settings_item = MenuItem::with_label("Network Preferences…");
-    settings_item.connect_activate(|_| {
-        if session::resolve_program("slopos-settings").is_some() {
-            spawn_resolved("slopos-settings", &["--network"]);
-        } else {
-            spawn_resolved("nm-connection-editor", &[]);
-        }
-    });
+    if process::resolve_program("slopos-settings").is_some() {
+        settings_item.connect_activate(|_| spawn_resolved("slopos-settings", &["--network"]));
+    } else if process::resolve_program("nm-connection-editor").is_some() {
+        settings_item.connect_activate(|_| spawn_resolved("nm-connection-editor", &[]));
+    } else {
+        settings_item.set_sensitive(false);
+    }
     menu.append(&settings_item);
-
     menu.show_all();
-    menu
 }
 
 #[cfg(test)]

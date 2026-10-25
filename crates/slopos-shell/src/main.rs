@@ -2,6 +2,7 @@
 
 pub mod app_finder;
 pub mod app_index;
+pub mod desktop_files;
 pub mod launcher;
 pub mod menu;
 pub mod notifications;
@@ -18,12 +19,8 @@ use std::fs::{File, OpenOptions};
 use std::os::fd::AsRawFd;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
 use topbar::TopBar;
 use x11::X11EventBus;
-
-static TOGGLE_LAUNCHER: AtomicBool = AtomicBool::new(false);
 
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -43,7 +40,6 @@ fn main() {
     let launcher = Launcher::new();
     install_launcher_signal_bridge(launcher.clone());
 
-    // The classic SLOPOS-I shell is intentionally menu-bar-first and dockless.
     let topbar = TopBar::new(launcher.clone());
     shortcuts::install_system_menu_shortcut();
 
@@ -106,7 +102,7 @@ fn main() {
         }
     };
 
-    if std::env::var_os("SLOPOS_QA_NO_WELCOME").is_none() {
+    if std::env::var_os("SLOPOS_QA_NO_WELCOME").is_none() && first_login() {
         NotificationServer::show_toast(
             "Welcome to SLOPOS-I",
             "Press Super+Space or choose Search to find applications.",
@@ -142,19 +138,28 @@ fn acquire_instance_guard() -> Result<File, String> {
     Ok(file)
 }
 
+/// `SIGUSR1` toggles the launcher (Openbox binds Super+Space to
+/// `pkill -USR1 -x slopos-shell`).
 fn install_launcher_signal_bridge(launcher: Rc<Launcher>) {
-    unsafe {
-        libc::signal(libc::SIGUSR1, launcher_signal_handler as *const () as usize);
-    }
-
-    glib::timeout_add_local(Duration::from_millis(80), move || {
-        if TOGGLE_LAUNCHER.swap(false, Ordering::SeqCst) {
-            launcher.toggle();
-        }
+    glib::unix_signal_add_local(libc::SIGUSR1, move || {
+        launcher.toggle();
         glib::ControlFlow::Continue
     });
 }
 
-extern "C" fn launcher_signal_handler(_sig: libc::c_int) {
-    TOGGLE_LAUNCHER.store(true, Ordering::SeqCst);
+/// True the first time the shell starts for this user; records that it has.
+fn first_login() -> bool {
+    let Some(marker) = slopos_core::xdg::XdgPaths::from_environment()
+        .ok()
+        .map(|paths| paths.state.join("slopos-i/welcomed"))
+    else {
+        return false;
+    };
+    if marker.exists() {
+        return false;
+    }
+    if let Some(parent) = marker.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::write(&marker, "").is_ok()
 }
