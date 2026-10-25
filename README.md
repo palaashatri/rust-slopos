@@ -80,6 +80,12 @@ Study [Vinix](https://vinix-os.org/) for user-space ABI compatibility and full-s
 
 **Only independently authored projects with verified source/asset rights qualify as bundled first-party apps.** Candidate suite: Loom, ClipKit, JWhisper, JVosk, JForge, PyForge, Donkey and ICStudio; **JTorch and Benchmarks are not SLOPOS first-party application candidates or optional curated catalog entries**: they remain independent library/benchmark tooling projects. Their own portability and Pi Zero 2 W efficiency goals are unchanged. **Tricycle and texture-auto-upscaler are upstream forks and explicitly excluded.** Keep core installations minimal; make resource-heavy apps optional, and consider PARAMA targets only after actual platform/runtime bring-up.
 
+### Edge-device efficiency goal
+
+The **Raspberry Pi Zero 2 W** (quad-core Cortex-A53, **512 MB RAM**) is the future low-end reference device for SLOPOS. Basic menus, input, file browsing and small native tasks should remain responsive, while large work may run longer with progress and cancellation. Support **minimum**, **standard** and **accelerated** capability tiers, with lazy services, strict memory/idle CPU budgets and truthful fallback where optional ML, GPU effects or codecs are not suitable. Architecture and actual board support are **not verified**.
+
+Initial 720p reference and proposed performance/pressure gates, including **≥128 MiB `MemAvailable` at minimal idle**, are **unverified targets** pending actual hardware profiling. This does **not** make a future ARM port a release gate for present SLOPOS-I. See [engineering contract §21.9](docs/CONTRACT.md#219-edge-first-efficiency-and-raspberry-pi-zero-2-w-reference-target).
+
 ## Canonical design direction
 
 The visual/component reference is the community **Classic Macintosh UI Kit** in Figma:

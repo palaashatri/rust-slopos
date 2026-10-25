@@ -101,6 +101,14 @@ The **12 licensed Lucide SVG symbolic app-list prototypes** and pinned icon mani
 - **Bundled first-party applications must be original/owner-authored and provenance-verified.** Exclude the forked `palaashatri/tricycle` and `palaashatri/texture-auto-upscaler` from first-party packages. Curated desktop app candidates: Loom, ClipKit, JWhisper/JVosk, JForge/PyForge, Donkey and ICStudio. **JTorch (library) and Benchmarks (QA harness) are explicitly excluded from both the first-party application bundle and optional SLOPOS app catalog**; they remain independent projects with their own edge-efficiency requirements.
 - Preserve a tiny `core-minimal` install, a selective first-party catalog and optional full desktop meta-package. Zero 2 W-specific edge constraints and failures must be disclosed; no eager model/toolchain installs. Linux-first; PARAMA app targets remain blocked by real runtime/ABI/toolkit milestones.
 
+## Edge-first performance goal (§21.9)
+
+- Target **Raspberry Pi Zero 2 W (4× Cortex-A53, 512 MB RAM)** as the low-end efficiency reference for SLOPOS Linux and first-party apps. **Not tested or supported yet**; AArch64/ARMhf build success and VM graphics are not real board proof.
+- For minimum edge capabilities, prioritize low memory/idle CPU, lazy providers, bounded queues/caches, incremental I/O and damage-driven painting. Keep event processing nonblocking. Slow microSD/network/heavy AI may increase task completion time, never freeze basic input; preserve cancellation, accurate status and data integrity.
+- Use explicit **core/standard/accelerated capability tiers**. Do not load demanding local ML, HDR/video effects or heavyweight runtimes by default on 512 MB. Optional features degrade honestly; no fake support or implicit remote uploads.
+- Every new first-party app must report process-tree PSS/RSS, machine `MemAvailable`, startup, interaction p95, idle CPU and memory-pressure/cancellation behavior on a real reference device when available. Benchmark cold/warm on a declared OS, resolution and swap/zram configuration. Record hardware gaps as `NOT_RUN`; provisional numerical targets and future packets EDGE-01–04 are in §21.9.
+- Keep X11/Openbox in SLOPOS-I, and preserve the current UI-first and VM-only *development* policy; cross-build/host-test results are not permission to claim physical Pi acceptance. Future PARAMA ARM64 and Linux compositor gates remain independent.
+
 ## Rules
 
 1. **Never display invented system state.** No hard-coded interfaces, SSIDs, IPs, devices or levels. If a provider is missing, show "unavailable". Read state through `slopos-services` providers, never by parsing ad-hoc command output. `crates/slopos-shell/tests/shell_tests.rs` asserts the old fake strings stay gone; keep those tests.
@@ -136,3 +144,4 @@ The **12 licensed Lucide SVG symbolic app-list prototypes** and pinned icon mani
 | Future SLOPOS Intelligence feature goal | §21.6 (AI-01–AI-05) |
 | Broader SLOPOS platform vision, Loom/Vision/compositor/PARAMA | §21.7 (FUT-*) |
 | Compatibility, reuse, benchmarks, licenses, agent evidence | §21.8 |
+| Edge efficiency, Raspberry Pi Zero 2 W and capability tiers | §21.9 (EDGE-01–04) |
