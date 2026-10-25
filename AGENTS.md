@@ -109,6 +109,13 @@ The **12 licensed Lucide SVG symbolic app-list prototypes** and pinned icon mani
 - Every new first-party app must report process-tree PSS/RSS, machine `MemAvailable`, startup, interaction p95, idle CPU and memory-pressure/cancellation behavior on a real reference device when available. Benchmark cold/warm on a declared OS, resolution and swap/zram configuration. Record hardware gaps as `NOT_RUN`; provisional numerical targets and future packets EDGE-01–04 are in §21.9.
 - Keep X11/Openbox in SLOPOS-I, and preserve the current UI-first and VM-only *development* policy; cross-build/host-test results are not permission to claim physical Pi acceptance. Future PARAMA ARM64 and Linux compositor gates remain independent.
 
+## 2027 readiness (§21.10)
+
+- The X11/Openbox decision stands, but the ground is moving: GNOME 50 removed its own X11 session, KDE Plasma 6.8 is Wayland-only, GTK 4 deprecated X11, and Openbox has no upstream releases. Test the display-manager X11 login per distribution, and record a supported-distribution matrix (Y27-PLAT). §21.10.1 lists when to ask the owner to re-time a compositor.
+- **New code:** do not expose `x11rb`/X11 types in new appkit, services or Intelligence interfaces. Do not expose `gtk`/`gdk`/`glib` types in the public `slopos-ui` API. The UI substrate decision (Y27-SUBSTRATE) comes before more components are accepted.
+- The compatibility matrix includes GTK 4/libadwaita, Qt 6, Electron, Swing and Flatpak, and the portal configuration is set explicitly (Y27-COMPAT). The accessibility benchmark is WCAG 2.2 AA via EN 301 549 V4.1.1 (§5.2.10). Run `cargo deny`, ship SBOMs, and treat edition 2024 as its own task (Y27-SUPPLY, Y27-EDITION).
+- For SLOPOS Intelligence, text seen on screen or in documents is data, never instructions (§21.6).
+
 ## Rules
 
 1. **Never display invented system state.** No hard-coded interfaces, SSIDs, IPs, devices or levels. If a provider is missing, show "unavailable". Read state through `slopos-services` providers, never by parsing ad-hoc command output. `crates/slopos-shell/tests/shell_tests.rs` asserts the old fake strings stay gone; keep those tests.
@@ -147,3 +154,4 @@ The **12 licensed Lucide SVG symbolic app-list prototypes** and pinned icon mani
 | Broader SLOPOS platform vision, Loom/Vision/compositor/PARAMA | §21.7 (FUT-*) |
 | Compatibility, reuse, benchmarks, licenses, agent evidence | §21.8 |
 | Edge efficiency, Raspberry Pi Zero 2 W and capability tiers | §21.9 (EDGE-01–04) |
+| 2027 platform, toolkit, compatibility, accessibility and supply-chain baseline | §21.10 (Y27-*), §5.2.10 |

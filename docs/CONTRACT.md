@@ -397,6 +397,7 @@ SLOPOS learns from several references. Each reference has one bounded role. None
 | **macOS-like usability traits** (global app menu, Dock, Finder/Explorer-like navigation) | Usability conventions, built as original code | Proprietary visual assets or copied behavior text | §14, §21.7.4 |
 | **Apple Vision / Live Text / Visual Look Up-style workflows** | Interaction ideas for local, opt-in text and image features | Claims of feature or model parity | **[FUT-VISION]** §21.7.3 |
 | **Lucide symbolic glyphs** (`assets/icons/symbolic/`) | Licensed symbolic prototypes for the 12 app-list roles | Use as colorful brand icons; dropping the license notices | Reference set; not wired into the running desktop |
+| **WCAG 2.2 AA / EN 301 549 V4.1.1** | The accessibility benchmark for the shell and first-party apps (§5.2.10, §21.10.4) | A legal conformance claim without an audit | Design and test target |
 | **Vinix / VitruvianOS** | System lessons that affect experience: supervised sessions, coherent services, whole-desktop memory discipline | Code, or treating their benchmark claims as verified | §21.8.1 |
 
 A new inspiration is added to this table with the same columns before it influences any requirement. Removing one requires an owner decision. Refining its wording or scope does not.
@@ -505,6 +506,11 @@ Each of these is a defect no matter how good it looks in isolation. Reviewers re
 17. **Destructive default:** Return activating the destructive choice in an alert.
 18. **Executable themes:** theme or icon packages that run code, change permissions or disable required indicators.
 19. **Screenshot as proof:** a capture or mockup offered as conformance, accessibility or compatibility evidence (§33).
+20. **Obscured focus:** the Dock, menu bar, an OSD, a notification or an always-on-top panel fully hides the focused control.
+21. **Drag-only operation:** an action (Dock reorder, window move/resize, file move) that has no keyboard or single-click alternative.
+22. **Hidden privacy state:** a theme, layout or app that can hide the camera, microphone, screen-capture or automation-in-use indicator.
+23. **Dark patterns:** pre-checked consent, confirm-shaming, disguised ads, settings that silently reset, or a "close" that does something else.
+24. **Unlabelled AI output:** generated text, OCR or suggestions applied or shown without saying they are machine-generated, or applied without review.
 
 ### 5.2.8 Design review checklist
 
@@ -515,6 +521,7 @@ Every user-visible change, and every change to this section or a spec dataset, i
 - **Interaction and motion:** direct manipulation and the disclosure order (§5.2.3) are respected; motion comes from tokens and is reduced-motion safe; selection and focus are visible.
 - **Accessibility:** complete keyboard path; AT-SPI role, name and state; focus order and focus return; text-scale check; non-color status (§9.14, §25).
 - **Truthfulness and performance:** provider-backed state only; determinate progress where possible; a cancel path exists; no UI-thread blocking; empty and error states are specified.
+- **2027 baseline:** the change meets §5.2.10. Each new WCAG 2.2 criterion it touches is listed with its test or recorded as `NOT_RUN`.
 - **Cross-project impact:** a change to semantic roles or icon roles lists its effect on the Loom adapter (§21.7.2) and on the PARAMA backend (§21.7.5) as `NONE`, `ADAPTER_UPDATE_NEEDED` or `NOT_RUN`.
 - **Verification:** named tests and gallery fixtures; captures for default, pressed, disabled, focused and error states; unrun gates recorded as `NOT_RUN` in Part II.
 
@@ -523,6 +530,31 @@ Every user-visible change, and every change to this section or a spec dataset, i
 - **SLOPOS ↔ Loom [FUT-LOOM]:** the theme-token and chrome adapter maps SLOPOS semantic roles (surface, ink, accent, focus, selection, border, status, menu and title-bar roles, text scale, reduced motion, high contrast) onto Loom's semantic roles in `loom-design-bible/tokens/loom.toml`. The mapping lives in a versioned adapter, never in either project's core tokens. Where no role matches, Loom keeps its own default. Document content is never re-themed.
 - **SLOPOS ↔ PARAMA [FUT-PARAMA]:** PARAMA consumes the same theme datasets, layout profiles, icon manifests and app IDs through its `PlatformBackend`. It has no second theme engine (§21.7.5; PARAMA `AGENTS.md` §5.1).
 - **Independence:** each repository keeps its own release gates and evidence ledger. A change in one project's tokens never silently changes another's. The adapter version records what was mapped and tested.
+
+### 5.2.10 2027 UX baseline
+
+**Accessibility reference.** WCAG 2.2 AA, as EN 301 549 V4.1.1 clause 11 applies it to non-web software, is the design benchmark (§21.10.4). It adds to §9.14 and §25 and replaces nothing there. The WCAG 2.2 criteria that matter most for a desktop are:
+
+| WCAG 2.2 criterion | SLOPOS rule |
+|---|---|
+| 2.4.11 Focus Not Obscured (AA) | Dock, menu bar, OSDs, notifications and floating panels never fully cover the focused control. Windows are placed and scrolled so focus stays visible; the OSD layer yields to focus. |
+| 2.4.13 Focus Appearance (AAA, adopted as a goal) | Focus rings are drawn from the theme's `focus` role with enough area and contrast in every style. No style may make them thinner than its dataset's minimum. |
+| 2.5.7 Dragging Movements (AA) | Every drag has an alternative: Dock reordering through the context menu or keyboard; window move and resize through the window menu and keyboard (Openbox supports these); file moves through Cut/Paste or Move To. |
+| 2.5.8 Target Size (Minimum) (AA) | See the Classic density rule below. |
+| 3.2.6 Consistent Help (A) | Help stays in the same place: the last menu of the global menu bar, plus SLOPOS Help (§17.5). |
+| 3.3.7 Redundant Entry (A) | Dialogs and Control Panels do not ask again for information the user already gave in the same flow, such as a network name or a path. |
+| 3.3.8 Accessible Authentication (AA) | The lock screen, authentication agent (§18.1) and network-secret prompts accept pasted passwords and password managers, and never require a puzzle or memory test. |
+
+**Classic density and target size.** Platinum Classic's reference geometry is denser than WCAG 2.2's 24×24 px minimum target: menu rows are 16 px tall, and the secondary button example is 80×16 px (§5). Classic 1× stays the reference geometry for conformance (§11). SLOPOS must also offer an accessible route: integer 2× scale (§9.2), which doubles every target, and a future **Large targets** preference that raises hit areas and row heights without changing glyph or bevel design. Whether Classic 1× meets EN 301 549 through an exception (spacing, equivalent control or essential presentation) is recorded per component in the dataset as `PASS`, `EXCEPTION` with a reason, or `FAIL`. It is never assumed.
+
+**Other 2027 expectations:**
+
+- **Color and contrast:** at least 4.5:1 for body text and 3:1 for large text, non-text UI parts and focus indicators (WCAG 1.4.3, 1.4.11). APCA may be used as an advisory second check only, because WCAG 3 is still a draft. Every style keeps a high-contrast variant or is labelled as not offering one.
+- **Privacy indicators:** the menu bar shows when the camera, microphone, screen capture or the §21.6 operator is active. The indicator uses shape and text, not color alone, and no theme can hide it.
+- **Text and language:** fonts are licensed and may be variable fonts. Color emoji, CJK input methods (IBus/Fcitx through §2.3's IME infrastructure) and right-to-left layouts are tested. In RTL, layout mirrors but icons with fixed meaning (play, clock) do not. Classic has no historical RTL reference, so the mirroring rules are written into the dataset as a SLOPOS extension (SPEC-02).
+- **Motion:** reduced motion is honoured system-wide and by every style. Modern motion values come from its dataset (§5.2.6).
+- **AI and Vision surfaces (§21.6, §21.7.3):** an operating indicator, a step list, a stop control and confirmations are always visible while the operator runs. Generated or recognised text is labelled as machine-generated and shows its confidence where meaningful. Changes are previewed and need review before they are applied, and they can be undone. No persona or anthropomorphic framing is required.
+- **No dark patterns** (anti-pattern 23). Consent is opt-in, declining is as easy as accepting, and settings never reset silently.
 
 ---
 
@@ -2395,6 +2427,8 @@ Representative journeys, not present capabilities:
 - Separate read-only actions, ordinary reversible writes, and sensitive/destructive/external actions (deletion, payments, messaging, credential entry, permission or security changes); the latter require explicit context-specific user confirmation. No silent approval chaining.
 - Mask or exclude secrets/secure text, private window contents and unrelated applications wherever possible; never intentionally send screenshots, accessibility trees or credentials to remote services without explicit opt-in. Support per-app and per-action deny rules; redact logs and clear task data.
 - Record that X11 cannot enforce strong per-app input/screen isolation against other local X clients: consent, masking and policy are best-effort protections, **not** an OS-level sandbox or confidentiality guarantee.
+- **Observed content is data, never instructions.** Text and images that the operator reads from windows, documents, web pages, notifications, file names or AT-SPI trees cannot change its task, permissions or policy, even when they are phrased as commands (prompt injection). Only the user's request and SLOPOS policy direct the planner. A step whose target or parameters came from observed content, and which is sensitive, destructive or external, needs the same explicit confirmation as above. The operator never types credentials or one-time codes on the user's behalf. Tests include hostile on-screen and in-document instructions.
+- **External agent protocols are adapters, not new authority.** If SLOPOS later exposes its typed actions to an external agent or tool protocol (for example the Model Context Protocol), that endpoint is off by default and local-only by default. It offers only the same permissioned typed actions with the same confirmations, and it is covered by the same stop control and logs.
 - Fail closed when the UI target cannot be identified confidently, state is stale, input focus differs, the screen is locked, a permission is denied or a verification step fails. Do not fabricate completion, app state or results.
 
 ### Future milestone packets and testable acceptance
@@ -2629,6 +2663,70 @@ These are **aspirational candidate limits** until the hardware baseline and user
 | EDGE-04 | Future compositor or PARAMA backend as applicable | Repeat hardware tests on the relevant *actual* backend; never transfer X11 performance or emulator success to Wayland/PARAMA by assumption. |
 
 For *all future first-party apps*, require an **edge profile** (memory budget, normal startup and steady-state measurements, idle CPU/polling, no-network behavior, bounded input/file work, cancellation), plus a justified exception matrix where hardware or format constraints make some features unavailable. Optimize after profiling and preserve the modern and Classic design system/feature contracts; edge mode is an implementation capability tier, not a separate ugly, inaccessible product.
+
+---
+
+## 21.10 2027 readiness baseline — platform, toolkit, compatibility and supply chain
+
+**Status: review recorded 2026-10-25. The facts below are dated and must be re-checked before each release.** This section does **not** reopen the settled SLOPOS-I decisions (X11 + Openbox, Rust, Platinum Classic, UI library first). It records what changed around them, what SLOPOS must do now to stay buildable and honest in 2027, and when the owner should be asked to revisit a decision. All `Y27-*` items are `PLANNED` until evidence exists in Part II.
+
+### 21.10.1 Platform landscape (as of 2026-10)
+
+| Fact | Effect on SLOPOS-I |
+|---|---|
+| GNOME 50 removed GNOME's own X11 session. GDM can still start *other* desktops' X11 sessions through a per-user X server. ([GNOME blog](https://blogs.gnome.org/alatiera/2025/06/08/the-x11-session-removal/)) | The display-manager login path (F-PKG-01) must be tested against current GDM, LightDM and SDDM. A GDM that starts SLOPOS's X11 session is evidence for that GDM version only. |
+| KDE Plasma 6.8 (October 2026) supports only Wayland sessions; KDE supports the Plasma X11 session only into early 2027. ([Phoronix](https://www.phoronix.com/news/KDE-Plasma-68-Wayland-Exclusive)) | Expect distributions to put less effort into Xorg server packaging and testing. |
+| GTK 4 deprecated its X11 backend in 4.17.4 and plans to remove it in GTK 5. ([Phoronix](https://www.phoronix.com/news/GTK-X11-Now-Deprecated)) | Moving `slopos-ui` from GTK 3 to GTK 4 does not secure the X11 future (§21.10.2). |
+| The gtk3-rs crates (`gtk`, `gdk`, `atk` 0.18, …) carry RustSec "unmaintained" advisories (RUSTSEC-2024-0411 to -0420). Some were later withdrawn when the repository was briefly unarchived, so their status is disputed. ([RustSec](https://rustsec.org/advisories/RUSTSEC-2024-0411.html)) | The Dependabot bump of `glib` to 0.20 cannot build against `gtk` 0.18 (Part II.L, 2026-10-25). Fixes to the GTK 3 bindings may never arrive. |
+| Openbox has had no upstream release since 3.6.1 (2015); distributions carry patches. | SLOPOS depends on distribution packaging and must be ready to carry a small, reviewed patch itself. |
+
+**Rules that apply now:**
+
+1. **Y27-PLAT: supported-distribution matrix.** Record the 2027 target set in the QA inventory: Ubuntu 24.04 LTS and 26.04 LTS, Debian 13 and Arch. Mark each `NOT_RUN` until tested. For each one, test the Xorg server package, Openbox, the display-manager X11 session launch, AT-SPI, PipeWire and xdg-desktop-portal. A distribution that cannot run the session is listed as `BLOCKED` with the reason. It is never dropped silently.
+2. **Keep new interfaces window-system neutral.** New `slopos-appkit`, `slopos-services` and §21.6 interfaces must not expose `x11rb` or other X11 types. X11 stays inside `slopos-x11` and named adapters. This turns §21.7.4's future rule into a present one for new code only. Existing code is migrated when it is touched.
+3. **Owner review triggers.** Ask the owner to re-time FUT-COMP (§21.7.4) when any of these happens: a target distribution stops packaging the Xorg server or Openbox; a supported display manager can no longer start an X11 session; a required engine (VTE, WebKitGTK, a portal backend) stops working on X11; or a security fix needed by SLOPOS is unavailable for X11. Until the owner decides, SLOPOS-I stays X11-only.
+
+### 21.10.2 UI substrate decision (Y27-SUBSTRATE)
+
+`slopos-ui` currently renders through GTK 3 via gtk3-rs. Only a few modules use GTK directly today: `render.rs`, `accessibility.rs`, `testing.rs` and `controls/button.rs`. That makes now the cheapest moment to decide the long-term substrate, before more components depend on it.
+
+- **Rule now:** the public `slopos-ui` API must not expose `gtk`, `gdk` or `glib` types. GTK use stays inside rendering, accessibility and engine-adapter modules, so the substrate can be replaced without changing apps.
+- **Decision record required** (in this section, before any further UI-02 to UI-06 component is accepted). Compare at least:
+  - **(a)** staying on pinned gtk3-rs, with documented `deny.toml` exceptions and an owner for security fixes;
+  - **(b)** GTK 4 through gtk4-rs, whose X11 backend is deprecated;
+  - **(c)** SLOPOS-owned drawing on `x11rb` with Cairo/Pango or a Rust text and raster stack, and accessibility through AccessKit's AT-SPI adapter. GTK would remain only inside engine adapters (VTE, WebKitGTK).
+- **Comparison criteria:** text shaping and IME quality, AT-SPI completeness (Orca journeys, §25), HiDPI determinism (§9.2), Classic pixel exactness (§11), maintenance burden, license, and the route to a future Wayland or PARAMA backend (§21.7.4–21.7.5).
+- **No implementation change is authorized by this section.** It only requires the decision before the risk grows.
+
+### 21.10.3 Third-party application compatibility in 2027 (Y27-COMPAT)
+
+The §21.8 compatibility matrix must include current application types, not only GTK 3:
+
+- **Toolkits:** GTK 4/libadwaita, Qt 6, Electron/Chromium, Java Swing and Flatpak apps, each run under the SLOPOS X11 session.
+- **Portals:** the session sets `XDG_CURRENT_DESKTOP=SLOPOS` and ships a `slopos-portals.conf` that selects working backends (for example `xdg-desktop-portal-gtk` for FileChooser). Portals with no working X11 backend, such as some Screenshot or ScreenCast paths, are reported as unavailable, not as working.
+- **Global menu:** measure global-menu export per toolkit. Many GTK 4, libadwaita and Electron apps do not export menus over DBusMenu. Those apps keep their in-window menus, and the menu bar shows only the commands an app really exports (§14.1).
+- **Input and display:** check fractional-scaling behavior per toolkit at SLOPOS's integer scales, and check XInput2 touchpad gestures where the X server provides them. Unsupported behavior is recorded per toolkit.
+
+### 21.10.4 Accessibility reference (Y27-A11Y)
+
+EN 301 549 V4.1.1 (adopted August 2026) aligns software requirements with WCAG 2.2 Level A and AA. The European Accessibility Act has applied since 28 June 2025. SLOPOS uses **WCAG 2.2 AA, as applied to non-web software by EN 301 549 clause 11**, as its accessibility *reference benchmark* for the shell and first-party apps. This is a design and test target. It is not a legal conformance claim. The design-level mapping is in §5.2.10, and the tests stay in §25.
+
+### 21.10.5 Security, supply chain and regulation (Y27-SUPPLY)
+
+- **Dependency audit:** run `cargo deny check` (advisories, bans, licenses, sources) against the existing `deny.toml` in CI. Each documented exception names an owner and a review date. Unmaintained-crate advisories are exceptions, not silent passes.
+- **SBOM and provenance:** each `.deb`, `.pkg.tar.zst` and ISO ships an SPDX or CycloneDX SBOM and checksums. Package signing remains required before any public repository (README "Package repositories"). Reproducible package builds are a goal, and the evidence is recorded as it exists.
+- **Vulnerability handling:** security reports go through GitHub private vulnerability reporting, if the owner enables it, or a contact recorded here. No separate policy Markdown file is added (§34). Fixes are tracked in Part II.
+- **EU Cyber Resilience Act:** CRA reporting duties apply from 11 September 2026, and most obligations from 11 December 2027. SLOPOS is non-monetised MIT open source, which is generally outside the CRA's manufacturer duties. If SLOPOS is ever distributed commercially (paid images, paid support bundles), the owner must review CRA obligations first. This is not legal advice.
+- **Toolchain:** `rust-toolchain.toml` pins 1.99.0. Crates are on edition 2021. Migrating to edition 2024 is a separate, explicit task (Y27-EDITION) with the four cargo checks. It is never folded into a feature change.
+
+| ID | Depends on | First evidence |
+|---|---|---|
+| Y27-PLAT | QA-01 | Matrix rows with `PASS`/`FAIL`/`BLOCKED`/`NOT_RUN` per distribution and display manager |
+| Y27-SUBSTRATE | UI-01/UI-02 status | Recorded decision with the criteria above; no code change required |
+| Y27-COMPAT | §21.8 matrix, session packaging | Per-toolkit launch, menu, portal and scaling rows in a graphical VM |
+| Y27-A11Y | §5.2.10, §25 | Criterion-by-criterion mapping with test owners; Orca journey evidence |
+| Y27-SUPPLY | CI | `cargo deny` job result, SBOM files attached to package artifacts |
+| Y27-EDITION | Green CI on `main` | Edition 2024 migration commit with all four cargo checks passing |
 
 ---
 
@@ -3929,6 +4027,7 @@ Truthful-state status at `b332657`: the hard-coded network interface/SSID text, 
 - **Merged before this edit:** the Pi Zero 2 W edge contract (§21.9), after its conflicts with §21.8.1–21.8.2 were resolved. No content was dropped.
 - **Not merged:** Dependabot's `glib` 0.18 → 0.20 bump. `gtk`/`gdk`/`gio` 0.18 (gtk3-rs, end-of-life) still require `glib` 0.18. The mixed versions fail `build + test + lint` with 12 compile errors in `slopos-settings`. Moving glib forward requires a reviewed GTK migration (§2.2 donor crates), not a version bump. Status: `BLOCKED`.
 - **NOT_RUN:** the cargo checks, graphical QA and VM gates were not run, because the change is documentation-only.
+- **2027 readiness review (same day, documentation only):** added §21.10 (platform landscape, owner review triggers, UI substrate decision Y27-SUBSTRATE, 2027 compatibility and portal rules, accessibility reference, supply chain and CRA notes, Y27-* backlog), the §21.6 prompt-injection and agent-protocol rules, and the §5.2.10 2027 UX baseline with anti-patterns 20–24. Finding: the GTK 3 Rust bindings are an unmaintained, disputed dependency under `slopos-ui`, and GTK 4's X11 backend is deprecated. That makes Y27-SUBSTRATE a decision to take before more UI-02 to UI-06 components are accepted. Finding: the Classic 1× target sizes are below WCAG 2.2's 24 px minimum, and each component needs a recorded `PASS`/`EXCEPTION`/`FAIL`. All Y27-* items are `PLANNED`.
 
 ## M. Active task and ownership register
 
