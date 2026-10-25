@@ -94,6 +94,13 @@ The **12 licensed Lucide SVG symbolic app-list prototypes** and pinned icon mani
 - Benchmark repeated matched workloads (startup, responsiveness, resource use, correctness and failures). No cherry-picked one-run superiority claims. Review source-level dependencies, imports, redistributable assets and GPL obligations before bringing in third-party code.
 - Coding agents preserve approved architecture, implement typed contracts, test negative cases, document evidence and `NOT_RUN` gates, and update the existing truth ledger—not new status documents. This discipline applies to current tasks **without authorizing future §21.6/§21.7 features**.
 
+## Platform integration and first-party bundle policy (§21.8.1–21.8.2)
+
+- Learn selectively from Vinix's **Linux-userspace ABI strategy** and VitruvianOS's **Linux-service integration and Janus-style supervised graphical sessions**; do not copy code or call their performance claims verified. SLOPOS Linux is already Linux ABI-native; PARAMA owns any future Linux compatibility personality.
+- Plan supervised login/seat/VT/restart/logout, optional bounded metadata-driven Files search, and shared lazily loaded media providers. Validate real workflows in the existing QA ledger; a new privileged kernel module requires a measured necessity and license review.
+- **Bundled first-party applications must be original/owner-authored and provenance-verified.** Exclude the forked `palaashatri/tricycle` and `palaashatri/texture-auto-upscaler` from first-party packages. Curated desktop app candidates: Loom, ClipKit, JWhisper/JVosk, JForge/PyForge, Donkey and ICStudio. **JTorch (library) and Benchmarks (QA harness) are explicitly excluded from both the first-party application bundle and optional SLOPOS app catalog**; they remain independent projects with their own edge-efficiency requirements.
+- Preserve a tiny `core-minimal` install, a selective first-party catalog and optional full desktop meta-package. Zero 2 W-specific edge constraints and failures must be disclosed; no eager model/toolchain installs. Linux-first; PARAMA app targets remain blocked by real runtime/ABI/toolkit milestones.
+
 ## Rules
 
 1. **Never display invented system state.** No hard-coded interfaces, SSIDs, IPs, devices or levels. If a provider is missing, show "unavailable". Read state through `slopos-services` providers, never by parsing ad-hoc command output. `crates/slopos-shell/tests/shell_tests.rs` asserts the old fake strings stay gone; keep those tests.
