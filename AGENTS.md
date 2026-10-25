@@ -80,6 +80,12 @@ Graphical and integration QA lives in `scripts/run-*-qa.sh` (Xvfb/Openbox, AT-SP
 - Require per-task authorization, clear progress, immediate stop, explicit confirmation of sensitive/destructive/external actions and truthful verification; never silently export screen contents or grant unrestricted execution.
 - **PLANNED / NOT IMPLEMENTED and not release-blocking.** Do not divert the current UI/appkit, native app, shell and CI milestones. The authoritative target, task IDs AI-01–AI-05 and acceptance criteria are in `docs/CONTRACT.md` §21.6.
 
+## Cross-generation feature goals (§21.7)
+
+The full SLOPOS platform vision is captured in \`docs/CONTRACT.md\` §21.7 and **does not change the SLOPOS-I release gates**. Future, not-yet-implemented tracks: a first-party accessible UI toolkit with consistent **System 7/Platinum Classic** and optional **Loom Design Bible**-inspired whole-desktop themes; Loom Writer/Sheets/Present integration while preserving Loom's own Rust/Slint and cross-platform status; local-first Vision/Live Text, Copy Subject, Visual Look Up, dictation/writing assistance; permissioned Bixby-style desktop automation (§21.6); an independently proven SLOPOS-owned compositor with HDR/VRR, Spaces and live wallpapers; and **optional PARAMA hosting only once its real kernel/user-space/security/driver/graphics gates exist**.
+
+Keep Loom, PARAMA and SLOPOS separate. Do not implement future work on the current SLOPOS-I branch without an owner-approved scoped task, bypass \`slopos-ui\`/appkit requirements, falsely mark third-party compatibility, or silently turn planned goals into product readiness claims. Future task identifiers: FUT-UI, FUT-LOOM, FUT-VISION, FUT-COMP, FUT-PARAMA.
+
 ## Rules
 
 1. **Never display invented system state.** No hard-coded interfaces, SSIDs, IPs, devices or levels. If a provider is missing, show "unavailable". Read state through `slopos-services` providers, never by parsing ad-hoc command output. `crates/slopos-shell/tests/shell_tests.rs` asserts the old fake strings stay gone; keep those tests.
@@ -113,3 +119,4 @@ Graphical and integration QA lives in `scripts/run-*-qa.sh` (Xvfb/Openbox, AT-SP
 | QA, release, evidence | §28–33, Part II |
 | Production-readiness definition | §35–37 |
 | Future SLOPOS Intelligence feature goal | §21.6 (AI-01–AI-05) |
+| Broader SLOPOS platform vision, Loom/Vision/compositor/PARAMA | §21.7 (FUT-*) |
