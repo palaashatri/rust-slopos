@@ -73,6 +73,13 @@ Graphical and integration QA lives in `scripts/run-*-qa.sh` (Xvfb/Openbox, AT-SP
 - **UI library first**: build and verify `slopos-ui`, then `slopos-appkit`; apps and shell surfaces consume them. Do not add new first-party UI written directly in raw GTK (§2.2). The existing GTK crates may only get bug fixes, truthful-state fixes and incremental extraction (§N, transitional exceptions).
 - One monorepo. The shell needs a Dock, global menu, status applets, launcher, desktop, notifications, workspaces and volume/brightness OSDs.
 
+## Future feature goal: SLOPOS Intelligence (§21.6)
+
+- Plan an **opt-in, local-first desktop operator** that visibly opens/navigates real apps, clicks/types, captures screens and verifies multistep tasks, with text first and voice later.
+- Prioritize typed `slopos-services`/`slopos-appkit` actions, then AT-SPI2 accessibility, then bounded screenshot/vision-assisted X11 input as a fallback. Keep the planner backend-agnostic; X11/Openbox remains the only permitted SLOPOS-I session.
+- Require per-task authorization, clear progress, immediate stop, explicit confirmation of sensitive/destructive/external actions and truthful verification; never silently export screen contents or grant unrestricted execution.
+- **PLANNED / NOT IMPLEMENTED and not release-blocking.** Do not divert the current UI/appkit, native app, shell and CI milestones. The authoritative target, task IDs AI-01–AI-05 and acceptance criteria are in `docs/CONTRACT.md` §21.6.
+
 ## Rules
 
 1. **Never display invented system state.** No hard-coded interfaces, SSIDs, IPs, devices or levels. If a provider is missing, show "unavailable". Read state through `slopos-services` providers, never by parsing ad-hoc command output. `crates/slopos-shell/tests/shell_tests.rs` asserts the old fake strings stay gone; keep those tests.
@@ -105,3 +112,4 @@ Graphical and integration QA lives in `scripts/run-*-qa.sh` (Xvfb/Openbox, AT-SP
 | Shell, providers, X11 | §13–14, §18, §22–24 |
 | QA, release, evidence | §28–33, Part II |
 | Production-readiness definition | §35–37 |
+| Future SLOPOS Intelligence feature goal | §21.6 (AI-01–AI-05) |
