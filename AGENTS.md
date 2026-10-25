@@ -82,9 +82,17 @@ Graphical and integration QA lives in `scripts/run-*-qa.sh` (Xvfb/Openbox, AT-SP
 
 ## Cross-generation feature goals (§21.7)
 
-The full SLOPOS platform vision is captured in `docs/CONTRACT.md` §21.7 and **does not change the SLOPOS-I release gates**. Future, not-yet-implemented tracks: a first-party accessible UI toolkit with consistent **System 7/Platinum Classic** and optional **Loom Design Bible**-inspired whole-desktop themes; Loom Writer/Sheets/Present integration while preserving Loom's own Rust/Slint and cross-platform status; local-first Vision/Live Text, Copy Subject, Visual Look Up, dictation/writing assistance; permissioned Bixby-style desktop automation (§21.6); an independently proven SLOPOS-owned compositor with HDR/VRR, Spaces and live wallpapers; and **optional PARAMA hosting only once its real kernel/user-space/security/driver/graphics gates exist**.
+The full SLOPOS platform vision is captured in `docs/CONTRACT.md` §21.7 and **does not change the SLOPOS-I release gates**. Future, not-yet-implemented tracks: a fully themeable first-party UI toolkit with **System 7/Platinum Classic**, **Sinty-inspired SLOPOS Modern**, independent desktop layouts and third-party themes/icon packs (Loom Design Bible remains a creative-suite bridge); Loom Writer/Sheets/Present integration while preserving Loom's own Rust/Slint and cross-platform status; local-first Vision/Live Text, Copy Subject, Visual Look Up, dictation/writing assistance; permissioned Bixby-style desktop automation (§21.6); an independently proven SLOPOS-owned compositor with HDR/VRR, Spaces and live wallpapers; and **SLOPOS as PARAMA's intended complete desktop above SURYA**, only once genuine kernel/user-space/security/driver/graphics gates exist.
 
-Keep Loom, PARAMA and SLOPOS separate. Do not implement future work on the current SLOPOS-I branch without an owner-approved scoped task, bypass `slopos-ui`/appkit requirements, falsely mark third-party compatibility, or silently turn planned goals into product readiness claims. Future task identifiers: FUT-UI, FUT-LOOM, FUT-VISION, FUT-COMP, FUT-PARAMA.
+The **12 licensed Lucide SVG symbolic app-list prototypes** and pinned icon manifest live in `assets/icons/symbolic/`; they are not runtime-integrated or full-color brand artworks. Future branded Dock/launcher icons must be original and validated. Themes must separate visual styles, desktop layouts, icon packs and user accessibility prefs; follow §21.7.1 rather than implementing per-app theme switches. Preserve clean-room rights for the Sinty reference. Keep Loom, PARAMA and SLOPOS separate. Do not implement future work on the current SLOPOS-I branch without an owner-approved scoped task, bypass `slopos-ui`/appkit requirements, falsely mark third-party compatibility, or silently turn planned goals into product readiness claims. Future task identifiers: FUT-UI, FUT-LOOM, FUT-VISION, FUT-COMP, FUT-PARAMA.
+
+## Platform engineering discipline (§21.8)
+
+- **Reuse mature infrastructure; own the experience.** Before building a compositor, protocol bridge, compatibility engine or driver, compare available upstream alternatives, document missing behavior/licensing and specify a small replaceable adapter. Preserve one authoritative system-service provider per domain.
+- **Compatibility is a complete user workflow:** installation, launch, interaction, persistence, exit/restart and failure recovery, with a bounded per-app/runtime/distro matrix. Wine/Proton are the Linux default to evaluate; Raven is an experimental alternative requiring independent display-server and license assessment—not a dependency or a claim of support.
+- Validate real GTK/Qt/Slint/native/Windows-app journeys in an isolated graphical Linux VM; hardware graphics/HDR/VRR claims require separate physical tests. Capture failed stages and exact binaries/configuration. No "works" from a build, screenshot or stub.
+- Benchmark repeated matched workloads (startup, responsiveness, resource use, correctness and failures). No cherry-picked one-run superiority claims. Review source-level dependencies, imports, redistributable assets and GPL obligations before bringing in third-party code.
+- Coding agents preserve approved architecture, implement typed contracts, test negative cases, document evidence and `NOT_RUN` gates, and update the existing truth ledger—not new status documents. This discipline applies to current tasks **without authorizing future §21.6/§21.7 features**.
 
 ## Rules
 
@@ -120,3 +128,4 @@ Keep Loom, PARAMA and SLOPOS separate. Do not implement future work on the curre
 | Production-readiness definition | §35–37 |
 | Future SLOPOS Intelligence feature goal | §21.6 (AI-01–AI-05) |
 | Broader SLOPOS platform vision, Loom/Vision/compositor/PARAMA | §21.7 (FUT-*) |
+| Compatibility, reuse, benchmarks, licenses, agent evidence | §21.8 |

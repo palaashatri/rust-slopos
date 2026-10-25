@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "status": "design-reference-assets-not-runtime-integrated",
+  "purpose": "Canonical monochrome symbols from proposed default SLOPOS application list; NOT finalized full-color launcher or Dock icons",
+  "upstream": {
+    "project": "Lucide Icons",
+    "source": "https://github.com/lucide-icons/lucide",
+    "commit": "7faf87628a1ad6175975bc595344337ce14a7db4",
+    "license_file": "assets/icons/symbolic/lucide/LICENSE",
+    "license_identifiers": [
+      "ISC",
+      "MIT for Feather-derived listed glyphs"
+    ]
+  },
+  "style": {
+    "viewBox": "0 0 24 24",
+    "strokeWidth": 2,
+    "stroke": "currentColor",
+    "fill": "none",
+    "target_sizes_px": [
+      16,
+      20,
+      24,
+      32
+    ],
+    "usage": [
+      "menus",
+      "search",
+      "settings",
+      "app list",
+      "symbolic fallback"
+    ],
+    "theme_behavior": "foreground follows high-contrast/current semantic icon token"
+  },
+  "applications": [
+    {
+      "id": "org.slopos.Files",
+      "title": "Files",
+      "glyph": "folder",
+      "asset": "assets/icons/symbolic/lucide/folder.svg",
+      "role": "symbolic-prototype",
+      "runtime_integration": "not-implemented"
+    },
+    {
+      "id": "org.slopos.Terminal",
+      "title": "Terminal",
+      "glyph": "terminal",
+      "asset": "assets/icons/symbolic/lucide/terminal.svg",
+      "role": "symbolic-prototype",
+      "runtime_integration": "not-implemented"
+    },
+    {
+      "id": "org.slopos.ControlPanels",
+      "title": "Control Panels",
+      "glyph": "settings",
+      "asset": "assets/icons/symbolic/lucide/settings.svg",
+      "role": "symbolic-prototype",
+      "runtime_integration": "not-implemented"
+    },
+    {
+      "id": "org.slopos.Software",
+      "title": "Software",
+      "glyph": "package",
+      "asset": "assets/icons/symbolic/lucide/package.svg",
+      "role": "symbolic-prototype",
+      "runtime_integration": "not-implemented"
+    },
+    {
+      "id": "org.slopos.SystemMonitor",
+      "title": "System Monitor",
+      "glyph": "activity",
+      "asset": "assets/icons/symbolic/lucide/activity.svg",
+      "role": "symbolic-prototype",
+      "runtime_integration": "not-implemented"
+    },
+    {
+      "id": "org.slopos.Screenshot",
+      "title": "Screenshot",
+      "glyph": "camera",
+      "asset": "assets/icons/symbolic/lucide/camera.svg",
+      "role": "symbolic-prototype",
+      "runtime_integration": "not-implemented"
+    },
+    {
+      "id": "org.slopos.ImageViewer",
+      "title": "Image Viewer",
+      "glyph": "image",
+      "asset": "assets/icons/symbolic/lucide/image.svg",
+      "role": "symbolic-prototype",
+      "runtime_integration": "not-implemented"
+    },
+    {
+      "id": "org.slopos.Calculator",
+      "title": "Calculator",
+      "glyph": "calculator",
+      "asset": "assets/icons/symbolic/lucide/calculator.svg",
+      "role": "symbolic-prototype",
+      "runtime_integration": "not-implemented"
+    },
+    {
+      "id": "org.slopos.Notes",
+      "title": "Notes",
+      "glyph": "notebook-pen",
+      "asset": "assets/icons/symbolic/lucide/notebook-pen.svg",
+      "role": "symbolic-prototype",
+      "runtime_integration": "not-implemented"
+    },
+    {
+      "id": "org.slopos.Downloads",
+      "title": "Downloads",
+      "glyph": "download",
+      "asset": "assets/icons/symbolic/lucide/download.svg",
+      "role": "symbolic-prototype",
+      "runtime_integration": "not-implemented"
+    },
+    {
+      "id": "org.slopos.Dictation",
+      "title": "Dictation",
+      "glyph": "mic",
+      "asset": "assets/icons/symbolic/lucide/mic.svg",
+      "role": "symbolic-prototype",
+      "runtime_integration": "not-implemented"
+    },
+    {
+      "id": "org.slopos.Intelligence",
+      "title": "Intelligence",
+      "glyph": "brain-circuit",
+      "asset": "assets/icons/symbolic/lucide/brain-circuit.svg",
+      "role": "symbolic-prototype",
+      "runtime_integration": "not-implemented"
+    }
+  ]
+}

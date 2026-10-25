@@ -1,0 +1,12 @@
+SLOPOS symbolic icon reference subset (not finalized app-brand icons).
+
+Source: Lucide Icons https://github.com/lucide-icons/lucide
+Pinned upstream commit: 7faf87628a1ad6175975bc595344337ce14a7db4
+Icons in assets/icons/symbolic/lucide/*.svg are copied from this revision.
+Licenses and copyright: see lucide/LICENSE (ISC and the listed Feather-derived MIT icons).
+
+This symbolic icon set is the monochrome app-list vocabulary from the mockup,
+not the colorful Dock icons from Sinty/Singularity. It is not wired into the
+SLOPOS runtime yet and is not claimed as SLOPOS-original artwork.
+Use an independently designed/licensed SLOPOS brand-icon family for launcher/Dock.
+No unreviewed external marks, proprietary app artwork or unsupported themes.
