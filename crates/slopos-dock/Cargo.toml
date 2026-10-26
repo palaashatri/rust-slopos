@@ -1,0 +1,14 @@
+[package]
+name = "slopos-dock"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Dock: pinned and running applications"
+
+[dependencies]
+slopos-core = { path = "../slopos-core" }
+slopos-ui = { path = "../slopos-ui" }
+accesskit = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+x11rb = { workspace = true }

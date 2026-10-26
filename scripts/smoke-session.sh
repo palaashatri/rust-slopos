@@ -50,7 +50,7 @@ fail() {
 # Session processes that belong to our display.
 session_pids() {
   local name pid
-  for name in slopos-session slopos-shell openbox; do
+  for name in slopos-session slopos-shell slopos-dock openbox; do
     for pid in $(pgrep -x "$name" 2>/dev/null || true); do
       if { tr '\0' '\n' < "/proc/$pid/environ"; } 2>/dev/null | grep -qx "DISPLAY=$DISPLAY"; then
         echo "$pid"
@@ -80,9 +80,14 @@ for _ in $(seq 1 150); do
 done
 xdotool search --name '^SLOPOS Top Bar$' >/dev/null 2>&1 || fail "the menu bar never appeared"
 pgrep -x openbox >/dev/null || fail "Openbox is not running"
+for _ in $(seq 1 50); do
+  xdotool search --name '^SLOPOS Dock$' >/dev/null 2>&1 && break
+  sleep 0.2
+done
+xdotool search --name '^SLOPOS Dock$' >/dev/null 2>&1 || fail "the Dock never appeared"
 sleep 1
 shoot desktop
-echo "smoke: menu bar is up"
+echo "smoke: menu bar and Dock are up"
 
 # Open the File menu on the desktop menu bar and make sure the shell survives.
 xdotool mousemove 72 12 click 1
@@ -93,6 +98,7 @@ sleep 0.3
 [ -n "$(session_pids)" ] || fail "session processes disappeared after opening a menu"
 
 # Native toolkit app under the real window manager: type a sum, then close it.
+DOCK_WIDTH_BEFORE="$(xdotool getwindowgeometry "$(xdotool search --name '^SLOPOS Dock$' | head -1)" | sed -n 's/.*Geometry: \([0-9]*\)x.*/\1/p')"
 "$BIN_DIR/slopos-calculator" >"$OUT/calculator.log" 2>&1 &
 CALC_PID=$!
 for _ in $(seq 1 50); do
@@ -106,6 +112,10 @@ xdotool windowactivate --sync "$CALC_WINDOW" 2>/dev/null || xdotool windowfocus 
 xdotool type --window "$CALC_WINDOW" '7*6='
 sleep 0.5
 shoot calculator
+# The Dock follows the window list, so it now has a tile for Calculator.
+DOCK_WINDOW="$(xdotool search --name '^SLOPOS Dock$' | head -1)"
+DOCK_WIDTH="$(xdotool getwindowgeometry "$DOCK_WINDOW" | sed -n 's/.*Geometry: \([0-9]*\)x.*/\1/p')"
+[ "${DOCK_WIDTH:-0}" -gt "${DOCK_WIDTH_BEFORE:-0}" ] || fail "the Dock did not add a tile for the calculator (${DOCK_WIDTH_BEFORE:-?} -> ${DOCK_WIDTH:-?})"
 xdotool windowclose "$CALC_WINDOW"
 for _ in $(seq 1 25); do kill -0 "$CALC_PID" 2>/dev/null || break; sleep 0.2; done
 if kill -0 "$CALC_PID" 2>/dev/null; then

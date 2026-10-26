@@ -1,6 +1,7 @@
 //! Decoded images: PNG files and rasterised SVG icons.
 
 use std::path::Path;
+use std::sync::{Arc, OnceLock};
 
 use resvg::usvg;
 use tiny_skia::{Pixmap, PremultipliedColorU8, Transform};
@@ -20,6 +21,18 @@ pub enum ImageError {
     Svg(String),
     #[error("image dimensions must be nonzero and match the pixel data")]
     Dimensions,
+}
+
+/// The system font database for SVG text, loaded once.
+fn system_fonts() -> Arc<usvg::fontdb::Database> {
+    static FONTS: OnceLock<Arc<usvg::fontdb::Database>> = OnceLock::new();
+    FONTS
+        .get_or_init(|| {
+            let mut database = usvg::fontdb::Database::new();
+            database.load_system_fonts();
+            Arc::new(database)
+        })
+        .clone()
 }
 
 /// A premultiplied RGBA image.
@@ -60,7 +73,12 @@ impl Image {
     /// Rasterise an SVG document into a `size × size` square, keeping its
     /// aspect ratio and centring it.
     pub fn from_svg(bytes: &[u8], size: u32) -> Result<Self, ImageError> {
-        let tree = usvg::Tree::from_data(bytes, &usvg::Options::default())
+        let mut options = usvg::Options::default();
+        // Text in icons (some draw letters) needs fonts; load them only then.
+        if bytes.windows(5).any(|window| window == b"<text") {
+            options.fontdb = system_fonts();
+        }
+        let tree = usvg::Tree::from_data(bytes, &options)
             .map_err(|error| ImageError::Svg(error.to_string()))?;
         let mut pixmap = Pixmap::new(size.max(1), size.max(1)).ok_or(ImageError::Dimensions)?;
         let view = tree.size();

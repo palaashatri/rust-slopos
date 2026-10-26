@@ -41,12 +41,17 @@ required=(
   './usr/bin/slopos-shell'
   './usr/bin/slopos-catalogue'
   './usr/bin/slopos-settings'
+  './usr/bin/slopos-dock'
+  './usr/bin/slopos-calculator'
   './usr/bin/start-slopos-i'
   './usr/bin/start-slopos-browser'
   './usr/bin/slopos-appearance'
   './usr/bin/slopos-recovery'
   './usr/share/xsessions/slopos-i.desktop'
   './usr/share/applications/slopos-browser.desktop'
+  './usr/share/applications/slopos-calculator.desktop'
+  './usr/share/applications/slopos-settings.desktop'
+  './usr/share/applications/slopos-catalogue.desktop'
   './usr/share/slopos-i/openbox/rc.xml'
   './usr/share/slopos-i/openbox/rc-graphite.xml'
   './usr/share/slopos-i/mimeapps.list'
@@ -77,7 +82,7 @@ root="/tmp/slopos-deb-root"
 mkdir -p "$root"
 dpkg-deb --extract artifacts/debian-package/slopos-i.deb "$root"
 
-for binary in slopos-session slopos-shell slopos-catalogue slopos-settings start-slopos-i start-slopos-browser slopos-appearance slopos-recovery; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings start-slopos-i start-slopos-browser slopos-appearance slopos-recovery; do
   test -x "$root/usr/bin/$binary"
 done
 
