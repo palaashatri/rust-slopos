@@ -13,15 +13,24 @@ pub fn modifiers(state: u16) -> Modifiers {
 }
 
 /// Choose the keysym for a key event from its keyboard-mapping row.
-pub fn keysym_for(row: &[u32], state: u16) -> u32 {
+///
+/// `num_lock` is the modifier bit the server assigned to Num Lock (usually
+/// Mod2). With Num Lock on, a keypad key's shifted (numeric) keysym wins;
+/// Shift reverses that, so the navigation keys stay reachable.
+pub fn keysym_for(row: &[u32], state: u16, num_lock: u16) -> u32 {
     let shift = state & 0x0001 != 0;
     let caps_lock = state & 0x0002 != 0;
+    let num_lock = num_lock != 0 && state & num_lock != 0;
     let lower = row.first().copied().unwrap_or(0);
     let upper = row
         .get(1)
         .copied()
         .filter(|keysym| *keysym != 0)
         .unwrap_or(lower);
+    let is_keypad = |keysym: u32| (0xff80..=0xffbd).contains(&keysym);
+    if num_lock && is_keypad(upper) {
+        return if shift { lower } else { upper };
+    }
     let is_letter = char::from_u32(lower).is_some_and(|c| c.is_ascii_lowercase());
     if shift ^ (caps_lock && is_letter) {
         upper
@@ -73,12 +82,27 @@ mod tests {
     #[test]
     fn shift_and_caps_lock_pick_the_right_level() {
         let row = [u32::from(b'a'), u32::from(b'A')];
-        assert_eq!(keysym_for(&row, 0), u32::from(b'a'));
-        assert_eq!(keysym_for(&row, 0x0001), u32::from(b'A'));
-        assert_eq!(keysym_for(&row, 0x0002), u32::from(b'A'));
-        assert_eq!(keysym_for(&row, 0x0003), u32::from(b'a'));
+        assert_eq!(keysym_for(&row, 0, 0), u32::from(b'a'));
+        assert_eq!(keysym_for(&row, 0x0001, 0), u32::from(b'A'));
+        assert_eq!(keysym_for(&row, 0x0002, 0), u32::from(b'A'));
+        assert_eq!(keysym_for(&row, 0x0003, 0), u32::from(b'a'));
         let digit = [u32::from(b'1'), u32::from(b'!')];
-        assert_eq!(keysym_for(&digit, 0x0002), u32::from(b'1'));
+        assert_eq!(keysym_for(&digit, 0x0002, 0), u32::from(b'1'));
+    }
+
+    #[test]
+    fn num_lock_selects_the_keypad_level() {
+        // A standard keypad row is [navigation, digit].
+        let keypad = [0xff95, 0xffb7]; // KP_Home, KP_7
+        assert_eq!(keysym_for(&keypad, 0, 0x0010), 0xff95);
+        assert_eq!(keysym_for(&keypad, 0x0010, 0x0010), 0xffb7);
+        assert_eq!(keysym_for(&keypad, 0x0011, 0x0010), 0xff95);
+        assert_eq!(keysym_for(&keypad, 0x0001, 0x0010), 0xffb7);
+        // Num Lock never changes the level of ordinary keys.
+        let letter = [u32::from(b'a'), u32::from(b'A')];
+        assert_eq!(keysym_for(&letter, 0x0010, 0x0010), u32::from(b'a'));
+        // Caps Lock still applies, unaffected by the Num Lock mask.
+        assert_eq!(keysym_for(&letter, 0x0002, 0x0010), u32::from(b'A'));
     }
 
     #[test]

@@ -1,7 +1,13 @@
 name: Arch Package QA
 
 on:
-  # Called by nightly.yml; can also be run by hand.
+  pull_request:
+    paths:
+      - 'packaging/debian/**'
+      - 'packaging/arch/**'
+      - '.github/workflows/debian-package.yml'
+      - '.github/workflows/arch-package.yml'
+  # Called by nightly.yml; can also be run by hand or for a packaging PR.
   workflow_call:
   workflow_dispatch:
 
@@ -39,6 +45,9 @@ jobs:
               test "$(git -C /workspace rev-parse HEAD)" = "$SOURCE_SHA"
 
               rm -rf /tmp/slopos-package-src.git /tmp/slopos-pkg
+              # A pull-request checkout is a detached exact head. Name it main
+              # so the PKGBUILD source ref resolves inside the disposable clone.
+              git -C /workspace update-ref refs/heads/main "$SOURCE_SHA"
               git clone --bare /workspace /tmp/slopos-package-src.git
               test "$(git --git-dir=/tmp/slopos-package-src.git rev-parse refs/heads/main)" = "$SOURCE_SHA"
               git config --global protocol.file.allow always

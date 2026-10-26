@@ -60,6 +60,10 @@ impl Child {
                 Ok(None) => return Ok(()),
                 Ok(Some(status)) => {
                     self.process = None;
+                    if self.policy == Policy::Required && status.success() {
+                        self.given_up = true;
+                        return Err(format!("{} exited normally; ending the session", self.name));
+                    }
                     self.record_failure(&format!("exited with {status}"))?;
                 }
                 Err(error) => {
@@ -142,6 +146,13 @@ mod tests {
             .ok()
     }
 
+    fn exits_cleanly() -> Option<process::Child> {
+        process::Command::new("/bin/sh")
+            .args(["-c", "exit 0"])
+            .spawn()
+            .ok()
+    }
+
     fn runs() -> Option<process::Child> {
         process::Command::new("/bin/sh")
             .args(["-c", "sleep 5"])
@@ -171,6 +182,43 @@ mod tests {
         }
         assert!(child.given_up);
         assert_eq!(errors, 1, "giving up must be reported exactly once");
+    }
+
+    #[test]
+    fn a_required_child_that_exits_cleanly_ends_the_session() {
+        let mut child = Child::new("Openbox", Policy::Required, exits_cleanly);
+        let mut error = None;
+        for _ in 0..200 {
+            std::thread::sleep(Duration::from_millis(5));
+            if let Err(reason) = child.supervise() {
+                error = Some(reason);
+                break;
+            }
+        }
+        let error = error.expect("a clean exit must end the session");
+        assert!(error.contains("exited normally"), "{error}");
+        assert!(child.given_up);
+        assert!(child.process.is_none());
+        // Ending the session is reported once, not on every later poll.
+        assert!(child.supervise().is_ok());
+    }
+
+    #[test]
+    fn a_required_child_that_fails_is_still_restarted() {
+        let mut child = Child::new("Openbox", Policy::Required, exits_at_once);
+        let mut restarted = false;
+        for _ in 0..200 {
+            child.restart_after = Instant::now();
+            std::thread::sleep(Duration::from_millis(5));
+            assert!(child.supervise().is_ok());
+            if child.fast_failures > 0 && child.process.is_some() {
+                restarted = true;
+                break;
+            }
+        }
+        assert!(restarted, "the failed child was not restarted");
+        assert!(!child.given_up);
+        child.stop();
     }
 
     #[test]

@@ -520,9 +520,10 @@ fn build_desktop_menu_bar(
             "Empty Trash",
             "Permanently delete all items in the Trash? This cannot be undone.",
             || {
-                if let Err(error) = crate::desktop_files::empty_trash() {
-                    show_message("Could not empty the Trash", &error);
-                }
+                run_off_thread(
+                    "Could not empty the Trash",
+                    crate::desktop_files::empty_trash,
+                );
             },
         );
     });
@@ -656,8 +657,17 @@ fn append_session_items(
                 "Log Out",
                 "Log out of SLOPOS-I now? Unsaved work in open applications may be lost.",
                 || {
-                    if let Err(error) = process::launch("slopos-session", &["--logout"]) {
-                        show_message("Could not log out", &error);
+                    let Some(path) = process::resolve_program("slopos-session") else {
+                        show_message("Could not log out", "slopos-session is not installed");
+                        return;
+                    };
+                    match std::process::Command::new(path).arg("--logout").status() {
+                        Ok(status) if status.success() => {}
+                        Ok(_) => show_message(
+                            "Could not log out",
+                            "No SLOPOS session is running on this display.",
+                        ),
+                        Err(error) => show_message("Could not log out", &error.to_string()),
                     }
                 },
             );
@@ -669,9 +679,7 @@ fn append_session_items(
     if session::can_reboot() {
         restart.connect_activate(|_| {
             confirm_action("Restart", "Restart this computer now?", || {
-                if let Err(error) = session::reboot_system() {
-                    show_message("Could not restart", &error);
-                }
+                run_off_thread("Could not restart", session::reboot_system);
             });
         });
     } else {
@@ -686,9 +694,7 @@ fn append_session_items(
     if session::can_poweroff() {
         shutdown.connect_activate(|_| {
             confirm_action("Shut Down", "Shut down this computer now?", || {
-                if let Err(error) = session::poweroff_system() {
-                    show_message("Could not shut down", &error);
-                }
+                run_off_thread("Could not shut down", session::poweroff_system);
             });
         });
     } else {
@@ -778,6 +784,31 @@ fn show_message(title: &str, message: &str) {
     let dialog = slopos_dialog(title, message, &[("Close", ResponseType::Close)]);
     dialog.connect_response(|dialog, _| dialog.close());
     dialog.show_all();
+}
+
+/// Run a blocking or interactive action away from the GTK thread and report a
+/// failure on the main loop. The action may wait for a polkit dialog, empty a
+/// large Trash or run several fallback commands.
+fn run_off_thread<F>(failure: &'static str, action: F)
+where
+    F: FnOnce() -> Result<(), String> + Send + 'static,
+{
+    let spawned = std::thread::Builder::new()
+        .name("slopos-menu-action".to_owned())
+        .spawn(move || {
+            let result = action();
+            glib::MainContext::default().invoke(move || {
+                if let Err(error) = result {
+                    show_message(failure, &error);
+                }
+            });
+        });
+    if let Err(error) = spawned {
+        show_message(
+            failure,
+            &format!("could not start the background request: {error}"),
+        );
+    }
 }
 
 fn request_suspend() {

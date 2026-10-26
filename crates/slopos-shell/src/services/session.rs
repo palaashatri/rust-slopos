@@ -119,7 +119,7 @@ pub fn switch_user() -> bool {
 /// falling back to the classic commands.
 pub fn reboot_system() -> Result<(), String> {
     logind_call("Reboot").or_else(|error| {
-        if try_commands(REBOOT_COMMANDS) {
+        if run_commands(REBOOT_COMMANDS) {
             Ok(())
         } else {
             Err(error)
@@ -129,7 +129,7 @@ pub fn reboot_system() -> Result<(), String> {
 
 pub fn poweroff_system() -> Result<(), String> {
     logind_call("PowerOff").or_else(|error| {
-        if try_commands(POWEROFF_COMMANDS) {
+        if run_commands(POWEROFF_COMMANDS) {
             Ok(())
         } else {
             Err(error)
@@ -197,6 +197,17 @@ fn try_commands(candidates: &[(&str, &[&str])]) -> bool {
     })
 }
 
+/// Run fallback commands to completion and succeed only when one exits 0.
+/// A helper that starts but fails (`systemctl` without permission, say) must
+/// not hide the original logind error.
+fn run_commands(candidates: &[(&str, &[&str])]) -> bool {
+    candidates.iter().any(|&(program, args)| {
+        resolve_program(program)
+            .and_then(|path| std::process::Command::new(path).args(args).status().ok())
+            .is_some_and(|status| status.success())
+    })
+}
+
 pub fn resolve_first_command(
     candidates: &[(&'static str, &'static [&'static str])],
 ) -> Option<(&'static str, &'static [&'static str])> {
@@ -210,4 +221,16 @@ pub fn resolve_first_command(
 
 pub fn resolve_program(program: &str) -> Option<PathBuf> {
     slopos_core::process::resolve_program(program)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_fallback_only_counts_when_it_exits_successfully() {
+        assert!(!run_commands(&[("false", &[])]));
+        assert!(run_commands(&[("false", &[]), ("true", &[])]));
+        assert!(!run_commands(&[("definitely-not-a-command-3f5a", &[])]));
+    }
 }

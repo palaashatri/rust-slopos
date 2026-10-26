@@ -10,7 +10,7 @@ This file is deliberately comprehensive. A harness may supply only its beginning
 |---|---|
 | Product generation | SLOPOS-I is an X11 desktop environment. Keep Openbox as the current WM; no Wayland/Smithay revival or custom display server in this tranche. |
 | Language and appearance | Primarily Rust; Platinum Classic geometry and interaction. Earlier Cheetah/Aqua, Cutefish, tucch and C/C++ explorations do not authorize a rename or rewrite of this tree. |
-| UI first | Build and verify `slopos-ui`, then `slopos-appkit`; native applications and shell surfaces consume them. GTK3/GDK/Pango/GIO may remain hidden infrastructure. |
+| UI first | Build and verify `slopos-ui`, then `slopos-appkit`; native applications and shell surfaces consume them. GTK3/GDK/Pango/GIO remain only in legacy donor crates and engine adapters, never in new UI. |
 | Required shell | Dock, global menu, status applets, launcher, desktop, notifications, workspaces and volume/brightness OSDs. The later Dock requirement supersedes the former “no Dock” rule. |
 | Applications | Preserve the full inventory in §§16–18. Start with the component gallery and small proof apps, then core daily-use apps; do not start every app at once. |
 | Repository | One monorepo, agreed 2026-09-29. Use temporary task branches/worktrees, never permanent compositor/app branches that each contain a different product. |
