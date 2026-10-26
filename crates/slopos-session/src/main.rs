@@ -62,6 +62,9 @@ fn main() -> ExitCode {
     // Give Openbox a moment to own the screen before the shell maps its bar.
     thread::sleep(Duration::from_millis(150));
     let mut shell = Child::new("SLOPOS shell", Policy::Important, spawn_shell);
+    let mut dock = env::var_os("SLOPOS_NO_DOCK")
+        .is_none()
+        .then(|| Child::new("SLOPOS Dock", Policy::Important, spawn_dock));
 
     while RUNNING.load(Ordering::SeqCst) {
         thread::sleep(Duration::from_millis(250));
@@ -79,9 +82,15 @@ fn main() -> ExitCode {
             // Openbox root menu still offers Log Out.
             log::error!("{error}; continuing without the shell");
         }
+        if let Some(Err(error)) = dock.as_mut().map(Child::supervise) {
+            log::error!("{error}; continuing without the Dock");
+        }
     }
 
     log::info!("Stopping SLOPOS-I session");
+    if let Some(dock) = dock.as_mut() {
+        dock.stop();
+    }
     shell.stop();
     compositor.stop();
     wm.stop();
@@ -111,8 +120,16 @@ fn spawn_openbox() -> Option<std::process::Child> {
 }
 
 fn spawn_shell() -> Option<std::process::Child> {
-    let path = slopos_core::process::resolve_program("slopos-shell")
-        .unwrap_or_else(|| PathBuf::from("slopos-shell"));
+    spawn_component("slopos-shell")
+}
+
+fn spawn_dock() -> Option<std::process::Child> {
+    spawn_component("slopos-dock")
+}
+
+/// Start a SLOPOS component, preferring the copy next to this binary.
+fn spawn_component(name: &str) -> Option<std::process::Child> {
+    let path = slopos_core::process::resolve_program(name).unwrap_or_else(|| PathBuf::from(name));
     match std::process::Command::new(&path).spawn() {
         Ok(child) => Some(child),
         Err(error) => {

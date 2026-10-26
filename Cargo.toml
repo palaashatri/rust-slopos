@@ -9,6 +9,7 @@ members = [
     "crates/slopos-shell",
     "crates/slopos-catalogue",
     "crates/slopos-settings",
+    "crates/slopos-dock",
     "apps/calculator",
 ]
 

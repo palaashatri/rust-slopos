@@ -218,17 +218,8 @@ pub fn run<A: App>(
         )?;
     }
     if !options.resizable {
-        let mut hints = WmSizeHints::new();
-        hints.min_size = Some((device_width as i32, device_height as i32));
-        hints.max_size = Some((device_width as i32, device_height as i32));
-        if options.position.is_some() {
-            hints.position = Some((
-                x11rb::properties::WmSizeHintsSpecification::ProgramSpecified,
-                device_x,
-                device_y,
-            ));
-        }
-        hints.set_normal_hints(&conn, window)?;
+        let position = options.position.map(|_| (device_x, device_y));
+        set_fixed_size(&conn, window, device_width, device_height, position)?;
     }
 
     let gc = conn.generate_id()?;
@@ -286,6 +277,16 @@ pub fn run<A: App>(
         }
         if let Some(rect) = control.geometry.take() {
             let rect: crate::foundation::geometry::Rect = rect;
+            if !options.resizable {
+                // The WM clamps to the old fixed size unless the hints move too.
+                set_fixed_size(
+                    &conn,
+                    window,
+                    rect.width * factor,
+                    rect.height * factor,
+                    Some((rect.x * factor as i32, rect.y * factor as i32)),
+                )?;
+            }
             conn.configure_window(
                 window,
                 &ConfigureWindowAux::new()
@@ -436,6 +437,29 @@ fn set_title(
         AtomEnum::STRING,
         title.as_bytes(),
     )?;
+    Ok(())
+}
+
+/// Pin a non-resizable window's size (and, when given, its position) in
+/// `WM_NORMAL_HINTS`.
+fn set_fixed_size(
+    conn: &RustConnection,
+    window: u32,
+    width: u32,
+    height: u32,
+    position: Option<(i32, i32)>,
+) -> Result<(), PlatformError> {
+    let mut hints = WmSizeHints::new();
+    hints.min_size = Some((width as i32, height as i32));
+    hints.max_size = Some((width as i32, height as i32));
+    hints.position = position.map(|(x, y)| {
+        (
+            x11rb::properties::WmSizeHintsSpecification::ProgramSpecified,
+            x,
+            y,
+        )
+    });
+    hints.set_normal_hints(conn, window)?;
     Ok(())
 }
 
