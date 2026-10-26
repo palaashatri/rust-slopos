@@ -198,6 +198,8 @@ fn appearances_are_complete_runtime_themes() {
     assert!(oled_rc.contains("slopos-openbox-oled"));
     assert!(switcher.contains("classic|platinum|graphite|oled|status"));
     assert!(switcher.contains("gtk-theme-name = $gtk_theme"));
+    assert!(switcher.contains("legacy_gtk2"));
+    assert!(switcher.contains("SLOPOS_SESSION_MANAGED"));
     assert!(switcher.contains("gtk-shell-shows-menubar = 1"));
     assert!(switcher.contains("pkill -TERM -x slopos-shell"));
     assert!(switcher.contains("pkill -TERM -x openbox"));
@@ -353,8 +355,27 @@ fn session_reloads_appearance_without_reintroducing_display_stack_scope() {
     assert!(environment.contains("pub fn appearance()"));
     assert!(environment.contains("rc-graphite.xml"));
     assert!(environment.contains("pub fn openbox_config()"));
-    // The session must not write other desktops' configuration files.
-    assert!(!environment.contains(".gtkrc-2.0\")"));
+    // The session must not write other desktops' configuration files. It does
+    // read ~/.gtkrc-2.0 to include legacy GTK 2 settings in its managed config,
+    // so check that the legacy lookup stays read-only.
+    let legacy = environment
+        .split("fn legacy_gtk2_rc()")
+        .nth(1)
+        .and_then(|rest| rest.split("\n}").next())
+        .expect("legacy_gtk2_rc must exist");
+    assert!(legacy.contains(".is_file()"));
+    for writer in [
+        "fs::write",
+        "OpenOptions",
+        "File::create",
+        "create_dir",
+        "set_len",
+    ] {
+        assert!(
+            !legacy.contains(writer),
+            "the session must not write ~/.gtkrc-2.0 ({writer})"
+        );
+    }
     assert!(!environment.contains("\"openbox\").join(\"rc.xml\")"));
     for source in [main, environment] {
         for obsolete in ["wayland", "smithay", "wlroots", "xwayland"] {
@@ -512,6 +533,9 @@ fn network_settings_do_not_invent_connections_or_expose_inert_controls() {
     assert!(panel.contains("NetworkManagerClient::connect"));
     assert!(panel.contains("Update::Unavailable"));
     assert!(!panel.contains("let _ = Command::new"));
+    // Closing the dialog detaches the GLib source that updates its widgets.
+    assert!(panel.contains("let update_source = update_receiver.attach"));
+    assert!(panel.contains("update_source.remove();"));
 }
 
 #[test]
