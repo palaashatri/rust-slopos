@@ -12,7 +12,7 @@ step() { printf '\n=== [%s] %s ===\n' "$(date +%H:%M:%S)" "$*"; }
 fail() { echo "ERROR: $*" >&2; exit 1; }
 
 step "installed release assets"
-for binary in slopos-session slopos-shell slopos-catalogue slopos-settings start-slopos-i slopos-recovery; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings start-slopos-i slopos-recovery; do
   command -v "$binary" >/dev/null 2>&1 || fail "$binary is not installed"
 done
 session_asset=""
