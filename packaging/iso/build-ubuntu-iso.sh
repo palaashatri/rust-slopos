@@ -77,7 +77,7 @@ mkdir -p chroot/usr/bin \
          chroot/usr/share/themes \
          chroot/usr/share/icons
 
-for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings; do
   install -Dm755 "$ROOT/target/release/$binary" "chroot/usr/bin/$binary"
 done
 install -Dm755 "$ROOT/scripts/start-slopos-i" "chroot/usr/bin/start-slopos-i"

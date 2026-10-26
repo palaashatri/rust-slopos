@@ -10,7 +10,6 @@ use gtk::{
 use slopos_services::audio::{AudioClient, AudioDevice, AudioSnapshot};
 use std::{
     cell::{Cell, RefCell},
-    process::Command,
     rc::Rc,
     thread,
 };
@@ -80,21 +79,26 @@ pub fn show_sound_dialog(parent: &Window) {
     let test_row = GtkBox::new(Orientation::Horizontal, 8);
     let test_btn = Button::with_label("Play Test Sound");
     test_btn.style_context().add_class("slopos-push-btn");
-    test_btn.connect_clicked(|_| {
-        if command_exists("paplay") {
-            let _ = Command::new("paplay")
-                .arg("/usr/share/sounds/freedesktop/stereo/bell.oga")
-                .spawn();
-        } else if command_exists("canberra-gtk-play") {
-            let _ = Command::new("canberra-gtk-play")
-                .args(["-i", "bell"])
-                .spawn();
-        } else if command_exists("speaker-test") {
-            let _ = Command::new("speaker-test")
-                .args(["-t", "sine", "-f", "440", "-l", "1"])
-                .spawn();
+    const TEST_SOUND_PLAYERS: &[(&str, &[&str])] = &[
+        ("paplay", &["/usr/share/sounds/freedesktop/stereo/bell.oga"]),
+        ("canberra-gtk-play", &["-i", "bell"]),
+        ("speaker-test", &["-t", "sine", "-f", "440", "-l", "1"]),
+    ];
+    match slopos_core::process::first_available(TEST_SOUND_PLAYERS) {
+        Some((player, args)) => {
+            test_btn.connect_clicked(move |_| {
+                if let Err(error) = slopos_core::process::spawn_detached(&player, args) {
+                    log::warn!("Could not play the test sound: {error}");
+                }
+            });
         }
-    });
+        None => {
+            test_btn.set_sensitive(false);
+            test_btn.set_tooltip_text(Some(
+                "No sound player (paplay, canberra-gtk-play) is installed",
+            ));
+        }
+    }
     test_row.pack_start(&test_btn, false, false, 0);
     output_box.pack_start(&test_row, false, false, 0);
 
@@ -138,7 +142,9 @@ pub fn show_sound_dialog(parent: &Window) {
         let adv_btn = Button::with_label("Open Advanced Audio Mixer (Pavucontrol)");
         adv_btn.style_context().add_class("slopos-push-btn");
         adv_btn.connect_clicked(|_| {
-            let _ = Command::new("pavucontrol").spawn();
+            if let Err(error) = slopos_core::process::launch("pavucontrol", &[]) {
+                log::warn!("{error}");
+            }
         });
         content.pack_start(&adv_btn, false, false, 0);
     }

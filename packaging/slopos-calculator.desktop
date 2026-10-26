@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Calculator
+Comment=Add, subtract, multiply and divide
+Exec=slopos-calculator
+TryExec=slopos-calculator
+Icon=accessories-calculator
+Terminal=false
+Type=Application
+Categories=Utility;Calculator;
+StartupNotify=false

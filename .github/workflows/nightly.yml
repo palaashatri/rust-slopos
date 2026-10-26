@@ -1,0 +1,160 @@
+name: Nightly packages
+
+# Builds the Debian/Ubuntu and Arch packages on pushes to main, the daily
+# schedule and manual dispatch; runs whose ref is main publish them to the
+# rolling "nightly" pre-release. Each package job also checks the package
+# payload (binaries, session descriptor, themes) before anything is published.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "7 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-packages
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: decide whether to build
+    runs-on: ubuntu-24.04
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          build=true
+          if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
+            # Skip only when the published release already carries this commit
+            # in both packages and every support file.
+            short="${GITHUB_SHA::7}"
+            deb="slopos-i_nightly-${short}_amd64.deb"
+            arch="slopos-i-nightly-${short}-x86_64.pkg.tar.zst"
+            required=("$deb" "$arch" "README.txt" "SHA256SUMS.txt")
+            if assets="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/nightly" \
+              --jq '.assets[].name' 2>/dev/null)"; then
+              complete=true
+              for name in "${required[@]}"; do
+                if ! printf '%s\n' "$assets" | grep -Fxq "$name"; then
+                  complete=false
+                  break
+                fi
+              done
+              if [ "$complete" = true ]; then
+                # Names alone are not enough: a partial upload can leave the
+                # previous README and checksums next to the new packages, and
+                # the CLI uploads assets concurrently. Download the set and
+                # skip only when the checksums cover these exact packages and
+                # the README names this commit.
+                download="$(mktemp -d)"
+                if gh release download nightly --repo "${GITHUB_REPOSITORY}" --dir "$download" \
+                  --pattern "$deb" --pattern "$arch" \
+                  --pattern README.txt --pattern SHA256SUMS.txt; then
+                  if grep -Fxq "SLOPOS-I nightly ${GITHUB_SHA}" "$download/README.txt" \
+                    && (cd "$download" && sha256sum --check --strict SHA256SUMS.txt); then
+                    build=false
+                  fi
+                fi
+                rm -rf "$download"
+              fi
+            fi
+          fi
+          echo "build=${build}" >> "$GITHUB_OUTPUT"
+
+  debian:
+    needs: gate
+    if: needs.gate.outputs.build == 'true'
+    uses: ./.github/workflows/debian-package.yml
+
+  arch:
+    needs: gate
+    if: needs.gate.outputs.build == 'true'
+    uses: ./.github/workflows/arch-package.yml
+
+  publish:
+    name: publish nightly release
+    needs: [debian, arch]
+    # Manual runs on other refs build and check packages but never publish.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: slopos-debian-${{ github.sha }}
+          path: downloads/debian
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: slopos-arch-package-${{ github.sha }}
+          path: downloads/arch
+      - name: Stage release assets
+        run: |
+          set -euo pipefail
+          short="${GITHUB_SHA::7}"
+          mkdir -p dist
+          cp downloads/debian/slopos-i.deb "dist/slopos-i_nightly-${short}_amd64.deb"
+          cp downloads/arch/slopos-i.pkg.tar.zst "dist/slopos-i-nightly-${short}-x86_64.pkg.tar.zst"
+          cat > dist/README.txt <<TXT
+          SLOPOS-I nightly ${GITHUB_SHA}
+
+          Alpha software: install it in a virtual machine or a spare system.
+
+          Debian / Ubuntu (24.04 or newer):
+            sudo apt install ./slopos-i_nightly-${short}_amd64.deb
+          Arch Linux:
+            sudo pacman -U slopos-i-nightly-${short}-x86_64.pkg.tar.zst
+
+          Then log out and choose "SLOPOS-I" in your display manager's session list.
+          TXT
+          (cd dist && sha256sum slopos-i* > SHA256SUMS.txt)
+          ls -l dist
+      - name: Publish rolling nightly release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          short="${GITHUB_SHA::7}"
+          notes="Alpha packages from ${GITHUB_SHA}. Install in a VM or a spare system; see README.txt."
+          deb="slopos-i_nightly-${short}_amd64.deb"
+          arch="slopos-i-nightly-${short}-x86_64.pkg.tar.zst"
+
+          # Move the rolling tag through the API: checkout credentials are not
+          # persisted, so a plain `git push` could not authenticate.
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/nightly" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/nightly" \
+              -f sha="$GITHUB_SHA" -F force=true >/dev/null
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/tags/nightly" -f sha="$GITHUB_SHA" >/dev/null
+          fi
+          if gh release view nightly >/dev/null 2>&1; then
+            gh release edit nightly --prerelease --title "SLOPOS-I nightly (${short})" --notes "$notes"
+          else
+            gh release create nightly --prerelease --title "SLOPOS-I nightly (${short})" --notes "$notes"
+          fi
+
+          # Upload the whole new set before deleting anything. --clobber only
+          # replaces assets with the same name, so a failed upload leaves the
+          # previous files in place; the scheduled gate verifies that the
+          # checksums and README match the packages before it skips a build.
+          gh release upload nightly --clobber \
+            "dist/${deb}" "dist/${arch}" dist/README.txt dist/SHA256SUMS.txt
+
+          keep=" ${deb} ${arch} README.txt SHA256SUMS.txt "
+          for asset in $(gh release view nightly --json assets --jq '.assets[].name'); do
+            case "$keep" in
+              *" ${asset} "*) continue ;;
+            esac
+            gh release delete-asset nightly "$asset" --yes
+          done

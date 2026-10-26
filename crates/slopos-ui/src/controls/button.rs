@@ -1,403 +1,293 @@
-use gtk::prelude::*;
+//! Push button: the Classic plate with a centred label.
+//!
+//! The button is a plain state machine. Feed it events with
+//! [`Button::handle`]; it reports [`ButtonOutcome::Activated`] when the user
+//! clicks it (press and release inside) or presses Space/Enter while it has
+//! keyboard focus. Dragging out of the button before releasing cancels.
 
-use crate::{
-    accessibility,
-    foundation::{color::Color, geometry::Scale},
-    primitives::button_plate::{paint_button_plate, ButtonPlateState, ButtonPlateVariant},
-    render::RasterSurface,
+use crate::event::{Event, Key, PointerButton};
+use crate::foundation::{color::Color, geometry::Rect};
+use crate::primitives::button_plate::{
+    paint_button_plate_in, ButtonPlateState, ButtonPlateVariant,
 };
+use crate::render::{RasterSurface, RenderError};
+use crate::text::{measure, Font};
 
-#[derive(Debug, thiserror::Error)]
-pub enum ButtonControlError {
-    #[error(transparent)]
-    Render(#[from] crate::render::RenderError),
-    #[error(transparent)]
-    Accessibility(#[from] accessibility::AccessibilityError),
-    #[error(transparent)]
-    Style(#[from] gtk::glib::Error),
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ButtonOutcome {
+    /// The event did not concern this button.
+    Ignored,
+    /// The event changed how the button looks.
+    Changed,
+    /// The user activated the button.
+    Activated,
 }
 
-pub struct ButtonControl {
-    button: gtk::Button,
+#[derive(Debug, Clone)]
+pub struct Button {
+    pub label: String,
+    pub variant: ButtonPlateVariant,
+    pub bounds: Rect,
+    pub enabled: bool,
+    pub focused: bool,
+    /// Accessibility node id; unique within the window.
+    pub id: u64,
+    hovered: bool,
+    pressed: bool,
 }
 
-impl ButtonControl {
-    pub fn new(
-        label: &str,
-        description: &str,
-        variant: ButtonPlateVariant,
-        font: &gtk::pango::FontDescription,
-    ) -> Result<Self, ButtonControlError> {
-        let button = gtk::Button::new();
-        button.set_relief(gtk::ReliefStyle::None);
-        button.set_can_focus(true);
-        let dimensions = variant.dimensions();
-        button.set_size_request(dimensions.width as i32, dimensions.height as i32);
-        button.style_context().add_class("slopos-button-control");
-        let style = gtk::CssProvider::new();
-        style.load_from_data(
-            b"button.slopos-button-control { padding: 0; border: 0; margin: 0; min-width: 0; min-height: 0; box-shadow: none; }",
-        )?;
-        button
-            .style_context()
-            .add_provider(&style, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
-        let area = gtk::DrawingArea::new();
-        area.set_size_request(dimensions.width as i32, dimensions.height as i32);
-        button.add(&area);
-        accessibility::configure(&button, gtk::atk::Role::PushButton, label, description)?;
+impl Button {
+    pub fn new(id: u64, label: &str, variant: ButtonPlateVariant) -> Self {
+        let size = variant.dimensions();
+        Self {
+            label: label.to_owned(),
+            variant,
+            bounds: Rect {
+                x: 0,
+                y: 0,
+                width: size.width,
+                height: size.height,
+            },
+            enabled: true,
+            focused: false,
+            id,
+            hovered: false,
+            pressed: false,
+        }
+    }
 
-        let state = std::rc::Rc::new(std::cell::Cell::new(ButtonPlateState::Rest));
-        let state_for_draw = std::rc::Rc::clone(&state);
-        let label = label.to_owned();
-        let font = font.clone();
-        area.connect_draw(move |area, context| {
-            let surface = match RasterSurface::new(
-                dimensions.width,
-                dimensions.height,
-                Scale::new(u32::try_from(area.scale_factor()).unwrap_or(1)).unwrap(),
-            ) {
-                Ok(surface) => surface,
-                Err(_) => return gtk::glib::Propagation::Proceed,
-            };
-            let plate_state = state_for_draw.get();
-            if paint_button_plate(&surface, 0, 0, variant, plate_state).is_err() {
-                return gtk::glib::Propagation::Proceed;
-            }
-            if surface.paint_to(context).is_err() {
-                return gtk::glib::Propagation::Proceed;
-            }
-            let layout = pangocairo::functions::create_layout(context);
-            layout.set_font_description(Some(&font));
-            layout.set_text(&label);
-            let (text_width, text_height) = layout.pixel_size();
-            let x = (f64::from(dimensions.width) - f64::from(text_width)) / 2.0;
-            let y = (f64::from(dimensions.height) - f64::from(text_height)) / 2.0;
-            context.move_to(x, y);
-            let color = if plate_state == ButtonPlateState::Pressed {
-                Color::WHITE
-            } else if plate_state == ButtonPlateState::Disabled {
-                Color {
-                    red: 0xc0,
-                    green: 0xc0,
-                    blue: 0xc0,
-                    alpha: 0xff,
+    pub fn at(mut self, x: i32, y: i32) -> Self {
+        self.bounds.x = x;
+        self.bounds.y = y;
+        self
+    }
+
+    /// Place the button in a layout-defined rectangle.
+    pub fn with_bounds(mut self, bounds: Rect) -> Self {
+        self.bounds = bounds;
+        self
+    }
+
+    /// Visual state, as the Classic spec names it.
+    pub fn plate_state(&self) -> ButtonPlateState {
+        if !self.enabled {
+            ButtonPlateState::Disabled
+        } else if self.pressed && self.hovered {
+            ButtonPlateState::Pressed
+        } else {
+            ButtonPlateState::Rest
+        }
+    }
+
+    pub fn handle(&mut self, event: &Event) -> ButtonOutcome {
+        if !self.enabled {
+            return ButtonOutcome::Ignored;
+        }
+        match event {
+            Event::PointerMoved { x, y } => {
+                let inside = self.bounds.contains(*x, *y);
+                if inside != self.hovered {
+                    self.hovered = inside;
+                    if self.pressed {
+                        return ButtonOutcome::Changed;
+                    }
                 }
-            } else {
-                Color::BLACK
+                ButtonOutcome::Ignored
+            }
+            Event::PointerPressed {
+                x,
+                y,
+                button: PointerButton::Primary,
+            } if self.bounds.contains(*x, *y) => {
+                self.hovered = true;
+                self.pressed = true;
+                ButtonOutcome::Changed
+            }
+            Event::PointerReleased {
+                x,
+                y,
+                button: PointerButton::Primary,
+            } if self.pressed => {
+                self.pressed = false;
+                if self.bounds.contains(*x, *y) {
+                    ButtonOutcome::Activated
+                } else {
+                    ButtonOutcome::Changed
+                }
+            }
+            Event::PointerLeft => {
+                self.hovered = false;
+                if self.pressed {
+                    ButtonOutcome::Changed
+                } else {
+                    ButtonOutcome::Ignored
+                }
+            }
+            Event::KeyPressed {
+                key: Key::Space | Key::Enter,
+                ..
+            } if self.focused => ButtonOutcome::Activated,
+            _ => ButtonOutcome::Ignored,
+        }
+    }
+
+    pub fn paint(&self, surface: &RasterSurface, font: &Font) -> Result<(), RenderError> {
+        let state = self.plate_state();
+        paint_button_plate_in(surface, self.bounds, self.variant, state)?;
+        let color = match state {
+            ButtonPlateState::Pressed => Color::WHITE,
+            ButtonPlateState::Disabled => Color {
+                red: 0x80,
+                green: 0x80,
+                blue: 0x80,
+                alpha: 0xff,
+            },
+            ButtonPlateState::Rest => Color::BLACK,
+        };
+        let extent = measure(&self.label, font);
+        let x = self.bounds.x + (self.bounds.width as i32 - extent.width as i32) / 2;
+        let y = self.bounds.y + (self.bounds.height as i32 - extent.height as i32) / 2;
+        surface.draw_text(&self.label, x, y, font, color)?;
+        if self.focused && self.enabled {
+            // A dotted focus ring just outside the plate keeps the Classic
+            // shape intact while staying visible in every state.
+            let ring = Rect {
+                x: self.bounds.x - 2,
+                y: self.bounds.y - 2,
+                width: self.bounds.width + 4,
+                height: self.bounds.height + 4,
             };
-            context.set_source_rgba(
-                f64::from(color.red) / 255.0,
-                f64::from(color.green) / 255.0,
-                f64::from(color.blue) / 255.0,
-                1.0,
-            );
-            pangocairo::functions::show_layout(context, &layout);
-            gtk::glib::Propagation::Proceed
-        });
-        let state_for_flags = std::rc::Rc::clone(&state);
-        let area_weak = area.downgrade();
-        button.connect_state_flags_changed(move |button, _| {
-            state_for_flags.set(if !button.is_sensitive() {
-                ButtonPlateState::Disabled
-            } else if button.state_flags().contains(gtk::StateFlags::ACTIVE) {
-                ButtonPlateState::Pressed
-            } else {
-                ButtonPlateState::Rest
-            });
-            if let Some(area) = area_weak.upgrade() {
-                area.queue_draw();
-            }
-        });
-        Ok(Self { button })
+            paint_focus_ring(surface, ring)?;
+        }
+        Ok(())
     }
 
-    pub fn widget(&self) -> &gtk::Button {
-        &self.button
-    }
-
-    pub fn connect_activate<F: Fn() + 'static>(&self, callback: F) {
-        self.button.connect_clicked(move |button| {
-            if button.is_sensitive() {
-                callback();
-            }
+    pub fn accessibility_node(&self) -> accesskit::Node {
+        let mut node = accesskit::Node::new(accesskit::Role::Button);
+        node.set_label(self.label.as_str());
+        node.set_bounds(accesskit::Rect {
+            x0: f64::from(self.bounds.x),
+            y0: f64::from(self.bounds.y),
+            x1: f64::from(self.bounds.x) + f64::from(self.bounds.width),
+            y1: f64::from(self.bounds.y) + f64::from(self.bounds.height),
         });
+        if self.enabled {
+            node.add_action(accesskit::Action::Click);
+            node.add_action(accesskit::Action::Focus);
+        } else {
+            node.set_disabled();
+        }
+        node
     }
+}
+
+/// Alternating-pixel outline, the Classic way of showing keyboard focus.
+pub fn paint_focus_ring(surface: &RasterSurface, ring: Rect) -> Result<(), RenderError> {
+    let dot = |x: i32, y: i32| {
+        surface.fill_rect(
+            Rect {
+                x,
+                y,
+                width: 1,
+                height: 1,
+            },
+            Color::BLACK,
+        )
+    };
+    let right = ring.x + ring.width as i32 - 1;
+    let bottom = ring.y + ring.height as i32 - 1;
+    for x in (ring.x..=right).step_by(2) {
+        dot(x, ring.y)?;
+        dot(x, bottom)?;
+    }
+    for y in (ring.y..=bottom).step_by(2) {
+        dot(ring.x, y)?;
+        dot(right, y)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{cell::Cell, rc::Rc};
+    use crate::foundation::geometry::Scale;
 
-    #[test]
-    #[ignore = "requires an X11 graphical VM"]
-    fn disabled_button_does_not_activate_and_enabled_button_activates() {
-        use gtk::prelude::*;
-
-        gtk::init().unwrap();
-        let font = gtk::pango::FontDescription::from_string("Sans 12");
-        let control = ButtonControl::new(
-            "Apply",
-            "Apply the pending changes",
-            ButtonPlateVariant::Regular,
-            &font,
-        )
-        .unwrap();
-        let activations = Rc::new(Cell::new(0));
-        let activations_for_handler = Rc::clone(&activations);
-        control.connect_activate(move || {
-            activations_for_handler.set(activations_for_handler.get() + 1);
-        });
-
-        control.widget().set_sensitive(false);
-        control.widget().clicked();
-        assert_eq!(activations.get(), 0);
-
-        control.widget().set_sensitive(true);
-        control.widget().clicked();
-        assert_eq!(activations.get(), 1);
-        let accessible = control.widget().accessible().unwrap();
-        assert_eq!(accessible.name().as_deref(), Some("Apply"));
-        assert_eq!(accessible.role(), gtk::atk::Role::PushButton);
-
-        let window = gtk::Window::new(gtk::WindowType::Toplevel);
-        window.add(control.widget());
-        window.show_all();
-        while gtk::glib::MainContext::default().pending() {
-            gtk::glib::MainContext::default().iteration(false);
-        }
-        let allocation = control.widget().allocation();
-        assert_eq!(allocation.width(), 80);
-        assert_eq!(allocation.height(), 20);
-        unsafe {
-            window.destroy();
-        }
-
-        for variant in [ButtonPlateVariant::Default, ButtonPlateVariant::Secondary] {
-            let control = ButtonControl::new("OK", "Confirm", variant, &font).unwrap();
-            let window = gtk::Window::new(gtk::WindowType::Toplevel);
-            window.add(control.widget());
-            window.show_all();
-            while gtk::glib::MainContext::default().pending() {
-                gtk::glib::MainContext::default().iteration(false);
-            }
-            let allocation = control.widget().allocation();
-            let dimensions = variant.dimensions();
-            assert_eq!(allocation.width(), dimensions.width as i32);
-            assert_eq!(allocation.height(), dimensions.height as i32);
-            unsafe {
-                window.destroy();
-            }
+    fn press(x: i32, y: i32) -> Event {
+        Event::PointerPressed {
+            x,
+            y,
+            button: PointerButton::Primary,
         }
     }
 
-    fn button_fixture() -> (gtk::Window, gtk::Fixed, ButtonControl, Rc<Cell<u32>>) {
-        gtk::init().unwrap();
-        let font = gtk::pango::FontDescription::from_string("Sans 12");
-        let control = ButtonControl::new(
-            "Apply",
-            "Apply the pending changes",
-            ButtonPlateVariant::Regular,
-            &font,
-        )
-        .unwrap();
-        let activations = Rc::new(Cell::new(0));
-        let activations_for_handler = Rc::clone(&activations);
-        control.connect_activate(move || {
-            activations_for_handler.set(activations_for_handler.get() + 1);
-        });
-
-        let window = gtk::Window::new(gtk::WindowType::Toplevel);
-        let fixed = gtk::Fixed::new();
-        window.set_default_size(240, 120);
-        fixed.put(control.widget(), 40, 40);
-        window.add(&fixed);
-        window.show_all();
-        window.present();
-        process_events();
-        (window, fixed, control, activations)
-    }
-
-    fn process_events() {
-        let context = gtk::glib::MainContext::default();
-        while context.pending() {
-            context.iteration(false);
-        }
-    }
-
-    fn send_xdotool(arguments: &[&str]) {
-        let output = std::process::Command::new("/usr/bin/xdotool")
-            .args(arguments)
-            .args(["getmouselocation", "--shell"])
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "xdotool failed: {arguments:?}: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-
-    fn screen_position(window: &gtk::Window, button: &gtk::Button, x: i32, y: i32) -> (i32, i32) {
-        let (button_x, button_y) = button.translate_coordinates(window, x, y).unwrap();
-        let (window_x, window_y) = window.position();
-        (window_x + button_x, window_y + button_y)
-    }
-
-    fn wait_for(description: &str, condition: impl Fn() -> bool) {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
-        loop {
-            process_events();
-            if condition() {
-                return;
-            }
-            assert!(
-                std::time::Instant::now() < deadline,
-                "timed out waiting for {description}"
-            );
-            std::thread::sleep(std::time::Duration::from_millis(5));
-        }
-    }
-
-    struct X11InputCleanup {
-        window: gtk::Window,
-        pointer_pressed: bool,
-        space_pressed: bool,
-    }
-
-    impl X11InputCleanup {
-        fn new(window: &gtk::Window) -> Self {
-            Self {
-                window: window.clone(),
-                pointer_pressed: false,
-                space_pressed: false,
-            }
-        }
-
-        fn press_pointer(&mut self) {
-            self.pointer_pressed = true;
-            send_xdotool(&["mousedown", "1"]);
-        }
-
-        fn release_pointer(&mut self) {
-            send_xdotool(&["mouseup", "1"]);
-            self.pointer_pressed = false;
-        }
-
-        fn press_space(&mut self) {
-            self.space_pressed = true;
-            send_xdotool(&["keydown", "space"]);
-        }
-
-        fn release_space(&mut self) {
-            send_xdotool(&["keyup", "space"]);
-            self.space_pressed = false;
-        }
-    }
-
-    impl Drop for X11InputCleanup {
-        fn drop(&mut self) {
-            if self.pointer_pressed {
-                let _ = std::process::Command::new("/usr/bin/xdotool")
-                    .args(["mouseup", "1", "getmouselocation", "--shell"])
-                    .output();
-            }
-            if self.space_pressed {
-                let _ = std::process::Command::new("/usr/bin/xdotool")
-                    .args(["keyup", "space", "getmouselocation", "--shell"])
-                    .output();
-            }
-            if let Some(window) = self.window.window() {
-                window.display().sync();
-            }
-            process_events();
-            self.window.close();
+    fn release(x: i32, y: i32) -> Event {
+        Event::PointerReleased {
+            x,
+            y,
+            button: PointerButton::Primary,
         }
     }
 
     #[test]
-    #[ignore = "requires an isolated X11 display"]
-    fn pointer_release_outside_cancels_button_activation() {
-        let (window, _fixed, control, activations) = button_fixture();
-        let mut input_cleanup = X11InputCleanup::new(&window);
-        let button = control.widget();
-        let target = window.window().unwrap();
-        let release_events = Rc::new(Cell::new(0));
-        let release_events_for_handler = Rc::clone(&release_events);
-        button.connect_button_release_event(move |_, _| {
-            release_events_for_handler.set(release_events_for_handler.get() + 1);
-            gtk::glib::Propagation::Proceed
-        });
-        let allocation = button.allocation();
-        let (center_x, center_y) = screen_position(
-            &window,
-            button,
-            allocation.width() / 2,
-            allocation.height() / 2,
-        );
-        let (outside_x, outside_y) = screen_position(
-            &window,
-            button,
-            allocation.width() + 12,
-            allocation.height() + 12,
-        );
-        let center_x = center_x.to_string();
-        let center_y = center_y.to_string();
-        let outside_x = outside_x.to_string();
-        let outside_y = outside_y.to_string();
-
-        send_xdotool(&["mousemove", &center_x, &center_y]);
-        input_cleanup.press_pointer();
-        target.display().sync();
-        wait_for("button to enter its pressed state", || {
-            button.state_flags().contains(gtk::StateFlags::ACTIVE)
-        });
-        assert_eq!(activations.get(), 0);
-        input_cleanup.release_pointer();
-        target.display().sync();
-        wait_for("inside pointer release to activate", || {
-            activations.get() == 1
-        });
-
-        send_xdotool(&["mousemove", &center_x, &center_y]);
-        input_cleanup.press_pointer();
-        target.display().sync();
-        wait_for("second press to enter its pressed state", || {
-            button.state_flags().contains(gtk::StateFlags::ACTIVE)
-        });
-        send_xdotool(&["mousemove", &outside_x, &outside_y]);
-        target.display().sync();
-        process_events();
-        let outside_release_count = release_events.get();
-        input_cleanup.release_pointer();
-        target.display().sync();
-        wait_for("outside release to reach the button", || {
-            release_events.get() > outside_release_count
-        });
-        assert_eq!(activations.get(), 1);
-        assert!(!button.state_flags().contains(gtk::StateFlags::ACTIVE));
+    fn click_inside_activates_and_shows_pressed_state_meanwhile() {
+        let mut button = Button::new(1, "OK", ButtonPlateVariant::Regular).at(10, 10);
+        assert_eq!(button.handle(&press(20, 15)), ButtonOutcome::Changed);
+        assert_eq!(button.plate_state(), ButtonPlateState::Pressed);
+        assert_eq!(button.handle(&release(20, 15)), ButtonOutcome::Activated);
+        assert_eq!(button.plate_state(), ButtonPlateState::Rest);
     }
 
     #[test]
-    #[ignore = "requires an isolated X11 display"]
-    fn focused_button_activates_from_space() {
-        let (window, _fixed, control, activations) = button_fixture();
-        let mut input_cleanup = X11InputCleanup::new(&window);
-        let button = control.widget();
-        button.grab_focus();
-        process_events();
-        assert!(button.has_focus());
-        let target = window.window().unwrap();
-        target.focus(0);
-        target.display().sync();
-        input_cleanup.press_space();
-        target.display().sync();
-        wait_for("Space press to enter the pressed state", || {
-            button.state_flags().contains(gtk::StateFlags::ACTIVE)
-        });
-        assert_eq!(activations.get(), 0);
-        input_cleanup.release_space();
-        target.display().sync();
-        wait_for("Space release to activate", || activations.get() == 1);
+    fn dragging_out_before_release_cancels() {
+        let mut button = Button::new(1, "OK", ButtonPlateVariant::Regular).at(0, 0);
+        button.handle(&press(5, 5));
+        assert_eq!(
+            button.handle(&Event::PointerMoved { x: 200, y: 5 }),
+            ButtonOutcome::Changed
+        );
+        assert_eq!(button.plate_state(), ButtonPlateState::Rest);
+        assert_eq!(button.handle(&release(200, 5)), ButtonOutcome::Changed);
+    }
+
+    #[test]
+    fn keyboard_activation_needs_focus_and_disabled_buttons_ignore_input() {
+        let mut button = Button::new(1, "OK", ButtonPlateVariant::Default);
+        let space = Event::KeyPressed {
+            key: Key::Space,
+            modifiers: Default::default(),
+        };
+        assert_eq!(button.handle(&space), ButtonOutcome::Ignored);
+        button.focused = true;
+        assert_eq!(button.handle(&space), ButtonOutcome::Activated);
+        button.enabled = false;
+        assert_eq!(button.handle(&space), ButtonOutcome::Ignored);
+        assert_eq!(button.handle(&press(5, 5)), ButtonOutcome::Ignored);
+        assert_eq!(button.plate_state(), ButtonPlateState::Disabled);
+    }
+
+    #[test]
+    fn painting_draws_plate_label_and_focus_ring() {
+        let surface = RasterSurface::new(100, 40, Scale::new(1).unwrap()).unwrap();
+        surface.clear(Color::WHITE).unwrap();
+        let mut button = Button::new(1, "Apply", ButtonPlateVariant::Regular).at(10, 10);
+        button.focused = true;
+        button.paint(&surface, &Font::system(12.0)).unwrap();
+        // Plate border at the left edge, focus dots outside it.
+        assert_eq!(surface.pixel(10, 20), Some(0xff000000));
+        assert_eq!(surface.pixel(8, 8), Some(0xff000000));
+        let dark_inside = (14..86)
+            .flat_map(|x| (13..27).map(move |y| (x, y)))
+            .filter(|(x, y)| surface.pixel(*x, *y) != Some(0xffffffff))
+            .count();
+        assert!(dark_inside > 10, "label was not drawn");
+    }
+
+    #[test]
+    fn accessibility_reports_role_label_and_actions() {
+        let button = Button::new(7, "Equals", ButtonPlateVariant::Regular);
+        let node = button.accessibility_node();
+        assert_eq!(node.role(), accesskit::Role::Button);
+        assert_eq!(node.label(), Some("Equals"));
+        assert!(node.supports_action(accesskit::Action::Click));
     }
 }

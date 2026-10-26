@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "SLOPOS shared non-platform primitives"
+
+[dependencies]
+libc = { workspace = true }

@@ -57,7 +57,7 @@ ACTUAL_COMMIT="$(git rev-parse --verify HEAD)"
 echo "[1/6] Build and test exact-head release binaries on the Arch build host"
 cargo build --release --workspace --locked
 cargo test --release --workspace --locked
-for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings; do
   test -x "$CARGO_TARGET_DIR/release/$binary" || {
     echo "ERROR: missing exact-head release binary: $binary" >&2
     exit 1
@@ -76,7 +76,7 @@ ROOTFS="$PROFILE/airootfs"
 
 PREBUILT="$ROOTFS/usr/local/lib/slopos-prebuilt"
 install -d "$PREBUILT"
-for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings; do
   install -m755 "$CARGO_TARGET_DIR/release/$binary" "$PREBUILT/$binary"
 done
 printf '%s\n' "$REPO_COMMIT" > "$PREBUILT/source-commit"

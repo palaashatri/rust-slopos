@@ -6,11 +6,7 @@ license = "MIT"
 description = "SLOPOS-I X11 Session Supervisor"
 
 [dependencies]
-tokio = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
+slopos-core = { path = "../slopos-core" }
 log = { workspace = true }
 env_logger = { workspace = true }
 libc = { workspace = true }
-zbus = { workspace = true }
-x11rb = { workspace = true }

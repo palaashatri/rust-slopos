@@ -33,7 +33,7 @@ cd "$ROOT"
 echo "[1/6] Building current SLOPOS-I release binaries"
 cargo build --release --workspace --locked
 
-for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings; do
   test -x "target/release/$binary" || {
     echo "ERROR: target/release/$binary is missing" >&2
     exit 1
@@ -63,7 +63,7 @@ mv "$PROFILE/packages.x86_64.tmp" "$PROFILE/packages.x86_64"
 ROOTFS="$PROFILE/airootfs"
 
 echo "[3/6] Staging SLOPOS-I X11 session into the live root filesystem"
-for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings; do
   install -Dm755 "target/release/$binary" "$ROOTFS/usr/local/bin/$binary"
 done
 install -Dm755 scripts/start-slopos-i "$ROOTFS/usr/local/bin/start-slopos-i"

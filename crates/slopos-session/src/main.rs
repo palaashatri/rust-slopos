@@ -1,655 +1,341 @@
 //! SLOPOS-I X11 session supervisor.
+//!
+//! Starts and supervises Openbox, an optional compositor and the SLOPOS shell
+//! for one X display. `slopos-session --logout` ends the running session.
+
+mod environment;
+mod supervisor;
 
 use std::env;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::{Child, Command, ExitStatus};
+use std::fs::{self, File, OpenOptions};
+use std::io::Write;
+use std::os::fd::AsRawFd;
+use std::os::unix::fs::FileExt;
+use std::path::PathBuf;
+use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use supervisor::{Child, Policy};
 
 static RUNNING: AtomicBool = AtomicBool::new(true);
-const HEALTHY_RUNTIME: Duration = Duration::from_secs(30);
-const MAX_FAST_FAILURES: u32 = 5;
 
-struct ManagedChild {
-    name: &'static str,
-    child: Option<Child>,
-    launched_at: Instant,
-    fast_failures: u32,
-    restart_after: Instant,
-}
-
-impl ManagedChild {
-    fn new(name: &'static str, child: Option<Child>) -> Self {
-        Self {
-            name,
-            child,
-            launched_at: Instant::now(),
-            fast_failures: 0,
-            restart_after: Instant::now(),
-        }
-    }
-
-    fn poll(&mut self) -> Result<bool, String> {
-        if let Some(child) = self.child.as_mut() {
-            match child.try_wait() {
-                Ok(None) => return Ok(false),
-                Ok(Some(status)) => self.record_exit(status)?,
-                Err(error) => {
-                    self.child = None;
-                    self.record_failure(format!("wait failed: {error}"))?;
-                }
-            }
-        }
-        Ok(Instant::now() >= self.restart_after)
-    }
-
-    fn replace(&mut self, child: Option<Child>) -> Result<(), String> {
-        self.launched_at = Instant::now();
-        self.child = child;
-        if self.child.is_none() {
-            self.record_failure("spawn failed".to_string())?;
-        }
-        Ok(())
-    }
-
-    fn record_exit(&mut self, status: ExitStatus) -> Result<(), String> {
-        self.child = None;
-        self.record_failure(format!("exited with {status}"))
-    }
-
-    fn record_failure(&mut self, reason: String) -> Result<(), String> {
-        if self.launched_at.elapsed() >= HEALTHY_RUNTIME {
-            self.fast_failures = 0;
-        }
-        self.fast_failures = self.fast_failures.saturating_add(1);
-        if self.fast_failures >= MAX_FAST_FAILURES {
-            return Err(format!(
-                "{} failed {} times in quick succession ({reason})",
-                self.name, self.fast_failures
-            ));
-        }
-
-        let delay_ms = 250_u64.saturating_mul(1_u64 << self.fast_failures.min(4));
-        self.restart_after = Instant::now() + Duration::from_millis(delay_ms);
-        log::warn!(
-            "{} {reason}; restart {} of {} in {}ms",
-            self.name,
-            self.fast_failures,
-            MAX_FAST_FAILURES,
-            delay_ms
-        );
-        Ok(())
-    }
-
-    fn stop(&mut self) {
-        if let Some(mut child) = self.child.take() {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
-    }
-}
-
-fn main() {
+fn main() -> ExitCode {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
+    match env::args().nth(1).as_deref() {
+        Some("--logout") => return logout(),
+        Some("--version") => {
+            println!("slopos-session {}", env!("CARGO_PKG_VERSION"));
+            return ExitCode::SUCCESS;
+        }
+        Some("--help" | "-h") => {
+            println!(
+                "Usage: slopos-session [--logout | --version]\n\n\
+                 Without arguments, supervise Openbox and the SLOPOS shell on $DISPLAY.\n\
+                 --logout   end the SLOPOS session running on $DISPLAY"
+            );
+            return ExitCode::SUCCESS;
+        }
+        Some(other) => {
+            eprintln!("slopos-session: unknown argument {other:?} (try --help)");
+            return ExitCode::from(2);
+        }
+        None => {}
+    }
+
+    let _session_lock = match SessionLock::acquire() {
+        Ok(lock) => lock,
+        Err(error) => {
+            log::error!("{error}");
+            return ExitCode::FAILURE;
+        }
+    };
     log::info!("Starting SLOPOS-I X11 session supervisor");
 
-    configure_session_environment();
+    environment::configure();
     install_signal_handlers();
-    sync_theme_assets();
-    apply_desktop_fallback();
+    environment::apply_root_background();
 
-    let shell_exe =
-        resolve_sibling("slopos-shell").unwrap_or_else(|| PathBuf::from("slopos-shell"));
-    let initial_openbox_config = resolve_openbox_config();
-    let mut wm = ManagedChild::new("Openbox", spawn_openbox(initial_openbox_config.as_deref()));
-    let mut compositor = ManagedChild::new("X11 compositor", spawn_compositor());
+    let mut wm = Child::new("Openbox", Policy::Required, spawn_openbox);
+    let mut compositor = Child::new("X11 compositor", Policy::Optional, spawn_compositor);
+    // Give Openbox a moment to own the screen before the shell maps its bar.
     thread::sleep(Duration::from_millis(150));
-    apply_desktop_fallback();
-    let mut shell = ManagedChild::new("SLOPOS shell", spawn_path(&shell_exe, &[]));
+    let mut shell = Child::new("SLOPOS shell", Policy::Important, spawn_shell);
+    let mut dock = env::var_os("SLOPOS_NO_DOCK")
+        .is_none()
+        .then(|| Child::new("SLOPOS Dock", Policy::Important, spawn_dock));
 
     while RUNNING.load(Ordering::SeqCst) {
         thread::sleep(Duration::from_millis(250));
-
-        match wm.poll() {
-            Ok(true) => {
-                // Resolve again after every restart. `slopos-appearance`
-                // intentionally restarts Openbox so the new Platinum/Graphite
-                // window chrome is picked up without ending the session.
-                let openbox_config = resolve_openbox_config();
-                if let Err(error) = wm.replace(spawn_openbox(openbox_config.as_deref())) {
-                    log::error!("{error}");
-                    break;
-                }
-                thread::sleep(Duration::from_millis(100));
-                apply_desktop_fallback();
-            }
-            Ok(false) => {}
-            Err(error) => {
-                log::error!("{error}");
-                break;
-            }
+        if let Err(error) = wm.supervise() {
+            // Without a window manager the X session is unusable; end it so
+            // the display manager can offer a fresh login.
+            log::error!("{error}");
+            break;
         }
-
-        match compositor.poll() {
-            Ok(true) => {
-                if let Err(error) = compositor.replace(spawn_compositor()) {
-                    log::warn!("{error}");
-                }
-            }
-            Ok(false) => {}
-            Err(error) => {
-                log::warn!("{error}");
-            }
+        if let Err(error) = compositor.supervise() {
+            log::warn!("{error}; continuing without a compositor");
         }
-
-        match shell.poll() {
-            Ok(true) => {
-                if let Err(error) = shell.replace(spawn_path(&shell_exe, &[])) {
-                    log::error!("{error}");
-                    break;
-                }
-            }
-            Ok(false) => {}
-            Err(error) => {
-                log::error!("{error}");
-                break;
-            }
+        if let Err(error) = shell.supervise() {
+            // Keep the session (and the user's open applications) alive. The
+            // Openbox root menu still offers Log Out.
+            log::error!("{error}; continuing without the shell");
+        }
+        if let Some(Err(error)) = dock.as_mut().map(Child::supervise) {
+            log::error!("{error}; continuing without the Dock");
         }
     }
 
     log::info!("Stopping SLOPOS-I session");
+    if let Some(dock) = dock.as_mut() {
+        dock.stop();
+    }
     shell.stop();
-    wm.stop();
     compositor.stop();
+    wm.stop();
+    ExitCode::SUCCESS
 }
 
-fn configure_session_environment() {
-    let display = env::var("DISPLAY").unwrap_or_else(|_| ":0".to_string());
-    env::set_var("DISPLAY", display);
-    env::set_var("XDG_SESSION_TYPE", "x11");
-    env::set_var("XDG_CURRENT_DESKTOP", "SLOPOS");
-    env::set_var("XDG_SESSION_DESKTOP", "slopos");
-    env::set_var("DESKTOP_SESSION", "slopos");
-    env::set_var("SLOPOS_SESSION_MANAGED", "1");
-    configure_install_prefix_environment();
-
-    let _ = Command::new("dbus-update-activation-environment")
-        .args([
-            "--systemd",
-            "DISPLAY",
-            "XDG_SESSION_TYPE",
-            "XDG_CURRENT_DESKTOP",
-            "XDG_SESSION_DESKTOP",
-            "DESKTOP_SESSION",
-        ])
-        .status();
-}
-
-fn install_signal_handlers() {
-    unsafe {
-        libc::signal(libc::SIGINT, sig_handler as *const () as usize);
-        libc::signal(libc::SIGTERM, sig_handler as *const () as usize);
-    }
-}
-
-fn appearance() -> String {
-    let config_home = env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
-    if let Some(config_home) = config_home {
-        if let Ok(value) = fs::read_to_string(config_home.join("slopos-i/appearance")) {
-            let v = value.trim();
-            if v.eq_ignore_ascii_case("oled") {
-                return "oled".to_string();
-            }
-            if v.eq_ignore_ascii_case("graphite") {
-                return "graphite".to_string();
-            }
-            if v.eq_ignore_ascii_case("classic") {
-                return "classic".to_string();
-            }
-        }
-    }
-    "platinum".to_string()
-}
-
-fn apply_desktop_fallback() {
-    let config_home = env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
-
-    if let Some(config_home) = &config_home {
-        let wallpaper_file = config_home.join("slopos-i/wallpaper");
-        if let Ok(path) = fs::read_to_string(wallpaper_file) {
-            let path = path.trim();
-            if Path::new(path).is_file()
-                && Command::new("feh")
-                    .args(["--bg-fill", path])
-                    .status()
-                    .is_ok()
-            {
-                return;
-            }
-        }
-    }
-
-    let color = match appearance().as_str() {
-        "oled" => "#000000",
-        "graphite" => "#25272B",
-        "classic" => "#808080",
-        _ => "#758090",
-    };
-    if let Err(error) = Command::new("xsetroot").args(["-solid", color]).status() {
-        log::debug!("xsetroot is unavailable: {error}");
-    }
-}
-
-fn sync_openbox_menu() {
-    let config_home = env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
-    if let Some(config_home) = config_home {
-        let target_dir = config_home.join("openbox");
-        let target = target_dir.join("menu.xml");
-        if !target.exists() {
-            if let Some(source) = resolve_openbox_menu() {
-                let _ = std::fs::create_dir_all(&target_dir);
-                let _ = std::fs::copy(source, target);
-            }
-        }
-    }
-}
-
-fn resolve_openbox_menu() -> Option<PathBuf> {
-    let mut candidates = Vec::new();
-    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
-        candidates.push(
-            PathBuf::from(share_dir)
-                .join("slopos-i/openbox")
-                .join("menu.xml"),
-        );
-    }
-    if let Ok(executable) = env::current_exe() {
-        if let Some(prefix) = executable.parent().and_then(Path::parent) {
-            candidates.push(prefix.join("share/slopos-i/openbox").join("menu.xml"));
-        }
-    }
-    if let Ok(cwd) = env::current_dir() {
-        candidates.push(cwd.join("assets/config/openbox/menu.xml"));
-    }
-    candidates.extend([
-        PathBuf::from("assets/config/openbox/menu.xml"),
-        PathBuf::from("/usr/local/share/slopos-i/openbox/menu.xml"),
-        PathBuf::from("/usr/share/slopos-i/openbox/menu.xml"),
-    ]);
-    candidates
-        .into_iter()
-        .find(|path| path.exists())
-        .and_then(|path| path.canonicalize().ok().or(Some(path)))
-}
-
-fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
-    if !dst.exists() {
-        std::fs::create_dir_all(dst)?;
-    }
-    for entry in std::fs::read_dir(src)? {
-        let entry = entry?;
-        let file_type = entry.file_type()?;
-        let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
-        if file_type.is_dir() {
-            copy_dir_recursive(&src_path, &dst_path)?;
-        } else {
-            let _ = std::fs::copy(&src_path, &dst_path);
-        }
-    }
-    Ok(())
-}
-
-fn sync_theme_assets() {
-    let home = env::var_os("HOME").map(PathBuf::from);
-    let app = appearance();
-    let gtk_theme = match app.as_str() {
-        "oled" => "slopos-gtk-oled",
-        "graphite" => "slopos-gtk-graphite",
-        "classic" => "slopos-gtk-classic",
-        _ => "slopos-gtk",
-    };
-
-    // Ensure GTK2 runtime configuration exists
-    if let Some(ref h) = home {
-        let gtkrc_file = h.join(".gtkrc-2.0");
-        let content = format!(
-            "# SLOPOS-I GTK2 Runtime Configuration\ngtk-theme-name = \"{}\"\ngtk-icon-theme-name = \"SLOPOS-Platinum\"\ngtk-font-name = \"Liberation Sans 9\"\ngtk-cursor-theme-name = \"DMZ-White\"\ngtk-button-images = 1\ngtk-menu-images = 1\ngtk-toolbar-style = GTK_TOOLBAR_ICONS\n",
-            gtk_theme
-        );
-        let _ = std::fs::write(&gtkrc_file, content);
-    }
-
-    // Sync Openbox themes
-    for ob_theme in [
-        "slopos-openbox",
-        "slopos-openbox-classic",
-        "slopos-openbox-graphite",
-        "slopos-openbox-oled",
-    ] {
-        let mut candidates = Vec::new();
-        if let Ok(cwd) = env::current_dir() {
-            candidates.push(cwd.join("themes").join(ob_theme).join("openbox-3"));
-        }
-        if let Ok(executable) = env::current_exe() {
-            if let Some(prefix) = executable.parent().and_then(Path::parent) {
-                candidates.push(prefix.join("share/themes").join(ob_theme).join("openbox-3"));
-            }
-        }
-        if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
-            candidates.push(
-                PathBuf::from(share_dir)
-                    .join("themes")
-                    .join(ob_theme)
-                    .join("openbox-3"),
-            );
-        }
-        candidates.extend([
-            PathBuf::from(format!("themes/{ob_theme}/openbox-3")),
-            PathBuf::from(format!("/usr/local/share/themes/{ob_theme}/openbox-3")),
-            PathBuf::from(format!("/usr/share/themes/{ob_theme}/openbox-3")),
-        ]);
-
-        if let Some(src_dir) = candidates
-            .into_iter()
-            .find(|p| p.is_dir() && p.join("themerc").is_file())
-        {
-            if let Some(ref h) = home {
-                let dest_dir = h.join(".themes").join(ob_theme).join("openbox-3");
-                let _ = copy_dir_recursive(&src_dir, &dest_dir);
-            }
-        }
-    }
-
-    // Sync GTK2 and GTK3 themes
-    let theme_mappings = [
-        (
-            "slopos-gtk",
-            "themes/platinum/gtk-2.0/gtkrc",
-            "assets/config/gtk-3.0/gtk.css",
-        ),
-        (
-            "slopos-gtk-classic",
-            "themes/high-contrast/gtk-2.0/gtkrc",
-            "assets/config/gtk-3.0/gtk-classic.css",
-        ),
-        (
-            "slopos-gtk-graphite",
-            "themes/graphite/gtk-2.0/gtkrc",
-            "assets/config/gtk-3.0/gtk-graphite.css",
-        ),
-        (
-            "slopos-gtk-oled",
-            "themes/oled-graphite/gtk-2.0/gtkrc",
-            "assets/config/gtk-3.0/gtk-oled.css",
-        ),
-    ];
-
-    for (th_name, gtk2_rel, gtk3_rel) in theme_mappings {
-        let mut gtk2_candidates = Vec::new();
-        let mut gtk3_candidates = Vec::new();
-        if let Ok(cwd) = env::current_dir() {
-            gtk2_candidates.push(cwd.join(gtk2_rel));
-            gtk3_candidates.push(cwd.join(gtk3_rel));
-        }
-        if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
-            gtk2_candidates
-                .push(PathBuf::from(&share_dir).join(format!("themes/{th_name}/gtk-2.0/gtkrc")));
-            gtk3_candidates
-                .push(PathBuf::from(&share_dir).join(format!("themes/{th_name}/gtk-3.0/gtk.css")));
-        }
-        gtk2_candidates.extend([
-            PathBuf::from(gtk2_rel),
-            PathBuf::from(format!("/usr/local/share/themes/{th_name}/gtk-2.0/gtkrc")),
-            PathBuf::from(format!("/usr/share/themes/{th_name}/gtk-2.0/gtkrc")),
-        ]);
-        gtk3_candidates.extend([
-            PathBuf::from(gtk3_rel),
-            PathBuf::from(format!("/usr/local/share/themes/{th_name}/gtk-3.0/gtk.css")),
-            PathBuf::from(format!("/usr/share/themes/{th_name}/gtk-3.0/gtk.css")),
-        ]);
-
-        if let Some(src2) = gtk2_candidates.into_iter().find(|p| p.is_file()) {
-            if let Some(ref h) = home {
-                let dest = h.join(".themes").join(th_name).join("gtk-2.0");
-                let _ = std::fs::create_dir_all(&dest);
-                let _ = std::fs::copy(&src2, dest.join("gtkrc"));
-            }
-        }
-        if let Some(src3) = gtk3_candidates.into_iter().find(|p| p.is_file()) {
-            if let Some(ref h) = home {
-                let dest = h.join(".themes").join(th_name).join("gtk-3.0");
-                let _ = std::fs::create_dir_all(&dest);
-                let _ = std::fs::copy(&src3, dest.join("gtk.css"));
-            }
-        }
-    }
-
-    // Sync Icon theme
-    if let Some(ref h) = home {
-        let dest_icons = h.join(".icons/SLOPOS-Platinum");
-        let dest_local_icons = h.join(".local/share/icons/SLOPOS-Platinum");
-        let icon_srcs = [
-            PathBuf::from("themes/platinum/icon-theme"),
-            PathBuf::from("/usr/local/share/icons/SLOPOS-Platinum"),
-            PathBuf::from("/usr/share/icons/SLOPOS-Platinum"),
-        ];
-        if let Some(src) = icon_srcs.iter().find(|p| p.is_dir()) {
-            let _ = copy_dir_recursive(src, &dest_icons);
-            let _ = copy_dir_recursive(src, &dest_local_icons);
-        }
-    }
-}
-
-fn sync_openbox_config() -> Option<PathBuf> {
-    let config_home = env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
-    if let Some(config_home) = config_home {
-        let target_dir = config_home.join("openbox");
-        let target = target_dir.join("rc.xml");
-        if let Some(source) = resolve_openbox_config() {
-            let _ = std::fs::create_dir_all(&target_dir);
-            let _ = std::fs::copy(&source, &target);
-        }
-        if target.exists() {
-            return target.canonicalize().ok().or(Some(target));
-        }
-    }
-    resolve_openbox_config()
-}
-
-fn spawn_openbox(_config: Option<&Path>) -> Option<Child> {
-    sync_theme_assets();
-    sync_openbox_menu();
-    let config_path = sync_openbox_config();
-    let mut command = Command::new("openbox");
+fn spawn_openbox() -> Option<std::process::Child> {
+    let config = environment::openbox_config();
+    let mut command = std::process::Command::new("openbox");
     command.arg("--replace");
-    if let Some(ref path) = config_path {
+    if let Some(path) = &config {
         command.arg("--config-file").arg(path);
     }
     match command.spawn() {
         Ok(child) => {
-            let suffix = config_path
-                .as_ref()
-                .map(|path| format!(" with {}", path.display()))
-                .unwrap_or_default();
-            log::info!("Spawned Openbox{suffix}");
+            match &config {
+                Some(path) => log::info!("Started Openbox with {}", path.display()),
+                None => log::info!("Started Openbox with its default configuration"),
+            }
             Some(child)
         }
         Err(error) => {
-            log::error!("Failed to spawn Openbox: {error}");
+            log::error!("Could not start Openbox: {error}");
             None
         }
     }
 }
 
-fn spawn_path(path: &Path, args: &[&str]) -> Option<Child> {
-    match Command::new(path).args(args).spawn() {
+fn spawn_shell() -> Option<std::process::Child> {
+    spawn_component("slopos-shell")
+}
+
+fn spawn_dock() -> Option<std::process::Child> {
+    spawn_component("slopos-dock")
+}
+
+/// Start a SLOPOS component, preferring the copy next to this binary.
+fn spawn_component(name: &str) -> Option<std::process::Child> {
+    let path = slopos_core::process::resolve_program(name).unwrap_or_else(|| PathBuf::from(name));
+    match std::process::Command::new(&path).spawn() {
         Ok(child) => Some(child),
         Err(error) => {
-            log::error!("Failed to spawn {}: {error}", path.display());
+            log::error!("Could not start {}: {error}", path.display());
             None
         }
     }
 }
 
-fn resolve_program(name: &str) -> Option<PathBuf> {
-    if let Some(paths) = env::var_os("PATH") {
-        for path in env::split_paths(&paths) {
-            let candidate = path.join(name);
-            if candidate.is_file() {
-                return Some(candidate);
-            }
-        }
-    }
-    None
-}
-
-fn spawn_compositor() -> Option<Child> {
-    if env::var("SLOPOS_NO_COMPOSITOR").is_ok() {
+/// Compositors in preference order. A compositor is optional: Openbox and the
+/// shell work without one, so a missing compositor is not a failure.
+fn spawn_compositor() -> Option<std::process::Child> {
+    if env::var_os("SLOPOS_NO_COMPOSITOR").is_some() {
         return None;
     }
-    for prog in ["picom", "compton", "xcompmgr"] {
-        if let Some(path) = resolve_program(prog) {
-            let mut cmd = Command::new(&path);
-            if prog == "picom" {
-                cmd.args([
-                    "--backend",
-                    "xrender",
-                    "--shadow",
-                    "--shadow-radius",
-                    "10",
-                    "--shadow-opacity",
-                    "0.22",
-                    "--shadow-offset-x",
-                    "-5",
-                    "--shadow-offset-y",
-                    "-5",
-                    "--shadow-exclude",
-                    "window_type = 'dock' || class_g = 'slopos-shell'",
-                    "--fade-in-step",
-                    "0.08",
-                    "--fade-out-step",
-                    "0.08",
-                ]);
-            } else if prog == "compton" {
-                cmd.args(["-b", "--shadow"]);
-            } else {
-                cmd.args(["-c"]);
-            }
-            match cmd.spawn() {
-                Ok(child) => {
-                    log::info!("Started X11 compositor: {prog}");
-                    return Some(child);
-                }
-                Err(err) => {
-                    log::warn!("Could not start compositor {prog}: {err}");
-                }
-            }
+    let candidates: &[(&str, &[&str])] = &[
+        (
+            "picom",
+            &[
+                "--backend",
+                "xrender",
+                "--shadow",
+                "--shadow-radius",
+                "10",
+                "--shadow-opacity",
+                "0.22",
+                "--shadow-offset-x",
+                "-5",
+                "--shadow-offset-y",
+                "-5",
+                "--shadow-exclude",
+                "window_type = 'dock' || class_g = 'slopos-shell'",
+            ],
+        ),
+        ("xcompmgr", &["-c"]),
+    ];
+    let (path, args) = slopos_core::process::first_available(candidates)?;
+    match std::process::Command::new(&path).args(args).spawn() {
+        Ok(child) => {
+            log::info!("Started compositor {}", path.display());
+            Some(child)
+        }
+        Err(error) => {
+            log::warn!("Could not start compositor {}: {error}", path.display());
+            None
         }
     }
-    None
 }
 
-fn resolve_sibling(name: &str) -> Option<PathBuf> {
-    let executable = env::current_exe().ok()?;
-    let candidate = executable.parent()?.join(name);
-    candidate.exists().then_some(candidate)
+/// One supervisor per X display. The lock file also records the supervisor's
+/// pid so `--logout` can find it.
+struct SessionLock {
+    _file: File,
+    path: PathBuf,
 }
 
-fn resolve_openbox_config() -> Option<PathBuf> {
-    if let Ok(value) = env::var("SLOPOS_OPENBOX_CONFIG") {
-        let path = PathBuf::from(value);
-        if path.exists() {
-            return path.canonicalize().ok().or(Some(path));
+impl SessionLock {
+    fn acquire() -> Result<Self, String> {
+        let path = session_pid_path();
+        if let Some(dir) = path.parent() {
+            fs::create_dir_all(dir)
+                .map_err(|error| format!("create {}: {error}", dir.display()))?;
         }
+        let mut file = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .map_err(|error| format!("open {}: {error}", path.display()))?;
+        // SAFETY: flock on an owned, open descriptor.
+        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+            return Err(format!(
+                "a SLOPOS session is already running on this display ({})",
+                path.display()
+            ));
+        }
+        file.set_len(0)
+            .and_then(|()| writeln!(file, "{}", std::process::id()))
+            .map_err(|error| format!("write {}: {error}", path.display()))?;
+        Ok(Self { _file: file, path })
     }
+}
 
-    let file_name = match appearance().as_str() {
-        "oled" => "rc-oled.xml",
-        "graphite" => "rc-graphite.xml",
-        "classic" => "rc-classic.xml",
-        _ => "rc.xml",
-    };
-    let mut candidates = Vec::new();
-    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
-        candidates.push(
-            PathBuf::from(share_dir)
-                .join("slopos-i/openbox")
-                .join(file_name),
+impl Drop for SessionLock {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
+fn session_pid_path() -> PathBuf {
+    let runtime = env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .filter(|dir| dir.is_absolute())
+        .unwrap_or_else(env::temp_dir);
+    let display = env::var("DISPLAY").unwrap_or_default();
+    runtime.join(format!("slopos-session{}.pid", display_suffix(&display)))
+}
+
+fn display_suffix(display: &str) -> String {
+    display
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+        .collect()
+}
+
+/// True when a session holds the lock on `file`. A successful non-blocking
+/// acquire means the file is no longer locked, so it is released immediately.
+fn lock_is_held(file: &File) -> bool {
+    // SAFETY: flock on an owned, open descriptor.
+    if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0 {
+        // SAFETY: this descriptor owns the lock we just acquired.
+        unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_UN) };
+        return false;
+    }
+    std::io::Error::last_os_error().raw_os_error() == Some(libc::EWOULDBLOCK)
+}
+
+fn session_pid(file: &File) -> Option<i32> {
+    let mut buffer = [0_u8; 32];
+    let length = file.read_at(&mut buffer, 0).ok()?;
+    std::str::from_utf8(&buffer[..length])
+        .ok()?
+        .trim()
+        .parse::<i32>()
+        .ok()
+        .filter(|pid| *pid > 1)
+}
+
+fn logout() -> ExitCode {
+    let path = session_pid_path();
+    let Ok(file) = OpenOptions::new().read(true).open(&path) else {
+        eprintln!(
+            "slopos-session: no SLOPOS session is running on this display ({})",
+            path.display()
         );
+        return ExitCode::FAILURE;
+    };
+    if !lock_is_held(&file) {
+        eprintln!(
+            "slopos-session: no SLOPOS session is running on this display ({})",
+            path.display()
+        );
+        return ExitCode::FAILURE;
     }
-    if let Ok(executable) = env::current_exe() {
-        if let Some(prefix) = executable.parent().and_then(Path::parent) {
-            candidates.push(prefix.join("share/slopos-i/openbox").join(file_name));
+    let Some(pid) = session_pid(&file) else {
+        eprintln!(
+            "slopos-session: {} does not record a session pid",
+            path.display()
+        );
+        return ExitCode::FAILURE;
+    };
+    // Pin the process before signalling, so a recycled pid cannot receive the
+    // signal. pidfd_open is available on every kernel SLOPOS targets; libc
+    // exposes the syscall number rather than a wrapper.
+    // SAFETY: pidfd_open takes (pid, flags); the kernel reports errors through
+    // the -1 return value and errno.
+    let pidfd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid as libc::c_long, 0) };
+    if pidfd < 0 {
+        eprintln!(
+            "slopos-session: could not open a handle for session {pid}: {}",
+            std::io::Error::last_os_error()
+        );
+        return ExitCode::FAILURE;
+    }
+    let pidfd = pidfd as libc::c_int;
+    // The session may have exited between the lock check and pidfd_open, in
+    // which case the pid could now belong to an unrelated process. Confirm
+    // that the same session still holds the lock before sending anything.
+    if !lock_is_held(&file) || session_pid(&file) != Some(pid) {
+        // SAFETY: close an owned descriptor.
+        unsafe { libc::close(pidfd) };
+        eprintln!("slopos-session: session {pid} exited before it could be signalled");
+        return ExitCode::FAILURE;
+    }
+    // SAFETY: pidfd refers to the pinned session process.
+    let sent = unsafe {
+        libc::syscall(
+            libc::SYS_pidfd_send_signal,
+            pidfd as libc::c_long,
+            libc::SIGTERM as libc::c_long,
+            std::ptr::null_mut::<libc::siginfo_t>(),
+            0,
+        )
+    };
+    let error = std::io::Error::last_os_error();
+    // SAFETY: close an owned descriptor.
+    unsafe { libc::close(pidfd) };
+    if sent != 0 {
+        eprintln!("slopos-session: could not signal session {pid}: {error}");
+        return ExitCode::FAILURE;
+    }
+    ExitCode::SUCCESS
+}
+
+fn install_signal_handlers() {
+    // SAFETY: the handler only stores to an atomic, which is async-signal-safe.
+    unsafe {
+        for signal in [libc::SIGINT, libc::SIGTERM, libc::SIGHUP] {
+            libc::signal(signal, stop_handler as *const () as usize);
         }
     }
-    if let Ok(cwd) = env::current_dir() {
-        candidates.push(cwd.join("assets/config/openbox").join(file_name));
-    }
-    candidates.extend([
-        PathBuf::from("assets/config/openbox").join(file_name),
-        PathBuf::from("/usr/local/share/slopos-i/openbox").join(file_name),
-        PathBuf::from("/usr/share/slopos-i/openbox").join(file_name),
-    ]);
-    candidates
-        .into_iter()
-        .find(|path| path.exists())
-        .and_then(|path| path.canonicalize().ok().or(Some(path)))
 }
 
-fn configure_install_prefix_environment() {
-    let Some(executable) = env::current_exe().ok() else {
-        return;
-    };
-    let Some(bin_dir) = executable.parent() else {
-        return;
-    };
-    let Some(prefix) = bin_dir.parent() else {
-        return;
-    };
-    let share_dir = prefix.join("share");
-    if !share_dir.is_dir() {
-        return;
-    }
-
-    prepend_path("PATH", bin_dir);
-    if env::var_os("SLOPOS_SHARE_DIR").is_none() {
-        env::set_var("SLOPOS_SHARE_DIR", &share_dir);
-    }
-    prepend_env_path("XDG_DATA_DIRS", &share_dir, "/usr/local/share:/usr/share");
-    prepend_env_path("XDG_CONFIG_DIRS", &share_dir.join("slopos-i"), "/etc/xdg");
-}
-
-fn prepend_path(variable: &str, directory: &Path) {
-    prepend_env_path(variable, directory, "");
-}
-
-fn prepend_env_path(variable: &str, directory: &Path, default: &str) {
-    let directory = directory.to_string_lossy();
-    let current = env::var(variable).unwrap_or_else(|_| default.to_string());
-    let prefix = format!(":{current}:");
-    if prefix.contains(&format!(":{directory}:")) {
-        return;
-    }
-    let value = if current.is_empty() {
-        directory.to_string()
-    } else {
-        format!("{directory}:{current}")
-    };
-    env::set_var(variable, value);
-}
-
-extern "C" fn sig_handler(_sig: libc::c_int) {
+extern "C" fn stop_handler(_signal: libc::c_int) {
     RUNNING.store(false, Ordering::SeqCst);
 }
 
@@ -658,25 +344,40 @@ mod tests {
     use super::*;
 
     #[test]
-    fn managed_child_initial_state() {
-        let child = ManagedChild::new("test-child", None);
-        assert_eq!(child.fast_failures, 0);
-        assert_eq!(child.name, "test-child");
+    fn display_names_become_safe_file_suffixes() {
+        assert_eq!(display_suffix(":0"), "_0");
+        assert_eq!(display_suffix("localhost:10.0"), "localhost_10_0");
+        assert_eq!(display_suffix("../x"), "___x");
     }
 
     #[test]
-    fn managed_child_records_exponential_backoff() {
-        let mut child = ManagedChild::new("test-child", None);
-        for i in 1..MAX_FAST_FAILURES {
-            let res = child.record_failure("test crash".to_string());
-            assert!(
-                res.is_ok(),
-                "failure {i} should be handled with restart delay"
-            );
-            assert_eq!(child.fast_failures, i);
-        }
-        // Exceeding MAX_FAST_FAILURES must return Err and stop unbounded loops
-        let err = child.record_failure("test crash".to_string());
-        assert!(err.is_err(), "exceeding max fast failures must error");
+    fn session_lock_detection_tracks_the_holder() {
+        let path = std::env::temp_dir().join(format!(
+            "slopos-session-lock-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = fs::remove_file(&path);
+        let mut writer = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        writeln!(writer, "4242").unwrap();
+        let reader = OpenOptions::new().read(true).open(&path).unwrap();
+        assert!(!lock_is_held(&reader));
+        assert_eq!(session_pid(&reader), Some(4242));
+
+        // SAFETY: flock on the descriptor that owns the test lock.
+        assert_eq!(
+            unsafe { libc::flock(writer.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) },
+            0
+        );
+        assert!(lock_is_held(&reader));
+
+        drop(writer);
+        assert!(!lock_is_held(&reader));
+        let _ = fs::remove_file(&path);
     }
 }

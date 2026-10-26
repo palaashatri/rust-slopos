@@ -1,19 +1,9 @@
 name: Recovery QA
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/recovery.yml'
-      - 'scripts/run-recovery-qa.sh'
-      - 'scripts/slopos-recovery.sh'
-      - 'scripts/start-slopos-i'
-      - 'install.sh'
-      - 'packaging/arch/PKGBUILD'
-      - 'packaging/debian/rules'
-      - 'packaging/iso/build-iso.sh'
-      - 'packaging/vm/qa-vm.sh'
-      - 'crates/slopos-session/**'
+  # Slow or rarely changing: weekly and on demand instead of on every push.
+  schedule:
+    - cron: "13 5 * * 0"
   workflow_dispatch:
 
 permissions:

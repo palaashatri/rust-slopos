@@ -7,3 +7,4 @@ description = "SLOPOS component-development gallery"
 
 [dependencies]
 slopos-ui = { path = "../../crates/slopos-ui" }
+log = { workspace = true }

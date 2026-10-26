@@ -62,7 +62,7 @@ if [[ -n "$PREBUILT_DIR" ]]; then
     echo "Prebuilt commit $PREBUILT_COMMIT does not match requested $REPO_COMMIT" >&2
     exit 2
   }
-  for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+  for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings; do
     test -x "$PREBUILT_DIR/$binary" || {
       echo "PREBUILT_DIR is missing executable $binary" >&2
       exit 2
@@ -193,7 +193,7 @@ fi
 if [[ "$USE_PREBUILT" -eq 1 ]]; then
   echo "=== stage exact-commit prebuilt release binaries ==="
   install -d "/mnt$GUEST_TARGET_DIR/release"
-  for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+  for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings; do
     install -m755 "$PREBUILT_DIR/$binary" "/mnt$GUEST_TARGET_DIR/release/$binary"
   done
   chown -R "$USER_UID:$USER_GID" "/mnt$GUEST_TARGET_DIR"
@@ -213,7 +213,7 @@ runuser -u '$USERNAME' -- bash -lc '
   export CARGO_TARGET_DIR="$GUEST_TARGET_DIR"
   mkdir -p "\$CARGO_TARGET_DIR"
   if [[ "$USE_PREBUILT" == "1" ]]; then
-    for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+    for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings; do
       test -x "\$CARGO_TARGET_DIR/release/\$binary"
     done
   else

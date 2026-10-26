@@ -24,6 +24,8 @@ docker run --rm \
     test "$(git -C /workspace rev-parse HEAD)" = "$SOURCE_SHA"
 
     rm -rf /tmp/slopos-package-src.git /tmp/slopos-pkg
+    # A detached exact head still satisfies the PKGBUILD source ref branch=main.
+    git -C /workspace update-ref refs/heads/main "$SOURCE_SHA"
     git clone --bare /workspace /tmp/slopos-package-src.git
     git config --global protocol.file.allow always
 
@@ -57,12 +59,17 @@ required=(
   'usr/bin/slopos-shell'
   'usr/bin/slopos-catalogue'
   'usr/bin/slopos-settings'
+  'usr/bin/slopos-dock'
+  'usr/bin/slopos-calculator'
   'usr/bin/start-slopos-i'
   'usr/bin/start-slopos-browser'
   'usr/bin/slopos-appearance'
   'usr/bin/slopos-recovery'
   'usr/share/xsessions/slopos-i.desktop'
   'usr/share/applications/slopos-browser.desktop'
+  'usr/share/applications/slopos-calculator.desktop'
+  'usr/share/applications/slopos-settings.desktop'
+  'usr/share/applications/slopos-catalogue.desktop'
   'usr/share/slopos-i/openbox/rc.xml'
   'usr/share/slopos-i/openbox/rc-graphite.xml'
   'usr/share/slopos-i/mimeapps.list'
@@ -94,7 +101,7 @@ cleanup() { rm -rf "$root"; }
 trap cleanup EXIT
 
 bsdtar -xf artifacts/arch-package/slopos-i.pkg.tar.zst -C "$root"
-for binary in slopos-session slopos-shell slopos-catalogue slopos-settings start-slopos-i start-slopos-browser slopos-appearance slopos-recovery; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings start-slopos-i start-slopos-browser slopos-appearance slopos-recovery; do
   test -x "$root/usr/bin/$binary"
 done
 grep -Fqx platinum "$root/usr/share/slopos-i/recovery/appearance"

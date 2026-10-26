@@ -13,6 +13,8 @@ STARTED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 OUT_DIR="$REPO_ROOT/artifacts/qa/release"
 REPORT_FILE="$OUT_DIR/report.md"
 mkdir -p "$OUT_DIR"
+# Never let an interrupted run leave a previous report looking current.
+rm -f "$REPORT_FILE"
 
 PASS_COUNT=0
 TOTAL_COUNT=0

@@ -1,23 +1,21 @@
 # SLOPOS UI Gallery
 
-Initial surface-rendering fixture, not a complete component gallery or a
-reference-conformance pass. It uses the SLOPOS UI boundary rather than building
-GTK presentation in this crate.
-
-Run inside the established Linux VM's X11 session:
+Development gallery for the SLOPOS toolkit (`crates/slopos-ui`). Each
+component opens in its own window through the toolkit's X11 host; no GTK.
 
 ```sh
-GDK_SCALE=1 cargo run --locked -p slopos-ui-gallery -- --scale 1
-GDK_SCALE=2 cargo run --locked -p slopos-ui-gallery -- --scale 2
-GDK_SCALE=1 cargo run --locked -p slopos-ui-gallery -- --component button-plate --scale 1
-GDK_SCALE=2 cargo run --locked -p slopos-ui-gallery -- --component button-plate --scale 2
+cargo run -p slopos-ui-gallery -- --component surface
+cargo run -p slopos-ui-gallery -- --component button-plate --scale 2
+cargo run -p slopos-ui-gallery -- --component buttons
+# Headless capture, no X server needed:
+cargo run -p slopos-ui-gallery -- --component buttons --scale 2 --snapshot buttons.png
 ```
 
-The button-plate view is a 320×136 logical-pixel matrix: rows are Regular,
-Default and Secondary; columns are Rest, Pressed and Disabled. It draws only
-plate geometry, not text or interactive controls. Both fixtures support scales
-1 and 2. Escape or the window close action exits. Window-manager decorations
-are outside the client capture region. Remaining components, interaction
-matrices and accessibility/conformance gates are still pending.
+| Component      | Size (logical) | Shows                                                        |
+|----------------|----------------|--------------------------------------------------------------|
+| `surface`      | 160×90         | A black rectangle: the raster/present path only.             |
+| `button-plate` | 320×136        | Plate geometry: rows Regular/Default/Secondary, columns Rest/Pressed/Disabled. |
+| `buttons`      | 320×120        | Live `Button` controls with labels, focus ring and a disabled button. |
 
-Guest execution evidence and task ownership live in [`docs/CONTRACT.md`](../../docs/CONTRACT.md).
+`--scale` accepts 1 to 4 and defaults to `SLOPOS_SCALE`/`GDK_SCALE`, else 1.
+Escape or the window's close action exits.

@@ -14,7 +14,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$ROOT/target}"
 BIN_DIR="$CARGO_TARGET_DIR/release"
 
-for binary in slopos-session slopos-shell slopos-catalogue slopos-settings; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings; do
   test -x "$BIN_DIR/$binary" || {
     echo "required release binary missing: $BIN_DIR/$binary" >&2
     exit 1
