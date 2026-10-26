@@ -100,6 +100,21 @@ impl Image {
         self.pixmap.height()
     }
 
+    /// A copy resampled (bilinear) to `width × height`.
+    pub fn scaled(&self, width: u32, height: u32) -> Result<Self, ImageError> {
+        let mut pixmap = Pixmap::new(width, height).ok_or(ImageError::Dimensions)?;
+        let paint = tiny_skia::PixmapPaint {
+            quality: tiny_skia::FilterQuality::Bilinear,
+            ..Default::default()
+        };
+        let transform = Transform::from_scale(
+            width as f32 / self.width() as f32,
+            height as f32 / self.height() as f32,
+        );
+        pixmap.draw_pixmap(0, 0, self.pixmap.as_ref(), &paint, transform, None);
+        Ok(Self { pixmap })
+    }
+
     pub(crate) fn pixmap(&self) -> Option<&Pixmap> {
         Some(&self.pixmap)
     }
@@ -130,5 +145,14 @@ mod tests {
         assert_eq!((image.width(), image.height()), (20, 20));
         assert_eq!(image.pixel(0, 10).unwrap().alpha(), 0);
         assert_eq!(image.pixel(10, 10).unwrap().red(), 255);
+    }
+
+    #[test]
+    fn scaling_resamples_to_the_requested_size() {
+        let image = Image::from_rgba(2, 2, [0, 0, 0, 255].repeat(4)).unwrap();
+        let scaled = image.scaled(8, 6).unwrap();
+        assert_eq!((scaled.width(), scaled.height()), (8, 6));
+        assert_eq!(scaled.pixel(4, 3).unwrap().alpha(), 255);
+        assert!(image.scaled(0, 4).is_err());
     }
 }

@@ -536,6 +536,7 @@ mod tests {
             icon: String::new(),
             comment: String::new(),
             terminal: false,
+            startup_wm_class: String::new(),
         };
         let app2 = DesktopApp {
             id: "app2.desktop".to_string(),
@@ -544,6 +545,7 @@ mod tests {
             icon: String::new(),
             comment: String::new(),
             terminal: false,
+            startup_wm_class: String::new(),
         };
 
         // Apply sequence 2
