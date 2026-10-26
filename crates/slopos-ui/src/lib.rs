@@ -1,7 +1,21 @@
-pub mod accessibility;
+//! SLOPOS UI toolkit.
+//!
+//! SLOPOS draws its own controls: geometry, colour, text and state come from
+//! this crate, not from a third-party toolkit's theme. The pieces are:
+//!
+//! - [`foundation`] and [`layout`]: integer geometry, insets and layout.
+//! - [`render`], [`text`], [`image`], [`icons`]: pixel-exact software
+//!   rendering (tiny-skia), shaped text (cosmic-text) and freedesktop icons.
+//! - [`primitives`] and [`controls`]: Classic component painters and
+//!   interactive controls with explicit state machines.
+//! - [`event`] and [`platform`]: input events and the X11 window host.
+//! - [`accessibility`]: AT-SPI exposure through AccessKit.
 pub mod controls;
+pub mod event;
 pub mod foundation;
+pub mod image;
 pub mod layout;
+pub mod platform;
 pub mod primitives;
 pub mod render;
-pub mod testing;
+pub mod text;

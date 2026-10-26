@@ -30,7 +30,7 @@ MISSING_RESOLUTION = object()
 
 
 def run_checker_cli(
-    tmp_path: Path, cargo_script: str
+    tmp_path: Path, cargo_script: str, checker: Path = CHECKER_PATH
 ) -> subprocess.CompletedProcess[str]:
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
@@ -42,8 +42,8 @@ def run_checker_cli(
         (str(fake_bin), environment.get("PATH", ""))
     )
     return subprocess.run(
-        [sys.executable, str(CHECKER_PATH)],
-        cwd=CHECKER_PATH.parent.parent,
+        [sys.executable, str(checker)],
+        cwd=checker.parent.parent,
         env=environment,
         capture_output=True,
         check=False,
@@ -1124,7 +1124,13 @@ def test_cli_returns_zero_and_disclaims_missing_app_coverage(tmp_path: Path) -> 
         "\"resolve\":{\"nodes\":[{\"id\":\"fixture\",\"deps\":[]}]}}'"
     )
 
-    result = run_checker_cli(tmp_path, cargo_script)
+    # Run a copy of the checker from an empty tree, so the repository's own
+    # apps/ does not count.
+    checker_copy = tmp_path / "tree" / "scripts" / CHECKER_PATH.name
+    checker_copy.parent.mkdir(parents=True)
+    checker_copy.write_text(CHECKER_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+
+    result = run_checker_cli(tmp_path, cargo_script, checker=checker_copy)
 
     assert result.returncode == 0
     assert "app conformance not demonstrated" in result.stdout
