@@ -1,0 +1,98 @@
+# SLOPOS-I architecture: what exists today
+
+This page describes the code as it is, not the target. For the target, see the [contract](CONTRACT.md). When the two disagree, this page describes reality and the contract describes where it should go. Last reviewed: 2026-10-26.
+
+SLOPOS-I is an **alpha** X11 desktop environment. Openbox manages windows. SLOPOS adds a session supervisor, a menu-bar shell, a Dock, Settings, a software catalogue and its first native app, Calculator.
+
+## Processes in a session
+
+```
+display manager ─► start-slopos-i ─► slopos-session (supervisor, pid lock)
+                                        ├─ openbox            Required: its failure ends the session
+                                        ├─ picom / xcompmgr   Optional: skipped if missing or SLOPOS_NO_COMPOSITOR
+                                        ├─ slopos-shell       Important: restarted with backoff, session survives
+                                        └─ slopos-dock        Important: as above; off with SLOPOS_NO_DOCK
+apps launched from the shell or Dock: detached (setsid), reaped, not supervised
+```
+
+- `start-slopos-i` is the X session entry point (`packaging/slopos-i.desktop` runs it). It sets up D-Bus activation and the source-tree or installed share directory, then executes `slopos-session`.
+- `slopos-session` (`crates/slopos-session`):
+  - takes a lock at `$XDG_RUNTIME_DIR/slopos-session<display>.pid`, so a second instance refuses to start;
+  - configures the environment (`environment.rs`): `XDG_*`, the GTK theme and GTK 2 rc for the chosen appearance, the Openbox config path and the root background;
+  - supervises its children (`supervisor.rs`). After a crash a child is restarted with a delay of 250 ms × 2ⁿ. After 5 fast failures in a row it is given up, and that is reported once.
+  - `slopos-session --logout` sends SIGTERM to the running supervisor, which stops the children in reverse order (SIGTERM, then SIGKILL after 2 s). The Openbox root menu and the shell's Special menu both use it.
+- Appearances: `platinum` (default), `classic`, `graphite` and `oled`. Each one picks an Openbox rc file, a GTK theme and a root colour. A user's own `~/.config/slopos-i/openbox/rc.xml` always wins.
+
+## Workspace crates
+
+| Crate | Kind | Toolkit | What it does |
+|---|---|---|---|
+| `slopos-core` | library | — | Shared primitives: XDG paths, `.desktop` discovery and parsing, process launch/resolve/reap, capability and IPC types. |
+| `slopos-ui` | library | **own** | The SLOPOS toolkit (below). No GTK. |
+| `slopos-services` | library | — | D-Bus providers: NetworkManager, audio (PipeWire/Pulse), brightness, UPower, timedate, Bluetooth, MPRIS, UDisks. Typed snapshots; "unavailable" when a service is missing. |
+| `slopos-session` | binary | — | Session supervisor (above). |
+| `slopos-shell` | binary | GTK 3 (legacy) | Global menu bar, status items (sound, network, clock), launcher (Super+Space), notification daemon, desktop actions, X11/EWMH helpers. |
+| `slopos-dock` | binary | **own** | The Dock (below). |
+| `slopos-settings` | binary | GTK 3 (legacy) | Control Panels: appearance, date and time, desktop, network (live NetworkManager state and toggles), sound. |
+| `slopos-catalogue` | binary | GTK 3 (legacy) | AppImage catalogue and installer. |
+| `apps/calculator` | binary | **own** | Calculator, the first native app. |
+| `tools/slopos-ui-gallery` | binary | **own** | Component gallery, with a `--snapshot` mode for captures. |
+
+`scripts/check-architecture.py` stops anything under `apps/` from depending on GTK, GDK or Pango. Rewriting the legacy GTK crates on the SLOPOS toolkit is the long-term direction. Until then they get bug fixes and truthful-state fixes only.
+
+## The SLOPOS toolkit (`crates/slopos-ui`)
+
+| Module | Contents |
+|---|---|
+| `foundation`, `layout` | Integer geometry (`Rect`, `Scale`), colours, insets and layout helpers. |
+| `render` | `RasterSurface`: a tiny-skia pixmap at an integer scale, with rect fill/stroke, image and text drawing, and PNG output. All coordinates are logical pixels. |
+| `text` | `Font` and `measure`. cosmic-text shaping, preferring Liberation Sans or DejaVu Sans. |
+| `image` | `Image`: PNG decoding and SVG rasterisation (resvg, with system fonts for SVG text), plus bilinear scaling. |
+| `icons` | `IconLookup`: freedesktop icon-theme lookup with `Inherits`, size matching, `hicolor` and `/usr/share/pixmaps`. Default theme `SLOPOS-Platinum`, overridden by `SLOPOS_ICON_THEME`. |
+| `primitives` | Classic component painters, e.g. the button plate (Regular, Default and Secondary × Rest, Pressed and Disabled, at any size). |
+| `controls` | Interactive controls as explicit state machines. So far: `Button` (pointer and keyboard activation, drag-out cancel, focus ring, accessibility node). |
+| `event` | Pointer, keyboard, scroll, focus, resize, timer, wake and accessibility events. |
+| `platform` | `App` trait, `Control` and `WindowOptions`. The x11rb host: a poll(2) loop that sleeps until there is input, a timer or a `Proxy::wake()` from another thread; frames sent with PutImage strips; Normal and Dock window kinds (with struts); HiDPI via `SLOPOS_SCALE`/`GDK_SCALE`; AccessKit trees on AT-SPI (feature `atspi`, on by default). |
+
+An app implements `App::event`, `App::paint` and, optionally, `App::accessibility`, then calls `platform::run`. The Calculator (`apps/calculator/src/main.rs`) is the reference example.
+
+Not built yet: text fields, menus and popups, lists, scroll views, dialogs, `slopos-appkit`, and theme datasets beyond the provisional Platinum colours.
+
+## The Dock (`crates/slopos-dock`)
+
+- **Window:** a bottom-centred window of type `_NET_WM_WINDOW_TYPE_DOCK` that reserves its strip with `_NET_WM_STRUT_PARTIAL`. It resizes and re-centres as tiles come and go.
+- **Pins:** read from `~/.config/slopos-i/dock-pins`, one desktop id per line. Without that file it pins one installed app per role: files, browser, terminal, editor, calculator, software and settings. `slopos-dock --pin-defaults` writes the defaults to the file.
+- **Running windows:** `windows.rs` has its own X connection on a thread. It watches `_NET_CLIENT_LIST_STACKING`, `_NET_ACTIVE_WINDOW` and each client's title and state. Windows are matched to apps by `WM_CLASS`/`StartupWMClass` (`model.rs`, tested without X). Unpinned running apps appear after a separator.
+- **Interaction:**
+  - Click launches the app, raises its top window, or cycles through its windows when the app is already in front.
+  - Middle-click starts another instance.
+  - One dot per window, up to 3. The dots are amber when a window asks for attention.
+  - Screen readers see a toolbar of buttons.
+- **Not built yet:** context menus, drag-to-reorder, pin/unpin from the UI, auto-hide, multi-monitor placement and a Settings panel.
+
+## The shell (`crates/slopos-shell`)
+
+- The **menu bar** shows a System menu and either the desktop menus (File, View, Special, Help) or the active window's menus. GTK apps export theirs over the GTK menu protocol; for other windows there are window actions.
+- **Status items** come from `slopos-services` and update on events: sound, network and battery, plus the clock. Network shows the live connection, "Offline" or "Network unavailable"; it never shows a made-up interface.
+- The **launcher** (`launcher.rs`, `app_finder.rs`) searches `.desktop` entries with ranked fuzzy matching and is opened by Super+Space or SIGUSR1.
+- **Notifications:** the shell owns `org.freedesktop.Notifications` when nobody else does. Toasts are placed in the monitor's work area.
+- **Desktop:** pcmanfm draws the desktop icons. The shell implements New Folder and Empty Trash (with confirmation, via `gio trash` or a symlink-safe fallback).
+
+## Packages and CI
+
+- **Packages:** `packaging/debian` and `packaging/arch/PKGBUILD` install all binaries, the session entry, desktop entries (Calculator, Control Panels, Software, Browser), Openbox and GTK themes, the icon theme and wallpapers. `install.sh` installs from source into a prefix.
+- **CI:** `.github/workflows/ci.yml` is one job that runs fmt, clippy `-D warnings`, the workspace tests, the Python architecture/spec checks, shell syntax checks, and `scripts/smoke-session.sh`. The smoke test boots a real session under Xvfb and checks the menu bar, the Dock and Calculator, then logs out and checks that every process exited.
+- **Nightlies:** `nightly.yml` publishes the `.deb` and `.pkg.tar.zst` from `main` to the rolling `nightly` release.
+- **Scheduled:** the heavy X11 QA runs nightly (`qa.yml`). The ISO, installed-VM, recovery and hardware-contract workflows run weekly.
+
+See [development.md](development.md) for commands.
+
+## Known gaps
+
+The [ledger](contract/ledger.md) has the dated evidence. In short:
+
+- No native Files, Terminal, Text editor or System Monitor yet. The defaults are pcmanfm, an installed terminal and an installed editor.
+- No OSDs, workspaces UI, lock screen, polkit agent or display-configuration UI.
+- Three user-facing programs still use GTK 3, whose Rust bindings are unmaintained.
+- X11 only. GNOME and KDE are leaving X11, so distribution support for X11 logins has to be checked per release (§21.10).
+- Not tested on real hardware or on the Raspberry Pi edge target.
