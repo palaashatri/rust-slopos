@@ -56,8 +56,8 @@
     <item label="Web Browser (Firefox)">
       <action name="Execute"><command>start-slopos-browser</command></action>
     </item>
-    <item label="Calculator (Galculator)">
-      <action name="Execute"><command>galculator</command></action>
+    <item label="Calculator">
+      <action name="Execute"><command>slopos-calculator</command></action>
     </item>
     <menu id="open-with-menu"/>
     <menu id="wallpapers-menu"/>

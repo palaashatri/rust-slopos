@@ -1,0 +1,11 @@
+[package]
+name = "slopos-calculator"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Calculator"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+accesskit = { workspace = true }
+env_logger = { workspace = true }
