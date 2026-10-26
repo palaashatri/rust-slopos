@@ -206,20 +206,18 @@ mod tests {
     #[test]
     fn a_required_child_that_fails_is_still_restarted() {
         let mut child = Child::new("Openbox", Policy::Required, exits_at_once);
+        let mut restarted = false;
         for _ in 0..200 {
             child.restart_after = Instant::now();
             std::thread::sleep(Duration::from_millis(5));
             assert!(child.supervise().is_ok());
-            if child.fast_failures > 0 {
+            if child.fast_failures > 0 && child.process.is_some() {
+                restarted = true;
                 break;
             }
         }
-        assert!(child.fast_failures > 0, "the exit was not observed");
+        assert!(restarted, "the failed child was not restarted");
         assert!(!child.given_up);
-        assert!(
-            child.process.is_some(),
-            "the failed child was not restarted"
-        );
         child.stop();
     }
 
