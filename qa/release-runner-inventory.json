@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "runners": [
+    {
+      "id": "clean-install",
+      "label": "Clean installation and session startup",
+      "script": "scripts/run-clean-install-qa.sh",
+      "sha256": "a8ae73ba4adc3e55b6eca45505fe4c2be6a90e399fc35473111eca291ccd992b"
+    },
+    {
+      "id": "catalogue",
+      "label": "Software Catalogue integrity and lifecycle",
+      "script": "scripts/run-catalogue-qa.sh",
+      "sha256": "05f726210b411937bd3bee84b32229a1ed454cc221fa5ba1a830aa6710899686"
+    },
+    {
+      "id": "virtual-services",
+      "label": "Virtual system-service integration",
+      "script": "scripts/run-virtual-services-qa.sh",
+      "sha256": "b2b7a20211db1decabe20c68504bcf30c7a0a9e85fc4a91a44f44aea263d2b9c"
+    },
+    {
+      "id": "settings-services",
+      "label": "Settings delegated-service integration",
+      "script": "scripts/run-settings-service-qa.sh",
+      "sha256": "788f888cd50faeb7cd4a4cb13e144fdfdb0da8b2ae6b4ce9a178b2cce5e3f2c3"
+    },
+    {
+      "id": "multimonitor",
+      "label": "Multi-monitor geometry",
+      "script": "scripts/run-multimonitor-qa.sh",
+      "sha256": "9ef36f254e51d3e5d9d5524b272b71b9788129e835aea3cab0b94e3a5d475599"
+    },
+    {
+      "id": "resolution",
+      "label": "Resolution and scale coverage",
+      "script": "scripts/run-resolution-qa.sh",
+      "sha256": "cf6bfea83b41608586b7447011f6e1004d9e9ba9e62ab995b867b6fc4f4f8ecb"
+    },
+    {
+      "id": "recovery",
+      "label": "Configuration recovery",
+      "script": "scripts/run-recovery-qa.sh",
+      "sha256": "5cb25fa4f5696bc63957e80886d89338515b7a9a119d4d51c30efcfa220af81a"
+    },
+    {
+      "id": "security-failure",
+      "label": "Security and failure handling",
+      "script": "scripts/run-security-failure-qa.sh",
+      "sha256": "9ff6ee540f7f66e528e5646c7a2a20d905dc8204b04c691ec8a254a6d0399b3e"
+    },
+    {
+      "id": "session-performance",
+      "label": "Session performance evidence",
+      "script": "scripts/benchmark-x11-session.sh",
+      "sha256": "d18875f6221e8f06c1eb42df8d9631d44cdbb586e1ad485ee90c90b273944f32"
+    },
+    {
+      "id": "accessibility-tree",
+      "label": "Accessibility tree",
+      "script": "scripts/run-atspi-qa.sh",
+      "sha256": "d2fcb2c5bea48b067356cd65de23789a5b901c290dd3a231e7bc5625bba1868e"
+    },
+    {
+      "id": "debian-package",
+      "label": "Debian package payload",
+      "script": "scripts/run-debian-package-qa.sh",
+      "sha256": "a2ba5c29ab50ec0a7d44fd091ecd8724d743a8b2eb170942bd374563093b8ae7"
+    },
+    {
+      "id": "package-repositories",
+      "label": "Package repository metadata generation",
+      "script": "scripts/generate-package-repos.sh",
+      "sha256": "a3287841c29389aa7937d1b454e185d61831f4b09d2493efc579f6d686167f60"
+    },
+    {
+      "id": "canonical-visual",
+      "label": "Canonical visual evidence capture",
+      "script": "scripts/run-canonical-visual-qa.sh",
+      "sha256": "d9059acf18dc23cffe2f97d26eef560bff77ab4b4bae9ec235c6dddac52fb0b4"
+    }
+  ]
+}
