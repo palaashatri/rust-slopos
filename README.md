@@ -27,7 +27,7 @@ Not there yet: native Files, Terminal and Text editor; volume and brightness OSD
 
 ## Try it
 
-**Nightly packages.** Every commit to `main` publishes a `.deb` (Debian/Ubuntu) and a `.pkg.tar.zst` (Arch), with checksums, to the [`nightly` release](https://github.com/palaashatri/rust-slopos/releases/tag/nightly). Install one in a VM, log out, and pick **SLOPOS-I** in your display manager's X11 session list.
+**Nightly packages.** The nightly workflow builds packages on pushes to `main`, its daily schedule, and manual dispatch. Runs whose ref is `main` publish a `.deb` (Debian/Ubuntu) and a `.pkg.tar.zst` (Arch), with checksums, to the [`nightly` release](https://github.com/palaashatri/rust-slopos/releases/tag/nightly). Install one in a VM, log out, and pick **SLOPOS-I** in your display manager's X11 session list.
 
 **From source:**
 
