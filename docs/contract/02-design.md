@@ -62,7 +62,7 @@ If a reference font cannot legally be redistributed, choose or create a redistri
 
 ### 5.2.1 Design inspirations and how each one is used
 
-SLOPOS learns from several references. Each reference has one bounded role. None of them is an asset source, and only §5's Figma kit is a measured acceptance authority for SLOPOS-I.
+SLOPOS learns from several references. Each reference has one bounded role. No reference is an asset source, with one explicit exception: the pinned Lucide symbolic SVGs under `assets/icons/symbolic/lucide/` are licensed third-party reference assets that ship only with their upstream `ISC`/`MIT` licence and `NOTICE.txt`, and they are not wired into the running desktop. Only §5's Figma kit is a measured acceptance authority for SLOPOS-I.
 
 | Reference | What SLOPOS takes | What SLOPOS never takes | Authority |
 |---|---|---|---|

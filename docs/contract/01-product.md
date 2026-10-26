@@ -74,17 +74,17 @@ Applications consume the component system; they do not define it.
 
 ## 2.2 No raw-GTK first-party UI architecture
 
-GTK3/GDK/Pango/GIO may remain mature infrastructure beneath SLOPOS.
+GTK3/GDK/Pango/GIO may remain only in the legacy donor crates (`slopos-shell`, `slopos-settings`, `slopos-catalogue`) and in engine adapters. `slopos-ui` does not use them.
 
 They are not the first-party design system.
 
-First-party apps depend on `slopos-appkit`/`slopos-ui`; those SLOPOS abstractions own presentation over GTK3/GDK/Pango/GIO/AT-SPI infrastructure. Follow the explicit “depends on” graph in §6.3.
+First-party apps depend on `slopos-appkit`/`slopos-ui`; those SLOPOS abstractions own presentation over the SLOPOS rendering, text, host and accessibility stack (tiny-skia, cosmic-text, x11rb and AccessKit), not over GTK. Follow the explicit “depends on” graph in §6.3.
 
 A first-party application crate must not directly build its user interface from arbitrary `gtk::Button`, `gtk::Entry`, `gtk::Dialog`, `gtk::ListBox`, CSS fragments, or ad-hoc layout constants.
 
-Direct GTK/GDK/Pango UI dependencies are permitted only in explicitly designated boundary crates such as:
+Direct GTK/GDK/Pango UI dependencies are permitted only in explicitly designated boundary crates:
 
-- `slopos-ui`;
+- legacy donor crates under replacement;
 - low-level engine adapters where required;
 - compatibility adapters whose API is hidden behind SLOPOS-owned abstractions.
 
@@ -136,7 +136,7 @@ SLOPOS-I is:
 - Openbox-based unless an evidence-backed limitation requires another solution;
 - implemented primarily in Rust;
 - built around the first-party `slopos-ui` component library and `slopos-appkit`;
-- allowed to use GTK3/GDK/Pango/GIO underneath the SLOPOS component system;
+- allowed to use GTK3/GDK/Pango/GIO only in legacy donor crates and engine adapters beneath the SLOPOS component system;
 - allowed to use mature engines such as VTE, WebKitGTK, Poppler, libarchive and libmpv where appropriate;
 - allowed to delegate system ownership to NetworkManager, PipeWire/WirePlumber or PulseAudio-compatible APIs, BlueZ, UPower, systemd/logind, udev, CUPS/IPP, UDisks2/GIO and XRandR;
 - required to provide a coherent first-party shell including Dock, global menu bar, status applets, OSDs, launcher, notifications, desktop surface and session UI.
