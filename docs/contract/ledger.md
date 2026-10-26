@@ -552,6 +552,14 @@ Truthful-state status at `b332657`: the hard-coded network interface/SSID text, 
 - **PASS (GitHub CI on `57052de`, PR #26):** the checks job (fmt, Clippy, workspace tests, 114 architecture/spec pytest cases, shell parsing and the real-session smoke test including logout), the Debian package build (`6m56s`) and the Arch package build (`7m24s`).
 - **NOT_RUN:** the nightly gate, tag update and publish (the workflow is not on `main`, so this branch cannot trigger it), the ISO, installed-VM, recovery and hardware workflows, AT-SPI with a real screen reader, HiDPI on a real display, and the Pi Zero 2 W. The ledger commit that carries this entry is documentation-only.
 
+### 2026-10-26 PR #22 re-review fixes
+
+- **Where it ran:** `agent/pr22-checklist-lockfile` ([#27](https://github.com/palaashatri/rust-slopos/pull/27)) and `agent/pr22-rereview-fixes` ([#28](https://github.com/palaashatri/rust-slopos/pull/28)), both into `claude/happy-keller-fqthki` (not `main`). The Windows host ran `cargo fmt --all -- --check`, `git diff --check` and `bash -n` on the changed scripts; the Rust tests and the real-session smoke test ran on GitHub Actions.
+- **Findings addressed:** the second CodeRabbit review of #22. The pre-push checklists now run `cargo metadata --locked --format-version 1 --no-deps > /dev/null`, matching CI (#27). Network status distinguishes activating, activated, deactivating and deactivated connections; a failed worker spawn sends `Update::Unavailable`; `slopos-appearance` copies a legacy `~/.gtkrc-2.0` to `gtkrc-2.0.legacy` before replacing it, and the session and later runs include that copy (#28).
+- **PASS (GitHub CI on `fb8ee1a`, PR #27):** the checks job. The package workflows did not run because the PR changes only Markdown.
+- **PASS (GitHub CI on `2588dd1`, PR #28):** the checks job (fmt, Clippy, workspace tests, 114 architecture/spec pytest cases, shell parsing and the real-session smoke test, including the two-run legacy GTK 2 check) in `3m37s`. The package workflows did not run because the PR changes no packaging input.
+- **NOT_RUN:** the nightly gate, tag update and publish (the workflow is not on `main`), the ISO, installed-VM, recovery and hardware workflows, AT-SPI with a real screen reader, HiDPI on a real display, and the Pi Zero 2 W. The ledger commit that carries this entry is documentation-only.
+
 ## M. Active task and ownership register
 
 This register reflects the preparation state as of 2026-10-07 IST, amended by the 2026-10-20 integration checkpoint above (all branches merged into `main`; task statuses unchanged until a guest run at the merged SHA). The status at the original contract audit remains historical.

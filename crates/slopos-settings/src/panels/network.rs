@@ -25,10 +25,10 @@ pub struct NetworkView {
     pub devices: Vec<(String, String, String)>,
     /// One block of lines per active connection.
     pub connections: Vec<Vec<String>>,
-    /// True when at least one connection reached NetworkManager state 2
-    /// (activated). Merely appearing in the active list is not enough: a
-    /// connection waiting for authentication or DHCP is still activating.
-    pub connected: bool,
+    /// The status line, derived from the NetworkManager state of every active
+    /// connection. Merely appearing in the list is not enough: states 0 and 1
+    /// are still activating, 3 is deactivating, and 4 is not connected.
+    pub status: &'static str,
 }
 
 impl NetworkView {
@@ -38,19 +38,31 @@ impl NetworkView {
             wifi_enabled: None,
             devices: Vec::new(),
             connections: Vec::new(),
-            connected: false,
+            status: "Not connected.",
         }
     }
 }
 
-/// The status line, derived only from established state.
-fn status_text(view: &NetworkView) -> &'static str {
-    if view.connected {
-        "Connected."
-    } else if view.connections.is_empty() {
-        "Not connected."
-    } else {
+/// The status line, derived from NetworkManager's active-connection states:
+/// 0 unknown, 1 activating, 2 activated, 3 deactivating, 4 deactivated.
+/// A connection that is merely listed is not reported as connected.
+fn connection_status(states: impl Iterator<Item = u32>) -> &'static str {
+    let mut activating = false;
+    let mut deactivating = false;
+    for state in states {
+        match state {
+            2 => return "Connected.",
+            0 | 1 => activating = true,
+            3 => deactivating = true,
+            _ => {}
+        }
+    }
+    if activating {
         "Connecting…"
+    } else if deactivating {
+        "Disconnecting…"
+    } else {
+        "Not connected."
     }
 }
 
@@ -129,11 +141,13 @@ pub fn describe(snapshot: &NetworkSnapshot) -> NetworkView {
         networking_enabled: snapshot.networking_enabled,
         wifi_enabled: has_wifi.then_some(snapshot.wireless_enabled),
         devices,
-        connected: snapshot
-            .active_connections
-            .iter()
-            .any(|connection| connection.state == 2),
         connections,
+        status: connection_status(
+            snapshot
+                .active_connections
+                .iter()
+                .map(|connection| connection.state),
+        ),
     }
 }
 
@@ -258,7 +272,7 @@ pub fn show_network_dialog(parent: &Window) {
                     None => wifi.hide(),
                 }
                 syncing.set(false);
-                status_for_updates.set_text(status_text(&view));
+                status_for_updates.set_text(view.status);
                 fill_devices(&devices_grid, &view);
                 fill_connections(&connections_box, &view);
             }
@@ -327,6 +341,10 @@ fn spawn_worker(
     updates: glib::Sender<Update>,
     mut commands: tokio::sync::mpsc::UnboundedReceiver<Command>,
 ) {
+    // The worker closure consumes its sender. Keep a clone for the failure
+    // branch: a failed spawn drops the closure, so nothing else would tell the
+    // dialog to leave its loading state.
+    let failure_updates = updates.clone();
     let spawned = thread::Builder::new()
         .name("slopos-settings-network".to_owned())
         .spawn(move || {
@@ -395,6 +413,9 @@ fn spawn_worker(
         });
     if let Err(error) = spawned {
         log::warn!("Could not start the network worker: {error}");
+        let _ = failure_updates.send(Update::Unavailable(
+            "the network worker could not start".to_owned(),
+        ));
     }
 }
 
@@ -446,6 +467,21 @@ mod tests {
         }
     }
 
+    fn connection(state: u32) -> ActiveNetworkConnection {
+        ActiveNetworkConnection {
+            object_path: format!("/ac/{state}"),
+            id: format!("Connection {state}"),
+            uuid: "u".to_owned(),
+            connection_type: "802-3-ethernet".to_owned(),
+            state,
+            default_ipv4: false,
+            default_ipv6: false,
+            is_vpn: false,
+            ipv4: None,
+            ipv6: None,
+        }
+    }
+
     #[test]
     fn describes_devices_addresses_and_wifi_radio() {
         let snapshot = NetworkSnapshot {
@@ -492,8 +528,7 @@ mod tests {
         };
         let view = describe(&snapshot);
         assert_eq!(view.wifi_enabled, Some(false));
-        assert!(view.connected);
-        assert_eq!(status_text(&view), "Connected.");
+        assert_eq!(view.status, "Connected.");
         assert_eq!(
             view.devices,
             vec![
@@ -530,8 +565,7 @@ mod tests {
         assert_eq!(view.wifi_enabled, None);
         assert!(!view.networking_enabled);
         assert!(view.connections.is_empty());
-        assert!(!view.connected);
-        assert_eq!(status_text(&view), "Not connected.");
+        assert_eq!(view.status, "Not connected.");
     }
 
     #[test]
@@ -560,8 +594,28 @@ mod tests {
             }],
         };
         let view = describe(&snapshot);
-        assert!(!view.connected);
         assert_eq!(view.connections.len(), 1);
-        assert_eq!(status_text(&view), "Connecting…");
+        assert_eq!(view.status, "Connecting…");
+    }
+
+    #[test]
+    fn deactivating_and_deactivated_connections_get_their_own_status() {
+        for (states, expected) in [
+            (vec![3u32], "Disconnecting…"),
+            (vec![4u32], "Not connected."),
+            (vec![0u32], "Connecting…"),
+            (vec![3, 1], "Connecting…"),
+            (vec![3, 2], "Connected."),
+        ] {
+            let snapshot = NetworkSnapshot {
+                revision: 4,
+                networking_enabled: true,
+                wireless_enabled: true,
+                wireless_hardware_enabled: true,
+                devices: vec![],
+                active_connections: states.iter().copied().map(connection).collect(),
+            };
+            assert_eq!(describe(&snapshot).status, expected, "states {states:?}");
+        }
     }
 }
