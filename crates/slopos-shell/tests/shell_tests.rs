@@ -198,6 +198,10 @@ fn appearances_are_complete_runtime_themes() {
     assert!(oled_rc.contains("slopos-openbox-oled"));
     assert!(switcher.contains("classic|platinum|graphite|oled|status"));
     assert!(switcher.contains("gtk-theme-name = $gtk_theme"));
+    assert!(switcher.contains("legacy_gtk2"));
+    assert!(switcher.contains("gtkrc-2.0.legacy"));
+    assert!(switcher.contains("cp -f \"$legacy_gtk2\" \"$legacy_copy\""));
+    assert!(switcher.contains("SLOPOS_SESSION_MANAGED"));
     assert!(switcher.contains("gtk-shell-shows-menubar = 1"));
     assert!(switcher.contains("pkill -TERM -x slopos-shell"));
     assert!(switcher.contains("pkill -TERM -x openbox"));
@@ -348,14 +352,37 @@ fn install_and_native_packages_ship_icons_and_both_appearances() {
 
 #[test]
 fn session_reloads_appearance_without_reintroducing_display_stack_scope() {
-    let session = include_str!("../../slopos-session/src/main.rs");
-    assert!(session.contains("fn appearance()"));
-    assert!(session.contains("#25272B"));
-    assert!(session.contains("#758090"));
-    assert!(session.contains("rc-graphite.xml"));
-    assert!(session.contains("resolve_openbox_config"));
-    for obsolete in ["wayland", "smithay", "wlroots", "xwayland"] {
-        assert!(!session.to_ascii_lowercase().contains(obsolete));
+    let main = include_str!("../../slopos-session/src/main.rs");
+    let environment = include_str!("../../slopos-session/src/environment.rs");
+    assert!(environment.contains("pub fn appearance()"));
+    assert!(environment.contains("rc-graphite.xml"));
+    assert!(environment.contains("pub fn openbox_config()"));
+    // The session must not write other desktops' configuration files. It does
+    // read ~/.gtkrc-2.0 to include legacy GTK 2 settings in its managed config,
+    // so check that the legacy lookup stays read-only.
+    let legacy = environment
+        .split("fn legacy_gtk2_rc()")
+        .nth(1)
+        .and_then(|rest| rest.split("\n}").next())
+        .expect("legacy_gtk2_rc must exist");
+    assert!(legacy.contains(".is_file()"));
+    for writer in [
+        "fs::write",
+        "OpenOptions",
+        "File::create",
+        "create_dir",
+        "set_len",
+    ] {
+        assert!(
+            !legacy.contains(writer),
+            "the session must not write ~/.gtkrc-2.0 ({writer})"
+        );
+    }
+    assert!(!environment.contains("\"openbox\").join(\"rc.xml\")"));
+    for source in [main, environment] {
+        for obsolete in ["wayland", "smithay", "wlroots", "xwayland"] {
+            assert!(!source.to_ascii_lowercase().contains(obsolete));
+        }
     }
 }
 
@@ -504,10 +531,16 @@ fn network_settings_do_not_invent_connections_or_expose_inert_controls() {
             "Network Settings fabricates or implies state: {fabricated_state}"
         );
     }
-    assert!(panel.contains("Live network details and controls are not available"));
-    assert!(panel.contains("Command::new(\"nm-connection-editor\").spawn()"));
-    assert!(panel.contains("Err(error) => status.set_text"));
+    // State comes from the NetworkManager provider, never from literals.
+    assert!(panel.contains("NetworkManagerClient::connect"));
+    assert!(panel.contains("Update::Unavailable"));
+    // A failed worker spawn reports it instead of leaving the dialog loading.
+    assert!(panel.contains("let failure_updates = updates.clone();"));
+    assert!(panel.contains("failure_updates.send(Update::Unavailable"));
     assert!(!panel.contains("let _ = Command::new"));
+    // Closing the dialog detaches the GLib source that updates its widgets.
+    assert!(panel.contains("let update_source = update_receiver.attach"));
+    assert!(panel.contains("update_source.remove();"));
 }
 
 #[test]
@@ -552,10 +585,16 @@ fn event_driven_architecture_replaces_periodic_subprocess_polling() {
     assert!(x11_events.contains("Event::EnterNotify"));
     assert!(x11_events.contains("Event::LeaveNotify"));
     assert!(!x11_events.contains("query_pointer"));
+    // The event thread blocks on the X server instead of polling.
+    assert!(x11_events.contains("wait_for_event"));
+    assert!(!x11_events.contains("poll_for_event"));
+    assert!(!shell_main.contains("timeout_add_local"));
 
     // Ensure shell audio state and controls use the shared audio provider.
     assert!(monitor.contains("audio::watch_audio_changes"));
-    assert!(monitor.contains("receive_all_signals"));
+    assert!(monitor.contains("network::watch"));
+    let monitor_runtime = monitor.split("#[cfg(test)]").next().unwrap_or(monitor);
+    assert!(!monitor_runtime.contains("recv_timeout"));
     assert!(!monitor.contains("pactl"));
     assert!(audio.contains("AudioClient"));
     assert!(topbar.contains("audio::adjust_default_output_volume"));

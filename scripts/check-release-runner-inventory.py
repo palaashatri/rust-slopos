@@ -71,7 +71,7 @@ REQUIRED_RUNNER_SCRIPTS = (
     (
         "debian-package",
         "scripts/run-debian-package-qa.sh",
-        "d43cd2b0872498703ee3a47477382a4ae95803103093c77958c974ff065830ed",
+        "a2ba5c29ab50ec0a7d44fd091ecd8724d743a8b2eb170942bd374563093b8ae7",
     ),
     (
         "package-repositories",
@@ -107,6 +107,8 @@ STARTED_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 OUT_DIR="$REPO_ROOT/artifacts/qa/release"
 REPORT_FILE="$OUT_DIR/report.md"
 mkdir -p "$OUT_DIR"
+# Never let an interrupted run leave a previous report looking current.
+rm -f "$REPORT_FILE"
 
 PASS_COUNT=0
 TOTAL_COUNT=0

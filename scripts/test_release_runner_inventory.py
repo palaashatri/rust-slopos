@@ -66,7 +66,7 @@ EXPECTED_REQUIRED_RUNNER_SCRIPTS = (
     (
         "debian-package",
         "scripts/run-debian-package-qa.sh",
-        "d43cd2b0872498703ee3a47477382a4ae95803103093c77958c974ff065830ed",
+        "a2ba5c29ab50ec0a7d44fd091ecd8724d743a8b2eb170942bd374563093b8ae7",
     ),
     (
         "package-repositories",
@@ -276,7 +276,7 @@ def test_rejects_changed_runner_even_when_manifest_digest_is_updated(
     ("failed_gate", "exit_status", "completed", "attempted"),
     [
         ("Rust formatting", 17, 1, 2),
-        ("First gate", 23, 4, 5),
+        (FIRST_GATE_LABEL, 23, 4, 5),
     ],
 )
 def test_failed_gate_replaces_stale_pass_and_stops_runner(
@@ -292,6 +292,8 @@ def test_failed_gate_replaces_stale_pass_and_stops_runner(
     trace_path = tmp_path / "gates.log"
     monkeypatch.setenv("TRACE_FILE", str(trace_path))
     monkeypatch.setenv("SOURCE_SHA", "fixture-source")
+    # Keep the clean-install gate's trace to the install step under test.
+    monkeypatch.setenv("SLOPOS_QA_SKIP_BUILD", "1")
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     monkeypatch.setenv("PATH", str(fake_bin), prepend=":")
@@ -304,13 +306,10 @@ def test_failed_gate_replaces_stale_pass_and_stops_runner(
         encoding="utf-8",
     )
     cargo.chmod(0o755)
-    (tmp_path / "scripts" / "run-first-qa.sh").write_text(
-        'printf "first\\n" >> "$TRACE_FILE"\n'
-        f"exit {exit_status}\n",
+    # The real clean-install gate invokes install.sh, so stub it to fail here.
+    (tmp_path / "install.sh").write_text(
+        'printf "first\\n" >> "$TRACE_FILE"\n' f"exit {exit_status}\n",
         encoding="utf-8",
-    )
-    (tmp_path / "scripts" / "run-second-qa.sh").write_text(
-        'printf "second\\n" >> "$TRACE_FILE"\n', encoding="utf-8"
     )
     report_path = tmp_path / "artifacts" / "qa" / "release" / "report.md"
     report_path.parent.mkdir(parents=True)
@@ -333,13 +332,47 @@ def test_failed_gate_replaces_stale_pass_and_stops_runner(
     assert "- Source commit: `fixture-source`" in report
     assert "RELEASE_QA_EVIDENCE_OK" not in result.stdout
     expected_trace = ["cargo fmt --all -- --check"]
-    if failed_gate == "First gate":
+    if failed_gate == FIRST_GATE_LABEL:
         expected_trace += [
             "cargo clippy --workspace --all-targets --locked -- -D warnings",
             "cargo test --workspace --locked",
             "first",
         ]
     assert trace_path.read_text(encoding="utf-8").splitlines() == expected_trace
+
+
+def test_stale_report_is_removed_when_runner_is_killed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_fixture(tmp_path)
+    # The runner checks its own inventory before the first manifest gate.
+    (tmp_path / "scripts" / CHECKER_PATH.name).write_bytes(CHECKER_PATH.read_bytes())
+    report_path = tmp_path / "artifacts" / "qa" / "release" / "report.md"
+    report_path.parent.mkdir(parents=True)
+    report_path.write_text("- Result: **PASS**\n", encoding="utf-8")
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    # Kill the runner's whole process group during the first gate, before it
+    # can write a report. The test starts the runner in its own session, so
+    # this cannot reach pytest.
+    killer = fake_bin / "cargo"
+    killer.write_text("#!/usr/bin/env bash\nkill -KILL 0\n", encoding="utf-8")
+    killer.chmod(0o755)
+    monkeypatch.setenv("PATH", str(fake_bin), prepend=":")
+
+    result = subprocess.run(
+        ["bash", str(tmp_path / "scripts" / "run-release-qa.sh")],
+        capture_output=True,
+        check=False,
+        start_new_session=True,
+        text=True,
+        timeout=30,
+    )
+
+    # SIGKILL skips the ERR trap, so only the startup cleanup can remove the
+    # previous run's PASS report.
+    assert result.returncode == -9, result.stdout + result.stderr
+    assert not report_path.exists()
 
 
 def test_rejects_synchronized_aggregate_runner_registration(tmp_path: Path) -> None:
@@ -352,9 +385,8 @@ def test_rejects_synchronized_aggregate_runner_registration(tmp_path: Path) -> N
 
     errors = validate_inventory(tmp_path)
 
-    assert errors == [
-        "release runner inventory must not register the aggregate runner"
-    ]
+    # The path change also breaks the canonical tuple and digest, as it must.
+    assert "release runner inventory must not register the aggregate runner" in errors
 
 
 @pytest.mark.parametrize(
@@ -366,8 +398,8 @@ def test_rejects_synchronized_aggregate_runner_registration(tmp_path: Path) -> N
         "cd /tmp",
         "exit 0",
         'skip=exit\n"$skip" 0',
-        'if [[ -x scripts/run-first-qa.sh ]]; then\n'
-        '  run_gate "First gate" bash scripts/run-first-qa.sh\n'
+        'if [[ -x scripts/run-catalogue-qa.sh ]]; then\n'
+        '  run_gate "Gate catalogue" bash scripts/run-catalogue-qa.sh\n'
         "fi",
         "run_gate \"Extra gate\" bash scripts/run-extra-qa.sh",
     ],

@@ -37,6 +37,7 @@ impl ButtonPlateVariant {
     }
 }
 
+/// Paint a plate at its extracted Classic size.
 pub fn paint_button_plate(
     surface: &RasterSurface,
     origin_x: i32,
@@ -45,10 +46,33 @@ pub fn paint_button_plate(
     state: ButtonPlateState,
 ) -> Result<(), RenderError> {
     let dimensions = variant.dimensions();
+    paint_button_plate_in(
+        surface,
+        Rect {
+            x: origin_x,
+            y: origin_y,
+            width: dimensions.width,
+            height: dimensions.height,
+        },
+        variant,
+        state,
+    )
+}
+
+/// Paint a plate stretched to `bounds`, keeping the variant's corner and
+/// border construction. Used for controls such as calculator keys whose size
+/// is set by their layout.
+pub fn paint_button_plate_in(
+    surface: &RasterSurface,
+    bounds: Rect,
+    variant: ButtonPlateVariant,
+    state: ButtonPlateState,
+) -> Result<(), RenderError> {
+    let (origin_x, origin_y) = (bounds.x, bounds.y);
     let (width, height, corner_depth) = match variant {
-        ButtonPlateVariant::Regular => (dimensions.width, dimensions.height, 3),
-        ButtonPlateVariant::Default => (dimensions.width, dimensions.height, 6),
-        ButtonPlateVariant::Secondary => (dimensions.width, dimensions.height, 3),
+        ButtonPlateVariant::Regular => (bounds.width, bounds.height, 3),
+        ButtonPlateVariant::Default => (bounds.width, bounds.height, 6),
+        ButtonPlateVariant::Secondary => (bounds.width, bounds.height, 3),
     };
     let border_color = if state == ButtonPlateState::Disabled {
         Color {

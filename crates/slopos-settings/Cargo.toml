@@ -20,5 +20,6 @@ serde_json = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
 libc = { workspace = true }
+slopos-core = { path = "../slopos-core" }
 slopos-services = { path = "../slopos-services" }
 tokio = { workspace = true }

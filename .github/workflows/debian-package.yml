@@ -1,23 +1,14 @@
 name: Debian Package QA
 
 on:
-  push:
-    branches: [main]
+  pull_request:
     paths:
-      - '.github/workflows/debian-package.yml'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'crates/**'
       - 'packaging/debian/**'
-      - 'packaging/slopos-i.desktop'
-      - 'packaging/slopos-browser.desktop'
-      - 'scripts/start-slopos-i'
-      - 'scripts/start-slopos-browser'
-      - 'scripts/install-browser-theme.sh'
-      - 'scripts/slopos-appearance'
-      - 'scripts/slopos-recovery.sh'
-      - 'assets/**'
-      - 'themes/**'
+      - 'packaging/arch/**'
+      - '.github/workflows/debian-package.yml'
+      - '.github/workflows/arch-package.yml'
+  # Called by nightly.yml; can also be run by hand or for a packaging PR.
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -34,6 +25,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          # dpkg-buildpackage runs code from this checkout; do not leave a Git
+          # credential in its configuration for pull-request builds.
+          persist-credentials: false
       - name: Confirm exact source revision
         run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Install Debian package build dependencies
@@ -79,12 +74,17 @@ jobs:
             './usr/bin/slopos-shell'
             './usr/bin/slopos-catalogue'
             './usr/bin/slopos-settings'
+            './usr/bin/slopos-dock'
+            './usr/bin/slopos-calculator'
             './usr/bin/start-slopos-i'
             './usr/bin/start-slopos-browser'
             './usr/bin/slopos-appearance'
             './usr/bin/slopos-recovery'
             './usr/share/xsessions/slopos-i.desktop'
             './usr/share/applications/slopos-browser.desktop'
+            './usr/share/applications/slopos-calculator.desktop'
+            './usr/share/applications/slopos-settings.desktop'
+            './usr/share/applications/slopos-catalogue.desktop'
             './usr/share/slopos-i/openbox/rc.xml'
             './usr/share/slopos-i/openbox/rc-graphite.xml'
             './usr/share/slopos-i/mimeapps.list'
@@ -112,7 +112,7 @@ jobs:
           root="$RUNNER_TEMP/slopos-deb-root"
           mkdir -p "$root"
           dpkg-deb --extract artifacts/debian-package/slopos-i.deb "$root"
-          for binary in slopos-session slopos-shell slopos-catalogue slopos-settings start-slopos-i start-slopos-browser slopos-appearance slopos-recovery; do
+          for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings start-slopos-i start-slopos-browser slopos-appearance slopos-recovery; do
             test -x "$root/usr/bin/$binary"
           done
           grep -Fqx platinum "$root/usr/share/slopos-i/recovery/appearance"
