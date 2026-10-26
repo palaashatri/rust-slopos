@@ -242,7 +242,7 @@ pub fn show_network_dialog(parent: &Window) {
     }
 
     let status_for_updates = status.clone();
-    update_receiver.attach(None, move |update| {
+    let update_source = update_receiver.attach(None, move |update| {
         match update {
             Update::Snapshot(snapshot) => {
                 let view = describe(&snapshot);
@@ -278,6 +278,9 @@ pub fn show_network_dialog(parent: &Window) {
 
     dialog.show_all();
     let _ = dialog.run();
+    // The dialog is hidden but not destroyed yet. Remove the update source
+    // before returning so a queued snapshot cannot touch its widgets.
+    update_source.remove();
     // Dropping the last command sender stops the worker.
     drop(command_sender);
     dialog.close();

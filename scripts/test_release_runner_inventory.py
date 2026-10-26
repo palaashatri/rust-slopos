@@ -341,6 +341,40 @@ def test_failed_gate_replaces_stale_pass_and_stops_runner(
     assert trace_path.read_text(encoding="utf-8").splitlines() == expected_trace
 
 
+def test_stale_report_is_removed_when_runner_is_killed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_fixture(tmp_path)
+    # The runner checks its own inventory before the first manifest gate.
+    (tmp_path / "scripts" / CHECKER_PATH.name).write_bytes(CHECKER_PATH.read_bytes())
+    report_path = tmp_path / "artifacts" / "qa" / "release" / "report.md"
+    report_path.parent.mkdir(parents=True)
+    report_path.write_text("- Result: **PASS**\n", encoding="utf-8")
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    # Kill the runner's whole process group during the first gate, before it
+    # can write a report. The test starts the runner in its own session, so
+    # this cannot reach pytest.
+    killer = fake_bin / "cargo"
+    killer.write_text("#!/usr/bin/env bash\nkill -KILL 0\n", encoding="utf-8")
+    killer.chmod(0o755)
+    monkeypatch.setenv("PATH", str(fake_bin), prepend=":")
+
+    result = subprocess.run(
+        ["bash", str(tmp_path / "scripts" / "run-release-qa.sh")],
+        capture_output=True,
+        check=False,
+        start_new_session=True,
+        text=True,
+        timeout=30,
+    )
+
+    # SIGKILL skips the ERR trap, so only the startup cleanup can remove the
+    # previous run's PASS report.
+    assert result.returncode == -9, result.stdout + result.stderr
+    assert not report_path.exists()
+
+
 def test_rejects_synchronized_aggregate_runner_registration(tmp_path: Path) -> None:
     manifest = write_fixture(tmp_path)
     manifest["runners"][0]["script"] = "scripts/run-release-qa.sh"

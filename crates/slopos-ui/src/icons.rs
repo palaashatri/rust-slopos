@@ -41,22 +41,27 @@ impl Directory {
             DirectoryType::Fixed => self.size == size,
             DirectoryType::Scalable => (self.min..=self.max).contains(&size),
             DirectoryType::Threshold => {
-                size + self.threshold >= self.size && size <= self.size + self.threshold
+                let low = self.size.saturating_sub(self.threshold);
+                let high = self.size.saturating_add(self.threshold);
+                (low..=high).contains(&size)
             }
         }
     }
 
     fn distance(&self, size: u32, scale: u32) -> u32 {
-        let wanted = size * scale;
+        let wanted = size.saturating_mul(scale);
         let (low, high) = match self.kind {
             DirectoryType::Fixed => (self.size, self.size),
             DirectoryType::Scalable => (self.min, self.max),
             DirectoryType::Threshold => (
                 self.size.saturating_sub(self.threshold),
-                self.size + self.threshold,
+                self.size.saturating_add(self.threshold),
             ),
         };
-        let (low, high) = (low * self.scale, high * self.scale);
+        let (low, high) = (
+            low.saturating_mul(self.scale),
+            high.saturating_mul(self.scale),
+        );
         if wanted < low {
             low - wanted
         } else {
@@ -215,7 +220,7 @@ fn lookup_in(theme: &Theme, name: &str, size: u32, scale: u32) -> Option<PathBuf
     closest.sort_by_key(|directory| {
         (
             directory.distance(size, scale),
-            directory.size * directory.scale < size * scale,
+            directory.size.saturating_mul(directory.scale) < size.saturating_mul(scale),
         )
     });
     closest.into_iter().find_map(existing)
@@ -364,6 +369,30 @@ mod tests {
         );
         assert_eq!(find(&mut lookup, "missing", 48), None);
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn extreme_theme_sizes_saturate_instead_of_overflowing() {
+        let huge = Directory {
+            path: "scalable/apps".to_owned(),
+            size: u32::MAX,
+            scale: u32::MAX,
+            min: u32::MAX,
+            max: u32::MAX,
+            threshold: u32::MAX,
+            kind: DirectoryType::Threshold,
+        };
+        assert!(huge.matches(u32::MAX, u32::MAX));
+        assert_eq!(huge.distance(u32::MAX, u32::MAX), 0);
+
+        // Sorting the closest match computes the same keys. A malformed
+        // index.theme used to overflow here in debug builds.
+        let theme = Theme {
+            roots: vec![PathBuf::from(env!("CARGO_MANIFEST_DIR"))],
+            directories: vec![huge],
+            inherits: Vec::new(),
+        };
+        assert_eq!(lookup_in(&theme, "missing", u32::MAX, u32::MAX), None);
     }
 
     #[test]

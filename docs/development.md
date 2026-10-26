@@ -23,9 +23,11 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 
 python3 -m venv .venv && .venv/bin/pip install -r qa/requirements-architecture.txt
-.venv/bin/python -m pytest -q scripts/test_check_architecture.py scripts/test_classic_source_mapping.py
+.venv/bin/python -m pytest -q scripts/test_check_architecture.py \
+  scripts/test_classic_source_mapping.py scripts/test_release_runner_inventory.py
 python3 scripts/check-architecture.py          # apps/ must not depend on GTK
 python3 scripts/check-classic-source-mapping.py
+python3 scripts/check-release-runner-inventory.py
 
 cargo build --workspace --locked
 bash scripts/smoke-session.sh                  # real session under Xvfb, ~30 s
@@ -35,7 +37,7 @@ bash scripts/smoke-session.sh                  # real session under Xvfb, ~30 s
 
 - the menu bar and the Dock appear;
 - a menu opens;
-- Calculator takes typed input and the Dock adds a tile for it;
+- Calculator opens, the Dock adds a tile for it, and destroying its window ends the process;
 - logging out ends every session process.
 
 It writes screenshots and logs to `artifacts/smoke/` and is safe to run on a desktop machine.
@@ -82,7 +84,7 @@ The ISO, installed-VM, recovery and hardware-contract workflows run weekly and o
 
 ## Packages and releases
 
-- `nightly.yml` builds the Debian and Arch packages from `main` every day (when `main` has changed) and on demand. It publishes them, with SHA256SUMS, to the rolling [`nightly`](https://github.com/palaashatri/rust-slopos/releases/tag/nightly) pre-release.
+- `nightly.yml` builds packages on pushes to `main`, its daily schedule, and manual dispatch. Runs whose ref is `main` publish them, with SHA256SUMS, to the rolling [`nightly`](https://github.com/palaashatri/rust-slopos/releases/tag/nightly) pre-release.
 - Local Debian build: `cp -a packaging/debian debian && dpkg-buildpackage --build=binary --no-sign`.
 - Local Arch build: `cd packaging/arch && makepkg`.
 

@@ -61,13 +61,9 @@ Fractional scaling is not required until explicitly added to this contract.
 
 Use mature rendering/text infrastructure underneath the SLOPOS API.
 
-Acceptable low-level facilities include:
+The native `slopos-ui` implementation uses the SLOPOS-owned rendering, text, host and accessibility stack defined in §2.2 of the product contract: tiny-skia, cosmic-text, x11rb and AccessKit.
 
-- Cairo;
-- GDK;
-- Pango;
-- GdkPixbuf;
-- GTK widget subclassing/composition where appropriate.
+GTK/GDK/Pango/GIO are permitted only in the documented legacy donor crates and engine adapters. They must not be dependencies of `slopos-ui` or new first-party UI.
 
 SLOPOS-owned components must not rely on arbitrary distro GTK theme defaults for their canonical appearance.
 
@@ -156,7 +152,7 @@ Required states include:
 - Numeric Field
 - Editable Label where required for file rename
 
-Text-editing implementation may reuse mature GTK text infrastructure internally, but visible geometry, focus, selection, disabled state and surrounding chrome are SLOPOS-owned.
+Text-editing implementation may reuse approved mature infrastructure, but `slopos-ui` and new first-party UI must not depend on GTK text infrastructure. Visible geometry, focus, selection, disabled state and surrounding chrome remain SLOPOS-owned.
 
 ### Choice controls
 
