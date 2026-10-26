@@ -82,6 +82,7 @@ pub struct CalculatorApp {
     display: Rect,
     key_font: Font,
     display_font: Font,
+    focused_key: Option<usize>,
 }
 
 impl CalculatorApp {
@@ -116,11 +117,41 @@ impl CalculatorApp {
             },
             key_font: Font::system(13.0),
             display_font: Font::system(20.0),
+            focused_key: None,
         }
     }
 
     pub fn calculator(&self) -> &Calculator {
         &self.calculator
+    }
+
+    /// Give keyboard focus to one key, or to nothing. Reports whether the
+    /// visible focus moved.
+    fn focus_key(&mut self, index: Option<usize>) -> bool {
+        let mut changed = false;
+        for (position, key) in self.keys.iter_mut().enumerate() {
+            let focused = index == Some(position);
+            if key.button.focused != focused {
+                key.button.focused = focused;
+                changed = true;
+            }
+        }
+        self.focused_key = index;
+        changed
+    }
+
+    fn move_focus(&mut self, forward: bool) {
+        let count = self.keys.len();
+        if count == 0 {
+            return;
+        }
+        let next = match self.focused_key {
+            Some(current) if forward => (current + 1) % count,
+            Some(current) => (current + count - 1) % count,
+            None if forward => 0,
+            None => count - 1,
+        };
+        self.focus_key(Some(next));
     }
 
     fn input_for_key(key: &Key) -> Option<Input> {
@@ -135,6 +166,7 @@ impl CalculatorApp {
             Key::Character('=') | Key::Enter => Input::Equals,
             Key::Escape | Key::Delete | Key::Character('c' | 'C') => Input::Clear,
             Key::Backspace => Input::Backspace,
+            Key::Function(9) => Input::Negate,
             _ => return None,
         })
     }
@@ -151,15 +183,40 @@ impl App for CalculatorApp {
         match event {
             Event::CloseRequested => control.quit(),
             Event::KeyPressed { key, modifiers } if !modifiers.control && !modifiers.alt => {
-                if let Some(input) = Self::input_for_key(key) {
-                    self.calculator.press(input);
-                    control.request_redraw();
+                match key {
+                    Key::Tab => {
+                        self.move_focus(!modifiers.shift);
+                        control.request_redraw();
+                    }
+                    Key::Space | Key::Enter => {
+                        if let Some(index) = self.focused_key {
+                            let input = self.keys[index].input;
+                            self.calculator.press(input);
+                            control.request_redraw();
+                        } else if matches!(key, Key::Enter) {
+                            self.calculator.press(Input::Equals);
+                            control.request_redraw();
+                        }
+                    }
+                    _ => {
+                        if let Some(input) = Self::input_for_key(key) {
+                            self.calculator.press(input);
+                            control.request_redraw();
+                        }
+                    }
                 }
             }
             Event::Accessibility(AccessibilityRequest::Click(id)) => {
                 if let Some(key) = self.keys.iter().find(|key| key.button.id == *id) {
                     self.calculator.press(key.input);
                     control.request_redraw();
+                }
+            }
+            Event::Accessibility(AccessibilityRequest::Focus(id)) => {
+                if let Some(index) = self.keys.iter().position(|key| key.button.id == *id) {
+                    if self.focus_key(Some(index)) {
+                        control.request_redraw();
+                    }
                 }
             }
             _ => {
@@ -207,11 +264,15 @@ impl App for CalculatorApp {
         }
         root.set_children(children);
         nodes.insert(0, (NodeId(ROOT_NODE), root));
+        let focus = self
+            .focused_key
+            .map(|index| NodeId(self.keys[index].button.id))
+            .unwrap_or(NodeId(ROOT_NODE));
         Some(TreeUpdate {
             nodes,
             tree: Some(TreeInfo::new(NodeId(ROOT_NODE))),
             tree_id: TreeId::ROOT,
-            focus: NodeId(ROOT_NODE),
+            focus,
         })
     }
 }
@@ -331,6 +392,71 @@ mod tests {
         assert!(labels.contains(&"Result 7"));
         assert!(labels.contains(&"Divide"));
         assert_eq!(tree.nodes.len(), 2 + KEYS.len());
+    }
+
+    #[test]
+    fn keyboard_focus_moves_and_activates_the_selected_key() {
+        let mut app = CalculatorApp::new();
+        let mut control = Control::default();
+        let press = |key| Event::KeyPressed {
+            key,
+            modifiers: Default::default(),
+        };
+        app.event(&press(Key::Tab), &mut control);
+        assert!(app.keys[0].button.focused);
+        // Five tabs from no focus reach "7": Clear, ±, %, ÷, 7.
+        for _ in 0..4 {
+            app.event(&press(Key::Tab), &mut control);
+        }
+        assert_eq!(app.focused_key, Some(4));
+        app.event(&press(Key::Space), &mut control);
+        assert_eq!(app.calculator().display(), "7");
+        // F9 is the keyboard shortcut for Change Sign.
+        app.event(&press(Key::Function(9)), &mut control);
+        assert_eq!(app.calculator().display(), "-7");
+        app.event(
+            &Event::KeyPressed {
+                key: Key::Tab,
+                modifiers: slopos_ui::event::Modifiers {
+                    shift: true,
+                    ..Default::default()
+                },
+            },
+            &mut control,
+        );
+        assert_eq!(app.focused_key, Some(3));
+        assert!(app.keys[3].button.focused);
+    }
+
+    #[test]
+    fn accessibility_focus_selects_a_key() {
+        let mut app = CalculatorApp::new();
+        let seven = app
+            .keys
+            .iter()
+            .find(|key| key.button.label == "7")
+            .unwrap()
+            .button
+            .id;
+        let mut control = Control::default();
+        app.event(
+            &Event::Accessibility(AccessibilityRequest::Focus(seven)),
+            &mut control,
+        );
+        assert!(app
+            .keys
+            .iter()
+            .any(|key| key.button.id == seven && key.button.focused));
+        let tree = app.accessibility().unwrap();
+        assert_eq!(tree.focus.0, seven);
+        app.event(
+            &Event::KeyPressed {
+                key: Key::Enter,
+                modifiers: Default::default(),
+            },
+            &mut control,
+        );
+        assert_eq!(app.calculator().display(), "7");
     }
 
     #[test]
