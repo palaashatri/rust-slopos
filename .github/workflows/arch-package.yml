@@ -45,8 +45,8 @@ jobs:
               test "$(git -C /workspace rev-parse HEAD)" = "$SOURCE_SHA"
 
               rm -rf /tmp/slopos-package-src.git /tmp/slopos-pkg
-              # A pull-request checkout is a detached exact head, so give the
-              # PKGBUILD's branch=main source a ref inside the disposable clone.
+              # A pull-request checkout is a detached exact head. Name it main
+              # so the PKGBUILD source ref resolves inside the disposable clone.
               git -C /workspace update-ref refs/heads/main "$SOURCE_SHA"
               git clone --bare /workspace /tmp/slopos-package-src.git
               test "$(git --git-dir=/tmp/slopos-package-src.git rev-parse refs/heads/main)" = "$SOURCE_SHA"
