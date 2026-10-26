@@ -27,6 +27,8 @@ fn main() {
     let mut wm_child = spawn_openbox(openbox_config.as_deref());
     let mut shell_child = spawn_path(&shell_exe, &[]);
 
+    set_desktop_background("#758090");
+
     while RUNNING.load(Ordering::SeqCst) {
         thread::sleep(Duration::from_millis(750));
 
@@ -79,6 +81,12 @@ fn spawn_path(path: &Path, args: &[&str]) -> Option<Child> {
             log::error!("Failed to spawn {}: {err}", path.display());
             None
         }
+    }
+}
+
+fn set_desktop_background(hex_color: &str) {
+    if let Err(e) = Command::new("xsetroot").args(["-solid", hex_color]).status() {
+        log::warn!("Failed to run xsetroot -solid {hex_color}: {e}");
     }
 }
 

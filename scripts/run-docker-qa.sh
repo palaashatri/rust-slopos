@@ -21,7 +21,7 @@ echo "[1/7] Installing X11/GTK QA dependencies"
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
   xvfb openbox pcmanfm xfce4-terminal mousepad ristretto zathura mpv galculator \
-  libgtk-3-dev libx11-dev libxrandr-dev libssl-dev libdbus-1-dev pkg-config \
+  libgtk-3-dev libx11-dev libxrandr-dev libssl-dev libdbus-1-dev pkg-config ca-certificates \
   python3 scrot imagemagick x11-xserver-utils xdotool wmctrl curl git build-essential \
   adwaita-icon-theme fonts-liberation fonts-dejavu-core
 
@@ -60,6 +60,7 @@ for _ in $(seq 1 20); do
 done
 pgrep -x openbox >/dev/null
 pgrep -x slopos-shell >/dev/null
+xsetroot -solid "#758090"
 xdotool search --name "SLOPOS Top Bar" >/dev/null
 xdotool search --name "SLOPOS Application Strip" >/dev/null
 
