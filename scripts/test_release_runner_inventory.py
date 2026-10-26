@@ -292,6 +292,8 @@ def test_failed_gate_replaces_stale_pass_and_stops_runner(
     trace_path = tmp_path / "gates.log"
     monkeypatch.setenv("TRACE_FILE", str(trace_path))
     monkeypatch.setenv("SOURCE_SHA", "fixture-source")
+    # Keep the clean-install gate's trace to the install step under test.
+    monkeypatch.setenv("SLOPOS_QA_SKIP_BUILD", "1")
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     monkeypatch.setenv("PATH", str(fake_bin), prepend=":")
@@ -304,13 +306,10 @@ def test_failed_gate_replaces_stale_pass_and_stops_runner(
         encoding="utf-8",
     )
     cargo.chmod(0o755)
-    (tmp_path / "scripts" / "run-first-qa.sh").write_text(
-        'printf "first\\n" >> "$TRACE_FILE"\n'
-        f"exit {exit_status}\n",
+    # The real clean-install gate invokes install.sh, so stub it to fail here.
+    (tmp_path / "install.sh").write_text(
+        'printf "first\\n" >> "$TRACE_FILE"\n' f"exit {exit_status}\n",
         encoding="utf-8",
-    )
-    (tmp_path / "scripts" / "run-second-qa.sh").write_text(
-        'printf "second\\n" >> "$TRACE_FILE"\n', encoding="utf-8"
     )
     report_path = tmp_path / "artifacts" / "qa" / "release" / "report.md"
     report_path.parent.mkdir(parents=True)
@@ -352,9 +351,8 @@ def test_rejects_synchronized_aggregate_runner_registration(tmp_path: Path) -> N
 
     errors = validate_inventory(tmp_path)
 
-    assert errors == [
-        "release runner inventory must not register the aggregate runner"
-    ]
+    # The path change also breaks the canonical tuple and digest, as it must.
+    assert "release runner inventory must not register the aggregate runner" in errors
 
 
 @pytest.mark.parametrize(
