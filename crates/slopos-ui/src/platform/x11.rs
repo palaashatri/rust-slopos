@@ -13,7 +13,7 @@ use x11rb::connection::{Connection, RequestConnection};
 use x11rb::properties::WmSizeHints;
 use x11rb::protocol::xproto::{
     AtomEnum, ClientMessageEvent, ConfigureWindowAux, ConnectionExt, CreateGCAux, CreateWindowAux,
-    EventMask, ImageFormat, ImageOrder, PropMode, WindowClass,
+    EventMask, GetModifierMappingReply, ImageFormat, ImageOrder, PropMode, WindowClass,
 };
 use x11rb::protocol::Event as XEvent;
 use x11rb::rust_connection::RustConnection;
@@ -95,8 +95,10 @@ impl WakePipe {
         })
     }
 
-    fn drain(&self) {
+    /// Drain pending wake bytes. Returns whether the pipe had been signalled.
+    fn drain(&self) -> bool {
         let mut buffer = [0u8; 64];
+        let mut signalled = false;
         // SAFETY: reading into a local buffer from an owned non-blocking fd.
         while unsafe {
             libc::read(
@@ -105,7 +107,10 @@ impl WakePipe {
                 buffer.len(),
             )
         } > 0
-        {}
+        {
+            signalled = true;
+        }
+        signalled
     }
 }
 
@@ -231,6 +236,13 @@ pub fn run<A: App>(
         .get_keyboard_mapping(min_keycode, max_keycode - min_keycode + 1)?
         .reply()?;
     let per_keycode = usize::from(mapping.keysyms_per_keycode.max(1));
+    let modifier_mapping = conn.get_modifier_mapping()?.reply()?;
+    let num_lock = num_lock_mask(
+        &mapping.keysyms,
+        per_keycode,
+        min_keycode,
+        &modifier_mapping,
+    );
 
     conn.map_window(window)?;
     if let Some((x, y)) = options.position {
@@ -349,6 +361,7 @@ pub fn run<A: App>(
                 &mapping.keysyms,
                 per_keycode,
                 min_keycode,
+                num_lock,
                 &atoms,
             );
             match event {
@@ -387,7 +400,7 @@ pub fn run<A: App>(
             .iter()
             .map(|(deadline, _)| deadline.saturating_duration_since(Instant::now()))
             .min();
-        wait(conn.stream().as_raw_fd(), wake.read.as_raw_fd(), timeout)?;
+        let signalled = wait(conn.stream().as_raw_fd(), wake.read.as_raw_fd(), timeout)?;
 
         let now = Instant::now();
         let (due, pending): (Vec<_>, Vec<_>) =
@@ -396,7 +409,7 @@ pub fn run<A: App>(
         for (_, id) in due {
             app.event(&Event::Timer(id), &mut control);
         }
-        wake.drain();
+        let drained = wake.drain();
         let mut woke = false;
         for message in a11y_messages.try_iter() {
             match message {
@@ -407,7 +420,7 @@ pub fn run<A: App>(
             }
             woke = true;
         }
-        if !woke {
+        if (signalled || drained) && !woke {
             app.event(&Event::Wake, &mut control);
         }
     }
@@ -496,8 +509,36 @@ fn set_strut(
     Ok(())
 }
 
+/// The modifier bit the server maps the Num Lock key to. Usually Mod2
+/// (`0x0010`), but the mapping is server-specific.
+fn num_lock_mask(
+    keysyms: &[u32],
+    per_keycode: usize,
+    min_keycode: u8,
+    mapping: &GetModifierMappingReply,
+) -> u16 {
+    const NUM_LOCK: u32 = 0xff7f;
+    let Some(keycode) = keysyms
+        .chunks(per_keycode)
+        .position(|row| row.contains(&NUM_LOCK))
+        .and_then(|index| u8::try_from(index).ok())
+        .map(|index| index.saturating_add(min_keycode))
+    else {
+        return 0;
+    };
+    let per_modifier = usize::from(mapping.keycodes_per_modifier().max(1));
+    mapping
+        .keycodes
+        .iter()
+        .position(|mapped| *mapped == keycode)
+        .map(|index| index / per_modifier)
+        .filter(|modifier| *modifier < 8)
+        .map_or(0, |modifier| 1u16 << modifier)
+}
+
 /// Block until the X connection or the wake pipe is readable, or `timeout`.
-fn wait(x_fd: RawFd, wake_fd: RawFd, timeout: Option<Duration>) -> std::io::Result<()> {
+/// Reports whether the wake pipe was readable.
+fn wait(x_fd: RawFd, wake_fd: RawFd, timeout: Option<Duration>) -> std::io::Result<bool> {
     let mut fds = [
         libc::pollfd {
             fd: x_fd,
@@ -521,7 +562,7 @@ fn wait(x_fd: RawFd, wake_fd: RawFd, timeout: Option<Duration>) -> std::io::Resu
             return Err(error);
         }
     }
-    Ok(())
+    Ok(fds[1].revents & libc::POLLIN != 0)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -573,6 +614,7 @@ fn translate(
     keysyms: &[u32],
     per_keycode: usize,
     min_keycode: u8,
+    num_lock: u16,
     atoms: &Atoms,
 ) -> Option<Event> {
     let scale = |value: i16| i32::from(value) / factor as i32;
@@ -611,7 +653,7 @@ fn translate(
             let row = keysyms.get(index..index + per_keycode).unwrap_or(&[]);
             let state = u16::from(press.state);
             Some(Event::KeyPressed {
-                key: key_for(keysym_for(row, state)),
+                key: key_for(keysym_for(row, state, num_lock)),
                 modifiers: modifiers(state),
             })
         }
@@ -749,4 +791,43 @@ pub fn screen_size() -> Result<(u32, u32), PlatformError> {
         u32::from(screen.width_in_pixels),
         u32::from(screen.height_in_pixels),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn modifier_mapping(keycodes: &[u8]) -> GetModifierMappingReply {
+        let mut keycodes = keycodes.to_vec();
+        let per_modifier = (keycodes.len() / 8).max(1);
+        keycodes.resize(per_modifier * 8, 0);
+        GetModifierMappingReply {
+            sequence: 0,
+            length: 0,
+            keycodes,
+        }
+    }
+
+    #[test]
+    fn num_lock_bit_comes_from_the_modifier_mapping() {
+        // Keycode 9 is the second key in the mapping row: its first keysym
+        // pair is an ordinary key, and the second pair is Num_Lock.
+        let row = [0x0061, 0x0061, 0xff7f, 0xff7f];
+        // Num_Lock is keycode 9 when the minimum keycode is 8, and here the
+        // server maps it to the second modifier group (LockMask).
+        let mapping = modifier_mapping(&[0, 9, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(num_lock_mask(&row, 2, 8, &mapping), 0x0002);
+        let unmapped = modifier_mapping(&[0; 8]);
+        assert_eq!(num_lock_mask(&row, 2, 8, &unmapped), 0);
+        assert_eq!(num_lock_mask(&[0x0061], 1, 8, &mapping), 0);
+    }
+
+    #[test]
+    fn wake_pipe_reports_signals_until_drained() {
+        let pipe = WakePipe::new().unwrap();
+        assert!(!pipe.drain());
+        pipe.proxy.wake();
+        assert!(pipe.drain());
+        assert!(!pipe.drain());
+    }
 }

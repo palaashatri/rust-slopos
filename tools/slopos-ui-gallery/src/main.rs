@@ -119,6 +119,46 @@ impl Gallery {
             font: Font::system(12.0),
         }
     }
+
+    /// Move focus to the next or previous enabled button, wrapping around.
+    fn move_focus(&mut self, forward: bool, control: &mut Control) {
+        let enabled: Vec<usize> = self
+            .buttons
+            .iter()
+            .enumerate()
+            .filter_map(|(index, button)| button.enabled.then_some(index))
+            .collect();
+        let Some(first) = enabled.first().copied() else {
+            return;
+        };
+        let current = self.buttons.iter().position(|button| button.focused);
+        let next = match (current, forward) {
+            (Some(current), true) => enabled
+                .iter()
+                .copied()
+                .find(|index| *index > current)
+                .unwrap_or(first),
+            (Some(current), false) => enabled
+                .iter()
+                .rev()
+                .copied()
+                .find(|index| *index < current)
+                .unwrap_or_else(|| *enabled.last().unwrap()),
+            (None, true) => first,
+            (None, false) => *enabled.last().unwrap(),
+        };
+        let mut changed = false;
+        for (index, button) in self.buttons.iter_mut().enumerate() {
+            let focused = index == next;
+            if button.focused != focused {
+                button.focused = focused;
+                changed = true;
+            }
+        }
+        if changed {
+            control.request_redraw();
+        }
+    }
 }
 
 impl App for Gallery {
@@ -128,10 +168,19 @@ impl App for Gallery {
             | Event::KeyPressed {
                 key: Key::Escape, ..
             } => control.quit(),
+            Event::KeyPressed {
+                key: Key::Tab,
+                modifiers,
+            } => {
+                self.move_focus(!modifiers.shift, control);
+            }
             _ => {
                 for button in &mut self.buttons {
                     match button.handle(event) {
-                        ButtonOutcome::Activated => log::info!("activated {}", button.label),
+                        ButtonOutcome::Activated => {
+                            log::info!("activated {}", button.label);
+                            control.request_redraw();
+                        }
                         ButtonOutcome::Changed => control.request_redraw(),
                         ButtonOutcome::Ignored => {}
                     }
@@ -273,6 +322,35 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn tab_moves_focus_through_the_enabled_buttons() {
+        let mut gallery = Gallery::new(GalleryFixture::Buttons);
+        let mut control = Control::default();
+        // The example "Focused" button starts focused; Tab wraps to Cancel
+        // because the disabled button is skipped.
+        gallery.event(
+            &Event::KeyPressed {
+                key: Key::Tab,
+                modifiers: Default::default(),
+            },
+            &mut control,
+        );
+        assert!(gallery.buttons[0].focused);
+        assert!(!gallery.buttons[3].focused);
+        gallery.event(
+            &Event::KeyPressed {
+                key: Key::Tab,
+                modifiers: slopos_ui::event::Modifiers {
+                    shift: true,
+                    ..Default::default()
+                },
+            },
+            &mut control,
+        );
+        assert!(gallery.buttons[3].focused);
+        assert!(!gallery.buttons[0].focused);
+    }
+
     #[test]
     fn every_fixture_renders_something_dark() {
         for fixture in [

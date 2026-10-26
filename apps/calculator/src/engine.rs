@@ -33,6 +33,9 @@ pub struct Calculator {
     pending: Option<Operator>,
     /// True while the user is typing a number into the display.
     entering: bool,
+    /// True while the display holds a computed right operand (a percentage
+    /// result, say) that the next operator must still consume.
+    operand_ready: bool,
     /// The last `operator operand` pair, for repeated `=`.
     repeat: Option<(Operator, f64)>,
     error: bool,
@@ -45,6 +48,7 @@ impl Default for Calculator {
             accumulator: None,
             pending: None,
             entering: false,
+            operand_ready: false,
             repeat: None,
             error: false,
         }
@@ -123,7 +127,7 @@ impl Calculator {
     fn operator(&mut self, operator: Operator) {
         let value = self.value();
         match (self.accumulator, self.pending) {
-            (Some(accumulator), Some(pending)) if self.entering => {
+            (Some(accumulator), Some(pending)) if self.entering || self.operand_ready => {
                 if !self.show(apply(accumulator, pending, value)) {
                     return;
                 }
@@ -134,6 +138,7 @@ impl Calculator {
         }
         self.pending = Some(operator);
         self.entering = false;
+        self.operand_ready = false;
         self.repeat = None;
     }
 
@@ -154,6 +159,7 @@ impl Calculator {
         self.accumulator = None;
         self.pending = None;
         self.entering = false;
+        self.operand_ready = false;
     }
 
     fn backspace(&mut self) {
@@ -188,6 +194,7 @@ impl Calculator {
         };
         self.show(Some(result));
         self.entering = false;
+        self.operand_ready = self.pending.is_some() && !self.error;
     }
 
     /// Put a result on the display; `None` or a non-finite value is an error.
@@ -204,6 +211,7 @@ impl Calculator {
                 self.pending = None;
                 self.repeat = None;
                 self.entering = false;
+                self.operand_ready = false;
                 false
             }
         }
@@ -349,6 +357,51 @@ mod tests {
             Equals,
         ]);
         assert_eq!(tip.display(), "220");
+    }
+
+    #[test]
+    fn percent_results_survive_chaining() {
+        let result = run(&[
+            Digit(2),
+            Digit(0),
+            Digit(0),
+            Operator(Add),
+            Digit(1),
+            Digit(0),
+            Percent,
+            Operator(Add),
+            Digit(5),
+            Equals,
+        ]);
+        assert_eq!(result.display(), "225");
+        let result = run(&[
+            Digit(2),
+            Digit(0),
+            Digit(0),
+            Operator(Subtract),
+            Digit(1),
+            Digit(0),
+            Percent,
+            Operator(Subtract),
+            Digit(5),
+            Equals,
+        ]);
+        assert_eq!(result.display(), "175");
+        // A negated percentage is still a supplied right operand.
+        let result = run(&[
+            Digit(2),
+            Digit(0),
+            Digit(0),
+            Operator(Add),
+            Digit(1),
+            Digit(0),
+            Percent,
+            Negate,
+            Operator(Add),
+            Digit(5),
+            Equals,
+        ]);
+        assert_eq!(result.display(), "185");
     }
 
     #[test]

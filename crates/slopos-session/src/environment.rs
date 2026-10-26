@@ -93,6 +93,15 @@ pub fn configure() {
     let bin_dir = exe.as_deref().and_then(Path::parent).map(Path::to_path_buf);
     if let Some(bin) = &bin_dir {
         prepend("PATH", bin, "/usr/local/bin:/usr/bin:/bin");
+        // A source session runs from `target/{debug,release}`; its bundled
+        // helpers (`slopos-appearance`, `slopos-wallpaper`) live in the
+        // checkout's `scripts/` directory, not next to the binaries.
+        if let Some(repo) = source_tree_root(bin) {
+            let scripts = repo.join("scripts");
+            if scripts.is_dir() {
+                prepend("PATH", &scripts, "/usr/local/bin:/usr/bin:/bin");
+            }
+        }
     }
 
     let share = share_dir()
@@ -138,13 +147,19 @@ fn installed_share_dir(bin_dir: Option<&Path>) -> Option<PathBuf> {
     share.join("slopos-i").is_dir().then_some(share)
 }
 
+/// Running from `target/{debug,release}` in a checkout: the repository root.
+fn source_tree_root(bin_dir: &Path) -> Option<PathBuf> {
+    bin_dir
+        .ancestors()
+        .find(|dir| dir.join("assets/config/openbox/rc.xml").is_file())
+        .map(Path::to_path_buf)
+}
+
 /// Running from `target/{debug,release}` in a checkout: expose the checkout's
 /// themes, icons and Openbox files through a per-session symlink tree in
 /// `$XDG_RUNTIME_DIR`, instead of copying them into the user's home.
 fn stage_source_tree_share(bin_dir: &Path) -> Option<PathBuf> {
-    let repo = bin_dir
-        .ancestors()
-        .find(|dir| dir.join("assets/config/openbox/rc.xml").is_file())?;
+    let repo = source_tree_root(bin_dir)?;
     let runtime = env::var_os("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
         .filter(|dir| dir.is_absolute())?;
@@ -325,6 +340,15 @@ mod tests {
         assert_eq!(Appearance::parse("classic"), Appearance::Classic);
         assert_eq!(Appearance::parse("unknown"), Appearance::Platinum);
         assert_eq!(Appearance::parse(""), Appearance::Platinum);
+    }
+
+    #[test]
+    fn a_source_checkout_exposes_its_scripts_directory() {
+        let manifest = fs::canonicalize(env!("CARGO_MANIFEST_DIR")).unwrap();
+        let repo = manifest.parent().unwrap().parent().unwrap();
+        let binary = repo.join("target/debug/slopos-session");
+        assert_eq!(source_tree_root(&binary).as_deref(), Some(repo));
+        assert!(repo.join("scripts/slopos-appearance").is_file());
     }
 
     #[test]

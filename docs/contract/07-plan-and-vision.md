@@ -378,7 +378,7 @@ For *all future first-party apps*, require an **edge profile** (memory budget, n
 
 ## 21.10 2027 readiness baseline — platform, toolkit, compatibility and supply chain
 
-**Status: review recorded 2026-10-25. The facts below are dated and must be re-checked before each release.** This section does **not** reopen the settled SLOPOS-I decisions (X11 + Openbox, Rust, Platinum Classic, UI library first). It records what changed around them, what SLOPOS must do now to stay buildable and honest in 2027, and when the owner should be asked to revisit a decision. All `Y27-*` items are `PLANNED` until evidence exists in Part II.
+**Status: review recorded 2026-10-25. The facts below are dated and must be re-checked before each release.** This section does **not** reopen the settled SLOPOS-I decisions (X11 + Openbox, Rust, Platinum Classic, UI library first). It records what changed around them, what SLOPOS must do now to stay buildable and honest in 2027, and when the owner should be asked to revisit a decision. All `Y27-*` items are `PLANNED` until evidence exists in Part II, except `Y27-SUBSTRATE`, which the owner decided on 2026-10-25 (§21.10.2).
 
 ### 21.10.1 Platform landscape (as of 2026-10)
 
@@ -386,8 +386,8 @@ For *all future first-party apps*, require an **edge profile** (memory budget, n
 |---|---|
 | GNOME 50 removed GNOME's own X11 session. GDM can still start *other* desktops' X11 sessions through a per-user X server. ([GNOME blog](https://blogs.gnome.org/alatiera/2025/06/08/the-x11-session-removal/)) | The display-manager login path (F-PKG-01) must be tested against current GDM, LightDM and SDDM. A GDM that starts SLOPOS's X11 session is evidence for that GDM version only. |
 | KDE Plasma 6.8 (October 2026) supports only Wayland sessions; KDE supports the Plasma X11 session only into early 2027. ([Phoronix](https://www.phoronix.com/news/KDE-Plasma-68-Wayland-Exclusive)) | Expect distributions to put less effort into Xorg server packaging and testing. |
-| GTK 4 deprecated its X11 backend in 4.17.4 and plans to remove it in GTK 5. ([Phoronix](https://www.phoronix.com/news/GTK-X11-Now-Deprecated)) | Moving `slopos-ui` from GTK 3 to GTK 4 does not secure the X11 future (§21.10.2). |
-| The gtk3-rs crates (`gtk`, `gdk`, `atk` 0.18, …) carry RustSec "unmaintained" advisories (RUSTSEC-2024-0411 to -0420). Some were later withdrawn when the repository was briefly unarchived, so their status is disputed. ([RustSec](https://rustsec.org/advisories/RUSTSEC-2024-0411.html)) | The Dependabot bump of `glib` to 0.20 cannot build against `gtk` 0.18 (Part II.L, 2026-10-25). Fixes to the GTK 3 bindings may never arrive. |
+| GTK 4 deprecated its X11 backend in 4.17.4 and plans to remove it in GTK 5. ([Phoronix](https://www.phoronix.com/news/GTK-X11-Now-Deprecated)) | GTK 4 does not secure SLOPOS-I's X11 future. `slopos-ui` already draws with its own stack (§21.10.2); GTK stays only in legacy donor crates and engine adapters (VTE, WebKitGTK). |
+| The gtk3-rs crates (`gtk`, `gdk`, `atk` 0.18, …) carry RustSec "unmaintained" advisories (RUSTSEC-2024-0411 to -0420). Some were later withdrawn when the repository was briefly unarchived, so their status is disputed. ([RustSec](https://rustsec.org/advisories/RUSTSEC-2024-0411.html)) | The Dependabot bump of `glib` to 0.20 cannot build against `gtk` 0.18 (Part II.L, 2026-10-25). Fixes to the GTK 3 bindings may never arrive, so those bindings are confined to the donor crates listed in §21.10.2. |
 | Openbox has had no upstream release since 3.6.1 (2015); distributions carry patches. | SLOPOS depends on distribution packaging and must be ready to carry a small, reviewed patch itself. |
 
 **Rules that apply now:**
@@ -398,15 +398,23 @@ For *all future first-party apps*, require an **edge profile** (memory budget, n
 
 ### 21.10.2 UI substrate decision (Y27-SUBSTRATE)
 
-`slopos-ui` currently renders through GTK 3 via gtk3-rs. Only a few modules use GTK directly today: `render.rs`, `accessibility.rs`, `testing.rs` and `controls/button.rs`. That makes now the cheapest moment to decide the long-term substrate, before more components depend on it.
+**Status: `DECIDED` (owner, 2026-10-25). Option (c), a SLOPOS-owned toolkit.** `slopos-ui` no longer depends on GTK. It renders with `tiny-skia`, shapes and lays out text with `cosmic-text`, rasterises SVG icons with `resvg`, hosts windows and receives input through `x11rb`, and publishes accessibility through AccessKit's AT-SPI adapter (`accesskit_unix`, default feature `atspi`). X11 types stay inside `slopos-ui::platform`; they are not part of the public toolkit API.
 
-- **Rule now:** the public `slopos-ui` API must not expose `gtk`, `gdk` or `glib` types. GTK use stays inside rendering, accessibility and engine-adapter modules, so the substrate can be replaced without changing apps.
-- **Decision record required** (in this section, before any further UI-02 to UI-06 component is accepted). Compare at least:
-  - **(a)** staying on pinned gtk3-rs, with documented `deny.toml` exceptions and an owner for security fixes;
-  - **(b)** GTK 4 through gtk4-rs, whose X11 backend is deprecated;
-  - **(c)** SLOPOS-owned drawing on `x11rb` with Cairo/Pango or a Rust text and raster stack, and accessibility through AccessKit's AT-SPI adapter. GTK would remain only inside engine adapters (VTE, WebKitGTK).
-- **Comparison criteria:** text shaping and IME quality, AT-SPI completeness (Orca journeys, §25), HiDPI determinism (§9.2), Classic pixel exactness (§11), maintenance burden, license, and the route to a future Wayland or PARAMA backend (§21.7.4–21.7.5).
-- **No implementation change is authorized by this section.** It only requires the decision before the risk grows.
+**Comparison against the stated criteria:**
+
+- **(a) Stay on pinned gtk3-rs — rejected.** The bindings carry disputed "unmaintained" advisories, the `glib` 0.18 pin blocks upgrades, and fixes may never arrive. It keeps Classic pixel exactness hostage to a third-party theme engine and does nothing for the 2027 Wayland/PARAMA route.
+- **(b) Move to GTK 4 through gtk4-rs — rejected.** GTK 4 deprecated its X11 backend and plans to remove it in GTK 5. It buys a newer dependency, not a secure X11 future, and still does not give SLOPOS ownership of text metrics or control geometry.
+- **(c) SLOPOS-owned stack — selected.** It gives deterministic geometry, rendering and HiDPI, keeps X11 behind one adapter, and leaves a mapping path to a future host backend. Accessibility is delegated to AccessKit rather than reimplemented.
+
+**Limitations accepted with the decision:**
+
+- SLOPOS now owns text shaping, line breaking, input-method integration, widget coverage, theme rendering and the accessibility bridge. A missing control is a `slopos-ui` gap fixed in the toolkit, not a per-app workaround (AGENTS.md rule 3).
+- The AT-SPI path uses AccessKit's Unix adapter. Named-surface, focus and Orca journeys still need recorded evidence (§25); building without the default `atspi` feature is not an acceptance configuration.
+- X11 is the only host backend this generation. Adding a Wayland or PARAMA host is `platform` work and must not leak host types into controls.
+- Legacy donor crates (`slopos-shell`, `slopos-settings`, `slopos-catalogue`) and future engine adapters such as VTE or WebKitGTK may still link GTK 3. They are outside `slopos-ui`; replacing them is a separate task under §2.2.
+- Classic pixel exactness and integer HiDPI remain enforced by the §11 geometry tests; the toolkit does not inherit a third-party theme's metrics.
+
+- **Rule now:** the public `slopos-ui` API must not expose `gtk`, `gdk` or `glib` types, and no new GTK surface is added. GTK use stays inside legacy donor crates and engine adapters, so a host-backend change does not alter app code.
 
 ### 21.10.3 Third-party application compatibility in 2027 (Y27-COMPAT)
 
@@ -426,13 +434,13 @@ EN 301 549 V4.1.1 (adopted August 2026) aligns software requirements with WCAG 2
 - **Dependency audit:** run `cargo deny check` (advisories, bans, licenses, sources) against the existing `deny.toml` in CI. Each documented exception names an owner and a review date. Unmaintained-crate advisories are exceptions, not silent passes.
 - **SBOM and provenance:** each `.deb`, `.pkg.tar.zst` and ISO ships an SPDX or CycloneDX SBOM and checksums. Package signing remains required before any public repository (README "Package repositories"). Reproducible package builds are a goal, and the evidence is recorded as it exists.
 - **Vulnerability handling:** security reports go through GitHub private vulnerability reporting, if the owner enables it, or a contact recorded here. No separate policy Markdown file is added (§34). Fixes are tracked in Part II.
-- **EU Cyber Resilience Act:** CRA reporting duties apply from 11 September 2026, and most obligations from 11 December 2027. SLOPOS is non-monetised MIT open source, which is generally outside the CRA's manufacturer duties. If SLOPOS is ever distributed commercially (paid images, paid support bundles), the owner must review CRA obligations first. This is not legal advice.
+- **EU Cyber Resilience Act:** CRA reporting duties for manufacturers apply from 11 September 2026, and most obligations from 11 December 2027. SLOPOS is non-monetised MIT open source, which is generally outside the CRA's manufacturer duties. The current model is one owner maintaining the project without a systematic, sustained support commitment for commercial products, so on the facts recorded here the owner does not meet the open-source software steward definition. If a legal person begins providing systematic, sustained support for SLOPOS's development with the intention of commercial activity, the owner must first record here whether that makes it a steward and, if so, its cybersecurity policy, cooperation with market-surveillance authorities and Article 24(3) reporting duties (reports from 11 December 2027). If SLOPOS is ever distributed commercially (paid images, paid support bundles), the owner must review manufacturer obligations first. This is not legal advice.
 - **Toolchain:** `rust-toolchain.toml` pins 1.99.0. Crates are on edition 2021. Migrating to edition 2024 is a separate, explicit task (Y27-EDITION) with the four cargo checks. It is never folded into a feature change.
 
 | ID | Depends on | First evidence |
 |---|---|---|
 | Y27-PLAT | QA-01 | Matrix rows with `PASS`/`FAIL`/`BLOCKED`/`NOT_RUN` per distribution and display manager |
-| Y27-SUBSTRATE | UI-01/UI-02 status | Recorded decision with the criteria above; no code change required |
+| Y27-SUBSTRATE | UI-01/UI-02 status | `DECIDED` 2026-10-25: option (c) recorded in §21.10.2; `slopos-ui` implementation and its stated limitations are the evidence |
 | Y27-COMPAT | §21.8 matrix, session packaging | Per-toolkit launch, menu, portal and scaling rows in a graphical VM |
 | Y27-A11Y | §5.2.10, §25 | Criterion-by-criterion mapping with test owners; Orca journey evidence |
 | Y27-SUPPLY | CI | `cargo deny` job result, SBOM files attached to package artifacts |

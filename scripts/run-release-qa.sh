@@ -48,6 +48,7 @@ trap on_error ERR
 
 printf 'SLOPOS-I release QA\nSource: %s\n' "$SOURCE_SHA"
 
+run_gate "Required release runner inventory" python3 scripts/check-release-runner-inventory.py --root "$REPO_ROOT"
 run_gate "Rust formatting" cargo fmt --all -- --check
 run_gate "Workspace Clippy" bash -c 'cargo clippy --workspace --all-targets --locked -- -D warnings'
 run_gate "Workspace tests" cargo test --workspace --locked
