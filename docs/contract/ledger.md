@@ -534,7 +534,7 @@ Truthful-state status at `b332657`: the hard-coded network interface/SSID text, 
   - `nightly.yml` packages.
   - The contract split into `docs/contract/*.md`, with section numbers unchanged.
   - `docs/architecture.md` and `docs/development.md`.
-- **PR #22 review fixes (same branch):** all 37 review threads were triaged. Session PATH/GTK 2, Required-child exit handling, NetworkManager status and failure ordering, power fallbacks and menu-thread work, workflow safety, smoke-test honesty and the 2027 contract text were corrected. Threads 34–37 were marked outdated by the documentation split but still described stale text; `docs/contract/07-plan-and-vision.md`, `01-product.md`, `00-agent-workflow.md` and `02-design.md` now record the Y27-SUBSTRATE decision, the Lucide exception, the CRA steward test and the current GTK boundaries. Thread 2 needed no code: `install.sh` and the ISO/Debian/Arch recipes already ship Calculator.
+- **PR #22 review fixes (same branch):** all 37 review threads were triaged, answered and resolved, each reply naming the commit that addresses it. Session PATH/GTK 2, Required-child exit handling, NetworkManager status and failure ordering, power fallbacks and menu-thread work, workflow safety, smoke-test honesty and the 2027 contract text were corrected. Threads 34–37 were marked outdated by the documentation split but still described stale text; `docs/contract/07-plan-and-vision.md`, `01-product.md`, `00-agent-workflow.md` and `02-design.md` now record the Y27-SUBSTRATE decision, the Lucide exception, the CRA steward test and the current GTK boundaries. Thread 2 needed no code: `install.sh` and the ISO/Debian/Arch recipes already ship Calculator. The fixes are on `agent/pr22-review-fixes` (PR #25); this branch receives them when #25 merges.
 - **PASS (local):**
   - fmt; clippy `-D warnings`; `cargo test --workspace` (all suites);
   - architecture/spec pytest (68 tests) and both checkers;
@@ -542,8 +542,8 @@ Truthful-state status at `b332657`: the hard-coded network interface/SSID text, 
   - a clean-tree `dpkg-buildpackage --build=binary`.
   - Calculator under Xvfb: keyboard, mouse and external destroy.
   - Dock under Openbox: a click launches xterm, then raises it over Calculator.
-- **PASS (GitHub CI):** the `checks` job on the PR.
-- **NOT_RUN:** the Arch package build, the ISO, installed-VM, recovery and hardware workflows, the nightly publish (it needs `main`), AT-SPI with a real screen reader, HiDPI on a real display, and the Pi Zero 2 W. The PR #22 review-fix commits have not been built or tested on the Windows host; GitHub Actions is their verification path, and its result is recorded when the PR run completes.
+- **PASS (GitHub CI on `77ce24d`, PR #25):** the checks job (fmt, Clippy, workspace tests, 113 architecture/spec pytest cases, shell parsing and the real-session smoke test), the Debian package build and the Arch package build.
+- **NOT_RUN:** the ISO, installed-VM, recovery and hardware workflows, the nightly publish (it needs `main`), AT-SPI with a real screen reader, HiDPI on a real display, and the Pi Zero 2 W. The review-fix commits were not built or tested on the Windows host; GitHub Actions was their verification path. The package jobs ran on code head `77ce24d`; the docs-only commit carrying this entry changes no packaged input, so CI checks it without rebuilding packages.
 
 ## M. Active task and ownership register
 
