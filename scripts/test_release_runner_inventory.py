@@ -345,6 +345,8 @@ def test_stale_report_is_removed_when_runner_is_killed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     write_fixture(tmp_path)
+    # The runner checks its own inventory before the first manifest gate.
+    (tmp_path / "scripts" / CHECKER_PATH.name).write_bytes(CHECKER_PATH.read_bytes())
     report_path = tmp_path / "artifacts" / "qa" / "release" / "report.md"
     report_path.parent.mkdir(parents=True)
     report_path.write_text("- Result: **PASS**\n", encoding="utf-8")
