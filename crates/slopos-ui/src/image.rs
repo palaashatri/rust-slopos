@@ -195,10 +195,14 @@ mod tests {
         )
         .unwrap();
         let scaled = image.scaled_with(4, 4, true).unwrap();
-        let pixel = |x| scaled.pixel(x, 0).unwrap();
-        assert_eq!((pixel(0).red(), pixel(1).red()), (255, 255));
-        assert_eq!((pixel(2).blue(), pixel(3).blue()), (255, 255));
-        assert_eq!(pixel(0).blue(), 0);
-        assert_eq!(pixel(3).red(), 0);
+        let pixel = |x, y| scaled.pixel(x, y).unwrap();
+        // Each source pixel becomes a solid 2×2 block with no blended edge.
+        assert_eq!(pixel(1, 0).red(), 255);
+        assert_eq!(pixel(1, 0).blue(), 0);
+        assert_eq!(pixel(2, 1).red(), 255);
+        assert_eq!(pixel(2, 1).blue(), 0);
+        assert_eq!(pixel(2, 2).blue(), 255);
+        assert_eq!(pixel(2, 2).red(), 0);
+        assert_eq!(pixel(3, 3).blue(), 255);
     }
 }
