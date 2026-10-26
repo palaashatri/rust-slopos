@@ -24,6 +24,8 @@ docker run --rm \
     test "$(git -C /workspace rev-parse HEAD)" = "$SOURCE_SHA"
 
     rm -rf /tmp/slopos-package-src.git /tmp/slopos-pkg
+    # A detached exact head still has to satisfy the PKGBUILD's branch=main.
+    git -C /workspace update-ref refs/heads/main "$SOURCE_SHA"
     git clone --bare /workspace /tmp/slopos-package-src.git
     git config --global protocol.file.allow always
 
