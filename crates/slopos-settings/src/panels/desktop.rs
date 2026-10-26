@@ -231,7 +231,9 @@ pub fn show_wallpaper_dialog(parent: &Window) {
             }
         }
         ResponseType::Other(1) if command_exists("pcmanfm") => {
-            let _ = Command::new("pcmanfm").arg("--desktop-pref").spawn();
+            if let Err(error) = slopos_core::process::launch("pcmanfm", &["--desktop-pref"]) {
+                log::warn!("{error}");
+            }
         }
         _ => {}
     }

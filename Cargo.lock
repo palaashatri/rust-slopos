@@ -2118,6 +2118,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
+ "slopos-core",
  "slopos-services",
  "tokio",
 ]

@@ -4,15 +4,10 @@ use super::availability::resolve_program_path;
 use std::process::Command;
 
 pub fn execute_command(program: &str, args: &[&str]) -> bool {
-    let Some(path) = resolve_program_path(program) else {
-        log::warn!("Command not found: {program}");
-        return false;
-    };
-
-    match Command::new(&path).args(args).spawn() {
+    match slopos_core::process::launch(program, args) {
         Ok(_) => true,
         Err(error) => {
-            log::warn!("Failed to execute {}: {error}", path.display());
+            log::warn!("{error}");
             false
         }
     }
