@@ -508,9 +508,9 @@ fn network_settings_do_not_invent_connections_or_expose_inert_controls() {
             "Network Settings fabricates or implies state: {fabricated_state}"
         );
     }
-    assert!(panel.contains("Live network details and controls are not available"));
-    assert!(panel.contains("Command::new(\"nm-connection-editor\").spawn()"));
-    assert!(panel.contains("Err(error) => status.set_text"));
+    // State comes from the NetworkManager provider, never from literals.
+    assert!(panel.contains("NetworkManagerClient::connect"));
+    assert!(panel.contains("Update::Unavailable"));
     assert!(!panel.contains("let _ = Command::new"));
 }
 

@@ -1,0 +1,109 @@
+name: Nightly packages
+
+# Builds the Debian/Ubuntu and Arch packages from main and publishes them to
+# the rolling "nightly" pre-release. Each package job also checks the package
+# payload (binaries, session descriptor, themes) before anything is published.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "7 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-packages
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: decide whether to build
+    runs-on: ubuntu-24.04
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          build=true
+          if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
+            # Skip only when the published release already carries this commit.
+            published="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/nightly" \
+              --jq "[.assets[].name | select(startswith(\"slopos-i_nightly-${GITHUB_SHA::7}\"))] | length" \
+              2>/dev/null || echo 0)"
+            if [ "${published:-0}" -ge 1 ]; then
+              build=false
+            fi
+          fi
+          echo "build=${build}" >> "$GITHUB_OUTPUT"
+
+  debian:
+    needs: gate
+    if: needs.gate.outputs.build == 'true'
+    uses: ./.github/workflows/debian-package.yml
+
+  arch:
+    needs: gate
+    if: needs.gate.outputs.build == 'true'
+    uses: ./.github/workflows/arch-package.yml
+
+  publish:
+    name: publish nightly release
+    needs: [debian, arch]
+    # Manual runs on other refs build and check packages but never publish.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: slopos-debian-${{ github.sha }}
+          path: downloads/debian
+      - uses: actions/download-artifact@v4
+        with:
+          name: slopos-arch-package-${{ github.sha }}
+          path: downloads/arch
+      - name: Stage release assets
+        run: |
+          set -euo pipefail
+          short="${GITHUB_SHA::7}"
+          mkdir -p dist
+          cp downloads/debian/slopos-i.deb "dist/slopos-i_nightly-${short}_amd64.deb"
+          cp downloads/arch/slopos-i.pkg.tar.zst "dist/slopos-i-nightly-${short}-x86_64.pkg.tar.zst"
+          cat > dist/README.txt <<TXT
+          SLOPOS-I nightly ${GITHUB_SHA}
+
+          Alpha software: install it in a virtual machine or a spare system.
+
+          Debian / Ubuntu (24.04 or newer):
+            sudo apt install ./slopos-i_nightly-${short}_amd64.deb
+          Arch Linux:
+            sudo pacman -U slopos-i-nightly-${short}-x86_64.pkg.tar.zst
+
+          Then log out and choose "SLOPOS-I" in your display manager's session list.
+          TXT
+          (cd dist && sha256sum slopos-i* > SHA256SUMS.txt)
+          ls -l dist
+      - name: Publish rolling nightly release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          notes="Alpha packages from ${GITHUB_SHA}. Install in a VM or a spare system; see README.txt."
+          git tag -f nightly "$GITHUB_SHA"
+          git push -f origin refs/tags/nightly
+          if gh release view nightly >/dev/null 2>&1; then
+            for asset in $(gh release view nightly --json assets --jq '.assets[].name'); do
+              gh release delete-asset nightly "$asset" --yes
+            done
+            gh release edit nightly --prerelease --title "SLOPOS-I nightly (${GITHUB_SHA::7})" --notes "$notes"
+          else
+            gh release create nightly --prerelease --title "SLOPOS-I nightly (${GITHUB_SHA::7})" --notes "$notes"
+          fi
+          gh release upload nightly dist/* --clobber

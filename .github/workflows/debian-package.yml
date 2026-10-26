@@ -1,23 +1,8 @@
 name: Debian Package QA
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/debian-package.yml'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'crates/**'
-      - 'packaging/debian/**'
-      - 'packaging/slopos-i.desktop'
-      - 'packaging/slopos-browser.desktop'
-      - 'scripts/start-slopos-i'
-      - 'scripts/start-slopos-browser'
-      - 'scripts/install-browser-theme.sh'
-      - 'scripts/slopos-appearance'
-      - 'scripts/slopos-recovery.sh'
-      - 'assets/**'
-      - 'themes/**'
+  # Called by nightly.yml; can also be run by hand.
+  workflow_call:
   workflow_dispatch:
 
 permissions:

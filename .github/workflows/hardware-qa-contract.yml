@@ -1,11 +1,9 @@
 name: Hardware QA Contract
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/hardware-qa-contract.yml'
-      - 'scripts/run-hardware-qa.sh'
+  # Slow or rarely changing: weekly and on demand instead of on every push.
+  schedule:
+    - cron: "53 4 * * 0"
   workflow_dispatch:
 
 permissions:

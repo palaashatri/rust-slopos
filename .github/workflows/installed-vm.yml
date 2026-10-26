@@ -1,18 +1,9 @@
 name: Installed VM QA
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/installed-vm.yml'
-      - 'packaging/vm/**'
-      - 'packaging/arch/PKGBUILD'
-      - 'packaging/debian/rules'
-      - 'packaging/iso/**'
-      - 'install.sh'
-      - 'scripts/install-session-files.sh'
-      - 'scripts/start-slopos-i'
-      - 'scripts/slopos-recovery.sh'
+  # Slow or rarely changing: weekly and on demand instead of on every push.
+  schedule:
+    - cron: "47 5 * * 0"
   workflow_dispatch:
 
 permissions:
