@@ -350,9 +350,18 @@ def test_stale_report_is_removed_when_runner_is_killed(
     report_path.write_text("- Result: **PASS**\n", encoding="utf-8")
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
-    killer = fake_bin / "python3"
+    # Kill the aggregate runner during the first gate, before it can write a
+    # report. The fake cargo sits under the gate script, so the runner is its
+    # grandparent; check the command line before signalling anything.
+    killer = fake_bin / "cargo"
     killer.write_text(
-        '#!/usr/bin/env bash\nkill -KILL "$PPID"\n', encoding="utf-8"
+        "#!/usr/bin/env bash\n"
+        'runner="$(ps -o ppid= -p "$PPID" | tr -d " ")"\n'
+        'if tr "\\0" " " < "/proc/$runner/cmdline" | grep -q "run-release-qa.sh"; then\n'
+        '  kill -KILL "$runner"\n'
+        "fi\n"
+        "exit 1\n",
+        encoding="utf-8",
     )
     killer.chmod(0o755)
     monkeypatch.setenv("PATH", str(fake_bin), prepend=":")
