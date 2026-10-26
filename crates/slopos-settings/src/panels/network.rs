@@ -25,6 +25,33 @@ pub struct NetworkView {
     pub devices: Vec<(String, String, String)>,
     /// One block of lines per active connection.
     pub connections: Vec<Vec<String>>,
+    /// True when at least one connection reached NetworkManager state 2
+    /// (activated). Merely appearing in the active list is not enough: a
+    /// connection waiting for authentication or DHCP is still activating.
+    pub connected: bool,
+}
+
+impl NetworkView {
+    fn empty() -> Self {
+        Self {
+            networking_enabled: false,
+            wifi_enabled: None,
+            devices: Vec::new(),
+            connections: Vec::new(),
+            connected: false,
+        }
+    }
+}
+
+/// The status line, derived only from established state.
+fn status_text(view: &NetworkView) -> &'static str {
+    if view.connected {
+        "Connected."
+    } else if view.connections.is_empty() {
+        "Not connected."
+    } else {
+        "Connecting…"
+    }
 }
 
 fn device_kind(kind: NetworkDeviceType) -> &'static str {
@@ -102,6 +129,10 @@ pub fn describe(snapshot: &NetworkSnapshot) -> NetworkView {
         networking_enabled: snapshot.networking_enabled,
         wifi_enabled: has_wifi.then_some(snapshot.wireless_enabled),
         devices,
+        connected: snapshot
+            .active_connections
+            .iter()
+            .any(|connection| connection.state == 2),
         connections,
     }
 }
@@ -227,27 +258,18 @@ pub fn show_network_dialog(parent: &Window) {
                     None => wifi.hide(),
                 }
                 syncing.set(false);
-                status_for_updates.set_text(if view.connections.is_empty() {
-                    "Not connected."
-                } else {
-                    "Connected."
-                });
+                status_for_updates.set_text(status_text(&view));
                 fill_devices(&devices_grid, &view);
                 fill_connections(&connections_box, &view);
             }
             Update::Unavailable(reason) => {
                 networking.set_sensitive(false);
                 wifi.set_sensitive(false);
+                wifi.hide();
                 status_for_updates.set_text(&format!("Network status is unavailable: {reason}"));
-                fill_devices(
-                    &devices_grid,
-                    &NetworkView {
-                        networking_enabled: false,
-                        wifi_enabled: None,
-                        devices: vec![],
-                        connections: vec![],
-                    },
-                );
+                let empty = NetworkView::empty();
+                fill_devices(&devices_grid, &empty);
+                fill_connections(&connections_box, &empty);
             }
             Update::CommandFailed(error) => status_for_updates.set_text(&error),
         }
@@ -339,13 +361,14 @@ fn spawn_worker(
                                 Command::SetWifi(on) => client.set_wireless_enabled(on).await,
                             };
                             if let Err(error) = result {
-                                let _ = updates.send(Update::CommandFailed(format!(
-                                    "The change was not applied: {error}"
-                                )));
-                                // Show the real state again.
+                                // Show the real state before the failure, so the
+                                // snapshot cannot immediately hide the message.
                                 if let Ok(snapshot) = client.snapshot().await {
                                     let _ = updates.send(Update::Snapshot(snapshot));
                                 }
+                                let _ = updates.send(Update::CommandFailed(format!(
+                                    "The change was not applied: {error}"
+                                )));
                             }
                         }
                         event = events.next() => match event {
@@ -356,7 +379,12 @@ fn spawn_worker(
                                 let _ = updates.send(Update::Unavailable(explain(&error)));
                                 break;
                             }
-                            None => break,
+                            None => {
+                                let _ = updates.send(Update::Unavailable(
+                                    "NetworkManager stopped sending updates.".to_owned(),
+                                ));
+                                break;
+                            }
                         }
                     }
                 }
@@ -461,6 +489,8 @@ mod tests {
         };
         let view = describe(&snapshot);
         assert_eq!(view.wifi_enabled, Some(false));
+        assert!(view.connected);
+        assert_eq!(status_text(&view), "Connected.");
         assert_eq!(
             view.devices,
             vec![
@@ -497,5 +527,38 @@ mod tests {
         assert_eq!(view.wifi_enabled, None);
         assert!(!view.networking_enabled);
         assert!(view.connections.is_empty());
+        assert!(!view.connected);
+        assert_eq!(status_text(&view), "Not connected.");
+    }
+
+    #[test]
+    fn an_activating_connection_is_not_reported_as_connected() {
+        let snapshot = NetworkSnapshot {
+            revision: 2,
+            networking_enabled: true,
+            wireless_enabled: true,
+            wireless_hardware_enabled: true,
+            devices: vec![device(
+                "wlan0",
+                NetworkDeviceType::Wifi,
+                NetworkDeviceState::Prepare,
+            )],
+            active_connections: vec![ActiveNetworkConnection {
+                object_path: "/ac/1".to_owned(),
+                id: "Home Wi-Fi".to_owned(),
+                uuid: "u".to_owned(),
+                connection_type: "802-11-wireless".to_owned(),
+                state: 1,
+                default_ipv4: false,
+                default_ipv6: false,
+                is_vpn: false,
+                ipv4: None,
+                ipv6: None,
+            }],
+        };
+        let view = describe(&snapshot);
+        assert!(!view.connected);
+        assert_eq!(view.connections.len(), 1);
+        assert_eq!(status_text(&view), "Connecting…");
     }
 }
