@@ -53,9 +53,11 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/qa-venv"
           "$RUNNER_TEMP/qa-venv/bin/pip" install --quiet --requirement qa/requirements-architecture.txt
           "$RUNNER_TEMP/qa-venv/bin/python" -m pytest -q \
-            scripts/test_check_architecture.py scripts/test_classic_source_mapping.py
+            scripts/test_check_architecture.py scripts/test_classic_source_mapping.py \
+            scripts/test_release_runner_inventory.py
           python3 scripts/check-architecture.py
           python3 scripts/check-classic-source-mapping.py
+          python3 scripts/check-release-runner-inventory.py
       - name: Shell scripts parse
         run: |
           set -euo pipefail
