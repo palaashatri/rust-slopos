@@ -13,6 +13,7 @@ Read these first:
 Run the same checks CI runs:
 
 ```bash
+cargo metadata --locked --format-version 1 --no-deps > /dev/null   # Cargo.lock matches Cargo.toml
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked

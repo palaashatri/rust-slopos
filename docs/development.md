@@ -18,6 +18,7 @@ The Rust version is pinned in `rust-toolchain.toml` (currently 1.99.0); `rustup`
 These are the commands CI runs (`.github/workflows/ci.yml`):
 
 ```bash
+cargo metadata --locked --format-version 1 --no-deps > /dev/null   # Cargo.lock matches Cargo.toml
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
