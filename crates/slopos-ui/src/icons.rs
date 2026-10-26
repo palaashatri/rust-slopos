@@ -171,7 +171,8 @@ impl IconLookup {
         if image.width() == device && image.height() == device {
             Some(image)
         } else {
-            let integral = device % image.width() == 0 && device % image.height() == 0;
+            let integral =
+                device.is_multiple_of(image.width()) && device.is_multiple_of(image.height());
             image.scaled_with(device, device, integral).ok()
         }
     }
