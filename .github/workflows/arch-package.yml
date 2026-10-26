@@ -1,23 +1,8 @@
 name: Arch Package QA
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/arch-package.yml'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'crates/**'
-      - 'packaging/arch/PKGBUILD'
-      - 'packaging/slopos-i.desktop'
-      - 'packaging/slopos-browser.desktop'
-      - 'scripts/start-slopos-i'
-      - 'scripts/start-slopos-browser'
-      - 'scripts/install-browser-theme.sh'
-      - 'scripts/slopos-appearance'
-      - 'scripts/slopos-recovery.sh'
-      - 'assets/**'
-      - 'themes/**'
+  # Called by nightly.yml; can also be run by hand.
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -82,6 +67,8 @@ jobs:
               printf "%s\n" "$SOURCE_SHA" > /workspace/artifacts/arch-package/source-commit
             '
           sudo chown -R "$USER:$USER" artifacts/arch-package || true
+      - name: Install bsdtar for payload inspection
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libarchive-tools
       - name: Require current X11 product payload
         shell: bash
         run: |

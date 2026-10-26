@@ -1,22 +1,9 @@
 name: Live Image Build & Release Artifacts
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/iso-build.yml'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'crates/**'
-      - 'packaging/iso/**'
-      - 'packaging/slopos-i.desktop'
-      - 'packaging/slopos-browser.desktop'
-      - 'scripts/start-slopos-i'
-      - 'scripts/start-slopos-browser'
-      - 'scripts/slopos-appearance'
-      - 'scripts/slopos-recovery.sh'
-      - 'assets/**'
-      - 'themes/**'
+  # Slow or rarely changing: weekly and on demand instead of on every push.
+  schedule:
+    - cron: "31 5 * * 0"
   workflow_dispatch:
 
 permissions:
