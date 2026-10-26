@@ -10,6 +10,7 @@ use std::env;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::os::fd::AsRawFd;
+use std::os::unix::fs::FileExt;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -236,25 +237,90 @@ fn display_suffix(display: &str) -> String {
         .collect()
 }
 
+/// True when a session holds the lock on `file`. A successful non-blocking
+/// acquire means the file is no longer locked, so it is released immediately.
+fn lock_is_held(file: &File) -> bool {
+    // SAFETY: flock on an owned, open descriptor.
+    if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0 {
+        // SAFETY: this descriptor owns the lock we just acquired.
+        unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_UN) };
+        return false;
+    }
+    std::io::Error::last_os_error().raw_os_error() == Some(libc::EWOULDBLOCK)
+}
+
+fn session_pid(file: &File) -> Option<i32> {
+    let mut buffer = [0_u8; 32];
+    let length = file.read_at(&mut buffer, 0).ok()?;
+    std::str::from_utf8(&buffer[..length])
+        .ok()?
+        .trim()
+        .parse::<i32>()
+        .ok()
+        .filter(|pid| *pid > 1)
+}
+
 fn logout() -> ExitCode {
     let path = session_pid_path();
-    let pid = fs::read_to_string(&path)
-        .ok()
-        .and_then(|text| text.trim().parse::<i32>().ok())
-        .filter(|pid| *pid > 1);
-    let Some(pid) = pid else {
+    let Ok(file) = OpenOptions::new().read(true).open(&path) else {
         eprintln!(
             "slopos-session: no SLOPOS session is running on this display ({})",
             path.display()
         );
         return ExitCode::FAILURE;
     };
-    // SAFETY: sending a signal to a pid read from our own lock file.
-    if unsafe { libc::kill(pid, libc::SIGTERM) } != 0 {
+    if !lock_is_held(&file) {
         eprintln!(
-            "slopos-session: could not signal session {pid}: {}",
+            "slopos-session: no SLOPOS session is running on this display ({})",
+            path.display()
+        );
+        return ExitCode::FAILURE;
+    }
+    let Some(pid) = session_pid(&file) else {
+        eprintln!(
+            "slopos-session: {} does not record a session pid",
+            path.display()
+        );
+        return ExitCode::FAILURE;
+    };
+    // Pin the process before signalling, so a recycled pid cannot receive the
+    // signal. pidfd_open is available on every kernel SLOPOS targets; libc
+    // exposes the syscall number rather than a wrapper.
+    // SAFETY: pidfd_open takes (pid, flags); the kernel reports errors through
+    // the -1 return value and errno.
+    let pidfd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid as libc::c_long, 0) };
+    if pidfd < 0 {
+        eprintln!(
+            "slopos-session: could not open a handle for session {pid}: {}",
             std::io::Error::last_os_error()
         );
+        return ExitCode::FAILURE;
+    }
+    let pidfd = pidfd as libc::c_int;
+    // The session may have exited between the lock check and pidfd_open, in
+    // which case the pid could now belong to an unrelated process. Confirm
+    // that the same session still holds the lock before sending anything.
+    if !lock_is_held(&file) || session_pid(&file) != Some(pid) {
+        // SAFETY: close an owned descriptor.
+        unsafe { libc::close(pidfd) };
+        eprintln!("slopos-session: session {pid} exited before it could be signalled");
+        return ExitCode::FAILURE;
+    }
+    // SAFETY: pidfd refers to the pinned session process.
+    let sent = unsafe {
+        libc::syscall(
+            libc::SYS_pidfd_send_signal,
+            pidfd as libc::c_long,
+            libc::SIGTERM as libc::c_long,
+            std::ptr::null_mut::<libc::siginfo_t>(),
+            0,
+        )
+    };
+    let error = std::io::Error::last_os_error();
+    // SAFETY: close an owned descriptor.
+    unsafe { libc::close(pidfd) };
+    if sent != 0 {
+        eprintln!("slopos-session: could not signal session {pid}: {error}");
         return ExitCode::FAILURE;
     }
     ExitCode::SUCCESS
@@ -282,5 +348,36 @@ mod tests {
         assert_eq!(display_suffix(":0"), "_0");
         assert_eq!(display_suffix("localhost:10.0"), "localhost_10_0");
         assert_eq!(display_suffix("../x"), "___x");
+    }
+
+    #[test]
+    fn session_lock_detection_tracks_the_holder() {
+        let path = std::env::temp_dir().join(format!(
+            "slopos-session-lock-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = fs::remove_file(&path);
+        let mut writer = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        writeln!(writer, "4242").unwrap();
+        let reader = OpenOptions::new().read(true).open(&path).unwrap();
+        assert!(!lock_is_held(&reader));
+        assert_eq!(session_pid(&reader), Some(4242));
+
+        // SAFETY: flock on the descriptor that owns the test lock.
+        assert_eq!(
+            unsafe { libc::flock(writer.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) },
+            0
+        );
+        assert!(lock_is_held(&reader));
+
+        drop(writer);
+        assert!(!lock_is_held(&reader));
+        let _ = fs::remove_file(&path);
     }
 }

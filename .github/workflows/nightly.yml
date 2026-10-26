@@ -1,7 +1,8 @@
 name: Nightly packages
 
-# Builds the Debian/Ubuntu and Arch packages from main and publishes them to
-# the rolling "nightly" pre-release. Each package job also checks the package
+# Builds the Debian/Ubuntu and Arch packages on pushes to main, the daily
+# schedule and manual dispatch; runs whose ref is main publish them to the
+# rolling "nightly" pre-release. Each package job also checks the package
 # payload (binaries, session descriptor, themes) before anything is published.
 on:
   push:
@@ -34,12 +35,9 @@ jobs:
             # Skip only when the published release already carries this commit
             # in both packages and every support file.
             short="${GITHUB_SHA::7}"
-            required=(
-              "slopos-i_nightly-${short}_amd64.deb"
-              "slopos-i-nightly-${short}-x86_64.pkg.tar.zst"
-              "README.txt"
-              "SHA256SUMS.txt"
-            )
+            deb="slopos-i_nightly-${short}_amd64.deb"
+            arch="slopos-i-nightly-${short}-x86_64.pkg.tar.zst"
+            required=("$deb" "$arch" "README.txt" "SHA256SUMS.txt")
             if assets="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/nightly" \
               --jq '.assets[].name' 2>/dev/null)"; then
               complete=true
@@ -50,7 +48,21 @@ jobs:
                 fi
               done
               if [ "$complete" = true ]; then
-                build=false
+                # Names alone are not enough: a partial upload can leave the
+                # previous README and checksums next to the new packages, and
+                # the CLI uploads assets concurrently. Download the set and
+                # skip only when the checksums cover these exact packages and
+                # the README names this commit.
+                download="$(mktemp -d)"
+                if gh release download nightly --repo "${GITHUB_REPOSITORY}" --dir "$download" \
+                  --pattern "$deb" --pattern "$arch" \
+                  --pattern README.txt --pattern SHA256SUMS.txt; then
+                  if grep -Fxq "SLOPOS-I nightly ${GITHUB_SHA}" "$download/README.txt" \
+                    && (cd "$download" && sha256sum --check --strict SHA256SUMS.txt); then
+                    build=false
+                  fi
+                fi
+                rm -rf "$download"
               fi
             fi
           fi
@@ -117,8 +129,15 @@ jobs:
           deb="slopos-i_nightly-${short}_amd64.deb"
           arch="slopos-i-nightly-${short}-x86_64.pkg.tar.zst"
 
-          git tag -f nightly "$GITHUB_SHA"
-          git push -f origin refs/tags/nightly
+          # Move the rolling tag through the API: checkout credentials are not
+          # persisted, so a plain `git push` could not authenticate.
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/nightly" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/nightly" \
+              -f sha="$GITHUB_SHA" -F force=true >/dev/null
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/tags/nightly" -f sha="$GITHUB_SHA" >/dev/null
+          fi
           if gh release view nightly >/dev/null 2>&1; then
             gh release edit nightly --prerelease --title "SLOPOS-I nightly (${short})" --notes "$notes"
           else
@@ -126,8 +145,9 @@ jobs:
           fi
 
           # Upload the whole new set before deleting anything. --clobber only
-          # replaces assets with the same name, so a missing support file
-          # leaves the previous nightly intact.
+          # replaces assets with the same name, so a failed upload leaves the
+          # previous files in place; the scheduled gate verifies that the
+          # checksums and README match the packages before it skips a build.
           gh release upload nightly --clobber \
             "dist/${deb}" "dist/${arch}" dist/README.txt dist/SHA256SUMS.txt
 

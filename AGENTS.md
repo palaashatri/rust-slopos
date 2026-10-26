@@ -16,7 +16,14 @@ Run the same checks CI runs:
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
-python3 scripts/check-architecture.py
+
+python3 -m venv .venv && .venv/bin/pip install -r qa/requirements-architecture.txt
+.venv/bin/python -m pytest -q scripts/test_check_architecture.py \
+  scripts/test_classic_source_mapping.py scripts/test_release_runner_inventory.py
+python3 scripts/check-architecture.py          # apps/ must not depend on GTK
+python3 scripts/check-classic-source-mapping.py
+python3 scripts/check-release-runner-inventory.py
+
 bash -n <every shell script you changed>
 cargo build --workspace --locked && bash scripts/smoke-session.sh   # needs Xvfb, openbox, xdotool
 ```

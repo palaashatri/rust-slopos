@@ -113,13 +113,13 @@ cargo clippy -p slopos-shell --all-targets --locked -- -D warnings
 
 Use the new package's actual registered name only after its manifest lands. Scope edits/formatting to owned files; the coordinator runs workspace checks at integration. Pure/unit tests may be parallelized when isolated. Any test requiring X11, D-Bus service ownership or system state must follow the runtime lease.
 
-At the audited revision `rust-toolchain.toml` tracks `stable`, not a fixed version. Record `rustc -Vv`; BOOT-01 must establish a tested pin for reproducible builds. `Cargo.lock` changes require deliberate coordinator review and a fresh locked build.
+`rust-toolchain.toml` pins Rust 1.99.0, so formatting, Clippy, tests and builds all run with that tested version. Record `rustc -Vv` in release evidence. `Cargo.lock` changes require deliberate coordinator review and a fresh locked build.
 
 ## 30.2 Existing QA is evidence infrastructure, not the new gate implementation
 
 | Existing entry point | What inspection establishes | Execution constraint/remaining gap |
 |---|---|---|
-| `scripts/run-release-qa.sh` | Runs Cargo and selected legacy suites | Conditional `-x` checks can omit suites; PASS means selected commands passed. Not the complete §37 gate. |
+| `scripts/run-release-qa.sh` | Runs every inventory-listed Cargo and legacy suite unconditionally | Long-running and needs X11 and system state; PASS means every listed command passed. Not the complete §37 gate. |
 | `scripts/run-canonical-visual-qa.sh` | Captures legacy desktop/app scenes with Xvfb | Shared output path, fixed default display, name-based signals/cleanup; no atom-state conformance or real graphical-VM pass. |
 | `scripts/test-session-gui.sh` | Drives legacy session-menu dialogs | Fixed `:95`, global process-name operations and hard-coded release paths; use only exclusive disposable sessions until repaired. |
 | `scripts/run-atspi-qa.sh`, `run-settings-service-qa.sh`, `run-appmenu-qa.sh` | Existing scoped QA entry points | Inspect each script's prerequisites/side effects first; passing legacy expectations does not establish native UI/provider parity. |
