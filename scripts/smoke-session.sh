@@ -141,4 +141,32 @@ if grep -E "panicked at|RUST_BACKTRACE" "$OUT/session.log" "$OUT/calculator.log"
   fail "a SLOPOS process panicked"
 fi
 echo "smoke: logout ended the session cleanly"
+
+# slopos-appearance must keep a legacy ~/.gtkrc-2.0 when it regenerates the
+# file outside a managed session, then include the saved copy rather than the
+# generated file itself.
+fake_bin="$WORK/appearance-bin"
+mkdir -p "$fake_bin"
+for tool in openbox pkill slopos-wallpaper xsetroot; do
+  printf '#!/bin/sh\nexit 0\n' > "$fake_bin/$tool"
+  chmod +x "$fake_bin/$tool"
+done
+printf 'gtk-font-name = "Legacy Sans 11"\n' > "$HOME/.gtkrc-2.0"
+run_appearance() {
+  (cd "$ROOT" && env -u SLOPOS_SESSION_MANAGED -u XDG_CURRENT_DESKTOP \
+    PATH="$fake_bin:$PATH" scripts/slopos-appearance platinum) ||
+    fail "slopos-appearance failed outside a managed session"
+}
+run_appearance
+run_appearance
+legacy_copy="$XDG_CONFIG_HOME/slopos-i/gtkrc-2.0.legacy"
+[ -f "$legacy_copy" ] || fail "slopos-appearance did not keep the legacy GTK 2 file"
+grep -Fq 'Legacy Sans 11' "$legacy_copy" || fail "the legacy GTK 2 copy lost its contents"
+grep -Fq "include \"$legacy_copy\"" "$HOME/.gtkrc-2.0" ||
+  fail "the replaced GTK 2 file does not include the saved legacy settings"
+if grep -Fq "include \"$HOME/.gtkrc-2.0\"" "$HOME/.gtkrc-2.0"; then
+  fail "the replaced GTK 2 file includes itself"
+fi
+echo "smoke: slopos-appearance kept the legacy GTK 2 settings"
+
 echo "SMOKE PASS (screenshots in $OUT)"
