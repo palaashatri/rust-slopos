@@ -199,6 +199,8 @@ fn appearances_are_complete_runtime_themes() {
     assert!(switcher.contains("classic|platinum|graphite|oled|status"));
     assert!(switcher.contains("gtk-theme-name = $gtk_theme"));
     assert!(switcher.contains("legacy_gtk2"));
+    assert!(switcher.contains("gtkrc-2.0.legacy"));
+    assert!(switcher.contains("cp -f \"$legacy_gtk2\" \"$legacy_copy\""));
     assert!(switcher.contains("SLOPOS_SESSION_MANAGED"));
     assert!(switcher.contains("gtk-shell-shows-menubar = 1"));
     assert!(switcher.contains("pkill -TERM -x slopos-shell"));
@@ -532,6 +534,9 @@ fn network_settings_do_not_invent_connections_or_expose_inert_controls() {
     // State comes from the NetworkManager provider, never from literals.
     assert!(panel.contains("NetworkManagerClient::connect"));
     assert!(panel.contains("Update::Unavailable"));
+    // A failed worker spawn reports it instead of leaving the dialog loading.
+    assert!(panel.contains("let failure_updates = updates.clone();"));
+    assert!(panel.contains("failure_updates.send(Update::Unavailable"));
     assert!(!panel.contains("let _ = Command::new"));
     // Closing the dialog detaches the GLib source that updates its widgets.
     assert!(panel.contains("let update_source = update_receiver.attach"));

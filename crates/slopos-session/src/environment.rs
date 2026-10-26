@@ -244,8 +244,9 @@ fn data_dirs() -> impl Iterator<Item = PathBuf> {
 }
 
 /// GTK 2 applications read this through `GTK2_RC_FILES`. The generated file
-/// includes the user's `~/.gtkrc-2.0` so settings that predate SLOPOS keep
-/// working, then `gtkrc-2.0.local` so per-SLOPOS overrides still win.
+/// includes the user's `~/.gtkrc-2.0` (or the copy that `slopos-appearance`
+/// keeps before replacing it) so settings that predate SLOPOS keep working,
+/// then `gtkrc-2.0.local` so per-SLOPOS overrides still win.
 fn write_gtk2_rc(appearance: Appearance) -> Option<PathBuf> {
     let dir = user_dir()?;
     fs::create_dir_all(&dir).ok()?;
@@ -254,7 +255,7 @@ fn write_gtk2_rc(appearance: Appearance) -> Option<PathBuf> {
     if !local.exists() {
         let _ = fs::write(&local, "# Personal GTK 2 settings for SLOPOS-I.\n");
     }
-    let legacy = legacy_gtk2_rc();
+    let legacy = legacy_gtk2_rc_or_copy(legacy_gtk2_rc(), &dir);
     let content = gtk2_rc_content(appearance, &local, legacy.as_deref());
     fs::write(&path, content).ok()?;
     Some(path)
@@ -266,6 +267,15 @@ fn legacy_gtk2_rc() -> Option<PathBuf> {
         .map(|home| home.join(".gtkrc-2.0"))
         .filter(|path| path.is_file())?;
     (!is_slopos_gtk2_rc(&path)).then_some(path)
+}
+
+/// `slopos-appearance` replaces `~/.gtkrc-2.0` outside a managed session, so
+/// it first keeps the original here. A live user file still wins over the copy.
+fn legacy_gtk2_rc_or_copy(legacy: Option<PathBuf>, dir: &Path) -> Option<PathBuf> {
+    legacy.or_else(|| {
+        let copy = dir.join("gtkrc-2.0.legacy");
+        copy.is_file().then_some(copy)
+    })
 }
 
 /// Whether this is a file SLOPOS generated itself. Including such a file from
@@ -412,6 +422,28 @@ mod tests {
         assert!(is_slopos_gtk2_rc(&generated));
         fs::write(&generated, "gtk-theme-name = \"Adwaita\"\n").unwrap();
         assert!(!is_slopos_gtk2_rc(&generated));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_replaced_legacy_gtk2_file_is_included_from_its_saved_copy() {
+        let dir = std::env::temp_dir().join(format!(
+            "slopos-gtk2-copy-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let copy = dir.join("gtkrc-2.0.legacy");
+        fs::write(&copy, "gtk-font-name = \"Legacy Sans 11\"\n").unwrap();
+        // ~/.gtkrc-2.0 was replaced, so the session falls back to the copy.
+        assert_eq!(legacy_gtk2_rc_or_copy(None, &dir), Some(copy.clone()));
+
+        // A live user file still wins over the saved copy.
+        let live = dir.join("gtkrc-2.0");
+        fs::write(&live, "gtk-font-name = \"Live Sans 11\"\n").unwrap();
+        assert_eq!(legacy_gtk2_rc_or_copy(Some(live.clone()), &dir), Some(live));
         let _ = fs::remove_dir_all(&dir);
     }
 
