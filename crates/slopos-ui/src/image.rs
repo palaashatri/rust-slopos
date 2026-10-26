@@ -120,9 +120,19 @@ impl Image {
 
     /// A copy resampled (bilinear) to `width × height`.
     pub fn scaled(&self, width: u32, height: u32) -> Result<Self, ImageError> {
+        self.scaled_with(width, height, false)
+    }
+
+    /// A copy resampled to `width × height`. `nearest` keeps hard pixel edges
+    /// (integer-ratio pixel art); otherwise the image is filtered bilinearly.
+    pub fn scaled_with(&self, width: u32, height: u32, nearest: bool) -> Result<Self, ImageError> {
         let mut pixmap = Pixmap::new(width, height).ok_or(ImageError::Dimensions)?;
         let paint = tiny_skia::PixmapPaint {
-            quality: tiny_skia::FilterQuality::Bilinear,
+            quality: if nearest {
+                tiny_skia::FilterQuality::Nearest
+            } else {
+                tiny_skia::FilterQuality::Bilinear
+            },
             ..Default::default()
         };
         let transform = Transform::from_scale(
@@ -172,5 +182,23 @@ mod tests {
         assert_eq!((scaled.width(), scaled.height()), (8, 6));
         assert_eq!(scaled.pixel(4, 3).unwrap().alpha(), 255);
         assert!(image.scaled(0, 4).is_err());
+    }
+
+    #[test]
+    fn nearest_scaling_keeps_pixel_edges() {
+        let image = Image::from_rgba(
+            2,
+            2,
+            vec![
+                255, 0, 0, 255, 255, 0, 0, 255, 0, 0, 255, 255, 0, 0, 255, 255,
+            ],
+        )
+        .unwrap();
+        let scaled = image.scaled_with(4, 4, true).unwrap();
+        let pixel = |x| scaled.pixel(x, 0).unwrap();
+        assert_eq!((pixel(0).red(), pixel(1).red()), (255, 255));
+        assert_eq!((pixel(2).blue(), pixel(3).blue()), (255, 255));
+        assert_eq!(pixel(0).blue(), 0);
+        assert_eq!(pixel(3).red(), 0);
     }
 }
