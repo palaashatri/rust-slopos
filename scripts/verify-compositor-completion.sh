@@ -137,6 +137,11 @@ grep -q 'validated_runtime_output_layout' crates/slopos-compositor/src/output_as
 grep -q 'disable_global::<SloposCompositor>' crates/slopos-compositor/src/main.rs
 grep -q 'runtime output topology applied' crates/slopos-compositor/src/main.rs
 test -x scripts/verify-compositor-output-topology-runtime.sh
+bash scripts/verify-compositor-output-topology-runtime.sh
+
+failed_step="viewport correctness contract"
+test -x scripts/verify-compositor-viewport-correctness.sh
+bash scripts/verify-compositor-viewport-correctness.sh
 
 status="passed"
 failed_step=""

@@ -4,7 +4,13 @@
 SLOPOS-I. Final requirements and execution rules live in `AGENTS.md`.
 `README.md` is the public introduction.
 
-### Current implementation wave — release reproducibility, service honesty and visual evidence
+### Current implementation wave — lockfile consistency and viewport correctness gate
+
+At audited implementation commit
+`f691bcda4d05b6b13a354523a885718649884a32`, the CI lockfile check was semantically restored to validate the committed `Cargo.lock` correctly against workspace dependencies via `--locked`, preventing undocumented transitive updates. 
+An automated viewport correctness QA gate (`verify-compositor-viewport-correctness.sh`) was established and integrated into the compositor completion checklist. It asserts that the compositor and shell (`slopos-shell`) produce correct framebuffers for the actual logical and physical output dimensions. Using `CaptureScreenshot` via IPC, the gate extracts a PNG and uses `headless_viewport_validator` to verify that backgrounds cover the entire output and that no unpainted/clear pixel bands exist on the edge.
+
+### Previous implementation wave — release reproducibility, service honesty and visual evidence
 
 At audited implementation commit
 `564ca4e5573a9180ee3d30cfa234421aba3f1b2b`, the release scripts consistently

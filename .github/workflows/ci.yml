@@ -52,8 +52,7 @@ jobs:
           # of resolving newer compatible transitive versions.  CI must never
           # regenerate or upload a different lockfile: dependency refresh is
           # an intentional developer operation reviewed in the source diff.
-          cargo metadata --locked --format-version 1 --no-deps > /dev/null
-          git diff --exit-code -- Cargo.lock
+          cargo metadata --locked --format-version 1 > /dev/null
 
   linux:
     name: build + test (linux)
