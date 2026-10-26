@@ -96,7 +96,13 @@ gtk-xft-rgba = rgb
 EOF
 mv -f "$gtk_config/settings.ini.tmp" "$gtk_config/settings.ini"
 
-cat > "$HOME/.gtkrc-2.0.tmp" <<EOF
+mkdir -p "$slopos_config"
+gtk2_rc="$slopos_config/gtkrc-2.0"
+gtk2_local="$slopos_config/gtkrc-2.0.local"
+if [[ ! -f "$gtk2_local" ]]; then
+  printf '%s\n' "# Personal GTK 2 settings for SLOPOS-I." > "$gtk2_local"
+fi
+cat > "$gtk2_rc.tmp" <<EOF
 # SLOPOS-I GTK2 Runtime Configuration
 gtk-theme-name = "$gtk_theme"
 gtk-icon-theme-name = "SLOPOS-Platinum"
@@ -105,8 +111,14 @@ gtk-cursor-theme-name = "DMZ-White"
 gtk-button-images = 1
 gtk-menu-images = 1
 gtk-toolbar-style = GTK_TOOLBAR_ICONS
+include "$gtk2_local"
 EOF
-mv -f "$HOME/.gtkrc-2.0.tmp" "$HOME/.gtkrc-2.0"
+mv -f "$gtk2_rc.tmp" "$gtk2_rc"
+# A managed session exports GTK2_RC_FILES to this file. Outside one, keep the
+# conventional per-user file working for applications started without it.
+if [[ "${SLOPOS_SESSION_MANAGED:-0}" != "1" ]]; then
+  cp -f "$gtk2_rc" "$HOME/.gtkrc-2.0"
+fi
 
 mkdir -p "$HOME/.icons/SLOPOS-Platinum" "$HOME/.local/share/icons/SLOPOS-Platinum"
 for cand_icon in \
