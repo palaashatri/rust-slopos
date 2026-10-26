@@ -34,7 +34,11 @@ SESSION_PID=""
 cleanup() {
   set +e
   [ -n "$SESSION_PID" ] && kill "$SESSION_PID" 2>/dev/null
-  for pid in $(session_pids); do kill "$pid" 2>/dev/null; done
+  # Only reap processes from the session this run started; before it starts,
+  # $DISPLAY may belong to another X server.
+  if [ -n "$SESSION_PID" ]; then
+    for pid in $(session_pids); do kill "$pid" 2>/dev/null; done
+  fi
   [ -n "$XVFB_PID" ] && kill "$XVFB_PID" 2>/dev/null
   rm -rf "$WORK"
 }
@@ -65,6 +69,9 @@ shoot() {
   fi
 }
 
+if xdotool getdisplaygeometry >/dev/null 2>&1; then
+  fail "display $DISPLAY is already in use; set SMOKE_DISPLAY to a free display"
+fi
 Xvfb "$DISPLAY" -screen 0 1280x800x24 -nolisten tcp >"$OUT/xvfb.log" 2>&1 &
 XVFB_PID=$!
 for _ in $(seq 1 50); do xdotool getdisplaygeometry >/dev/null 2>&1 && break; sleep 0.1; done
@@ -108,7 +115,7 @@ for _ in $(seq 1 50); do
   sleep 0.2
 done
 [ -n "${CALC_WINDOW:-}" ] || fail "the calculator window never appeared"
-xdotool windowactivate --sync "$CALC_WINDOW" 2>/dev/null || xdotool windowfocus "$CALC_WINDOW"
+timeout 10 xdotool windowactivate --sync "$CALC_WINDOW" 2>/dev/null || xdotool windowfocus "$CALC_WINDOW"
 xdotool type --window "$CALC_WINDOW" '7*6='
 sleep 0.5
 shoot calculator
@@ -122,7 +129,7 @@ if kill -0 "$CALC_PID" 2>/dev/null; then
   kill "$CALC_PID"
   fail "the calculator kept running after its window was destroyed"
 fi
-echo "smoke: calculator opened, took input and closed"
+echo "smoke: calculator opened and closed (typed input is not asserted)"
 
 "$BIN_DIR/slopos-session" --logout || fail "slopos-session --logout failed"
 for _ in $(seq 1 50); do
@@ -130,7 +137,7 @@ for _ in $(seq 1 50); do
   sleep 0.2
 done
 [ -z "$(session_pids)" ] || fail "processes still running after logout: $(session_pids | tr '\n' ' ')"
-if grep -E "panicked at|RUST_BACKTRACE" "$OUT/session.log" >/dev/null; then
+if grep -E "panicked at|RUST_BACKTRACE" "$OUT/session.log" "$OUT/calculator.log" >/dev/null; then
   fail "a SLOPOS process panicked"
 fi
 echo "smoke: logout ended the session cleanly"
