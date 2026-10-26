@@ -25,6 +25,10 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+        with:
+          # makepkg runs code from this checkout; do not leave a Git credential
+          # in its configuration for pull-request builds.
+          persist-credentials: false
       - name: Confirm exact source revision
         run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Build package in disposable Arch container
