@@ -101,7 +101,8 @@ mod tests {
         // Num Lock never changes the level of ordinary keys.
         let letter = [u32::from(b'a'), u32::from(b'A')];
         assert_eq!(keysym_for(&letter, 0x0010, 0x0010), u32::from(b'a'));
-        assert_eq!(keysym_for(&letter, 0x0002, 0x0010), u32::from(b'a'));
+        // Caps Lock still applies, unaffected by the Num Lock mask.
+        assert_eq!(keysym_for(&letter, 0x0002, 0x0010), u32::from(b'A'));
     }
 
     #[test]

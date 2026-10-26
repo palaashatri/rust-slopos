@@ -810,7 +810,9 @@ mod tests {
 
     #[test]
     fn num_lock_bit_comes_from_the_modifier_mapping() {
-        let row = [0xff7f, 0xff7f];
+        // Keycode 9 is the second key in the mapping row: its first keysym
+        // pair is an ordinary key, and the second pair is Num_Lock.
+        let row = [0x0061, 0x0061, 0xff7f, 0xff7f];
         // Num_Lock is keycode 9 when the minimum keycode is 8, and here the
         // server maps it to the second modifier group (LockMask).
         let mapping = modifier_mapping(&[0, 9, 0, 0, 0, 0, 0, 0]);
