@@ -276,7 +276,7 @@ def test_rejects_changed_runner_even_when_manifest_digest_is_updated(
     ("failed_gate", "exit_status", "completed", "attempted"),
     [
         ("Rust formatting", 17, 1, 2),
-        ("First gate", 23, 4, 5),
+        (FIRST_GATE_LABEL, 23, 4, 5),
     ],
 )
 def test_failed_gate_replaces_stale_pass_and_stops_runner(
@@ -332,7 +332,7 @@ def test_failed_gate_replaces_stale_pass_and_stops_runner(
     assert "- Source commit: `fixture-source`" in report
     assert "RELEASE_QA_EVIDENCE_OK" not in result.stdout
     expected_trace = ["cargo fmt --all -- --check"]
-    if failed_gate == "First gate":
+    if failed_gate == FIRST_GATE_LABEL:
         expected_trace += [
             "cargo clippy --workspace --all-targets --locked -- -D warnings",
             "cargo test --workspace --locked",
@@ -364,8 +364,8 @@ def test_rejects_synchronized_aggregate_runner_registration(tmp_path: Path) -> N
         "cd /tmp",
         "exit 0",
         'skip=exit\n"$skip" 0',
-        'if [[ -x scripts/run-first-qa.sh ]]; then\n'
-        '  run_gate "First gate" bash scripts/run-first-qa.sh\n'
+        'if [[ -x scripts/run-catalogue-qa.sh ]]; then\n'
+        '  run_gate "Gate catalogue" bash scripts/run-catalogue-qa.sh\n'
         "fi",
         "run_gate \"Extra gate\" bash scripts/run-extra-qa.sh",
     ],
