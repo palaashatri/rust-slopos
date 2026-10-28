@@ -49,7 +49,24 @@ pub fn parse_proposal(json: &str) -> Result<ProposedAction, String> {
     if json.len() > 4096 {
         return Err("model output exceeds 4096 bytes".into());
     }
-    serde_json::from_str(json).map_err(|error| format!("invalid model action: {error}"))
+    let value: serde_json::Value =
+        serde_json::from_str(json).map_err(|error| format!("invalid model action: {error}"))?;
+    let fields = value
+        .as_object()
+        .ok_or_else(|| "model action must be a JSON object".to_string())?;
+    let action = fields
+        .get("action")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| "model action is missing its type".to_string())?;
+    let valid_fields = match action {
+        "help" | "list_apps" => fields.len() == 1,
+        "open_app" => fields.len() == 2 && fields.contains_key("app_id"),
+        _ => false,
+    };
+    if !valid_fields {
+        return Err("unknown action or unexpected model-provided fields".into());
+    }
+    serde_json::from_value(value).map_err(|error| format!("invalid model action: {error}"))
 }
 
 pub fn authorize<'a>(
@@ -130,6 +147,7 @@ mod tests {
             r#"{"action":"open_app","app_id":"calc","args":["--bad"]}"#,
             r#"{"action":"open_app","app_id":123}"#,
             r#"{"action":"help","command":"evil"}"#,
+            r#"{"action":"list_apps","command":"evil"}"#,
         ] {
             assert!(parse_proposal(untrusted).is_err(), "{untrusted}");
         }
