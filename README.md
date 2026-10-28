@@ -41,6 +41,10 @@ Installing changes system files, so use a disposable VM while SLOPOS is alpha. B
 
 There is no public APT or Pacman repository yet. Ignore anything that mentions `repo.slopos.org`.
 
+## SLOPOS Intelligence preview
+
+An opt-in local text-to-application-action prototype is available with Ollama and LFM3-1.7B. It validates structured model proposals against installed desktop entries and requires explicit confirmation for launches; it is not yet a background assistant, voice UI, or personal-context agent. See [docs/intelligence.md](docs/intelligence.md).
+
 ## Roadmap
 
 Next steps, in priority order:
