@@ -65,17 +65,20 @@ fn run() -> Result<(), String> {
             print!("Confirm launch? Type yes: ");
             io::stdout().flush().map_err(|e| e.to_string())?;
             let mut response = String::new();
-            io::stdin().read_line(&mut response).map_err(|e| e.to_string())?;
+            io::stdin()
+                .read_line(&mut response)
+                .map_err(|e| e.to_string())?;
             if response.trim() != "yes" {
                 println!("Cancelled.");
                 return Ok(());
             }
             // A trusted local .desktop entry supplied this argv. The model
             // supplies only an exact registry id; no shell interpretation.
-            let (program, args) = app.argv.split_first()
+            let (program, args) = app
+                .argv
+                .split_first()
                 .ok_or_else(|| "application has no executable".to_string())?;
-            spawn_detached(Path::new(program), args)
-                .map_err(|e| format!("launch failed: {e}"))?;
+            spawn_detached(Path::new(program), args).map_err(|e| format!("launch failed: {e}"))?;
             println!("Launch requested.");
         }
     }
