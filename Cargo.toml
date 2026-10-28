@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/slopos-core",
+    "crates/slopos-intelligence",
     "crates/slopos-ui",
     "crates/slopos-services",
     "tools/slopos-ui-gallery",
