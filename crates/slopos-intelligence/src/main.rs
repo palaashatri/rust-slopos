@@ -5,7 +5,7 @@
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
 use slopos_core::{desktop_entry::scan_desktop_apps, process::spawn_detached};
-use slopos_intelligence::{authorize, build_prompt, parse_proposal, Decision};
+use slopos_intelligence::{authorize, build_prompt, disclosed_apps, parse_proposal, Decision};
 use std::{
     env,
     io::{self, Write},
@@ -14,7 +14,7 @@ use std::{
 };
 
 fn run() -> Result<(), String> {
-    let apps = scan_desktop_apps();
+    let apps = disclosed_apps(scan_desktop_apps());
     let args: Vec<String> = env::args().skip(1).collect();
     if args.len() == 1 && args[0] == "--list" {
         for app in &apps {
