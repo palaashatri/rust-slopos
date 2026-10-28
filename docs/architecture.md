@@ -96,3 +96,8 @@ The [ledger](contract/ledger.md) has the dated evidence. In short:
 - Three user-facing programs still use GTK 3, whose Rust bindings are unmaintained.
 - X11 only. GNOME and KDE are leaving X11, so distribution support for X11 logins has to be checked per release (§21.10).
 - Not tested on real hardware or on the Raspberry Pi edge target.
+
+## SLOPOS Intelligence preview (2026-10-28)
+
+An independent opt-in `slopos-intelligence` binary is present in `crates/slopos-intelligence`.
+It proposes strict JSON actions via loopback-only Ollama (`lfm3:1.7b`) using installed-app metadata, and asks for confirmation before launching a listed desktop application. It does not run at session startup; no window, Siri-style voice interface, personal search, accessibility-based UI control or PARAMA execution exists. See [intelligence.md](intelligence.md) for the precise trust boundary and roadmap.
