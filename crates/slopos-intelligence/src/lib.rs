@@ -146,9 +146,7 @@ mod tests {
             Ok(Decision::ConfirmOpen(_))
         ));
         for id in ["terminal", "../calc"] {
-            let proposed = ProposedAction::OpenApp {
-                app_id: id.into(),
-            };
+            let proposed = ProposedAction::OpenApp { app_id: id.into() };
             assert!(authorize(proposed, &apps).is_err());
         }
     }
