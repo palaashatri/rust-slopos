@@ -120,10 +120,11 @@ mod tests {
 
     #[test]
     fn only_known_actions_and_fields_are_accepted() {
-        assert_eq!(
-            parse_proposal(r#"{"action":"open_app","app_id":"calc"}"#).unwrap(),
-            ProposedAction::OpenApp { app_id: "calc".into() }
-        );
+        let parsed = parse_proposal(r#"{"action":"open_app","app_id":"calc"}"#).unwrap();
+        let expected = ProposedAction::OpenApp {
+            app_id: "calc".into(),
+        };
+        assert_eq!(parsed, expected);
         for untrusted in [
             r#"{"action":"run_shell","command":"rm -rf /"}"#,
             r#"{"action":"open_app","app_id":"calc","args":["--bad"]}"#,
@@ -137,18 +138,19 @@ mod tests {
     #[test]
     fn only_disclosed_app_id_can_be_proposed() {
         let apps = vec![app("calc")];
+        let allowed = ProposedAction::OpenApp {
+            app_id: "calc".into(),
+        };
         assert!(matches!(
-            authorize(ProposedAction::OpenApp { app_id: "calc".into() }, &apps),
+            authorize(allowed, &apps),
             Ok(Decision::ConfirmOpen(_))
         ));
-        assert!(authorize(
-            ProposedAction::OpenApp { app_id: "terminal".into() },
-            &apps
-        ).is_err());
-        assert!(authorize(
-            ProposedAction::OpenApp { app_id: "../calc".into() },
-            &apps
-        ).is_err());
+        for id in ["terminal", "../calc"] {
+            let proposed = ProposedAction::OpenApp {
+                app_id: id.into(),
+            };
+            assert!(authorize(proposed, &apps).is_err());
+        }
     }
 
     #[test]
@@ -169,18 +171,19 @@ mod tests {
         assert_eq!(visible.len(), 1);
         assert_eq!(visible[0].id, "calc");
         assert!(!build_prompt("open", &visible).unwrap().contains("huge"));
-        assert!(authorize(
-            ProposedAction::OpenApp { app_id: "huge".into() },
-            &visible
-        ).is_err());
+        let proposed = ProposedAction::OpenApp {
+            app_id: "huge".into(),
+        };
+        assert!(authorize(proposed, &visible).is_err());
     }
 
     #[test]
     fn outputs_are_never_implicitly_executed() {
         let apps = vec![app("calc")];
-        assert!(matches!(
-            authorize(ProposedAction::OpenApp { app_id: "calc".into() }, &apps).unwrap(),
-            Decision::ConfirmOpen(_)
-        ));
+        let proposed = ProposedAction::OpenApp {
+            app_id: "calc".into(),
+        };
+        let decision = authorize(proposed, &apps).unwrap();
+        assert!(matches!(decision, Decision::ConfirmOpen(_)));
     }
 }
