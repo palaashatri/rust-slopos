@@ -30,6 +30,7 @@ fn run() -> Result<(), String> {
     // Loopback only: no cloud endpoint or user-controlled remote URL.
     let response: Value = Client::builder()
         .timeout(Duration::from_secs(30))
+        .no_proxy()
         .build()
         .map_err(|e| e.to_string())?
         .post("http://127.0.0.1:11434/api/generate")
