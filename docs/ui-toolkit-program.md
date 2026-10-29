@@ -35,21 +35,21 @@ may depend on the toolkit, never the reverse.
 
 ## Current milestone M0 (implemented as an initial experiment)
 
-- Existing \`slopos-ui\` keeps \`RasterSurface\` and Classic bitmap fidelity.
-- \`scene::Scene\` records a bounded, ordered list of clear, fill-rectangle
-  and stroke-rectangle commands; \`scene::Renderer\` is backend-neutral.
-- \`scene_raster::RasterRenderer\` replays the list to the existing raster
+- Existing `slopos-ui` keeps `RasterSurface` and Classic bitmap fidelity.
+- `scene::Scene` records a bounded, ordered list of clear, fill-rectangle
+  and stroke-rectangle commands; `scene::Renderer` is backend-neutral.
+- `scene_raster::RasterRenderer` replays the list to the existing raster
   renderer; the gallery Surface fixture uses this path.
-- \`animation\` offers pure elapsed-time easing and reduced-motion
+- `animation` offers pure elapsed-time easing and reduced-motion
   completion without creating timers or threads.
 - Headless unit tests cover ordering, command-budget overflow, scale,
   clipping boundary pixels, invalid geometry and animation endpoints.
 - No GPU renderer, new text/layout engine, compositor, generic widget tree,
   mobile support or PARAMA port is implied by M0.
 
-The current scene representation uses existing SLOPOS geometry and \`std\`.
+The current scene representation uses existing SLOPOS geometry and `std`.
 That is acceptable for incubation; a later independent portable core must
-define its exact public geometry, allocations and optional \`no_std + alloc\`
+define its exact public geometry, allocations and optional `no_std + alloc`
 compatibility contract.
 
 ## Requirements for future milestones
@@ -134,9 +134,9 @@ may retain MIT source licensing regardless of the applications' own licenses.
 
 ## Verification for each UI PR
 
-- Run \`cargo fmt --all -- --check\`.
-- Run \`cargo clippy --workspace --all-targets --locked -- -D warnings\`.
-- Run \`cargo test --workspace --locked\`.
+- Run `cargo fmt --all -- --check`.
+- Run `cargo clippy --workspace --all-targets --locked -- -D warnings`.
+- Run `cargo test --workspace --locked`.
 - Run the architecture checks and Xvfb smoke suite documented in
   [AGENTS.md](../AGENTS.md); report unavailable checks as not run.
 - Add pixel baselines and direct user interaction tests when presentation
