@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=SLOPOS Files
+Comment=Browse files using the native SLOPOS UI toolkit
+Exec=slopos-files %f
+TryExec=slopos-files
+Icon=system-file-manager
+Terminal=false
+StartupNotify=true
+Categories=System;FileTools;FileManager;
+MimeType=inode/directory;
