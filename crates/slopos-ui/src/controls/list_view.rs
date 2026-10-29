@@ -263,7 +263,7 @@ impl ListView {
             node.add_action(Action::Click);
             node.add_action(Action::Focus);
             if self.selected == Some(index) {
-                node.set_selected();
+                node.set_selected(true);
             }
             let id = NodeId(item.id);
             children.push(id);
