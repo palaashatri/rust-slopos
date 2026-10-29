@@ -29,11 +29,27 @@ const TOOLBAR_HEIGHT: i32 = 48;
 const FOOTER_HEIGHT: u32 = 34;
 const LIST_ID: u64 = 50;
 const FIRST_ROW_ID: u64 = 1000;
-const BACKGROUND: Color = Color { red: 0xdd, green: 0xdd, blue: 0xdd, alpha: 255 };
-const BAR: Color = Color { red: 0xee, green: 0xee, blue: 0xee, alpha: 255 };
+const BACKGROUND: Color = Color {
+    red: 0xdd,
+    green: 0xdd,
+    blue: 0xdd,
+    alpha: 255,
+};
+const BAR: Color = Color {
+    red: 0xee,
+    green: 0xee,
+    blue: 0xee,
+    alpha: 255,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Action { Back, Up, Home, Refresh, Open }
+enum Action {
+    Back,
+    Up,
+    Home,
+    Refresh,
+    Open,
+}
 
 impl Action {
     fn label(self) -> &'static str {
@@ -66,20 +82,26 @@ impl ScanWorker {
         let (tx, results) = mpsc::channel::<ScanResult>();
         let wake: Arc<Mutex<Option<Proxy>>> = Arc::new(Mutex::new(None));
         let worker_wake = wake.clone();
-        thread::Builder::new().name("files-read-dir".into()).spawn(move || {
-            while let Ok((seq, path)) = rx.recv() {
-                let result = model::read_directory(&path);
-                if tx.send((seq, path, result)).is_err() {
-                    break;
-                }
-                if let Ok(guard) = worker_wake.lock() {
-                    if let Some(proxy) = guard.as_ref() {
-                        proxy.wake();
+        thread::Builder::new()
+            .name("files-read-dir".into())
+            .spawn(move || {
+                while let Ok((seq, path)) = rx.recv() {
+                    let result = model::read_directory(&path);
+                    if tx.send((seq, path, result)).is_err() {
+                        break;
+                    }
+                    if let Ok(guard) = worker_wake.lock() {
+                        if let Some(proxy) = guard.as_ref() {
+                            proxy.wake();
+                        }
                     }
                 }
-            }
-        })?;
-        Ok(Self { requests, results, wake })
+            })?;
+        Ok(Self {
+            requests,
+            results,
+            wake,
+        })
     }
 
     fn set_proxy(&self, proxy: Proxy) {
@@ -107,7 +129,16 @@ pub struct FilesApp {
 impl FilesApp {
     fn new(path: PathBuf) -> io::Result<Self> {
         let mut toolbar = Vec::new();
-        for (idx, action) in [Action::Back, Action::Up, Action::Home, Action::Refresh, Action::Open].into_iter().enumerate() {
+        for (idx, action) in [
+            Action::Back,
+            Action::Up,
+            Action::Home,
+            Action::Refresh,
+            Action::Open,
+        ]
+        .into_iter()
+        .enumerate()
+        {
             toolbar.push(Toolbar {
                 action,
                 button: Button::new(10 + idx as u64, action.label(), ButtonPlateVariant::Regular)
@@ -149,7 +180,9 @@ impl FilesApp {
                 self.status = "Reading folder…".into();
             }
             Err(mpsc::TrySendError::Full(_)) => self.status = "Folder worker busy. Retry.".into(),
-            Err(mpsc::TrySendError::Disconnected(_)) => self.status = "Folder worker unavailable.".into(),
+            Err(mpsc::TrySendError::Disconnected(_)) => {
+                self.status = "Folder worker unavailable.".into()
+            }
         }
     }
 
@@ -165,11 +198,23 @@ impl FilesApp {
         self.pending = None;
         match listing {
             Ok(entries) => {
-                let rows = entries.iter().enumerate().map(|(index, entry)| ListItem {
-                    id: FIRST_ROW_ID + index as u64,
-                    title: format!("{}  {}", if entry.kind == Kind::Directory { "▸" } else { " " }, entry.display_name()),
-                    detail: entry.kind_label().into(),
-                }).collect();
+                let rows = entries
+                    .iter()
+                    .enumerate()
+                    .map(|(index, entry)| ListItem {
+                        id: FIRST_ROW_ID + index as u64,
+                        title: format!(
+                            "{}  {}",
+                            if entry.kind == Kind::Directory {
+                                "▸"
+                            } else {
+                                " "
+                            },
+                            entry.display_name()
+                        ),
+                        detail: entry.kind_label().into(),
+                    })
+                    .collect();
                 if let Err(error) = self.list.set_items(rows) {
                     self.status = format!("Cannot list folder: {error}");
                     return;
@@ -221,9 +266,15 @@ impl FilesApp {
 
     fn focus_next(&mut self, reverse: bool) {
         let len = self.toolbar.len() + 1;
-        let next = self.focused.map_or(if reverse { len - 1 } else { 0 }, |index| {
-            if reverse { (index + len - 1) % len } else { (index + 1) % len }
-        });
+        let next = self
+            .focused
+            .map_or(if reverse { len - 1 } else { 0 }, |index| {
+                if reverse {
+                    (index + len - 1) % len
+                } else {
+                    (index + 1) % len
+                }
+            });
         self.focus(next);
     }
 
@@ -240,15 +291,15 @@ impl FilesApp {
         match row.kind {
             Kind::Directory => self.request(target, Navigation::New),
             Kind::File => match resolve_program("xdg-open") {
-                Some(opener) => {
-                    match spawn_detached(&opener, [target.as_os_str()]) {
-                        Ok(_) => self.status = format!("Opening {}", target.display()),
-                        Err(error) => self.status = format!("Open failed: {error}"),
-                    }
-                }
+                Some(opener) => match spawn_detached(&opener, [target.as_os_str()]) {
+                    Ok(_) => self.status = format!("Opening {}", target.display()),
+                    Err(error) => self.status = format!("Open failed: {error}"),
+                },
                 None => self.status = "xdg-open is unavailable; file has not been opened.".into(),
             },
-            Kind::Symlink => self.status = "Symbolic links are not followed by this read-only viewer.".into(),
+            Kind::Symlink => {
+                self.status = "Symbolic links are not followed by this read-only viewer.".into()
+            }
             Kind::Other => self.status = "This file type cannot be opened.".into(),
         }
     }
@@ -288,13 +339,17 @@ fn list_area(width: u32, height: u32) -> Rect {
 }
 
 fn clipped(text: &str, font: &Font, max: u32) -> String {
-    if measure(text, font).width <= max as f32 { return text.to_owned(); }
+    if measure(text, font).width <= max as f32 {
+        return text.to_owned();
+    }
     let mut end = String::new();
     for c in text.chars().take(192) {
         let mut candidate = end.clone();
         candidate.push(c);
         candidate.push('…');
-        if measure(&candidate, font).width > max as f32 { break; }
+        if measure(&candidate, font).width > max as f32 {
+            break;
+        }
         end.push(c);
     }
     end.push('…');
@@ -317,11 +372,17 @@ impl App for FilesApp {
                     control.set_title(&format!("Files — {}", self.state.current.display()));
                 }
             }
-            Event::KeyPressed { key: Key::Tab, modifiers } => {
+            Event::KeyPressed {
+                key: Key::Tab,
+                modifiers,
+            } => {
                 self.focus_next(modifiers.shift);
                 control.request_redraw();
             }
-            Event::KeyPressed { key: Key::Backspace, modifiers } if !modifiers.alt && !modifiers.control => {
+            Event::KeyPressed {
+                key: Key::Backspace,
+                modifiers,
+            } if !modifiers.alt && !modifiers.control => {
                 self.apply_action(Action::Up);
                 control.request_redraw();
             }
@@ -384,21 +445,43 @@ impl App for FilesApp {
         let font = Font::system(13.0);
         let small = Font::system(12.0);
         let _ = surface.fill_rect(
-            Rect { x: 0, y: 0, width: self.width, height: TOOLBAR_HEIGHT as u32 },
+            Rect {
+                x: 0,
+                y: 0,
+                width: self.width,
+                height: TOOLBAR_HEIGHT as u32,
+            },
             BACKGROUND,
         );
         for item in &self.toolbar {
             let _ = item.button.paint(surface, &font);
         }
         let _ = surface.fill_rect(
-            Rect { x: 0, y: TOOLBAR_HEIGHT, width: self.width, height: 31 },
+            Rect {
+                x: 0,
+                y: TOOLBAR_HEIGHT,
+                width: self.width,
+                height: 31,
+            },
             BAR,
         );
-        let path = clipped(&self.state.current.display().to_string(), &small, self.width.saturating_sub(24));
+        let path = clipped(
+            &self.state.current.display().to_string(),
+            &small,
+            self.width.saturating_sub(24),
+        );
         let _ = surface.draw_text(&path, 12, TOOLBAR_HEIGHT + 7, &small, Color::BLACK);
         let _ = self.list.paint(surface, &font);
         let y = self.height.saturating_sub(FOOTER_HEIGHT) as i32;
-        let _ = surface.fill_rect(Rect { x: 0, y, width: self.width, height: FOOTER_HEIGHT }, BAR);
+        let _ = surface.fill_rect(
+            Rect {
+                x: 0,
+                y,
+                width: self.width,
+                height: FOOTER_HEIGHT,
+            },
+            BAR,
+        );
         let text = clipped(&self.status, &small, self.width.saturating_sub(24));
         let _ = surface.draw_text(&text, 12, y + 6, &small, Color::BLACK);
     }
@@ -425,13 +508,17 @@ impl App for FilesApp {
         nodes.insert(0, (NodeId(0), window));
         let focus = if let Some(focused) = self.focused {
             if focused == self.toolbar.len() {
-                self.list.selected().and_then(|index| self.state.row(index))
+                self.list
+                    .selected()
+                    .and_then(|index| self.state.row(index))
                     .map(|_| NodeId(FIRST_ROW_ID + self.list.selected().unwrap_or(0) as u64))
                     .unwrap_or(NodeId(LIST_ID))
             } else {
                 NodeId(self.toolbar[focused].button.id)
             }
-        } else { NodeId(0) };
+        } else {
+            NodeId(0)
+        };
         Some(TreeUpdate {
             nodes,
             tree: Some(TreeInfo::new(NodeId(0))),
@@ -448,9 +535,15 @@ fn main() {
     let mut args = std::env::args_os().skip(1);
     let first = args.next();
     let (snapshot, folder) = if first.as_deref() == Some(std::ffi::OsStr::new("--snapshot")) {
-        (args.next().map(PathBuf::from), args.next().map(PathBuf::from))
-    } else { (None, first.map(PathBuf::from)) };
-    let folder = folder.or_else(|| std::env::var_os("HOME").map(PathBuf::from))
+        (
+            args.next().map(PathBuf::from),
+            args.next().map(PathBuf::from),
+        )
+    } else {
+        (None, first.map(PathBuf::from))
+    };
+    let folder = folder
+        .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
         .unwrap_or_else(|| PathBuf::from("/"));
     let mut app = match FilesApp::new(folder) {
         Ok(app) => app,
@@ -461,7 +554,8 @@ fn main() {
     };
     if let Some(output) = snapshot {
         app.initial_snapshot();
-        let mut surface = RasterSurface::new(WIDTH, HEIGHT, platform::scale_from_environment()).expect("surface");
+        let mut surface =
+            RasterSurface::new(WIDTH, HEIGHT, platform::scale_from_environment()).expect("surface");
         app.paint(&mut surface);
         surface.save_png(&output).expect("snapshot");
         return;
@@ -469,7 +563,9 @@ fn main() {
     let wake = app.proxy_slot();
     let opts = WindowOptions::new("Files", "slopos-files", WIDTH, HEIGHT);
     if let Err(error) = platform::run(opts, app, move |proxy| {
-        if let Ok(mut guard) = wake.lock() { *guard = Some(proxy.clone()); }
+        if let Ok(mut guard) = wake.lock() {
+            *guard = Some(proxy.clone());
+        }
         proxy.wake();
     }) {
         eprintln!("slopos-files: {error}");
@@ -487,7 +583,7 @@ mod tests {
     fn initial_snapshot_renders_and_publishes_accessibility() {
         let mut app = FilesApp::new(std::env::temp_dir()).unwrap();
         app.initial_snapshot();
-        let surface = RasterSurface::new(WIDTH,HEIGHT,Scale::new(1).unwrap()).unwrap();
+        let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(1).unwrap()).unwrap();
         app.paint(&surface);
         assert!(surface.pixel(0, 0).is_some());
         let tree = app.accessibility().unwrap();
@@ -500,7 +596,13 @@ mod tests {
         app.initial_snapshot();
         assert!(app.status.contains("Cannot read folder"));
         let mut ctrl = Control::default();
-        app.event(&Event::KeyPressed { key: Key::Tab, modifiers: Modifiers::default() }, &mut ctrl);
+        app.event(
+            &Event::KeyPressed {
+                key: Key::Tab,
+                modifiers: Modifiers::default(),
+            },
+            &mut ctrl,
+        );
         assert_eq!(app.focused, Some(0));
     }
 
