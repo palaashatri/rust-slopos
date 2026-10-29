@@ -105,6 +105,9 @@ product inventory and the documents below as the dispatch instructions:
 
 - [docs/application-platform.md](docs/application-platform.md): canonical
   paths, shared service/control ownership, CPU/GPU and native-app waves.
+- [docs/historical-recovery-audit.md](docs/historical-recovery-audit.md):
+  audited branches, historical compositor, old toolkit/app reuse candidates
+  and explicit do-not-cherry-pick decisions.
 - [docs/swarm-execution.md](docs/swarm-execution.md): task IDs, dependency
   graph, exclusive path ownership, task packet template, coordinator
   handoff, QA gates, and ready-to-use kickoff instructions.
