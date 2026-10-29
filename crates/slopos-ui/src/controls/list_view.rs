@@ -265,9 +265,10 @@ impl ListView {
                 node.set_selected();
             }
             let id = NodeId(item.id);
-            root.push_child(id);
+            children.push(id);
             nodes.push((id, node));
         }
+        root.set_children(children);
         (root, nodes)
     }
 
