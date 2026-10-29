@@ -236,8 +236,9 @@ stored under `.work/p1/evidence/`. A proof for a GUI task might be:
 ~~~
 
 Additional kinds: `security` and `package`, as required per task.
-The controller checks source SHA, existence, paths, sizes and SHA-256
-digests; it **does not independently determine** whether a screenshot
+The controller checks source SHA, Git ancestry at release, existence,
+paths, sizes, real PNG signatures and SHA-256 digests; it **does not
+independently determine** whether a screenshot
 is aesthetically correct or a log demonstrates a complete user flow.
 The agent must actually inspect both. Never generate fake proof JSON
 just to advance a state. Upload/retain important QA images and logs
@@ -276,12 +277,18 @@ as short-lived CI artifacts or release attachments before cleaning.
 declared P1 tasks are INTEGRATED and have recorded proof.
 It is a ledger precondition, **not independent verification**.
 
-On a disposable Linux guest, an authorized coordinator then runs:
+On a disposable Linux guest, an authorized coordinator runs the
+**one-command fail-closed wrapper** (which calls the existing release QA):
 
 ~~~sh
-python3 scripts/p1_goal.py preflight
-bash scripts/run-release-qa.sh
+export SLOPOS_P1_GUEST=1    # only inside the disposable test VM
+bash scripts/verify-p1-release.sh
 ~~~
+
+It refuses dirty tracked source, missing task evidence, wrong OS, missing
+explicit guest opt-in and insufficient disk headroom before expensive tests.
+Do **not** set SLOPOS_P1_GUEST on a macOS/Windows controller or unisolated
+Linux host.
 
 The existing runner's green result is **objective gate evidence**, not
 a license to claim all P1 apps exist. The release candidate must also
