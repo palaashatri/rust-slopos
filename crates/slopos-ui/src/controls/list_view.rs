@@ -102,9 +102,11 @@ impl ListView {
 
     pub fn handle(&mut self, event: &Event) -> ListOutcome {
         match event {
-            Event::PointerPressed { x, y, button: PointerButton::Primary }
-                if self.bounds.contains(*x, *y) =>
-            {
+            Event::PointerPressed {
+                x,
+                y,
+                button: PointerButton::Primary,
+            } if self.bounds.contains(*x, *y) => {
                 self.focused = true;
                 let offset = (*y as i64 - self.bounds.y as i64) as usize / ROW_HEIGHT as usize;
                 let index = self.first_visible.saturating_add(offset);
@@ -123,9 +125,15 @@ impl ListView {
                 } else {
                     self.first_visible.saturating_sub((-delta) as usize)
                 };
-                if self.first_visible != old { ListOutcome::Changed } else { ListOutcome::Ignored }
+                if self.first_visible != old {
+                    ListOutcome::Changed
+                } else {
+                    ListOutcome::Ignored
+                }
             }
-            Event::KeyPressed { key, modifiers } if self.focused && !modifiers.alt && !modifiers.control && !modifiers.logo => {
+            Event::KeyPressed { key, modifiers }
+                if self.focused && !modifiers.alt && !modifiers.control && !modifiers.logo =>
+            {
                 let count = self.items.len();
                 if count == 0 {
                     return ListOutcome::Ignored;
@@ -134,16 +142,30 @@ impl ListView {
                 let current = old.unwrap_or(0);
                 let new_index = match key {
                     Key::Up => Some(current.saturating_sub(1)),
-                    Key::Down => Some(if old.is_none() { 0 } else { (current + 1).min(count - 1) }),
+                    Key::Down => Some(if old.is_none() {
+                        0
+                    } else {
+                        (current + 1).min(count - 1)
+                    }),
                     Key::Home => Some(0),
                     Key::End => Some(count - 1),
                     Key::PageUp => Some(current.saturating_sub(self.visible_capacity())),
-                    Key::PageDown => Some(current.saturating_add(self.visible_capacity()).min(count - 1)),
-                    Key::Enter | Key::Space => return old.map_or(ListOutcome::Ignored, ListOutcome::Activated),
+                    Key::PageDown => Some(
+                        current
+                            .saturating_add(self.visible_capacity())
+                            .min(count - 1),
+                    ),
+                    Key::Enter | Key::Space => {
+                        return old.map_or(ListOutcome::Ignored, ListOutcome::Activated)
+                    }
                     _ => None,
                 };
                 if let Some(index) = new_index {
-                    if self.select(Some(index)) { ListOutcome::Changed } else { ListOutcome::Ignored }
+                    if self.select(Some(index)) {
+                        ListOutcome::Changed
+                    } else {
+                        ListOutcome::Ignored
+                    }
                 } else {
                     ListOutcome::Ignored
                 }
@@ -156,26 +178,69 @@ impl ListView {
         let bounds = self.bounds;
         surface.fill_rect(bounds, Color::WHITE)?;
         surface.stroke_rect(bounds, Color::BLACK)?;
-        let end = self.items.len().min(self.first_visible.saturating_add(self.visible_capacity()));
+        let end = self
+            .items
+            .len()
+            .min(self.first_visible.saturating_add(self.visible_capacity()));
         for index in self.first_visible..end {
-            let y = i64::from(bounds.y) + (index - self.first_visible) as i64 * i64::from(ROW_HEIGHT);
-            if y > i64::from(i32::MAX) { break; }
+            let y =
+                i64::from(bounds.y) + (index - self.first_visible) as i64 * i64::from(ROW_HEIGHT);
+            if y > i64::from(i32::MAX) {
+                break;
+            }
             let y = y as i32;
-            let rect = Rect { x: bounds.x.saturating_add(1), y, width: bounds.width.saturating_sub(2), height: ROW_HEIGHT };
+            let rect = Rect {
+                x: bounds.x.saturating_add(1),
+                y,
+                width: bounds.width.saturating_sub(2),
+                height: ROW_HEIGHT,
+            };
             if self.selected == Some(index) {
-                surface.fill_rect(rect, if self.focused { Color {red: 0x32,green: 0x52,blue: 0x88,alpha: 255} }
-                    else { Color {red: 0xc3,green: 0xc3,blue: 0xc3,alpha:255} })?;
+                surface.fill_rect(
+                    rect,
+                    if self.focused {
+                        Color {
+                            red: 0x32,
+                            green: 0x52,
+                            blue: 0x88,
+                            alpha: 255,
+                        }
+                    } else {
+                        Color {
+                            red: 0xc3,
+                            green: 0xc3,
+                            blue: 0xc3,
+                            alpha: 255,
+                        }
+                    },
+                )?;
             }
             if bounds.width >= 24 {
-                let foreground = if self.selected == Some(index) && self.focused { Color::WHITE } else { Color::BLACK };
-                let text = fit_text(&self.items[index].title, font, bounds.width.saturating_sub(24) as f32);
-                surface.draw_text(&text, bounds.x.saturating_add(9), y.saturating_add(4), font, foreground)?;
+                let foreground = if self.selected == Some(index) && self.focused {
+                    Color::WHITE
+                } else {
+                    Color::BLACK
+                };
+                let text = fit_text(
+                    &self.items[index].title,
+                    font,
+                    bounds.width.saturating_sub(24) as f32,
+                );
+                surface.draw_text(
+                    &text,
+                    bounds.x.saturating_add(9),
+                    y.saturating_add(4),
+                    font,
+                    foreground,
+                )?;
             }
         }
         Ok(())
     }
 
-    pub fn accessibility_nodes(&self) -> (accesskit::Node, Vec<(accesskit::NodeId, accesskit::Node)>) {
+    pub fn accessibility_nodes(
+        &self,
+    ) -> (accesskit::Node, Vec<(accesskit::NodeId, accesskit::Node)>) {
         use accesskit::{Action, Node, NodeId, Role};
         let mut root = Node::new(Role::List);
         root.set_bounds(accesskit::Rect {
@@ -185,7 +250,10 @@ impl ListView {
             y1: f64::from(self.bounds.y) + f64::from(self.bounds.height),
         });
         let mut nodes = Vec::new();
-        let end = self.items.len().min(self.first_visible.saturating_add(self.visible_capacity()));
+        let end = self
+            .items
+            .len()
+            .min(self.first_visible.saturating_add(self.visible_capacity()));
         for index in self.first_visible..end {
             let item = &self.items[index];
             let mut node = Node::new(Role::ListItem);
@@ -205,7 +273,10 @@ impl ListView {
 
     /// Return the visible row for an accessibility child id, not a stale index.
     pub fn index_for_id(&self, id: u64) -> Option<usize> {
-        let end = self.items.len().min(self.first_visible.saturating_add(self.visible_capacity()));
+        let end = self
+            .items
+            .len()
+            .min(self.first_visible.saturating_add(self.visible_capacity()));
         (self.first_visible..end).find(|&index| self.items[index].id == id)
     }
 }
@@ -235,11 +306,22 @@ mod tests {
     use crate::foundation::geometry::Scale;
 
     fn bounds() -> Rect {
-        Rect { x: 10, y: 12, width: 260, height: 100 }
+        Rect {
+            x: 10,
+            y: 12,
+            width: 260,
+            height: 100,
+        }
     }
 
     fn data(count: usize) -> Vec<ListItem> {
-        (0..count).map(|n| ListItem { id: n as u64 + 1000, title: format!("Entry {n}"), detail: "File".into() }).collect()
+        (0..count)
+            .map(|n| ListItem {
+                id: n as u64 + 1000,
+                title: format!("Entry {n}"),
+                detail: "File".into(),
+            })
+            .collect()
     }
 
     #[test]
@@ -247,7 +329,10 @@ mod tests {
         let mut list = ListView::new(9, bounds());
         list.set_items(data(50)).unwrap();
         list.focused = true;
-        let key = |key| Event::KeyPressed { key, modifiers: Modifiers::default() };
+        let key = |key| Event::KeyPressed {
+            key,
+            modifiers: Modifiers::default(),
+        };
         assert_eq!(list.handle(&key(Key::Down)), ListOutcome::Changed);
         assert_eq!(list.selected(), Some(0));
         assert_eq!(list.handle(&key(Key::PageDown)), ListOutcome::Changed);
@@ -264,13 +349,39 @@ mod tests {
     fn pointer_scroll_and_bounds_are_clamped() {
         let mut list = ListView::new(9, bounds());
         list.set_items(data(30)).unwrap();
-        assert_eq!(list.handle(&Event::Scroll { dx:0, dy:i32::MAX }), ListOutcome::Changed);
+        assert_eq!(
+            list.handle(&Event::Scroll {
+                dx: 0,
+                dy: i32::MAX
+            }),
+            ListOutcome::Changed
+        );
         assert_eq!(list.first_visible(), 26);
-        assert_eq!(list.handle(&Event::Scroll { dx:0, dy:i32::MIN }), ListOutcome::Changed);
+        assert_eq!(
+            list.handle(&Event::Scroll {
+                dx: 0,
+                dy: i32::MIN
+            }),
+            ListOutcome::Changed
+        );
         assert_eq!(list.first_visible(), 0);
-        assert_eq!(list.handle(&Event::PointerPressed { x: 11,y: 40,button:PointerButton::Primary }),ListOutcome::Changed);
+        assert_eq!(
+            list.handle(&Event::PointerPressed {
+                x: 11,
+                y: 40,
+                button: PointerButton::Primary
+            }),
+            ListOutcome::Changed
+        );
         assert_eq!(list.selected(), Some(1));
-        assert_eq!(list.handle(&Event::PointerPressed { x: -1,y: 40,button:PointerButton::Primary }),ListOutcome::Ignored);
+        assert_eq!(
+            list.handle(&Event::PointerPressed {
+                x: -1,
+                y: 40,
+                button: PointerButton::Primary
+            }),
+            ListOutcome::Ignored
+        );
     }
 
     #[test]
@@ -282,13 +393,13 @@ mod tests {
 
     #[test]
     fn painting_and_accessibility_use_only_visible_rows() {
-        let mut list = ListView::new(9,bounds());
+        let mut list = ListView::new(9, bounds());
         list.set_items(data(128)).unwrap();
         list.select(Some(80));
-        let surface = RasterSurface::new(300,150,Scale::new(1).unwrap()).unwrap();
-        list.paint(&surface,&Font::system(13.0)).unwrap();
-        let (_,nodes) = list.accessibility_nodes();
-        assert_eq!(nodes.len(),4);
+        let surface = RasterSurface::new(300, 150, Scale::new(1).unwrap()).unwrap();
+        list.paint(&surface, &Font::system(13.0)).unwrap();
+        let (_, nodes) = list.accessibility_nodes();
+        assert_eq!(nodes.len(), 4);
         assert!(list.index_for_id(1080).is_some());
         assert!(list.index_for_id(1000).is_none());
     }
