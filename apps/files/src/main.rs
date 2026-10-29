@@ -16,7 +16,7 @@ use model::{DirectoryState, Entry, Kind, Navigation};
 use slopos_core::process::{resolve_program, spawn_detached};
 use slopos_ui::controls::button::{Button, ButtonOutcome};
 use slopos_ui::controls::list_view::{ListItem, ListOutcome, ListView};
-use slopos_ui::event::{AccessibilityRequest, Event, Key, PointerButton};
+use slopos_ui::event::{AccessibilityRequest, Event, Key};
 use slopos_ui::foundation::{color::Color, geometry::Rect};
 use slopos_ui::platform::{self, App, Control, Proxy, WindowOptions};
 use slopos_ui::primitives::button_plate::ButtonPlateVariant;
@@ -104,13 +104,6 @@ impl ScanWorker {
         })
     }
 
-    fn set_proxy(&self, proxy: Proxy) {
-        if let Ok(mut guard) = self.wake.lock() {
-            *guard = Some(proxy.clone());
-        }
-        // The initial read may have finished before the X11 pipe existed.
-        proxy.wake();
-    }
 }
 
 pub struct FilesApp {
