@@ -180,7 +180,11 @@ def disk_check(m: dict) -> list[str]:
     settings = m["settings"]
     base = SCRATCH if SCRATCH.exists() else ROOT
     usage = shutil.disk_usage(base)
-    target_bytes = bytes_under(SCRATCH / "target")
+    # Count both the preferred bounded target and legacy Cargo output
+    # so a forgetful agent cannot evade the limit by omitting an env var.
+    target_bytes = sum(bytes_under(p) for p in (
+        SCRATCH / "target", ROOT / "target", ROOT / "target-docker"
+    ))
     evidence_bytes = bytes_under(EVIDENCE)
     issues = []
     if usage.free < settings["min_free_gib"] * (1024 ** 3):
