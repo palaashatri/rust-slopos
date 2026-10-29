@@ -5,6 +5,7 @@
 //! and the user confirms launches before any process is started.
 
 use serde::Deserialize;
+use std::path::{Path, PathBuf};
 use slopos_core::desktop_entry::DesktopApp;
 
 pub const MAX_UTTERANCE_BYTES: usize = 2048;
@@ -17,6 +18,11 @@ pub fn disclosed_apps(apps: Vec<DesktopApp>) -> Vec<DesktopApp> {
     apps.into_iter()
         .take(MAX_VISIBLE_APPS)
         .filter(|app| {
+            // A lossy UTF-8 desktop-file stem can exceed the filesystem's
+            // byte limit; expose only IDs that the action broker can accept.
+            if app.id.is_empty() || app.id.len() > 256 || app.argv.is_empty() {
+                return false;
+            }
             let Ok(record) = serde_json::to_string(&(app.id.as_str(), app.name.as_str())) else {
                 return false;
             };
@@ -89,6 +95,30 @@ pub fn authorize<'a>(
                 .ok_or_else(|| "application not in the disclosed allowlist".to_string())?;
             Ok(Decision::ConfirmOpen(app))
         }
+    }
+}
+
+/// Convert a reviewed desktop entry into an executable and argument vector.
+/// Terminal applications never fall back to a headless launch if the selected
+/// terminal emulator is unavailable. This only uses trusted registry argv.
+pub fn launch_plan(
+    app: &DesktopApp,
+    terminal: Option<&Path>,
+) -> Result<(PathBuf, Vec<String>), String> {
+    let (program, args) = app
+        .argv
+        .split_first()
+        .ok_or_else(|| "application has no executable".to_string())?;
+    if app.terminal {
+        let terminal = terminal.ok_or_else(|| {
+            "no supported terminal emulator is installed (xfce4-terminal or xterm)".to_string()
+        })?;
+        let mut wrapped = Vec::with_capacity(app.argv.len() + 1);
+        wrapped.push("-e".to_string());
+        wrapped.extend(app.argv.iter().cloned());
+        Ok((terminal.to_path_buf(), wrapped))
+    } else {
+        Ok((PathBuf::from(program), args.to_vec()))
     }
 }
 
@@ -191,6 +221,35 @@ mod tests {
             app_id: "huge".into(),
         };
         assert!(authorize(proposed, &visible).is_err());
+    }
+
+    #[test]
+    fn disclosed_apps_reject_unlaunchable_or_oversized_ids() {
+        let too_long = app(&"é".repeat(130));
+        let mut missing_exec = app("no-exec");
+        missing_exec.argv.clear();
+        let visible = disclosed_apps(vec![
+            app(""), too_long, missing_exec, app("calc"),
+        ]);
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].id, "calc");
+    }
+
+    #[test]
+    fn terminal_apps_require_an_emulator_and_preserve_argv() {
+        let mut interactive = app("editor");
+        interactive.terminal = true;
+        interactive.argv = vec!["/usr/bin/vim".into(), "file name.txt".into()];
+        assert!(launch_plan(&interactive, None).is_err());
+        let (binary, args) = launch_plan(&interactive, Some(Path::new("/usr/bin/xterm")))
+            .unwrap();
+        assert_eq!(binary, PathBuf::from("/usr/bin/xterm"));
+        assert_eq!(args, vec!["-e", "/usr/bin/vim", "file name.txt"]);
+
+        interactive.terminal = false;
+        let (binary, args) = launch_plan(&interactive, None).unwrap();
+        assert_eq!(binary, PathBuf::from("/usr/bin/vim"));
+        assert_eq!(args, vec!["file name.txt"]);
     }
 
     #[test]
