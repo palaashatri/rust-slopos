@@ -103,7 +103,6 @@ impl ScanWorker {
             wake,
         })
     }
-
 }
 
 pub struct FilesApp {
