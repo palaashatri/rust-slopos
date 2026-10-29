@@ -48,6 +48,8 @@ It writes screenshots and logs to `artifacts/smoke/` and is safe to run on a des
 | What | Command |
 |---|---|
 | Calculator | `cargo run -p slopos-calculator` |
+| Image Viewer proof (PNG/SVG) | `cargo run -p slopos-image-viewer -- /path/to/sample.png` |
+| Image Viewer headless screenshot | `cargo run -p slopos-image-viewer -- --snapshot preview.png /path/to/sample.png` |
 | Calculator, headless PNG | `cargo run -p slopos-calculator -- --snapshot calc.png` |
 | Component gallery | `cargo run -p slopos-ui-gallery -- --component buttons --scale 2` |
 | Dock on the current display | `cargo run -p slopos-dock` |
@@ -97,3 +99,15 @@ The ISO, installed-VM, recovery and hardware-contract workflows run weekly and o
 | Target behaviour of a component or app | [CONTRACT.md](CONTRACT.md) → the area file |
 | Design rules and review checklist | [contract §5.2](contract/02-design.md) |
 | What was verified, when | [ledger](contract/ledger.md) |
+
+## P1 and recovered code
+
+Read [P1 X11 release milestones](p1-x11-release.md) before assigning new
+application work, and [the preservation manifest](branch-preservation.md)
+before importing historical source. The existing Design Bible is
+[contract/02-design.md §5.2](contract/02-design.md).
+
+The first native Image Viewer is only an integration-branch PNG/SVG proof
+and does not automatically install in DEB/Arch packages. All app packaging,
+file associations and real user-journey checks need their own release gates
+before the user-facing feature is reported as shipped.
