@@ -196,14 +196,29 @@ def safe_evidence_path(raw: str) -> Path:
     return p
 
 
-def check_evidence(path: Path, requirements: list[str]) -> dict:
-    if not path.is_file() or path.stat().st_size > 64 * 1024:
-        fail("evidence JSON must exist and be <=64 KiB")
-    data = read_json(path)
-    if not SHA.fullmatch(str(data.get("source_sha", ""))):
+def check_evidence(path: Path | dict, requirements: list[str], *, require_current: bool = True) -> dict:
+    if isinstance(path, Path):
+        if not path.is_file() or path.stat().st_size > 64 * 1024:
+            fail("evidence JSON must exist and be <=64 KiB")
+        data = read_json(path)
+    else:
+        data = path
+    if not isinstance(data, dict) or not SHA.fullmatch(str(data.get("source_sha", ""))):
         fail("evidence needs an exact 40-character Git SHA")
-    if data["source_sha"] != current_sha():
-        fail("evidence SHA does not match the checkout HEAD; retest the exact code")
+    if require_current:
+        if data["source_sha"] != current_sha():
+            fail("evidence SHA does not match checkout HEAD; retest exact code")
+    else:
+        # A task proof must point to code still reachable from the final
+        # checkout. Merely storing a 40-digit fake commit does not suffice.
+        try:
+            subprocess.run(
+                ["git", "merge-base", "--is-ancestor", data["source_sha"], "HEAD"],
+                cwd=ROOT, check=True, timeout=10,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        except (OSError, subprocess.SubprocessError):
+            fail("evidence source SHA is not an ancestor of HEAD")
     checks = data.get("checks")
     if not isinstance(checks, list):
         fail("evidence needs checks list")
@@ -329,8 +344,9 @@ def main() -> int:
         for t in m["tasks"]:
             record = state["tasks"][t["id"]]
             proof = record.get("evidence")
-            if not proof or set(t["proof"]) - {c["kind"] for c in proof["checks"]}:
+            if not proof:
                 fail("missing evidence in " + t["id"])
+            check_evidence(proof, t["proof"], require_current=False)
         print("Task ledger complete. NOT a release verdict: now run the Linux VM release runner")
         print("  bash scripts/run-release-qa.sh")
         print("and independently review its screenshots, package output and hardware NOT_RUN items.")
