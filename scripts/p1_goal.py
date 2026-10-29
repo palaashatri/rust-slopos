@@ -163,7 +163,16 @@ def bytes_under(folder: Path) -> int:
     return size
 
 
+def ensure_scratch_safe() -> None:
+    # Even a deliberately supplied symlink must never redirect cleanup,
+    # evidence checks or target-size accounting into user/host storage.
+    root = ROOT.resolve()
+    if SCRATCH.is_symlink() or SCRATCH.parent.is_symlink() or not SCRATCH.resolve().is_relative_to(root):
+        fail(".work/p1 must be a real in-repository directory, never a symlink")
+
+
 def disk_check(m: dict) -> list[str]:
+    ensure_scratch_safe()
     settings = m["settings"]
     base = SCRATCH if SCRATCH.exists() else ROOT
     usage = shutil.disk_usage(base)
@@ -185,9 +194,13 @@ def disk_check(m: dict) -> list[str]:
 
 
 def safe_evidence_path(raw: str) -> Path:
+    ensure_scratch_safe()
     if not isinstance(raw, str) or not raw:
         fail("evidence artifact path is missing")
-    p = (ROOT / raw).resolve()
+    raw_path = ROOT / raw
+    if raw_path.is_symlink():
+        fail("evidence artifact cannot be a symbolic link")
+    p = raw_path.resolve()
     root = EVIDENCE.resolve()
     if not p.is_relative_to(root) or not p.is_file() or p.is_symlink():
         fail("artifact must be an existing regular file under .work/p1/evidence")
@@ -352,6 +365,7 @@ def main() -> int:
         print("and independently review its screenshots, package output and hardware NOT_RUN items.")
         return 0
     if args.command == "cleanup":
+        ensure_scratch_safe()
         target = SCRATCH / args.area
         if target.is_symlink() or not target.resolve().is_relative_to(SCRATCH.resolve()):
             fail("unsafe cleanup path")
