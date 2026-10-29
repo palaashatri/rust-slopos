@@ -133,7 +133,7 @@ policy. Default *pre-build* stop limits:
 | Retained `.work/p1/evidence` | **512 MiB** | Compress small logs, keep a representative set |
 | Single evidence artifact | **80 MiB** | Downsample/trim; keep capture metadata |
 | Simultaneous Cargo builds | **1** | Coordinator assigns a single build permit |
-| Parallel coding workers | **2** (+ one coordinator) | One exact owner per path |
+| Parallel coding workers | **1** (+ one coordinator) | One exact owner per path |
 | Worktrees | **2** | Reuse or retire after preserving commits |
 | Shared X11 session/VM runtime lease | **1** | No competing global hotkeys/session D-Bus |
 | Disposable artifacts | **7 days** | Review manually before scoped cleanup |
@@ -261,7 +261,7 @@ as short-lived CI artifacts or release attachments before cleaning.
   work. Do not replan or redo completed work."**
 - Reconcile dirty status, active worker branches and current SHA before
   continuing; don't blindly reset or delete other work.
-- The coordinator may delegate **no more than two** independent leaf
+- The coordinator may delegate **no more than one** independent leaf
   tasks if the harness supports it; it must not recursively spawn a
   swarm, exceed build permits or overlap paths.
 - If tools cannot run a Linux VM, the agent may complete model and
