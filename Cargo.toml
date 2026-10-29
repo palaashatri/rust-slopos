@@ -12,6 +12,7 @@ members = [
     "crates/slopos-settings",
     "crates/slopos-dock",
     "apps/calculator",
+    "apps/image-viewer",
 ]
 
 [workspace.dependencies]
