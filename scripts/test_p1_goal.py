@@ -66,7 +66,8 @@ class GoalContractTests(unittest.TestCase):
             }
             path = root / "proof.json"
             path.write_text(json.dumps(sample), encoding="utf-8")
-            with patch.object(p1, "ROOT", root), patch.object(p1, "EVIDENCE", evidence), \
+            with patch.object(p1, "ROOT", root), patch.object(p1, "SCRATCH", root / ".work/p1"), \
+                 patch.object(p1, "EVIDENCE", evidence), \
                  patch.object(p1, "current_sha", return_value="a" * 40):
                 self.assertEqual(p1.check_evidence(path, ["unit"])["source_sha"], "a" * 40)
                 with self.assertRaisesRegex(ValueError, "required proof missing"):
@@ -82,9 +83,21 @@ class GoalContractTests(unittest.TestCase):
             evidence.mkdir(parents=True)
             private = root / "secret.txt"
             private.write_text("secret", encoding="utf-8")
-            with patch.object(p1, "ROOT", root), patch.object(p1, "EVIDENCE", evidence):
+            with patch.object(p1, "ROOT", root), patch.object(p1, "SCRATCH", root / ".work/p1"), \
+                 patch.object(p1, "EVIDENCE", evidence):
                 with self.assertRaisesRegex(ValueError, "under .work/p1/evidence"):
                     p1.safe_evidence_path("secret.txt")
+
+    def test_symlinked_scratch_directory_cannot_target_external_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            external = Path(temp) / "personal-data"
+            root.mkdir()
+            external.mkdir()
+            (root / ".work").symlink_to(external, target_is_directory=True)
+            with patch.object(p1, "ROOT", root), patch.object(p1, "SCRATCH", root / ".work/p1"):
+                with self.assertRaisesRegex(ValueError, "never a symlink"):
+                    p1.ensure_scratch_safe()
 
     def test_progress_survives_reload_and_does_not_drop_other_tasks(self):
         with tempfile.TemporaryDirectory() as temp:
