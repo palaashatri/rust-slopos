@@ -10,8 +10,8 @@ If the owner supplies a high-level "deliver SLOPOS X11" goal, the
 authoritative first read is [GOAL.md](../../GOAL.md), followed by
 [docs/autonomous-execution.md](../autonomous-execution.md).
 The coordinator can select dependency-ready P1 tasks through
-`scripts/p1_goal.py`, with a hard maximum of two non-overlapping
-workers in addition to itself; workers may not recursively spawn.
+`scripts/p1_goal.py`, with a hard maximum of one non-overlapping
+worker in addition to itself; workers may not recursively spawn.
 The task controller cannot substitute for actual VM, screenshot,
 accessibility, build, security or packaging QA. Maintain source/test
 evidence and respect the artifact/disk limits throughout.
