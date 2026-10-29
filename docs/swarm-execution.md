@@ -3,7 +3,8 @@
 **Operational plan, not a record of implementation.**
 Read [AGENTS.md](../AGENTS.md), [architecture.md](architecture.md),
 [ui-toolkit-program.md](ui-toolkit-program.md),
-[application-platform.md](application-platform.md), and the existing
+[application-platform.md](application-platform.md),
+[historical-recovery-audit.md](historical-recovery-audit.md), and the existing
 [contract §0](contract/00-agent-workflow.md) **in full** before dispatch.
 The existing engineering contract governs VM safety, evidence, release
 requirements, tests and file ownership; this document extends its §21
@@ -47,6 +48,17 @@ SHA, build concurrency and runtime-test isolation. Even with unlimited AI
 tokens, number of build permits is constrained by actual RAM/disk and VM
 isolation. Begin with one integrator plus two or three implementers; increase
 only after demonstrated lack of collisions.
+
+## Historical code reuse gate
+
+Before starting a new widget, native-app backend, GPU renderer, or
+compositor research task, consult [the historical recovery audit](historical-recovery-audit.md)
+for already-written algorithms, tests and known hazards. The coordinator
+may schedule RECOVER-01 through RECOVER-07 alongside the listed tasks,
+with separate exact-path ownership. Recover isolated invariant tests or
+policy algorithms from a pinned historical SHA rather than merging old
+branches. No former Wayland/Smithay code is authorized to replace X11,
+and historical README/QA scores are not current pass evidence.
 
 ## Dependency-ready backlog
 
