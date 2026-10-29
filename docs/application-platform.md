@@ -68,7 +68,7 @@ Settings and Software donors remain functional until replacements pass QA.
 | Files | `apps/files` | Open/navigation/back/up/select/file-open and failure handling | Virtual list, icon grid, menu, MIME, filesystem |
 | Control Panels | `apps/control-panels` | Live Network and Sound state, supported mutations with readback | Text entry, form, status, typed service |
 | Software | `apps/software` | Trusted catalog/detail/verified install/cancel/remove | Cards, progress, job lifecycle, permission prompts |
-| Image Viewer | `apps/image-viewer` | Open/fit/zoom/pan/next-previous, bounded thumbnail cache | Scalable image surface, transform, color |
+| Image Viewer | `apps/image-viewer` (PNG/SVG proof on integration PR) | Open/fit/1:1/zoom works for command-line PNG/SVG; JPEG/chooser/pan/navigation/decoded-budget/packaging remain P1 | Scalable image surface, transform, color |
 | Media (video/audio) | `apps/media` | Open/play/pause/seek/volume/subtitles with real decoder errors | Video surface, clock sync, overlays |
 | File dialogs | Future `slopos-appkit` | Open/save/overwrite/cancel usable by any app | Focus, modal state, filesystem model |
 | Wi-Fi/Bluetooth/clock popovers | Shell components | Live snapshot, accessible panel, supported actions only | Popover, layout, provider, locale |
