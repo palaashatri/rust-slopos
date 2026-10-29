@@ -107,7 +107,7 @@ application work, and [the preservation manifest](branch-preservation.md)
 before importing historical source. The existing Design Bible is
 [contract/02-design.md §5.2](contract/02-design.md).
 
-The first native Image Viewer is only an integration-branch PNG/SVG proof
-and does not automatically install in DEB/Arch packages. All app packaging,
-file associations and real user-journey checks need their own release gates
-before the user-facing feature is reported as shipped.
+The first native Image Viewer remains a PNG/SVG proof. This branch also
+adds its freedesktop launcher, MIME association and package/install script
+entries, but real file-opening/packaging QA and additional image codecs
+must pass before it is reported as a shipped photo viewer.
