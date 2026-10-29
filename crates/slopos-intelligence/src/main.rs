@@ -120,8 +120,7 @@ fn run() -> Result<(), String> {
                 None
             };
             let (program, arguments) = launch_plan(app, terminal.as_deref())?;
-            spawn_detached(&program, &arguments)
-                .map_err(|e| format!("launch failed: {e}"))?;
+            spawn_detached(&program, &arguments).map_err(|e| format!("launch failed: {e}"))?;
             println!("Launch requested.");
         }
     }
