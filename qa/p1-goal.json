@@ -9,7 +9,7 @@
     "docs/contract/00-agent-workflow.md"
   ],
   "settings": {
-    "max_agents": 3,
+    "max_agents": 2,
     "max_parallel_cargo_builds": 1,
     "max_shared_x11_sessions": 1,
     "min_free_gib": 8,
