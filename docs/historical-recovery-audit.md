@@ -12,7 +12,7 @@ See [architecture.md](architecture.md) for what actually exists on main,
 [swarm-execution.md](swarm-execution.md) for agent dispatch, and the original
 [contract §0](contract/00-agent-workflow.md) for VM execution constraints.
 
-## Branch inventory (all 16 branch refs seen)
+## Branch inventory (16 pre-archive branch refs seen)
 
 | Branch | Relationship to main | Audit outcome |
 |---|---|---|
@@ -32,6 +32,11 @@ See [architecture.md](architecture.md) for what actually exists on main,
 | `agent/pr22-checklist-lockfile` | 0 ahead | Already ancestor of main (PR #27 integrated) |
 | `agent/pr22-rereview-fixes` | 0 ahead | Already ancestor of main (PR #28 integrated) |
 | `claude/rewrite-agents-md` | 0 ahead | Already ancestor of main (PR #16 merged) |
+
+Five redundant archive branch refs were subsequently created and pinned;
+see [branch-preservation.md](branch-preservation.md). These add references,
+not code changes, to the repository. The original 16-branch table is
+kept as the dated audit snapshot.
 
 The nine zero-ahead branches have **no unique commits to cherry-pick**.
 Do not delete them on the basis of this audit alone. The old PR #22
