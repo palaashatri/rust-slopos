@@ -4,6 +4,18 @@
 
 This file is deliberately comprehensive. A harness may supply only its beginning. Every coordinator reads the whole file; every worker explicitly reads this section, §§20–21, §§28–30, its assigned component sections and Part II before changing code. Do not assume an automatically injected excerpt contains the entire contract.
 
+## 0.0 One-shot P1 execution entry
+
+If the owner supplies a high-level "deliver SLOPOS X11" goal, the
+authoritative first read is [GOAL.md](../../GOAL.md), followed by
+[docs/autonomous-execution.md](../autonomous-execution.md).
+The coordinator can select dependency-ready P1 tasks through
+`scripts/p1_goal.py`, with a hard maximum of two non-overlapping
+workers in addition to itself; workers may not recursively spawn.
+The task controller cannot substitute for actual VM, screenshot,
+accessibility, build, security or packaging QA. Maintain source/test
+evidence and respect the artifact/disk limits throughout.
+
 ## 0.1 Decisions to preserve
 
 | Decision | Current instruction |
