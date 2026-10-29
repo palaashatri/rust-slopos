@@ -56,3 +56,37 @@ For a quicker loop on one crate, use `cargo test -p <crate>`.
 - Work on a branch and open a PR to `main`. Don't push to `main` unless the owner says so.
 - Keep commits small, with messages that say what changed and why.
 - In the PR, list what you ran and what you couldn't run.
+
+## Shared UI toolkit development (owner-directed)
+
+SLOPOS is the **first host and compatibility reference**, not the only
+permitted consumer. The toolkit must ultimately serve external MIT-licensed
+Rust applications without requiring a SLOPOS session, X11 or a Linux desktop.
+
+1. Keep scene descriptions, animation sampling, layout state and design tokens
+   independent of X11, Openbox, GTK, D-Bus, GPU device handles and global state.
+   The existing `slopos-ui::platform` module is a host adapter, never a
+   dependency of portable toolkit foundations.
+2. Maintain the current `RasterSurface` software path as the pixel-exact
+   reference for Classic themes. Introduce GPU/Vello/wgpu backends only behind
+   optional features after screenshot, geometry, alpha, text and clipping
+   parity tests exist. Do not change the existing Calculator/Dock output
+   merely to add an abstraction.
+3. Keep renderers event driven. No animation frame timer when nothing is
+   moving. Motion must respect reduced-motion preferences; effect complexity,
+   caches and draw-list sizes must be bounded for the 512 MB Pi Zero 2 W goal.
+4. Cross-platform public APIs must use toolkit-owned types rather than
+   platform SDK types. Provide native host adapters and isolate any FFI.
+5. Every control needs keyboard navigation, focus behavior, pointer
+   interactions, accessibility semantics and corresponding headless tests.
+   Every renderer needs reference pixels, malformed geometry and scale tests.
+6. First-party toolkit source is MIT. Record actual transitive dependency,
+   font, icon, shader and model licenses before reuse; an MIT crate must not
+   imply all distributed components are MIT.
+7. Incubate the foundation within `crates/slopos-ui` while APIs are unstable.
+   Keep portable modules independently extractable; propose a standalone
+   toolkit repository with its own semantic versioning when at least two
+   non-SLOPOS apps have adopted it and API/renderer parity gates are met.
+   Do not move source or rewrite existing apps in this foundation PR.
+8. Keep `docs/architecture.md` factual and use
+   [docs/ui-toolkit-program.md](docs/ui-toolkit-program.md) for the roadmap.
