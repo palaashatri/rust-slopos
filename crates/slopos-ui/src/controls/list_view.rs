@@ -250,6 +250,7 @@ impl ListView {
             y1: f64::from(self.bounds.y) + f64::from(self.bounds.height),
         });
         let mut nodes = Vec::new();
+        let mut children = Vec::new();
         let end = self
             .items
             .len()
