@@ -83,10 +83,53 @@ Rust applications without requiring a SLOPOS session, X11 or a Linux desktop.
 6. First-party toolkit source is MIT. Record actual transitive dependency,
    font, icon, shader and model licenses before reuse; an MIT crate must not
    imply all distributed components are MIT.
-7. Incubate the foundation within `crates/slopos-ui` while APIs are unstable.
-   Keep portable modules independently extractable; propose a standalone
-   toolkit repository with its own semantic versioning when at least two
-   non-SLOPOS apps have adopted it and API/renderer parity gates are met.
-   Do not move source or rewrite existing apps in this foundation PR.
-8. Keep `docs/architecture.md` factual and use
-   [docs/ui-toolkit-program.md](docs/ui-toolkit-program.md) for the roadmap.
+7. **Keep the toolkit and native applications in the SLOPOS monorepo** as
+   the default long-term home. Preserve a standalone, independently usable
+   public Rust crate API: no shell, X11 or SLOPOS session requirements for
+   general-purpose apps. Extracting a repository is optional, requires
+   explicit owner approval, and is NOT a milestone or automatic action.
+   Do not move existing apps or replace the compositor in this foundation PR.
+8. Keep `docs/architecture.md` factual; use
+   [docs/ui-toolkit-program.md](docs/ui-toolkit-program.md) for rendering
+   and toolkit milestones, [docs/application-platform.md](docs/application-platform.md)
+   for app/surface ownership and vertical slices, and
+   [docs/swarm-execution.md](docs/swarm-execution.md) for agent packets,
+   dependencies, write leases and merge gates.
+
+## Parallel SLOPOS native-application development (owner-directed)
+
+The toolkit, desktop shell and applications form **one SLOPOS platform**,
+implemented as *small, dependency-ready vertical slices* rather than as
+twelve simultaneous full rewrites. Treat contract §§15–18 as the complete
+product inventory and the documents below as the dispatch instructions:
+
+- [docs/application-platform.md](docs/application-platform.md): canonical
+  paths, shared service/control ownership, CPU/GPU and native-app waves.
+- [docs/swarm-execution.md](docs/swarm-execution.md): task IDs, dependency
+  graph, exclusive path ownership, task packet template, coordinator
+  handoff, QA gates, and ready-to-use kickoff instructions.
+- [docs/contract/00-agent-workflow.md](docs/contract/00-agent-workflow.md):
+  authoritative Linux VM execution, resource/runtime leases, build
+  concurrency and evidence format.
+
+**Coordinator rule:** one integrator alone edits shared UI public APIs,
+workspace manifests, module registries, central design tokens, packages,
+CI and policy docs, unless it explicitly grants exclusive ownership.
+Assign each worker distinct source/test paths and an immutable base SHA.
+Allow model/provider/test work in parallel while required UI controls are
+integrated; never let an app invent private versions of missing controls.
+Agents do not autonomously spawn a swarm or push directly to main.
+
+**First target slices:** Files navigation; Image Viewer opening/zoom;
+Control Panels live Network/Sound; Software trusted catalog/transaction;
+Media decoder state/playback; Wi-Fi/Bluetooth/clock popovers and volume/
+brightness OSD. The already working Calculator and Dock are protected
+regressions. Path names follow contract §16–17 (e.g. `apps/image-viewer`,
+`apps/media`, `apps/control-panels`); do not invent duplicate app trees.
+
+**Merger acceptance:** real keyboard/pointer interactions, accessible
+focus/semantics, app failure/cancel behavior, truthful provider state,
+bounded CPU/memory, license/provenance audit, and VM session/package
+tests when the change touches the desktop. Missing real hardware must
+be marked NOT_RUN, never PASS. The app suite roadmap is NOT a claim that
+all these applications, renderer paths or non-Linux hosts already exist.
