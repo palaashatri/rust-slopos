@@ -1,5 +1,14 @@
 # P1 release program — ship SLOPOS X11
 
+**Autonomous agent entry point:** [GOAL.md](../GOAL.md).
+The validated machine-readable work graph is
+[qa/p1-goal.json](../qa/p1-goal.json) and the durable checkpoint ledger is
+[qa/p1-progress.json](../qa/p1-progress.json). See
+[autonomous execution](autonomous-execution.md) for Mac/Windows
+controller + Linux guest, evidence, review and disk-budget rules.
+The presence of a task or screenshot does not establish P1 readiness.
+
+
 **Scope:** SLOPOS-I Linux/X11/Openbox, custom MIT first-party UI toolkit,
 practical lightweight daily-use applications and shell features.
 
