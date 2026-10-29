@@ -23,7 +23,7 @@ these useful native SLOPOS toolkit apps:
    explicit overwrite/permission error paths and no data loss.
 3. **Image Viewer** — PNG, JPEG and common image formats, fit/zoom/pan,
    navigation, thumbnails or lightweight directory handoff, orientation
-   and reliable color. The initial PNG/SVG-only app in this PR is a
+   and reliable color. The initial PNG/SVG-only app and package entries in this PR are a
    **proof slice, not P1 completion**.
 4. **Media** — video and audio playback with pause/seek/volume, subtitles,
    reliable codec discovery, and video synchronization; report missing
@@ -64,7 +64,7 @@ Only each dependent native widget/screen waits for its shared control.
 | Application | Current status at this planning revision | First shippable gate |
 |---|---|---|
 | Calculator | Existing functional Rust toolkit app | Regression smoke and packaging |
-| Image Viewer | Initial PNG/SVG-only app added to integration PR, CI outcome pending | JPEG and typical formats, limits, open/navigation, packaged binary |
+| Image Viewer | PNG/SVG proof app plus desktop/package entries added to integration PR; end-to-end QA pending | JPEG and typical formats, limits, open/navigation, packaged binary |
 | Files | Planned; PCManFM donor | Native navigation + tested nondestructive file ops |
 | Media | Planned | Real playback/decode, subtitle/timing, errors and platform codec licensing |
 | Control Panels | Legacy GTK settings | Real native panels for core providers |
