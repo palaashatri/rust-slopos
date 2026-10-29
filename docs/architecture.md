@@ -46,6 +46,8 @@ apps launched from the shell or Dock: detached (setsid), reaped, not supervised
 |---|---|
 | `foundation`, `layout` | Integer geometry (`Rect`, `Scale`), colours, insets and layout helpers. |
 | `render` | `RasterSurface`: a tiny-skia pixmap at an integer scale, with rect fill/stroke, image and text drawing, and PNG output. All coordinates are logical pixels. |
+| `scene`, `scene_raster` | Early renderer-neutral, bounded command recording (clear, fill/stroke rectangles) and a software adapter that replays into the existing `RasterSurface`. No GPU renderer or full UI scene graph yet. |
+| `animation` | Pure, deterministic timeline sampling (linear/cubic easings and reduced-motion completion). The caller remains responsible for event-based frame scheduling. |
 | `text` | `Font` and `measure`. cosmic-text shaping, preferring Liberation Sans or DejaVu Sans. |
 | `image` | `Image`: PNG decoding and SVG rasterisation (resvg, with system fonts for SVG text), plus bilinear scaling. |
 | `icons` | `IconLookup`: freedesktop icon-theme lookup with `Inherits`, size matching, `hicolor` and `/usr/share/pixmaps`. Default theme `SLOPOS-Platinum`, overridden by `SLOPOS_ICON_THEME`. |
@@ -56,7 +58,7 @@ apps launched from the shell or Dock: detached (setsid), reaped, not supervised
 
 An app implements `App::event`, `App::paint` and, optionally, `App::accessibility`, then calls `platform::run`. The Calculator (`apps/calculator/src/main.rs`) is the reference example.
 
-Not built yet: text fields, menus and popups, lists, scroll views, dialogs, `slopos-appkit`, and theme datasets beyond the provisional Platinum colours.
+Not built yet: text fields, menus and popups, lists, scroll views, dialogs, `slopos-appkit`, GPU/Vello/wgpu rendering, an advanced composited scene graph, and theme datasets beyond the provisional Platinum colours. See [the shared UI program](ui-toolkit-program.md) for planned cross-platform extraction gates.
 
 ## The Dock (`crates/slopos-dock`)
 
