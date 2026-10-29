@@ -12,6 +12,17 @@ backlog with coordinated UI + application work, not a parallel authority.
 Read [contract §§14–18](contract/05-shell.md) for shell work and
 [contract/06-applications.md](contract/06-applications.md) for app scope.
 
+## P1 execution priority and preserved code
+
+[P1 release program](p1-x11-release.md) is the product priority order:
+X11/Openbox + custom UI + basic apps and status surfaces ship before
+optional GPU/compositor/other-repository work. Historical source is backed
+by redundant archived refs in [branch-preservation.md](branch-preservation.md);
+keep archive refs intact and adapt only relevant reviewed algorithms/tests.
+Use the existing Design Bible in [contract/02-design.md](contract/02-design.md)
+§5.2, not a duplicate. The Image Viewer in this integration PR is an
+unpackaged PNG/SVG proof, not the completed P1 feature.
+
 ## Non-negotiable decisions
 
 - One SLOPOS monorepo contains shared MIT first-party UI, services, shell
