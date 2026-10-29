@@ -17,13 +17,18 @@ cargo run --locked -p slopos-intelligence -- "Open the calculator"
 ```
 
 The model must be running on `127.0.0.1:11434`; the client is hardwired to
-loopback and has a 30-second timeout. A proposed application launch requires
-typing `yes` on the terminal. There is no autonomous shell execution.
+loopback with HTTP redirects and proxy use disabled, a 30-second timeout,
+and a strict 1 MiB maximum response body. A proposed launch requires typing
+`yes` on an interactive terminal (both stdin and stdout must be TTYs); piping
+`yes` to the command does not authorize execution. There is no autonomous
+shell execution.
 
 ## Implemented threat boundary
 
 1. Application metadata comes from SLOPOS's existing freedesktop application
-   scanner, truncated to the first 80 entries/8 KiB of labels; the request is
+   scanner, truncated to the first 80 scanned entries/8 KiB of labels; entries
+   without an executable or with empty/overlong identifiers are excluded from
+   the model's app list and the authorization set. The request is
    bounded to 2 KiB. No emails, contacts, browser history, documents, or
    screenshots are read or sent to inference.
 2. The model returns strict JSON: `list_apps`, `open_app {app_id}`, or
@@ -34,8 +39,12 @@ typing `yes` on the terminal. There is no autonomous shell execution.
    Each launch requires explicit interactive confirmation; a denied or
    invalid action has no side effects.
 4. The launcher invokes an installed desktop entry without a shell, using
-   the existing SLOPOS process helper. A malicious installed desktop entry is
-   still a local system trust issue; this is not a sandbox.
+   the existing SLOPOS process helper. Entries declaring `Terminal=true` are
+   launched via `xfce4-terminal -e` or `xterm -e` (whichever is installed),
+   and rejected if neither terminal is available. App IDs and names are
+   escaped before printing to prevent terminal escape-sequence injection.
+   A malicious installed desktop entry is still a local system trust issue;
+   this is not a sandbox.
 5. Stdio is the only interface for this preview. There is no background
    microphone, conversation memory, telemetry, or remote service.
 
