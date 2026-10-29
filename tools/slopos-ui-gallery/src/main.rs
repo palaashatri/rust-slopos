@@ -10,6 +10,8 @@ use slopos_ui::primitives::button_plate::{
     paint_button_plate, ButtonPlateState, ButtonPlateVariant,
 };
 use slopos_ui::render::RasterSurface;
+use slopos_ui::scene::{Command, Scene};
+use slopos_ui::scene_raster::replay_to_raster;
 use slopos_ui::text::Font;
 
 const USAGE: &str = "usage: slopos-ui-gallery [--component surface|button-plate|buttons] [--scale INTEGER] [--snapshot FILE]";
@@ -202,15 +204,19 @@ fn paint_fixture(
 ) -> Result<(), Box<dyn std::error::Error>> {
     surface.clear(Color::WHITE)?;
     match gallery.fixture {
-        GalleryFixture::Surface => surface.fill_rect(
-            Rect {
-                x: 20,
-                y: 20,
-                width: 80,
-                height: 20,
-            },
-            Color::BLACK,
-        )?,
+        GalleryFixture::Surface => {
+            let mut scene = Scene::new(1);
+            scene.push(Command::FillRect {
+                rect: Rect {
+                    x: 20,
+                    y: 20,
+                    width: 80,
+                    height: 20,
+                },
+                color: Color::BLACK,
+            })?;
+            replay_to_raster(&scene, surface)?;
+        }
         GalleryFixture::ButtonPlate => {
             // Rows: Regular, Default, Secondary. Columns: Rest, Pressed, Disabled.
             let variants = [
