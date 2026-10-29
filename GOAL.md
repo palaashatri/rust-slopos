@@ -30,7 +30,8 @@ under archive refs; selectively adapt only audited source/tests.
    in that Linux guest. The host is the IDE/controller only. Respect the
    existing VM contract and never install packages system-wide on the
    host without approval.
-4. Have **one coordinator** claim the highest-priority ready task using
+4. Have **one coordinator** resume any CLAIMED/IMPLEMENTED/VERIFIED task
+   shown by `next`, otherwise claim the highest-priority ready task using
    `scripts/p1_goal.py claim TASK-ID`. Deliver its acceptance criterion.
    Subagents (if available) get exclusive files and immutable base SHA;
    use at most two implementers in addition to the coordinator. If the
