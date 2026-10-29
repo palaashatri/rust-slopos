@@ -105,11 +105,22 @@ mod tests {
     #[test]
     fn replay_preserves_painter_order() {
         let mut scene = Scene::new(3);
-        let rect = Rect { x: -1, y: 2, width: 8, height: 9 };
+        let rect = Rect {
+            x: -1,
+            y: 2,
+            width: 8,
+            height: 9,
+        };
         let expected = [
             Command::Clear(Color::WHITE),
-            Command::FillRect { rect, color: Color::BLACK },
-            Command::StrokeRect { rect, color: Color::WHITE },
+            Command::FillRect {
+                rect,
+                color: Color::BLACK,
+            },
+            Command::StrokeRect {
+                rect,
+                color: Color::WHITE,
+            },
         ];
         for command in expected {
             scene.push(command).unwrap();
