@@ -1,24 +1,32 @@
-# Shared UI toolkit program (proposed architecture and gates)
+# SLOPOS UI toolkit program (in-monorepo application platform)
 
 Status: **early foundation**, not a released general-purpose toolkit.
-Owner direction: one Rust-first, MIT-licensed first-party UI system for
-SLOPOS and independently runnable desktop applications (including Loom,
-ClipKit, Donkey and small utilities). PARAMA is an eventual source-port
+Owner direction: one Rust-first, MIT-licensed first-party UI system
+**developed and maintained inside SLOPOS** for its shell and native apps;
+reusable by independent desktop applications (including Loom, ClipKit,
+Donkey and small utilities). PARAMA is an eventual source-port
 target, not a supported host. This program does not authorize a SLOPOS-II
 compositor rewrite or invalidate the existing X11/Openbox roadmap.
 
-## Decision: incubate in SLOPOS, then version independently
+## Decision: SLOPOS owns the permanent toolkit by default
 
-SLOPOS has a real, tested UI toolkit and will be the first consumer and
-reference host. Introduce portable foundations here to preserve Calculator,
-Dock, gallery, Classic pixel output, input and accessibility behavior.
-**Do not make the other apps depend on the SLOPOS desktop session.**
+SLOPOS is the source repository and first compatibility host. Native
+first-party SLOPOS apps, widgets and shell surfaces are designed alongside
+portable toolkit features: each product must exercise real user journeys,
+accessibility and constrained-device behavior. Existing Calculator, Dock,
+Classic snapshots, input and accessibility must remain correct.
 
-Once the acceptance gates below are satisfied, extract portable crates into
-an independently versioned MIT-licensed toolkit repository. SLOPOS will
-consume released toolkit versions like any other app. Until then, the SLOPOS
-monorepo is the integration venue; this is not a claim that extraction is
-implemented or that an independent repository already exists.
+The toolkit remains independently **usable**: public UI APIs do not require
+an active SLOPOS session, X11 or Linux-specific providers. Its portable
+crates can be consumed through paths, Git dependencies, or eventual releases.
+A separate toolkit **repository is optional**, never a prerequisite or
+automatic milestone. Only the owner may authorize extraction after
+demonstrated multi-app adoption and a measured maintenance benefit.
+
+[application-platform.md](application-platform.md) defines native app,
+service, appkit and shell ownership. [swarm-execution.md](swarm-execution.md)
+defines parallel agent dispatch and review/merge gates. Do not launch
+dependent UI work before its shared widget contract is integrated.
 
 Target dependency direction:
 
@@ -92,9 +100,10 @@ compatibility contract.
 - Begin adoption with an independent small utility, then a demanding
   application; preserve existing formats and real user workflows.
 
-### M4: extraction and versioning gate
+### M4: stable external usage and optional extraction review
 
-Extract to a separate repository only after ALL are demonstrated:
+Establish a stable, usable public toolkit API inside the SLOPOS monorepo
+once ALL of the following are demonstrated:
 
 1. At least two non-SLOPOS applications use the portable public API without
    shell/session dependencies.
@@ -105,11 +114,24 @@ Extract to a separate repository only after ALL are demonstrated:
 4. API migration policy, SemVer, MSRV, feature matrix and contribution
    documentation are accepted.
 5. License/asset/SBOM review is complete, including any non-MIT dependencies.
-6. The extraction preserves SLOPOS Classic screenshots, accessibility and
-   keyboard/input behavior.
+6. Any crate boundary/versioning change preserves SLOPOS Classic screenshots,
+   accessibility and keyboard/input behavior.
 
-At that point SLOPOS consumes versioned releases; the first-party toolkit
-may retain MIT source licensing regardless of the applications' own licenses.
+At this point consider an independent release process *within the monorepo*.
+Extraction into another repository is **not required** and needs a separate
+owner decision based on an actual maintenance and distribution advantage.
+No worker is permitted to create that repository as part of M4.
+
+## Parallel application demand
+
+Build the toolkit against real SLOPOS application consumers: Files,
+Control Panels, Software, Image Viewer, Media, Calculator and the shell's
+Wi-Fi/Bluetooth/clock popovers, notifications and volume/brightness OSDs.
+For the exact app paths, service contracts, dependency waves and task packets,
+see [application-platform.md](application-platform.md) and
+[swarm-execution.md](swarm-execution.md). Domain models and provider tests
+may proceed in parallel with toolkit work; app UI must not copy missing
+controls or force unreviewed public API changes.
 
 ## Baseline hardware and non-goals
 
