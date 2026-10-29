@@ -1,5 +1,11 @@
 # SLOPOS-I
 
+**Autonomous development entry:** [GOAL.md](GOAL.md) — one-shot
+"deliver SLOPOS X11" task selection, checkpoints, low-reasoning QA
+and storage limits. Implementations remain subject to
+[real P1 release gates](docs/p1-x11-release.md), not agent claims.
+
+
 SLOPOS-I is an experimental Linux desktop environment with a compact, Classic-Macintosh-inspired design ("Platinum Classic") on **X11**. It is written in Rust. Openbox manages the windows, and SLOPOS provides the session, a global menu bar, a Dock, settings and its own UI toolkit.
 
 **Status: alpha.** It runs, and the pieces below work, but it is not ready for daily use and is nowhere near GNOME or KDE in coverage.

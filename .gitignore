@@ -17,3 +17,6 @@ packaging/vm/installed-vm-evidence/
 
 # Python bytecode
 __pycache__/
+
+# Bounded, disposable autonomous P1 builds/captures (never commit binaries).
+.work/
