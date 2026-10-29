@@ -1,5 +1,14 @@
 # AGENTS.md — SLOPOS-I
 
+**ONE-SHOT GOAL: If asked to "deliver SLOPOS X11" or handed an unbounded
+coding objective, start at [GOAL.md](GOAL.md), then
+[docs/autonomous-execution.md](docs/autonomous-execution.md).**
+Run `python3 scripts/p1_goal.py validate`, `status`, `next` before coding
+(Windows: `py -3`). Follow the manifest dependency graph, checkpoint
+progress, review real GUI screenshots, and enforce storage limits.
+Do not claim P1 done from a green Cargo build alone.
+
+
 SLOPOS-I is an alpha X11 desktop environment in Rust. Openbox manages the windows; SLOPOS supplies the session supervisor, menu-bar shell, Dock, Control Panels, software catalogue, a native Calculator and its own UI toolkit.
 
 Read these first:
@@ -123,7 +132,10 @@ CI and policy docs, unless it explicitly grants exclusive ownership.
 Assign each worker distinct source/test paths and an immutable base SHA.
 Allow model/provider/test work in parallel while required UI controls are
 integrated; never let an app invent private versions of missing controls.
-Agents do not autonomously spawn a swarm or push directly to main.
+The **coordinator** may autonomously delegate at most two independent
+leaf tasks with exclusive paths and an exact base SHA, if the IDE has
+subagents; no recursive spawning. One Cargo build and one X11 runtime
+lease at a time. No agent pushes directly to main.
 
 **First target slices:** Files navigation; Image Viewer opening/zoom;
 Control Panels live Network/Sound; Software trusted catalog/transaction;
