@@ -44,10 +44,17 @@ mod tests {
             let surface = RasterSurface::new(6, 5, Scale::new(factor).unwrap()).unwrap();
             let mut scene = Scene::new(3);
             scene.push(Command::Clear(Color::WHITE)).unwrap();
-            scene.push(Command::FillRect {
-                rect: Rect { x: 1, y: 1, width: 3, height: 2 },
-                color: Color::BLACK,
-            }).unwrap();
+            scene
+                .push(Command::FillRect {
+                    rect: Rect {
+                        x: 1,
+                        y: 1,
+                        width: 3,
+                        height: 2,
+                    },
+                    color: Color::BLACK,
+                })
+                .unwrap();
             replay_to_raster(&scene, &surface).unwrap();
             assert_eq!(surface.pixel(factor, factor), Some(0xff000000));
             assert_eq!(surface.pixel(4 * factor, factor), Some(0xffffffff));
@@ -59,10 +66,20 @@ mod tests {
     fn replay_reports_invalid_geometry_without_panicking() {
         let surface = RasterSurface::new(2, 2, Scale::new(2).unwrap()).unwrap();
         let mut scene = Scene::new(1);
-        scene.push(Command::FillRect {
-            rect: Rect { x: i32::MAX, y: 0, width: 1, height: 1 },
-            color: Color::BLACK,
-        }).unwrap();
-        assert!(matches!(replay_to_raster(&scene, &surface), Err(RenderError::GeometryOverflow)));
+        scene
+            .push(Command::FillRect {
+                rect: Rect {
+                    x: i32::MAX,
+                    y: 0,
+                    width: 1,
+                    height: 1,
+                },
+                color: Color::BLACK,
+            })
+            .unwrap();
+        assert!(matches!(
+            replay_to_raster(&scene, &surface),
+            Err(RenderError::GeometryOverflow)
+        ));
     }
 }
