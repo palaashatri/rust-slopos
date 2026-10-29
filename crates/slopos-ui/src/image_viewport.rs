@@ -115,22 +115,56 @@ mod tests {
     use super::*;
 
     fn area() -> Rect {
-        Rect { x: 10, y: 24, width: 300, height: 200 }
+        Rect {
+            x: 10,
+            y: 24,
+            width: 300,
+            height: 200,
+        }
     }
 
     #[test]
     fn fit_keeps_large_image_inside_the_viewport() {
         let view = ImageViewport::new(1200, 600, area());
         assert_eq!(view.zoom(), 0.25);
-        assert_eq!(view.image_bounds(), Some(Rect { x: 10, y: 49, width: 300, height: 150 }));
+        assert_eq!(
+            view.image_bounds(),
+            Some(Rect {
+                x: 10,
+                y: 49,
+                width: 300,
+                height: 150
+            })
+        );
     }
 
     #[test]
     fn fit_does_not_upscale_small_images_and_tracks_resize() {
         let mut view = ImageViewport::new(50, 30, area());
-        assert_eq!(view.image_bounds(), Some(Rect { x: 135, y: 109, width: 50, height: 30 }));
-        view.resize(Rect { x: 0, y: 0, width: 20, height: 20 });
-        assert_eq!(view.image_bounds(), Some(Rect { x: 0, y: 4, width: 20, height: 12 }));
+        assert_eq!(
+            view.image_bounds(),
+            Some(Rect {
+                x: 135,
+                y: 109,
+                width: 50,
+                height: 30
+            })
+        );
+        view.resize(Rect {
+            x: 0,
+            y: 0,
+            width: 20,
+            height: 20,
+        });
+        assert_eq!(
+            view.image_bounds(),
+            Some(Rect {
+                x: 0,
+                y: 4,
+                width: 20,
+                height: 12
+            })
+        );
     }
 
     #[test]
@@ -160,6 +194,9 @@ mod tests {
     #[test]
     fn empty_image_or_area_never_produces_invalid_bounds() {
         assert_eq!(ImageViewport::new(0, 2, area()).image_bounds(), None);
-        assert_eq!(ImageViewport::new(2, 2, Rect { width: 0, ..area() }).image_bounds(), None);
+        assert_eq!(
+            ImageViewport::new(2, 2, Rect { width: 0, ..area() }).image_bounds(),
+            None
+        );
     }
 }
