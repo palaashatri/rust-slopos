@@ -58,7 +58,7 @@ apps launched from the shell or Dock: detached (setsid), reaped, not supervised
 
 An app implements `App::event`, `App::paint` and, optionally, `App::accessibility`, then calls `platform::run`. The Calculator (`apps/calculator/src/main.rs`) is the reference example.
 
-Not built yet: text fields, menus and popups, lists, scroll views, dialogs, `slopos-appkit`, GPU/Vello/wgpu rendering, an advanced composited scene graph, and theme datasets beyond the provisional Platinum colours. See [the shared UI program](ui-toolkit-program.md) for planned cross-platform extraction gates.
+Not built yet: text fields, menus and popups, lists, scroll views, dialogs, `slopos-appkit`, GPU/Vello/wgpu rendering, an advanced composited scene graph, and theme datasets beyond the provisional Platinum colours. See [the UI toolkit program](ui-toolkit-program.md) for in-repository toolkit milestones and optional external distribution; [native application plan](application-platform.md) and [swarm execution](swarm-execution.md) document future product slices, not implemented features.
 
 ## The Dock (`crates/slopos-dock`)
 
