@@ -11,6 +11,8 @@ The contract describes the **target**. For what is actually built today, read [`
 
 Requirements describe the target; only evidence establishes implementation truth. The owner's current instructions take precedence over this contract.
 
+**Current owner-directed implementation dispatch:** [SLOPOS UI toolkit program](ui-toolkit-program.md), [native application platform](application-platform.md), and [parallel-agent swarm playbook](swarm-execution.md). These documents schedule dependency-ready work within this monorepo and do not supersede the contract's required app inventory, the §0 VM/evidence rules, or the current-state architecture report. A separate toolkit repository is optional, never an automatic migration.
+
 | § | Section | File |
 |---|---|---|
 | §0 | Agent execution contract — read first | [`contract/00-agent-workflow.md`](contract/00-agent-workflow.md) |
