@@ -11,6 +11,7 @@ import datetime as dt
 import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 import re
 import shutil
@@ -224,6 +225,8 @@ def check_evidence(path: Path, requirements: list[str]) -> dict:
         if check["kind"] == "visual":
             if not check.get("review") or not check.get("resolution"):
                 fail("visual proof needs an explicit screenshot review and resolution")
+            if artifact.suffix.lower() != ".png" or not artifact.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
+                fail("visual proof must reference a real PNG capture, not a text log")
         by_kind[check["kind"]] = check
     missing = set(requirements) - set(by_kind)
     if missing:
@@ -238,6 +241,7 @@ def main() -> int:
     sub.add_parser("status", help="show states and next ready work")
     sub.add_parser("next", help="output ready task packets as JSON")
     sub.add_parser("preflight", help="fail if the disk budget is unsafe")
+    sub.add_parser("host-check", help="detect macOS/Windows/Linux tools without installing anything")
     claim = sub.add_parser("claim", help="claim one dependency-ready task")
     claim.add_argument("id")
     record = sub.add_parser("record", help="checkpoint a task (single coordinator only)")
@@ -265,6 +269,16 @@ def main() -> int:
     if args.command == "next":
         print(json.dumps(next_tasks(m, state), indent=2))
         return 0
+    if args.command == "host-check":
+        print(f"Host: {platform.system()} {platform.machine()} / Python {platform.python_version()}")
+        for binary in ("git", "cargo", "rustc", "utmctl", "VBoxManage",
+                       "qemu-system-aarch64", "qemu-system-x86_64", "wsl.exe", "brew", "winget"):
+            found = shutil.which(binary)
+            if found:
+                print(f"  {binary}: {found}")
+        print("Required: Git and Python 3.10+ on host; disposable Linux VM for all project builds/GUI QA.")
+        print("No host software, VMs, toolchains, or packages have been installed.")
+        return 2 if disk_check(m) else 0
     if args.command == "preflight":
         return 2 if disk_check(m) else 0
     if args.command == "claim":
