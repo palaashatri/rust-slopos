@@ -1,5 +1,5 @@
 //! Files: bounded, read-only filesystem enumeration and navigation state.
- //! No deletes, copies, moves or directory symlink traversal in this P1 slice.
+//! No deletes, copies, moves or directory symlink traversal in this P1 slice.
 use std::ffi::OsString;
 use std::fs;
 use std::io;
@@ -78,7 +78,11 @@ pub fn read_directory(path: &Path) -> io::Result<Vec<Entry>> {
     entries.sort_by(|a, b| {
         (a.kind != Kind::Directory)
             .cmp(&(b.kind != Kind::Directory))
-            .then_with(|| a.display_name().to_lowercase().cmp(&b.display_name().to_lowercase()))
+            .then_with(|| {
+                a.display_name()
+                    .to_lowercase()
+                    .cmp(&b.display_name().to_lowercase())
+            })
             .then_with(|| a.name.cmp(&b.name))
     });
     Ok(entries)
@@ -147,7 +151,10 @@ impl DirectoryState {
     }
 
     pub fn parent(&self) -> Option<PathBuf> {
-        self.current.parent().filter(|p| *p != self.current).map(Path::to_path_buf)
+        self.current
+            .parent()
+            .filter(|p| *p != self.current)
+            .map(Path::to_path_buf)
     }
 
     pub fn row(&self, index: usize) -> Option<&Entry> {
@@ -162,7 +169,11 @@ mod tests {
 
     fn fixture() -> PathBuf {
         static ID: AtomicU64 = AtomicU64::new(0);
-        let base = std::env::temp_dir().join(format!("slopos-files-model-{}-{}", std::process::id(), ID.fetch_add(1, Ordering::Relaxed)));
+        let base = std::env::temp_dir().join(format!(
+            "slopos-files-model-{}-{}",
+            std::process::id(),
+            ID.fetch_add(1, Ordering::Relaxed)
+        ));
         fs::create_dir(&base).unwrap();
         base
     }
