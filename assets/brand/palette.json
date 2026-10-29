@@ -1,0 +1,17 @@
+{
+  "name": "rust-slopos",
+  "accent": "#82B5FF",
+  "background": "#101723",
+  "foreground": "#F2F6FF",
+  "sizes": [
+    16,
+    24,
+    32,
+    48,
+    64,
+    128,
+    256,
+    512,
+    1024
+  ]
+}
