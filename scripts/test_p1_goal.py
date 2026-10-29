@@ -110,7 +110,7 @@ class GoalContractTests(unittest.TestCase):
                 reread = p1.progress(m)
                 self.assertEqual(p1.task_status(reread, "P1-00"), "CLAIMED")
                 self.assertEqual(p1.task_status(reread, "UI-01"), "PLANNED")
-                self.assertEqual(p1.next_tasks(m, reread), [])
+                self.assertEqual([t["id"] for t in p1.next_tasks(m, reread)], ["P1-00"])
 
 
 if __name__ == "__main__":
