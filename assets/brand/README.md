@@ -1,11 +1,3 @@
-# SLOPOS identity assets
+# SLOPOS visual identity
 
-A coordinated dark-slate, satin-glass icon family with a distinctive desktop environment pictogram and restrained accent #82B5FF.
-
-- `icon.svg`: scalable full-color application icon (128×128 viewBox).
-- `icon-monochrome.svg`: single-color mark for light/dark context menus, tray and UI.
-- `wordmark.svg`: horizontal brand lockup.
-- `social-preview.svg`: 1200×630 repository/social artwork.
-- `palette.json`: palette and dimensions for downstream integration.
-
-All artwork is original vector geometry, has no embedded external resources, and retains sharp edges at any resolution. Export PNG sizes 16, 24, 32, 48, 64, 128, 256, 512 and 1024 using an SVG renderer (e.g. Inkscape). UI/build wiring is intentionally unchanged pending visual review.
+Original cobalt-to-violet polished desktop-window stack in the Loom material language. Includes transparent source crop, 16–1024px PNGs, ICO, ICNS, wordmark and social preview. These assets supersede the rejected generic SVGs. Large rasters are upscaled from ~248px contact-sheet crops, not independently generated 1024px artwork. Keep this PR in draft pending image QA and desktop/package integration.
