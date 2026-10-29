@@ -555,7 +555,7 @@ fn main() {
     };
     if let Some(output) = snapshot {
         app.initial_snapshot();
-        let mut surface =
+        let surface =
             RasterSurface::new(WIDTH, HEIGHT, platform::scale_from_environment()).expect("surface");
         app.paint(&surface);
         surface.save_png(&output).expect("snapshot");
