@@ -1,0 +1,11 @@
+[package]
+name = "slopos-image-viewer"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS native Image Viewer (initial PNG/SVG proof application)"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+accesskit = { workspace = true }
+env_logger = { workspace = true }

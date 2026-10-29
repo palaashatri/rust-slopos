@@ -6,6 +6,8 @@ Read these first:
 
 - [docs/architecture.md](docs/architecture.md): what exists and how it fits together. Trust it over older docs.
 - [docs/development.md](docs/development.md): commands, running from the source tree, writing a toolkit app.
+- [docs/p1-x11-release.md](docs/p1-x11-release.md): **P1 priority and release gates**, native Files, Image Viewer, Media, Control Panels, Software, and status/OSD.
+- [docs/branch-preservation.md](docs/branch-preservation.md): preserved Wayland and design snapshots; do not delete archive branches.
 - [docs/CONTRACT.md](docs/CONTRACT.md): the target requirements, split by area, plus the evidence [ledger](docs/contract/ledger.md). "§N" means a contract section; the index says which file it is in.
 
 ## Before you push
@@ -56,3 +58,107 @@ For a quicker loop on one crate, use `cargo test -p <crate>`.
 - Work on a branch and open a PR to `main`. Don't push to `main` unless the owner says so.
 - Keep commits small, with messages that say what changed and why.
 - In the PR, list what you ran and what you couldn't run.
+
+## Shared UI toolkit development (owner-directed)
+
+SLOPOS is the **first host and compatibility reference**, not the only
+permitted consumer. The toolkit must ultimately serve external MIT-licensed
+Rust applications without requiring a SLOPOS session, X11 or a Linux desktop.
+
+1. Keep scene descriptions, animation sampling, layout state and design tokens
+   independent of X11, Openbox, GTK, D-Bus, GPU device handles and global state.
+   The existing `slopos-ui::platform` module is a host adapter, never a
+   dependency of portable toolkit foundations.
+2. Maintain the current `RasterSurface` software path as the pixel-exact
+   reference for Classic themes. Introduce GPU/Vello/wgpu backends only behind
+   optional features after screenshot, geometry, alpha, text and clipping
+   parity tests exist. Do not change the existing Calculator/Dock output
+   merely to add an abstraction.
+3. Keep renderers event driven. No animation frame timer when nothing is
+   moving. Motion must respect reduced-motion preferences; effect complexity,
+   caches and draw-list sizes must be bounded for the 512 MB Pi Zero 2 W goal.
+4. Cross-platform public APIs must use toolkit-owned types rather than
+   platform SDK types. Provide native host adapters and isolate any FFI.
+5. Every control needs keyboard navigation, focus behavior, pointer
+   interactions, accessibility semantics and corresponding headless tests.
+   Every renderer needs reference pixels, malformed geometry and scale tests.
+6. First-party toolkit source is MIT. Record actual transitive dependency,
+   font, icon, shader and model licenses before reuse; an MIT crate must not
+   imply all distributed components are MIT.
+7. **Keep the toolkit and native applications in the SLOPOS monorepo** as
+   the default long-term home. Preserve a standalone, independently usable
+   public Rust crate API: no shell, X11 or SLOPOS session requirements for
+   general-purpose apps. Extracting a repository is optional, requires
+   explicit owner approval, and is NOT a milestone or automatic action.
+   Do not move existing apps or replace the compositor in this foundation PR.
+8. Keep `docs/architecture.md` factual; use
+   [docs/ui-toolkit-program.md](docs/ui-toolkit-program.md) for rendering
+   and toolkit milestones, [docs/application-platform.md](docs/application-platform.md)
+   for app/surface ownership and vertical slices, and
+   [docs/swarm-execution.md](docs/swarm-execution.md) for agent packets,
+   dependencies, write leases and merge gates.
+
+## Parallel SLOPOS native-application development (owner-directed)
+
+The toolkit, desktop shell and applications form **one SLOPOS platform**,
+implemented as *small, dependency-ready vertical slices* rather than as
+twelve simultaneous full rewrites. Treat contract §§15–18 as the complete
+product inventory and the documents below as the dispatch instructions:
+
+- [docs/application-platform.md](docs/application-platform.md): canonical
+  paths, shared service/control ownership, CPU/GPU and native-app waves.
+- [docs/historical-recovery-audit.md](docs/historical-recovery-audit.md):
+  audited branches, historical compositor, old toolkit/app reuse candidates
+  and explicit do-not-cherry-pick decisions.
+- [docs/swarm-execution.md](docs/swarm-execution.md): task IDs, dependency
+  graph, exclusive path ownership, task packet template, coordinator
+  handoff, QA gates, and ready-to-use kickoff instructions.
+- [docs/contract/00-agent-workflow.md](docs/contract/00-agent-workflow.md):
+  authoritative Linux VM execution, resource/runtime leases, build
+  concurrency and evidence format.
+
+**Coordinator rule:** one integrator alone edits shared UI public APIs,
+workspace manifests, module registries, central design tokens, packages,
+CI and policy docs, unless it explicitly grants exclusive ownership.
+Assign each worker distinct source/test paths and an immutable base SHA.
+Allow model/provider/test work in parallel while required UI controls are
+integrated; never let an app invent private versions of missing controls.
+Agents do not autonomously spawn a swarm or push directly to main.
+
+**First target slices:** Files navigation; Image Viewer opening/zoom;
+Control Panels live Network/Sound; Software trusted catalog/transaction;
+Media decoder state/playback; Wi-Fi/Bluetooth/clock popovers and volume/
+brightness OSD. The already working Calculator and Dock are protected
+regressions. Path names follow contract §16–17 (e.g. `apps/image-viewer`,
+`apps/media`, `apps/control-panels`); do not invent duplicate app trees.
+
+**Merger acceptance:** real keyboard/pointer interactions, accessible
+focus/semantics, app failure/cancel behavior, truthful provider state,
+bounded CPU/memory, license/provenance audit, and VM session/package
+tests when the change touches the desktop. Missing real hardware must
+be marked NOT_RUN, never PASS. The app suite roadmap is NOT a claim that
+all these applications, renderer paths or non-Linux hosts already exist.
+
+## P1-first merge and agent priorities (2026-10 owner instruction)
+
+**Ship SLOPOS X11/Openbox first** with a stable native Rust `slopos-ui`
+application set: Calculator, Files, Image Viewer, Media, Control Panels,
+Software and basic shell status/OSDs. The exact phase/gate list is in
+[docs/p1-x11-release.md](docs/p1-x11-release.md). No Loom, Donkey, PARAMA,
+custom compositor, or unapproved GPU backend work may displace these.
+
+The existing SLOPOS Design Bible lives at
+[docs/contract/02-design.md](docs/contract/02-design.md) §5.2. Do not
+create an inconsistent duplicate. The integrated image viewer is an
+initial **PNG/SVG proof app**, not a complete photo browser or package-ready
+production release. App workers must extend verified functionality, not
+promote proof UI to done status. The current compiler/test gates remain
+mandatory and run in the designated VM or CI.
+
+Historical Wayland/renderer/app source and design proposals have redundant
+archive branches documented in
+[docs/branch-preservation.md](docs/branch-preservation.md).
+**Never merge or delete those refs as a shortcut**; selected pure policy,
+widget behavior, image/file logic and tests may be adapted only after
+security/license/API reviews and current exact-SHA verification. Do not
+revive the historical compositor during P1.
