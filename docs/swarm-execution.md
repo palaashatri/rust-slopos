@@ -1,5 +1,12 @@
 # SLOPOS application-platform swarm execution playbook
 
+**Autonomous goal mode:** [GOAL.md](../GOAL.md) and
+[autonomous-execution.md](autonomous-execution.md) take precedence
+for agent kickoff, portable CLI and checkpoint/resume. The initial
+dependency-ready task order comes from [qa/p1-goal.json](../qa/p1-goal.json),
+not an agent's guess. This playbook remains the ownership/QA detail.
+
+
 **Operational plan, not a record of implementation.**
 Read [AGENTS.md](../AGENTS.md), [architecture.md](architecture.md),
 [ui-toolkit-program.md](ui-toolkit-program.md),

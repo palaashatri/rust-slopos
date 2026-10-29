@@ -44,6 +44,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Lockfile is up to date
         run: cargo metadata --locked --format-version 1 --no-deps > /dev/null
+      - name: P1 autonomous goal contract
+        run: |
+          python3 scripts/p1_goal.py validate
+          python3 scripts/test_p1_goal.py -v
+          python3 scripts/p1_goal.py next
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
