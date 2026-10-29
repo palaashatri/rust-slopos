@@ -1,0 +1,82 @@
+name: One-time verified stale branch cleanup
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/one-time-branch-cleanup.yml
+permissions:
+  contents: write
+  pull-requests: read
+jobs:
+  prune-verified-refs:
+    if: github.repository == 'palaashatri/rust-slopos'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Validate all branch refs, then delete only safely redundant refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          open_heads="$(gh api --paginate "repos/$REPO/pulls?state=open&per_page=100" --jq '.[].head.ref')"
+          validated="$RUNNER_TEMP/validated-stale-branches.txt"
+          : > "$validated"
+          while IFS='|' read -r branch expected archive; do
+            [[ -n "$branch" ]] || continue
+            if [[ "$branch" == main || "$branch" == archive/* || "$branch" == dependabot/* || "$branch" == design/identity-icons-20261029 ]]; then
+              echo "::error::Protected branch candidate: $branch"
+              exit 1
+            fi
+            if grep -Fqx -- "$branch" <<< "$open_heads"; then
+              echo "::error::Open pull request uses $branch"
+              exit 1
+            fi
+            actual="$(gh api "repos/$REPO/git/ref/heads/$branch" --jq '.object.sha')"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "::error::Branch $branch changed: $actual != $expected"
+              exit 1
+            fi
+            if [[ "$archive" != "-" ]]; then
+              archived="$(gh api "repos/$REPO/git/ref/heads/$archive" --jq '.object.sha')"
+              if [[ "$archived" != "$expected" ]]; then
+                echo "::error::Archive branch $archive does not match $branch"
+                exit 1
+              fi
+            else
+              ahead="$(gh api "repos/$REPO/compare/main...$branch" --jq '.ahead_by')"
+              if [[ "$ahead" != "0" ]]; then
+                echo "::error::Branch $branch has $ahead commits not merged into main"
+                exit 1
+              fi
+            fi
+            printf '%s|%s\n' "$branch" "$expected" >> "$validated"
+          done <<'BRANCHES'
+          agent/pi-zero2w-edge-performance-contract|4025d13a42a43d1f0c692e24b812308139cfa887|-
+          agent/pr22-checklist-lockfile|fb8ee1a5601220e1d706e586077abc0d8ea3acff|-
+          agent/pr22-followup-fixes|e8b4c1c0f08e92c7c2787739d7b27604735004a1|-
+          agent/pr22-rereview-fixes|18b5787a4c052ae65229f00445f790422c11a170|-
+          agent/pr22-review-fixes|5a5f47c73329e0145ec159cbf4d98a87f4e85961|-
+          agent/qa-01-release-runner-inventory|452e3d0f3441e1c38a7e53b9a9842e38e75e5fe7|-
+          agent/qa-01-required-runner-map|3dd0b241c1ec09daabfdd98df1931dfa68c1fd8a|-
+          agent/spec-01-schema-inventory|4d98d316562cbb9611720306908810827256ded4|-
+          claude/rewrite-agents-md|a78d7d982c37cd63960302eef222d2ca096665de|-
+          codex/shared-ui-foundation|f5e1dc9c3a4d015dc3290094d6aa24b848db5f89|-
+          agent/recovered-codex-spec-stash|6bbd168c179f75096ddb50dfcb914db4bfedf4ba|archive/2026-10-30-wayland-compositor-and-apps
+          agent/recovered-pivot-stash|2e63fc35ace1f3f7b7c5ceaaaa9d4ea1e0f28529|archive/2026-10-30-x11-pivot-recovered-stash
+          agent/sinty-modern-theme-and-platform-desktop|4ff7d5881f13199d71b2ed3b2e44ccbb0127d2a5|archive/2026-10-30-sinty-modern-design
+          design/brand-identity-20261029|9a36872754aaa4513a98289605b638cbf2a94930|archive/2026-10-30-vector-brand-proposal
+          BRANCHES
+          if [[ "$(wc -l < "$validated")" -ne 14 ]]; then
+            echo "::error::Validated candidate count was not exactly 14"
+            exit 1
+          fi
+          echo "All 14 SHA-pinned branch refs and preservation gates passed."
+          while IFS='|' read -r branch expected; do
+            actual="$(gh api "repos/$REPO/git/ref/heads/$branch" --jq '.object.sha')"
+            [[ "$actual" == "$expected" ]] || { echo "::error::Branch changed mid-cleanup: $branch"; exit 1; }
+            gh api -X DELETE "repos/$REPO/git/refs/heads/$branch" >/dev/null
+            echo "Deleted redundant branch: $branch"
+          done < "$validated"
+          echo "Preserved main, open PR branches, and six archive branches."
