@@ -50,11 +50,30 @@ mod tests {
     fn easing_hits_exact_endpoints_and_does_not_overshoot() {
         for easing in [Easing::Linear, Easing::EaseInOutCubic, Easing::EaseOutCubic] {
             let duration = Duration::from_millis(100);
-            assert_eq!(progress(Duration::ZERO, duration, easing, MotionPreference::Full), 0.0);
-            assert_eq!(progress(duration, duration, easing, MotionPreference::Full), 1.0);
-            assert_eq!(progress(Duration::from_secs(5), duration, easing, MotionPreference::Full), 1.0);
+            assert_eq!(
+                progress(Duration::ZERO, duration, easing, MotionPreference::Full),
+                0.0
+            );
+            assert_eq!(
+                progress(duration, duration, easing, MotionPreference::Full),
+                1.0
+            );
+            assert_eq!(
+                progress(
+                    Duration::from_secs(5),
+                    duration,
+                    easing,
+                    MotionPreference::Full
+                ),
+                1.0
+            );
             for ms in 0..=100 {
-                let value = progress(Duration::from_millis(ms), duration, easing, MotionPreference::Full);
+                let value = progress(
+                    Duration::from_millis(ms),
+                    duration,
+                    easing,
+                    MotionPreference::Full,
+                );
                 assert!((0.0..=1.0).contains(&value));
             }
         }
@@ -63,11 +82,21 @@ mod tests {
     #[test]
     fn reduced_motion_and_zero_duration_complete_immediately() {
         assert_eq!(
-            progress(Duration::ZERO, Duration::from_secs(10), Easing::Linear, MotionPreference::Reduced),
+            progress(
+                Duration::ZERO,
+                Duration::from_secs(10),
+                Easing::Linear,
+                MotionPreference::Reduced
+            ),
             1.0
         );
         assert_eq!(
-            progress(Duration::ZERO, Duration::ZERO, Easing::Linear, MotionPreference::Full),
+            progress(
+                Duration::ZERO,
+                Duration::ZERO,
+                Easing::Linear,
+                MotionPreference::Full
+            ),
             1.0
         );
     }
