@@ -145,7 +145,11 @@ def dependency_ready(t: dict, state: dict) -> bool:
 
 
 def next_tasks(m: dict, state: dict) -> list[dict]:
-    return [t for t in m["tasks"] if task_status(state, t["id"]) == "PLANNED" and dependency_ready(t, state)]
+    # After a quota/context reset an in-progress task MUST be resumed first,
+    # or the agent would repeatedly replan / abandon its work.
+    active = [t for t in m["tasks"] if task_status(state, t["id"]) in ("CLAIMED", "IMPLEMENTED", "VERIFIED")]
+    ready = [t for t in m["tasks"] if task_status(state, t["id"]) == "PLANNED" and dependency_ready(t, state)]
+    return active + ready
 
 
 def bytes_under(folder: Path) -> int:
