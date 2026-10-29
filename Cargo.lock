@@ -2672,6 +2672,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-intelligence"
+version = "0.1.0"
+dependencies = [
+ "reqwest",
+ "serde",
+ "serde_json",
+ "slopos-core",
+]
+
+[[package]]
 name = "slopos-services"
 version = "0.1.0"
 dependencies = [

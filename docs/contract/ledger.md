@@ -21,6 +21,16 @@ This part describes observed implementation truth. Normative targets above are n
 
 The contract edit repairs planning/execution instructions. It does not implement the backlog or close the source defects below.
 
+## A.1. Intelligence CLI preview evidence (2026-10-29)
+
+| Item | Observed status and evidence | Not established |
+|---|---|---|
+| Feature branch | `feature/local-intelligence-v1`, proposed by [PR #29](https://github.com/palaashatri/rust-slopos/pull/29); `crates/slopos-intelligence/{src/lib.rs,src/main.rs}`, workspace manifests, and `docs/intelligence.md`. Static inspection confirms an opt-in CLI, loopback Ollama request, allowlisted application action parser and explicit terminal consent. | No integrated SLOPOS UI, speech, screenshot, document retrieval or PARAMA-native assistant |
+| Earlier CI baseline | [GitHub Actions run 40670085176](https://github.com/palaashatri/rust-slopos/actions/runs/40670085176), at commit `c6fc92e2`: locked metadata, rustfmt, Clippy, full workspace tests, architecture checks and Xvfb/Openbox session smoke passed. | The smoke test exercises the existing session, **not** live LFM3/Ollama actions |
+| CodeRabbit review hardening | Review threads on PR #29 identified redirects, unbounded HTTP response parsing, non-TTY confirmation, ANSI control text, terminal-app fallback, overly long IDs and missing evidence. The feature branch now disables redirects, caps responses at 1 MiB, requires TTY consent, sanitizes printed names/IDs, checks disclosed identifiers and preserves Terminal=true behavior through a terminal emulator. Added focused regression tests. | New CI, interactive Ollama action smoke, adversarial input and real Linux terminal launch validation must be confirmed on the updated branch before product readiness claims |
+
+The dated entry describes the **preview**, not the completion of the broader §21 SLOPOS Intelligence contract or any low-memory/on-device inference target. Hardware behavior and PARAMA port remain unverified.
+
 ## B. Current source layout
 
 At the original contract audit, the workspace contained only:
