@@ -102,7 +102,7 @@ if [[ $NO_BUILD -eq 0 ]]; then
   cargo build --release --workspace --locked
 fi
 
-BINARIES=(slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings)
+BINARIES=(slopos-session slopos-shell slopos-dock slopos-calculator slopos-image-viewer slopos-catalogue slopos-settings)
 for name in "${BINARIES[@]}"; do
   src="$CARGO_TARGET_DIR/release/$name"
   if [[ ! -x "$src" ]]; then
@@ -117,7 +117,7 @@ install -Dm755 scripts/install-browser-theme.sh "$PREFIX/bin/install-browser-the
 install -Dm755 scripts/slopos-appearance "$PREFIX/bin/slopos-appearance"
 install -Dm755 scripts/slopos-wallpaper "$PREFIX/bin/slopos-wallpaper"
 install -Dm755 scripts/slopos-recovery.sh "$PREFIX/bin/slopos-recovery"
-for entry in slopos-browser slopos-calculator slopos-settings slopos-catalogue; do
+for entry in slopos-browser slopos-calculator slopos-image-viewer slopos-settings slopos-catalogue; do
   install -Dm644 "packaging/$entry.desktop" "$PREFIX/share/applications/$entry.desktop"
 done
 
@@ -232,6 +232,7 @@ Binaries:
   $PREFIX/bin/slopos-shell
   $PREFIX/bin/slopos-dock
   $PREFIX/bin/slopos-calculator
+  $PREFIX/bin/slopos-image-viewer
   $PREFIX/bin/slopos-catalogue
   $PREFIX/bin/slopos-settings
   $PREFIX/bin/start-slopos-i
