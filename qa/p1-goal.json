@@ -1,0 +1,259 @@
+{
+  "schema_version": 1,
+  "goal": "Deliver SLOPOS-I X11/Openbox with a first-party Rust toolkit and minimum usable daily-app suite; NOT Wayland, PARAMA, Loom or unrelated repositories",
+  "authorities": [
+    "GOAL.md",
+    "AGENTS.md",
+    "docs/p1-x11-release.md",
+    "docs/contract/02-design.md",
+    "docs/contract/00-agent-workflow.md"
+  ],
+  "settings": {
+    "max_agents": 3,
+    "max_parallel_cargo_builds": 1,
+    "max_shared_x11_sessions": 1,
+    "min_free_gib": 8,
+    "max_target_gib": 12,
+    "max_evidence_mib": 512,
+    "max_worktrees": 2,
+    "max_artifact_age_days": 7
+  },
+  "tasks": [
+    {
+      "id": "P1-00",
+      "title": "Baseline, Linux guest, resource budget and evidence",
+      "area": "baseline",
+      "deps": [],
+      "proof": [
+        "unit",
+        "runtime"
+      ],
+      "acceptance": "Record exact main SHA, current working app inventory, Linux VM bootstrap, baseline CI/Xvfb and disk budget without modifying host settings."
+    },
+    {
+      "id": "UI-01",
+      "title": "Text input, focus, accessibility and toolkit contracts",
+      "area": "toolkit",
+      "deps": [
+        "P1-00"
+      ],
+      "proof": [
+        "unit",
+        "visual"
+      ],
+      "acceptance": "Reusable Unicode text input/selection/IME and focus semantics, command actions, accessibility parity, Classic 1x/2x screenshot tests."
+    },
+    {
+      "id": "UI-02",
+      "title": "Menus, virtual lists, scroll, dialogs and chooser",
+      "area": "toolkit",
+      "deps": [
+        "UI-01"
+      ],
+      "proof": [
+        "unit",
+        "visual",
+        "runtime"
+      ],
+      "acceptance": "Keyboard and pointer menu/popover, virtualized lists/icons, scroll, modal/file chooser and clipboard with constrained memory."
+    },
+    {
+      "id": "SVC-01",
+      "title": "Service provider truth and failure-state tests",
+      "area": "services",
+      "deps": [
+        "P1-00"
+      ],
+      "proof": [
+        "unit",
+        "runtime"
+      ],
+      "acceptance": "Network, Wi-Fi, Bluetooth, audio, brightness, display and clock snapshots and safe mutations; missing hardware and permission errors are real."
+    },
+    {
+      "id": "CALC-01",
+      "title": "Calculator regression and packaging proof",
+      "area": "calculator",
+      "deps": [
+        "P1-00"
+      ],
+      "proof": [
+        "unit",
+        "visual",
+        "runtime",
+        "package"
+      ],
+      "acceptance": "Existing Calculator keyboard/pointer/accessibility and installed-launch workflow verified without cosmetic regression."
+    },
+    {
+      "id": "FILES-01",
+      "title": "Filesystem model and safety invariants",
+      "area": "files",
+      "deps": [
+        "P1-00"
+      ],
+      "proof": [
+        "unit",
+        "security"
+      ],
+      "acceptance": "Read-only browse/list/select first, then transactional rename/copy/move/Trash with symlink, cross-device, overwrite, cancellation and error tests."
+    },
+    {
+      "id": "IMAGE-01",
+      "title": "Image decoder and cache budget",
+      "area": "image-viewer",
+      "deps": [
+        "P1-00"
+      ],
+      "proof": [
+        "unit",
+        "security"
+      ],
+      "acceptance": "PNG/JPEG/common formats, orientation, encoded/decoded bounds and memory-safe thumbnail/cache behavior under malicious image fixtures."
+    },
+    {
+      "id": "MEDIA-01",
+      "title": "Media backend and playback state",
+      "area": "media",
+      "deps": [
+        "P1-00"
+      ],
+      "proof": [
+        "unit",
+        "security"
+      ],
+      "acceptance": "Real decoder adapter and probe, seek/pause/volume/subtitles/time synchronization, malformed-media failure and audited codec licensing."
+    },
+    {
+      "id": "STORE-01",
+      "title": "Curated installer authentication and transactions",
+      "area": "software",
+      "deps": [
+        "P1-00"
+      ],
+      "proof": [
+        "unit",
+        "security"
+      ],
+      "acceptance": "Signed trusted catalogue, checksum and publisher verification, safe install/uninstall staging, permission/rollback and cancellation."
+    },
+    {
+      "id": "FILES-02",
+      "title": "Native Files user journeys",
+      "area": "files",
+      "deps": [
+        "UI-02",
+        "FILES-01"
+      ],
+      "proof": [
+        "unit",
+        "visual",
+        "runtime",
+        "security"
+      ],
+      "acceptance": "Packaged native toolkit window: browse/up/back/select/open, copy/move/rename/Trash, fail-safe errors and real desktop file associations."
+    },
+    {
+      "id": "IMAGE-02",
+      "title": "Native Image Viewer user journeys",
+      "area": "image-viewer",
+      "deps": [
+        "UI-02",
+        "IMAGE-01"
+      ],
+      "proof": [
+        "unit",
+        "visual",
+        "runtime",
+        "package"
+      ],
+      "acceptance": "Expand PNG/SVG proof to JPEG/common formats, open dialog/association, fit/1x/zoom/pan/next/previous and real files."
+    },
+    {
+      "id": "MEDIA-02",
+      "title": "Native video and audio player",
+      "area": "media",
+      "deps": [
+        "UI-02",
+        "MEDIA-01"
+      ],
+      "proof": [
+        "unit",
+        "visual",
+        "runtime",
+        "package"
+      ],
+      "acceptance": "Native toolkit playback: open, play/pause, seek, volume, subtitles, proper frame/audio synchronization, graceful missing-codec flow."
+    },
+    {
+      "id": "PANELS-01",
+      "title": "Native Control Panels",
+      "area": "control-panels",
+      "deps": [
+        "UI-02",
+        "SVC-01"
+      ],
+      "proof": [
+        "unit",
+        "visual",
+        "runtime",
+        "security"
+      ],
+      "acceptance": "Replace required GTK settings screens with native network/audio/display/appearance/Bluetooth truth and permission/readback checks."
+    },
+    {
+      "id": "STORE-02",
+      "title": "Native Software catalogue/install UI",
+      "area": "software",
+      "deps": [
+        "UI-02",
+        "STORE-01"
+      ],
+      "proof": [
+        "unit",
+        "visual",
+        "runtime",
+        "security",
+        "package"
+      ],
+      "acceptance": "Replace GTK catalogue with native app using authenticated transactions, update/rollback, UI progress and trustworthy prompts."
+    },
+    {
+      "id": "SHELL-01",
+      "title": "Native shell status, OSD and notifications",
+      "area": "shell",
+      "deps": [
+        "UI-02",
+        "SVC-01"
+      ],
+      "proof": [
+        "unit",
+        "visual",
+        "runtime"
+      ],
+      "acceptance": "Native Wi-Fi/Bluetooth/clock popovers, volume/brightness OSD, notifications, Dock/menu/launcher parity and reduced motion."
+    },
+    {
+      "id": "P1-RELEASE",
+      "title": "Installed-X11 full release acceptance",
+      "area": "release",
+      "deps": [
+        "CALC-01",
+        "FILES-02",
+        "IMAGE-02",
+        "MEDIA-02",
+        "PANELS-01",
+        "STORE-02",
+        "SHELL-01"
+      ],
+      "proof": [
+        "unit",
+        "visual",
+        "runtime",
+        "security",
+        "package"
+      ],
+      "acceptance": "Installed Debian/Arch image tested with real click/key/AT-SPI, all apps, error/restart/logout, performance limits, visual references and release evidence on exact SHA."
+    }
+  ]
+}
