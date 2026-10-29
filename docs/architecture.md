@@ -111,7 +111,7 @@ The toolkit integration branch introduces `apps/image-viewer` (Cargo binary
 and a shared `image_viewport` model. The initial app opens PNG and SVG via
 a command-line file path, supports Fit/1:1/zoom, and offers a headless PNG
 snapshot mode. It is **not yet a full photo viewer**: JPEG/HEIF/etc., file
-chooser, directory browsing, proper decoded-pixel admission limits, packaging,
+chooser, directory browsing, proper decoded-pixel admission limits, packaging QA,
 media color profiles and installed-VM QA remain incomplete and required for
 P1. This paragraph describes the integration proposal, not a main release.
 See [P1 release program](p1-x11-release.md).
