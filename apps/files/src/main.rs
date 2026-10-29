@@ -45,6 +45,7 @@ const BAR: Color = Color {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Action {
     Back,
+    Forward,
     Up,
     Home,
     Refresh,
@@ -55,6 +56,7 @@ impl Action {
     fn label(self) -> &'static str {
         match self {
             Self::Back => "Back",
+            Self::Forward => "Forward",
             Self::Up => "Up",
             Self::Home => "Home",
             Self::Refresh => "Refresh",
@@ -123,6 +125,7 @@ impl FilesApp {
         let mut toolbar = Vec::new();
         for (idx, action) in [
             Action::Back,
+            Action::Forward,
             Action::Up,
             Action::Home,
             Action::Refresh,
@@ -241,6 +244,7 @@ impl FilesApp {
         for item in &mut self.toolbar {
             item.button.enabled = match item.action {
                 Action::Back => self.state.back_target().is_some(),
+                Action::Forward => self.state.forward_target().is_some(),
                 Action::Up => self.state.parent().is_some(),
                 Action::Open => self.list.selected().is_some(),
                 _ => true,
@@ -301,6 +305,11 @@ impl FilesApp {
             Action::Back => {
                 if let Some(path) = self.state.back_target().map(Path::to_path_buf) {
                     self.request(path, Navigation::Back);
+                }
+            }
+            Action::Forward => {
+                if let Some(path) = self.state.forward_target().map(Path::to_path_buf) {
+                    self.request(path, Navigation::Forward);
                 }
             }
             Action::Up => {
@@ -548,7 +557,7 @@ fn main() {
         app.initial_snapshot();
         let mut surface =
             RasterSurface::new(WIDTH, HEIGHT, platform::scale_from_environment()).expect("surface");
-        app.paint(&mut surface);
+        app.paint(&surface);
         surface.save_png(&output).expect("snapshot");
         return;
     }
@@ -604,6 +613,6 @@ mod tests {
         app.initial_snapshot();
         app.refresh_actions();
         assert!(!app.toolbar[0].button.enabled);
-        assert!(app.toolbar[3].button.enabled);
+        assert!(app.toolbar[4].button.enabled);
     }
 }
