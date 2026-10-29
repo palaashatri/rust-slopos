@@ -5,8 +5,8 @@
 //! and the user confirms launches before any process is started.
 
 use serde::Deserialize;
-use std::path::{Path, PathBuf};
 use slopos_core::desktop_entry::DesktopApp;
+use std::path::{Path, PathBuf};
 
 pub const MAX_UTTERANCE_BYTES: usize = 2048;
 pub const MAX_VISIBLE_APPS: usize = 80;
@@ -228,9 +228,7 @@ mod tests {
         let too_long = app(&"é".repeat(130));
         let mut missing_exec = app("no-exec");
         missing_exec.argv.clear();
-        let visible = disclosed_apps(vec![
-            app(""), too_long, missing_exec, app("calc"),
-        ]);
+        let visible = disclosed_apps(vec![app(""), too_long, missing_exec, app("calc")]);
         assert_eq!(visible.len(), 1);
         assert_eq!(visible[0].id, "calc");
     }
@@ -241,8 +239,7 @@ mod tests {
         interactive.terminal = true;
         interactive.argv = vec!["/usr/bin/vim".into(), "file name.txt".into()];
         assert!(launch_plan(&interactive, None).is_err());
-        let (binary, args) = launch_plan(&interactive, Some(Path::new("/usr/bin/xterm")))
-            .unwrap();
+        let (binary, args) = launch_plan(&interactive, Some(Path::new("/usr/bin/xterm"))).unwrap();
         assert_eq!(binary, PathBuf::from("/usr/bin/xterm"));
         assert_eq!(args, vec!["-e", "/usr/bin/vim", "file name.txt"]);
 
