@@ -104,14 +104,14 @@ The [ledger](contract/ledger.md) has the dated evidence. In short:
 An independent opt-in `slopos-intelligence` binary is present in `crates/slopos-intelligence`.
 It proposes strict JSON actions via loopback-only Ollama (`lfm3:1.7b`) using installed-app metadata, and asks for confirmation before launching a listed desktop application. It does not run at session startup; no window, Siri-style voice interface, personal search, accessibility-based UI control or PARAMA execution exists. See [intelligence.md](intelligence.md) for the precise trust boundary and roadmap.
 
-## Native Image Viewer proof (integration branch only)
+## Native Image Viewer proof (on main; not full P1)
 
-The toolkit integration branch introduces `apps/image-viewer` (Cargo binary
+The merged toolkit foundation contains `apps/image-viewer` (Cargo binary
 `slopos-image-viewer`) using native `slopos-ui` buttons, accessibility
 and a shared `image_viewport` model. The initial app opens PNG and SVG via
 a command-line file path, supports Fit/1:1/zoom, and offers a headless PNG
 snapshot mode. It is **not yet a full photo viewer**: JPEG/HEIF/etc., file
 chooser, directory browsing, proper decoded-pixel admission limits, packaging QA,
 media color profiles and installed-VM QA remain incomplete and required for
-P1. This paragraph describes the integration proposal, not a main release.
+P1. This is current source capability, not evidence of a finished P1 photo viewer.
 See [P1 release program](p1-x11-release.md).
