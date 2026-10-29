@@ -135,3 +135,13 @@ Next recommended tranche after this integration PR:
 UI text/scroll/menu control parity, Files read-only browser model,
 image-format decoder limits, Media playback engine capability
 probes and Software trust transaction tests, concurrently.
+
+## Automated one-goal release preflight
+
+[GOAL.md](../GOAL.md) is the entry point. The task graph and durable state
+are `qa/p1-goal.json` and `qa/p1-progress.json`. From the isolated Linux
+VM only, `SLOPOS_P1_GUEST=1 bash scripts/verify-p1-release.sh` refuses
+an incomplete/untested ledger, checks storage and runs the existing
+release QA gates. Even its success requires a final human/independent
+visual and hardware readiness review. Do not use its summary as evidence
+of features that have not been implemented.
