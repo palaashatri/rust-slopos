@@ -1,9 +1,14 @@
 # Preserved historical SLOPOS branches
 
 Created on 2026-10-30 after auditing repository references. These are
-**redundant permanent-intent archive branch names** and no original branch
-was deleted, force-pushed or merged. The exact commit SHAs identify the
-source even if a branch name is later renamed.
+**permanent-intent archive branch names**, protecting old source independent
+of the original development branches. On 2026-10-30, a one-time GitHub Actions
+cleanup verified exact branch SHAs, checked that divergent sources had
+matching archive refs and that merged branches were already ancestors of
+`main`, checked open-PR heads, then deleted **14 redundant branch refs**.
+The cleanup run succeeded and its temporary workflow file was removed.
+No historical source was force-pushed or bulk-merged. The exact SHAs below
+identify the preserved code even if branch names later change.
 
 **Important:** ordinary GitHub branches are **not deletion-proof**.
 These new refs reduce accidental-loss risk but can still be deleted by
@@ -21,8 +26,33 @@ backup. GitHub's UI deletion prompts are not a backup policy.
 | `design/identity-icons-20261029` | `a24de39d68981367d71ecd2e19d84b38b7dd4092` | `archive/2026-10-30-dimensional-icon-proposal` | Dimensional icon art/export sources (PR #31) |
 
 Other historical branch refs that were zero commits ahead of `main`
-were already ancestors of the current repository: their histories are
-preserved through `main`. They need not be duplicated.
+were already ancestors of the current repository and were deleted after
+verification; their histories remain in `main`.
+
+## Completed cleanup (2026-10-30)
+
+**Removed (14 original branch refs):**
+
+- Merged into `main` (10): `agent/pi-zero2w-edge-performance-contract`,
+  `agent/pr22-checklist-lockfile`, `agent/pr22-followup-fixes`,
+  `agent/pr22-rereview-fixes`, `agent/pr22-review-fixes`,
+  `agent/qa-01-release-runner-inventory`,
+  `agent/qa-01-required-runner-map`, `agent/spec-01-schema-inventory`,
+  `claude/rewrite-agents-md`, `codex/shared-ui-foundation`.
+- Exact copy preserved in an archive (4):
+  `agent/recovered-codex-spec-stash`, `agent/recovered-pivot-stash`,
+  `agent/sinty-modern-theme-and-platform-desktop`,
+  `design/brand-identity-20261029`.
+
+**Remaining (9 refs at the time of cleanup):** `main`; six
+`archive/2026-10-30-*` branches (including the pre-P1 baseline);
+the open-PR heads `dependabot/cargo/cargo-48b1db0ec5` (PR #33) and
+`design/identity-icons-20261029` (PR #31).
+
+**Evidence:** [one-time GitHub Actions cleanup run #40961495270](https://github.com/palaashatri/rust-slopos/actions/runs/40961495270)
+completed successfully; the maintenance workflow was subsequently
+deleted from `main`. GitHub branch enumeration returned 9 refs.
+The archive branches are *redundant references*, not an offline backup.
 
 ## Recovery procedure (work only in the intended Linux VM)
 
