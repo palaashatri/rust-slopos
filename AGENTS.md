@@ -132,8 +132,8 @@ CI and policy docs, unless it explicitly grants exclusive ownership.
 Assign each worker distinct source/test paths and an immutable base SHA.
 Allow model/provider/test work in parallel while required UI controls are
 integrated; never let an app invent private versions of missing controls.
-The **coordinator** may autonomously delegate at most two independent
-leaf tasks with exclusive paths and an exact base SHA, if the IDE has
+The **coordinator** may autonomously delegate at most one independent
+leaf task with exclusive paths and an exact base SHA, if the IDE has
 subagents; no recursive spawning. One Cargo build and one X11 runtime
 lease at a time. No agent pushes directly to main.
 
