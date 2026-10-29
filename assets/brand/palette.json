@@ -1,0 +1,13 @@
+{
+  "name": "SLOPOS",
+  "category": "Classic desktop environment",
+  "background": [
+    "#44546a",
+    "#242e40"
+  ],
+  "accent": "#d6dce4",
+  "highlight": "#aebcd0",
+  "typography": "Inter, Segoe UI, Arial",
+  "style": "muted-metal / enamel / soft-depth",
+  "license": "original project artwork"
+}
