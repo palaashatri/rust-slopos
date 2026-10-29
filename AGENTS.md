@@ -6,6 +6,8 @@ Read these first:
 
 - [docs/architecture.md](docs/architecture.md): what exists and how it fits together. Trust it over older docs.
 - [docs/development.md](docs/development.md): commands, running from the source tree, writing a toolkit app.
+- [docs/p1-x11-release.md](docs/p1-x11-release.md): **P1 priority and release gates**, native Files, Image Viewer, Media, Control Panels, Software, and status/OSD.
+- [docs/branch-preservation.md](docs/branch-preservation.md): preserved Wayland and design snapshots; do not delete archive branches.
 - [docs/CONTRACT.md](docs/CONTRACT.md): the target requirements, split by area, plus the evidence [ledger](docs/contract/ledger.md). "§N" means a contract section; the index says which file it is in.
 
 ## Before you push
@@ -136,3 +138,27 @@ bounded CPU/memory, license/provenance audit, and VM session/package
 tests when the change touches the desktop. Missing real hardware must
 be marked NOT_RUN, never PASS. The app suite roadmap is NOT a claim that
 all these applications, renderer paths or non-Linux hosts already exist.
+
+## P1-first merge and agent priorities (2026-10 owner instruction)
+
+**Ship SLOPOS X11/Openbox first** with a stable native Rust `slopos-ui`
+application set: Calculator, Files, Image Viewer, Media, Control Panels,
+Software and basic shell status/OSDs. The exact phase/gate list is in
+[docs/p1-x11-release.md](docs/p1-x11-release.md). No Loom, Donkey, PARAMA,
+custom compositor, or unapproved GPU backend work may displace these.
+
+The existing SLOPOS Design Bible lives at
+[docs/contract/02-design.md](docs/contract/02-design.md) §5.2. Do not
+create an inconsistent duplicate. The integrated image viewer is an
+initial **PNG/SVG proof app**, not a complete photo browser or package-ready
+production release. App workers must extend verified functionality, not
+promote proof UI to done status. The current compiler/test gates remain
+mandatory and run in the designated VM or CI.
+
+Historical Wayland/renderer/app source and design proposals have redundant
+archive branches documented in
+[docs/branch-preservation.md](docs/branch-preservation.md).
+**Never merge or delete those refs as a shortcut**; selected pure policy,
+widget behavior, image/file logic and tests may be adapted only after
+security/license/API reviews and current exact-SHA verification. Do not
+revive the historical compositor during P1.
