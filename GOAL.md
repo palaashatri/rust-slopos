@@ -34,7 +34,7 @@ under archive refs; selectively adapt only audited source/tests.
    shown by `next`, otherwise claim the highest-priority ready task using
    `scripts/p1_goal.py claim TASK-ID`. Deliver its acceptance criterion.
    Subagents (if available) get exclusive files and immutable base SHA;
-   use at most two implementers in addition to the coordinator. If the
+   use at most one implementer in addition to the coordinator. If the
    current Antigravity model cannot delegate, operate sequentially.
 5. Write a small independent test **before declaring implemented**;
    exercise positive, negative, cancellation, input, real file/service
