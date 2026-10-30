@@ -82,6 +82,8 @@ pub struct Control {
     pub(crate) geometry: Option<Rect>,
     pub(crate) accessibility_changed: bool,
     pub(crate) scale: Option<Scale>,
+    pub(crate) clipboard: Option<String>,
+    pub(crate) paste: bool,
 }
 
 impl Control {
@@ -108,11 +110,50 @@ impl Control {
         self.geometry = Some(rect);
     }
 
+    /// Offer `text` on the system clipboard (the X11 `CLIPBOARD` selection).
+    /// Text above [`MAX_CLIPBOARD_BYTES`] is truncated at a char boundary.
+    pub fn set_clipboard(&mut self, text: &str) {
+        let mut end = text.len().min(MAX_CLIPBOARD_BYTES);
+        while !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        self.clipboard = Some(text[..end].to_owned());
+    }
+
+    /// Ask for the clipboard text; it arrives as [`Event::Paste`]. Nothing
+    /// arrives when the clipboard is empty or holds no text.
+    pub fn request_paste(&mut self) {
+        self.paste = true;
+    }
+
+    /// Text handed to [`Self::set_clipboard`] during this event (for tests).
+    pub fn pending_clipboard(&self) -> Option<&str> {
+        self.clipboard.as_deref()
+    }
+
+    /// Whether [`Self::request_paste`] was called during this event.
+    pub fn paste_requested(&self) -> bool {
+        self.paste
+    }
+
+    /// Whether the app asked for a redraw (for tests).
+    pub fn redraw_requested(&self) -> bool {
+        self.redraw
+    }
+
+    /// Whether the app asked to quit (for tests).
+    pub fn quit_requested(&self) -> bool {
+        self.quit
+    }
+
     /// The integer scale used for rendering, available after the first event.
     pub fn scale(&self) -> Option<Scale> {
         self.scale
     }
 }
+
+/// The largest clipboard text SLOPOS offers in one X11 property (no INCR).
+pub const MAX_CLIPBOARD_BYTES: usize = 256 * 1024;
 
 /// Integer UI scale from `SLOPOS_SCALE`, then `GDK_SCALE`, else 1.
 pub fn scale_from_environment() -> Scale {

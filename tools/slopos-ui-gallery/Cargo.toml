@@ -6,5 +6,6 @@ license = "MIT"
 description = "SLOPOS component-development gallery"
 
 [dependencies]
+accesskit.workspace = true
 slopos-ui = { path = "../../crates/slopos-ui" }
 log = { workspace = true }

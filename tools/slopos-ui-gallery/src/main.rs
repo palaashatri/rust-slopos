@@ -2,6 +2,8 @@
 //! headless `--snapshot FILE` mode for review and QA captures.
 
 use slopos_ui::controls::button::{Button, ButtonOutcome};
+use slopos_ui::controls::focus::FocusChain;
+use slopos_ui::controls::text_field::{TextField, TextFieldOutcome};
 use slopos_ui::event::{Event, Key};
 use slopos_ui::foundation::color::Color;
 use slopos_ui::foundation::geometry::{Rect, Scale};
@@ -14,13 +16,14 @@ use slopos_ui::scene::{Command, Scene};
 use slopos_ui::scene_raster::replay_to_raster;
 use slopos_ui::text::Font;
 
-const USAGE: &str = "usage: slopos-ui-gallery [--component surface|button-plate|buttons] [--scale INTEGER] [--snapshot FILE]";
+const USAGE: &str = "usage: slopos-ui-gallery [--component surface|button-plate|buttons|text-field] [--scale INTEGER] [--snapshot FILE]";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum GalleryFixture {
     Surface,
     ButtonPlate,
     Buttons,
+    TextField,
 }
 
 impl GalleryFixture {
@@ -29,6 +32,7 @@ impl GalleryFixture {
             Self::Surface => (160, 90),
             Self::ButtonPlate => (320, 136),
             Self::Buttons => (320, 120),
+            Self::TextField => (320, 130),
         }
     }
 
@@ -37,6 +41,7 @@ impl GalleryFixture {
             Self::Surface => "Surface",
             Self::ButtonPlate => "Button Plates",
             Self::Buttons => "Buttons",
+            Self::TextField => "Text Fields",
         }
     }
 }
@@ -70,7 +75,10 @@ fn parse_arguments(arguments: &[String]) -> Result<GalleryOptions, &'static str>
                     "surface" => GalleryFixture::Surface,
                     "button-plate" => GalleryFixture::ButtonPlate,
                     "buttons" => GalleryFixture::Buttons,
-                    _ => return Err("supported components are surface, button-plate and buttons"),
+                    "text-field" => GalleryFixture::TextField,
+                    _ => return Err(
+                        "supported components are surface, button-plate, buttons and text-field",
+                    ),
                 });
             }
             "--snapshot" if snapshot.is_none() => snapshot = Some(value()?.into()),
@@ -91,6 +99,8 @@ fn parse_arguments(arguments: &[String]) -> Result<GalleryOptions, &'static str>
 struct Gallery {
     fixture: GalleryFixture,
     buttons: Vec<Button>,
+    fields: Vec<TextField>,
+    focus: FocusChain,
     font: Font,
 }
 
@@ -115,9 +125,40 @@ impl Gallery {
             disabled.enabled = false;
             buttons.extend([focused, disabled]);
         }
+        let mut fields = Vec::new();
+        if fixture == GalleryFixture::TextField {
+            let bounds = |y| Rect {
+                x: 16,
+                y,
+                width: 288,
+                height: 22,
+            };
+            let mut name = TextField::new(10, "Name").with_bounds(bounds(16));
+            name.set_text("Résumé – 日本語 draft.txt");
+            name.select(0, "Résumé".len());
+            name.focused = true;
+            let mut search = TextField::new(11, "Search").with_bounds(bounds(52));
+            search.placeholder = "Search".into();
+            let mut disabled = TextField::new(12, "Disabled").with_bounds(bounds(88));
+            disabled.set_text("Read-only value");
+            disabled.enabled = false;
+            fields.extend([name, search, disabled]);
+        }
+        let mut focus = FocusChain::new(
+            fields
+                .iter()
+                .filter(|field| field.enabled)
+                .map(|field| field.id)
+                .collect(),
+        );
+        if let Some(first) = fields.first() {
+            focus.focus(first.id);
+        }
         Self {
             fixture,
             buttons,
+            fields,
+            focus,
             font: Font::system(12.0),
         }
     }
@@ -163,6 +204,38 @@ impl Gallery {
     }
 }
 
+impl Gallery {
+    fn field_event(&mut self, event: &Event, control: &mut Control) {
+        if self.focus.handle(event).is_some() {
+            self.sync_focus();
+            control.request_redraw();
+            return;
+        }
+        let mut focus_to = None;
+        for field in &mut self.fields {
+            match field.handle(event) {
+                TextFieldOutcome::Ignored => continue,
+                TextFieldOutcome::FocusRequested => focus_to = Some(field.id),
+                TextFieldOutcome::Copy(text) => control.set_clipboard(&text),
+                TextFieldOutcome::PasteRequested => control.request_paste(),
+                TextFieldOutcome::Submitted => log::info!("submitted {:?}", field.text()),
+                _ => {}
+            }
+            control.request_redraw();
+        }
+        if let Some(id) = focus_to {
+            self.focus.focus(id);
+            self.sync_focus();
+        }
+    }
+
+    fn sync_focus(&mut self) {
+        for field in &mut self.fields {
+            field.focused = self.focus.is_focused(field.id);
+        }
+    }
+}
+
 impl App for Gallery {
     fn event(&mut self, event: &Event, control: &mut Control) {
         match event {
@@ -173,9 +246,10 @@ impl App for Gallery {
             Event::KeyPressed {
                 key: Key::Tab,
                 modifiers,
-            } => {
+            } if self.fields.is_empty() => {
                 self.move_focus(!modifiers.shift, control);
             }
+            _ if !self.fields.is_empty() => self.field_event(event, control),
             _ => {
                 for button in &mut self.buttons {
                     match button.handle(event) {
@@ -191,6 +265,22 @@ impl App for Gallery {
         }
     }
 
+    fn accessibility(&self) -> Option<accesskit::TreeUpdate> {
+        if self.fields.is_empty() {
+            return None;
+        }
+        let nodes = self
+            .fields
+            .iter()
+            .map(|field| (field.id, field.accessibility_node()))
+            .collect();
+        Some(slopos_ui::accessibility::window_tree(
+            self.fixture.title(),
+            nodes,
+            self.focus.focused(),
+        ))
+    }
+
     fn paint(&mut self, surface: &RasterSurface) {
         if let Err(error) = paint_fixture(self, surface) {
             eprintln!("slopos-ui-gallery: {error}");
@@ -199,7 +289,7 @@ impl App for Gallery {
 }
 
 fn paint_fixture(
-    gallery: &Gallery,
+    gallery: &mut Gallery,
     surface: &RasterSurface,
 ) -> Result<(), Box<dyn std::error::Error>> {
     surface.clear(Color::WHITE)?;
@@ -240,6 +330,12 @@ fn paint_fixture(
         GalleryFixture::Buttons => {
             for button in &gallery.buttons {
                 button.paint(surface, &gallery.font)?;
+            }
+        }
+        GalleryFixture::TextField => {
+            surface.clear(slopos_ui::theme::palette().surface)?;
+            for field in &mut gallery.fields {
+                field.paint(surface)?;
             }
         }
     }
@@ -355,6 +451,38 @@ mod tests {
         );
         assert!(gallery.buttons[3].focused);
         assert!(!gallery.buttons[0].focused);
+    }
+
+    #[test]
+    fn text_fields_take_focus_typing_and_clipboard_requests() {
+        use slopos_ui::event::Modifiers;
+        let mut gallery = Gallery::new(GalleryFixture::TextField);
+        let key = |key, control| Event::KeyPressed {
+            key,
+            modifiers: Modifiers {
+                control,
+                ..Modifiers::default()
+            },
+        };
+        let mut control = Control::default();
+        gallery.event(&key(Key::Tab, false), &mut control);
+        assert_eq!(gallery.focus.focused(), Some(11));
+        assert!(gallery.fields[1].focused && !gallery.fields[0].focused);
+        for c in "hi".chars() {
+            gallery.event(&key(Key::Character(c), false), &mut control);
+        }
+        assert_eq!(gallery.fields[1].text(), "hi");
+        gallery.event(&key(Key::Character('a'), true), &mut control);
+        gallery.event(&key(Key::Character('c'), true), &mut control);
+        assert_eq!(control.pending_clipboard(), Some("hi"));
+        gallery.event(&key(Key::Character('v'), true), &mut control);
+        assert!(control.paste_requested());
+        // The disabled field is skipped by Tab.
+        gallery.event(&key(Key::Tab, false), &mut control);
+        assert_eq!(gallery.focus.focused(), Some(10));
+        let tree = gallery.accessibility().unwrap();
+        assert_eq!(tree.focus, accesskit::NodeId(10));
+        assert_eq!(tree.nodes.len(), 4);
     }
 
     #[test]
