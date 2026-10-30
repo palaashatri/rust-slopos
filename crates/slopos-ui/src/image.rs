@@ -178,6 +178,21 @@ impl Image {
         Some(&self.pixmap)
     }
 
+    /// The part of the image inside `x, y, width × height`, clipped to the
+    /// image.
+    pub fn cropped(&self, x: u32, y: u32, width: u32, height: u32) -> Result<Self, ImageError> {
+        let x = x.min(self.width());
+        let y = y.min(self.height());
+        let width = width.min(self.width() - x);
+        let height = height.min(self.height() - y);
+        let rect = tiny_skia::IntRect::from_xywh(x as i32, y as i32, width, height)
+            .ok_or(ImageError::Dimensions)?;
+        self.pixmap
+            .clone_rect(rect)
+            .map(|pixmap| Self { pixmap })
+            .ok_or(ImageError::Dimensions)
+    }
+
     /// Premultiplied RGBA bytes, row by row.
     pub fn data(&self) -> &[u8] {
         self.pixmap.data()
@@ -351,5 +366,22 @@ mod tests {
             BackgroundMode::parse(BackgroundMode::Center.as_str()),
             BackgroundMode::Center
         );
+    }
+
+    #[test]
+    fn crops_are_clipped_to_the_image() {
+        let image = Image::from_rgba(
+            2,
+            2,
+            vec![
+                255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255,
+            ],
+        )
+        .unwrap();
+        let corner = image.cropped(1, 1, 5, 5).unwrap();
+        assert_eq!((corner.width(), corner.height()), (1, 1));
+        assert_eq!(corner.pixel(0, 0).unwrap().blue(), 255);
+        assert_eq!(corner.pixel(0, 0).unwrap().red(), 255);
+        assert!(image.cropped(2, 2, 1, 1).is_err());
     }
 }

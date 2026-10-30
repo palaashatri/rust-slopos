@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Capture review screenshots of the native SLOPOS apps in a real X session:
-# Xvfb + Openbox + slopos-shell + slopos-dock, with the bundled themes, icons
+# Xvfb + Openbox + slopos-topbar + slopos-dock, with the bundled themes, icons
 # and wallpapers on XDG_DATA_DIRS and a throwaway home. Each shot is the
 # whole 1280x800 screen, so the global menu bar is visible.
 #
@@ -74,7 +74,7 @@ sleep 1
 openbox --config-file "$ROOT/assets/config/openbox/rc.xml" >/dev/null 2>&1 &
 sleep 1
 slopos-session --paint-desktop
-slopos-shell >"$WORK/shell.log" 2>&1 &
+slopos-topbar >"$WORK/topbar.log" 2>&1 &
 sleep 3
 slopos-dock >"$WORK/dock.log" 2>&1 &
 sleep 3

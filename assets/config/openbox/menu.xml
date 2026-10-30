@@ -46,7 +46,7 @@
     </item>
     <separator/>
     <item label="Search Applications (Super+Space)">
-      <action name="Execute"><command>pkill -USR1 -x slopos-shell</command></action>
+      <action name="Execute"><command>pkill -USR1 -x slopos-topbar</command></action>
     </item>
     <item label="Next Workspace">
       <action name="DesktopNext"><wrap>yes</wrap></action>

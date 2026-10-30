@@ -31,12 +31,13 @@ fn search_hotkey_targets_the_existing_shell_instance() {
         include_str!("../../../assets/config/openbox/rc.xml"),
         include_str!("../../../assets/config/openbox/rc-graphite.xml"),
     ] {
-        assert!(openbox.contains("pkill -USR1 -x slopos-shell"));
-        assert!(!openbox.contains("slopos-shell --toggle-launcher"));
+        // The native top bar now owns the launcher.
+        assert!(openbox.contains("pkill -USR1 -x slopos-topbar"));
+        assert!(!openbox.contains("slopos-shell"));
     }
-    let shell = include_str!("../src/main.rs");
-    assert!(shell.contains("SIGUSR1"));
-    assert!(shell.contains("Refusing to start a second SLOPOS shell"));
+    let bar = include_str!("../../slopos-topbar/src/main.rs");
+    assert!(bar.contains("libc::SIGUSR1 => WANT_LAUNCHER"));
+    assert!(bar.contains("Refusing to start a second SLOPOS top bar"));
 }
 
 #[test]
@@ -203,7 +204,7 @@ fn appearances_are_complete_runtime_themes() {
     assert!(switcher.contains("cp -f \"$legacy_gtk2\" \"$legacy_copy\""));
     assert!(switcher.contains("SLOPOS_SESSION_MANAGED"));
     assert!(switcher.contains("gtk-shell-shows-menubar = 1"));
-    assert!(switcher.contains("pkill -TERM -x slopos-shell"));
+    assert!(switcher.contains("pkill -TERM -x slopos-topbar"));
     assert!(switcher.contains("pkill -TERM -x openbox"));
 }
 

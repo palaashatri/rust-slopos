@@ -19,7 +19,7 @@ export DISPLAY="${SMOKE_DISPLAY:-:97}"
 for tool in Xvfb openbox dbus-run-session xdotool; do
   command -v "$tool" >/dev/null || { echo "smoke: $tool is required" >&2; exit 2; }
 done
-for binary in slopos-session slopos-shell; do
+for binary in slopos-session slopos-topbar; do
   test -x "$BIN_DIR/$binary" || { echo "smoke: build $BIN_DIR/$binary first" >&2; exit 2; }
 done
 
@@ -54,7 +54,7 @@ fail() {
 # Session processes that belong to our display.
 session_pids() {
   local name pid
-  for name in slopos-session slopos-shell slopos-dock openbox; do
+  for name in slopos-session slopos-topbar slopos-dock openbox; do
     for pid in $(pgrep -x "$name" 2>/dev/null || true); do
       if { tr '\0' '\n' < "/proc/$pid/environ"; } 2>/dev/null | grep -qx "DISPLAY=$DISPLAY"; then
         echo "$pid"
