@@ -161,6 +161,57 @@ pub struct NetworkSnapshot {
     pub active_connections: Vec<ActiveNetworkConnection>,
 }
 
+type SettingsMap = HashMap<String, HashMap<String, zbus::zvariant::OwnedValue>>;
+
+/// NetworkManager settings for a new Wi-Fi profile. WPA passphrases must be
+/// 8–63 characters (or 64 hex digits), checked before anything is sent.
+pub fn wifi_settings(
+    name: &str,
+    ssid: &[u8],
+    password: Option<&str>,
+) -> Result<SettingsMap, NetworkError> {
+    use zbus::zvariant::{OwnedValue, Value};
+    let owned = |value: Value<'_>| {
+        OwnedValue::try_from(value).map_err(|e| NetworkError::InvalidProperty(e.to_string()))
+    };
+    if ssid.is_empty() || ssid.len() > 32 {
+        return Err(NetworkError::InvalidProperty(
+            "a Wi-Fi name is 1–32 bytes".into(),
+        ));
+    }
+    let mut settings = SettingsMap::new();
+    settings.insert(
+        "connection".into(),
+        HashMap::from([
+            ("id".to_owned(), owned(Value::from(name))?),
+            ("type".to_owned(), owned(Value::from("802-11-wireless"))?),
+        ]),
+    );
+    settings.insert(
+        "802-11-wireless".into(),
+        HashMap::from([
+            ("ssid".to_owned(), owned(Value::from(ssid.to_vec()))?),
+            ("mode".to_owned(), owned(Value::from("infrastructure"))?),
+        ]),
+    );
+    if let Some(password) = password {
+        let hex_key = password.len() == 64 && password.bytes().all(|b| b.is_ascii_hexdigit());
+        if !(8..=63).contains(&password.chars().count()) && !hex_key {
+            return Err(NetworkError::InvalidProperty(
+                "a Wi-Fi password has 8 to 63 characters".into(),
+            ));
+        }
+        settings.insert(
+            "802-11-wireless-security".into(),
+            HashMap::from([
+                ("key-mgmt".to_owned(), owned(Value::from("wpa-psk"))?),
+                ("psk".to_owned(), owned(Value::from(password))?),
+            ]),
+        );
+    }
+    Ok(settings)
+}
+
 #[derive(Debug, Error)]
 pub enum NetworkError {
     #[error("NetworkManager query timed out")]
@@ -460,6 +511,76 @@ impl NetworkManagerClient {
                 }
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
+        })
+        .await
+        .map_err(|_| NetworkError::Timeout)?
+    }
+
+    /// Join the Wi-Fi network `ssid` seen at `access_point` on `device`. A
+    /// saved profile for it is reused; otherwise NetworkManager stores a
+    /// new one, WPA-PSK when `password` is given and open without. Returns
+    /// once NetworkManager accepted the request; progress and failure
+    /// (a wrong password ends the activation) arrive through `watch`.
+    pub async fn join_wifi(
+        &self,
+        device: &str,
+        access_point: &str,
+        ssid: &[u8],
+        password: Option<&str>,
+    ) -> Result<(), NetworkError> {
+        let parse_path = |path: &str| {
+            zbus::zvariant::OwnedObjectPath::try_from(path.to_owned())
+                .map_err(|_| NetworkError::InvalidObjectPath(path.to_owned()))
+        };
+        let device_path = parse_path(device)?;
+        let ap_path = parse_path(access_point)?;
+        let name = String::from_utf8_lossy(ssid).into_owned();
+        // An existing wireless profile with this name is joined as is.
+        if password.is_none() {
+            if let Some(profile) = self
+                .saved_connections()
+                .await?
+                .into_iter()
+                .find(|p| p.connection_type == "802-11-wireless" && p.id == name)
+            {
+                self.activate_connection(&profile.object_path, device, access_point)
+                    .await?;
+                return Ok(());
+            }
+        }
+        let settings = wifi_settings(&name, ssid, password)?;
+        timeout(Duration::from_secs(10), async {
+            let manager =
+                Proxy::new(&self.connection, SERVICE, MANAGER_PATH, MANAGER_INTERFACE).await?;
+            let _: (
+                zbus::zvariant::OwnedObjectPath,
+                zbus::zvariant::OwnedObjectPath,
+            ) = manager
+                .call(
+                    "AddAndActivateConnection",
+                    &(settings, device_path, ap_path),
+                )
+                .await?;
+            Ok(())
+        })
+        .await
+        .map_err(|_| NetworkError::Timeout)?
+    }
+
+    /// Delete a saved connection profile (Forget This Network).
+    pub async fn forget_connection(&self, profile: &str) -> Result<(), NetworkError> {
+        let path = zbus::zvariant::OwnedObjectPath::try_from(profile.to_owned())
+            .map_err(|_| NetworkError::InvalidObjectPath(profile.to_owned()))?;
+        timeout(Duration::from_secs(5), async {
+            let connection = Proxy::new(
+                &self.connection,
+                SERVICE,
+                path.as_str(),
+                SETTINGS_CONNECTION_INTERFACE,
+            )
+            .await?;
+            connection.call::<_, _, ()>("Delete", &()).await?;
+            Ok(())
         })
         .await
         .map_err(|_| NetworkError::Timeout)?
@@ -2279,5 +2400,20 @@ mod tests {
                 .octets()
                 .to_vec()]
         }
+    }
+
+    #[test]
+    fn wifi_profiles_are_built_and_validated_before_sending() {
+        let open = wifi_settings("Cafe", b"Cafe", None).unwrap();
+        assert!(open.contains_key("802-11-wireless"));
+        assert!(!open.contains_key("802-11-wireless-security"));
+        let secured = wifi_settings("Home", b"Home", Some("correct horse")).unwrap();
+        let security = &secured["802-11-wireless-security"];
+        assert_eq!(<&str>::try_from(&*security["key-mgmt"]).unwrap(), "wpa-psk");
+        assert!(wifi_settings("Home", b"Home", Some("short")).is_err());
+        assert!(wifi_settings("Home", b"Home", Some(&"z".repeat(64))).is_err());
+        assert!(wifi_settings("Home", b"Home", Some(&"ab".repeat(32))).is_ok());
+        assert!(wifi_settings("", b"", None).is_err());
+        assert!(wifi_settings("x", &[b'x'; 33], None).is_err());
     }
 }

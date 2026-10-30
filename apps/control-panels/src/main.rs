@@ -22,6 +22,7 @@ use slopos_services::network::{NetworkDeviceType, NetworkSnapshot};
 use slopos_services::timedate::TimedateSnapshot;
 use slopos_ui::accessibility::window_tree;
 use slopos_ui::controls::button::{Button, ButtonOutcome};
+use slopos_ui::controls::dialog::{Dialog, DialogOutcome};
 use slopos_ui::controls::file_chooser::{ChooserOutcome, FileChooser};
 use slopos_ui::controls::focus::FocusChain;
 use slopos_ui::controls::list::{ListOutcome, ListView};
@@ -47,6 +48,10 @@ const LINES_ID: u64 = 3;
 const NETWORKING_ID: u64 = 20;
 const WIFI_ID: u64 = 21;
 const SCAN_ID: u64 = 22;
+const JOIN_ID: u64 = 24;
+const DISCONNECT_ID: u64 = 25;
+const FORGET_ID: u64 = 26;
+const DIALOG_ID: u64 = 600;
 const WIFI_LIST_ID: u64 = 23;
 const OUTPUT_VOLUME_ID: u64 = 30;
 const OUTPUT_MUTE_ID: u64 = 31;
@@ -150,6 +155,13 @@ pub struct ControlPanels {
     wifi: Checkbox,
     scan: Button,
     wifi_list: ListView,
+    join: Button,
+    disconnect: Button,
+    forget: Button,
+    /// Saved Wi-Fi profile names, from NetworkManager.
+    saved_wifi: Vec<String>,
+    /// The Wi-Fi password prompt, for the named network.
+    password: Option<(Dialog, String)>,
     output_volume: Slider,
     output_mute: Checkbox,
     input_volume: Slider,
@@ -288,6 +300,11 @@ impl ControlPanels {
             wifi: Checkbox::new(WIFI_ID, "Wi-Fi", false),
             scan: Button::new(SCAN_ID, "Search for Networks", ButtonPlateVariant::Regular),
             wifi_list: ListView::new(WIFI_LIST_ID, "Wi-Fi networks", 20),
+            join: Button::new(JOIN_ID, "Join", ButtonPlateVariant::Default),
+            disconnect: Button::new(DISCONNECT_ID, "Disconnect", ButtonPlateVariant::Regular),
+            forget: Button::new(FORGET_ID, "Forget", ButtonPlateVariant::Regular),
+            saved_wifi: Vec::new(),
+            password: None,
             output_volume: Slider::new(OUTPUT_VOLUME_ID, "Output volume", 0.0, 100.0, 5.0),
             output_mute: Checkbox::new(OUTPUT_MUTE_ID, "Mute output", false),
             input_volume: Slider::new(INPUT_VOLUME_ID, "Input volume", 0.0, 100.0, 5.0),
@@ -384,12 +401,27 @@ impl ControlPanels {
             width: 150,
             height: 20,
         };
+        let list_height = c.height.saturating_sub(172);
         self.wifi_list.set_bounds(Rect {
             x: x + 1,
             y: top + 32,
             width: c.width.saturating_sub(2),
-            height: c.height.saturating_sub(140),
+            height: list_height,
         });
+        let buttons_y = top + 40 + list_height as i32;
+        let mut button_x = x + c.width as i32;
+        for button in [&mut self.forget, &mut self.disconnect, &mut self.join] {
+            button_x -= 96;
+            button.bounds = Rect {
+                x: button_x,
+                y: buttons_y,
+                width: 90,
+                height: 20,
+            };
+        }
+        if let Some((dialog, _)) = &mut self.password {
+            dialog.layout(self.window);
+        }
         self.output_volume.bounds = Rect {
             x: x + 110,
             y: top,
@@ -453,7 +485,15 @@ impl ControlPanels {
     fn focus_ids(&self) -> Vec<u64> {
         let mut ids = vec![SIDEBAR_ID];
         ids.extend(match self.panel() {
-            Panel::Network => vec![NETWORKING_ID, WIFI_ID, SCAN_ID, WIFI_LIST_ID],
+            Panel::Network => vec![
+                NETWORKING_ID,
+                WIFI_ID,
+                SCAN_ID,
+                WIFI_LIST_ID,
+                JOIN_ID,
+                DISCONNECT_ID,
+                FORGET_ID,
+            ],
             Panel::Sound => vec![
                 OUTPUT_VOLUME_ID,
                 OUTPUT_MUTE_ID,
@@ -481,6 +521,9 @@ impl ControlPanels {
         self.wifi.focused = f == Some(WIFI_ID);
         self.scan.focused = f == Some(SCAN_ID);
         self.wifi_list.focused = f == Some(WIFI_LIST_ID);
+        self.join.focused = f == Some(JOIN_ID);
+        self.disconnect.focused = f == Some(DISCONNECT_ID);
+        self.forget.focused = f == Some(FORGET_ID);
         self.output_volume.focused = f == Some(OUTPUT_VOLUME_ID);
         self.output_mute.focused = f == Some(OUTPUT_MUTE_ID);
         self.input_volume.focused = f == Some(INPUT_VOLUME_ID);
@@ -512,12 +555,16 @@ impl ControlPanels {
                 if self.wifi_list.len() != networks {
                     self.wifi_list.reset(networks);
                 }
+                self.sync_wifi_buttons();
             }
             Err(_) => {
                 self.networking.enabled = false;
                 self.wifi.enabled = false;
                 self.scan.enabled = false;
                 self.wifi_list.reset(0);
+                self.join.enabled = false;
+                self.disconnect.enabled = false;
+                self.forget.enabled = false;
             }
         }
         let (output, input) = match &self.audio {
@@ -585,6 +632,7 @@ impl ControlPanels {
             Update::Brightness(state) => self.brightness = state,
             Update::Bluetooth(state) => self.bluetooth = state,
             Update::Time(state) => self.time = state,
+            Update::SavedWifi(names) => self.saved_wifi = names,
             Update::Failed(error) => self.fail(format!("That change failed: {error}")),
         }
     }
@@ -599,7 +647,99 @@ impl ControlPanels {
         }
     }
 
+    /// Join, Disconnect and Forget follow the selected network.
+    fn sync_wifi_buttons(&mut self) {
+        let target = self.selected_wifi();
+        self.join.enabled = target
+            .as_ref()
+            .is_some_and(|t| t.active_connection.is_none());
+        self.disconnect.enabled = target
+            .as_ref()
+            .is_some_and(|t| t.active_connection.is_some());
+        self.forget.enabled = self
+            .selected_wifi_name()
+            .is_some_and(|name| self.saved_wifi.contains(&name));
+    }
+
+    /// The network selected in the Wi-Fi list.
+    fn selected_wifi_name(&self) -> Option<String> {
+        let networks = self.network.as_ref().ok().map(model::wifi_networks)?;
+        networks
+            .get(self.wifi_list.cursor()?)
+            .map(|network| network.0.clone())
+    }
+
+    fn selected_wifi(&self) -> Option<model::WifiTarget> {
+        let name = self.selected_wifi_name()?;
+        model::wifi_target(self.network.as_ref().ok()?, &name)
+    }
+
+    /// Join the selected network: secured networks without a saved profile
+    /// ask for the password first.
+    fn join_selected(&mut self) {
+        let (Some(name), Some(target)) = (self.selected_wifi_name(), self.selected_wifi()) else {
+            return;
+        };
+        if target.secured && !self.saved_wifi.contains(&name) {
+            let mut dialog = Dialog::new(
+                DIALOG_ID,
+                &format!("Join “{name}”"),
+                &format!("Enter the password for the Wi-Fi network “{name}”."),
+                &["Cancel", "Join"],
+            )
+            .with_field("Password", "");
+            if let Some(field) = &mut dialog.field {
+                field.secret = true;
+            }
+            dialog.layout(self.window);
+            self.password = Some((dialog, name));
+            return;
+        }
+        self.send(Command::JoinWifi(
+            target.device,
+            target.access_point,
+            target.ssid,
+            None,
+        ));
+        self.notice(format!("Joining “{name}”…"));
+    }
+
     fn handle(&mut self, event: &Event, control: &mut Control) {
+        if let Some((dialog, _)) = &mut self.password {
+            match dialog.handle(event) {
+                DialogOutcome::Chosen { index, text } => {
+                    let (_, name) = self.password.take().expect("prompt is open");
+                    let target = self
+                        .network
+                        .as_ref()
+                        .ok()
+                        .and_then(|snapshot| model::wifi_target(snapshot, &name));
+                    match (index, text, target) {
+                        (1, Some(password), Some(target)) => {
+                            if let Err(error) = slopos_services::network::wifi_settings(
+                                &name,
+                                &target.ssid,
+                                Some(&password),
+                            ) {
+                                return self.fail(error.to_string());
+                            }
+                            self.send(Command::JoinWifi(
+                                target.device,
+                                target.access_point,
+                                target.ssid,
+                                Some(password),
+                            ));
+                            self.notice(format!("Joining “{name}”…"));
+                        }
+                        (1, _, None) => self.fail(format!("“{name}” is no longer in range.")),
+                        _ => {}
+                    }
+                }
+                DialogOutcome::PasteRequested => control.request_paste(),
+                _ => {}
+            }
+            return;
+        }
         if let Some(chooser) = &mut self.chooser {
             match chooser.handle(event, control.modifiers()) {
                 ChooserOutcome::Chosen(path) => {
@@ -714,11 +854,34 @@ impl ControlPanels {
                     .map(model::wifi_networks)
                     .unwrap_or_default();
                 let label = |i: usize| networks.get(i).map(|n| n.0.clone()).unwrap_or_default();
-                if self.wifi_list.handle(event, control.modifiers(), &label)
-                    == ListOutcome::FocusRequested
+                match self.wifi_list.handle(event, control.modifiers(), &label) {
+                    ListOutcome::FocusRequested => {
+                        self.focus.focus(WIFI_LIST_ID);
+                        self.sync_focus();
+                    }
+                    ListOutcome::Activated(_) => self.join_selected(),
+                    _ => {}
+                }
+                self.sync_wifi_buttons();
+                if self.join.handle(event) == ButtonOutcome::Activated
+                    || (clicked(JOIN_ID) && self.join.enabled)
                 {
-                    self.focus.focus(WIFI_LIST_ID);
-                    self.sync_focus();
+                    self.join_selected();
+                }
+                if self.disconnect.handle(event) == ButtonOutcome::Activated
+                    || (clicked(DISCONNECT_ID) && self.disconnect.enabled)
+                {
+                    if let Some(active) = self.selected_wifi().and_then(|t| t.active_connection) {
+                        self.send(Command::Disconnect(active));
+                    }
+                }
+                if self.forget.handle(event) == ButtonOutcome::Activated
+                    || (clicked(FORGET_ID) && self.forget.enabled)
+                {
+                    if let Some(name) = self.selected_wifi_name() {
+                        self.send(Command::ForgetWifi(name.clone()));
+                        self.notice(format!("Forgetting “{name}”…"));
+                    }
                 }
             }
             Panel::Sound => {
@@ -1085,14 +1248,40 @@ impl ControlPanels {
                     .as_ref()
                     .map(model::wifi_networks)
                     .unwrap_or_default();
-                self.wifi_list.paint(surface, |surface, i, rect, _| {
-                    let (name, strength, secured) = &networks[i];
-                    let text = format!(
-                        "{name}  —  {strength}%{}",
-                        if *secured { "  (secured)" } else { "" }
-                    );
-                    surface.draw_text(&text, rect.x + 8, rect.y + 2, font, colors.ink)
-                })?;
+                let connected: Vec<bool> = networks
+                    .iter()
+                    .map(|(name, _, _)| {
+                        self.network
+                            .as_ref()
+                            .ok()
+                            .and_then(|s| model::wifi_target(s, name))
+                            .is_some_and(|t| t.active_connection.is_some())
+                    })
+                    .collect();
+                let saved = &self.saved_wifi;
+                self.wifi_list
+                    .paint(surface, |surface, i, rect, selected| {
+                        let (name, strength, secured) = &networks[i];
+                        let ink = if selected {
+                            colors.selection_ink
+                        } else {
+                            colors.ink
+                        };
+                        if connected[i] {
+                            surface.draw_text("✓", rect.x + 6, rect.y + 2, font, ink)?;
+                        }
+                        let mut text = format!("{name}  —  {strength}%");
+                        if *secured {
+                            text.push_str("  (secured)");
+                        }
+                        if saved.contains(name) {
+                            text.push_str("  · saved");
+                        }
+                        surface.draw_text(&text, rect.x + 22, rect.y + 2, font, ink)
+                    })?;
+                self.join.paint(surface, font)?;
+                self.disconnect.paint(surface, font)?;
+                self.forget.paint(surface, font)?;
                 if networks.is_empty() {
                     let list = self.wifi_list.bounds();
                     surface.draw_text(
@@ -1182,6 +1371,9 @@ impl ControlPanels {
         if let Some(chooser) = &mut self.chooser {
             chooser.paint(surface)?;
         }
+        if let Some((dialog, _)) = &mut self.password {
+            dialog.paint(surface)?;
+        }
         Ok(())
     }
 }
@@ -1248,6 +1440,9 @@ impl App for ControlPanels {
                 nodes.push((NETWORKING_ID, self.networking.accessibility_node()));
                 nodes.push((WIFI_ID, self.wifi.accessibility_node()));
                 nodes.push((SCAN_ID, self.scan.accessibility_node()));
+                nodes.push((JOIN_ID, self.join.accessibility_node()));
+                nodes.push((DISCONNECT_ID, self.disconnect.accessibility_node()));
+                nodes.push((FORGET_ID, self.forget.accessibility_node()));
                 let networks = self
                     .network
                     .as_ref()
@@ -1295,6 +1490,11 @@ impl App for ControlPanels {
         let mut status = accesskit::Node::new(accesskit::Role::Label);
         status.set_label(self.status.as_str());
         nodes.push((STATUS_ID, status));
+        if let Some((dialog, _)) = &self.password {
+            nodes.extend(dialog.accessibility_nodes());
+            let focus = Some(dialog.focus_node());
+            return Some(window_tree("Control Panels", nodes, focus));
+        }
         if let Some(chooser) = &self.chooser {
             nodes.extend(chooser.accessibility_nodes());
             return Some(window_tree(
@@ -1462,6 +1662,111 @@ mod tests {
             .nodes
             .iter()
             .any(|(_, n)| n.label() == Some("Output volume")));
+    }
+
+    #[test]
+    fn wifi_join_asks_for_a_password_and_sends_it_to_the_provider() {
+        use slopos_services::network::{NetworkAccessPoint, NetworkDevice, NetworkDeviceState};
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        let ap = |path: &str, ssid: &[u8], strength, rsn_flags| NetworkAccessPoint {
+            object_path: path.into(),
+            ssid: ssid.to_vec(),
+            strength,
+            frequency_mhz: 2412,
+            wpa_flags: 0,
+            rsn_flags,
+        };
+        let mut snapshot = NetworkSnapshot {
+            revision: 1,
+            networking_enabled: true,
+            wireless_enabled: true,
+            wireless_hardware_enabled: true,
+            devices: vec![NetworkDevice {
+                object_path: "/d/1".into(),
+                interface: "wlan0".into(),
+                ip_interface: "wlan0".into(),
+                kind: NetworkDeviceType::Wifi,
+                state: NetworkDeviceState::Disconnected,
+                active_access_point: None,
+                access_points: vec![ap("/a/1", b"Home", 70, 8), ap("/a/2", b"Cafe", 50, 0)],
+                active_connection: None,
+            }],
+            active_connections: Vec::new(),
+        };
+        app.apply_update(Update::Network(Ok(snapshot.clone())));
+        app.sync_from_state();
+        let mut control = Control::default();
+        assert_eq!(app.panel(), Panel::Network);
+        // Nothing selected: nothing to join.
+        assert!(!app.join.enabled && !app.disconnect.enabled && !app.forget.enabled);
+        // Sidebar, Networking, Wi-Fi, Scan, then the network list.
+        for _ in 0..5 {
+            app.event(&key(Key::Tab), &mut control);
+        }
+        assert!(app.wifi_list.focused);
+        app.event(&key(Key::Down), &mut control);
+        assert_eq!(app.selected_wifi_name().as_deref(), Some("Home"));
+        assert!(app.join.enabled && !app.disconnect.enabled && !app.forget.enabled);
+        // A secured network without a saved profile asks for the password,
+        // which is masked and never in the accessibility tree.
+        app.event(&key(Key::Enter), &mut control);
+        assert!(app.password.is_some());
+        for c in "hunter22".chars() {
+            app.event(&key(Key::Character(c)), &mut control);
+        }
+        let tree = app.accessibility().unwrap();
+        assert!(tree
+            .nodes
+            .iter()
+            .all(|(_, n)| n.value() != Some("hunter22")));
+        assert!(tree
+            .nodes
+            .iter()
+            .any(|(_, n)| n.role() == accesskit::Role::PasswordInput));
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
+        app.event(&key(Key::Enter), &mut control);
+        assert!(app.password.is_none());
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::JoinWifi(
+                "/d/1".into(),
+                "/a/1".into(),
+                b"Home".to_vec(),
+                Some("hunter22".into())
+            )
+        );
+        // A too-short password is refused before it reaches NetworkManager.
+        app.event(&key(Key::Enter), &mut control);
+        app.event(&key(Key::Character('x')), &mut control);
+        app.event(&key(Key::Enter), &mut control);
+        assert!(app.status_error);
+        assert!(receiver.try_recv().is_err());
+        // Once joined and saved: Disconnect and Forget, no Join.
+        snapshot.devices[0].active_access_point = Some("/a/1".into());
+        snapshot.devices[0].active_connection = Some("/ac/1".into());
+        app.apply_update(Update::Network(Ok(snapshot)));
+        app.apply_update(Update::SavedWifi(vec!["Home".into()]));
+        app.sync_from_state();
+        assert!(!app.join.enabled && app.disconnect.enabled && app.forget.enabled);
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.disconnect.focused);
+        app.event(&key(Key::Space), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::Disconnect("/ac/1".into())
+        );
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Space), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::ForgetWifi("Home".into())
+        );
     }
 
     #[test]
