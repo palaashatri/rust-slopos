@@ -177,11 +177,11 @@ revive the historical compositor during P1.
 
 ## Native Files handoff (PR #35)
 
-The `apps/files` source and `slopos-ui::controls::list_view` form a
-read-only, bounded, async navigation baseline. **Do not start Files from
-scratch.** The next implementation should extend and test this source:
-file choosers, pagination over 8192 rows, safe atomic file operations,
-context menus and actual native file associations. Follow
+`apps/files` (PR #35's model plus the FILES-02 operations, Trash and
+menus on the shared `slopos-ui::controls::list::ListView`) is the Files
+baseline. **Do not start Files from scratch.** Remaining work extends it:
+pagination over 8192 rows, drag and drop, icon view, thumbnails,
+properties and removable volumes. Follow
 [docs/p1-files-live-qa.md](docs/p1-files-live-qa.md) for required VM
 interaction and screenshot evidence; do not call Files shipped until those
 and the full P1 file operations pass. Preserve the PCManFM donor until

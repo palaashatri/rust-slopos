@@ -41,6 +41,20 @@ pub struct AudioDevice {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AudioStream {
+    /// The sound server's index for the stream.
+    pub index: u32,
+    /// The application's name, as it reports it.
+    pub application: String,
+    /// What it is playing, when it says.
+    pub media: Option<String>,
+    /// Index of the output device it plays on.
+    pub output: u32,
+    pub muted: bool,
+    pub volume_millipercent: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AudioSnapshot {
     pub revision: u64,
     pub availability: Availability,
@@ -48,6 +62,8 @@ pub struct AudioSnapshot {
     pub default_input: Option<String>,
     pub outputs: Vec<AudioDevice>,
     pub inputs: Vec<AudioDevice>,
+    /// Applications playing sound now.
+    pub streams: Vec<AudioStream>,
 }
 
 #[derive(Debug, Error)]
@@ -135,11 +151,13 @@ impl AudioClient {
 
     pub async fn snapshot(&self) -> Result<AudioSnapshot, AudioError> {
         let result = timeout(MUTATION_TIMEOUT, async {
-            let (sinks, sources, info) = tokio::try_join!(
+            let (sinks, sources, info, streams) = tokio::try_join!(
                 self.run(&["list", "sinks"]),
                 self.run(&["list", "sources"]),
                 self.run(&["info"]),
+                self.run(&["list", "sink-inputs"]),
             )?;
+            let streams = parse_streams(&streams)?;
             let (default_output, default_input) = parse_defaults(&info)?;
             let mut outputs = parse_devices(&sinks, "Sink", AudioDirection::Output)?;
             let mut inputs = parse_devices(&sources, "Source", AudioDirection::Input)?;
@@ -150,7 +168,7 @@ impl AudioClient {
             for device in &mut inputs {
                 device.is_default = default_input.as_deref() == Some(&device.name);
             }
-            Ok((default_output, default_input, outputs, inputs))
+            Ok((default_output, default_input, outputs, inputs, streams))
         })
         .await
         .map_err(|_| AudioError::Timeout)??;
@@ -167,6 +185,7 @@ impl AudioClient {
             default_input: result.1,
             outputs: result.2,
             inputs: result.3,
+            streams: result.4,
         })
     }
 
@@ -269,6 +288,97 @@ impl AudioClient {
 
     pub async fn set_default_input(&self, device: &str) -> Result<AudioSnapshot, AudioError> {
         self.set_default(AudioDirection::Input, device).await
+    }
+
+    /// Set one application's volume.
+    pub async fn set_stream_volume(
+        &self,
+        stream: u32,
+        percent: u32,
+    ) -> Result<AudioSnapshot, AudioError> {
+        if percent > 150 {
+            return Err(AudioError::InvalidVolume);
+        }
+        let _guard = self.mutation_lock.lock().await;
+        self.ensure_stream(stream).await?;
+        self.run(&[
+            "set-sink-input-volume",
+            &stream.to_string(),
+            &format!("{percent}%"),
+        ])
+        .await?;
+        self.wait_for_stream(stream, |item| {
+            item.volume_millipercent
+                .iter()
+                .all(|volume| volume.abs_diff(percent * 1000) <= 1000)
+        })
+        .await
+    }
+
+    pub async fn set_stream_muted(
+        &self,
+        stream: u32,
+        muted: bool,
+    ) -> Result<AudioSnapshot, AudioError> {
+        let _guard = self.mutation_lock.lock().await;
+        self.ensure_stream(stream).await?;
+        self.run(&[
+            "set-sink-input-mute",
+            &stream.to_string(),
+            if muted { "1" } else { "0" },
+        ])
+        .await?;
+        self.wait_for_stream(stream, |item| item.muted == muted)
+            .await
+    }
+
+    /// Play an application's sound on another output device.
+    pub async fn move_stream(
+        &self,
+        stream: u32,
+        device: &str,
+    ) -> Result<AudioSnapshot, AudioError> {
+        let _guard = self.mutation_lock.lock().await;
+        self.ensure_stream(stream).await?;
+        let snapshot = self.snapshot().await?;
+        let target = snapshot
+            .outputs
+            .iter()
+            .find(|output| output.name == device)
+            .map(|output| output.index)
+            .ok_or_else(|| AudioError::DeviceUnavailable(device.to_owned()))?;
+        self.run(&["move-sink-input", &stream.to_string(), device])
+            .await?;
+        self.wait_for_stream(stream, |item| item.output == target)
+            .await
+    }
+
+    async fn ensure_stream(&self, stream: u32) -> Result<(), AudioError> {
+        let snapshot = self.snapshot().await?;
+        if snapshot.streams.iter().any(|item| item.index == stream) {
+            Ok(())
+        } else {
+            Err(AudioError::DeviceUnavailable(format!("stream {stream}")))
+        }
+    }
+
+    async fn wait_for_stream(
+        &self,
+        stream: u32,
+        matches: impl Fn(&AudioStream) -> bool,
+    ) -> Result<AudioSnapshot, AudioError> {
+        timeout(MUTATION_TIMEOUT, async {
+            loop {
+                let snapshot = self.snapshot().await?;
+                match snapshot.streams.iter().find(|item| item.index == stream) {
+                    None => return Err(AudioError::DeviceUnavailable(format!("stream {stream}"))),
+                    Some(item) if matches(item) => return Ok(snapshot),
+                    Some(_) => tokio::time::sleep(Duration::from_millis(100)).await,
+                }
+            }
+        })
+        .await
+        .map_err(|_| AudioError::Timeout)?
     }
 
     async fn set_volume(
@@ -622,6 +732,100 @@ fn parse_devices(
     Ok(devices)
 }
 
+/// `pactl list sink-inputs`: one block per application stream.
+fn parse_streams(output: &str) -> Result<Vec<AudioStream>, AudioError> {
+    let mut streams = Vec::new();
+    let mut current: Option<PartialStream> = None;
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if let Some(index) = trimmed.strip_prefix("Sink Input #") {
+            if let Some(stream) = current.take() {
+                streams.push(stream.finish()?);
+            }
+            let index = index.trim().parse().map_err(|error| {
+                AudioError::InvalidOutput(format!("invalid stream index: {error}"))
+            })?;
+            current = Some(PartialStream {
+                index,
+                ..PartialStream::default()
+            });
+            continue;
+        }
+        let Some(stream) = current.as_mut() else {
+            continue;
+        };
+        if let Some(value) = trimmed.strip_prefix("Sink:") {
+            stream.output = value.trim().parse().ok();
+        } else if let Some(value) = trimmed.strip_prefix("Mute:") {
+            stream.muted = match value.trim() {
+                "yes" => Some(true),
+                "no" => Some(false),
+                other => {
+                    return Err(AudioError::InvalidOutput(format!(
+                        "invalid mute value: {other}"
+                    )))
+                }
+            };
+        } else if let Some(value) = trimmed.strip_prefix("Volume:") {
+            stream.volume_millipercent = Some(parse_volumes(value)?);
+        } else if let Some(value) = property(trimmed, "application.name") {
+            stream.application = Some(value);
+        } else if let Some(value) = property(trimmed, "application.process.binary") {
+            stream.binary = Some(value);
+        } else if let Some(value) = property(trimmed, "media.name") {
+            stream.media = Some(value);
+        }
+    }
+    if let Some(stream) = current {
+        streams.push(stream.finish()?);
+    }
+    Ok(streams)
+}
+
+#[derive(Default)]
+struct PartialStream {
+    index: u32,
+    output: Option<u32>,
+    muted: Option<bool>,
+    volume_millipercent: Option<Vec<u32>>,
+    application: Option<String>,
+    binary: Option<String>,
+    media: Option<String>,
+}
+
+impl PartialStream {
+    fn finish(self) -> Result<AudioStream, AudioError> {
+        Ok(AudioStream {
+            index: self.index,
+            application: self
+                .application
+                .or(self.binary)
+                .unwrap_or_else(|| format!("Stream {}", self.index)),
+            media: self.media,
+            output: self
+                .output
+                .ok_or_else(|| AudioError::InvalidOutput("stream omitted its sink".into()))?,
+            muted: self
+                .muted
+                .ok_or_else(|| AudioError::InvalidOutput("stream omitted mute state".into()))?,
+            volume_millipercent: self
+                .volume_millipercent
+                .ok_or_else(|| AudioError::InvalidOutput("stream omitted volume".into()))?,
+        })
+    }
+}
+
+/// `key = "value"` from a property list, bounded and non-empty.
+fn property(line: &str, key: &str) -> Option<String> {
+    let value = line
+        .strip_prefix(key)?
+        .trim_start()
+        .strip_prefix('=')?
+        .trim();
+    let value = value.strip_prefix('"')?.strip_suffix('"')?;
+    (!value.is_empty()).then(|| value.chars().take(120).collect())
+}
+
 struct PartialDevice {
     index: u32,
     name: Option<String>,
@@ -700,6 +904,22 @@ mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
 
+    /// Write an executable fixture script without ever holding it open for
+    /// writing in this process: tests run on parallel threads, and a thread
+    /// forking while the descriptor is open would make exec'ing the script
+    /// fail with ETXTBSY. A short-lived `cp` does the writing instead.
+    fn write_script(path: &std::path::Path, text: &str) {
+        let staging = path.with_extension("source");
+        std::fs::write(&staging, text).unwrap();
+        let status = std::process::Command::new("cp")
+            .arg(&staging)
+            .arg(path)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+
     fn fixture_client() -> (AudioClient, tempfile::TempDir) {
         let directory = tempfile::tempdir().unwrap();
         std::fs::write(directory.path().join("output_volume"), "85").unwrap();
@@ -710,8 +930,11 @@ mod tests {
         std::fs::write(directory.path().join("default_input"), "source.one").unwrap();
         std::fs::write(directory.path().join("remove_sink_two"), "0").unwrap();
         std::fs::write(directory.path().join("subscription_attempts"), "0").unwrap();
+        std::fs::write(directory.path().join("stream_volume"), "100").unwrap();
+        std::fs::write(directory.path().join("stream_mute"), "no").unwrap();
+        std::fs::write(directory.path().join("stream_sink"), "1").unwrap();
         let executable = directory.path().join("pactl");
-        std::fs::write(
+        write_script(
             &executable,
             r##"#!/bin/sh
 set -eu
@@ -721,7 +944,9 @@ root=${0%/*}
     printf 'Server Name: PulseAudio (on PipeWire)\nDefault Sink: %s\nDefault Source: %s\n' "$(cat "$root/default_output")" "$(cat "$root/default_input")"
     ;;
   list)
-    if [ "$2" = sinks ]; then
+    if [ "$2" = sink-inputs ]; then
+      printf 'Sink Input #42\n\tDriver: protocol-native.c\n\tSink: %s\n\tMute: %s\n\tVolume: front-left: 65536 / %s%% / 0 dB, front-right: 65536 / %s%% / 0 dB\n\tProperties:\n\t\tmedia.name = "Playback"\n\t\tapplication.name = "Fixture Player"\n\t\tapplication.process.binary = "fixture"\n' "$(cat "$root/stream_sink")" "$(cat "$root/stream_mute")" "$(cat "$root/stream_volume")" "$(cat "$root/stream_volume")"
+    elif [ "$2" = sinks ]; then
       for index in 1 2 3 4; do
         case "$index" in 1) name=sink.one ;; 2) name=sink.two ;; 3) name=sink.denied ;; *) name=sink.failed ;; esac
         [ "$name" != sink.two ] || [ "$(cat "$root/remove_sink_two")" != 2 ] || continue
@@ -755,6 +980,9 @@ root=${0%/*}
   set-sink-mute) printf '%s\n' "$3" > "$root/output_mute" ;;
   set-source-mute) printf '%s\n' "$3" > "$root/input_mute" ;;
   set-default-sink) printf '%s\n' "$2" > "$root/default_output" ;;
+  set-sink-input-volume) [ "$2" = 42 ] || exit 1; printf '%s\n' "${3%%%}" > "$root/stream_volume" ;;
+  set-sink-input-mute) [ "$2" = 42 ] || exit 1; [ "$3" = 1 ] && printf yes > "$root/stream_mute" || printf no > "$root/stream_mute" ;;
+  move-sink-input) [ "$2" = 42 ] || exit 1; [ "$3" = sink.two ] && printf 2 > "$root/stream_sink" ;;
   set-default-source) printf '%s\n' "$2" > "$root/default_input" ;;
   subscribe)
     attempts=$(cat "$root/subscription_attempts")
@@ -767,9 +995,7 @@ root=${0%/*}
   *) printf 'unexpected command: %s\n' "$*" >&2; exit 2 ;;
 esac
 "##,
-        )
-        .unwrap();
-        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+        );
         (
             AudioClient {
                 executable,
@@ -906,6 +1132,55 @@ esac
     }
 
     #[tokio::test]
+    async fn application_streams_are_listed_and_controlled() {
+        let (client, directory) = fixture_client();
+        let snapshot = client.snapshot().await.unwrap();
+        assert_eq!(
+            snapshot.streams,
+            vec![AudioStream {
+                index: 42,
+                application: "Fixture Player".into(),
+                media: Some("Playback".into()),
+                output: 1,
+                muted: false,
+                volume_millipercent: vec![100_000, 100_000],
+            }]
+        );
+        let changed = client.set_stream_volume(42, 40).await.unwrap();
+        assert_eq!(changed.streams[0].volume_millipercent, vec![40_000, 40_000]);
+        let changed = client.set_stream_muted(42, true).await.unwrap();
+        assert!(changed.streams[0].muted);
+        let moved = client.move_stream(42, "sink.two").await.unwrap();
+        assert_eq!(moved.streams[0].output, 2);
+        assert!(matches!(
+            client.move_stream(42, "sink.none").await,
+            Err(AudioError::DeviceUnavailable(_))
+        ));
+        assert!(matches!(
+            client.set_stream_volume(7, 10).await,
+            Err(AudioError::DeviceUnavailable(_))
+        ));
+        assert!(matches!(
+            client.set_stream_volume(42, 151).await,
+            Err(AudioError::InvalidVolume)
+        ));
+        drop(directory);
+    }
+
+    #[test]
+    fn stream_blocks_without_names_or_with_bad_fields() {
+        let unnamed = "Sink Input #3\n\tSink: 0\n\tMute: no\n\tVolume: mono: 65536 / 100% / 0 dB\n\tProperties:\n\t\tapplication.process.binary = \"mpv\"\n";
+        assert_eq!(parse_streams(unnamed).unwrap()[0].application, "mpv");
+        let bare = "Sink Input #4\n\tSink: 0\n\tMute: no\n\tVolume: mono: 65536 / 100% / 0 dB\n";
+        assert_eq!(parse_streams(bare).unwrap()[0].application, "Stream 4");
+        assert!(
+            parse_streams("Sink Input #5\n\tMute: no\n\tVolume: mono: 1 / 1% / 0 dB\n").is_err()
+        );
+        assert!(parse_streams("Sink Input #x\n").is_err());
+        assert!(parse_streams("").unwrap().is_empty());
+    }
+
+    #[tokio::test]
     async fn concurrent_default_volume_adjustments_are_serialized() {
         let (client, _directory) = fixture_client();
         let (first, second) = tokio::join!(
@@ -955,15 +1230,13 @@ esac
         let directory = tempfile::tempdir().unwrap();
         let pid_file = directory.path().join("child.pid");
         let executable = directory.path().join("pactl");
-        std::fs::write(
+        write_script(
             &executable,
-            format!(
+            &format!(
                 "#!/bin/sh\nprintf '%s' \"$$\" > '{}'\nexec sleep 30\n",
                 pid_file.display()
             ),
-        )
-        .unwrap();
-        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+        );
         let client = AudioClient {
             executable,
             revision: Arc::new(AtomicU64::new(0)),

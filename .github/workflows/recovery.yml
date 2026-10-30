@@ -44,7 +44,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
             libssl-dev libdbus-1-dev xvfb openbox x11-utils dbus-x11 \
             x11-xserver-utils adwaita-icon-theme librsvg2-common \
             fonts-liberation fonts-dejavu-core

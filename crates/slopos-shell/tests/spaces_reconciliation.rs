@@ -13,9 +13,15 @@ fn openbox_contract_is_floating_x11_with_four_desktops() {
 fn install_script_is_x11_only() {
     let installer = include_str!("../../../install.sh");
     assert!(installer.contains("slopos-session"));
-    assert!(installer.contains("slopos-shell"));
-    assert!(installer.contains("slopos-catalogue"));
-    assert!(installer.contains("slopos-settings"));
+    // The top bar is the native slopos-topbar; the GTK shell is not shipped.
+    assert!(installer.contains("slopos-topbar"));
+    assert!(!installer.contains("slopos-shell"));
+    // Bundled apps are the native ones; the GTK settings/catalogue are not
+    // installed.
+    assert!(installer.contains("slopos-software"));
+    assert!(installer.contains("slopos-control-panels"));
+    assert!(!installer.contains("slopos-catalogue"));
+    assert!(!installer.contains("slopos-settings"));
     assert!(!installer.contains("slopos-compositor"));
     assert!(!installer.contains("share/wayland-sessions"));
 }
@@ -23,6 +29,9 @@ fn install_script_is_x11_only() {
 #[test]
 fn classic_session_has_a_real_desktop_object_manager() {
     let start = include_str!("../../../scripts/start-slopos-i");
+    // The PCManFM desktop is opt-in; by default the session paints its own.
+    assert!(start.contains("[ \"${SLOPOS_DESKTOP_MANAGER:-native}\" = pcmanfm ]"));
+    assert!(start.contains("if ! legacy_desktop_wanted; then"));
     assert!(start.contains("pcmanfm --profile=\"$SLOPOS_DESKTOP_PROFILE\" --desktop"));
     assert!(start.contains("desktop-items-0.conf"));
     assert!(start.contains("desktop_bg=\u{24}desktop_bg"));
@@ -57,4 +66,13 @@ fn docker_qa_does_not_ignore_required_screenshots() {
     assert!(qa.contains("capture_screenshot artifacts/qa/screenshots/clean_desktop_1280x800.png"));
     assert!(!qa.contains("scrot -z artifacts/qa/screenshots/clean_desktop_1280x800.png || true"));
     assert!(qa.contains("Visual acceptance remains a separate human/vision review gate"));
+}
+
+#[test]
+fn session_shares_one_dbus_session_bus_for_global_menus() {
+    let start = include_str!("../../../scripts/start-slopos-i");
+    let deps = include_str!("../../../packaging/deps/ubuntu.txt");
+    assert!(start.contains("export DBUS_SESSION_BUS_ADDRESS=\"unix:path=$XDG_RUNTIME_DIR/bus\""));
+    assert!(start.contains("exec dbus-run-session -- \"$0\" \"$@\""));
+    assert!(deps.lines().any(|line| line == "dbus-user-session"));
 }

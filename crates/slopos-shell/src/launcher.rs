@@ -537,6 +537,8 @@ mod tests {
             comment: String::new(),
             terminal: false,
             startup_wm_class: String::new(),
+            mime_types: Vec::new(),
+            exec: String::new(),
         };
         let app2 = DesktopApp {
             id: "app2.desktop".to_string(),
@@ -546,6 +548,8 @@ mod tests {
             comment: String::new(),
             terminal: false,
             startup_wm_class: String::new(),
+            mime_types: Vec::new(),
+            exec: String::new(),
         };
 
         // Apply sequence 2

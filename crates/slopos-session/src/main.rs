@@ -26,15 +26,21 @@ fn main() -> ExitCode {
 
     match env::args().nth(1).as_deref() {
         Some("--logout") => return logout(),
+        Some("--paint-desktop") => {
+            // Repaint after an appearance or wallpaper change; no session lock.
+            environment::apply_root_background();
+            return ExitCode::SUCCESS;
+        }
         Some("--version") => {
             println!("slopos-session {}", env!("CARGO_PKG_VERSION"));
             return ExitCode::SUCCESS;
         }
         Some("--help" | "-h") => {
             println!(
-                "Usage: slopos-session [--logout | --version]\n\n\
+                "Usage: slopos-session [--logout | --paint-desktop | --version]\n\n\
                  Without arguments, supervise Openbox and the SLOPOS shell on $DISPLAY.\n\
-                 --logout   end the SLOPOS session running on $DISPLAY"
+                 --logout         end the SLOPOS session running on $DISPLAY\n\
+                 --paint-desktop  repaint the desktop picture on $DISPLAY"
             );
             return ExitCode::SUCCESS;
         }
@@ -56,12 +62,17 @@ fn main() -> ExitCode {
 
     environment::configure();
     install_signal_handlers();
+    restore_settings();
     environment::apply_root_background();
 
     let mut wm = Child::new("Openbox", Policy::Required, spawn_openbox);
     let mut compositor = Child::new("X11 compositor", Policy::Optional, spawn_compositor);
     // Give Openbox a moment to own the screen before the shell maps its bar.
     thread::sleep(Duration::from_millis(150));
+    // The desktop icons sit on the root picture the session painted above.
+    let mut desktop = env::var_os("SLOPOS_NO_DESKTOP")
+        .is_none()
+        .then(|| Child::new("SLOPOS desktop", Policy::Optional, spawn_desktop));
     let mut shell = Child::new("SLOPOS shell", Policy::Important, spawn_shell);
     let mut dock = env::var_os("SLOPOS_NO_DOCK")
         .is_none()
@@ -86,11 +97,17 @@ fn main() -> ExitCode {
         if let Some(Err(error)) = dock.as_mut().map(Child::supervise) {
             log::error!("{error}; continuing without the Dock");
         }
+        if let Some(Err(error)) = desktop.as_mut().map(Child::supervise) {
+            log::warn!("{error}; the desktop picture stays, without icons");
+        }
     }
 
     log::info!("Stopping SLOPOS-I session");
     if let Some(dock) = dock.as_mut() {
         dock.stop();
+    }
+    if let Some(desktop) = desktop.as_mut() {
+        desktop.stop();
     }
     shell.stop();
     compositor.stop();
@@ -120,8 +137,42 @@ fn spawn_openbox() -> Option<std::process::Child> {
     }
 }
 
+/// Put back the display layout, keyboard and mouse settings kept in
+/// Control Panels, before anything sizes itself to the screen. Missing or
+/// slow, the session goes on.
+fn restore_settings() {
+    let path = slopos_core::process::resolve_program("slopos-control-panels")
+        .unwrap_or_else(|| PathBuf::from("slopos-control-panels"));
+    let mut child = match std::process::Command::new(&path).arg("--restore").spawn() {
+        Ok(child) => child,
+        Err(error) => {
+            log::info!("Not restoring display and input settings: {error}");
+            return;
+        }
+    };
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let id = child.id();
+    thread::spawn(move || {
+        let _ = sender.send(child.wait());
+    });
+    match receiver.recv_timeout(Duration::from_secs(5)) {
+        Ok(Ok(status)) if status.success() => {}
+        Ok(Ok(status)) => log::warn!("Restoring display and input settings failed ({status})"),
+        Ok(Err(error)) => log::warn!("Restoring display and input settings failed: {error}"),
+        Err(_) => {
+            log::warn!("Restoring display and input settings took too long; going on");
+            // SAFETY: plain kill(2) on the child we started.
+            unsafe { libc::kill(id as libc::pid_t, libc::SIGKILL) };
+        }
+    }
+}
+
 fn spawn_shell() -> Option<std::process::Child> {
-    spawn_component("slopos-shell")
+    spawn_component("slopos-topbar")
+}
+
+fn spawn_desktop() -> Option<std::process::Child> {
+    spawn_component("slopos-desktop")
 }
 
 fn spawn_dock() -> Option<std::process::Child> {
@@ -162,7 +213,7 @@ fn spawn_compositor() -> Option<std::process::Child> {
                 "--shadow-offset-y",
                 "-5",
                 "--shadow-exclude",
-                "window_type = 'dock' || class_g = 'slopos-shell'",
+                "window_type = 'dock' || window_type = 'desktop' || class_g = 'slopos-topbar'",
             ],
         ),
         ("xcompmgr", &["-c"]),

@@ -1,6 +1,6 @@
 [Desktop Entry]
-Name=Control Panels
-Comment=Network, sound, displays, desktop and other settings
+Name=Desktop & Wallpaper Settings
+Comment=Wallpaper, desktop and legacy settings
 Exec=slopos-settings
 TryExec=slopos-settings
 Icon=preferences-system

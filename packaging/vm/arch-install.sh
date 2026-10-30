@@ -126,8 +126,8 @@ pacstrap -K /mnt \
   xorg-server xorg-xinit xorg-xrandr xorg-xsetroot xorg-xdpyinfo openbox \
   gtk3 libx11 libxrandr openssl dbus librsvg \
   ttf-dejavu ttf-liberation \
-  pcmanfm xfce4-terminal mousepad ristretto zathura mpv galculator supertux \
-  pavucontrol network-manager-applet blueman xfce4-power-manager xfce4-settings lxappearance arandr \
+  xfce4-terminal mousepad zathura supertux \
+  xfce4-power-manager \
   xdotool wmctrl scrot imagemagick \
   pipewire pipewire-pulse wireplumber upower bluez \
   openssh grub efibootmgr

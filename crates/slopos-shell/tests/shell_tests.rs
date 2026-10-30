@@ -31,12 +31,13 @@ fn search_hotkey_targets_the_existing_shell_instance() {
         include_str!("../../../assets/config/openbox/rc.xml"),
         include_str!("../../../assets/config/openbox/rc-graphite.xml"),
     ] {
-        assert!(openbox.contains("pkill -USR1 -x slopos-shell"));
-        assert!(!openbox.contains("slopos-shell --toggle-launcher"));
+        // The native top bar now owns the launcher.
+        assert!(openbox.contains("pkill -USR1 -x slopos-topbar"));
+        assert!(!openbox.contains("slopos-shell"));
     }
-    let shell = include_str!("../src/main.rs");
-    assert!(shell.contains("SIGUSR1"));
-    assert!(shell.contains("Refusing to start a second SLOPOS shell"));
+    let bar = include_str!("../../slopos-topbar/src/main.rs");
+    assert!(bar.contains("libc::SIGUSR1 => WANT_LAUNCHER"));
+    assert!(bar.contains("Refusing to start a second SLOPOS top bar"));
 }
 
 #[test]
@@ -203,7 +204,7 @@ fn appearances_are_complete_runtime_themes() {
     assert!(switcher.contains("cp -f \"$legacy_gtk2\" \"$legacy_copy\""));
     assert!(switcher.contains("SLOPOS_SESSION_MANAGED"));
     assert!(switcher.contains("gtk-shell-shows-menubar = 1"));
-    assert!(switcher.contains("pkill -TERM -x slopos-shell"));
+    assert!(switcher.contains("pkill -TERM -x slopos-topbar"));
     assert!(switcher.contains("pkill -TERM -x openbox"));
 }
 
@@ -314,19 +315,32 @@ fn shipping_dependency_manifests_include_real_settings_backends() {
         include_str!("../../../packaging/iso/packages.x86_64"),
         include_str!("../../../packaging/vm/arch-install.sh"),
     ] {
-        for required in [
-            "pavucontrol",
-            "network-manager",
-            "blueman",
-            "xfce4-power-manager",
-            "xfce4-settings",
-            "lxappearance",
-            "arandr",
-        ] {
+        // The services the native Control Panels and shell talk to.
+        for required in ["pipewire-pulse", "bluez", "upower", "xfce4-power-manager"] {
             assert!(
                 manifest.contains(required),
                 "shipping dependency set misses {required}"
             );
+        }
+        assert!(manifest.contains("network-manager") || manifest.contains("networkmanager"));
+        // GTK donor apps that duplicate SLOPOS's own apps are not shipped.
+        let packages: Vec<&str> = manifest
+            .split(|c: char| c.is_whitespace() || c == '\\')
+            .collect();
+        for donor in [
+            "pcmanfm",
+            "ristretto",
+            "galculator",
+            "mpv",
+            "pavucontrol",
+            "blueman",
+            "arandr",
+            "lxappearance",
+            "xfce4-settings",
+            "network-manager-gnome",
+            "network-manager-applet",
+        ] {
+            assert!(!packages.contains(&donor), "{donor} is still shipped");
         }
     }
 }
@@ -469,7 +483,14 @@ fn browser_and_upstream_apps_remain_integrated_not_forked() {
     assert!(browser.contains("chromium"));
     assert!(browser.contains("GDK_BACKEND=\"x11\""));
     assert!(mimeapps.contains("text/html=slopos-browser.desktop"));
-    assert!(mimeapps.contains("image/png=ristretto.desktop"));
+    // Native SLOPOS apps are the only defaults for what they handle; no GTK
+    // donor app is listed as a fallback.
+    assert!(mimeapps.contains("image/png=slopos-image-viewer.desktop\n"));
+    assert!(mimeapps.contains("video/mp4=slopos-media.desktop\n"));
+    assert!(mimeapps.contains("inode/directory=slopos-files.desktop\n"));
+    for donor in ["ristretto", "mpv", "pcmanfm"] {
+        assert!(!mimeapps.contains(donor), "mimeapps still names {donor}");
+    }
 }
 
 #[test]
@@ -617,4 +638,50 @@ fn multi_monitor_and_coordinate_mapping_supports_hidpi_and_non_zero_origins() {
 
     assert!(topbar.contains("primary.gdk_x()"));
     assert!(topbar.contains("primary.gdk_width()"));
+}
+
+#[test]
+fn shell_announces_the_global_menu_name_toolkit_apps_watch() {
+    let topbar = include_str!("../src/topbar.rs");
+    let toolkit = include_str!("../../slopos-ui/src/platform/global_menu.rs");
+    let name = "\"org.slopos.GlobalMenu\"";
+    assert!(topbar.contains(&format!("GLOBAL_MENU_NAME: &str = {name}")));
+    assert!(toolkit.contains(&format!("SHELL_NAME: &str = {name}")));
+    assert!(topbar.contains("announce_global_menu();"));
+    // Toolkit apps advertise the same window properties the bridge reads.
+    let host = include_str!("../../slopos-ui/src/platform/x11.rs");
+    for property in [
+        "_GTK_UNIQUE_BUS_NAME",
+        "_GTK_MENUBAR_OBJECT_PATH",
+        "_GTK_APPLICATION_OBJECT_PATH",
+    ] {
+        assert!(host.contains(property), "toolkit host lacks {property}");
+        assert!(
+            include_str!("../src/menu/gmenu.rs").contains(property),
+            "shell bridge lacks {property}"
+        );
+    }
+}
+
+#[test]
+fn bundled_settings_open_native_control_panels_never_gtk() {
+    let topbar = include_str!("../src/topbar.rs");
+    let pins = include_str!("../../slopos-dock/src/pins.rs");
+    let desktop_menu = include_str!("../../../assets/config/openbox/menu.xml");
+    for (name, source) in [
+        ("topbar", topbar),
+        ("dock pins", pins),
+        ("desktop menu", desktop_menu),
+    ] {
+        for gtk in ["slopos-settings", "slopos-wallpaper", "pcmanfm"] {
+            assert!(!source.contains(gtk), "{name} still launches {gtk}");
+        }
+    }
+    assert!(topbar.contains("const CONTROL_PANELS: &str = \"slopos-control-panels\";"));
+    assert!(topbar.contains("open_control_panel(\"--desktop\")"));
+    assert!(desktop_menu.contains("slopos-control-panels --desktop"));
+    // The session paints the desktop itself; nothing shells out to feh.
+    let environment = include_str!("../../slopos-session/src/environment.rs");
+    assert!(environment.contains("set_root_background"));
+    assert!(!environment.contains("\"feh\""));
 }

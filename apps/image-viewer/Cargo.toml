@@ -3,9 +3,15 @@ name = "slopos-image-viewer"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "SLOPOS native Image Viewer (initial PNG/SVG proof application)"
+description = "SLOPOS native Image Viewer"
 
 [dependencies]
 slopos-ui = { path = "../../crates/slopos-ui" }
 accesskit = { workspace = true }
 env_logger = { workspace = true }
+thiserror = { workspace = true }
+# Decoders limited to the formats the viewer advertises (IMAGE-01).
+image = { workspace = true, features = ["png", "jpeg", "gif", "bmp", "webp", "tiff"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }

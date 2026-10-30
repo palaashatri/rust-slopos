@@ -332,19 +332,71 @@ pub fn openbox_config() -> Option<PathBuf> {
         })
 }
 
-/// Paint the root window in the appearance color, and the saved wallpaper on
-/// top when `feh` is available. PCManFM's desktop replaces both when it runs.
+/// Paint the saved wallpaper (or, for Platinum, the bundled default) on the
+/// root window with the SLOPOS toolkit; with no picture, paint the
+/// appearance color. Nothing external (feh, xsetroot, PCManFM) is involved.
 pub fn apply_root_background() {
-    let color = appearance().root_color();
-    if let Some(xsetroot) = slopos_core::process::resolve_program("xsetroot") {
-        let _ = Command::new(xsetroot).args(["-solid", color]).status();
+    let backdrop = parse_color(appearance().root_color());
+    let config = user_dir();
+    // A chosen picture always shows; before any choice, only Platinum gets
+    // the bundled blue field and the other appearances show their color.
+    let wallpaper = match appearance() {
+        Appearance::Platinum => slopos_core::wallpaper::current(
+            config.as_deref(),
+            &slopos_core::wallpaper::bundled_dirs(),
+        ),
+        _ => config.as_deref().and_then(slopos_core::wallpaper::load),
+    };
+    let result = slopos_ui::platform::x11::set_root_background(|width, height| {
+        let picture =
+            wallpaper.as_ref().and_then(|wallpaper| {
+                match slopos_ui::image::Image::load(&wallpaper.path, 512) {
+                    Ok(image) => Some((image, wallpaper.mode.as_str())),
+                    Err(error) => {
+                        log::warn!("wallpaper unavailable: {error}");
+                        None
+                    }
+                }
+            });
+        let (image, mode) = match picture {
+            Some(picture) => picture,
+            None => (
+                slopos_ui::image::Image::from_rgba(
+                    1,
+                    1,
+                    vec![backdrop.red, backdrop.green, backdrop.blue, 255],
+                )
+                .ok()?,
+                "tile",
+            ),
+        };
+        image
+            .compose_background(
+                width,
+                height,
+                slopos_ui::image::BackgroundMode::parse(mode),
+                backdrop,
+            )
+            .ok()
+    });
+    if let Err(error) = result {
+        log::warn!("could not paint the desktop background: {error}");
     }
-    let wallpaper = user_dir()
-        .and_then(|dir| fs::read_to_string(dir.join("wallpaper")).ok())
-        .map(|line| PathBuf::from(line.trim()))
-        .filter(|path| path.is_file());
-    if let (Some(path), Some(feh)) = (wallpaper, slopos_core::process::resolve_program("feh")) {
-        let _ = Command::new(feh).arg("--bg-fill").arg(path).status();
+}
+
+/// "#RRGGBB" to a color; anything else is black.
+fn parse_color(text: &str) -> slopos_ui::foundation::color::Color {
+    let channel = |range: std::ops::Range<usize>| {
+        text.strip_prefix('#')
+            .filter(|hex| hex.len() == 6)
+            .and_then(|hex| u8::from_str_radix(hex.get(range)?, 16).ok())
+            .unwrap_or(0)
+    };
+    slopos_ui::foundation::color::Color {
+        red: channel(0..2),
+        green: channel(2..4),
+        blue: channel(4..6),
+        alpha: 255,
     }
 }
 

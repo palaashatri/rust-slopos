@@ -19,7 +19,7 @@ export DISPLAY="${SMOKE_DISPLAY:-:97}"
 for tool in Xvfb openbox dbus-run-session xdotool; do
   command -v "$tool" >/dev/null || { echo "smoke: $tool is required" >&2; exit 2; }
 done
-for binary in slopos-session slopos-shell; do
+for binary in slopos-session slopos-topbar; do
   test -x "$BIN_DIR/$binary" || { echo "smoke: build $BIN_DIR/$binary first" >&2; exit 2; }
 done
 
@@ -54,7 +54,7 @@ fail() {
 # Session processes that belong to our display.
 session_pids() {
   local name pid
-  for name in slopos-session slopos-shell slopos-dock openbox; do
+  for name in slopos-session slopos-topbar slopos-desktop slopos-dock openbox; do
     for pid in $(pgrep -x "$name" 2>/dev/null || true); do
       if { tr '\0' '\n' < "/proc/$pid/environ"; } 2>/dev/null | grep -qx "DISPLAY=$DISPLAY"; then
         echo "$pid"
@@ -92,6 +92,13 @@ for _ in $(seq 1 50); do
   sleep 0.2
 done
 xdotool search --name '^SLOPOS Dock$' >/dev/null 2>&1 || fail "the Dock never appeared"
+if [ -x "$BIN_DIR/slopos-desktop" ]; then
+  for _ in $(seq 1 50); do
+    xdotool search --class '^slopos-desktop$' >/dev/null 2>&1 && break
+    sleep 0.2
+  done
+  xdotool search --class '^slopos-desktop$' >/dev/null 2>&1 || fail "the desktop never appeared"
+fi
 sleep 1
 shoot desktop
 echo "smoke: menu bar and Dock are up"
@@ -147,7 +154,7 @@ echo "smoke: logout ended the session cleanly"
 # generated file itself.
 fake_bin="$WORK/appearance-bin"
 mkdir -p "$fake_bin"
-for tool in openbox pkill slopos-wallpaper xsetroot; do
+for tool in openbox pkill slopos-session; do
   printf '#!/bin/sh\nexit 0\n' > "$fake_bin/$tool"
   chmod +x "$fake_bin/$tool"
 done

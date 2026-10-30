@@ -48,7 +48,7 @@ It writes screenshots and logs to `artifacts/smoke/` and is safe to run on a des
 | What | Command |
 |---|---|
 | Calculator | `cargo run -p slopos-calculator` |
-| Files read-only browser | `cargo run -p slopos-files -- /home/user` |
+| Files | `cargo run -p slopos-files -- /home/user` |
 | Files snapshot (no X server) | `cargo run -p slopos-files -- --snapshot files.png /tmp` |
 | Image Viewer proof (PNG/SVG) | `cargo run -p slopos-image-viewer -- /path/to/sample.png` |
 | Image Viewer headless screenshot | `cargo run -p slopos-image-viewer -- --snapshot preview.png /path/to/sample.png` |
@@ -65,6 +65,7 @@ These environment variables change a session's behaviour:
 | `SLOPOS_ICON_THEME` | Icon theme for toolkit apps. The default is `SLOPOS-Platinum`. |
 | `SLOPOS_NO_COMPOSITOR` | Do not start picom/xcompmgr. |
 | `SLOPOS_NO_DOCK` | Start the session without the Dock. |
+| `SLOPOS_NO_DESKTOP` | Start the session without the desktop icons window (the root picture stays). |
 | `SLOPOS_OPENBOX_CONFIG` | Use this Openbox rc file. |
 | `RUST_LOG=debug` | Verbose logs. |
 
@@ -114,12 +115,12 @@ adds its freedesktop launcher, MIME association and package/install script
 entries, but real file-opening/packaging QA and additional image codecs
 must pass before it is reported as a shipped photo viewer.
 
-### Files proof app
+### Files
 
-`apps/files` is initially **read-only**: real folder browsing (Back, Up,
-Home, Refresh and Open), per-row keyboard/pointer selection, accessibility
-and `xdg-open` for regular files. No unsafe file changes are exposed yet.
-Worker I/O runs off the UI thread; the first directory read is asynchronous.
+`apps/files` browses, copies, moves, renames and trashes files; the Native
+Files section of [architecture.md](architecture.md) lists its safety rules.
+All disk work runs off the UI thread. Its tests use temporary folders and a
+private `XDG_DATA_HOME`, never your real Trash.
 Run `cargo test -p slopos-files --locked` and
 `cargo test -p slopos-ui --locked`, then execute and visually inspect the
 [specific X11 QA plan](p1-files-live-qa.md) inside an isolated Linux VM.

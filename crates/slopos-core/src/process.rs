@@ -126,16 +126,6 @@ pub const TEXT_EDITORS: &[(&str, &[&str])] = &[
     ("leafpad", &[]),
 ];
 
-/// File managers in preference order.
-pub const FILE_MANAGERS: &[(&str, &[&str])] = &[
-    ("pcmanfm", &[]),
-    ("thunar", &[]),
-    ("nautilus", &[]),
-    ("nemo", &[]),
-    ("caja", &[]),
-    ("dolphin", &[]),
-];
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -24,6 +24,22 @@ fi
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
 
+# Every session process must share one D-Bus session bus: SLOPOS apps
+# publish their menus on it for the top bar, and providers live there.
+# GTK can find a bus through X11 autolaunch, but other clients (zbus) can't,
+# so make the address explicit: the systemd user bus when there is one,
+# otherwise a bus that lives exactly as long as this session.
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+  if [ -S "$XDG_RUNTIME_DIR/bus" ]; then
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+  elif [ -z "${SLOPOS_SESSION_BUS_STARTED:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
+    export SLOPOS_SESSION_BUS_STARTED=1
+    exec dbus-run-session -- "$0" "$@"
+  else
+    echo "start-slopos-i: no D-Bus session bus; app menus stay in their windows" >&2
+  fi
+fi
+
 SLOPOS_SHARE_DIR="$INSTALL_PREFIX/share"
 if [ -d "$SLOPOS_SHARE_DIR" ]; then
   export SLOPOS_SHARE_DIR
@@ -75,24 +91,9 @@ else
   fi
 fi
 
-# The parity branch uses a blue desktop field by default. Seed only a missing
-# wallpaper preference so an existing user choice is never overwritten.
-if [ "$appearance" = "platinum" ] && [ ! -s "$user_config_dir/wallpaper" ]; then
-  for wallpaper in \
-    "$SLOPOS_SHARE_DIR/slopos-i/wallpapers/03_slate_blue.png" \
-    "$INSTALL_PREFIX/share/slopos-i/wallpapers/03_slate_blue.png" \
-    "/usr/local/share/slopos-i/wallpapers/03_slate_blue.png" \
-    "/usr/share/slopos-i/wallpapers/03_slate_blue.png" \
-    "assets/wallpapers/03_slate_blue.png"; do
-    if [ -f "$wallpaper" ]; then
-      mkdir -p "$user_config_dir"
-      wallpaper="$(cd "$(dirname "$wallpaper")" && pwd)/$(basename "$wallpaper")"
-      printf '%s\n' "$wallpaper" > "$user_config_dir/wallpaper"
-      printf 'fill\n' > "$user_config_dir/wallpaper_mode"
-      break
-    fi
-  done
-fi
+# The desktop picture is painted natively by slopos-session (the saved
+# choice, Platinum's blue field, or the appearance color); nothing is seeded
+# here.
 
 # Enable GTK and AppMenu proxy modules so traditional GTK applications
 # export their menus to the SLOPOS top bar when the module is available.
@@ -224,8 +225,16 @@ EOF
   managed_shortcuts+=("$path")
 }
 
+# The desktop surface is SLOPOS's own painted root window. PCManFM's GTK
+# desktop (icons for Home, Network, Documents, Trash) is opt-in only, with
+# SLOPOS_DESKTOP_MANAGER=pcmanfm; SLOPOS_SKIP_DESKTOP_MANAGER=1 still wins.
+legacy_desktop_wanted() {
+  [ "${SLOPOS_DESKTOP_MANAGER:-native}" = pcmanfm ] &&
+    [ "${SLOPOS_SKIP_DESKTOP_MANAGER:-0}" != 1 ]
+}
+
 prepare_classic_desktop() {
-  if [ "${SLOPOS_SKIP_DESKTOP_MANAGER:-0}" = 1 ]; then
+  if ! legacy_desktop_wanted; then
     return 0
   fi
   if ! command -v pcmanfm >/dev/null 2>&1; then
@@ -339,7 +348,7 @@ EOF
 }
 
 start_desktop_manager() {
-  if [ "${SLOPOS_SKIP_DESKTOP_MANAGER:-0}" = 1 ] || ! command -v pcmanfm >/dev/null 2>&1; then
+  if ! legacy_desktop_wanted || ! command -v pcmanfm >/dev/null 2>&1; then
     return 0
   fi
 

@@ -1,33 +1,32 @@
 # SLOPOS-I runtime dependencies for Debian/Ubuntu-family systems
-# X11-only product stack
+# X11-only product stack. SLOPOS's own apps (Files, Image Viewer, Media,
+# Calculator, Control Panels, Software) replace the GTK donor apps, which
+# are deliberately not installed.
 xorg
 openbox
 dbus-x11
-pcmanfm
+dbus-user-session
 xfce4-terminal
 mousepad
-ristretto
 zathura
-mpv
-galculator
 network-manager
-network-manager-gnome
-pavucontrol
 pipewire
 pipewire-pulse
 wireplumber
 pulseaudio-utils
-blueman
 upower
+bluez
 xfce4-power-manager
-xfce4-settings
-lxappearance
-arandr
 x11-xserver-utils
+# setxkbmap, for Control Panels › Keyboard & Mouse layouts
+x11-xkb-utils
 xdotool
 wmctrl
 adwaita-icon-theme
 librsvg2-common
+gstreamer1.0-plugins-base
+gstreamer1.0-plugins-good
+gstreamer1.0-x
 fonts-liberation
 fonts-dejavu-core
 supertux

@@ -123,6 +123,84 @@ The existing repository includes workspace, Xvfb/Openbox, AT-SPI, resolution, pa
 | Current candidate package/install/upgrade/remove/media evidence | MISSING |
 | ARM64/RISC-V/HDR/VRR production claims | NOT ESTABLISHED |
 
+### G.1 Subsystem readiness on 2026-10-30 (PR #36 head `6fdd0c5`)
+
+The table above is the original audit snapshot and is kept as history. This one is the current state; every "present" entry has a dated row in K. "Present" means implemented and tested as described there, **not** release-verified: real hardware, real system services and installed-package journeys are still NOT_RUN unless K says otherwise.
+
+| Subsystem (contract §) | State on 2026-10-30 |
+|---|---|
+| X11/Openbox/session (§13) | Present: `slopos-session` supervisor, restart/backoff, logout; restores display and input settings at login. Smoke session PASS. |
+| Global menu (§14.1, §12.3) | Present: toolkit apps export `org.gtk.Menus`; `slopos-topbar` imports any window's model. |
+| Top bar, status items (§14.1, §14.3) | Present on `slopos-ui` (`slopos-topbar`); status items are labels with menus. Applet framework and popovers MISSING. |
+| Dock (§14.2) | Present (`slopos-dock`); context menus, reorder, pin/unpin UI, auto-hide, multi-monitor MISSING. |
+| OSD manager (§14.4) | MISSING. |
+| Desktop (§14.5) | Present (`slopos-desktop`); rename, Move to Trash, drag and drop, per-monitor windows MISSING. |
+| Launcher/search (§14.6) | Present (apps only); files/settings/actions search MISSING. |
+| Notifications (§14.7) | Server and toasts present; history, do-not-disturb MISSING. |
+| Global shortcuts and media keys (§14.8, §18.5) | Toolkit key grabs present (Ctrl+F2 used); media, volume and brightness keys NOT bound; no shortcut service or settings. |
+| `slopos-ui` toolkit (§9) | Present: controls listed in architecture.md incl. popups, `PopUpButton`, secret `TextField`. Tree/table views, tabs, drag and drop, IME, icon grid MISSING. |
+| Files (§16.1) | Present incl. archives; DnD, icon view, thumbnails, properties, mount/eject, network locations, >8192 entries MISSING. |
+| Control Panels (§16.2) | Network join, Sound devices/per-app, Display arrangement, Bluetooth pairing, Keyboard & Mouse, Desktop, Appearance, Date & Time present. Time zone, locale, users, default apps, printers, power, accessibility, per-monitor scale MISSING. |
+| Terminal (§16.3), Notes (§16.4) | MISSING (system terminal and Mousepad are used). |
+| Calculator (§16.5) | Present. |
+| Software (§16.6) | Present; no published catalogue/publisher key (owner step). |
+| System Monitor (§16.7), Screenshot & Recorder (§16.8), System Information (§16.9) | MISSING (only an About dialog in the top bar). |
+| Image Viewer (§17.1), Media (§17.6) | Present (scope limits in architecture.md). |
+| Archive Utility (§17.2) | Partial: Files Compress/Extract only; no browse-inside window. |
+| Disks (§17.3), Fonts (§17.4), Help (§17.5), Documents (§17.7) | MISSING (Documents: zathura donor). |
+| Authentication agent (§18.1), Lock screen (§18.2) | MISSING. |
+| File chooser (§18.3) | Toolkit Open dialog present; Save dialog and the portal MISSING. |
+| Open With / Default Apps (§18.4) | MIME default-app open present; chooser UI MISSING. |
+| Clipboard manager (§18.6) | MISSING (single-selection CLIPBOARD only). |
+| Removable-media handler (§18.7) | Desktop shows mounted volumes; mount/auto-mount/eject UI MISSING. |
+| Wallpaper manager (§18.8), Display-change confirmation (§18.9) | Present. |
+| Network-secret UI (§18.10), Bluetooth pairing UI (§18.11) | Partial: password dialog inside Control Panels only; no NetworkManager secret agent; no BlueZ agent (PIN/passkey pairing fails). |
+| Printer auth (§18.12), low-battery notices (§18.13), session dialogs (§18.15), crash presentation (§18.16) | Session dialogs present (Log Out/Restart/Shut Down confirm); the others MISSING. |
+| Providers (§22) | Network, audio, brightness, Bluetooth, power, media, date/time, displays, input present with tests; printers MISSING; removable media read-only in the shell. Real-service runs NOT_RUN in this container. |
+| Packages and ISOs (§29–30) | amd64 live ISO boots to the native session (QEMU PASS); arm64 ISO builds on native CI runners, boot NOT_RUN; installed-to-disk, signed repositories, upgrade/remove journeys NOT_RUN. |
+| Accessibility and visual conformance (§9.14, §5.2) | AccessKit trees unit-tested; Orca runs and conformance review NOT_RUN. |
+| Hardware and performance (§28.3) | Real hardware, Raspberry Pi target, memory/CPU budgets NOT_RUN. |
+
+### G.2 Remaining work register (2026-10-30)
+
+What is left before SLOPOS X11 is a daily-use desktop comparable to KDE Plasma or GNOME on X11. Ordered by priority; IDs are new and are referenced by future K rows. Status changes only with a dated K row.
+
+| ID | Priority | Item | Contract | Notes |
+|---|---|---|---|---|
+| GAP-SEC-01 | P0 | Lock screen with idle/suspend locking and logind integration | §18.2 | No daily-use desktop without it. |
+| GAP-SEC-02 | P0 | Polkit authentication agent | §18.1 | Needed for admin actions from Control Panels and Software. |
+| GAP-SEC-03 | P0 | NetworkManager secret agent (system-wide Wi-Fi/VPN password prompts) | §18.10 | Today only Control Panels asks. |
+| GAP-SEC-04 | P0 | BlueZ pairing agent (PIN, passkey confirm/display) | §18.11 | Devices needing a PIN fail to pair. |
+| GAP-SEC-05 | P1 | Secret storage/keyring integration | §18 | Saved credentials for apps. |
+| GAP-SHELL-01 | P0 | Status popovers: Wi-Fi, Bluetooth, sound, battery, clock/calendar | §14.3 | Applet framework on toolkit popups. |
+| GAP-SHELL-02 | P0 | Volume and brightness OSD with media, volume and brightness keys | §14.4, §14.8 | Keys are not bound today. |
+| GAP-SHELL-03 | P1 | Notification history and do-not-disturb | §14.7 | |
+| GAP-SHELL-04 | P1 | Multi-monitor shell: top bar and desktop per monitor, Dock placement | §14.1, §14.5 | |
+| GAP-SHELL-05 | P1 | Workspaces with an overview, Alt+Tab switcher, snapping/tiling | §14 | Openbox provides basic switching only. |
+| GAP-SHELL-06 | P1 | Dock context menus, reorder, pin/unpin UI, auto-hide | §14.2 | |
+| GAP-SHELL-07 | P2 | Launcher search beyond apps (files, settings, actions) | §14.6 | |
+| GAP-SHELL-08 | P2 | Desktop rename, Move to Trash, drag and drop with Files | §14.5 | |
+| GAP-APP-01 | P0 | Native Terminal (PTY, VT parser, tabs) | §16.3 | Donor terminal still used. |
+| GAP-APP-02 | P1 | Native Text editor / Notes | §16.4 | Mousepad still used. |
+| GAP-APP-03 | P1 | System Monitor | §16.7 | |
+| GAP-APP-04 | P1 | Screenshot & Recorder (with Print Screen key) | §16.8 | |
+| GAP-APP-05 | P1 | Documents (PDF) viewer | §17.7 | zathura donor. |
+| GAP-APP-06 | P2 | Disks, Fonts, Help, System Information, Archive Utility window | §16.9, §17.2–17.5 | |
+| GAP-FILES-01 | P1 | Drag and drop, icon view, thumbnails, properties | §16.1 | |
+| GAP-FILES-02 | P1 | Mount/eject removable media, auto-mount handler | §16.1, §18.7, §22.10 | |
+| GAP-FILES-03 | P2 | Network locations (SMB/SFTP), >8192-entry folders | §16.1 | |
+| GAP-PANELS-01 | P1 | Time zone and locale, users, default apps, power, accessibility | §16.2 | |
+| GAP-PANELS-02 | P2 | Printers, per-monitor scale, tap-to-click, Dock settings | §16.2, §22.9 | |
+| GAP-TK-01 | P1 | Input methods (XIM/IBus pre-edit) | §9 | Non-Latin text entry. |
+| GAP-TK-02 | P1 | Save dialog, file chooser portal, Open With chooser | §18.3, §18.4 | |
+| GAP-TK-03 | P2 | Tree/table views, tabs, drag and drop, fractional scaling | §9.7, §9.11 | |
+| GAP-PLAT-01 | P1 | Low-battery and hardware notices; crash/error presentation | §18.13, §18.16 | |
+| GAP-PLAT-02 | P1 | Published signed software catalogue (owner publisher key) | §16.6 | Owner step. |
+| GAP-PLAT-03 | P1 | Installed-to-disk install, signed APT/Pacman repositories, updates | §29–30 | |
+| GAP-QA-01 | P0 | Real-hardware runs of the session and Control Panels against real NetworkManager, PipeWire, BlueZ, libinput and monitors | §28.3 | All NOT_RUN so far. |
+| GAP-QA-02 | P1 | Orca screen-reader journeys; Design Bible visual conformance review | §9.14, §5.2 | |
+| GAP-QA-03 | P1 | arm64 ISO boot test in CI; Raspberry Pi target; memory/CPU budgets; re-run the session benchmark | §28.3 | |
+
 ## H. Documentation audit resolution
 
 This amendment:
@@ -146,6 +224,10 @@ The active blockers are the absent spec/UI/appkit platform and conformance harne
 Start VM-00, SPEC-01 and QA-00 as in §21; then bootstrap common interfaces and dispatch independent foundation tasks. Do not begin native application polishing while its controls are missing. Fix misleading/fabricated production state under explicitly assigned migration tasks.
 
 External access blockers (VM/storage, Figma source, physical devices, signing/publication credentials) must name the exact missing access and impacted gate. Continue independent ready work. Do not ask for new product choices already settled in §0.1.
+
+### 2026-10-30 next actions
+
+Work the P0 items of G.2 first: GAP-SEC-01…04 (lock screen, polkit, network-secret and pairing agents), GAP-SHELL-01/02 (popovers, OSDs with media keys), GAP-APP-01 (Terminal) and GAP-QA-01 (real-hardware runs). The 2026-10-20 list below is kept for history: its items 1 (session entry point), 4 (live network state and Wi-Fi join), 5 (Dock on `slopos-ui`), 7 (Calculator) and 8 (CI-built ISO booting in QEMU) have landed; item 6 (OSD with media keys) is GAP-SHELL-02; items 2 and 3 were not re-checked in this pass.
 
 ### 2026-10-20 next actions (post-integration audit)
 
@@ -652,3 +734,38 @@ These acknowledge existing debt only; they do not permit new ad-hoc UI.
 | PCManFM/external utility integration | Explicitly labelled interim/delegated behavior | APP-01/SHELL-05 or matching utility task; final native claims require the replacement |
 
 New engine/compatibility exceptions must name exact crate/path, API boundary, reason, test and owner here. No blanket exemption for all applications, all GTK imports or all QA failures is allowed.
+
+## P. P1 autonomous delivery log
+
+Rows written by the single coordinator following [GOAL.md](../../GOAL.md).
+Guest: disposable Ubuntu 24.04.5 x86_64 cloud container (4 CPUs, 15 GiB RAM),
+Xvfb + Openbox 3.6 + xdotool installed from the Ubuntu archive inside the
+container only. Single-agent verification: no independent reviewer was
+available, so every row is coordinator-verified. Evidence files live under
+`.work/p1/evidence/` in the guest (not committed); SHA-256 digests are in
+`qa/p1-progress.json`. Real Wi-Fi, Bluetooth, audio and backlight hardware
+are absent in this guest and are NOT_RUN unless stated otherwise.
+
+| Date | Task | State | Evidence summary |
+|---|---|---|---|
+| 2026-10-30 | P1-00 | INTEGRATED | Base `85035ffb2c957e200d19c9b6c874270779aaa2c8`. Inventory: Calculator (native), Image Viewer PNG/SVG proof (native), Dock (native), shell/settings/catalogue (GTK 3 legacy). `cargo build/test --workspace --locked` PASS; `scripts/smoke-session.sh` PASS (menu bar, Dock, Calculator open/close, logout). Screenshots inspected: status items show "—" (no NetworkManager/PipeWire in guest), Calculator renders Classic plates. Disk 25 GiB free, target 1.9 GiB. |
+| 2026-10-30 | UI-01 | INTEGRATED | Source `e548e82565aefb2827d9212bb154a533925647ea`. 85 toolkit + 7 gallery unit tests and full workspace tests PASS. Snapshots `ui01-text-1x.png`/`ui01-text-2x.png` inspected: focus border, lavender selection, CJK fallback, placeholder and disabled ink. Live Xvfb/Openbox test (xdotool + xclip): typed 'héllo wörld' copied to CLIPBOARD, external text pasted and round-tripped, word selection captured in `ui01-x11.png`. Found and fixed: keymap not refreshed on MappingNotify. Smoke session PASS. IME pre-edit (XIM/IBus) is NOT implemented; only keysym text input. AT-SPI live query NOT_RUN (tree unit-tested). |
+| 2026-10-30 | UI-02 | INTEGRATED | Source `7e5a734043b6162a2530adb2490314fee8584e66`. 108 toolkit + 11 gallery tests; workspace tests and smoke PASS. Live Xvfb/Openbox journey at SLOPOS_SCALE=1 and 2 (`ui02-runtime.sh`): pointer-opened File menu with hover highlight, Shift/Ctrl-click multi-select (5 rows) and wheel scrolling over 10 000 virtual rows, slider drag to 100, checkbox toggle, F2 modal rename dialog typed and confirmed, Ctrl+O chooser listing real folders, enter folder, Escape cancel. Screenshots inspected. Clipboard verified in UI-01. Separate popup windows, drag and drop and icon grids NOT implemented; live AT-SPI query NOT_RUN (trees unit-tested). |
+| 2026-10-30 | FILES-01 | INTEGRATED | Source `4c242ccc375f97062ad41387e0b053b2754aa5fa`. Builds on merged PR #35 model (no directory-symlink traversal, bounded listing). 20 slopos-files tests PASS incl. no-overwrite rename/move, cancel leaves no partial and keeps existing target, Replace swap, into-itself refusal, FIFO refusal, symlinks never followed, real cross-device move (/tmp dev 65024 → /dev/shm dev 28), Trash round trip with percent-encoded names, collision ids, no-overwrite restore, malformed info. Top-dir .Trash-uid on a removable volume NOT_RUN (no removable media); Trash listing covers the home trash only. |
+| 2026-10-30 | FILES-02 | INTEGRATED | Source `38d96c3d9728c6bee977ba7781bf41de19259555`. Merged PR #35 (read-only Files bootstrap) and extended it; retired its list_view in favour of the shared ListView. 26 slopos-files tests incl. a headless copy→conflict→Keep Both→F2 rename→Trash→restore journey and confirm-before-permanent-delete (Enter defaults to Cancel). Live Xvfb/Openbox run of `files-runtime.sh` at SLOPOS_SCALE=1 and 2: Ctrl+C, double-click into folder, Ctrl+V, second paste → conflict dialog → Keep Both, F2 rename, right-click context menu, Delete → home Trash, Enter on PNG launched slopos-image-viewer via its desktop entry MimeType, Go ▸ Trash view. Screenshots inspected; found and fixed four-button dialog overflow. Smoke PASS; architecture/spec Python checks PASS (121 tests). NOT done: drag and drop, icon view, thumbnails, properties, removable volumes, >8192-entry folders; installed-package (deb/arch) run NOT_RUN. |
+| 2026-10-30 | IMAGE-01 | INTEGRATED | Source `67278b821c885688398b6b8a483778cf8a1d1605`. Decoder adapted from archive/2026-10-30-wayland-compositor-and-apps:apps/preview (first-party MIT, owner-approved reuse). 7 decode tests PASS: PNG/JPEG/GIF/BMP/WebP/TIFF sniffed by content, SVG, EXIF orientation 6 in PNG eXIf and JPEG APP1, 50000² and 20000² bomb headers refused before allocation, truncated JPEG, empty, text, directory, sparse 64 MB+1 file, PNG named .jpg, sibling ordering, cache budget/LRU/oversize. Live run confirmed the bomb is refused with a message. Codec licences: image (MIT/Apache-2.0) with png, jpeg-decoder/zune-jpeg, gif, image-webp, tiff crates (MIT/Apache-2.0/Zlib); no C codecs. Animated frames, ICC colour management, HEIF/AVIF/RAW NOT implemented. |
+| 2026-10-30 | STORE-01 | INTEGRATED | Source `511eac703b31382c2485457f9c6c8e975dd95d9d`. Ported from archive/2026-10-30-wayland-compositor-and-apps:apps/appstore (first-party MIT, owner-approved). 10 tests PASS: catalogue and per-entry Ed25519 signatures round-trip; tampered URL/SHA/removed entry/foreign-key entry rejected; unknown, revoked, wrong-publisher, unsigned rejected; HTTP, bad id, bad hash, zero size rejected before download; trust store must be regular, non-symlink, not group/world-writable; corrupt/short/long/non-ELF downloads never replace the installed version and leave no partials; cancel leaves nothing; crash recovery restores interrupted updates; desktop entries cannot gain injected Exec lines. Live HTTPS download against a real server NOT_RUN (no signed production catalogue yet; owner must generate the publisher key). ed25519-dalek is BSD-3-Clause. |
+| 2026-10-30 | MEDIA-01 | INTEGRATED | Source `d04b72e6da2f7bf2e34b3d6a4b60fd6fdfabba59`. 6 slopos-media tests PASS incl. real VP8/Vorbis WebM fixture: preroll frame 160x120, duration, streams, sidecar subtitle discovery, volume clamp (NaN→0), mute, seek to 1.5 s then play to EOS; corrupt WebM and text-as-.mp4 report errors instead of hanging; frame bound keeps ≤1920x1080 with aspect; codec hints. A/V sync is GStreamer's pipeline clock (appsink sync=true); measured audio/video drift NOT_RUN (no audio device in guest; fakesink used). Codec licensing: GStreamer LGPL-2.1+ dynamic; no libav/H.264 shipped; missing-codec path names gstreamer1.0-libav. Found/fixed: Drop hang (bus flushing at NULL), missing paused preroll frame. |
+| 2026-10-30 | UX-GLOBAL-MENU | IMPLEMENTED | Source `ab3a93c`. Owner-reported regression: native apps' menus were not in the global menu bar. No archive branch had an exporter for toolkit apps (searched all `origin/archive/*` for `org.gtk.Menus`/`_GTK_MENUBAR_OBJECT_PATH`). New `slopos-ui::platform::global_menu` serves `org.gtk.Menus`/`org.gtk.Actions`; the shell owns `org.slopos.GlobalMenu`. 5 layout/action/accelerator tests + MenuBar global-mode test + shell name/property guard PASS. Live Xvfb+Openbox+slopos-shell: Files' File/Edit/View/Go shown in the top bar, View > Show Hidden Files activated Files and the check mark followed, killing the shell restored Files' in-window bar. Real hardware NOT_RUN. |
+| 2026-10-30 | UX-NO-GTK-FALLBACK | IMPLEMENTED | Sources `c62fe42`, `96a1b5b`, `95b68e1`. Owner instruction: bundled apps must not fall back to GTK. Shell/Dock/desktop menu open only slopos-files/-control-panels/-software; install.sh and the live ISO stop shipping slopos-settings/slopos-catalogue; packaging/deps drop PCManFM, Ristretto, galculator, mpv, pavucontrol, blueman, arandr, lxappearance, xfce4-settings and the NM applet; mimeapps names native apps only; PCManFM desktop opt-in only. Desktop picture painted natively (slopos-ui `set_root_background`, session `--paint-desktop`); live Xvfb check repainted Teal Grid from the Desktop panel. Guard tests assert the donors are absent. Remaining GTK in a session: the shell's top bar (legacy) and system terminal/Mousepad (no native equivalent yet). |
+| 2026-10-30 | STORE-02 | IMPLEMENTED | Source `95b68e1`. Native Software window over STORE-01: verified-catalogue-only listing merged with installed AppImages, Install/Update/Remove…(confirm)/Open, byte progress, Cancel, recovery at start. 15 slopos-software tests PASS incl. window-driven install→update→cancelled remove→remove, corrupt payload refused, untrusted-key catalogue rejected. Live capture `docs/screenshots/p1/software.png` with a per-run throwaway key. NOT_RUN: real HTTPS install (no production catalogue/publisher key), installed-package VM journey. |
+| 2026-10-30 | PANELS-01 | PLANNED | Work implemented at `c62fe42`/`ccc195b` but the task stays PLANNED: its dependency SVC-01 is not integrated. Added Desktop panel (bundled patterns, Choose Picture…, save+repaint, undecodable picture changes nothing), File/View menus, Ctrl+1…7, sidebar icons; unit tests PASS. NOT_RUN: runtime against real NetworkManager/PipeWire/BlueZ/timedated (absent in this container). |
+| 2026-10-30 | UX-POLISH | IMPLEMENTED | Source `ccc195b`, `0f46f6a`. Files: theme icons, Places sidebar following navigation, icon toolbar (toolkit Button icons, tested), column separators; Media File/Playback menus; Openbox handle strip removed; original Calculator/Media/Software icons in SLOPOS-Platinum. Review captures in `docs/screenshots/p1` from `scripts/capture-p1-screenshots.sh` (release build, Xvfb). Captures are not conformance evidence (§5.2.7-19). |
+| 2026-10-30 | ISO-AMD64 | IMPLEMENTED | Source `7c68f06` (binaries built from `ccc195b`; later commits change no Rust code). `build-live-iso.sh --arch amd64` produced slopos-x11-0.1.0-noble-amd64.iso (1.25 GB, sha256 1bf39f9653b963cb…), no GTK donor apps installed. `test-live-iso.sh` in QEMU TCG (no KVM): PASS, desktop after 212 s, Super+Space → "files" → native Files with its File/Edit/View/Go menus in the top bar and live sound status (`docs/screenshots/p1/iso-amd64-*.png`). The first boot of this branch failed that check (in-window menus, "Window" in the bar): no shared session bus; fixed in `7c68f06`. Two debootstrap runs failed on transient mirror downloads and were retried. Real hardware NOT_RUN. |
+| 2026-10-30 | UX-TOPBAR-NATIVE | IMPLEMENTED | Source `3059e99` (toolkit prerequisites A1–A3 in the commits before it). `slopos-topbar` on slopos-ui replaces the GTK `slopos-shell` in the session, install.sh and the live ISO: System menu, desktop menus, the focused window's imported `org.gtk.Menus` (Files' File/Edit/View/Go activated from the bar in a live Xvfb/Openbox run), window actions, provider status items, launcher (SIGUSR1 from Openbox's Super+Space, Ctrl+F2 grab), `org.freedesktop.Notifications` toasts with expiry. GMenu import round trip tested on a private dbus-daemon. Smoke PASS. Status popovers and OSDs NOT implemented. |
+| 2026-10-30 | PANELS-NET-BT | IMPLEMENTED | Sources `3da98b5`, `992e077`. Wi-Fi Join/Disconnect/Forget with a secret-field password dialog (PasswordInput, no value in the a11y tree, no copy); profiles validated before AddAndActivateConnection (SSID 1–32 bytes, PSK 8–63 or 64 hex). Bluetooth search/pair (cancellable)/connect/forget; `remove_device` checked against the private-bus BlueZ fixture. Panel tests drive both by keyboard. Real NetworkManager/BlueZ NOT_RUN (absent here); no secret agent or pairing agent. |
+| 2026-10-30 | PANELS-DISPLAY-SOUND-INPUT | IMPLEMENTED | Sources `405ecfc` (toolkit PopUpButton), `d881891`, `b4448ff`, `cff150e`, `4e68fe5`. RandR provider plans and applies layouts (tests: refresh from mode lines incl. interlace, mirroring shares a CRTC, reflow on rotate, limits); Display panel with 15 s keep/revert; live Xvfb: real output listed, re-apply/no-op/unsupported-mode refusal via `--apply-displays`. Sound: device pop-ups and per-application volume/mute/move over pactl sink-inputs (fixture-tested). Keyboard & Mouse: XKB layout/repeat, left-handed, libinput speed/natural scrolling; live Xvfb (-noreset) restore of de layout, 300 ms/40 Hz and swapped buttons. Fixed an ETXTBSY race in the audio test fixture (60/60 runs pass after, ~1 in 10 failed before). NOT_RUN: real monitors (Xvfb has one mode), libinput devices, PipeWire. |
+| 2026-10-30 | DESKTOP-ICONS | IMPLEMENTED | Source `49c016e`. `slopos-desktop` (WindowKind::Desktop): root-picture copy, Home/volumes/~/Desktop/Trash icons, selection, drag with remembered cells, open, arrows, type-to-select, New Folder (no replace), context menu, inotify + mountinfo POLLPRI refresh. 7 tests; live Xvfb/Openbox capture `docs/screenshots/p1/desktop-icons-menu.png`; full smoke-session PASS with the desktop window required (`session-desktop.png`). Rename/Move to Trash/DnD and per-monitor windows NOT implemented. |
+| 2026-10-30 | FILES-ARCHIVES | IMPLEMENTED | Source `8e36ac8`. Compress (zip, tar.gz) and Extract Here (zip, tar, tar.gz/xz/zst) as cancellable operations with partial-then-no-replace commit. Tests: round trips with a symlink, hostile tar (.., absolute, escaping links, hard link, setuid dropped), 300 MiB gzip bomb refused, cancel, garbage, real xz/zstd-made archives, menu-driven app journey; 32 slopos-files tests PASS. Crates: tar, zip (deflate only; zopfli), lzma-rs, ruzstd — MIT, Apache-2.0 or MIT/Apache-2.0. |
+| 2026-10-30 | QA-INVENTORY-REPIN | IMPLEMENTED | Source `6a53f91`. `check-release-runner-inventory.py` and 45 of its tests had failed since `3059e99` changed `scripts/benchmark-x11-session.sh` (process name slopos-shell → slopos-topbar, reviewed) without re-pinning its SHA-256; re-pinned in all three places; 114 Python QA tests PASS. The benchmark itself was NOT re-run in this change. |
+| 2026-10-30 | ISO-AMD64-NATIVE | IMPLEMENTED | Source `8ac5c07` (release binaries built from `53d73c2`; `8ac5c07` changes only the workflow). `build-live-iso.sh --arch amd64`: slopos-x11-0.1.0-noble-amd64.iso, 1.26 GB, sha256 d86ec5bcec2ae20a…. `test-live-iso.sh` in QEMU TCG (no KVM): PASS, desktop after 180 s; the booted session shows slopos-desktop icons, the native top bar with live sound (100%) and NetworkManager state (Offline), and Super+Space → "files" → Files with its menus in the top bar (`docs/screenshots/p1/iso-amd64-*.png`). GitHub `live-iso` run 17 at `8ac5c07` (runs/41094648280): arm64 ISO built on a native `ubuntu-24.04-arm` runner, amd64 ISO built and its boot test PASS on `ubuntu-24.04`; both ISOs uploaded as artifacts. arm64 boot test NOT_RUN (the workflow boot-tests amd64 only). Real hardware NOT_RUN. |

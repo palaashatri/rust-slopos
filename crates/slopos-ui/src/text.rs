@@ -137,6 +137,64 @@ pub fn measure(content: &str, font: &Font) -> TextExtent {
     }
 }
 
+/// Caret positions for single-line `content`: one `(byte index, x)` pair
+/// for every char boundary including the end, sorted by byte index, with `x`
+/// in logical pixels from the start of the line. Glyph clusters that cover
+/// several chars (ligatures, combining marks) are divided evenly; right-to-left
+/// runs place the leading edge on the right.
+pub fn caret_stops(content: &str, font: &Font) -> Vec<(usize, f32)> {
+    let line = content.split('\n').next().unwrap_or("");
+    let mut engine = engine().lock().unwrap_or_else(|poison| poison.into_inner());
+    let buffer = shaped(&mut engine, line, font, 1.0);
+    let mut stops: Vec<(usize, f32)> = Vec::with_capacity(line.len() + 1);
+    let mut end_x: f32 = 0.0;
+    if let Some(run) = buffer.layout_runs().next() {
+        for glyph in run.glyphs {
+            let Some(cluster) = line.get(glyph.start..glyph.end) else {
+                continue;
+            };
+            let count = cluster.chars().count().max(1) as f32;
+            for (index, (offset, _)) in cluster.char_indices().enumerate() {
+                let fraction = index as f32 / count;
+                let x = if glyph.level.is_rtl() {
+                    glyph.x + glyph.w * (1.0 - fraction)
+                } else {
+                    glyph.x + glyph.w * fraction
+                };
+                stops.push((glyph.start + offset, x));
+            }
+            end_x = end_x.max(glyph.x + glyph.w);
+        }
+    }
+    stops.sort_by_key(|stop| stop.0);
+    stops.dedup_by_key(|stop| stop.0);
+    // Chars that produced no glyph (for example a missing font) still need a
+    // caret stop; give them the position of the previous stop.
+    let mut complete = Vec::with_capacity(line.len() + 1);
+    let mut next = stops.iter().peekable();
+    let mut last_x = 0.0;
+    for (offset, _) in line.char_indices() {
+        while next.peek().is_some_and(|stop| stop.0 < offset) {
+            next.next();
+        }
+        if let Some(stop) = next.peek().filter(|stop| stop.0 == offset) {
+            last_x = stop.1;
+        }
+        complete.push((offset, last_x));
+    }
+    complete.push((line.len(), end_x));
+    complete
+}
+
+/// The char boundary in single-line `content` nearest to logical `x`.
+pub fn hit_test(content: &str, font: &Font, x: f32) -> usize {
+    caret_stops(content, font)
+        .into_iter()
+        .min_by(|a, b| (a.1 - x).abs().total_cmp(&(b.1 - x).abs()))
+        .map(|stop| stop.0)
+        .unwrap_or(0)
+}
+
 /// Rasterise `content` at `scale`, calling `plot(x, y, color)` with device
 /// coordinates relative to the text's top-left corner and the colour (with
 /// coverage in alpha) of each covered pixel.
@@ -181,6 +239,33 @@ mod tests {
         assert!(long.width > short.width && short.width > 0.0);
         let two_lines = measure("one\ntwo", &font);
         assert_eq!(two_lines.height, 2.0 * short.height);
+    }
+
+    #[test]
+    fn caret_stops_cover_every_char_boundary_in_order() {
+        let font = Font::system(12.0);
+        for text in ["", "abc", "héllo wörld", "e\u{301}x", "日本語", "שלום abc"] {
+            let stops = caret_stops(text, &font);
+            let expected: Vec<usize> = text
+                .char_indices()
+                .map(|(i, _)| i)
+                .chain([text.len()])
+                .collect();
+            let got: Vec<usize> = stops.iter().map(|s| s.0).collect();
+            assert_eq!(got, expected, "{text:?}");
+        }
+        let ltr = caret_stops("abc", &font);
+        assert!(ltr.windows(2).all(|w| w[1].1 > w[0].1));
+        assert!((ltr[3].1 - measure("abc", &font).width).abs() <= 1.0);
+    }
+
+    #[test]
+    fn hit_testing_picks_the_nearest_boundary() {
+        let font = Font::system(12.0);
+        let stops = caret_stops("hello", &font);
+        assert_eq!(hit_test("hello", &font, -50.0), 0);
+        assert_eq!(hit_test("hello", &font, 1000.0), 5);
+        assert_eq!(hit_test("hello", &font, stops[2].1 + 0.4), 2);
     }
 
     #[test]

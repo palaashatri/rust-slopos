@@ -7,7 +7,9 @@
 
 use std::cell::{Ref, RefCell};
 
-use tiny_skia::{FilterQuality, IntSize, Paint, Pixmap, PixmapPaint, Transform};
+use tiny_skia::{
+    FillRule, FilterQuality, IntSize, Mask, Paint, PathBuilder, Pixmap, PixmapPaint, Transform,
+};
 
 use crate::foundation::{
     color::Color,
@@ -31,6 +33,9 @@ pub struct RasterSurface {
     scale: Scale,
     logical_width: u32,
     logical_height: u32,
+    /// Stack of device-space clip boxes (left, top, right, bottom); the last
+    /// entry is the effective clip, already intersected with its parents.
+    clips: RefCell<Vec<(i64, i64, i64, i64)>>,
 }
 
 impl RasterSurface {
@@ -57,6 +62,7 @@ impl RasterSurface {
             scale,
             logical_width: width,
             logical_height: height,
+            clips: RefCell::new(Vec::new()),
         })
     }
 
@@ -80,6 +86,64 @@ impl RasterSurface {
         self.pixmap.borrow().height()
     }
 
+    /// Restrict drawing to `rect` (logical pixels), intersected with any
+    /// clip already in force, until the matching [`Self::pop_clip`].
+    pub fn push_clip(&self, rect: Rect) -> Result<(), RenderError> {
+        let device = rect
+            .to_device(self.scale)
+            .ok_or(RenderError::GeometryOverflow)?;
+        let (left, top, right, bottom) = self.clip_bounds();
+        let clip = (
+            i64::from(device.x).clamp(left, right),
+            i64::from(device.y).clamp(top, bottom),
+            (i64::from(device.x) + i64::from(device.width)).clamp(left, right),
+            (i64::from(device.y) + i64::from(device.height)).clamp(top, bottom),
+        );
+        self.clips.borrow_mut().push(clip);
+        Ok(())
+    }
+
+    /// Remove the innermost clip pushed with [`Self::push_clip`].
+    pub fn pop_clip(&self) {
+        self.clips.borrow_mut().pop();
+    }
+
+    /// Run `draw` with drawing clipped to `rect`.
+    pub fn with_clip<R>(
+        &self,
+        rect: Rect,
+        draw: impl FnOnce() -> Result<R, RenderError>,
+    ) -> Result<R, RenderError> {
+        self.push_clip(rect)?;
+        let result = draw();
+        self.pop_clip();
+        result
+    }
+
+    /// The effective clip in device pixels: (left, top, right, bottom).
+    fn clip_bounds(&self) -> (i64, i64, i64, i64) {
+        let pixmap = self.pixmap.borrow();
+        let full = (0, 0, i64::from(pixmap.width()), i64::from(pixmap.height()));
+        self.clips.borrow().last().copied().unwrap_or(full)
+    }
+
+    /// A tiny-skia mask for the active clip, or `None` when nothing is clipped.
+    fn clip_mask(&self) -> Option<Mask> {
+        if self.clips.borrow().is_empty() {
+            return None;
+        }
+        let (left, top, right, bottom) = self.clip_bounds();
+        let pixmap = self.pixmap.borrow();
+        let mut mask = Mask::new(pixmap.width(), pixmap.height())?;
+        if let Some(area) =
+            tiny_skia::Rect::from_ltrb(left as f32, top as f32, right as f32, bottom as f32)
+        {
+            let path = PathBuilder::from_rect(area);
+            mask.fill_path(&path, FillRule::Winding, false, Transform::identity());
+        }
+        Some(mask)
+    }
+
     /// Replace every pixel, including alpha.
     pub fn clear(&self, color: Color) -> Result<(), RenderError> {
         self.pixmap.borrow_mut().fill(to_skia(color));
@@ -97,12 +161,12 @@ impl RasterSurface {
     }
 
     fn fill_device_rect(&self, rect: Rect, color: Color) {
+        let (clip_left, clip_top, clip_right, clip_bottom) = self.clip_bounds();
         let mut pixmap = self.pixmap.borrow_mut();
-        let (width, height) = (pixmap.width() as i64, pixmap.height() as i64);
-        let left = i64::from(rect.x).clamp(0, width);
-        let top = i64::from(rect.y).clamp(0, height);
-        let right = (i64::from(rect.x) + i64::from(rect.width)).clamp(0, width);
-        let bottom = (i64::from(rect.y) + i64::from(rect.height)).clamp(0, height);
+        let left = i64::from(rect.x).clamp(clip_left, clip_right);
+        let top = i64::from(rect.y).clamp(clip_top, clip_bottom);
+        let right = (i64::from(rect.x) + i64::from(rect.width)).clamp(clip_left, clip_right);
+        let bottom = (i64::from(rect.y) + i64::from(rect.height)).clamp(clip_top, clip_bottom);
         if left >= right || top >= bottom {
             return;
         }
@@ -162,13 +226,14 @@ impl RasterSurface {
             ..PixmapPaint::default()
         };
         let source = source.pixmap.borrow();
+        let mask = self.clip_mask();
         self.pixmap.borrow_mut().draw_pixmap(
             0,
             0,
             source.as_ref(),
             &paint,
             Transform::from_row(ratio, 0.0, 0.0, ratio, x as f32, y as f32),
-            None,
+            mask.as_ref(),
         );
         Ok(())
     }
@@ -210,13 +275,14 @@ impl RasterSurface {
         };
         let x = origin_x as f32 * factor;
         let y = origin_y as f32 * factor;
+        let mask = self.clip_mask();
         self.pixmap.borrow_mut().draw_pixmap(
             0,
             0,
             source.as_ref(),
             &paint,
             Transform::from_row(sx, 0.0, 0.0, sy, x, y),
-            None,
+            mask.as_ref(),
         );
         Ok(())
     }
@@ -233,8 +299,9 @@ impl RasterSurface {
         let factor = self.scale.factor() as i32;
         let origin_x = x.checked_mul(factor).ok_or(RenderError::GeometryOverflow)?;
         let origin_y = y.checked_mul(factor).ok_or(RenderError::GeometryOverflow)?;
+        let (clip_left, clip_top, clip_right, clip_bottom) = self.clip_bounds();
         let mut pixmap = self.pixmap.borrow_mut();
-        let (width, height) = (pixmap.width() as i32, pixmap.height() as i32);
+        let width = pixmap.width() as i32;
         let data = pixmap.data_mut();
         text::rasterize(
             content,
@@ -243,7 +310,8 @@ impl RasterSurface {
             color,
             |px, py, coverage_color| {
                 let (dx, dy) = (origin_x + px, origin_y + py);
-                if dx < 0 || dy < 0 || dx >= width || dy >= height {
+                let (cx, cy) = (i64::from(dx), i64::from(dy));
+                if cx < clip_left || cy < clip_top || cx >= clip_right || cy >= clip_bottom {
                     return;
                 }
                 let offset = ((dy * width + dx) * 4) as usize;
@@ -311,6 +379,75 @@ fn blend_straight_over(destination: &mut [u8], color: Color) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clips_nest_and_restore_at_both_scales() {
+        for factor in [1u32, 2] {
+            let f = factor;
+            let surface = RasterSurface::new(10, 10, Scale::new(factor).unwrap()).unwrap();
+            surface.clear(Color::WHITE).unwrap();
+            let all = Rect {
+                x: 0,
+                y: 0,
+                width: 10,
+                height: 10,
+            };
+            surface
+                .push_clip(Rect {
+                    x: 2,
+                    y: 2,
+                    width: 6,
+                    height: 6,
+                })
+                .unwrap();
+            // A nested clip may only shrink the outer one.
+            surface
+                .push_clip(Rect {
+                    x: 4,
+                    y: 0,
+                    width: 20,
+                    height: 20,
+                })
+                .unwrap();
+            surface.fill_rect(all, Color::BLACK).unwrap();
+            surface.pop_clip();
+            assert_eq!(surface.pixel(3 * f, 3 * f), Some(0xffffffff));
+            assert_eq!(surface.pixel(4 * f, 4 * f), Some(0xff000000));
+            assert_eq!(surface.pixel(8 * f, 4 * f), Some(0xffffffff));
+            assert_eq!(surface.pixel(4 * f, f), Some(0xffffffff));
+            surface.fill_rect(all, Color::BLACK).unwrap();
+            assert_eq!(surface.pixel(3 * f, 3 * f), Some(0xff000000));
+            assert_eq!(surface.pixel(f, f), Some(0xffffffff));
+            surface.pop_clip();
+            surface.fill_rect(all, Color::BLACK).unwrap();
+            assert_eq!(surface.pixel(0, 0), Some(0xff000000));
+        }
+    }
+
+    #[test]
+    fn text_and_images_respect_the_clip() {
+        let surface = RasterSurface::new(60, 20, Scale::new(1).unwrap()).unwrap();
+        surface.clear(Color::WHITE).unwrap();
+        let clip = Rect {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 20,
+        };
+        surface
+            .with_clip(clip, || {
+                surface.draw_text("WWWWWWWW", 0, 0, &Font::system(14.0), Color::BLACK)?;
+                let image = Image::from_rgba(40, 20, [0, 0, 0, 255].repeat(800)).unwrap();
+                surface.draw_image(&image, 0, 0)
+            })
+            .unwrap();
+        for x in 10..60 {
+            for y in 0..20 {
+                assert_eq!(surface.pixel(x, y), Some(0xffffffff), "leak at {x},{y}");
+            }
+        }
+        assert_eq!(surface.pixel(5, 10), Some(0xff000000));
+    }
 
     fn pixel(surface: &RasterSurface, point_x: u32, point_y: u32) -> u32 {
         surface.pixel(point_x, point_y).unwrap()

@@ -25,7 +25,7 @@ max_growth_kib="${SLOPOS_BENCHMARK_MAX_RSS_GROWTH_KIB:-32768}"
 }
 
 test -x target/release/slopos-session
-test -x target/release/slopos-shell
+test -x target/release/slopos-topbar
 
 runtime_dir="${XDG_RUNTIME_DIR:-/tmp/slopos-benchmark-runtime}"
 mkdir -p "$runtime_dir"
@@ -37,7 +37,7 @@ cleanup() {
   terminate_pid "${SESSION_PID:-}"
   terminate_pid "${shell_pid:-}"
   terminate_pid "${openbox_pid:-}"
-  for process in slopos-shell openbox; do
+  for process in slopos-topbar openbox; do
     for _ in $(seq 1 20); do
       [[ -z "$(live_pid "$process")" ]] && break
       sleep 0.1
@@ -77,7 +77,7 @@ SESSION_PID=$!
 for _ in $(seq 1 60); do
   session_child_pid="$(live_pid slopos-session)"
   openbox_pid="$(live_pid openbox)"
-  shell_pid="$(live_pid slopos-shell)"
+  shell_pid="$(live_pid slopos-topbar)"
   if [[ -n "$session_child_pid" && -n "$openbox_pid" && -n "$shell_pid" ]] \
       && xdotool search --onlyvisible --name '^SLOPOS Top Bar$' >/dev/null; then
     break
@@ -115,7 +115,7 @@ initial_rss_kib="$(tree_rss_kib)"
 for ((second = 0; second < hold_seconds; second++)); do
   [[ "$(live_pid slopos-session)" == "$session_child_pid" ]]
   [[ "$(live_pid openbox)" == "$openbox_pid" ]]
-  [[ "$(live_pid slopos-shell)" == "$shell_pid" ]]
+  [[ "$(live_pid slopos-topbar)" == "$shell_pid" ]]
   topbar_visible
   sleep 1
 done
