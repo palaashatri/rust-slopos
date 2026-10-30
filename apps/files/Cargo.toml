@@ -1,0 +1,12 @@
+[package]
+name = "slopos-files"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Read-only SLOPOS X11 file browser using the native Rust UI toolkit"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+slopos-core = { path = "../../crates/slopos-core" }
+accesskit = { workspace = true }
+env_logger = { workspace = true }

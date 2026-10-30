@@ -74,7 +74,7 @@ Only each dependent native widget/screen waits for its shared control.
 |---|---|---|
 | Calculator | Existing functional Rust toolkit app | Regression smoke and packaging |
 | Image Viewer | PNG/SVG proof app plus desktop/package entries added to integration PR; end-to-end QA pending | JPEG and typical formats, limits, open/navigation, packaged binary |
-| Files | Planned; PCManFM donor | Native navigation + tested nondestructive file ops |
+| Files | Read-only, toolkit-native Files bootstrap proposed in PR #35; PCManFM remains donor | Complete safe copy/move/rename/Trash, dialogs, massive dirs, real installed QA |
 | Media | Planned | Real playback/decode, subtitle/timing, errors and platform codec licensing |
 | Control Panels | Legacy GTK settings | Real native panels for core providers |
 | Software | Legacy GTK catalogue | Native UI and trusted install lifecycle |

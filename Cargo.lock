@@ -2672,6 +2672,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-files"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "env_logger",
+ "slopos-core",
+ "slopos-ui",
+]
+
+[[package]]
 name = "slopos-image-viewer"
 version = "0.1.0"
 dependencies = [

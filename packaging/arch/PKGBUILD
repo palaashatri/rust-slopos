@@ -31,7 +31,7 @@ package() {
   cd "$srcdir/rust-slopos"
   export CARGO_TARGET_DIR="$srcdir/.cargo-target"
 
-  for binary in slopos-session slopos-shell slopos-dock slopos-catalogue slopos-settings slopos-calculator slopos-image-viewer; do
+  for binary in slopos-session slopos-shell slopos-dock slopos-catalogue slopos-settings slopos-calculator slopos-image-viewer slopos-files; do
     install -Dm755 "$CARGO_TARGET_DIR/release/$binary" "$pkgdir/usr/bin/$binary"
   done
   install -Dm755 scripts/start-slopos-i "$pkgdir/usr/bin/start-slopos-i"
@@ -43,6 +43,7 @@ package() {
   install -Dm644 packaging/slopos-browser.desktop "$pkgdir/usr/share/applications/slopos-browser.desktop"
   install -Dm644 packaging/slopos-calculator.desktop "$pkgdir/usr/share/applications/slopos-calculator.desktop"
   install -Dm644 packaging/slopos-image-viewer.desktop "$pkgdir/usr/share/applications/slopos-image-viewer.desktop"
+  install -Dm644 packaging/slopos-files.desktop "$pkgdir/usr/share/applications/slopos-files.desktop"
   install -Dm644 packaging/slopos-settings.desktop "$pkgdir/usr/share/applications/slopos-settings.desktop"
   install -Dm644 packaging/slopos-catalogue.desktop "$pkgdir/usr/share/applications/slopos-catalogue.desktop"
 
