@@ -62,6 +62,7 @@ fn main() -> ExitCode {
 
     environment::configure();
     install_signal_handlers();
+    restore_displays();
     environment::apply_root_background();
 
     let mut wm = Child::new("Openbox", Policy::Required, spawn_openbox);
@@ -122,6 +123,38 @@ fn spawn_openbox() -> Option<std::process::Child> {
         Err(error) => {
             log::error!("Could not start Openbox: {error}");
             None
+        }
+    }
+}
+
+/// Put back the display layout kept in Control Panels, before anything
+/// sizes itself to the screen. Missing or slow, the session goes on.
+fn restore_displays() {
+    let path = slopos_core::process::resolve_program("slopos-control-panels")
+        .unwrap_or_else(|| PathBuf::from("slopos-control-panels"));
+    let mut child = match std::process::Command::new(&path)
+        .arg("--apply-displays")
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(error) => {
+            log::info!("Not restoring the display layout: {error}");
+            return;
+        }
+    };
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let id = child.id();
+    thread::spawn(move || {
+        let _ = sender.send(child.wait());
+    });
+    match receiver.recv_timeout(Duration::from_secs(5)) {
+        Ok(Ok(status)) if status.success() => {}
+        Ok(Ok(status)) => log::warn!("Restoring the display layout failed ({status})"),
+        Ok(Err(error)) => log::warn!("Restoring the display layout failed: {error}"),
+        Err(_) => {
+            log::warn!("Restoring the display layout took too long; going on without it");
+            // SAFETY: plain kill(2) on the child we started.
+            unsafe { libc::kill(id as libc::pid_t, libc::SIGKILL) };
         }
     }
 }
