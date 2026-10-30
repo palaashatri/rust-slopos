@@ -582,6 +582,37 @@ impl BluetoothClient {
         .map_err(|_| BluetoothError::Timeout)?
     }
 
+    /// Forget a device: BlueZ drops its pairing keys and the device object.
+    pub async fn remove_device(
+        &self,
+        adapter_path: &str,
+        device_path: &str,
+    ) -> Result<BluetoothSnapshot, BluetoothError> {
+        timeout(OPERATION_TIMEOUT, async {
+            let (_, snapshot) = self.device_proxy(device_path).await?;
+            if !snapshot
+                .devices
+                .iter()
+                .any(|item| item.path == device_path && item.adapter_path == adapter_path)
+            {
+                return Err(BluetoothError::DeviceUnavailable(device_path.to_owned()));
+            }
+            let adapter = self.adapter_proxy(adapter_path).await?;
+            let path = zbus::zvariant::ObjectPath::try_from(device_path)
+                .map_err(|error| BluetoothError::InvalidObjectPath(error.to_string()))?;
+            adapter.call::<_, _, ()>("RemoveDevice", &(path,)).await?;
+            loop {
+                let snapshot = self.snapshot_inner().await?;
+                if snapshot.devices.iter().all(|item| item.path != device_path) {
+                    return Ok(snapshot);
+                }
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        })
+        .await
+        .map_err(|_| BluetoothError::Timeout)?
+    }
+
     async fn set_adapter_property(
         &self,
         path: &str,
@@ -791,6 +822,7 @@ mod tests {
     }
 
     struct BluezFixture {
+        removed: Arc<std::sync::atomic::AtomicBool>,
         powered: Arc<std::sync::atomic::AtomicBool>,
         discovering: Arc<std::sync::atomic::AtomicBool>,
         paired: Arc<std::sync::atomic::AtomicBool>,
@@ -848,13 +880,15 @@ mod tests {
                 "Connected".into(),
                 OwnedValue::from(self.connected.load(Ordering::Relaxed)),
             );
-            HashMap::from([
-                (adapter_path, HashMap::from([(ADAPTER.into(), properties)])),
-                (
+            let mut objects =
+                HashMap::from([(adapter_path, HashMap::from([(ADAPTER.into(), properties)]))]);
+            if !self.removed.load(Ordering::Relaxed) {
+                objects.insert(
                     device_path,
                     HashMap::from([(DEVICE.into(), device_properties)]),
-                ),
-            ])
+                );
+            }
+            objects
         }
     }
 
@@ -873,6 +907,7 @@ mod tests {
             .read_line(&mut address)
             .unwrap();
         let powered = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let removed = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let discovering = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let denied = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let paired = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -896,6 +931,7 @@ mod tests {
             .serve_at(
                 ROOT,
                 BluezFixture {
+                    removed: removed.clone(),
                     powered: powered.clone(),
                     discovering: discovering.clone(),
                     paired: paired.clone(),
@@ -907,6 +943,7 @@ mod tests {
             .serve_at(
                 "/org/bluez/hci0",
                 AdapterFixture {
+                    removed: removed.clone(),
                     powered: powered.clone(),
                     discovering: discovering.clone(),
                     denied: denied.clone(),
@@ -1166,6 +1203,17 @@ mod tests {
             "{denied_result:?}"
         );
         assert!(!powered.load(Ordering::Relaxed));
+        assert!(matches!(
+            client
+                .remove_device("/org/bluez/hci1", "/org/bluez/hci0/dev_00_11_22_33_44_55")
+                .await,
+            Err(BluetoothError::DeviceUnavailable(_))
+        ));
+        let forgotten = client
+            .remove_device("/org/bluez/hci0", "/org/bluez/hci0/dev_00_11_22_33_44_55")
+            .await
+            .unwrap();
+        assert!(forgotten.devices.is_empty() && removed.load(Ordering::Relaxed));
         service.close().await.unwrap();
         let missing = client.snapshot().await.unwrap_err();
         assert_eq!(
@@ -1201,6 +1249,7 @@ mod tests {
     }
 
     struct AdapterFixture {
+        removed: Arc<std::sync::atomic::AtomicBool>,
         powered: Arc<std::sync::atomic::AtomicBool>,
         discovering: Arc<std::sync::atomic::AtomicBool>,
         denied: Arc<std::sync::atomic::AtomicBool>,
@@ -1233,6 +1282,14 @@ mod tests {
 
         fn stop_discovery(&self) {
             self.discovering.store(false, Ordering::Relaxed);
+        }
+
+        fn remove_device(&self, device: OwnedObjectPath) -> zbus::fdo::Result<()> {
+            if device.as_str() != "/org/bluez/hci0/dev_00_11_22_33_44_55" {
+                return Err(zbus::fdo::Error::InvalidArgs("unknown device".into()));
+            }
+            self.removed.store(true, Ordering::Relaxed);
+            Ok(())
         }
     }
 

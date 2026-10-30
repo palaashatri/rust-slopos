@@ -6,7 +6,7 @@
 
 use slopos_core::capability::Availability;
 use slopos_services::audio::{AudioDevice, AudioSnapshot};
-use slopos_services::bluetooth::BluetoothSnapshot;
+use slopos_services::bluetooth::{BluetoothDevice, BluetoothSnapshot};
 use slopos_services::brightness::BrightnessSnapshot;
 use slopos_services::network::{NetworkDeviceState, NetworkDeviceType, NetworkSnapshot};
 use slopos_services::timedate::TimedateSnapshot;
@@ -245,17 +245,36 @@ pub fn bluetooth_lines(snapshot: &BluetoothSnapshot) -> Vec<String> {
             )
         })
         .collect();
-    for device in &snapshot.devices {
-        let state = if device.connected {
-            "connected"
-        } else if device.paired {
-            "paired"
-        } else {
-            "not paired"
-        };
-        lines.push(format!("{} — {state}", device.name));
-    }
+    let paired = snapshot.devices.iter().filter(|d| d.paired).count();
+    lines.push(match (snapshot.devices.len(), paired) {
+        (0, _) => "No devices found yet.".to_owned(),
+        (1, paired) => format!("1 device, {paired} paired"),
+        (found, paired) => format!("{found} devices, {paired} paired"),
+    });
     lines
+}
+
+/// Devices for the list: connected first, then paired, then by name.
+pub fn bluetooth_devices(snapshot: &BluetoothSnapshot) -> Vec<BluetoothDevice> {
+    let mut devices = snapshot.devices.clone();
+    devices.sort_by(|a, b| {
+        (b.connected, b.paired)
+            .cmp(&(a.connected, a.paired))
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+            .then_with(|| a.address.cmp(&b.address))
+    });
+    devices
+}
+
+/// A device's state as the list shows it.
+pub fn bluetooth_state(device: &BluetoothDevice) -> &'static str {
+    if device.connected {
+        "Connected"
+    } else if device.paired {
+        "Paired"
+    } else {
+        "Not paired"
+    }
 }
 
 pub fn brightness_percent(snapshot: &BrightnessSnapshot) -> Option<(String, u32)> {
@@ -542,7 +561,31 @@ mod tests {
             bluetooth_lines(&bluetooth),
             vec![
                 "slopos (AA:BB) — on".to_owned(),
-                "Headphones — paired".to_owned()
+                "1 device, 1 paired".to_owned()
+            ]
+        );
+        let mut more = bluetooth.clone();
+        let device = |name: &str, paired, connected| BluetoothDevice {
+            path: format!("/{name}"),
+            name: name.into(),
+            address: name.into(),
+            adapter_path: "/hci0".into(),
+            paired,
+            trusted: paired,
+            connected,
+        };
+        more.devices.push(device("keyboard", false, false));
+        more.devices.push(device("Mouse", true, true));
+        let names: Vec<_> = bluetooth_devices(&more)
+            .into_iter()
+            .map(|d| (d.name.clone(), bluetooth_state(&d)))
+            .collect();
+        assert_eq!(
+            names,
+            vec![
+                ("Mouse".to_owned(), "Connected"),
+                ("Headphones".to_owned(), "Paired"),
+                ("keyboard".to_owned(), "Not paired")
             ]
         );
         let none = BluetoothSnapshot {
