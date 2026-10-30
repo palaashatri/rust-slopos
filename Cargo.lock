@@ -3080,6 +3080,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-control-panels"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "env_logger",
+ "slopos-core",
+ "slopos-services",
+ "slopos-ui",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "slopos-core"
 version = "0.1.0"
 dependencies = [
