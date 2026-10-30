@@ -152,6 +152,8 @@ mod tests {
             comment: comment.to_string(),
             terminal: false,
             startup_wm_class: String::new(),
+            mime_types: Vec::new(),
+            exec: String::new(),
         }
     }
 
