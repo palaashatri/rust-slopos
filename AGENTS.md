@@ -174,3 +174,15 @@ archive branches documented in
 widget behavior, image/file logic and tests may be adapted only after
 security/license/API reviews and current exact-SHA verification. Do not
 revive the historical compositor during P1.
+
+## Native Files handoff (PR #35)
+
+The `apps/files` source and `slopos-ui::controls::list_view` form a
+read-only, bounded, async navigation baseline. **Do not start Files from
+scratch.** The next implementation should extend and test this source:
+file choosers, pagination over 8192 rows, safe atomic file operations,
+context menus and actual native file associations. Follow
+[docs/p1-files-live-qa.md](docs/p1-files-live-qa.md) for required VM
+interaction and screenshot evidence; do not call Files shipped until those
+and the full P1 file operations pass. Preserve the PCManFM donor until
+parity is demonstrated.
