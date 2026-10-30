@@ -67,6 +67,31 @@
       "summary": "committed at 38d96c3; single-agent verification",
       "updated_utc": "2026-10-30T06:21:37+00:00"
     },
+    "IMAGE-01": {
+      "base_sha": "67278b821c885688398b6b8a483778cf8a1d1605",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/image-unit.log",
+            "command": "cargo test -p slopos-image-viewer --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "5ca8123830ecff2589c75fbb910e519b5e8b79b4f3fd634a74eb9eb39eb6ee04"
+          },
+          {
+            "artifact": ".work/p1/evidence/image-security.log",
+            "command": "cargo test -p slopos-image-viewer --locked -- decode::",
+            "kind": "security",
+            "result": "PASS",
+            "sha256": "f77df6674cbb2dd686796d0616c4b3b19b5f445493f1dd03ee52e21e1d2b16c5"
+          }
+        ],
+        "source_sha": "67278b821c885688398b6b8a483778cf8a1d1605"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at 67278b8; single-agent verification",
+      "updated_utc": "2026-10-30T06:59:26+00:00"
+    },
     "P1-00": {
       "base_sha": "85035ffb2c957e200d19c9b6c874270779aaa2c8",
       "evidence": {
@@ -161,5 +186,5 @@
       "updated_utc": "2026-10-30T06:02:48+00:00"
     }
   },
-  "updated_utc": "2026-10-30T06:21:37+00:00"
+  "updated_utc": "2026-10-30T06:59:26+00:00"
 }
