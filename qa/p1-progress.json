@@ -167,6 +167,12 @@
       "summary": "committed at 511eac7; single-agent verification",
       "updated_utc": "2026-10-30T07:05:21+00:00"
     },
+    "STORE-02": {
+      "base_sha": "0f46f6af9790cefd6e92f23a14f1bbbac565437f",
+      "status": "IMPLEMENTED",
+      "summary": "Native Software window (apps/software store.rs/window.rs) on the STORE-01 signed catalogue and transactions; replaces slopos-catalogue in shell, Dock, install.sh and ISO. 15 unit tests incl. install/update/remove/corrupt-download/untrusted-catalogue through the window; live Xvfb capture with a throwaway-key catalogue (docs/screenshots/p1/software.png). NOT_RUN: real HTTPS install against a published catalogue (no production key yet) and installed-package VM journey.",
+      "updated_utc": "2026-10-30T11:26:08+00:00"
+    },
     "UI-01": {
       "base_sha": "e548e82565aefb2827d9212bb154a533925647ea",
       "evidence": {
@@ -236,5 +242,5 @@
       "updated_utc": "2026-10-30T06:02:48+00:00"
     }
   },
-  "updated_utc": "2026-10-30T08:04:18+00:00"
+  "updated_utc": "2026-10-30T11:26:08+00:00"
 }

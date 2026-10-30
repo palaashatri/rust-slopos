@@ -5,6 +5,7 @@
 xorg
 openbox
 dbus-x11
+dbus-user-session
 xfce4-terminal
 mousepad
 zathura

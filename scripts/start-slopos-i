@@ -24,6 +24,22 @@ fi
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
 
+# Every session process must share one D-Bus session bus: SLOPOS apps
+# publish their menus on it for the top bar, and providers live there.
+# GTK can find a bus through X11 autolaunch, but other clients (zbus) can't,
+# so make the address explicit: the systemd user bus when there is one,
+# otherwise a bus that lives exactly as long as this session.
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+  if [ -S "$XDG_RUNTIME_DIR/bus" ]; then
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+  elif [ -z "${SLOPOS_SESSION_BUS_STARTED:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
+    export SLOPOS_SESSION_BUS_STARTED=1
+    exec dbus-run-session -- "$0" "$@"
+  else
+    echo "start-slopos-i: no D-Bus session bus; app menus stay in their windows" >&2
+  fi
+fi
+
 SLOPOS_SHARE_DIR="$INSTALL_PREFIX/share"
 if [ -d "$SLOPOS_SHARE_DIR" ]; then
   export SLOPOS_SHARE_DIR

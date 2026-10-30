@@ -65,3 +65,12 @@ fn docker_qa_does_not_ignore_required_screenshots() {
     assert!(!qa.contains("scrot -z artifacts/qa/screenshots/clean_desktop_1280x800.png || true"));
     assert!(qa.contains("Visual acceptance remains a separate human/vision review gate"));
 }
+
+#[test]
+fn session_shares_one_dbus_session_bus_for_global_menus() {
+    let start = include_str!("../../../scripts/start-slopos-i");
+    let deps = include_str!("../../../packaging/deps/ubuntu.txt");
+    assert!(start.contains("export DBUS_SESSION_BUS_ADDRESS=\"unix:path=$XDG_RUNTIME_DIR/bus\""));
+    assert!(start.contains("exec dbus-run-session -- \"$0\" \"$@\""));
+    assert!(deps.lines().any(|line| line == "dbus-user-session"));
+}
