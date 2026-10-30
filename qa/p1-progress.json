@@ -1,5 +1,246 @@
 {
   "schema_version": 1,
-  "tasks": {},
-  "updated_utc": null
+  "tasks": {
+    "FILES-01": {
+      "base_sha": "4c242ccc375f97062ad41387e0b053b2754aa5fa",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/files01-unit.log",
+            "command": "cargo test --workspace --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "9f853b7987f271038ffe3b444ae927ddb7cca1451c3e1e26a10c08620dbe0793"
+          },
+          {
+            "artifact": ".work/p1/evidence/files01-security.log",
+            "command": "cargo test -p slopos-files --locked -- ops:: trash:: model::",
+            "kind": "security",
+            "result": "PASS",
+            "sha256": "675cf0fc74e1acc9baa3c1468dc12ad7902ed58deda547472be2e73c92becc37"
+          }
+        ],
+        "source_sha": "4c242ccc375f97062ad41387e0b053b2754aa5fa"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at 4c242cc; single-agent verification",
+      "updated_utc": "2026-10-30T06:11:46+00:00"
+    },
+    "FILES-02": {
+      "base_sha": "38d96c3d9728c6bee977ba7781bf41de19259555",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/files02-unit.log",
+            "command": "cargo test --workspace --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "f6122095e091eb1ceee6fe4f5a96da5cef7344963e5b520cd5781c16594c80c8"
+          },
+          {
+            "artifact": ".work/p1/evidence/files02-2x-conflict.png",
+            "command": "files-runtime.sh SLOPOS_SCALE=2 + import",
+            "kind": "visual",
+            "resolution": "1520x1080 scale=2 Platinum",
+            "result": "PASS",
+            "review": "inspected: conflict dialog buttons inside bounds, default ring on Keep Both, columns, scrim, crisp 2x; trash/context shots inspected",
+            "sha256": "7f26ee76c4964656cc700727adc62a4c05b4b001891c3815f9acad94e3231407"
+          },
+          {
+            "artifact": ".work/p1/evidence/files02-runtime-2x.log",
+            "command": "LC_ALL=C.UTF-8 .work/p1/files-runtime.sh (Xvfb+openbox+xdotool) at scale 1 and 2",
+            "kind": "runtime",
+            "result": "PASS",
+            "sha256": "b142e84af613d735a424dbac10cc70697d7660891fb0a240a9e18ff3e72b7eba"
+          },
+          {
+            "artifact": ".work/p1/evidence/files02-security.log",
+            "command": "cargo test -p slopos-files --locked -- ops:: trash:: model:: worker::",
+            "kind": "security",
+            "result": "PASS",
+            "sha256": "f2bb878d9821b0eda8303972671632be8181a7109b11edfbeb608a3f278fc676"
+          }
+        ],
+        "source_sha": "38d96c3d9728c6bee977ba7781bf41de19259555"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at 38d96c3; single-agent verification",
+      "updated_utc": "2026-10-30T06:21:37+00:00"
+    },
+    "IMAGE-01": {
+      "base_sha": "67278b821c885688398b6b8a483778cf8a1d1605",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/image-unit.log",
+            "command": "cargo test -p slopos-image-viewer --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "5ca8123830ecff2589c75fbb910e519b5e8b79b4f3fd634a74eb9eb39eb6ee04"
+          },
+          {
+            "artifact": ".work/p1/evidence/image-security.log",
+            "command": "cargo test -p slopos-image-viewer --locked -- decode::",
+            "kind": "security",
+            "result": "PASS",
+            "sha256": "f77df6674cbb2dd686796d0616c4b3b19b5f445493f1dd03ee52e21e1d2b16c5"
+          }
+        ],
+        "source_sha": "67278b821c885688398b6b8a483778cf8a1d1605"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at 67278b8; single-agent verification",
+      "updated_utc": "2026-10-30T06:59:26+00:00"
+    },
+    "MEDIA-01": {
+      "base_sha": "d04b72e6da2f7bf2e34b3d6a4b60fd6fdfabba59",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/media-unit.log",
+            "command": "cargo test -p slopos-media --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "47c87f96ae71cd4d70cb7c0805b8be5ba7c5f5aafe11a4d771f4451236e335f1"
+          },
+          {
+            "artifact": ".work/p1/evidence/media-security.log",
+            "command": "cargo test -p slopos-media --locked -- broken unplayable helpers",
+            "kind": "security",
+            "result": "PASS",
+            "sha256": "c0bd96a5f68738f67d9df8dab651aff3510f6b87a65e9ec7e7f6cad390340571"
+          }
+        ],
+        "source_sha": "d04b72e6da2f7bf2e34b3d6a4b60fd6fdfabba59"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at d04b72e; single-agent verification",
+      "updated_utc": "2026-10-30T08:04:18+00:00"
+    },
+    "P1-00": {
+      "base_sha": "85035ffb2c957e200d19c9b6c874270779aaa2c8",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/p1-00-unit.log",
+            "command": "cargo test --workspace --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "78f7383cfb3c4ea40f6bce22c023398de0fff9dd982b014c65d02ba1c7b5d03e"
+          },
+          {
+            "artifact": ".work/p1/evidence/p1-00-smoke.log",
+            "command": "bash scripts/smoke-session.sh",
+            "kind": "runtime",
+            "result": "PASS",
+            "sha256": "53ca622885322f0428b053ac107eb1496d9f416d3df401563d433d2351ede9f8"
+          }
+        ],
+        "source_sha": "85035ffb2c957e200d19c9b6c874270779aaa2c8"
+      },
+      "status": "INTEGRATED",
+      "summary": "baseline recorded in ledger",
+      "updated_utc": "2026-10-30T05:43:08+00:00"
+    },
+    "STORE-01": {
+      "base_sha": "511eac703b31382c2485457f9c6c8e975dd95d9d",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/store01-unit.log",
+            "command": "cargo test -p slopos-software --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "9b8e8cfbc024207f979d198e4f45b0ad0b5c63d2ef7b639965886e31a786dbbc"
+          },
+          {
+            "artifact": ".work/p1/evidence/store01-security.log",
+            "command": "cargo test -p slopos-software --locked -- trust:: install::",
+            "kind": "security",
+            "result": "PASS",
+            "sha256": "510d038df6905d9e5beefff244cafa6f39f1595ad2071d8db0a77799f57529e2"
+          }
+        ],
+        "source_sha": "511eac703b31382c2485457f9c6c8e975dd95d9d"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at 511eac7; single-agent verification",
+      "updated_utc": "2026-10-30T07:05:21+00:00"
+    },
+    "STORE-02": {
+      "base_sha": "0f46f6af9790cefd6e92f23a14f1bbbac565437f",
+      "status": "IMPLEMENTED",
+      "summary": "Native Software window (apps/software store.rs/window.rs) on the STORE-01 signed catalogue and transactions; replaces slopos-catalogue in shell, Dock, install.sh and ISO. 15 unit tests incl. install/update/remove/corrupt-download/untrusted-catalogue through the window; live Xvfb capture with a throwaway-key catalogue (docs/screenshots/p1/software.png). NOT_RUN: real HTTPS install against a published catalogue (no production key yet) and installed-package VM journey.",
+      "updated_utc": "2026-10-30T11:26:08+00:00"
+    },
+    "UI-01": {
+      "base_sha": "e548e82565aefb2827d9212bb154a533925647ea",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/ui01-unit.log",
+            "command": "cargo test --workspace --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "7c085ec9a9e6bc47aded573dc2ea1f33ef57a5a5e2fc203584e48b02885af74b"
+          },
+          {
+            "artifact": ".work/p1/evidence/ui01-text-2x.png",
+            "command": "slopos-ui-gallery --component text-field --scale 2 --snapshot",
+            "kind": "visual",
+            "resolution": "640x260 scale=2 Platinum",
+            "result": "PASS",
+            "review": "inspected: focus border, selection, CJK glyphs, placeholder, disabled ink, no clipping leak",
+            "sha256": "16d57b06834bf1a61e4e40fd67b168f8c43fbc3de3479c123909423d66abccd6"
+          },
+          {
+            "artifact": ".work/p1/evidence/ui01-runtime.log",
+            "command": "LC_ALL=C.UTF-8 .work/p1/ui01-runtime.sh (Xvfb+openbox+xdotool+xclip)",
+            "kind": "runtime",
+            "result": "PASS",
+            "sha256": "483a4e02ca2058a46cee7ab4de0f64b90db82e52d1178af126d4acbdc94df9b5"
+          }
+        ],
+        "source_sha": "e548e82565aefb2827d9212bb154a533925647ea"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at e548e82; single-agent verification",
+      "updated_utc": "2026-10-30T05:52:33+00:00"
+    },
+    "UI-02": {
+      "base_sha": "7e5a734043b6162a2530adb2490314fee8584e66",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/ui02-unit.log",
+            "command": "cargo test --workspace --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "a01c1ce747c468066ba473557fc49a361df2cf7a1d86bf3eb8a6881690e9759e"
+          },
+          {
+            "artifact": ".work/p1/evidence/ui02-2x-controls.png",
+            "command": "ui02-runtime.sh gallery widgets SLOPOS_SCALE=2 + import",
+            "kind": "visual",
+            "resolution": "960x720 scale=2 Platinum",
+            "result": "PASS",
+            "review": "inspected: slider at 100, checkbox focus ring, indeterminate stripes, inactive selection, crisp 2x; menu/dialog/chooser shots inspected at 1x",
+            "sha256": "6305c05c0de71687373301bbbdeb169b775660fd2944b6307135ea0e6e1c935a"
+          },
+          {
+            "artifact": ".work/p1/evidence/ui02-runtime-2x.log",
+            "command": "LC_ALL=C.UTF-8 .work/p1/ui02-runtime.sh (Xvfb+openbox+xdotool) at scale 1 and 2",
+            "kind": "runtime",
+            "result": "PASS",
+            "sha256": "b3f819e0e3134c4c5a712bdf2757fc98026d35551e7574a25f25181452ab5b4a"
+          }
+        ],
+        "source_sha": "7e5a734043b6162a2530adb2490314fee8584e66"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at 7e5a734; single-agent verification",
+      "updated_utc": "2026-10-30T06:02:48+00:00"
+    }
+  },
+  "updated_utc": "2026-10-30T11:26:08+00:00"
 }

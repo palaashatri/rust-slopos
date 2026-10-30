@@ -13,14 +13,19 @@ use x11rb::connection::{Connection, RequestConnection};
 use x11rb::properties::WmSizeHints;
 use x11rb::protocol::xproto::{
     AtomEnum, ClientMessageEvent, ConfigureWindowAux, ConnectionExt, CreateGCAux, CreateWindowAux,
-    EventMask, GetModifierMappingReply, ImageFormat, ImageOrder, PropMode, WindowClass,
+    EventMask, GetModifierMappingReply, ImageFormat, ImageOrder, PropMode, SelectionNotifyEvent,
+    SelectionRequestEvent, WindowClass, SELECTION_NOTIFY_EVENT,
 };
 use x11rb::protocol::Event as XEvent;
 use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
 
-use super::keys::{key_for, keysym_for, modifiers};
-use super::{scale_from_environment, App, Control, Edge, WindowKind, WindowOptions};
+use super::global_menu::Message as MenuMessage;
+use super::keys::{grab_masks, key_for, keycodes_for, keysym_for, modifier_mask, modifiers};
+use super::{
+    place_popup, scale_from_environment, App, Control, Edge, PopupRequest, WindowKind,
+    WindowOptions,
+};
 use crate::event::{AccessibilityRequest, Event, PointerButton};
 use crate::render::RasterSurface;
 
@@ -33,9 +38,18 @@ x11rb::atom_manager! {
         _NET_WM_PID,
         _NET_WM_WINDOW_TYPE,
         _NET_WM_WINDOW_TYPE_NORMAL,
+        _NET_WM_WINDOW_TYPE_DESKTOP,
         _NET_WM_WINDOW_TYPE_DOCK,
+        _NET_WM_WINDOW_TYPE_POPUP_MENU,
+        _NET_WM_WINDOW_TYPE_NOTIFICATION,
         _NET_WM_STRUT,
         _NET_WM_STRUT_PARTIAL,
+        CLIPBOARD,
+        TARGETS,
+        SLOPOS_PASTE,
+        _GTK_UNIQUE_BUS_NAME,
+        _GTK_MENUBAR_OBJECT_PATH,
+        _GTK_APPLICATION_OBJECT_PATH,
     }
 }
 
@@ -114,7 +128,17 @@ impl WakePipe {
     }
 }
 
+/// A wake proxy whose pipe nobody reads (tests of code that wakes an app).
+#[cfg(test)]
+pub(crate) fn test_proxy() -> Proxy {
+    let pipe = WakePipe::new().expect("pipe");
+    let proxy = pipe.proxy.clone();
+    std::mem::forget(pipe.read);
+    proxy
+}
+
 /// Messages from the AccessKit adapter thread.
+#[cfg_attr(not(feature = "atspi"), allow(dead_code))]
 enum A11yMessage {
     Activated,
     Request(AccessibilityRequest),
@@ -203,6 +227,7 @@ pub fn run<A: App>(
     let window_type = match options.kind {
         WindowKind::Normal => atoms._NET_WM_WINDOW_TYPE_NORMAL,
         WindowKind::Dock { .. } => atoms._NET_WM_WINDOW_TYPE_DOCK,
+        WindowKind::Desktop => atoms._NET_WM_WINDOW_TYPE_DESKTOP,
     };
     conn.change_property32(
         PropMode::REPLACE,
@@ -230,19 +255,30 @@ pub fn run<A: App>(
     let gc = conn.generate_id()?;
     conn.create_gc(gc, window, &CreateGCAux::new())?;
 
+    // The wake pipe exists before the window maps so the global-menu export
+    // can be advertised on the window before the shell first sees it.
+    let wake = WakePipe::new()?;
+    let (menu_sender, menu_messages) = mpsc::channel();
+    let menus = GlobalMenu::start(
+        &conn,
+        window,
+        &atoms,
+        &options.app_id,
+        &app,
+        menu_sender,
+        wake.proxy.clone(),
+    )?;
+
     let min_keycode = conn.setup().min_keycode;
     let max_keycode = conn.setup().max_keycode;
-    let mapping = conn
-        .get_keyboard_mapping(min_keycode, max_keycode - min_keycode + 1)?
-        .reply()?;
-    let per_keycode = usize::from(mapping.keysyms_per_keycode.max(1));
-    let modifier_mapping = conn.get_modifier_mapping()?.reply()?;
-    let num_lock = num_lock_mask(
-        &mapping.keysyms,
-        per_keycode,
+    let mut keymap = Keymap::read(&conn, min_keycode, max_keycode)?;
+    grab_global_keys(
+        &conn,
+        screen.root,
+        &keymap,
         min_keycode,
-        &modifier_mapping,
-    );
+        &options.global_keys,
+    )?;
 
     conn.map_window(window)?;
     if let Some((x, y)) = options.position {
@@ -255,7 +291,6 @@ pub fn run<A: App>(
     }
     conn.flush()?;
 
-    let wake = WakePipe::new()?;
     on_proxy(wake.proxy.clone());
     let (a11y_sender, a11y_messages) = mpsc::channel();
     let mut accessibility = Accessibility::new(a11y_sender, wake.proxy.clone());
@@ -264,13 +299,20 @@ pub fn run<A: App>(
     let mut surface = RasterSurface::new(logical.0, logical.1, scale)?;
     let mut needs_paint = true;
     let mut timers: Vec<(Instant, u64)> = Vec::new();
+    let mut clicks = ClickTracker::default();
+    // Text this window offers on CLIPBOARD while it owns the selection.
+    let mut clipboard: Option<String> = None;
     let max_request = conn.maximum_request_bytes();
     let mut frame = Vec::new();
+    let mut popups: Vec<Popup> = Vec::new();
 
     let mut control = Control {
         scale: Some(scale),
         ..Control::default()
     };
+    if menus.shell_present() {
+        app.event(&Event::GlobalMenu(true), &mut control);
+    }
     app.event(
         &Event::Resized {
             width: logical.0,
@@ -328,12 +370,43 @@ pub fn run<A: App>(
         );
         if control.redraw {
             needs_paint = true;
+            for popup in &mut popups {
+                popup.needs_paint = true;
+            }
+        }
+        for request in std::mem::take(&mut control.popups) {
+            apply_popup(&conn, &screen, window, &atoms, scale, &mut popups, request)?;
         }
         if control.accessibility_changed {
             accessibility.update(&app, &options.title);
+            // Menu state follows the same changes as the accessibility tree.
+            menus.update(&app);
         }
         control.redraw = false;
         control.accessibility_changed = false;
+        if let Some(text) = control.clipboard.take() {
+            conn.set_selection_owner(window, atoms.CLIPBOARD, x11rb::CURRENT_TIME)?;
+            clipboard = Some(text);
+        }
+        if std::mem::take(&mut control.paste) {
+            match &clipboard {
+                // We own the selection: no round trip through the server.
+                Some(text) => {
+                    let text = text.clone();
+                    app.event(&Event::Paste(text), &mut control);
+                    continue;
+                }
+                None => {
+                    conn.convert_selection(
+                        window,
+                        atoms.CLIPBOARD,
+                        atoms.UTF8_STRING,
+                        atoms.SLOPOS_PASTE,
+                        x11rb::CURRENT_TIME,
+                    )?;
+                }
+            }
+        }
 
         if needs_paint {
             needs_paint = false;
@@ -349,23 +422,130 @@ pub fn run<A: App>(
                 &mut frame,
             )?;
         }
+        for popup in &mut popups {
+            if std::mem::take(&mut popup.needs_paint) {
+                app.paint_popup(popup.id, &popup.surface);
+                present(
+                    &conn,
+                    popup.window,
+                    gc,
+                    &popup.surface,
+                    screen.root_depth,
+                    lsb_first,
+                    max_request,
+                    &mut frame,
+                )?;
+            }
+        }
         conn.flush()?;
 
         // Handle everything already queued before blocking.
         let mut handled = false;
         while let Some(event) = conn.poll_for_event()? {
             handled = true;
+            if let XEvent::MappingNotify(_) = event {
+                // Layout switches and tools like xdotool remap keycodes at
+                // run time; stale keysyms would drop or garble typed text.
+                keymap = Keymap::read(&conn, min_keycode, max_keycode)?;
+                conn.ungrab_key(
+                    x11rb::protocol::xproto::Grab::ANY,
+                    screen.root,
+                    x11rb::protocol::xproto::ModMask::ANY,
+                )?;
+                grab_global_keys(
+                    &conn,
+                    screen.root,
+                    &keymap,
+                    min_keycode,
+                    &options.global_keys,
+                )?;
+                continue;
+            }
+            // Global shortcuts arrive on the root window we grabbed them on.
+            if let XEvent::KeyPress(press) = &event {
+                if press.event == screen.root {
+                    let row_start =
+                        usize::from(press.detail.saturating_sub(min_keycode)) * keymap.per_keycode;
+                    let row = keymap
+                        .keysyms
+                        .get(row_start..row_start + keymap.per_keycode)
+                        .unwrap_or(&[]);
+                    let state = u16::from(press.state);
+                    let pressed = modifiers(state);
+                    if let Some((keysym, _)) = options
+                        .global_keys
+                        .iter()
+                        .find(|(keysym, wanted)| *wanted == pressed && row.contains(keysym))
+                    {
+                        app.event(
+                            &Event::GlobalKey {
+                                keysym: *keysym,
+                                modifiers: pressed,
+                            },
+                            &mut control,
+                        );
+                    }
+                    continue;
+                }
+            }
+            let state = match &event {
+                XEvent::ButtonPress(e) => Some(u16::from(e.state)),
+                XEvent::ButtonRelease(e) => Some(u16::from(e.state)),
+                XEvent::MotionNotify(e) => Some(u16::from(e.state)),
+                XEvent::KeyPress(e) => Some(u16::from(e.state)),
+                _ => None,
+            };
+            if let Some(state) = state {
+                control.modifiers = modifiers(state);
+            }
+            let primary_press = match &event {
+                XEvent::ButtonPress(press) if press.detail == 1 => Some((
+                    press.time,
+                    i32::from(press.event_x) / factor as i32,
+                    i32::from(press.event_y) / factor as i32,
+                )),
+                _ => None,
+            };
             let translated = translate(
                 &event,
                 factor,
-                &mapping.keysyms,
-                per_keycode,
+                &keymap.keysyms,
+                keymap.per_keycode,
                 min_keycode,
-                num_lock,
+                keymap.num_lock,
                 &atoms,
             );
+            // Popup windows get their exposes and input; nothing else.
+            if let Some(popup) = event_window(&event)
+                .and_then(|target| popups.iter_mut().find(|popup| popup.window == target))
+            {
+                match (&event, translated) {
+                    (XEvent::Expose(expose), _) if expose.count == 0 => popup.needs_paint = true,
+                    (
+                        XEvent::ButtonPress(_)
+                        | XEvent::ButtonRelease(_)
+                        | XEvent::MotionNotify(_)
+                        | XEvent::KeyPress(_)
+                        | XEvent::LeaveNotify(_),
+                        Some(input),
+                    ) => {
+                        let id = popup.id;
+                        app.event(
+                            &Event::Popup {
+                                id,
+                                event: Box::new(input),
+                            },
+                            &mut control,
+                        );
+                    }
+                    _ => {}
+                }
+                continue;
+            }
             match event {
-                XEvent::Expose(expose) if expose.count == 0 => needs_paint = true,
+                XEvent::Expose(expose) if expose.count == 0 && expose.window == window => {
+                    needs_paint = true
+                }
                 XEvent::ConfigureNotify(configure) if configure.window == window => {
                     let size = (
                         (u32::from(configure.width) / factor).max(1),
@@ -377,6 +557,30 @@ pub fn run<A: App>(
                         needs_paint = true;
                     }
                     accessibility.set_bounds(&conn, window, screen.root);
+                }
+                XEvent::SelectionRequest(request) => {
+                    answer_selection(&conn, &atoms, &request, clipboard.as_deref())?;
+                }
+                XEvent::SelectionClear(clear) if clear.selection == atoms.CLIPBOARD => {
+                    clipboard = None;
+                }
+                XEvent::SelectionNotify(notify)
+                    if notify.requestor == window && notify.property == atoms.SLOPOS_PASTE =>
+                {
+                    let reply = conn
+                        .get_property(
+                            true,
+                            window,
+                            atoms.SLOPOS_PASTE,
+                            AtomEnum::ANY,
+                            0,
+                            (super::MAX_CLIPBOARD_BYTES / 4) as u32,
+                        )?
+                        .reply()?;
+                    if reply.format == 8 && !reply.value.is_empty() {
+                        let text = String::from_utf8_lossy(&reply.value).into_owned();
+                        app.event(&Event::Paste(text), &mut control);
+                    }
                 }
                 XEvent::FocusIn(_) => accessibility.focus(true),
                 XEvent::FocusOut(_) => accessibility.focus(false),
@@ -390,6 +594,11 @@ pub fn run<A: App>(
             }
             if let Some(event) = translated {
                 app.event(&event, &mut control);
+                if let Some((time, x, y)) = primary_press {
+                    if clicks.press(time, x, y) {
+                        app.event(&Event::DoubleClicked { x, y }, &mut control);
+                    }
+                }
             }
         }
         if handled {
@@ -410,6 +619,14 @@ pub fn run<A: App>(
             app.event(&Event::Timer(id), &mut control);
         }
         let drained = wake.drain();
+        for message in menu_messages.try_iter() {
+            let event = match message {
+                MenuMessage::Activate { menu, item } => Event::MenuChosen { menu, item },
+                MenuMessage::ShellPresent(present) => Event::GlobalMenu(present),
+            };
+            app.event(&event, &mut control);
+            control.accessibility_changed = true;
+        }
         let mut woke = false;
         for message in a11y_messages.try_iter() {
             match message {
@@ -425,8 +642,329 @@ pub fn run<A: App>(
         }
     }
 
+    for popup in popups.drain(..) {
+        conn.destroy_window(popup.window)?;
+    }
     conn.destroy_window(window)?;
     conn.flush()?;
+    Ok(())
+}
+
+/// Grab each global shortcut on the root window under every lock state.
+fn grab_global_keys(
+    conn: &RustConnection,
+    root: u32,
+    keymap: &Keymap,
+    min_keycode: u8,
+    keys: &[(u32, crate::event::Modifiers)],
+) -> Result<(), PlatformError> {
+    for (keysym, wanted) in keys {
+        let base = modifier_mask(*wanted);
+        for keycode in keycodes_for(*keysym, &keymap.keysyms, keymap.per_keycode, min_keycode) {
+            for mask in grab_masks(base, keymap.num_lock) {
+                let grabbed = conn
+                    .grab_key(
+                        true,
+                        root,
+                        x11rb::protocol::xproto::ModMask::from(mask),
+                        keycode,
+                        x11rb::protocol::xproto::GrabMode::ASYNC,
+                        x11rb::protocol::xproto::GrabMode::ASYNC,
+                    )?
+                    .check();
+                if let Err(error) = grabbed {
+                    log::warn!("global shortcut {keysym:#x} (mask {base:#x}) is taken: {error}");
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// A popup window (menu, popover or toast) owned by the app window.
+struct Popup {
+    id: u64,
+    window: u32,
+    grab: bool,
+    surface: RasterSurface,
+    needs_paint: bool,
+}
+
+/// The window an input or expose event is addressed to.
+fn event_window(event: &XEvent) -> Option<u32> {
+    Some(match event {
+        XEvent::Expose(e) => e.window,
+        XEvent::ButtonPress(e) => e.event,
+        XEvent::ButtonRelease(e) => e.event,
+        XEvent::MotionNotify(e) => e.event,
+        XEvent::KeyPress(e) => e.event,
+        XEvent::LeaveNotify(e) => e.event,
+        XEvent::ConfigureNotify(e) => e.window,
+        _ => return None,
+    })
+}
+
+/// Open, move or close a popup window as the app asked.
+fn apply_popup(
+    conn: &RustConnection,
+    screen: &x11rb::protocol::xproto::Screen,
+    parent: u32,
+    atoms: &Atoms,
+    scale: crate::foundation::geometry::Scale,
+    popups: &mut Vec<Popup>,
+    request: PopupRequest,
+) -> Result<(), PlatformError> {
+    let factor = scale.factor();
+    match request {
+        PopupRequest::Close { id } => {
+            if let Some(index) = popups.iter().position(|popup| popup.id == id) {
+                let popup = popups.remove(index);
+                conn.destroy_window(popup.window)?;
+                if popup.grab && !popups.iter().any(|other| other.grab) {
+                    conn.ungrab_pointer(x11rb::CURRENT_TIME)?;
+                    conn.ungrab_keyboard(x11rb::CURRENT_TIME)?;
+                }
+            }
+        }
+        PopupRequest::Open { id, rect, grab } => {
+            let origin = conn
+                .translate_coordinates(parent, screen.root, 0, 0)?
+                .reply()
+                .map(|reply| (i32::from(reply.dst_x), i32::from(reply.dst_y)))
+                .unwrap_or((0, 0));
+            let screen_size = (
+                u32::from(screen.width_in_pixels),
+                u32::from(screen.height_in_pixels),
+            );
+            let placed = place_popup(origin, rect, factor, screen_size);
+            let logical = (
+                (placed.width / factor).max(1),
+                (placed.height / factor).max(1),
+            );
+            if let Some(popup) = popups.iter_mut().find(|popup| popup.id == id) {
+                conn.configure_window(
+                    popup.window,
+                    &ConfigureWindowAux::new()
+                        .x(placed.x)
+                        .y(placed.y)
+                        .width(placed.width)
+                        .height(placed.height)
+                        .stack_mode(x11rb::protocol::xproto::StackMode::ABOVE),
+                )?;
+                if (
+                    popup.surface.logical_width(),
+                    popup.surface.logical_height(),
+                ) != logical
+                {
+                    popup.surface = RasterSurface::new(logical.0, logical.1, scale)?;
+                }
+                popup.needs_paint = true;
+                return Ok(());
+            }
+            let popup_window = conn.generate_id()?;
+            conn.create_window(
+                screen.root_depth,
+                popup_window,
+                screen.root,
+                placed.x as i16,
+                placed.y as i16,
+                placed.width as u16,
+                placed.height as u16,
+                0,
+                WindowClass::INPUT_OUTPUT,
+                screen.root_visual,
+                &CreateWindowAux::new()
+                    .background_pixel(screen.white_pixel)
+                    .override_redirect(1)
+                    .save_under(1)
+                    .event_mask(
+                        EventMask::EXPOSURE
+                            | EventMask::KEY_PRESS
+                            | EventMask::BUTTON_PRESS
+                            | EventMask::BUTTON_RELEASE
+                            | EventMask::POINTER_MOTION
+                            | EventMask::LEAVE_WINDOW,
+                    ),
+            )?;
+            let kind = if grab {
+                atoms._NET_WM_WINDOW_TYPE_POPUP_MENU
+            } else {
+                atoms._NET_WM_WINDOW_TYPE_NOTIFICATION
+            };
+            conn.change_property32(
+                PropMode::REPLACE,
+                popup_window,
+                atoms._NET_WM_WINDOW_TYPE,
+                AtomEnum::ATOM,
+                &[kind],
+            )?;
+            conn.change_property32(
+                PropMode::REPLACE,
+                popup_window,
+                AtomEnum::WM_TRANSIENT_FOR,
+                AtomEnum::WINDOW,
+                &[parent],
+            )?;
+            conn.map_window(popup_window)?;
+            if grab {
+                // Owner events: presses on the app's own windows reach them
+                // as usual; presses anywhere else come to the popup with
+                // coordinates outside it, so a menu can dismiss itself.
+                conn.grab_pointer(
+                    true,
+                    popup_window,
+                    EventMask::BUTTON_PRESS | EventMask::BUTTON_RELEASE | EventMask::POINTER_MOTION,
+                    x11rb::protocol::xproto::GrabMode::ASYNC,
+                    x11rb::protocol::xproto::GrabMode::ASYNC,
+                    x11rb::NONE,
+                    x11rb::NONE,
+                    x11rb::CURRENT_TIME,
+                )?;
+                conn.grab_keyboard(
+                    true,
+                    popup_window,
+                    x11rb::CURRENT_TIME,
+                    x11rb::protocol::xproto::GrabMode::ASYNC,
+                    x11rb::protocol::xproto::GrabMode::ASYNC,
+                )?;
+            }
+            popups.push(Popup {
+                id,
+                window: popup_window,
+                grab,
+                surface: RasterSurface::new(logical.0, logical.1, scale)?,
+                needs_paint: true,
+            });
+        }
+    }
+    Ok(())
+}
+
+/// The window's export to the desktop's global menu bar, when the app has
+/// menus, the `global-menu` feature is on and a session bus is reachable.
+struct GlobalMenu {
+    #[cfg(feature = "global-menu")]
+    exporter: Option<super::global_menu::Exporter>,
+}
+
+impl GlobalMenu {
+    #[allow(unused_variables)]
+    fn start<A: App>(
+        conn: &RustConnection,
+        window: u32,
+        atoms: &Atoms,
+        app_id: &str,
+        app: &A,
+        sender: Sender<MenuMessage>,
+        proxy: Proxy,
+    ) -> Result<Self, PlatformError> {
+        #[cfg(feature = "global-menu")]
+        {
+            let exporter = app.menu_bar().and_then(|bar| {
+                super::global_menu::Exporter::start(
+                    app_id,
+                    super::global_menu::Snapshot::of(bar),
+                    sender,
+                    proxy,
+                )
+            });
+            if let Some(exporter) = &exporter {
+                if let Some(name) = exporter.unique_name() {
+                    for (atom, value) in [
+                        (atoms._GTK_UNIQUE_BUS_NAME, name.as_str()),
+                        (atoms._GTK_MENUBAR_OBJECT_PATH, exporter.menu_path()),
+                        (atoms._GTK_APPLICATION_OBJECT_PATH, exporter.action_path()),
+                    ] {
+                        conn.change_property8(
+                            PropMode::REPLACE,
+                            window,
+                            atom,
+                            atoms.UTF8_STRING,
+                            value.as_bytes(),
+                        )?;
+                    }
+                }
+            }
+            Ok(Self { exporter })
+        }
+        #[cfg(not(feature = "global-menu"))]
+        Ok(Self {})
+    }
+
+    fn shell_present(&self) -> bool {
+        #[cfg(feature = "global-menu")]
+        return self
+            .exporter
+            .as_ref()
+            .is_some_and(|exporter| exporter.shell_present());
+        #[cfg(not(feature = "global-menu"))]
+        false
+    }
+
+    #[allow(unused_variables)]
+    fn update<A: App>(&self, app: &A) {
+        #[cfg(feature = "global-menu")]
+        if let (Some(exporter), Some(bar)) = (&self.exporter, app.menu_bar()) {
+            exporter.update(super::global_menu::Snapshot::of(bar));
+        }
+    }
+}
+
+/// Answer another client's request for our CLIPBOARD contents (ICCCM §2.2).
+fn answer_selection(
+    conn: &RustConnection,
+    atoms: &Atoms,
+    request: &SelectionRequestEvent,
+    text: Option<&str>,
+) -> Result<(), PlatformError> {
+    // Obsolete clients send property None; ICCCM says use the target.
+    let property = if request.property == x11rb::NONE {
+        request.target
+    } else {
+        request.property
+    };
+    let answered = match text {
+        Some(_) if request.selection != atoms.CLIPBOARD => false,
+        Some(_) if request.target == atoms.TARGETS => {
+            let targets = [
+                atoms.TARGETS,
+                atoms.UTF8_STRING,
+                u32::from(AtomEnum::STRING),
+            ];
+            conn.change_property32(
+                PropMode::REPLACE,
+                request.requestor,
+                property,
+                AtomEnum::ATOM,
+                &targets,
+            )?;
+            true
+        }
+        Some(text)
+            if request.target == atoms.UTF8_STRING
+                || request.target == u32::from(AtomEnum::STRING) =>
+        {
+            conn.change_property8(
+                PropMode::REPLACE,
+                request.requestor,
+                property,
+                request.target,
+                text.as_bytes(),
+            )?;
+            true
+        }
+        _ => false,
+    };
+    let notify = SelectionNotifyEvent {
+        response_type: SELECTION_NOTIFY_EVENT,
+        sequence: 0,
+        time: request.time,
+        requestor: request.requestor,
+        selection: request.selection,
+        target: request.target,
+        property: if answered { property } else { x11rb::NONE },
+    };
+    conn.send_event(false, request.requestor, EventMask::NO_EVENT, notify)?;
     Ok(())
 }
 
@@ -511,6 +1049,60 @@ fn set_strut(
 
 /// The modifier bit the server maps the Num Lock key to. Usually Mod2
 /// (`0x0010`), but the mapping is server-specific.
+/// Double-click rule: a second primary press within 400 ms and 4 logical
+/// pixels of the first. A third press starts a new pair.
+#[derive(Debug, Default)]
+struct ClickTracker {
+    last: Option<(u32, i32, i32)>,
+}
+
+impl ClickTracker {
+    const INTERVAL_MS: u32 = 400;
+    const SLOP: i32 = 4;
+
+    fn press(&mut self, time: u32, x: i32, y: i32) -> bool {
+        let double = self.last.is_some_and(|(last, lx, ly)| {
+            time.wrapping_sub(last) <= Self::INTERVAL_MS
+                && (x - lx).abs() <= Self::SLOP
+                && (y - ly).abs() <= Self::SLOP
+        });
+        self.last = if double { None } else { Some((time, x, y)) };
+        double
+    }
+}
+
+/// The server's keycode → keysym table and the Num Lock modifier bit.
+struct Keymap {
+    keysyms: Vec<u32>,
+    per_keycode: usize,
+    num_lock: u16,
+}
+
+impl Keymap {
+    fn read(
+        conn: &RustConnection,
+        min_keycode: u8,
+        max_keycode: u8,
+    ) -> Result<Self, PlatformError> {
+        let mapping = conn
+            .get_keyboard_mapping(min_keycode, max_keycode - min_keycode + 1)?
+            .reply()?;
+        let per_keycode = usize::from(mapping.keysyms_per_keycode.max(1));
+        let modifier_mapping = conn.get_modifier_mapping()?.reply()?;
+        let num_lock = num_lock_mask(
+            &mapping.keysyms,
+            per_keycode,
+            min_keycode,
+            &modifier_mapping,
+        );
+        Ok(Self {
+            keysyms: mapping.keysyms,
+            per_keycode,
+            num_lock,
+        })
+    }
+}
+
 fn num_lock_mask(
     keysyms: &[u32],
     per_keycode: usize,
@@ -576,11 +1168,36 @@ fn present(
     max_request: usize,
     frame: &mut Vec<u8>,
 ) -> Result<(), PlatformError> {
-    let width = surface.device_width();
-    let height = surface.device_height();
+    put_rgba(
+        conn,
+        window,
+        gc,
+        (surface.device_width(), surface.device_height()),
+        &surface.data(),
+        depth,
+        lsb_first,
+        max_request,
+        frame,
+    )
+}
+
+/// Upload premultiplied RGBA to a 32-bit-per-pixel drawable, splitting the
+/// rows across as many `PutImage` requests as the server's limit needs.
+#[allow(clippy::too_many_arguments)]
+fn put_rgba(
+    conn: &RustConnection,
+    drawable: u32,
+    gc: u32,
+    (width, height): (u32, u32),
+    data: &[u8],
+    depth: u8,
+    lsb_first: bool,
+    max_request: usize,
+    frame: &mut Vec<u8>,
+) -> Result<(), PlatformError> {
     frame.clear();
     frame.reserve(width as usize * height as usize * 4);
-    for [red, green, blue, _] in surface.data().as_chunks::<4>().0 {
+    for [red, green, blue, _] in data.as_chunks::<4>().0 {
         // Premultiplied RGBA over black is exactly what an opaque window shows.
         if lsb_first {
             frame.extend_from_slice(&[*blue, *green, *red, 0]);
@@ -594,7 +1211,7 @@ fn present(
         let rows = chunk.len() / row_bytes;
         conn.put_image(
             ImageFormat::Z_PIXMAP,
-            window,
+            drawable,
             gc,
             width as u16,
             rows as u16,
@@ -704,6 +1321,14 @@ mod atspi {
             let request = match request.action {
                 accesskit::Action::Click => AccessibilityRequest::Click(node),
                 accesskit::Action::Focus => AccessibilityRequest::Focus(node),
+                accesskit::Action::Increment => AccessibilityRequest::Increment(node),
+                accesskit::Action::Decrement => AccessibilityRequest::Decrement(node),
+                accesskit::Action::SetValue => match request.data {
+                    Some(accesskit::ActionData::Value(value)) => {
+                        AccessibilityRequest::SetValue(node, value.into())
+                    }
+                    _ => return,
+                },
                 _ => return,
             };
             let _ = self.0.send(A11yMessage::Request(request));
@@ -783,6 +1408,97 @@ fn fallback_tree(title: &str) -> accesskit::TreeUpdate {
     }
 }
 
+/// Make `image` the X root window's background, the way `xsetroot`/`feh`
+/// do it: a pixmap the server keeps after this connection closes, announced
+/// in `_XROOTPMAP_ID`/`ESETROOT_PMAP_ID` so the previous one is freed and
+/// pseudo-transparent clients can find it. `compose` receives the screen
+/// size and returns the finished background.
+pub fn set_root_background(
+    compose: impl FnOnce(u32, u32) -> Option<crate::image::Image>,
+) -> Result<(), PlatformError> {
+    let (conn, screen_number) = x11rb::connect(None)?;
+    let screen = conn.setup().roots[screen_number].clone();
+    let (width, height) = (
+        u32::from(screen.width_in_pixels),
+        u32::from(screen.height_in_pixels),
+    );
+    let bits = conn
+        .setup()
+        .pixmap_formats
+        .iter()
+        .find(|format| format.depth == screen.root_depth)
+        .map(|format| format.bits_per_pixel);
+    if bits != Some(32) {
+        return Err(PlatformError::UnsupportedVisual(screen.root_depth));
+    }
+    let Some(image) =
+        compose(width, height).filter(|image| image.width() == width && image.height() == height)
+    else {
+        return Ok(());
+    };
+    let xroot = conn.intern_atom(false, b"_XROOTPMAP_ID")?.reply()?.atom;
+    let esetroot = conn.intern_atom(false, b"ESETROOT_PMAP_ID")?.reply()?.atom;
+
+    let pixmap = conn.generate_id()?;
+    conn.create_pixmap(
+        screen.root_depth,
+        pixmap,
+        screen.root,
+        width as u16,
+        height as u16,
+    )?;
+    let gc = conn.generate_id()?;
+    conn.create_gc(gc, pixmap, &CreateGCAux::new())?;
+    let lsb_first = conn.setup().image_byte_order == ImageOrder::LSB_FIRST;
+    put_rgba(
+        &conn,
+        pixmap,
+        gc,
+        (width, height),
+        image.data(),
+        screen.root_depth,
+        lsb_first,
+        conn.maximum_request_bytes(),
+        &mut Vec::new(),
+    )?;
+    conn.free_gc(gc)?;
+
+    // Free the pixmap an earlier setter left behind (Esetroot convention:
+    // only when both properties name it, so we never kill a live client).
+    let read = |atom| -> Option<u32> {
+        let reply = conn
+            .get_property(false, screen.root, atom, AtomEnum::PIXMAP, 0, 1)
+            .ok()?
+            .reply()
+            .ok()?;
+        let pixmap = reply.value32()?.next();
+        pixmap
+    };
+    if let (Some(old), Some(also)) = (read(xroot), read(esetroot)) {
+        if old == also && old != 0 {
+            let _ = conn.kill_client(old);
+        }
+    }
+
+    conn.change_window_attributes(
+        screen.root,
+        &x11rb::protocol::xproto::ChangeWindowAttributesAux::new().background_pixmap(pixmap),
+    )?;
+    conn.clear_area(false, screen.root, 0, 0, 0, 0)?;
+    for atom in [xroot, esetroot] {
+        conn.change_property32(
+            PropMode::REPLACE,
+            screen.root,
+            atom,
+            AtomEnum::PIXMAP,
+            &[pixmap],
+        )?;
+    }
+    conn.set_close_down_mode(x11rb::protocol::xproto::CloseDown::RETAIN_PERMANENT)?;
+    conn.sync()?;
+    Ok(())
+}
+
 /// Rect helper for apps that position docks against the screen.
 pub fn screen_size() -> Result<(u32, u32), PlatformError> {
     let (conn, screen_number) = x11rb::connect(None)?;
@@ -820,6 +1536,20 @@ mod tests {
         let unmapped = modifier_mapping(&[0; 8]);
         assert_eq!(num_lock_mask(&row, 2, 8, &unmapped), 0);
         assert_eq!(num_lock_mask(&[0x0061], 1, 8, &mapping), 0);
+    }
+
+    #[test]
+    fn double_clicks_need_time_and_place_and_do_not_chain() {
+        let mut clicks = ClickTracker::default();
+        assert!(!clicks.press(1000, 10, 10));
+        assert!(clicks.press(1300, 12, 9));
+        assert!(!clicks.press(1350, 12, 9));
+        assert!(!clicks.press(2000, 12, 9));
+        assert!(!clicks.press(2100, 30, 9));
+        // Server time wraps around after ~49 days.
+        let mut clicks = ClickTracker::default();
+        assert!(!clicks.press(u32::MAX - 10, 0, 0));
+        assert!(clicks.press(50, 0, 0));
     }
 
     #[test]

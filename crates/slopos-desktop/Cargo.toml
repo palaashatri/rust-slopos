@@ -1,0 +1,18 @@
+[package]
+name = "slopos-desktop"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS desktop: the desktop picture and icons for Home, volumes, ~/Desktop and the Trash"
+
+[dependencies]
+slopos-ui = { path = "../slopos-ui" }
+slopos-core = { path = "../slopos-core" }
+accesskit = { workspace = true }
+x11rb = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+libc = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

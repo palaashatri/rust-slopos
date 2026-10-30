@@ -11,8 +11,13 @@ members = [
     "crates/slopos-catalogue",
     "crates/slopos-settings",
     "crates/slopos-dock",
+    "crates/slopos-topbar",
+    "crates/slopos-desktop",
     "apps/calculator",
     "apps/image-viewer",
+    "apps/software",
+    "apps/media",
+    "apps/control-panels",
     "apps/files",
 ]
 
@@ -40,7 +45,7 @@ env_logger = "0.11"
 zbus = "4.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
-image = "0.25"
+image = { version = "0.25", default-features = false }
 futures = "0.3"
 libc = "0.2"
 parking_lot = "0.12"
@@ -49,3 +54,7 @@ sha2 = "0.10"
 hex = "0.4"
 tempfile = "3"
 reqwest = { version = "0.12", features = ["blocking", "json"] }
+ed25519-dalek = "2"
+gstreamer = "0.23"
+gstreamer-app = "0.23"
+gstreamer-video = "0.23"

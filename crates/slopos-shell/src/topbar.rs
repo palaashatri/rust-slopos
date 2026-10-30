@@ -17,7 +17,7 @@ use gtk::{
     Align, Box as GtkBox, Button, Dialog, DialogFlags, IconSize, Image, Label, Menu, MenuItem,
     Orientation, ResponseType, SeparatorMenuItem, Window, WindowPosition, WindowType,
 };
-use slopos_core::process::{self, FILE_MANAGERS, TERMINALS, TEXT_EDITORS};
+use slopos_core::process::{self, TERMINALS, TEXT_EDITORS};
 use slopos_services::power::SuspendCapability;
 use std::cell::{Cell, RefCell};
 use std::env;
@@ -210,7 +210,7 @@ impl TopBar {
         clock_button.add(&clock_label);
         clock_button.set_tooltip_text(Some("Local time (Click for Date & Time Settings)"));
         set_accessible_name(&clock_button, "Date and time settings");
-        clock_button.connect_clicked(|_| spawn_resolved("slopos-settings", &["--datetime"]));
+        clock_button.connect_clicked(|_| open_control_panel("--datetime"));
         status_box.pack_start(&clock_button, false, false, 2);
 
         main_box.pack_end(&status_box, false, false, 0);
@@ -237,6 +237,7 @@ impl TopBar {
         });
 
         topbar.show_desktop_state();
+        announce_global_menu();
 
         // In-process local clock ticker (every 1 second, zero I/O or subprocesses)
         glib::timeout_add_seconds_local(1, move || {
@@ -398,6 +399,24 @@ impl TopBar {
     }
 }
 
+/// Own the bus name that tells SLOPOS toolkit apps to hand their menus to
+/// this bar (`slopos_ui::platform::global_menu::SHELL_NAME`). Ownership ends
+/// with this process, so apps fall back to in-window menus if the shell
+/// dies. The name is held for the life of the shell.
+fn announce_global_menu() {
+    let _owner = gio::bus_own_name(
+        gio::BusType::Session,
+        GLOBAL_MENU_NAME,
+        gio::BusNameOwnerFlags::NONE,
+        |_, _| {},
+        |_, name| log::info!("Global menu bar announced as {name}"),
+        |_, name| log::warn!("Could not own {name}; apps keep in-window menus"),
+    );
+}
+
+/// Must match `slopos_ui::platform::global_menu::SHELL_NAME`.
+pub const GLOBAL_MENU_NAME: &str = "org.slopos.GlobalMenu";
+
 /// `SIGUSR2` (sent by the Ctrl+F2 listener and by automation) opens the
 /// system menu with keyboard focus on its first item.
 fn install_system_menu_signal_bridge(button: &Button, menu: &Menu) {
@@ -484,11 +503,7 @@ fn build_desktop_menu_bar(
         Err(error) => show_message("Could not create a folder", &error),
     });
     file_menu.append(&new_folder);
-    file_menu.append(&program_item(
-        "Open File Manager…",
-        FILE_MANAGERS,
-        "No file manager is installed",
-    ));
+    file_menu.append(&slopos_item("New Files Window", FILES, &[]));
     file_menu.append(&program_item(
         "New Text Document…",
         TEXT_EDITORS,
@@ -508,8 +523,8 @@ fn build_desktop_menu_bar(
 
     // View
     let view_menu = Menu::new();
-    view_menu.append(&slopos_item("Control Panels…", "slopos-settings", &[]));
-    view_menu.append(&slopos_item("Software…", "slopos-catalogue", &[]));
+    view_menu.append(&slopos_item("Control Panels…", CONTROL_PANELS, &[]));
+    view_menu.append(&slopos_item("Software…", SOFTWARE, &[]));
     append_submenu(&bar, "View", &view_menu);
 
     // Special
@@ -726,16 +741,16 @@ fn build_system_menu(suspend_capability: Option<SuspendCapability>) -> (Menu, Me
     menu.append(&SeparatorMenuItem::new());
 
     let settings = MenuItem::with_label("Control Panels…");
-    if session::resolve_program("slopos-settings").is_some() {
-        settings.connect_activate(|_| spawn_resolved("slopos-settings", &[]));
+    if session::resolve_program(CONTROL_PANELS).is_some() {
+        settings.connect_activate(|_| spawn_resolved(CONTROL_PANELS, &[]));
     } else {
         settings.set_sensitive(false);
     }
     menu.append(&settings);
 
     let catalogue = MenuItem::with_label("Software…");
-    if session::resolve_program("slopos-catalogue").is_some() {
-        catalogue.connect_activate(|_| spawn_resolved("slopos-catalogue", &[]));
+    if session::resolve_program(SOFTWARE).is_some() {
+        catalogue.connect_activate(|_| spawn_resolved(SOFTWARE, &[]));
     } else {
         catalogue.set_sensitive(false);
     }
@@ -765,9 +780,9 @@ fn build_system_menu(suspend_capability: Option<SuspendCapability>) -> (Menu, Me
     appearance.set_submenu(Some(&appearance_menu));
     menu.append(&appearance);
 
-    let wallpaper = MenuItem::with_label("Desktop Wallpaper…");
-    if session::resolve_program("slopos-settings").is_some() {
-        wallpaper.connect_activate(|_| spawn_resolved("slopos-settings", &["--wallpaper"]));
+    let wallpaper = MenuItem::with_label("Desktop Picture…");
+    if session::resolve_program(CONTROL_PANELS).is_some() {
+        wallpaper.connect_activate(|_| open_control_panel("--desktop"));
     } else {
         wallpaper.set_sensitive(false);
     }
@@ -894,6 +909,19 @@ fn slopos_dialog(title: &str, message: &str, buttons: &[(&str, ResponseType)]) -
     dialog
 }
 
+/// Control Panels: the native SLOPOS settings app. There is deliberately no
+/// GTK fallback for bundled SLOPOS applications.
+const CONTROL_PANELS: &str = "slopos-control-panels";
+/// The native Software catalogue (never the GTK slopos-catalogue).
+const SOFTWARE: &str = "slopos-software";
+/// The native Files app (never a donor file manager).
+const FILES: &str = "slopos-files";
+
+/// Open one panel (`--sound`, `--network`, `--datetime`, `--desktop`).
+fn open_control_panel(flag: &str) {
+    spawn_resolved(CONTROL_PANELS, &[flag]);
+}
+
 fn spawn_resolved(program: &str, args: &[&str]) {
     if let Err(error) = process::launch(program, args) {
         log::warn!("{error}");
@@ -971,13 +999,11 @@ fn build_sound_menu() -> Menu {
     menu.append(&SeparatorMenuItem::new());
 
     let settings_item = MenuItem::with_label("Sound Preferences…");
-    settings_item.connect_activate(|_| {
-        if process::resolve_program("slopos-settings").is_some() {
-            spawn_resolved("slopos-settings", &["--sound"]);
-        } else {
-            spawn_resolved("pavucontrol", &[]);
-        }
-    });
+    if process::resolve_program(CONTROL_PANELS).is_some() {
+        settings_item.connect_activate(|_| open_control_panel("--sound"));
+    } else {
+        settings_item.set_sensitive(false);
+    }
     menu.append(&settings_item);
 
     menu.show_all();
@@ -1000,10 +1026,8 @@ fn fill_network_menu(menu: &Menu, summary: &crate::services::network::NetworkSum
     menu.append(&SeparatorMenuItem::new());
 
     let settings_item = MenuItem::with_label("Network Preferences…");
-    if process::resolve_program("slopos-settings").is_some() {
-        settings_item.connect_activate(|_| spawn_resolved("slopos-settings", &["--network"]));
-    } else if process::resolve_program("nm-connection-editor").is_some() {
-        settings_item.connect_activate(|_| spawn_resolved("nm-connection-editor", &[]));
+    if process::resolve_program(CONTROL_PANELS).is_some() {
+        settings_item.connect_activate(|_| open_control_panel("--network"));
     } else {
         settings_item.set_sensitive(false);
     }

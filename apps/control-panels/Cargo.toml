@@ -1,0 +1,17 @@
+[package]
+name = "slopos-control-panels"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Control Panels: native network, sound, display, Bluetooth, date/time and appearance panels"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+slopos-core = { path = "../../crates/slopos-core" }
+slopos-services = { path = "../../crates/slopos-services" }
+accesskit = { workspace = true }
+env_logger = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

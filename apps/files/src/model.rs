@@ -21,11 +21,17 @@ pub struct Entry {
     pub path: PathBuf,
     pub kind: Kind,
     pub bytes: u64,
+    pub modified: Option<std::time::SystemTime>,
 }
 
 impl Entry {
     pub fn display_name(&self) -> String {
         self.name.to_string_lossy().into_owned()
+    }
+
+    pub fn is_hidden(&self) -> bool {
+        use std::os::unix::ffi::OsStrExt;
+        self.name.as_bytes().first() == Some(&b'.')
     }
 
     pub fn kind_label(&self) -> &'static str {
@@ -73,6 +79,7 @@ pub fn read_directory(path: &Path) -> io::Result<Vec<Entry>> {
             path: item.path(),
             kind,
             bytes: meta.len(),
+            modified: meta.modified().ok(),
         });
     }
     entries.sort_by(|a, b| {
@@ -155,10 +162,6 @@ impl DirectoryState {
             .parent()
             .filter(|p| *p != self.current)
             .map(Path::to_path_buf)
-    }
-
-    pub fn row(&self, index: usize) -> Option<&Entry> {
-        self.entries.get(index)
     }
 }
 

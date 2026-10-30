@@ -1,0 +1,125 @@
+name: SLOPOS X11 live ISOs (amd64 + arm64)
+
+# Builds the Ubuntu 24.04-based SLOPOS X11 live ISOs on native runners with
+# packaging/iso/build-live-iso.sh, boot-tests amd64 in QEMU, uploads both as
+# artifacts, and attaches them to the GitHub release when a v* tag is pushed.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+  # arm64 images are built here, on native runners, rather than under slow
+  # local emulation; pull requests that change what goes into the image get
+  # both ISOs and the amd64 boot test.
+  pull_request:
+    paths:
+      - "apps/**"
+      - "crates/**"
+      - "assets/**"
+      - "themes/**"
+      - "packaging/**"
+      - "scripts/start-slopos-i"
+      - "scripts/slopos-appearance"
+      - "install.sh"
+      - "Cargo.lock"
+      - ".github/workflows/live-iso.yml"
+  schedule:
+    - cron: "43 4 * * 3"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-iso-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  iso:
+    name: live ISO (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            grub: grub-pc-bin grub-efi-amd64-bin
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            grub: grub-efi-arm64-bin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install build, image and QEMU tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
+            libssl-dev libdbus-1-dev debootstrap squashfs-tools xorriso mtools \
+            dosfstools grub-common ${{ matrix.grub }} initramfs-tools-core \
+            imagemagick qemu-system-x86 ovmf
+
+      - name: Select the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Build release binaries
+        run: cargo build --release --workspace --locked
+
+      - name: Build the live ISO
+        run: |
+          sudo --preserve-env=PATH packaging/iso/build-live-iso.sh \
+            --arch ${{ matrix.arch }} --bin-dir "$PWD/target/release" --out "$PWD/artifacts/iso"
+          # The build runs as root; give the runner user all of artifacts/ back
+          # so the boot test can create artifacts/boot-amd64.
+          sudo chown -R "$USER:$USER" artifacts
+          git rev-parse HEAD > artifacts/iso/source-commit-${{ matrix.arch }}
+
+      - name: Boot test in QEMU (amd64, BIOS)
+        if: matrix.arch == 'amd64'
+        run: |
+          iso=$(ls artifacts/iso/*-amd64.iso)
+          packaging/iso/test-live-iso.sh --arch amd64 --iso "$iso" --out artifacts/boot-amd64 --timeout 2400
+
+      - name: Upload ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: slopos-x11-${{ matrix.arch }}-iso-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            artifacts/iso/*.iso
+            artifacts/iso/*.sha256
+            artifacts/iso/source-commit-*
+
+      - name: Upload boot-test screenshots
+        if: always() && matrix.arch == 'amd64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slopos-x11-amd64-boot-test-${{ github.sha }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: artifacts/boot-amd64
+
+  release:
+    name: attach ISOs to the release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: iso
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: slopos-x11-*-iso-${{ github.sha }}
+          merge-multiple: true
+          path: iso
+      - name: Upload to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --prerelease \
+                 --title "SLOPOS X11 $GITHUB_REF_NAME" --notes "Live ISOs built from $GITHUB_SHA."
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber iso/*.iso iso/*.sha256

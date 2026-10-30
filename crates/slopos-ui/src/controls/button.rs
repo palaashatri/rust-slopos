@@ -32,6 +32,9 @@ pub struct Button {
     pub focused: bool,
     /// Accessibility node id; unique within the window.
     pub id: u64,
+    /// Drawn instead of the label, which stays the accessible name. Toolbar
+    /// buttons use it; the icon is dimmed while the button is disabled.
+    pub icon: Option<crate::image::Image>,
     hovered: bool,
     pressed: bool,
 }
@@ -51,6 +54,7 @@ impl Button {
             enabled: true,
             focused: false,
             id,
+            icon: None,
             hovered: false,
             pressed: false,
         }
@@ -144,10 +148,26 @@ impl Button {
             },
             ButtonPlateState::Rest => Color::BLACK,
         };
-        let extent = measure(&self.label, font);
-        let x = self.bounds.x + (self.bounds.width as i32 - extent.width as i32) / 2;
-        let y = self.bounds.y + (self.bounds.height as i32 - extent.height as i32) / 2;
-        surface.draw_text(&self.label, x, y, font, color)?;
+        if let Some(icon) = &self.icon {
+            let side = self.bounds.height.saturating_sub(6).min(16);
+            let icon_rect = Rect {
+                x: self.bounds.x + (self.bounds.width as i32 - side as i32) / 2,
+                y: self.bounds.y + (self.bounds.height as i32 - side as i32) / 2,
+                width: side,
+                height: side,
+            };
+            surface.draw_image_scaled(icon, icon_rect.x, icon_rect.y, side, side)?;
+            if state == ButtonPlateState::Disabled {
+                let mut veil = crate::theme::palette().surface;
+                veil.alpha = 0xa0;
+                surface.fill_rect(icon_rect, veil)?;
+            }
+        } else {
+            let extent = measure(&self.label, font);
+            let x = self.bounds.x + (self.bounds.width as i32 - extent.width as i32) / 2;
+            let y = self.bounds.y + (self.bounds.height as i32 - extent.height as i32) / 2;
+            surface.draw_text(&self.label, x, y, font, color)?;
+        }
         if self.focused && self.enabled {
             // A dotted focus ring just outside the plate keeps the Classic
             // shape intact while staying visible in every state.
@@ -289,5 +309,29 @@ mod tests {
         assert_eq!(node.role(), accesskit::Role::Button);
         assert_eq!(node.label(), Some("Equals"));
         assert!(node.supports_action(accesskit::Action::Click));
+    }
+
+    #[test]
+    fn icon_buttons_draw_the_icon_keep_the_label_as_name_and_dim_when_disabled() {
+        use crate::foundation::geometry::Scale;
+        let red = crate::image::Image::from_rgba(1, 1, vec![255, 0, 0, 255]).unwrap();
+        let mut button = Button::new(7, "Back", ButtonPlateVariant::Regular).with_bounds(Rect {
+            x: 0,
+            y: 0,
+            width: 30,
+            height: 22,
+        });
+        button.icon = Some(red);
+        let surface = RasterSurface::new(30, 22, Scale::new(1).unwrap()).unwrap();
+        let font = Font::system(12.0);
+        button.paint(&surface, &font).unwrap();
+        let centre = surface.pixel(15, 11).unwrap();
+        assert_eq!(centre, 0xffff_0000, "the icon is drawn in the middle");
+        assert_eq!(button.accessibility_node().label(), Some("Back"));
+        button.enabled = false;
+        button.paint(&surface, &font).unwrap();
+        let dimmed = surface.pixel(15, 11).unwrap();
+        assert_ne!(dimmed, 0xffff_0000, "a disabled icon is veiled");
+        assert_eq!(dimmed >> 24, 0xff);
     }
 }

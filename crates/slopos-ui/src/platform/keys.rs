@@ -123,3 +123,67 @@ mod tests {
         assert!(mods.shift && mods.control && mods.logo && !mods.alt);
     }
 }
+
+/// The X modifier mask for `modifiers` (Shift, Control, Mod1, Mod4).
+pub fn modifier_mask(modifiers: Modifiers) -> u16 {
+    (if modifiers.shift { 0x0001 } else { 0 })
+        | (if modifiers.control { 0x0004 } else { 0 })
+        | (if modifiers.alt { 0x0008 } else { 0 })
+        | (if modifiers.logo { 0x0040 } else { 0 })
+}
+
+/// Every mask a global shortcut must be grabbed with, so Caps Lock and
+/// Num Lock being on does not stop it.
+pub fn grab_masks(base: u16, num_lock: u16) -> Vec<u16> {
+    let mut masks = vec![base, base | 0x0002];
+    if num_lock != 0 {
+        masks.push(base | num_lock);
+        masks.push(base | num_lock | 0x0002);
+    }
+    masks.sort_unstable();
+    masks.dedup();
+    masks
+}
+
+/// Keycodes whose keyboard-mapping row contains `keysym`.
+pub fn keycodes_for(keysym: u32, keysyms: &[u32], per_keycode: usize, min_keycode: u8) -> Vec<u8> {
+    keysyms
+        .chunks(per_keycode.max(1))
+        .enumerate()
+        .filter(|(_, row)| row.contains(&keysym))
+        .filter_map(|(index, _)| u8::try_from(usize::from(min_keycode) + index).ok())
+        .collect()
+}
+
+#[cfg(test)]
+mod grab_tests {
+    use super::*;
+
+    #[test]
+    fn shortcuts_are_grabbed_under_every_lock_state() {
+        let ctrl = modifier_mask(Modifiers {
+            control: true,
+            ..Modifiers::default()
+        });
+        assert_eq!(ctrl, 0x0004);
+        assert_eq!(
+            grab_masks(ctrl, 0x0010),
+            vec![0x0004, 0x0006, 0x0014, 0x0016]
+        );
+        assert_eq!(grab_masks(0, 0), vec![0, 0x0002]);
+        let logo = Modifiers {
+            logo: true,
+            ..Modifiers::default()
+        };
+        assert_eq!(modifiers(modifier_mask(logo)), logo);
+    }
+
+    #[test]
+    fn keycodes_are_found_in_any_column() {
+        // Two keysyms per keycode, keycodes from 8.
+        let map = [0x61, 0x41, 0x20, 0, 0x1008ff13, 0];
+        assert_eq!(keycodes_for(0x41, &map, 2, 8), vec![8]);
+        assert_eq!(keycodes_for(0x1008ff13, &map, 2, 8), vec![10]);
+        assert!(keycodes_for(0xffff, &map, 2, 8).is_empty());
+    }
+}

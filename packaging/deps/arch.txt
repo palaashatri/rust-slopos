@@ -1,35 +1,29 @@
 # SLOPOS-I runtime dependencies for Arch Linux
-# X11-only product stack
+# X11-only product stack. SLOPOS's own apps replace the GTK donor apps.
 xorg-server
 openbox
 dbus
-pcmanfm
 xfce4-terminal
 mousepad
-ristretto
 zathura
 zathura-pdf-mupdf
-mpv
 firefox
 supertux
-galculator
 networkmanager
-network-manager-applet
-pavucontrol
 pipewire
 pipewire-pulse
 wireplumber
-blueman
 upower
+bluez
 xfce4-power-manager
-xfce4-settings
-lxappearance
-arandr
 xorg-xrandr
 xorg-xsetroot
 xdotool
 wmctrl
 adwaita-icon-theme
 librsvg
+gstreamer
+gst-plugins-base
+gst-plugins-good
 ttf-liberation
 ttf-dejavu
