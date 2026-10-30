@@ -67,7 +67,7 @@ fi
 
 TARGET_ROOT="${CARGO_TARGET_DIR:-$ROOT/target}"
 BIN_DIR="${BIN_DIR:-$TARGET_ROOT/$RUST_TARGET_DIR}"
-BINARIES=(slopos-session slopos-shell slopos-dock slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-catalogue slopos-settings)
+BINARIES=(slopos-session slopos-shell slopos-dock slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-software)
 for binary in "${BINARIES[@]}"; do
   [[ -x "$BIN_DIR/$binary" ]] || { echo "build-live-iso: missing $BIN_DIR/$binary" >&2; exit 2; }
 done

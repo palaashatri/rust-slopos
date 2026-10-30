@@ -17,7 +17,7 @@ use gtk::{
     Align, Box as GtkBox, Button, Dialog, DialogFlags, IconSize, Image, Label, Menu, MenuItem,
     Orientation, ResponseType, SeparatorMenuItem, Window, WindowPosition, WindowType,
 };
-use slopos_core::process::{self, FILE_MANAGERS, TERMINALS, TEXT_EDITORS};
+use slopos_core::process::{self, TERMINALS, TEXT_EDITORS};
 use slopos_services::power::SuspendCapability;
 use std::cell::{Cell, RefCell};
 use std::env;
@@ -503,11 +503,7 @@ fn build_desktop_menu_bar(
         Err(error) => show_message("Could not create a folder", &error),
     });
     file_menu.append(&new_folder);
-    file_menu.append(&program_item(
-        "Open File Manager…",
-        FILE_MANAGERS,
-        "No file manager is installed",
-    ));
+    file_menu.append(&slopos_item("New Files Window", FILES, &[]));
     file_menu.append(&program_item(
         "New Text Document…",
         TEXT_EDITORS,
@@ -528,7 +524,7 @@ fn build_desktop_menu_bar(
     // View
     let view_menu = Menu::new();
     view_menu.append(&slopos_item("Control Panels…", CONTROL_PANELS, &[]));
-    view_menu.append(&slopos_item("Software…", "slopos-catalogue", &[]));
+    view_menu.append(&slopos_item("Software…", SOFTWARE, &[]));
     append_submenu(&bar, "View", &view_menu);
 
     // Special
@@ -753,8 +749,8 @@ fn build_system_menu(suspend_capability: Option<SuspendCapability>) -> (Menu, Me
     menu.append(&settings);
 
     let catalogue = MenuItem::with_label("Software…");
-    if session::resolve_program("slopos-catalogue").is_some() {
-        catalogue.connect_activate(|_| spawn_resolved("slopos-catalogue", &[]));
+    if session::resolve_program(SOFTWARE).is_some() {
+        catalogue.connect_activate(|_| spawn_resolved(SOFTWARE, &[]));
     } else {
         catalogue.set_sensitive(false);
     }
@@ -916,6 +912,10 @@ fn slopos_dialog(title: &str, message: &str, buttons: &[(&str, ResponseType)]) -
 /// Control Panels: the native SLOPOS settings app. There is deliberately no
 /// GTK fallback for bundled SLOPOS applications.
 const CONTROL_PANELS: &str = "slopos-control-panels";
+/// The native Software catalogue (never the GTK slopos-catalogue).
+const SOFTWARE: &str = "slopos-software";
+/// The native Files app (never a donor file manager).
+const FILES: &str = "slopos-files";
 
 /// Open one panel (`--sound`, `--network`, `--datetime`, `--desktop`).
 fn open_control_panel(flag: &str) {
@@ -999,13 +999,11 @@ fn build_sound_menu() -> Menu {
     menu.append(&SeparatorMenuItem::new());
 
     let settings_item = MenuItem::with_label("Sound Preferences…");
-    settings_item.connect_activate(|_| {
-        if process::resolve_program(CONTROL_PANELS).is_some() {
-            open_control_panel("--sound");
-        } else {
-            spawn_resolved("pavucontrol", &[]);
-        }
-    });
+    if process::resolve_program(CONTROL_PANELS).is_some() {
+        settings_item.connect_activate(|_| open_control_panel("--sound"));
+    } else {
+        settings_item.set_sensitive(false);
+    }
     menu.append(&settings_item);
 
     menu.show_all();
@@ -1030,8 +1028,6 @@ fn fill_network_menu(menu: &Menu, summary: &crate::services::network::NetworkSum
     let settings_item = MenuItem::with_label("Network Preferences…");
     if process::resolve_program(CONTROL_PANELS).is_some() {
         settings_item.connect_activate(|_| open_control_panel("--network"));
-    } else if process::resolve_program("nm-connection-editor").is_some() {
-        settings_item.connect_activate(|_| spawn_resolved("nm-connection-editor", &[]));
     } else {
         settings_item.set_sensitive(false);
     }

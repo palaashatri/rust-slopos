@@ -314,19 +314,32 @@ fn shipping_dependency_manifests_include_real_settings_backends() {
         include_str!("../../../packaging/iso/packages.x86_64"),
         include_str!("../../../packaging/vm/arch-install.sh"),
     ] {
-        for required in [
-            "pavucontrol",
-            "network-manager",
-            "blueman",
-            "xfce4-power-manager",
-            "xfce4-settings",
-            "lxappearance",
-            "arandr",
-        ] {
+        // The services the native Control Panels and shell talk to.
+        for required in ["pipewire-pulse", "bluez", "upower", "xfce4-power-manager"] {
             assert!(
                 manifest.contains(required),
                 "shipping dependency set misses {required}"
             );
+        }
+        assert!(manifest.contains("network-manager") || manifest.contains("networkmanager"));
+        // GTK donor apps that duplicate SLOPOS's own apps are not shipped.
+        let packages: Vec<&str> = manifest
+            .split(|c: char| c.is_whitespace() || c == '\\')
+            .collect();
+        for donor in [
+            "pcmanfm",
+            "ristretto",
+            "galculator",
+            "mpv",
+            "pavucontrol",
+            "blueman",
+            "arandr",
+            "lxappearance",
+            "xfce4-settings",
+            "network-manager-gnome",
+            "network-manager-applet",
+        ] {
+            assert!(!packages.contains(&donor), "{donor} is still shipped");
         }
     }
 }
@@ -469,11 +482,14 @@ fn browser_and_upstream_apps_remain_integrated_not_forked() {
     assert!(browser.contains("chromium"));
     assert!(browser.contains("GDK_BACKEND=\"x11\""));
     assert!(mimeapps.contains("text/html=slopos-browser.desktop"));
-    // Native SLOPOS apps are the defaults; the upstream apps stay listed as
-    // fallbacks rather than being forked or removed.
-    assert!(mimeapps.contains("image/png=slopos-image-viewer.desktop;ristretto.desktop"));
-    assert!(mimeapps.contains("video/mp4=slopos-media.desktop;mpv.desktop"));
-    assert!(mimeapps.contains("inode/directory=slopos-files.desktop;pcmanfm.desktop"));
+    // Native SLOPOS apps are the only defaults for what they handle; no GTK
+    // donor app is listed as a fallback.
+    assert!(mimeapps.contains("image/png=slopos-image-viewer.desktop\n"));
+    assert!(mimeapps.contains("video/mp4=slopos-media.desktop\n"));
+    assert!(mimeapps.contains("inode/directory=slopos-files.desktop\n"));
+    for donor in ["ristretto", "mpv", "pcmanfm"] {
+        assert!(!mimeapps.contains(donor), "mimeapps still names {donor}");
+    }
 }
 
 #[test]

@@ -102,7 +102,7 @@ if [[ $NO_BUILD -eq 0 ]]; then
   cargo build --release --workspace --locked
 fi
 
-BINARIES=(slopos-session slopos-shell slopos-dock slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-catalogue slopos-settings)
+BINARIES=(slopos-session slopos-shell slopos-dock slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-software)
 for name in "${BINARIES[@]}"; do
   src="$CARGO_TARGET_DIR/release/$name"
   if [[ ! -x "$src" ]]; then
@@ -115,9 +115,8 @@ install -Dm755 scripts/start-slopos-i "$PREFIX/bin/start-slopos-i"
 install -Dm755 scripts/start-slopos-browser "$PREFIX/bin/start-slopos-browser"
 install -Dm755 scripts/install-browser-theme.sh "$PREFIX/bin/install-browser-theme.sh"
 install -Dm755 scripts/slopos-appearance "$PREFIX/bin/slopos-appearance"
-install -Dm755 scripts/slopos-wallpaper "$PREFIX/bin/slopos-wallpaper"
 install -Dm755 scripts/slopos-recovery.sh "$PREFIX/bin/slopos-recovery"
-for entry in slopos-browser slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-settings slopos-catalogue; do
+for entry in slopos-browser slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-software; do
   install -Dm644 "packaging/$entry.desktop" "$PREFIX/share/applications/$entry.desktop"
 done
 
@@ -164,10 +163,6 @@ if [[ -f assets/config/gtk-3.0/settings.ini ]]; then
     "$PREFIX/share/slopos-i/gtk-3.0/settings.ini"
 fi
 install -Dm644 assets/config/mimeapps.list "$PREFIX/share/slopos-i/mimeapps.list"
-install -Dm644 assets/file-manager/actions/set-wallpaper.desktop \
-  "$PREFIX/share/file-manager/actions/set-wallpaper.desktop"
-install -Dm644 assets/applications/slopos-set-wallpaper.desktop \
-  "$PREFIX/share/applications/slopos-set-wallpaper.desktop"
 
 # Install SLOPOS desktop backgrounds.
 mkdir -p "$PREFIX/share/slopos-i/wallpapers"
@@ -236,8 +231,7 @@ Binaries:
   $PREFIX/bin/slopos-files
   $PREFIX/bin/slopos-media
   $PREFIX/bin/slopos-control-panels
-  $PREFIX/bin/slopos-catalogue
-  $PREFIX/bin/slopos-settings
+  $PREFIX/bin/slopos-software
   $PREFIX/bin/start-slopos-i
   $PREFIX/bin/slopos-appearance
   $PREFIX/bin/slopos-recovery

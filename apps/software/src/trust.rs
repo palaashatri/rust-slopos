@@ -200,8 +200,7 @@ impl SignedCatalogue {
         Ok(())
     }
 
-    /// Entries for this machine's architecture (used by STORE-02's window).
-    #[allow(dead_code)]
+    /// Entries for this machine's architecture.
     pub fn for_architecture(&self, architecture: &str) -> Vec<&CatalogueEntry> {
         self.entries
             .iter()
