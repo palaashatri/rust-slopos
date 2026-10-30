@@ -1,5 +1,31 @@
 {
   "schema_version": 1,
-  "tasks": {},
-  "updated_utc": null
+  "tasks": {
+    "P1-00": {
+      "base_sha": "85035ffb2c957e200d19c9b6c874270779aaa2c8",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/p1-00-unit.log",
+            "command": "cargo test --workspace --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "78f7383cfb3c4ea40f6bce22c023398de0fff9dd982b014c65d02ba1c7b5d03e"
+          },
+          {
+            "artifact": ".work/p1/evidence/p1-00-smoke.log",
+            "command": "bash scripts/smoke-session.sh",
+            "kind": "runtime",
+            "result": "PASS",
+            "sha256": "53ca622885322f0428b053ac107eb1496d9f416d3df401563d433d2351ede9f8"
+          }
+        ],
+        "source_sha": "85035ffb2c957e200d19c9b6c874270779aaa2c8"
+      },
+      "status": "INTEGRATED",
+      "summary": "baseline recorded in ledger",
+      "updated_utc": "2026-10-30T05:43:08+00:00"
+    }
+  },
+  "updated_utc": "2026-10-30T05:43:08+00:00"
 }
