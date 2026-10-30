@@ -51,6 +51,8 @@ pub struct Dialog {
     bounds: Rect,
     focus: FocusChain,
     lines: Vec<String>,
+    /// Laid out by [`Self::layout_standalone`]: no scrim behind it.
+    standalone: bool,
 }
 
 impl Dialog {
@@ -82,6 +84,7 @@ impl Dialog {
             bounds: Rect::default(),
             focus: FocusChain::default(),
             lines: Vec::new(),
+            standalone: false,
         }
     }
 
@@ -122,6 +125,20 @@ impl Dialog {
     /// field (or the default button) focus. Call before the first event and
     /// whenever the window is resized.
     pub fn layout(&mut self, window: (u32, u32)) {
+        self.standalone = false;
+        self.layout_at(window, None);
+    }
+
+    /// Lay out at the top-left of its own surface (a popup window), at most
+    /// `max_width` wide, with no scrim. Returns the surface size it needs,
+    /// shadow included.
+    pub fn layout_standalone(&mut self, max_width: u32) -> (u32, u32) {
+        self.standalone = true;
+        self.layout_at((max_width + 16, u32::MAX / 4), Some((0, 0)));
+        (self.bounds.width + 3, self.bounds.height + 3)
+    }
+
+    fn layout_at(&mut self, window: (u32, u32), origin: Option<(i32, i32)>) {
         // Wide enough for the button row, within the window.
         let buttons: u32 = self
             .buttons
@@ -140,8 +157,10 @@ impl Dialog {
         let field_height = if self.field.is_some() { 30 } else { 0 };
         let height =
             (MARGIN + title_height + message_height + 12 + field_height + 20 + MARGIN) as u32;
-        let x = (window.0 as i32 - width as i32) / 2;
-        let y = ((window.1 as i32 - height as i32) / 3).max(0);
+        let (x, y) = origin.unwrap_or((
+            (window.0 as i32 - width as i32) / 2,
+            ((window.1 as i32 - height as i32) / 3).max(0),
+        ));
         self.bounds = Rect {
             x,
             y,
@@ -277,7 +296,9 @@ impl Dialog {
             width: surface.logical_width(),
             height: surface.logical_height(),
         };
-        surface.fill_rect(window, colors.scrim)?;
+        if !self.standalone {
+            surface.fill_rect(window, colors.scrim)?;
+        }
         let bounds = self.bounds;
         surface.fill_rect(
             Rect {
@@ -495,5 +516,32 @@ mod tests {
             assert!(measure(line, &font).width as u32 <= 80 || !line.contains(' '));
         }
         assert_eq!(wrap("", &font, 80), vec![String::new()]);
+    }
+
+    #[test]
+    fn standalone_dialogs_sit_at_the_origin_without_a_scrim() {
+        use crate::foundation::geometry::Scale;
+        let mut dialog = Dialog::new(
+            5,
+            "Shut Down",
+            "Shut down this computer now?",
+            &["Cancel", "Shut Down"],
+        );
+        let (width, height) = dialog.layout_standalone(420);
+        assert_eq!((dialog.bounds().x, dialog.bounds().y), (0, 0));
+        assert_eq!(
+            (width, height),
+            (dialog.bounds().width + 3, dialog.bounds().height + 3)
+        );
+        assert!(dialog.buttons.iter().all(|b| b.bounds.x >= 0
+            && b.bounds.x + b.bounds.width as i32 <= dialog.bounds().width as i32
+            && b.bounds.y + b.bounds.height as i32 <= dialog.bounds().height as i32));
+        let surface = RasterSurface::new(width, height, Scale::new(1).unwrap()).unwrap();
+        surface
+            .clear(crate::foundation::color::Color::WHITE)
+            .unwrap();
+        dialog.paint(&surface).unwrap();
+        // The shadow corner (outside the dialog body) is untouched: no scrim.
+        assert_eq!(surface.pixel(width - 1, 0), Some(0xffff_ffff));
     }
 }

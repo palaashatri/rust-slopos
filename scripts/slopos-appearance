@@ -235,7 +235,7 @@ if command -v openbox >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
 fi
 
 # Reload shell-owned surfaces after the theme changes.
-pkill -TERM -x slopos-shell >/dev/null 2>&1 || true
+pkill -TERM -x slopos-topbar >/dev/null 2>&1 || true
 
 if [[ "${XDG_CURRENT_DESKTOP:-}" == "SLOPOS" || "${SLOPOS_SESSION_MANAGED:-}" == "1" ]]; then
   pkill -TERM -x openbox >/dev/null 2>&1 || true

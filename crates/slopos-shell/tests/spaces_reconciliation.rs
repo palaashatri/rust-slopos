@@ -13,7 +13,9 @@ fn openbox_contract_is_floating_x11_with_four_desktops() {
 fn install_script_is_x11_only() {
     let installer = include_str!("../../../install.sh");
     assert!(installer.contains("slopos-session"));
-    assert!(installer.contains("slopos-shell"));
+    // The top bar is the native slopos-topbar; the GTK shell is not shipped.
+    assert!(installer.contains("slopos-topbar"));
+    assert!(!installer.contains("slopos-shell"));
     // Bundled apps are the native ones; the GTK settings/catalogue are not
     // installed.
     assert!(installer.contains("slopos-software"));

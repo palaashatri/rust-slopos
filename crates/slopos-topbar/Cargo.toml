@@ -1,0 +1,18 @@
+[package]
+name = "slopos-topbar"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS top bar on the SLOPOS toolkit: System menu, global menus, status and launcher"
+
+[dependencies]
+slopos-ui = { path = "../slopos-ui" }
+slopos-core = { path = "../slopos-core" }
+slopos-services = { path = "../slopos-services" }
+accesskit = { workspace = true }
+x11rb = { workspace = true }
+zbus = { workspace = true }
+tokio = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+libc = { workspace = true }

@@ -3244,6 +3244,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-topbar"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "env_logger",
+ "libc",
+ "log",
+ "slopos-core",
+ "slopos-services",
+ "slopos-ui",
+ "tokio",
+ "x11rb",
+ "zbus 4.4.0",
+]
+
+[[package]]
 name = "slopos-ui"
 version = "0.1.0"
 dependencies = [

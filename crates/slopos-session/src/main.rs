@@ -127,7 +127,7 @@ fn spawn_openbox() -> Option<std::process::Child> {
 }
 
 fn spawn_shell() -> Option<std::process::Child> {
-    spawn_component("slopos-shell")
+    spawn_component("slopos-topbar")
 }
 
 fn spawn_dock() -> Option<std::process::Child> {
@@ -168,7 +168,7 @@ fn spawn_compositor() -> Option<std::process::Child> {
                 "--shadow-offset-y",
                 "-5",
                 "--shadow-exclude",
-                "window_type = 'dock' || class_g = 'slopos-shell'",
+                "window_type = 'dock' || class_g = 'slopos-topbar'",
             ],
         ),
         ("xcompmgr", &["-c"]),
