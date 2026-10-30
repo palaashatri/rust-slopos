@@ -25,6 +25,9 @@ pub struct MenuItem {
     pub shortcut: Option<String>,
     pub enabled: bool,
     pub checked: bool,
+    /// A toggle: shown with a check mark when [`Self::checked`]. The global
+    /// menu bar shows check items as such even while unchecked.
+    pub checkable: bool,
     pub separator: bool,
 }
 
@@ -35,6 +38,7 @@ impl MenuItem {
             shortcut: None,
             enabled: true,
             checked: false,
+            checkable: false,
             separator: false,
         }
     }
@@ -51,6 +55,13 @@ impl MenuItem {
 
     pub fn checked(mut self, checked: bool) -> Self {
         self.checked = checked;
+        self.checkable = true;
+        self
+    }
+
+    /// Mark the item as a toggle without checking it.
+    pub fn checkable(mut self) -> Self {
+        self.checkable = true;
         self
     }
 
@@ -413,6 +424,7 @@ pub struct MenuBar {
     pub menus: Vec<Menu>,
     pub font: Font,
     active: Option<usize>,
+    global: bool,
 }
 
 /// The height of a [`MenuBar`].
@@ -446,11 +458,36 @@ impl MenuBar {
             menus,
             font: Font::system(12.0),
             active: None,
+            global: false,
         }
     }
 
     pub fn is_open(&self) -> bool {
         self.active.is_some()
+    }
+
+    /// Whether the desktop's global menu bar shows these menus. The bar then
+    /// takes no space in the window, paints nothing and takes no input
+    /// except [`Event::MenuChosen`].
+    pub fn is_global(&self) -> bool {
+        self.global
+    }
+
+    pub fn set_global(&mut self, global: bool) {
+        if global {
+            self.close();
+        }
+        self.global = global;
+    }
+
+    /// The height the window should give the bar: [`MENU_BAR_HEIGHT`], or 0
+    /// while the menus are global.
+    pub fn height(&self) -> u32 {
+        if self.global {
+            0
+        } else {
+            MENU_BAR_HEIGHT
+        }
     }
 
     pub fn active(&self) -> Option<usize> {
@@ -498,6 +535,29 @@ impl MenuBar {
 
     /// Handle an event; `window` is the window's logical size.
     pub fn handle(&mut self, event: &Event, window: (u32, u32)) -> MenuBarOutcome {
+        match event {
+            Event::MenuChosen { menu, item } => {
+                let usable = self
+                    .menus
+                    .get(*menu)
+                    .and_then(|m| m.items.get(*item))
+                    .is_some_and(MenuItem::selectable);
+                if !usable {
+                    return MenuBarOutcome::Ignored;
+                }
+                self.close();
+                return MenuBarOutcome::Chosen {
+                    menu: *menu,
+                    item: *item,
+                };
+            }
+            Event::GlobalMenu(global) => {
+                self.set_global(*global);
+                return MenuBarOutcome::Changed;
+            }
+            _ if self.global => return MenuBarOutcome::Ignored,
+            _ => {}
+        }
         let titles = self.title_rects();
         if let Some(active) = self.active {
             // Moving across titles while a menu is open switches menus.
@@ -569,6 +629,9 @@ impl MenuBar {
     /// Paint the bar. Paint the open menu last, over everything, with
     /// [`Self::paint_menus`].
     pub fn paint(&self, surface: &RasterSurface) -> Result<(), RenderError> {
+        if self.global {
+            return Ok(());
+        }
         let colors = palette();
         surface.fill_rect(self.bounds, colors.content)?;
         surface.fill_rect(
@@ -614,6 +677,12 @@ impl MenuBar {
     /// A `MenuBar` node with one `MenuItem` per title, plus the open menu.
     pub fn accessibility_nodes(&self) -> Vec<(u64, accesskit::Node)> {
         let mut bar = accesskit::Node::new(accesskit::Role::MenuBar);
+        if self.global {
+            // The shell's top bar exposes these menus; keep an empty, hidden
+            // node so the app's tree still resolves this id.
+            bar.set_hidden();
+            return vec![(self.id, bar)];
+        }
         bar.set_bounds(super::bounds_of(self.bounds));
         let mut nodes = Vec::new();
         let mut children = Vec::new();
@@ -800,5 +869,71 @@ mod tests {
             )),
             MenuOutcome::Chosen(0)
         );
+    }
+
+    #[test]
+    fn global_bar_takes_no_space_or_input_but_routes_shell_choices() {
+        let window = (400, 300);
+        let mut bar = MenuBar::new(20, vec![("File", items()), ("View", items())]);
+        bar.bounds = Rect {
+            x: 0,
+            y: 0,
+            width: 400,
+            height: MENU_BAR_HEIGHT,
+        };
+        bar.open(1, window, true);
+        assert_eq!(bar.height(), MENU_BAR_HEIGHT);
+        assert_eq!(
+            bar.handle(&Event::GlobalMenu(true), window),
+            MenuBarOutcome::Changed
+        );
+        assert!(bar.is_global() && !bar.is_open());
+        assert_eq!(bar.height(), 0);
+        let press = Event::PointerPressed {
+            x: 12,
+            y: 5,
+            button: PointerButton::Primary,
+        };
+        assert_eq!(bar.handle(&press, window), MenuBarOutcome::Ignored);
+        assert_eq!(
+            bar.handle(&key(Key::Function(10)), window),
+            MenuBarOutcome::Ignored
+        );
+        assert_eq!(
+            bar.handle(&Event::MenuChosen { menu: 1, item: 3 }, window),
+            MenuBarOutcome::Chosen { menu: 1, item: 3 }
+        );
+        // Disabled items, separators and stale indices are refused.
+        for (menu, item) in [(0, 2), (0, 1), (5, 0), (0, 9)] {
+            assert_eq!(
+                bar.handle(&Event::MenuChosen { menu, item }, window),
+                MenuBarOutcome::Ignored
+            );
+        }
+        let nodes = bar.accessibility_nodes();
+        assert_eq!(nodes.len(), 1);
+        assert!(nodes[0].1.is_hidden());
+        // Painting a global bar leaves the surface untouched.
+        let surface = RasterSurface::new(400, 40, Scale::new(1).unwrap()).unwrap();
+        surface
+            .clear(Color {
+                red: 1,
+                green: 2,
+                blue: 3,
+                alpha: 255,
+            })
+            .unwrap();
+        bar.paint(&surface).unwrap();
+        assert_eq!(surface.pixel(10, 10), Some(0xff01_0203));
+        bar.handle(&Event::GlobalMenu(false), window);
+        assert_eq!(bar.height(), MENU_BAR_HEIGHT);
+        assert_eq!(bar.handle(&press, window), MenuBarOutcome::Changed);
+    }
+
+    #[test]
+    fn check_items_are_checkable_even_when_unchecked() {
+        assert!(MenuItem::new("Hidden").checked(false).checkable);
+        assert!(MenuItem::new("Hidden").checkable().checkable);
+        assert!(!MenuItem::new("Open").checkable);
     }
 }

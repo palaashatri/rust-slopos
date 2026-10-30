@@ -15,8 +15,11 @@ log.workspace = true
 libc.workspace = true
 accesskit.workspace = true
 accesskit_unix = { workspace = true, optional = true }
+zbus = { workspace = true, optional = true }
 
 [features]
-default = ["atspi"]
+default = ["atspi", "global-menu"]
 # Expose widgets to screen readers over AT-SPI.
 atspi = ["dep:accesskit_unix"]
+# Export app menus to the desktop's global menu bar over D-Bus.
+global-menu = ["dep:zbus"]

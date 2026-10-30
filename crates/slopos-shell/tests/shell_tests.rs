@@ -622,3 +622,26 @@ fn multi_monitor_and_coordinate_mapping_supports_hidpi_and_non_zero_origins() {
     assert!(topbar.contains("primary.gdk_x()"));
     assert!(topbar.contains("primary.gdk_width()"));
 }
+
+#[test]
+fn shell_announces_the_global_menu_name_toolkit_apps_watch() {
+    let topbar = include_str!("../src/topbar.rs");
+    let toolkit = include_str!("../../slopos-ui/src/platform/global_menu.rs");
+    let name = "\"org.slopos.GlobalMenu\"";
+    assert!(topbar.contains(&format!("GLOBAL_MENU_NAME: &str = {name}")));
+    assert!(toolkit.contains(&format!("SHELL_NAME: &str = {name}")));
+    assert!(topbar.contains("announce_global_menu();"));
+    // Toolkit apps advertise the same window properties the bridge reads.
+    let host = include_str!("../../slopos-ui/src/platform/x11.rs");
+    for property in [
+        "_GTK_UNIQUE_BUS_NAME",
+        "_GTK_MENUBAR_OBJECT_PATH",
+        "_GTK_APPLICATION_OBJECT_PATH",
+    ] {
+        assert!(host.contains(property), "toolkit host lacks {property}");
+        assert!(
+            include_str!("../src/menu/gmenu.rs").contains(property),
+            "shell bridge lacks {property}"
+        );
+    }
+}

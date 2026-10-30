@@ -85,6 +85,17 @@ pub enum Event {
     Accessibility(AccessibilityRequest),
     /// Clipboard text arrived after [`crate::platform::Control::request_paste`].
     Paste(String),
+    /// The desktop's global menu bar chose menu `menu`, item `item` of the
+    /// app's [`crate::platform::App::menu_bar`].
+    /// [`crate::controls::menu::MenuBar::handle`] turns it into a choice.
+    MenuChosen {
+        menu: usize,
+        item: usize,
+    },
+    /// The desktop started (`true`) or stopped showing the app's menus in
+    /// its global menu bar. [`crate::controls::menu::MenuBar::handle`]
+    /// applies it; the app then lays out again for the bar's new height.
+    GlobalMenu(bool),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

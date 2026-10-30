@@ -24,9 +24,7 @@ use slopos_ui::controls::button::{Button, ButtonOutcome};
 use slopos_ui::controls::dialog::{Dialog, DialogOutcome};
 use slopos_ui::controls::focus::FocusChain;
 use slopos_ui::controls::list::{ListOutcome, ListView};
-use slopos_ui::controls::menu::{
-    Menu, MenuBar, MenuBarOutcome, MenuItem, MenuOutcome, MENU_BAR_HEIGHT,
-};
+use slopos_ui::controls::menu::{Menu, MenuBar, MenuBarOutcome, MenuItem, MenuOutcome};
 use slopos_ui::controls::range::ProgressBar;
 use slopos_ui::controls::text_field::{TextField, TextFieldOutcome};
 use slopos_ui::event::{AccessibilityRequest, Event, Key, Modifiers};
@@ -41,7 +39,6 @@ use worker::{Finished, Operation, Scanner, WakeSlot, Watcher};
 
 const WIDTH: u32 = 760;
 const HEIGHT: u32 = 540;
-const TOOLBAR_Y: i32 = MENU_BAR_HEIGHT as i32;
 const TOOLBAR_HEIGHT: i32 = 34;
 const HEADER_HEIGHT: i32 = 18;
 const STATUS_HEIGHT: u32 = 24;
@@ -327,14 +324,21 @@ impl FilesApp {
 
     // ----- layout and state -------------------------------------------------
 
+    /// The toolbar sits under the in-window menu bar, or at the top when the
+    /// menus are in the desktop's global bar.
+    fn toolbar_y(&self) -> i32 {
+        self.menu.height() as i32
+    }
+
     fn layout(&mut self) {
         let (width, height) = self.window;
         self.menu.bounds = Rect {
             x: 0,
             y: 0,
             width,
-            height: MENU_BAR_HEIGHT,
+            height: self.menu.height(),
         };
+        let toolbar_y = self.toolbar_y();
         let mut x = 8;
         for button in [
             &mut self.back,
@@ -344,7 +348,7 @@ impl FilesApp {
         ] {
             button.bounds = Rect {
                 x,
-                y: TOOLBAR_Y + 7,
+                y: toolbar_y + 7,
                 width: 64,
                 height: 20,
             };
@@ -352,11 +356,11 @@ impl FilesApp {
         }
         self.location.bounds = Rect {
             x: x + 4,
-            y: TOOLBAR_Y + 6,
+            y: toolbar_y + 6,
             width: width.saturating_sub(x as u32 + 14),
             height: 22,
         };
-        let list_top = TOOLBAR_Y + TOOLBAR_HEIGHT + HEADER_HEIGHT;
+        let list_top = toolbar_y + TOOLBAR_HEIGHT + HEADER_HEIGHT;
         self.list.set_bounds(Rect {
             x: 1,
             y: list_top,
@@ -455,6 +459,11 @@ impl FilesApp {
                     item.enabled = enabled;
                     item.checked = checked;
                 }
+            }
+        }
+        for (menu, spec) in self.menu.menus.iter_mut().zip(MENUS) {
+            for (item, (_, _, command)) in menu.items.iter_mut().zip(spec.iter()) {
+                item.checkable = *command == Some(Command::ToggleHidden);
             }
         }
         self.back.enabled = self.enabled(Command::Back);
@@ -1227,7 +1236,7 @@ impl FilesApp {
         // Column header.
         let header = Rect {
             x: 0,
-            y: TOOLBAR_Y + TOOLBAR_HEIGHT,
+            y: self.toolbar_y() + TOOLBAR_HEIGHT,
             width,
             height: HEADER_HEIGHT as u32,
         };
@@ -1376,6 +1385,11 @@ impl App for FilesApp {
                 self.window = (*width, *height);
                 self.layout();
             }
+            // Applied even under a dialog: the bar's height changes the layout.
+            Event::GlobalMenu(_) => {
+                self.menu.handle(event, self.window);
+                self.layout();
+            }
             Event::Wake => {
                 if !self.poll_workers() {
                     return;
@@ -1399,6 +1413,10 @@ impl App for FilesApp {
         if let Err(error) = self.paint_all(surface) {
             log::warn!("paint failed: {error}");
         }
+    }
+
+    fn menu_bar(&self) -> Option<&MenuBar> {
+        Some(&self.menu)
     }
 
     fn accessibility(&self) -> Option<accesskit::TreeUpdate> {

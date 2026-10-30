@@ -20,6 +20,7 @@ use x11rb::protocol::Event as XEvent;
 use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
 
+use super::global_menu::Message as MenuMessage;
 use super::keys::{key_for, keysym_for, modifiers};
 use super::{scale_from_environment, App, Control, Edge, WindowKind, WindowOptions};
 use crate::event::{AccessibilityRequest, Event, PointerButton};
@@ -40,6 +41,9 @@ x11rb::atom_manager! {
         CLIPBOARD,
         TARGETS,
         SLOPOS_PASTE,
+        _GTK_UNIQUE_BUS_NAME,
+        _GTK_MENUBAR_OBJECT_PATH,
+        _GTK_APPLICATION_OBJECT_PATH,
     }
 }
 
@@ -234,6 +238,20 @@ pub fn run<A: App>(
     let gc = conn.generate_id()?;
     conn.create_gc(gc, window, &CreateGCAux::new())?;
 
+    // The wake pipe exists before the window maps so the global-menu export
+    // can be advertised on the window before the shell first sees it.
+    let wake = WakePipe::new()?;
+    let (menu_sender, menu_messages) = mpsc::channel();
+    let menus = GlobalMenu::start(
+        &conn,
+        window,
+        &atoms,
+        &options.app_id,
+        &app,
+        menu_sender,
+        wake.proxy.clone(),
+    )?;
+
     let min_keycode = conn.setup().min_keycode;
     let max_keycode = conn.setup().max_keycode;
     let mut keymap = Keymap::read(&conn, min_keycode, max_keycode)?;
@@ -249,7 +267,6 @@ pub fn run<A: App>(
     }
     conn.flush()?;
 
-    let wake = WakePipe::new()?;
     on_proxy(wake.proxy.clone());
     let (a11y_sender, a11y_messages) = mpsc::channel();
     let mut accessibility = Accessibility::new(a11y_sender, wake.proxy.clone());
@@ -268,6 +285,9 @@ pub fn run<A: App>(
         scale: Some(scale),
         ..Control::default()
     };
+    if menus.shell_present() {
+        app.event(&Event::GlobalMenu(true), &mut control);
+    }
     app.event(
         &Event::Resized {
             width: logical.0,
@@ -328,6 +348,8 @@ pub fn run<A: App>(
         }
         if control.accessibility_changed {
             accessibility.update(&app, &options.title);
+            // Menu state follows the same changes as the accessibility tree.
+            menus.update(&app);
         }
         control.redraw = false;
         control.accessibility_changed = false;
@@ -483,6 +505,14 @@ pub fn run<A: App>(
             app.event(&Event::Timer(id), &mut control);
         }
         let drained = wake.drain();
+        for message in menu_messages.try_iter() {
+            let event = match message {
+                MenuMessage::Activate { menu, item } => Event::MenuChosen { menu, item },
+                MenuMessage::ShellPresent(present) => Event::GlobalMenu(present),
+            };
+            app.event(&event, &mut control);
+            control.accessibility_changed = true;
+        }
         let mut woke = false;
         for message in a11y_messages.try_iter() {
             match message {
@@ -501,6 +531,76 @@ pub fn run<A: App>(
     conn.destroy_window(window)?;
     conn.flush()?;
     Ok(())
+}
+
+/// The window's export to the desktop's global menu bar, when the app has
+/// menus, the `global-menu` feature is on and a session bus is reachable.
+struct GlobalMenu {
+    #[cfg(feature = "global-menu")]
+    exporter: Option<super::global_menu::Exporter>,
+}
+
+impl GlobalMenu {
+    #[allow(unused_variables)]
+    fn start<A: App>(
+        conn: &RustConnection,
+        window: u32,
+        atoms: &Atoms,
+        app_id: &str,
+        app: &A,
+        sender: Sender<MenuMessage>,
+        proxy: Proxy,
+    ) -> Result<Self, PlatformError> {
+        #[cfg(feature = "global-menu")]
+        {
+            let exporter = app.menu_bar().and_then(|bar| {
+                super::global_menu::Exporter::start(
+                    app_id,
+                    super::global_menu::Snapshot::of(bar),
+                    sender,
+                    proxy,
+                )
+            });
+            if let Some(exporter) = &exporter {
+                if let Some(name) = exporter.unique_name() {
+                    for (atom, value) in [
+                        (atoms._GTK_UNIQUE_BUS_NAME, name.as_str()),
+                        (atoms._GTK_MENUBAR_OBJECT_PATH, exporter.menu_path()),
+                        (atoms._GTK_APPLICATION_OBJECT_PATH, exporter.action_path()),
+                    ] {
+                        conn.change_property8(
+                            PropMode::REPLACE,
+                            window,
+                            atom,
+                            atoms.UTF8_STRING,
+                            value.as_bytes(),
+                        )?;
+                    }
+                }
+            }
+            Ok(Self { exporter })
+        }
+        #[cfg(not(feature = "global-menu"))]
+        Ok(Self {})
+    }
+
+    fn shell_present(&self) -> bool {
+        #[cfg(feature = "global-menu")]
+        return self
+            .exporter
+            .as_ref()
+            .is_some_and(|exporter| exporter.shell_present());
+        #[cfg(not(feature = "global-menu"))]
+        false
+    }
+
+    #[allow(unused_variables)]
+    fn update<A: App>(&self, app: &A) {
+        #[cfg(feature = "global-menu")]
+        if let (Some(exporter), Some(bar)) = (&self.exporter, app.menu_bar()) {
+            exporter.update(super::global_menu::Snapshot::of(bar));
+        }
+    }
 }
 
 /// Answer another client's request for our CLIPBOARD contents (ICCCM §2.2).
