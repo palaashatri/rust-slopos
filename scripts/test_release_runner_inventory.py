@@ -56,7 +56,7 @@ EXPECTED_REQUIRED_RUNNER_SCRIPTS = (
     (
         "session-performance",
         "scripts/benchmark-x11-session.sh",
-        "d18875f6221e8f06c1eb42df8d9631d44cdbb586e1ad485ee90c90b273944f32",
+        "6c6d41734e008291a59e022c25273c312ca460de79c48a93cdd173001affed33",
     ),
     (
         "accessibility-tree",
