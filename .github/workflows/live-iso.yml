@@ -71,7 +71,9 @@ jobs:
         run: |
           sudo --preserve-env=PATH packaging/iso/build-live-iso.sh \
             --arch ${{ matrix.arch }} --bin-dir "$PWD/target/release" --out "$PWD/artifacts/iso"
-          sudo chown -R "$USER:$USER" artifacts/iso
+          # The build runs as root; give the runner user all of artifacts/ back
+          # so the boot test can create artifacts/boot-amd64.
+          sudo chown -R "$USER:$USER" artifacts
           git rev-parse HEAD > artifacts/iso/source-commit-${{ matrix.arch }}
 
       - name: Boot test in QEMU (amd64, BIOS)
