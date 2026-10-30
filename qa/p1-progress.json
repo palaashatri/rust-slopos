@@ -117,6 +117,31 @@
       "summary": "baseline recorded in ledger",
       "updated_utc": "2026-10-30T05:43:08+00:00"
     },
+    "STORE-01": {
+      "base_sha": "511eac703b31382c2485457f9c6c8e975dd95d9d",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/store01-unit.log",
+            "command": "cargo test -p slopos-software --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "9b8e8cfbc024207f979d198e4f45b0ad0b5c63d2ef7b639965886e31a786dbbc"
+          },
+          {
+            "artifact": ".work/p1/evidence/store01-security.log",
+            "command": "cargo test -p slopos-software --locked -- trust:: install::",
+            "kind": "security",
+            "result": "PASS",
+            "sha256": "510d038df6905d9e5beefff244cafa6f39f1595ad2071d8db0a77799f57529e2"
+          }
+        ],
+        "source_sha": "511eac703b31382c2485457f9c6c8e975dd95d9d"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at 511eac7; single-agent verification",
+      "updated_utc": "2026-10-30T07:05:21+00:00"
+    },
     "UI-01": {
       "base_sha": "e548e82565aefb2827d9212bb154a533925647ea",
       "evidence": {
@@ -186,5 +211,5 @@
       "updated_utc": "2026-10-30T06:02:48+00:00"
     }
   },
-  "updated_utc": "2026-10-30T06:59:26+00:00"
+  "updated_utc": "2026-10-30T07:05:21+00:00"
 }
