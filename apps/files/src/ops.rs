@@ -57,11 +57,26 @@ fn io_error(path: &Path) -> impl FnOnce(io::Error) -> OpError + '_ {
 }
 
 /// Cancellation and progress shared between the UI and a worker.
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Job {
     cancelled: AtomicBool,
     done_bytes: AtomicU64,
     total_bytes: AtomicU64,
+    /// Called as bytes complete, at most every [`NOTIFY_INTERVAL`], so a UI
+    /// repaints on real progress instead of polling.
+    notify: std::sync::OnceLock<Box<dyn Fn() + Send + Sync>>,
+    last_notify: std::sync::Mutex<Option<std::time::Instant>>,
+}
+
+const NOTIFY_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
+
+impl std::fmt::Debug for Job {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Job")
+            .field("cancelled", &self.is_cancelled())
+            .field("fraction", &self.fraction())
+            .finish()
+    }
 }
 
 impl Job {
@@ -90,6 +105,21 @@ impl Job {
 
     fn add_done(&self, bytes: u64) {
         self.done_bytes.fetch_add(bytes, Ordering::Relaxed);
+        let Some(notify) = self.notify.get() else {
+            return;
+        };
+        let now = std::time::Instant::now();
+        let mut last = self.last_notify.lock().unwrap_or_else(|p| p.into_inner());
+        if last.is_none_or(|then| now - then >= NOTIFY_INTERVAL) {
+            *last = Some(now);
+            drop(last);
+            notify();
+        }
+    }
+
+    /// Install the progress callback (once).
+    pub fn on_progress(&self, notify: impl Fn() + Send + Sync + 'static) {
+        let _ = self.notify.set(Box::new(notify));
     }
 }
 

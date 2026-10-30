@@ -15,6 +15,10 @@ use std::path::{Path, PathBuf};
 
 use crate::ops::{delete_permanently, rename_no_replace, OpError, OpResult};
 
+/// Tests that change `XDG_DATA_HOME` (process-wide) hold this lock.
+#[cfg(test)]
+pub(crate) static TEST_ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrashItem {
     /// Name inside `files/` and `info/`.
@@ -301,14 +305,12 @@ pub fn empty() -> OpResult<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
 
-    /// Tests change XDG_DATA_HOME, which is process-wide.
-    static ENV: Mutex<()> = Mutex::new(());
+    static ENV: &std::sync::Mutex<()> = &TEST_ENV;
 
     #[test]
     fn trash_list_restore_and_empty_round_trip() {
-        let _guard = ENV.lock().unwrap();
+        let _guard = ENV.lock().unwrap_or_else(|p| p.into_inner());
         let home = tempfile::tempdir().unwrap();
         std::env::set_var("XDG_DATA_HOME", home.path().join("data"));
         let docs = home.path().join("docs");
@@ -345,7 +347,7 @@ mod tests {
 
     #[test]
     fn folders_and_symlinks_are_trashed_without_following() {
-        let _guard = ENV.lock().unwrap();
+        let _guard = ENV.lock().unwrap_or_else(|p| p.into_inner());
         let home = tempfile::tempdir().unwrap();
         std::env::set_var("XDG_DATA_HOME", home.path().join("data"));
         let target = home.path().join("precious");
@@ -367,7 +369,7 @@ mod tests {
 
     #[test]
     fn missing_items_and_malformed_info_are_handled() {
-        let _guard = ENV.lock().unwrap();
+        let _guard = ENV.lock().unwrap_or_else(|p| p.into_inner());
         let home = tempfile::tempdir().unwrap();
         std::env::set_var("XDG_DATA_HOME", home.path().join("data"));
         assert!(matches!(

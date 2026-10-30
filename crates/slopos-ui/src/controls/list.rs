@@ -137,6 +137,17 @@ impl ListView {
         self.reveal(index);
     }
 
+    /// Select exactly `indices` (out-of-range ones are dropped); the cursor
+    /// moves to the first and is scrolled into view.
+    pub fn set_selection(&mut self, indices: &[usize]) {
+        self.selected = indices.iter().copied().filter(|&i| i < self.len).collect();
+        self.cursor = self.selected.first().copied();
+        self.anchor = self.cursor;
+        if let Some(first) = self.cursor {
+            self.reveal(first);
+        }
+    }
+
     pub fn select_all(&mut self) {
         if self.multiple {
             self.selected = (0..self.len).collect();

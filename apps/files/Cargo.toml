@@ -3,7 +3,7 @@ name = "slopos-files"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Read-only SLOPOS X11 file browser using the native Rust UI toolkit"
+description = "SLOPOS Files: native file manager on the SLOPOS UI toolkit"
 
 [dependencies]
 slopos-ui = { path = "../../crates/slopos-ui" }
@@ -11,6 +11,7 @@ slopos-core = { path = "../../crates/slopos-core" }
 accesskit = { workspace = true }
 env_logger = { workspace = true }
 libc = { workspace = true }
+log = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

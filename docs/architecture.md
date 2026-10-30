@@ -36,7 +36,7 @@ apps launched from the shell or Dock: detached (setsid), reaped, not supervised
 | `slopos-settings` | binary | GTK 3 (legacy) | Control Panels: appearance, date and time, desktop, network (live NetworkManager state and toggles), sound. |
 | `slopos-catalogue` | binary | GTK 3 (legacy) | AppImage catalogue and installer. |
 | `apps/calculator` | binary | **own** | Calculator, the first native app. |
-| `apps/files` | binary | **own** | Initial read-only Files browser: bounded async directory enumeration, navigation, accessibility, and xdg-open; no copy/move/Trash. |
+| `apps/files` | binary | **own** | Files: bounded async folder listing, Back/Forward/Up/Home/location, multi-select list with Name/Size/Modified/Kind, menus and context menus, transactional copy/move/rename/new folder, Trash with restore/empty, confirmed permanent delete, conflict dialog, inotify refresh, MIME default-app open. |
 | `apps/image-viewer` | binary | **own** | PNG/SVG proof viewer, zoom and accessible toolkit controls. |
 | `tools/slopos-ui-gallery` | binary | **own** | Component gallery, with a `--snapshot` mode for captures. |
 
@@ -97,7 +97,7 @@ See [development.md](development.md) for commands.
 
 The [ledger](contract/ledger.md) has the dated evidence. In short:
 
-- Native Files **read-only first slice exists on this PR branch**, but has not passed installed-VM acceptance and does not implement file mutations. Terminal, Text editor and System Monitor are not native yet. Legacy PCManFM and other donor apps remain available.
+- Native Files has no drag and drop, icon view, thumbnails, properties window, removable-volume mount/eject or network mounts yet, and has not passed installed-package VM acceptance. Terminal, Text editor and System Monitor are not native yet. Legacy PCManFM remains available (it still draws desktop icons).
 - No OSDs, workspaces UI, lock screen, polkit agent or display-configuration UI.
 - Three user-facing programs still use GTK 3, whose Rust bindings are unmaintained.
 - X11 only. GNOME and KDE are leaving X11, so distribution support for X11 logins has to be checked per release (§21.10).
@@ -120,18 +120,9 @@ media color profiles and installed-VM QA remain incomplete and required for
 P1. This is current source capability, not evidence of a finished P1 photo viewer.
 See [P1 release program](p1-x11-release.md).
 
-## Native Files bootstrap (feature branch)
+## Native Files (`apps/files`)
 
-`apps/files` uses the shared `controls::list_view` (virtualized visible
-rows, focus/selection, keyboard and accessibility), a separate read-only
-filesystem model and a bounded off-UI-thread directory worker. Navigating
-folders, Back/Up/Home/Refresh, opening regular files through the installed
-`xdg-open` association and a headless `--snapshot` path are implemented.
-Directory symlinks are not traversed when selected from Files. Directories
-with over 8192 entries fail explicitly rather than silently truncating.
-This is **not a finished file manager**: multi-select, drag/drop, context
-menus, file chooser, copy/move/rename/Trash/undo, unusual filesystem and
-provider behavior, installed-VM GUI workflows and complete visual parity
-still require implementation and verification. See
-[QA handoff](p1-files-live-qa.md). This section becomes implementation
-truth only after the PR is merged and the exact SHA passes CI.
+- **Model** (`model.rs`, from PR #35): non-recursive listing via `symlink_metadata`, so directory symlinks are never traversed while listing; folders over 8192 entries fail explicitly instead of truncating; Back/Forward history.
+- **Workers** (`worker.rs`): one folder-reading thread (bounded queue, stale results dropped), one thread per file operation with cancel and throttled progress wakes, and an inotify watcher thread. All wake the UI through `Proxy`; nothing polls.
+- **Operations** (`ops.rs`, `trash.rs`): copies are written under a private partial name and committed with `renameat2(RENAME_NOREPLACE)`; cancel or failure removes only the partial; Replace swaps the old item aside and deletes it only after the new one is in place; cross-device moves delete the source only after a committed copy; symlinks are copied as links; FIFOs and devices are refused; copying a folder into itself is refused. Trash follows the freedesktop spec (home trash, or `$topdir/.Trash-$uid` on other volumes), and restore never overwrites.
+- **UI** (`main.rs`): menu bar (File, Edit, View, Go), toolbar, location field (Ctrl+L), the shared `controls::list::ListView` with Name/Size/Modified/Kind columns, context menus, Rename/conflict/confirm dialogs, Trash view (restore, delete, empty), hidden-file toggle, status bar with progress and Cancel. Opening uses `slopos_core::mime` (the default app from `mimeapps.list` or a desktop entry's `MimeType`), falling back to `xdg-open`.

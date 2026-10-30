@@ -13,12 +13,19 @@ may be described as PASS unless actually executed/inspected.
 - `apps/files/src/main.rs`: event-driven X11 App with a dedicated bounded
   async directory-reading worker, toolbar, keyboard/pointer navigation,
   per-row accessible nodes and native `xdg-open` handoff.
-- `crates/slopos-ui/src/controls/list_view.rs`: reusable visible-row
+- `crates/slopos-ui/src/controls/list.rs` (replaced the PR's `list_view.rs`): reusable visible-row
   rendering/selection, scroll and accessible list. Review behavior;
   do not duplicate it inside Files or other apps.
 - `packaging/slopos-files.desktop`, Debian/Arch packaging and
-  `install.sh`: proposed installed entry points. **No file writes,
-  deletes, rename, copy, Trash, or unsafe symlink traversal are exposed.**
+  `install.sh`: installed entry points.
+- `apps/files/src/ops.rs`, `trash.rs`, `worker.rs` (FILES-01/02): transactional
+  copy/move/rename/new folder, Trash with restore, confirmed permanent
+  delete, operation worker with Cancel, inotify refresh.
+
+A scripted live run of these journeys (copy, paste, conflict Keep Both,
+F2 rename, context menu, Delete to Trash, MIME open of a PNG in the Image
+Viewer, Go ▸ Trash) at 1× and 2× is recorded in the ledger (FILES-02). The
+manual checklist below still applies to an installed package.
 
 ## Reproducible test setup (Linux guest only)
 
