@@ -65,6 +65,7 @@ These environment variables change a session's behaviour:
 | `SLOPOS_ICON_THEME` | Icon theme for toolkit apps. The default is `SLOPOS-Platinum`. |
 | `SLOPOS_NO_COMPOSITOR` | Do not start picom/xcompmgr. |
 | `SLOPOS_NO_DOCK` | Start the session without the Dock. |
+| `SLOPOS_NO_DESKTOP` | Start the session without the desktop icons window (the root picture stays). |
 | `SLOPOS_OPENBOX_CONFIG` | Use this Openbox rc file. |
 | `RUST_LOG=debug` | Verbose logs. |
 

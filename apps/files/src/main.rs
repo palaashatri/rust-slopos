@@ -19,7 +19,6 @@ use std::time::Duration;
 use model::{DirectoryState, Entry, Kind, Navigation};
 use ops::{Conflict, Job, OpError};
 use slopos_core::mime;
-use slopos_core::process::{resolve_program, spawn_detached};
 use slopos_ui::accessibility::window_tree;
 use slopos_ui::controls::button::{Button, ButtonOutcome};
 use slopos_ui::controls::dialog::{Dialog, DialogOutcome};
@@ -794,20 +793,7 @@ impl FilesApp {
             return self.set_status("Special files can't be opened.");
         }
         let content_type = mime::guess(path);
-        let launched = match mime::default_app(&content_type) {
-            Some(app) => app.command_for(&[path]).and_then(|argv| {
-                let program = resolve_program(&argv[0])?;
-                spawn_detached(&program, &argv[1..])
-                    .ok()
-                    .map(|_| app.name.clone())
-            }),
-            None => resolve_program("xdg-open").and_then(|opener| {
-                spawn_detached(&opener, [path.as_os_str()])
-                    .ok()
-                    .map(|_| "the default application".to_owned())
-            }),
-        };
-        match launched {
+        match mime::open(path) {
             Some(name) => self.set_status(format!(
                 "Opening “{}” with {name}",
                 path.file_name().unwrap_or_default().to_string_lossy()
@@ -1748,11 +1734,15 @@ fn main() {
     }
     let mut args = std::env::args_os().skip(1);
     let first = args.next();
+    // `--trash` opens the Trash (the desktop's Trash icon uses it).
+    let trash = first.as_deref() == Some(std::ffi::OsStr::new("--trash"));
     let (snapshot, folder) = if first.as_deref() == Some(std::ffi::OsStr::new("--snapshot")) {
         (
             args.next().map(PathBuf::from),
             args.next().map(PathBuf::from),
         )
+    } else if trash {
+        (None, None)
     } else {
         (None, first.map(PathBuf::from))
     };
@@ -1766,6 +1756,9 @@ fn main() {
             std::process::exit(1);
         }
     };
+    if trash {
+        app.go_trash();
+    }
     if let Some(output) = snapshot {
         app.initial_snapshot();
         let scale = platform::scale_from_environment();

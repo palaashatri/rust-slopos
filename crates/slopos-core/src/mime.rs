@@ -308,6 +308,26 @@ fn candidates(mime: &str, lists: &[String], installed: &[DesktopApp]) -> Vec<Str
     ids
 }
 
+/// Open `path` in the application set for its type (or `xdg-open` when
+/// none is), detached. Returns the application's name, or `None` when
+/// nothing could open it.
+pub fn open(path: &Path) -> Option<String> {
+    use crate::process::{resolve_program, spawn_detached};
+    match default_app(&guess(path)) {
+        Some(app) => app.command_for(&[path]).and_then(|argv| {
+            let program = resolve_program(&argv[0])?;
+            spawn_detached(&program, &argv[1..])
+                .ok()
+                .map(|_| app.name.clone())
+        }),
+        None => resolve_program("xdg-open").and_then(|opener| {
+            spawn_detached(&opener, [path.as_os_str()])
+                .ok()
+                .map(|_| "the default application".to_owned())
+        }),
+    }
+}
+
 /// The installed application that should open `mime`, if any. Text
 /// subtypes fall back to `text/plain`.
 pub fn default_app(mime: &str) -> Option<DesktopApp> {

@@ -69,6 +69,10 @@ fn main() -> ExitCode {
     let mut compositor = Child::new("X11 compositor", Policy::Optional, spawn_compositor);
     // Give Openbox a moment to own the screen before the shell maps its bar.
     thread::sleep(Duration::from_millis(150));
+    // The desktop icons sit on the root picture the session painted above.
+    let mut desktop = env::var_os("SLOPOS_NO_DESKTOP")
+        .is_none()
+        .then(|| Child::new("SLOPOS desktop", Policy::Optional, spawn_desktop));
     let mut shell = Child::new("SLOPOS shell", Policy::Important, spawn_shell);
     let mut dock = env::var_os("SLOPOS_NO_DOCK")
         .is_none()
@@ -93,11 +97,17 @@ fn main() -> ExitCode {
         if let Some(Err(error)) = dock.as_mut().map(Child::supervise) {
             log::error!("{error}; continuing without the Dock");
         }
+        if let Some(Err(error)) = desktop.as_mut().map(Child::supervise) {
+            log::warn!("{error}; the desktop picture stays, without icons");
+        }
     }
 
     log::info!("Stopping SLOPOS-I session");
     if let Some(dock) = dock.as_mut() {
         dock.stop();
+    }
+    if let Some(desktop) = desktop.as_mut() {
+        desktop.stop();
     }
     shell.stop();
     compositor.stop();
@@ -161,6 +171,10 @@ fn spawn_shell() -> Option<std::process::Child> {
     spawn_component("slopos-topbar")
 }
 
+fn spawn_desktop() -> Option<std::process::Child> {
+    spawn_component("slopos-desktop")
+}
+
 fn spawn_dock() -> Option<std::process::Child> {
     spawn_component("slopos-dock")
 }
@@ -199,7 +213,7 @@ fn spawn_compositor() -> Option<std::process::Child> {
                 "--shadow-offset-y",
                 "-5",
                 "--shadow-exclude",
-                "window_type = 'dock' || class_g = 'slopos-topbar'",
+                "window_type = 'dock' || window_type = 'desktop' || class_g = 'slopos-topbar'",
             ],
         ),
         ("xcompmgr", &["-c"]),

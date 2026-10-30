@@ -22,6 +22,8 @@ pub enum WindowKind {
     Normal,
     /// A desktop panel docked to an edge; reserves `strut` logical pixels.
     Dock { edge: Edge, strut: u32 },
+    /// The desktop itself: below every window, undecorated, full screen.
+    Desktop,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
