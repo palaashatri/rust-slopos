@@ -13,6 +13,12 @@ env_logger = { workspace = true }
 libc = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }
+# Archives (Compress / Extract Here), pure Rust: MIT or MIT/Apache-2.0.
+flate2 = "1"
+tar = { version = "0.4", default-features = false }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+lzma-rs = "0.3"
+ruzstd = "0.7"
 
 [dev-dependencies]
 tempfile = { workspace = true }

@@ -45,11 +45,15 @@ pub enum OpError {
     Unsupported(PathBuf),
     #[error("{}: {source}", .path.display())]
     Io { path: PathBuf, source: io::Error },
+    #[error("“{}” would unpack to more than {1}, so it was not extracted", .0.display())]
+    TooBig(PathBuf, String),
+    #[error("“{}” is not an archive Files can open: {1}", .0.display())]
+    NotArchive(PathBuf, String),
 }
 
 pub type OpResult<T> = Result<T, OpError>;
 
-fn io_error(path: &Path) -> impl FnOnce(io::Error) -> OpError + '_ {
+pub(crate) fn io_error(path: &Path) -> impl FnOnce(io::Error) -> OpError + '_ {
     move |source| OpError::Io {
         path: path.to_path_buf(),
         source,
@@ -88,7 +92,7 @@ impl Job {
         self.cancelled.load(Ordering::Relaxed)
     }
 
-    fn check(&self) -> OpResult<()> {
+    pub(crate) fn check(&self) -> OpResult<()> {
         if self.is_cancelled() {
             Err(OpError::Cancelled)
         } else {
@@ -103,7 +107,11 @@ impl Job {
             .then(|| (self.done_bytes.load(Ordering::Relaxed) as f64 / total as f64).min(1.0))
     }
 
-    fn add_done(&self, bytes: u64) {
+    pub(crate) fn set_total(&self, bytes: u64) {
+        self.total_bytes.store(bytes, Ordering::Relaxed);
+    }
+
+    pub(crate) fn add_done(&self, bytes: u64) {
         self.done_bytes.fetch_add(bytes, Ordering::Relaxed);
         let Some(notify) = self.notify.get() else {
             return;
@@ -228,7 +236,7 @@ pub fn new_folder(dir: &Path) -> OpResult<PathBuf> {
     Err(OpError::Exists(dir.join("untitled folder")))
 }
 
-fn partial_path(dir: &Path, name: &str) -> PathBuf {
+pub(crate) fn partial_path(dir: &Path, name: &str) -> PathBuf {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let n = NEXT.fetch_add(1, Ordering::Relaxed);
     dir.join(format!(".slopos-partial-{}-{n}-{name}", std::process::id()))
@@ -350,7 +358,7 @@ fn refuse_into_itself(source: &Path, dest_dir: &Path) -> OpResult<()> {
 }
 
 /// Move the committed `partial` to `target`, replacing it if asked.
-fn commit(partial: &Path, target: &Path, replace: bool) -> OpResult<()> {
+pub(crate) fn commit(partial: &Path, target: &Path, replace: bool) -> OpResult<()> {
     if !replace {
         return match rename_no_replace(partial, target) {
             Ok(()) => Ok(()),
