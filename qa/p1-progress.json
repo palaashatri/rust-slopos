@@ -92,6 +92,31 @@
       "summary": "committed at 67278b8; single-agent verification",
       "updated_utc": "2026-10-30T06:59:26+00:00"
     },
+    "MEDIA-01": {
+      "base_sha": "d04b72e6da2f7bf2e34b3d6a4b60fd6fdfabba59",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/media-unit.log",
+            "command": "cargo test -p slopos-media --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "47c87f96ae71cd4d70cb7c0805b8be5ba7c5f5aafe11a4d771f4451236e335f1"
+          },
+          {
+            "artifact": ".work/p1/evidence/media-security.log",
+            "command": "cargo test -p slopos-media --locked -- broken unplayable helpers",
+            "kind": "security",
+            "result": "PASS",
+            "sha256": "c0bd96a5f68738f67d9df8dab651aff3510f6b87a65e9ec7e7f6cad390340571"
+          }
+        ],
+        "source_sha": "d04b72e6da2f7bf2e34b3d6a4b60fd6fdfabba59"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at d04b72e; single-agent verification",
+      "updated_utc": "2026-10-30T08:04:18+00:00"
+    },
     "P1-00": {
       "base_sha": "85035ffb2c957e200d19c9b6c874270779aaa2c8",
       "evidence": {
@@ -211,5 +236,5 @@
       "updated_utc": "2026-10-30T06:02:48+00:00"
     }
   },
-  "updated_utc": "2026-10-30T07:05:21+00:00"
+  "updated_utc": "2026-10-30T08:04:18+00:00"
 }
