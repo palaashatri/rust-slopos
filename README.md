@@ -6,7 +6,7 @@ and storage limits. Implementations remain subject to
 [real P1 release gates](docs/p1-x11-release.md), not agent claims.
 
 
-SLOPOS-I is an experimental Linux desktop environment with a compact, Classic-Macintosh-inspired design ("Platinum Classic") on **X11**. It is written in Rust. Openbox manages the windows, and SLOPOS provides the session, a global menu bar, a Dock and its own UI toolkit, with native applications built on it: Files, Image Viewer, Media, Calculator, Control Panels and Software. The bundled applications do not fall back to GTK apps.
+SLOPOS-I is an experimental Linux desktop environment with a compact, Classic-Macintosh-inspired design ("Platinum Classic") on **X11**. It is written in Rust. Openbox manages the windows, and SLOPOS provides the session, a global menu bar, desktop icons, a Dock and its own UI toolkit, with native applications built on it: Files, Image Viewer, Media, Calculator, Control Panels and Software. Everything a SLOPOS session starts is on that toolkit, and the bundled applications do not fall back to GTK apps.
 
 **Status: alpha.** It runs, and the pieces below work, but it is not ready for daily use and is nowhere near GNOME or KDE in coverage.
 
@@ -16,7 +16,7 @@ SLOPOS-I is an experimental Linux desktop environment with a compact, Classic-Ma
 
 ## Screenshots
 
-Captured from real sessions (Xvfb + Openbox + `slopos-shell`, and the live ISO booted in QEMU). They show the software running; they are not visual-conformance or accessibility evidence. The full set, with how each was taken, is in [docs/screenshots/p1](docs/screenshots/p1/README.md).
+Captured from real sessions (Xvfb + Openbox with the SLOPOS top bar, and the live ISO booted in QEMU). They show the software running; they are not visual-conformance or accessibility evidence. The full set, with how each was taken, is in [docs/screenshots/p1](docs/screenshots/p1/README.md).
 
 | | |
 |---|---|
@@ -27,25 +27,25 @@ Captured from real sessions (Xvfb + Openbox + `slopos-shell`, and the live ISO b
 
 ## What works today
 
-- **Session:** `slopos-session` supervises Openbox, an optional compositor, the shell and the Dock. It restarts crashed components with backoff and has a real **Log Out**: it stops every session process and nothing is left behind.
-- **Menu bar:**
+- **Session:** `slopos-session` supervises Openbox, an optional compositor, the top bar, the desktop window and the Dock, and re-applies the display, keyboard and mouse settings kept in Control Panels at login. It restarts crashed components with backoff and has a real **Log Out**: it stops every session process and nothing is left behind.
+- **Menu bar** (`slopos-topbar`, on the SLOPOS toolkit):
   - the System menu, and desktop menus (New Folder, Empty Trash with confirmation, Control Panels, Software, About);
-  - the focused app's own menus: SLOPOS apps export theirs over the GTK menu protocol (`org.gtk.Menus`), and so do GTK apps; other windows get window actions. If the shell is not running, SLOPOS apps draw their menu bar in the window instead;
+  - the focused app's own menus: SLOPOS apps export theirs over the GTK menu protocol (`org.gtk.Menus`), and so do GTK apps; other windows get window actions. If the top bar is not running, SLOPOS apps draw their menu bar in the window instead;
   - live sound, network and battery status, and the clock.
 - **Dock:** pinned and running apps, one dot per window, attention state. Click to launch, raise or cycle windows; middle-click starts a new instance.
-- **Launcher:** Super+Space opens a fuzzy search over installed applications.
+- **Launcher:** Super+Space or Ctrl+F2 opens a fuzzy search over installed applications.
 - **Notifications:** a built-in `org.freedesktop.Notifications` daemon.
-- **Desktop picture:** painted by the session itself; choose a bundled pattern or your own PNG in Control Panels.
-- **Files:** Places sidebar, theme icons, list with Name/Size/Modified/Kind, copy/move/rename/new folder with conflict handling and cancel, Trash with restore and empty, open with the default app.
+- **Desktop:** the session paints the picture (a bundled pattern or your own PNG, chosen in Control Panels); `slopos-desktop` shows Home, mounted volumes, the items in your Desktop folder and the Trash as icons you can select, open, move and add folders to.
+- **Files:** Places sidebar, theme icons, list with Name/Size/Modified/Kind, copy/move/rename/new folder with conflict handling and cancel, Trash with restore and empty, Compress (zip, tar.gz) and Extract Here (zip, tar, tar.gz/xz/zst) with protection against hostile archives, open with the default app.
 - **Image Viewer:** PNG, JPEG, GIF, BMP, WebP, TIFF and SVG with bounded decoding, folder navigation, zoom and pan.
 - **Media:** GStreamer playback of video and audio with seek, volume, mute and sidecar subtitles.
-- **Control Panels:** Network, Sound, Display (brightness), Bluetooth, Date & Time, Desktop and Appearance, all on live system services; a missing service is shown as unavailable.
+- **Control Panels:** Network (join Wi-Fi with a password, disconnect, forget), Sound (output and input devices, per-application volume), Display (resolution, refresh, rotation, arrangement, main display, brightness, with a 15-second revert), Bluetooth (search, pair, connect, forget), Date & Time, Desktop, Appearance and Keyboard & Mouse (layout, key repeat, pointer speed, natural scrolling, left-handed), all on live system services; a missing service is shown as unavailable.
 - **Software:** a signed AppImage catalogue (Ed25519) with transactional install, update and remove. No production catalogue is published yet.
 - **Calculator:** keyboard, mouse and screen readers all work.
 - **Live ISOs:** Ubuntu 24.04-based amd64 and arm64 live images that boot straight into SLOPOS-I (`packaging/iso`).
 - **SLOPOS toolkit** (`crates/slopos-ui`): software rendering, shaped text, PNG/SVG images, icon themes, an X11 window host with HiDPI scaling, and AT-SPI accessibility. No GTK.
 
-Still incomplete: Files drag and drop, icon view, thumbnails and removable volumes; native Terminal and Text editor (the system terminal and Mousepad are used); desktop icons; volume and brightness OSDs; workspaces UI; lock screen; display arrangement; Wi-Fi passwords and Bluetooth pairing; Dock context menus and reordering. The top bar itself is still GTK 3. [docs/architecture.md](docs/architecture.md) explains how everything fits together and lists the gaps.
+Still incomplete: Files drag and drop, icon view, thumbnails and removable-volume mounting; native Terminal and Text editor (the system terminal and Mousepad are used); volume and brightness OSDs and status popovers; workspaces UI; lock screen and polkit agent; network-secret and Bluetooth pairing agents (Wi-Fi passwords are asked in Control Panels; devices needing a PIN fail with BlueZ's error); Dock context menus and reordering. [docs/architecture.md](docs/architecture.md) explains how everything fits together and lists the gaps.
 
 ## Try it
 
@@ -74,11 +74,11 @@ An opt-in local text-to-application-action prototype is available with Ollama an
 Next steps, in priority order:
 
 1. **Volume and brightness OSDs with media keys**, and Wi-Fi/Bluetooth/clock popovers, drawn with the SLOPOS toolkit.
-2. **Files:** drag and drop, icon view, thumbnails, properties and removable volumes; native desktop icons.
-3. **Native Terminal and Text editor** on the toolkit.
-4. **Control Panels depth:** Wi-Fi join, Bluetooth pairing, display arrangement, time zones, Dock settings.
-5. **A published software catalogue** signed with the project's publisher key.
-6. **Moving the top bar off GTK 3**, the last GTK surface in a session.
+2. **Lock screen, polkit agent, network-secret and Bluetooth pairing agents.**
+3. **Files:** drag and drop (also with the desktop), icon view, thumbnails, properties and removable-volume mounting.
+4. **Native Terminal and Text editor** on the toolkit.
+5. **Control Panels depth:** time zones, Dock settings, per-monitor scale.
+6. **A published software catalogue** signed with the project's publisher key.
 
 ### Longer-term goals (planned, not implemented)
 
@@ -123,7 +123,7 @@ The [SLOPOS Design Bible](docs/contract/02-design.md#52-slopos-design-bible--des
 
 | Document | What it covers |
 |---|---|
-| [docs/architecture.md](docs/architecture.md) | What exists today: processes, crates, the toolkit, the Dock, the shell, packages and CI. |
+| [docs/architecture.md](docs/architecture.md) | What exists today: processes, crates, the toolkit, the top bar, the desktop, the Dock, packages and CI. |
 | [docs/development.md](docs/development.md) | Building, testing, running a session from the source tree, QA scripts and releasing. |
 | [docs/CONTRACT.md](docs/CONTRACT.md) | The engineering contract: target requirements by area, with the evidence ledger. |
 | [AGENTS.md](AGENTS.md) | Short working rules for coding agents. |
