@@ -2677,8 +2677,11 @@ version = "0.1.0"
 dependencies = [
  "accesskit",
  "env_logger",
+ "libc",
  "slopos-core",
  "slopos-ui",
+ "tempfile",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
