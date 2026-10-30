@@ -38,7 +38,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
             libssl-dev libdbus-1-dev xvfb openbox xdotool wmctrl \
             adwaita-icon-theme dbus-x11 x11-utils x11-xserver-utils scrot \
             librsvg2-common fonts-liberation fonts-dejavu-core
@@ -228,7 +228,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
             libssl-dev libdbus-1-dev xvfb openbox pcmanfm xfce4-terminal \
             mousepad ristretto zathura mpv galculator xdotool wmctrl scrot \
             imagemagick x11-utils x11-xserver-utils dbus-x11 librsvg2-common \
@@ -287,7 +287,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
             libssl-dev libdbus-1-dev
       - name: Build exact release workspace
         run: cargo build --workspace --release --locked
@@ -493,7 +493,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
             libssl-dev libdbus-1-dev xvfb openbox xdotool x11-utils dbus-x11 \
             fonts-liberation adwaita-icon-theme
       - uses: dtolnay/rust-toolchain@stable
@@ -532,7 +532,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
             libssl-dev libdbus-1-dev xvfb openbox xdotool scrot imagemagick \
             dbus-x11 x11-utils x11-xserver-utils librsvg2-common \
             fonts-liberation fonts-dejavu-core adwaita-icon-theme

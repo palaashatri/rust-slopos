@@ -31,5 +31,8 @@ xdotool
 wmctrl
 adwaita-icon-theme
 librsvg
+gstreamer
+gst-plugins-base
+gst-plugins-good
 ttf-liberation
 ttf-dejavu
