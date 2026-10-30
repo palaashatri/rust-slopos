@@ -331,6 +331,37 @@ pub fn revert_message(seconds: u32) -> String {
     )
 }
 
+/// The Keyboard & Mouse summary lines.
+pub fn input_lines(
+    snapshot: &slopos_services::input::InputSnapshot,
+    layouts: &[(String, String)],
+) -> Vec<String> {
+    let settings = &snapshot.settings;
+    let layout = layouts
+        .iter()
+        .find(|(code, _)| *code == settings.layout)
+        .map_or(settings.layout.as_str(), |(_, name)| name.as_str());
+    let mut lines = vec![if settings.variant.is_empty() {
+        format!("Keyboard: {layout}")
+    } else {
+        format!("Keyboard: {layout} ({})", settings.variant)
+    }];
+    lines.push(if snapshot.tunable_pointers == 0 {
+        "No mouse or touchpad here takes speed settings.".to_owned()
+    } else {
+        format!(
+            "{} pointing device{} found.",
+            snapshot.tunable_pointers,
+            if snapshot.tunable_pointers == 1 {
+                ""
+            } else {
+                "s"
+            }
+        )
+    });
+    lines
+}
+
 /// Devices for the list: connected first, then paired, then by name.
 pub fn bluetooth_devices(snapshot: &BluetoothSnapshot) -> Vec<BluetoothDevice> {
     let mut devices = snapshot.devices.clone();

@@ -904,6 +904,22 @@ mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
 
+    /// Write an executable fixture script without ever holding it open for
+    /// writing in this process: tests run on parallel threads, and a thread
+    /// forking while the descriptor is open would make exec'ing the script
+    /// fail with ETXTBSY. A short-lived `cp` does the writing instead.
+    fn write_script(path: &std::path::Path, text: &str) {
+        let staging = path.with_extension("source");
+        std::fs::write(&staging, text).unwrap();
+        let status = std::process::Command::new("cp")
+            .arg(&staging)
+            .arg(path)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+
     fn fixture_client() -> (AudioClient, tempfile::TempDir) {
         let directory = tempfile::tempdir().unwrap();
         std::fs::write(directory.path().join("output_volume"), "85").unwrap();
@@ -918,7 +934,7 @@ mod tests {
         std::fs::write(directory.path().join("stream_mute"), "no").unwrap();
         std::fs::write(directory.path().join("stream_sink"), "1").unwrap();
         let executable = directory.path().join("pactl");
-        std::fs::write(
+        write_script(
             &executable,
             r##"#!/bin/sh
 set -eu
@@ -979,9 +995,7 @@ root=${0%/*}
   *) printf 'unexpected command: %s\n' "$*" >&2; exit 2 ;;
 esac
 "##,
-        )
-        .unwrap();
-        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+        );
         (
             AudioClient {
                 executable,
@@ -1216,15 +1230,13 @@ esac
         let directory = tempfile::tempdir().unwrap();
         let pid_file = directory.path().join("child.pid");
         let executable = directory.path().join("pactl");
-        std::fs::write(
+        write_script(
             &executable,
-            format!(
+            &format!(
                 "#!/bin/sh\nprintf '%s' \"$$\" > '{}'\nexec sleep 30\n",
                 pid_file.display()
             ),
-        )
-        .unwrap();
-        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+        );
         let client = AudioClient {
             executable,
             revision: Arc::new(AtomicU64::new(0)),

@@ -18,6 +18,8 @@ upower
 bluez
 xfce4-power-manager
 x11-xserver-utils
+# setxkbmap, for Control Panels › Keyboard & Mouse layouts
+x11-xkb-utils
 xdotool
 wmctrl
 adwaita-icon-theme

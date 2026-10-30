@@ -2,6 +2,7 @@ pub mod audio;
 pub mod bluetooth;
 pub mod brightness;
 pub mod display;
+pub mod input;
 pub mod media;
 pub mod network;
 pub mod power;
