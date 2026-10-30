@@ -10,6 +10,7 @@ mod ops;
 mod trash;
 mod worker;
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::{mpsc, Arc, Mutex};
@@ -29,6 +30,8 @@ use slopos_ui::controls::range::ProgressBar;
 use slopos_ui::controls::text_field::{TextField, TextFieldOutcome};
 use slopos_ui::event::{AccessibilityRequest, Event, Key, Modifiers};
 use slopos_ui::foundation::geometry::Rect;
+use slopos_ui::icons::IconLookup;
+use slopos_ui::image::Image;
 use slopos_ui::platform::{self, App, Control, WindowOptions};
 use slopos_ui::primitives::button_plate::ButtonPlateVariant;
 use slopos_ui::render::{RasterSurface, RenderError};
@@ -37,8 +40,9 @@ use slopos_ui::theme::palette;
 use trash::TrashItem;
 use worker::{Finished, Operation, Scanner, WakeSlot, Watcher};
 
-const WIDTH: u32 = 760;
-const HEIGHT: u32 = 540;
+const WIDTH: u32 = 880;
+const HEIGHT: u32 = 560;
+const SIDEBAR_WIDTH: u32 = 160;
 const TOOLBAR_HEIGHT: i32 = 34;
 const HEADER_HEIGHT: i32 = 18;
 const STATUS_HEIGHT: u32 = 24;
@@ -53,6 +57,7 @@ const LOCATION_ID: u64 = 20;
 const CANCEL_ID: u64 = 30;
 const PROGRESS_ID: u64 = 31;
 const LIST_ID: u64 = 50;
+const PLACES_ID: u64 = 60;
 const MENU_ID: u64 = 100;
 const CONTEXT_ID: u64 = 300;
 const DIALOG_ID: u64 = 400;
@@ -148,7 +153,82 @@ struct Row {
     size: String,
     modified: String,
     kind_text: String,
+    /// Theme icon names, most specific first.
+    icons: Vec<String>,
     trash: Option<TrashItem>,
+}
+
+/// A sidebar destination.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Place {
+    name: String,
+    icon: &'static str,
+    /// `None` is the Trash.
+    path: Option<PathBuf>,
+}
+
+/// Home, the standard folders that exist, the whole computer and the Trash.
+fn places(home: Option<&Path>) -> Vec<Place> {
+    let mut places = Vec::new();
+    if let Some(home) = home {
+        places.push(Place {
+            name: "Home".into(),
+            icon: "user-home",
+            path: Some(home.to_path_buf()),
+        });
+        for (folder, icon) in [
+            ("Desktop", "user-desktop"),
+            ("Documents", "folder-documents"),
+            ("Downloads", "folder-download"),
+            ("Music", "folder-music"),
+            ("Pictures", "folder-pictures"),
+            ("Videos", "folder-videos"),
+        ] {
+            let path = home.join(folder);
+            if path.is_dir() {
+                places.push(Place {
+                    name: folder.into(),
+                    icon,
+                    path: Some(path),
+                });
+            }
+        }
+    }
+    places.push(Place {
+        name: "Computer".into(),
+        icon: "computer",
+        path: Some(PathBuf::from("/")),
+    });
+    places.push(Place {
+        name: "Trash".into(),
+        icon: "user-trash",
+        path: None,
+    });
+    places
+}
+
+/// Icon names for a folder entry: the standard folders get their own.
+fn folder_icons(path: &Path, home: Option<&Path>) -> Vec<String> {
+    let special = places(home)
+        .into_iter()
+        .find(|place| place.path.as_deref() == Some(path) && place.icon != "computer")
+        .map(|place| place.icon.to_owned());
+    special.into_iter().chain(["folder".to_owned()]).collect()
+}
+
+/// Icon names for a file of MIME type `mime`: "image-png", then
+/// "image-x-generic", then the generic document.
+fn file_icons(mime: &str) -> Vec<String> {
+    let mut icons = vec![mime.replace('/', "-")];
+    if let Some((media, _)) = mime.split_once('/') {
+        let generic = match media {
+            "image" | "audio" | "video" | "text" => format!("{media}-x-generic"),
+            _ => "application-x-generic".into(),
+        };
+        icons.push(generic);
+    }
+    icons.push("text-x-generic".into());
+    icons
 }
 
 /// What an open dialog is asking about.
@@ -185,6 +265,10 @@ pub struct FilesApp {
     progress: ProgressBar,
     location: TextField,
     list: ListView,
+    places: Vec<Place>,
+    sidebar: ListView,
+    icon_lookup: IconLookup,
+    icon_cache: HashMap<(String, u32), Option<Image>>,
     focus: FocusChain,
     dialog: Option<(Dialog, Pending)>,
     slot: WakeSlot,
@@ -242,12 +326,26 @@ fn format_time(time: Option<std::time::SystemTime>) -> String {
 
 fn row_for(entry: &Entry) -> Row {
     let name = entry.display_name();
-    let (size, kind_text) = match entry.kind {
-        Kind::Directory | Kind::Symlink | Kind::Other => ("—".into(), entry.kind_label().into()),
-        Kind::File => (
-            format_size(entry.bytes),
-            mime::describe(&mime::guess_for_name(&name)),
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let (size, kind_text, icons) = match entry.kind {
+        Kind::Directory => (
+            "—".into(),
+            entry.kind_label().into(),
+            folder_icons(&entry.path, home.as_deref()),
         ),
+        Kind::Symlink | Kind::Other => (
+            "—".into(),
+            entry.kind_label().into(),
+            vec!["emblem-symbolic-link".into(), "text-x-generic".into()],
+        ),
+        Kind::File => {
+            let mime = mime::guess_for_name(&name);
+            (
+                format_size(entry.bytes),
+                mime::describe(&mime),
+                file_icons(&mime),
+            )
+        }
     };
     Row {
         name,
@@ -256,6 +354,7 @@ fn row_for(entry: &Entry) -> Row {
         size,
         modified: format_time(entry.modified),
         kind_text,
+        icons,
         trash: None,
     }
 }
@@ -277,6 +376,20 @@ impl FilesApp {
         let button = |id, label| Button::new(id, label, ButtonPlateVariant::Regular);
         let mut list = ListView::new(LIST_ID, "Folder contents", ROW_HEIGHT);
         list.multiple = true;
+        let places = places(std::env::var_os("HOME").map(PathBuf::from).as_deref());
+        let mut sidebar = ListView::new(PLACES_ID, "Places", 22);
+        sidebar.set_len(places.len());
+        let mut icon_lookup = IconLookup::from_environment();
+        let scale = platform::scale_from_environment().factor();
+        let mut toolbar_button = |id, label, icon: &str| {
+            let mut button = button(id, label);
+            button.icon = icon_lookup.load(icon, 16, scale);
+            button
+        };
+        let back = toolbar_button(BACK_ID, "Back", "go-previous");
+        let forward = toolbar_button(FORWARD_ID, "Forward", "go-next");
+        let up = toolbar_button(UP_ID, "Enclosing Folder", "go-up");
+        let home = toolbar_button(HOME_ID, "Home", "go-home");
         let mut app = Self {
             window: (WIDTH, HEIGHT),
             state: DirectoryState::new(path.clone()),
@@ -286,16 +399,21 @@ impl FilesApp {
             menu,
             context: Menu::new(CONTEXT_ID, Vec::new()),
             context_commands: Vec::new(),
-            back: button(BACK_ID, "Back"),
-            forward: button(FORWARD_ID, "Forward"),
-            up: button(UP_ID, "Up"),
-            home: button(HOME_ID, "Home"),
+            back,
+            forward,
+            up,
+            home,
             cancel: button(CANCEL_ID, "Cancel"),
             progress: ProgressBar::new(PROGRESS_ID, "Operation progress"),
             location: TextField::new(LOCATION_ID, "Location"),
             list,
+            places,
+            sidebar,
+            icon_lookup,
+            icon_cache: HashMap::new(),
             focus: FocusChain::new(vec![
                 LIST_ID,
+                PLACES_ID,
                 BACK_ID,
                 FORWARD_ID,
                 UP_ID,
@@ -346,13 +464,19 @@ impl FilesApp {
             &mut self.up,
             &mut self.home,
         ] {
+            // Icon buttons are compact; without an icon theme the words show.
+            let width = if button.icon.is_some() {
+                30
+            } else {
+                measure(&button.label, &self.font).width as u32 + 20
+            };
             button.bounds = Rect {
                 x,
-                y: toolbar_y + 7,
-                width: 64,
-                height: 20,
+                y: toolbar_y + 6,
+                width,
+                height: 22,
             };
-            x += 70;
+            x += width as i32 + if button.id == FORWARD_ID { 10 } else { 4 };
         }
         self.location.bounds = Rect {
             x: x + 4,
@@ -360,11 +484,18 @@ impl FilesApp {
             width: width.saturating_sub(x as u32 + 14),
             height: 22,
         };
-        let list_top = toolbar_y + TOOLBAR_HEIGHT + HEADER_HEIGHT;
+        let pane_top = toolbar_y + TOOLBAR_HEIGHT;
+        self.sidebar.set_bounds(Rect {
+            x: 0,
+            y: pane_top,
+            width: SIDEBAR_WIDTH,
+            height: height.saturating_sub(pane_top as u32 + STATUS_HEIGHT),
+        });
+        let list_top = pane_top + HEADER_HEIGHT;
         self.list.set_bounds(Rect {
-            x: 1,
+            x: SIDEBAR_WIDTH as i32 + 1,
             y: list_top,
-            width: width.saturating_sub(2),
+            width: width.saturating_sub(SIDEBAR_WIDTH + 2),
             height: height.saturating_sub(list_top as u32 + STATUS_HEIGHT + 1),
         });
         let status_y = height as i32 - STATUS_HEIGHT as i32;
@@ -388,6 +519,7 @@ impl FilesApp {
     fn sync_focus(&mut self) {
         let focused = self.focus.focused();
         self.list.focused = focused == Some(LIST_ID);
+        self.sidebar.focused = focused == Some(PLACES_ID);
         self.location.focused = focused == Some(LOCATION_ID);
         for button in [
             &mut self.back,
@@ -470,6 +602,16 @@ impl FilesApp {
         self.forward.enabled = self.enabled(Command::Forward);
         self.up.enabled = self.enabled(Command::Up);
         self.home.enabled = true;
+        let here = (!self.in_trash).then(|| self.state.current.clone());
+        match self.places.iter().position(|place| place.path == here) {
+            Some(index)
+                if self.sidebar.cursor() != Some(index) || self.sidebar.selection().len() != 1 =>
+            {
+                self.sidebar.select_only(index)
+            }
+            Some(_) => {}
+            None => self.sidebar.clear_selection(),
+        }
     }
 
     /// Rebuild rows from the model, keeping the selection by path.
@@ -501,6 +643,11 @@ impl FilesApp {
                             .map(|p| p.display().to_string())
                             .unwrap_or_default()
                     ),
+                    icons: if item.file().is_dir() {
+                        vec!["folder".into()]
+                    } else {
+                        file_icons(&mime::guess(&item.original))
+                    },
                     trash: Some(item),
                 })
                 .collect()
@@ -590,6 +737,17 @@ impl FilesApp {
             }
         }
         self.refresh_controls();
+    }
+
+    /// Open sidebar place `index`.
+    fn go_place(&mut self, index: usize) {
+        match self.places.get(index).map(|place| place.path.clone()) {
+            Some(Some(path)) if self.in_trash || path != self.state.current => {
+                self.request(path, Navigation::New)
+            }
+            Some(None) if !self.in_trash => self.go_trash(),
+            _ => {}
+        }
     }
 
     fn go_trash(&mut self) {
@@ -1160,6 +1318,22 @@ impl FilesApp {
                 return self.run(command, control);
             }
         }
+        let names: Vec<String> = self.places.iter().map(|place| place.name.clone()).collect();
+        let place_name = |index: usize| names.get(index).cloned().unwrap_or_default();
+        match self.sidebar.handle(event, control.modifiers(), &place_name) {
+            ListOutcome::FocusRequested => {
+                self.focus.focus(PLACES_ID);
+                self.sync_focus();
+            }
+            // One click (or Up/Down) on a place goes there.
+            ListOutcome::SelectionChanged | ListOutcome::Activated(_) => {
+                if let Some(index) = self.sidebar.cursor() {
+                    self.go_place(index);
+                }
+                return;
+            }
+            _ => {}
+        }
         let rows = &self.rows;
         let label = |index: usize| {
             rows.get(index)
@@ -1233,11 +1407,59 @@ impl FilesApp {
             button.paint(surface, &self.font)?;
         }
         self.location.paint(surface)?;
+        surface.fill_rect(
+            Rect {
+                x: 0,
+                y: self.toolbar_y() + TOOLBAR_HEIGHT - 1,
+                width,
+                height: 1,
+            },
+            colors.bevel_shadow,
+        )?;
+        // Places.
+        let scale = surface.scale().factor();
+        let place_icons: Vec<Option<Image>> = self
+            .places
+            .clone()
+            .iter()
+            .map(|place| self.icon(&[place.icon.to_owned(), "folder".into()], scale))
+            .collect();
+        let places = &self.places;
+        let font = &self.font;
+        let line = measure("Ag", font).height as i32;
+        self.sidebar
+            .paint(surface, |surface, index, rect, selected| {
+                if let Some(Some(icon)) = place_icons.get(index) {
+                    surface.draw_image_scaled(icon, rect.x + 8, rect.y + 3, 16, 16)?;
+                }
+                let ink = if selected {
+                    colors.selection_ink
+                } else {
+                    colors.ink
+                };
+                surface.draw_text(
+                    &places[index].name,
+                    rect.x + 30,
+                    rect.y + (rect.height as i32 - line) / 2,
+                    font,
+                    ink,
+                )
+            })?;
+        surface.fill_rect(
+            Rect {
+                x: SIDEBAR_WIDTH as i32,
+                y: self.sidebar.bounds().y,
+                width: 1,
+                height: self.sidebar.bounds().height,
+            },
+            colors.border,
+        )?;
         // Column header.
+        let list_x = self.list.bounds().x;
         let header = Rect {
-            x: 0,
+            x: list_x,
             y: self.toolbar_y() + TOOLBAR_HEIGHT,
-            width,
+            width: width.saturating_sub(list_x as u32),
             height: HEADER_HEIGHT as u32,
         };
         surface.fill_rect(header, colors.surface)?;
@@ -1255,23 +1477,50 @@ impl FilesApp {
         } else {
             ["Name", "Size", "Modified", "Kind"]
         };
-        for ((x, _), title) in columns.iter().zip(titles) {
-            surface.draw_text(title, x + 4, header.y + 2, &self.font, colors.ink_secondary)?;
+        for (index, ((x, _), title)) in columns.iter().zip(titles).enumerate() {
+            let left = list_x + x + if index == 0 { 26 } else { 4 };
+            surface.draw_text(title, left, header.y + 2, &self.font, colors.ink_secondary)?;
+            if index > 0 {
+                surface.fill_rect(
+                    Rect {
+                        x: list_x + x,
+                        y: header.y + 3,
+                        width: 1,
+                        height: HEADER_HEIGHT as u32 - 6,
+                    },
+                    colors.bevel_shadow,
+                )?;
+            }
         }
+        let visible: Vec<usize> = self.list.visible_rows().collect();
+        let row_icons: HashMap<usize, Option<Image>> = visible
+            .into_iter()
+            .map(|index| {
+                let names = self.rows[index].icons.clone();
+                (index, self.icon(&names, scale))
+            })
+            .collect();
         let rows = &self.rows;
         let font = &self.font;
-        let line = measure("Ag", font).height as i32;
-        self.list.paint(surface, |surface, index, rect, _| {
+        self.list.paint(surface, |surface, index, rect, selected| {
             let row = &rows[index];
             let y = rect.y + (rect.height as i32 - line) / 2;
+            let ink = if selected {
+                colors.selection_ink
+            } else {
+                colors.ink
+            };
             let glyph = Rect {
                 x: rect.x + 6,
                 y: rect.y + 5,
                 width: 12,
                 height: 10,
             };
-            match row.kind {
-                Kind::Directory => {
+            match (row_icons.get(&index), row.kind) {
+                (Some(Some(icon)), _) => {
+                    surface.draw_image_scaled(icon, rect.x + 4, rect.y + 2, 16, 16)?;
+                }
+                (_, Kind::Directory) => {
                     surface.fill_rect(
                         Rect {
                             width: 5,
@@ -1284,7 +1533,7 @@ impl FilesApp {
                     surface.fill_rect(glyph, colors.thumb)?;
                     surface.stroke_rect(glyph, colors.ink)?;
                 }
-                _ => {
+                (_, _) => {
                     let page = Rect {
                         x: glyph.x + 1,
                         y: glyph.y - 2,
@@ -1299,15 +1548,20 @@ impl FilesApp {
                 }
             }
             let cells = [&row.name, &row.size, &row.modified, &row.kind_text];
-            for ((x, w), text) in columns.iter().zip(cells) {
-                let left = if *x == 0 { 24 } else { *x + 4 };
+            for (column, ((x, w), text)) in columns.iter().zip(cells).enumerate() {
+                let left = rect.x + x + if column == 0 { 26 } else { 4 };
                 let cell = Rect {
                     x: left,
                     y: rect.y,
-                    width: w.saturating_sub(if *x == 0 { 28 } else { 8 }),
+                    width: w.saturating_sub(if column == 0 { 30 } else { 8 }),
                     height: rect.height,
                 };
-                surface.with_clip(cell, || surface.draw_text(text, left, y, font, colors.ink))?;
+                let ink = if column == 0 || selected {
+                    ink
+                } else {
+                    colors.ink_secondary
+                };
+                surface.with_clip(cell, || surface.draw_text(text, left, y, font, ink))?;
             }
             Ok(())
         })?;
@@ -1360,6 +1614,23 @@ impl FilesApp {
         }
         self.context.paint(surface)?;
         self.menu.paint_menus(surface)
+    }
+
+    /// The first icon in `names` the theme has, cached per size.
+    fn icon(&mut self, names: &[String], scale: u32) -> Option<Image> {
+        let key = (names.join("|"), scale);
+        if let Some(image) = self.icon_cache.get(&key) {
+            return image.clone();
+        }
+        let image = names
+            .iter()
+            .find_map(|name| self.icon_lookup.load(name, 16, scale));
+        // Bounded: one entry per distinct icon list and scale.
+        if self.icon_cache.len() > 256 {
+            self.icon_cache.clear();
+        }
+        self.icon_cache.insert(key, image.clone());
+        image
     }
 
     /// Column (x, width) for Name, Size, Modified, Kind.
@@ -1425,6 +1696,14 @@ impl App for FilesApp {
             nodes.push((button.id, button.accessibility_node()));
         }
         nodes.push((LOCATION_ID, self.location.accessibility_node()));
+        let places = &self.places;
+        let place_label = |index: usize| {
+            places
+                .get(index)
+                .map(|place| place.name.clone())
+                .unwrap_or_default()
+        };
+        nodes.extend(self.sidebar.accessibility_nodes(&place_label));
         let rows = &self.rows;
         let label = |index: usize| {
             rows.get(index)
@@ -1449,6 +1728,8 @@ impl App for FilesApp {
             node
         } else if self.list.focused {
             self.list.focus_node()
+        } else if self.sidebar.focused {
+            self.sidebar.focus_node()
         } else {
             self.focus.focused().unwrap_or(LIST_ID)
         };
@@ -1582,8 +1863,65 @@ mod tests {
         app.initial_snapshot();
         assert!(app.status.contains("Cannot read folder"));
         let mut control = Control::default();
+        // From the file list, Tab reaches the Places sidebar, then the toolbar.
+        app.event(&key(Key::Tab), &mut control);
+        assert_eq!(app.focus.focused(), Some(PLACES_ID));
+        assert!(app.sidebar.focused && !app.list.focused);
         app.event(&key(Key::Tab), &mut control);
         assert_eq!(app.focus.focused(), Some(BACK_ID));
+    }
+
+    #[test]
+    fn places_list_standard_folders_and_navigate() {
+        let home = tempfile::tempdir().unwrap();
+        std::fs::create_dir(home.path().join("Documents")).unwrap();
+        std::fs::create_dir(home.path().join("Pictures")).unwrap();
+        let names: Vec<String> = places(Some(home.path()))
+            .into_iter()
+            .map(|place| place.name)
+            .collect();
+        assert_eq!(
+            names,
+            ["Home", "Documents", "Pictures", "Computer", "Trash"]
+        );
+        assert_eq!(places(None).len(), 2);
+        assert_eq!(
+            folder_icons(&home.path().join("Pictures"), Some(home.path())),
+            ["folder-pictures", "folder"]
+        );
+        assert_eq!(
+            folder_icons(Path::new("/tmp"), Some(home.path())),
+            ["folder"]
+        );
+        assert_eq!(
+            file_icons("image/png"),
+            ["image-png", "image-x-generic", "text-x-generic"]
+        );
+        assert_eq!(
+            file_icons("application/pdf"),
+            ["application-pdf", "application-x-generic", "text-x-generic"]
+        );
+
+        // Choosing a place goes there, and the sidebar follows navigation.
+        let dir = fixture();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        assert_eq!(app.sidebar.selection(), Vec::<usize>::new());
+        let computer = app
+            .places
+            .iter()
+            .position(|p| p.name == "Computer")
+            .unwrap();
+        let trash = app.places.iter().position(|p| p.name == "Trash").unwrap();
+        app.sidebar.select_only(trash);
+        app.go_place(trash);
+        assert!(app.in_trash);
+        app.go_place(computer);
+        settle(&mut app);
+        assert!(!app.in_trash);
+        assert_eq!(app.state.current, PathBuf::from("/"));
+        app.refresh_controls();
+        assert_eq!(app.sidebar.selection(), vec![computer]);
     }
 
     #[test]
