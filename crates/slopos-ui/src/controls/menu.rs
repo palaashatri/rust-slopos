@@ -13,7 +13,7 @@ use crate::render::{RasterSurface, RenderError};
 use crate::text::{measure, Font};
 use crate::theme::palette;
 
-const ITEM_HEIGHT: u32 = 20;
+pub(crate) const ITEM_HEIGHT: u32 = 20;
 const SEPARATOR_HEIGHT: u32 = 9;
 const PADDING_X: i32 = 18;
 const SHADOW: u32 = 2;
@@ -98,6 +98,8 @@ pub struct Menu {
     pub id: u64,
     pub items: Vec<MenuItem>,
     pub font: Font,
+    /// The narrowest the menu gets (a pop-up's menu is as wide as it).
+    pub min_width: u32,
     open: bool,
     bounds: Rect,
     highlighted: Option<usize>,
@@ -110,6 +112,7 @@ impl Menu {
             id,
             items,
             font: Font::system(12.0),
+            min_width: 120,
             open: false,
             bounds: Rect::default(),
             highlighted: None,
@@ -131,7 +134,7 @@ impl Menu {
 
     /// The menu's natural size.
     pub fn size(&self) -> (u32, u32) {
-        let mut width = 120;
+        let mut width = self.min_width;
         let mut height = 4;
         for item in &self.items {
             if item.separator {
@@ -176,6 +179,15 @@ impl Menu {
     pub fn close(&mut self) {
         self.open = false;
         self.highlighted = None;
+    }
+
+    /// Highlight an item while open (ignored for separators and disabled
+    /// items).
+    pub fn highlight(&mut self, index: Option<usize>) {
+        if self.open {
+            self.highlighted =
+                index.filter(|&i| self.items.get(i).is_some_and(MenuItem::selectable));
+        }
     }
 
     fn item_rects(&self) -> Vec<Rect> {
