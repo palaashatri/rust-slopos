@@ -182,6 +182,48 @@ pub fn wifi_networks(snapshot: &NetworkSnapshot) -> Vec<(String, u8, bool)> {
     networks
 }
 
+/// What joining network `name` needs: its strongest access point.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WifiTarget {
+    pub device: String,
+    pub access_point: String,
+    pub ssid: Vec<u8>,
+    pub secured: bool,
+    /// The active connection when this network is the one in use.
+    pub active_connection: Option<String>,
+}
+
+pub fn wifi_target(snapshot: &NetworkSnapshot, name: &str) -> Option<WifiTarget> {
+    snapshot
+        .devices
+        .iter()
+        .filter(|d| d.kind == NetworkDeviceType::Wifi)
+        .flat_map(|device| device.access_points.iter().map(move |ap| (device, ap)))
+        .filter(|(_, ap)| String::from_utf8_lossy(&ap.ssid) == name)
+        .max_by_key(|(_, ap)| ap.strength)
+        .map(|(device, ap)| {
+            let in_use = snapshot.devices.iter().any(|d| {
+                d.kind == NetworkDeviceType::Wifi
+                    && d.active_access_point.as_ref().is_some_and(|active| {
+                        d.access_points
+                            .iter()
+                            .any(|p| &p.object_path == active && p.ssid == ap.ssid)
+                    })
+            });
+            WifiTarget {
+                device: device.object_path.clone(),
+                access_point: ap.object_path.clone(),
+                ssid: ap.ssid.clone(),
+                secured: ap.wpa_flags != 0 || ap.rsn_flags != 0,
+                active_connection: if in_use {
+                    device.active_connection.clone()
+                } else {
+                    None
+                },
+            }
+        })
+}
+
 pub fn bluetooth_lines(snapshot: &BluetoothSnapshot) -> Vec<String> {
     if snapshot.adapters.is_empty() {
         return vec!["No Bluetooth adapter was found.".to_owned()];
@@ -399,6 +441,28 @@ mod tests {
                 ("Cafe".to_owned(), 55, false)
             ]
         );
+        // Joining uses the strongest access point; nothing is in use yet.
+        let home = wifi_target(&snapshot, "Home").unwrap();
+        assert_eq!((home.access_point.as_str(), home.secured), ("/a/2", true));
+        assert_eq!(home.device, "/d/1");
+        assert_eq!(home.active_connection, None);
+        assert!(!wifi_target(&snapshot, "Cafe").unwrap().secured);
+        assert!(wifi_target(&snapshot, "Elsewhere").is_none());
+        snapshot.devices[0].active_access_point = Some("/a/1".into());
+        snapshot.devices[0].active_connection = Some("/ac/9".into());
+        assert_eq!(
+            wifi_target(&snapshot, "Home")
+                .unwrap()
+                .active_connection
+                .as_deref(),
+            Some("/ac/9")
+        );
+        assert_eq!(
+            wifi_target(&snapshot, "Cafe").unwrap().active_connection,
+            None
+        );
+        snapshot.devices[0].active_access_point = None;
+        snapshot.devices[0].active_connection = None;
         snapshot.active_connections.push(ActiveNetworkConnection {
             object_path: "/c/1".into(),
             id: "Wired connection 1".into(),

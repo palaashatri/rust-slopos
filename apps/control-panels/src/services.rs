@@ -22,6 +22,8 @@ pub enum Update {
     Brightness(State<BrightnessSnapshot>),
     Bluetooth(State<BluetoothSnapshot>),
     Time(State<TimedateSnapshot>),
+    /// Names of the saved Wi-Fi profiles (joined without a password).
+    SavedWifi(Vec<String>),
     /// A change the user asked for failed.
     Failed(String),
 }
@@ -31,6 +33,12 @@ pub enum Command {
     SetNetworking(bool),
     SetWifi(bool),
     ScanWifi(String),
+    /// Join (device, access point, SSID, password for a new secured network).
+    JoinWifi(String, String, Vec<u8>, Option<String>),
+    /// Disconnect an active connection.
+    Disconnect(String),
+    /// Forget the saved Wi-Fi profile with this name.
+    ForgetWifi(String),
     SetOutputVolume(String, u32),
     SetOutputMuted(String, bool),
     SetInputVolume(String, u32),
@@ -114,6 +122,7 @@ async fn run(
             send(Update::Network(
                 client.snapshot().await.map_err(|e| unavailable!(e)),
             ));
+            send(Update::SavedWifi(saved_wifi(client).await));
             network_events = Some(client.watch());
         }
         Err(error) => send(Update::Network(Err(unavailable!(error)))),
@@ -155,7 +164,12 @@ async fn run(
 
     loop {
         tokio::select! {
-            Some(result) = next_or_pending!(network_events) => send(Update::Network(result.map_err(|e| unavailable!(e)))),
+            Some(result) = next_or_pending!(network_events) => {
+                send(Update::Network(result.map_err(|e| unavailable!(e))));
+                if let Ok(client) = &network {
+                    send(Update::SavedWifi(saved_wifi(client).await));
+                }
+            }
             Some(result) = next_or_pending!(audio_events) => send(Update::Audio(result.map_err(|e| unavailable!(e)))),
             Some(result) = next_or_pending!(bluetooth_events) => send(Update::Bluetooth(result.map_err(|e| unavailable!(e)))),
             Some(result) = next_or_pending!(timedate_events) => send(Update::Time(result.map_err(|e| unavailable!(e)))),
@@ -173,6 +187,27 @@ async fn run(
                     },
                     Command::ScanWifi(device) => match &network {
                         Ok(client) => client.request_wifi_scan(&device).await.map(|()| None).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::JoinWifi(device, access_point, ssid, password) => match &network {
+                        Ok(client) => client.join_wifi(&device, &access_point, &ssid, password.as_deref()).await.map(|()| None).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::Disconnect(active) => match &network {
+                        Ok(client) => client.deactivate_connection(&active).await.map(|s| Some(Update::Network(Ok(s)))).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::ForgetWifi(name) => match &network {
+                        Ok(client) => match client.saved_connections().await {
+                            Ok(profiles) => match profiles.into_iter().find(|p| p.connection_type == "802-11-wireless" && p.id == name) {
+                                Some(profile) => match client.forget_connection(&profile.object_path).await {
+                                    Ok(()) => Ok(Some(Update::SavedWifi(saved_wifi(client).await))),
+                                    Err(e) => Err(e.to_string()),
+                                },
+                                None => Err(format!("no saved network is called {name}")),
+                            },
+                            Err(e) => Err(e.to_string()),
+                        },
                         Err(e) => Err(e.to_string()),
                     },
                     Command::SetOutputVolume(device, percent) => match &audio {
@@ -213,6 +248,21 @@ async fn run(
             }
         }
     }
+}
+
+/// Saved Wi-Fi profile names; empty when they cannot be read.
+async fn saved_wifi(client: &NetworkManagerClient) -> Vec<String> {
+    client
+        .saved_connections()
+        .await
+        .map(|profiles| {
+            profiles
+                .into_iter()
+                .filter(|p| p.connection_type == "802-11-wireless")
+                .map(|p| p.id)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 #[cfg(test)]

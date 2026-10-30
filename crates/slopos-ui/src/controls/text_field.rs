@@ -16,6 +16,8 @@ use crate::event::{Event, Key, Modifiers, PointerButton};
 use crate::foundation::geometry::Rect;
 use crate::render::{RasterSurface, RenderError};
 use crate::text::{caret_stops, hit_test, measure, Font};
+
+const BULLET: &str = "•";
 use crate::theme::palette;
 
 /// Horizontal padding between the border and the text.
@@ -56,6 +58,9 @@ pub struct TextField {
     pub placeholder: String,
     /// Maximum number of chars; longer input is truncated.
     pub max_chars: usize,
+    /// A password: drawn as bullets, never copied or cut to the clipboard,
+    /// and its value is not exposed to assistive technology.
+    pub secret: bool,
     pub font: Font,
     text: String,
     caret: usize,
@@ -80,6 +85,7 @@ impl TextField {
             label: label.to_owned(),
             placeholder: String::new(),
             max_chars: 4096,
+            secret: false,
             font: Font::system(12.0),
             text: String::new(),
             caret: 0,
@@ -199,6 +205,7 @@ impl TextField {
                         self.select_all();
                         TextFieldOutcome::Changed
                     }
+                    'c' | 'x' if self.secret => TextFieldOutcome::Ignored,
                     'c' => match self.selected_text() {
                         Some(text) => TextFieldOutcome::Copy(text.to_owned()),
                         None => TextFieldOutcome::Ignored,
@@ -345,7 +352,40 @@ impl TextField {
     }
 
     fn index_at(&self, x: i32) -> usize {
+        if self.secret {
+            let stops = self.stops();
+            let target = x as f32 - self.text_left();
+            return stops
+                .iter()
+                .min_by(|a, b| (a.1 - target).abs().total_cmp(&(b.1 - target).abs()))
+                .map_or(0, |stop| stop.0);
+        }
         hit_test(&self.text, &self.font, x as f32 - self.text_left())
+    }
+
+    /// Caret positions: shaped text, or one bullet width per char.
+    fn stops(&self) -> Vec<(usize, f32)> {
+        if !self.secret {
+            return caret_stops(&self.text, &self.font);
+        }
+        let bullet = measure(BULLET, &self.font).width;
+        let mut stops: Vec<(usize, f32)> = self
+            .text
+            .char_indices()
+            .enumerate()
+            .map(|(n, (index, _))| (index, n as f32 * bullet))
+            .collect();
+        stops.push((self.text.len(), self.text.chars().count() as f32 * bullet));
+        stops
+    }
+
+    /// What is drawn: the text, or a bullet per char.
+    fn shown(&self) -> String {
+        if self.secret {
+            BULLET.repeat(self.text.chars().count())
+        } else {
+            self.text.clone()
+        }
     }
 
     /// Keep the caret visible by scrolling the text horizontally.
@@ -382,7 +422,7 @@ impl TextField {
             // Classic keyboard focus: a second, darker inner border.
             surface.stroke_rect(inset(bounds, 1), colors.focus)?;
         }
-        let stops = caret_stops(&self.text, &self.font);
+        let stops = self.stops();
         self.scroll_to_caret(&stops);
         let line_height = measure("Ag", &self.font).height as i32;
         let text_y = bounds.y + (bounds.height as i32 - line_height) / 2;
@@ -425,7 +465,7 @@ impl TextField {
                 } else {
                     colors.ink_disabled
                 };
-                surface.draw_text(&self.text, left.round() as i32, text_y, &self.font, ink)?;
+                surface.draw_text(&self.shown(), left.round() as i32, text_y, &self.font, ink)?;
             }
             if self.focused && self.enabled && self.selection().is_none() {
                 let x = (left + x_of(self.caret)).round() as i32;
@@ -444,9 +484,15 @@ impl TextField {
     }
 
     pub fn accessibility_node(&self) -> accesskit::Node {
-        let mut node = accesskit::Node::new(accesskit::Role::TextInput);
+        let mut node = accesskit::Node::new(if self.secret {
+            accesskit::Role::PasswordInput
+        } else {
+            accesskit::Role::TextInput
+        });
         node.set_label(self.label.as_str());
-        node.set_value(self.text.as_str());
+        if !self.secret {
+            node.set_value(self.text.as_str());
+        }
         if !self.placeholder.is_empty() {
             node.set_placeholder(self.placeholder.as_str());
         }
@@ -678,5 +724,38 @@ mod tests {
         assert_eq!(node.role(), accesskit::Role::TextInput);
         assert_eq!(node.value(), Some("report.txt"));
         assert!(node.supports_action(accesskit::Action::SetValue));
+    }
+
+    #[test]
+    fn secret_fields_mask_and_never_copy() {
+        use crate::foundation::geometry::Scale;
+        let mut field = TextField::new(9, "Password");
+        field.secret = true;
+        field.focused = true;
+        field.set_text("hunter2");
+        field.select_all();
+        let ctrl = |c| Event::KeyPressed {
+            key: Key::Character(c),
+            modifiers: crate::event::Modifiers {
+                control: true,
+                ..Default::default()
+            },
+        };
+        assert_eq!(field.handle(&ctrl('c')), TextFieldOutcome::Ignored);
+        assert_eq!(field.handle(&ctrl('x')), TextFieldOutcome::Ignored);
+        assert_eq!(field.text(), "hunter2");
+        let node = field.accessibility_node();
+        assert_eq!(node.role(), accesskit::Role::PasswordInput);
+        assert_eq!(node.value(), None);
+        assert_eq!(field.shown(), "•••••••");
+        assert_eq!(field.stops().len(), 8);
+        let surface = RasterSurface::new(200, 30, Scale::new(1).unwrap()).unwrap();
+        field.bounds = Rect {
+            x: 0,
+            y: 0,
+            width: 200,
+            height: 22,
+        };
+        field.paint(&surface).unwrap();
     }
 }
