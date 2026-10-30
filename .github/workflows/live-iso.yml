@@ -7,6 +7,21 @@ on:
   workflow_dispatch:
   push:
     tags: ["v*"]
+  # arm64 images are built here, on native runners, rather than under slow
+  # local emulation; pull requests that change what goes into the image get
+  # both ISOs and the amd64 boot test.
+  pull_request:
+    paths:
+      - "apps/**"
+      - "crates/**"
+      - "assets/**"
+      - "themes/**"
+      - "packaging/**"
+      - "scripts/start-slopos-i"
+      - "scripts/slopos-appearance"
+      - "install.sh"
+      - "Cargo.lock"
+      - ".github/workflows/live-iso.yml"
   schedule:
     - cron: "43 4 * * 3"
 
