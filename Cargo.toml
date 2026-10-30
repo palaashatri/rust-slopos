@@ -13,6 +13,7 @@ members = [
     "crates/slopos-dock",
     "apps/calculator",
     "apps/image-viewer",
+    "apps/software",
     "apps/files",
 ]
 
@@ -49,3 +50,4 @@ sha2 = "0.10"
 hex = "0.4"
 tempfile = "3"
 reqwest = { version = "0.12", features = ["blocking", "json"] }
+ed25519-dalek = "2"
