@@ -16,6 +16,7 @@ use slopos_ui::accessibility::window_tree;
 use slopos_ui::controls::button::{Button, ButtonOutcome};
 use slopos_ui::controls::file_chooser::{ChooserOutcome, FileChooser};
 use slopos_ui::controls::focus::FocusChain;
+use slopos_ui::controls::menu::{MenuBar, MenuBarOutcome, MenuItem};
 use slopos_ui::controls::range::{Checkbox, Slider, ToggleOutcome, ValueOutcome};
 use slopos_ui::event::{AccessibilityRequest, Event, Key};
 use slopos_ui::foundation::{color::Color, geometry::Rect};
@@ -39,6 +40,47 @@ const SUBTITLES_ID: u64 = 15;
 const STATUS_ID: u64 = 2;
 const VIDEO_ID: u64 = 3;
 const CHOOSER_ID: u64 = 300;
+const MENU_ID: u64 = 100;
+
+/// Playback menu items, by position.
+const PLAY_ITEM: usize = 0;
+const BACK_ITEM: usize = 2;
+const FORWARD_ITEM: usize = 3;
+const LOUDER_ITEM: usize = 5;
+const QUIETER_ITEM: usize = 6;
+const MUTE_ITEM: usize = 7;
+const SUBTITLES_ITEM: usize = 9;
+
+fn menu_bar() -> MenuBar {
+    MenuBar::new(
+        MENU_ID,
+        vec![
+            (
+                "File",
+                vec![
+                    MenuItem::new("Open…").shortcut("Ctrl+O"),
+                    MenuItem::separator(),
+                    MenuItem::new("Close Window").shortcut("Ctrl+W"),
+                ],
+            ),
+            (
+                "Playback",
+                vec![
+                    MenuItem::new("Play").shortcut("Space"),
+                    MenuItem::separator(),
+                    MenuItem::new("Back 5 Seconds").shortcut("Left"),
+                    MenuItem::new("Forward 5 Seconds").shortcut("Right"),
+                    MenuItem::separator(),
+                    MenuItem::new("Volume Up").shortcut("Up"),
+                    MenuItem::new("Volume Down").shortcut("Down"),
+                    MenuItem::new("Mute").shortcut("M").checkable(),
+                    MenuItem::separator(),
+                    MenuItem::new("Show Subtitles").checkable(),
+                ],
+            ),
+        ],
+    )
+}
 const SCREEN: Color = Color {
     red: 0,
     green: 0,
@@ -85,6 +127,7 @@ pub struct MediaApp {
     subtitles: Checkbox,
     focus: FocusChain,
     chooser: Option<FileChooser>,
+    menu: MenuBar,
     ticking: bool,
     status: String,
     font: Font,
@@ -118,6 +161,7 @@ impl MediaApp {
                 SUBTITLES_ID,
             ]),
             chooser: None,
+            menu: menu_bar(),
             ticking: false,
             status: "Choose Open… to play a video or audio file.".into(),
             font: Font::system(12.0),
@@ -134,16 +178,23 @@ impl MediaApp {
     }
 
     fn video_area(&self) -> Rect {
+        let top = self.menu.height();
         Rect {
             x: 0,
-            y: 0,
+            y: top as i32,
             width: self.window.0,
-            height: self.window.1.saturating_sub(CONTROLS_HEIGHT),
+            height: self.window.1.saturating_sub(CONTROLS_HEIGHT + top),
         }
     }
 
     fn layout(&mut self) {
         let (width, height) = self.window;
+        self.menu.bounds = Rect {
+            x: 0,
+            y: 0,
+            width,
+            height: self.menu.height(),
+        };
         let top = height as i32 - CONTROLS_HEIGHT as i32;
         self.seek.bounds = Rect {
             x: 60,
@@ -207,6 +258,40 @@ impl MediaApp {
         }
         if !self.seek.dragging() {
             self.seek.set_value(self.position.as_secs_f64());
+        }
+        let playing = self.state == PlaybackState::Playing;
+        let muted = self.player.as_ref().is_some_and(Player::muted);
+        let playback = &mut self.menu.menus[1].items;
+        playback[PLAY_ITEM].label = if playing { "Pause" } else { "Play" }.into();
+        playback[PLAY_ITEM].enabled = loaded;
+        for item in [BACK_ITEM, FORWARD_ITEM] {
+            playback[item].enabled = self.seek.enabled;
+        }
+        for item in [LOUDER_ITEM, QUIETER_ITEM, MUTE_ITEM] {
+            playback[item].enabled = self.volume.enabled;
+        }
+        playback[MUTE_ITEM].checked = muted;
+        playback[SUBTITLES_ITEM].enabled = self.subtitles.enabled;
+        playback[SUBTITLES_ITEM].checked = self.subtitles.enabled && self.subtitles.checked;
+    }
+
+    fn menu_command(&mut self, menu: usize, item: usize, control: &mut Control) {
+        match (menu, item) {
+            (0, 0) => self.open_chooser(),
+            (0, 2) => control.quit(),
+            (1, PLAY_ITEM) => self.toggle_play(control),
+            (1, BACK_ITEM) => self.seek_by(-5.0),
+            (1, FORWARD_ITEM) => self.seek_by(5.0),
+            (1, LOUDER_ITEM) => self.set_volume(self.volume.value() + 5.0),
+            (1, QUIETER_ITEM) => self.set_volume(self.volume.value() - 5.0),
+            (1, MUTE_ITEM) => self.toggle_mute(),
+            (1, SUBTITLES_ITEM) => {
+                self.subtitles.checked = !self.subtitles.checked;
+                if let Some(player) = &self.player {
+                    player.set_subtitles_visible(self.subtitles.checked);
+                }
+            }
+            _ => {}
         }
     }
 
@@ -373,6 +458,11 @@ impl MediaApp {
             }
             return;
         }
+        match self.menu.handle(event, self.window) {
+            MenuBarOutcome::Chosen { menu, item } => return self.menu_command(menu, item, control),
+            MenuBarOutcome::Changed => return,
+            MenuBarOutcome::Ignored => {}
+        }
         if self.focus.handle(event).is_some() {
             self.sync_focus();
             return;
@@ -489,13 +579,13 @@ impl MediaApp {
             surface.draw_text(
                 text,
                 (width as i32 - tw) / 2,
-                area.height as i32 / 2 - 30,
+                area.y + area.height as i32 / 2 - 30,
                 &big,
                 Color::WHITE,
             )?;
         }
         // Status text over the bottom of the video area.
-        let status_y = area.height as i32 - 22;
+        let status_y = area.y + area.height as i32 - 22;
         surface.with_clip(
             Rect {
                 x: 8,
@@ -528,6 +618,8 @@ impl MediaApp {
         self.mute.paint(surface, &self.font)?;
         self.volume.paint(surface)?;
         self.subtitles.paint(surface)?;
+        self.menu.paint(surface)?;
+        self.menu.paint_menus(surface)?;
         if let Some(chooser) = &mut self.chooser {
             chooser.paint(surface)?;
         }
@@ -547,6 +639,11 @@ impl App for MediaApp {
             Event::CloseRequested => return control.quit(),
             Event::Resized { width, height } => {
                 self.window = (*width, *height);
+                self.layout();
+            }
+            // Applied even under the chooser: the bar's height changes the layout.
+            Event::GlobalMenu(_) => {
+                self.menu.handle(event, self.window);
                 self.layout();
             }
             Event::Wake => {
@@ -582,8 +679,13 @@ impl App for MediaApp {
         }
     }
 
+    fn menu_bar(&self) -> Option<&MenuBar> {
+        Some(&self.menu)
+    }
+
     fn accessibility(&self) -> Option<accesskit::TreeUpdate> {
-        let mut nodes = vec![
+        let mut nodes = self.menu.accessibility_nodes();
+        nodes.extend([
             (OPEN_ID, self.open.accessibility_node()),
             (PLAY_ID, self.play.accessibility_node()),
             (SEEK_ID, {
@@ -600,7 +702,7 @@ impl App for MediaApp {
             (MUTE_ID, self.mute.accessibility_node()),
             (VOLUME_ID, self.volume.accessibility_node()),
             (SUBTITLES_ID, self.subtitles.accessibility_node()),
-        ];
+        ]);
         let mut video = accesskit::Node::new(accesskit::Role::Video);
         video.set_label(
             self.path
@@ -617,7 +719,7 @@ impl App for MediaApp {
                 nodes.extend(chooser.accessibility_nodes());
                 Some(chooser.focus_node())
             }
-            None => self.focus.focused(),
+            None => self.menu.focus_node().or(self.focus.focused()),
         };
         Some(window_tree("Media", nodes, focus))
     }
@@ -722,5 +824,35 @@ mod tests {
         assert_eq!(format_time(Duration::from_secs(5)), "0:05");
         assert_eq!(format_time(Duration::from_secs(125)), "2:05");
         assert_eq!(format_time(Duration::from_secs(3725)), "1:02:05");
+    }
+
+    #[test]
+    fn playback_menu_follows_the_player_and_moves_to_the_global_bar() {
+        let mut app = MediaApp::new(None, Arc::new(Mutex::new(None)));
+        let mut control = Control::default();
+        let playback = &app.menu.menus[1].items;
+        // Nothing loaded: every playback command is disabled.
+        assert!(!playback[PLAY_ITEM].enabled && !playback[MUTE_ITEM].enabled);
+        assert!(playback[MUTE_ITEM].checkable && playback[SUBTITLES_ITEM].checkable);
+        assert_eq!(
+            app.menu.handle(
+                &Event::MenuChosen {
+                    menu: 1,
+                    item: PLAY_ITEM
+                },
+                app.window
+            ),
+            MenuBarOutcome::Ignored
+        );
+        assert_eq!(app.video_area().y, 20);
+        app.event(&Event::GlobalMenu(true), &mut control);
+        assert_eq!(app.video_area().y, 0);
+        assert_eq!(app.video_area().height, HEIGHT - CONTROLS_HEIGHT);
+        // File > Open… from the global bar opens the chooser.
+        app.event(&Event::MenuChosen { menu: 0, item: 0 }, &mut control);
+        assert!(app.chooser.is_some());
+        app.event(&key(Key::Escape), &mut control);
+        app.event(&Event::MenuChosen { menu: 0, item: 2 }, &mut control);
+        assert!(control.quit_requested());
     }
 }
