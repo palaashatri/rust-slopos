@@ -18,9 +18,48 @@ pub struct DesktopApp {
     pub terminal: bool,
     /// `StartupWMClass`, used to match windows to their application.
     pub startup_wm_class: String,
+    /// `MimeType` entries: the content types the application opens.
+    pub mime_types: Vec<String>,
+    /// The raw `Exec` value, for expanding file field codes.
+    pub exec: String,
 }
 
 impl DesktopApp {
+    /// The command line that opens `files` with this application, following
+    /// the `Exec` field codes: `%f`/`%u` take the first file, `%F`/`%U` all of
+    /// them. Without a file field code the files are appended. No shell is
+    /// involved, so names with spaces or quotes stay single arguments.
+    pub fn command_for(&self, files: &[&Path]) -> Option<Vec<String>> {
+        let names: Vec<String> = files
+            .iter()
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect();
+        let mut used = false;
+        let mut argv = Vec::new();
+        for token in tokenize_exec(&self.exec)? {
+            match token.as_str() {
+                "%f" | "%u" => {
+                    used = true;
+                    argv.extend(names.first().cloned());
+                }
+                "%F" | "%U" => {
+                    used = true;
+                    argv.extend(names.iter().cloned());
+                }
+                _ => {
+                    let expanded = expand_field_codes(&token)?;
+                    if !expanded.is_empty() {
+                        argv.push(expanded);
+                    }
+                }
+            }
+        }
+        if !used {
+            argv.extend(names);
+        }
+        (!argv.is_empty()).then_some(argv)
+    }
+
     /// Whether an X11 window with this `WM_CLASS` (instance, class) belongs
     /// to the application.
     pub fn matches_wm_class(&self, instance: &str, class: &str) -> bool {
@@ -146,6 +185,7 @@ pub fn parse_desktop_entry(content: &str, id: &str) -> Option<DesktopApp> {
     let mut hidden = false;
     let mut terminal = false;
     let mut startup_wm_class = String::new();
+    let mut mime_types = Vec::new();
 
     for raw_line in content.lines() {
         let line = raw_line.trim();
@@ -179,6 +219,14 @@ pub fn parse_desktop_entry(content: &str, id: &str) -> Option<DesktopApp> {
             "Hidden" => hidden = value.eq_ignore_ascii_case("true"),
             "Terminal" => terminal = value.eq_ignore_ascii_case("true"),
             "StartupWMClass" if startup_wm_class.is_empty() => startup_wm_class = value.to_string(),
+            "MimeType" if mime_types.is_empty() => {
+                mime_types = value
+                    .split(';')
+                    .map(str::trim)
+                    .filter(|mime| !mime.is_empty())
+                    .map(str::to_owned)
+                    .collect();
+            }
             _ => {}
         }
     }
@@ -206,6 +254,8 @@ pub fn parse_desktop_entry(content: &str, id: &str) -> Option<DesktopApp> {
         comment,
         terminal,
         startup_wm_class,
+        mime_types,
+        exec,
     })
 }
 
@@ -224,6 +274,18 @@ fn desktop_visibility_allows(only_show_in: &str, not_show_in: &str) -> bool {
 /// Field codes requiring a selected file/URL are omitted because Search starts
 /// applications without an associated document.
 fn parse_exec_argv(exec: &str) -> Option<Vec<String>> {
+    let mut args = Vec::new();
+    for token in tokenize_exec(exec)? {
+        let expanded = expand_field_codes(&token)?;
+        if !expanded.is_empty() {
+            args.push(expanded);
+        }
+    }
+    Some(args)
+}
+
+/// Split `Exec` into unexpanded tokens (quotes and escapes resolved).
+fn tokenize_exec(exec: &str) -> Option<Vec<String>> {
     let mut args = Vec::new();
     let mut current = String::new();
     let mut chars = exec.chars().peekable();
@@ -248,13 +310,8 @@ fn parse_exec_argv(exec: &str) -> Option<Vec<String>> {
 }
 
 fn push_exec_token(args: &mut Vec<String>, current: &mut String) -> Option<()> {
-    if current.is_empty() {
-        return Some(());
-    }
-    let expanded = expand_field_codes(current)?;
-    current.clear();
-    if !expanded.is_empty() {
-        args.push(expanded);
+    if !current.is_empty() {
+        args.push(std::mem::take(current));
     }
     Some(())
 }
