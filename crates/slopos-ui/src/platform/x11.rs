@@ -21,8 +21,11 @@ use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
 
 use super::global_menu::Message as MenuMessage;
-use super::keys::{key_for, keysym_for, modifiers};
-use super::{scale_from_environment, App, Control, Edge, WindowKind, WindowOptions};
+use super::keys::{grab_masks, key_for, keycodes_for, keysym_for, modifier_mask, modifiers};
+use super::{
+    place_popup, scale_from_environment, App, Control, Edge, PopupRequest, WindowKind,
+    WindowOptions,
+};
 use crate::event::{AccessibilityRequest, Event, PointerButton};
 use crate::render::RasterSurface;
 
@@ -36,6 +39,8 @@ x11rb::atom_manager! {
         _NET_WM_WINDOW_TYPE,
         _NET_WM_WINDOW_TYPE_NORMAL,
         _NET_WM_WINDOW_TYPE_DOCK,
+        _NET_WM_WINDOW_TYPE_POPUP_MENU,
+        _NET_WM_WINDOW_TYPE_NOTIFICATION,
         _NET_WM_STRUT,
         _NET_WM_STRUT_PARTIAL,
         CLIPBOARD,
@@ -256,6 +261,13 @@ pub fn run<A: App>(
     let min_keycode = conn.setup().min_keycode;
     let max_keycode = conn.setup().max_keycode;
     let mut keymap = Keymap::read(&conn, min_keycode, max_keycode)?;
+    grab_global_keys(
+        &conn,
+        screen.root,
+        &keymap,
+        min_keycode,
+        &options.global_keys,
+    )?;
 
     conn.map_window(window)?;
     if let Some((x, y)) = options.position {
@@ -281,6 +293,7 @@ pub fn run<A: App>(
     let mut clipboard: Option<String> = None;
     let max_request = conn.maximum_request_bytes();
     let mut frame = Vec::new();
+    let mut popups: Vec<Popup> = Vec::new();
 
     let mut control = Control {
         scale: Some(scale),
@@ -346,6 +359,12 @@ pub fn run<A: App>(
         );
         if control.redraw {
             needs_paint = true;
+            for popup in &mut popups {
+                popup.needs_paint = true;
+            }
+        }
+        for request in std::mem::take(&mut control.popups) {
+            apply_popup(&conn, &screen, window, &atoms, scale, &mut popups, request)?;
         }
         if control.accessibility_changed {
             accessibility.update(&app, &options.title);
@@ -392,6 +411,21 @@ pub fn run<A: App>(
                 &mut frame,
             )?;
         }
+        for popup in &mut popups {
+            if std::mem::take(&mut popup.needs_paint) {
+                app.paint_popup(popup.id, &popup.surface);
+                present(
+                    &conn,
+                    popup.window,
+                    gc,
+                    &popup.surface,
+                    screen.root_depth,
+                    lsb_first,
+                    max_request,
+                    &mut frame,
+                )?;
+            }
+        }
         conn.flush()?;
 
         // Handle everything already queued before blocking.
@@ -402,7 +436,46 @@ pub fn run<A: App>(
                 // Layout switches and tools like xdotool remap keycodes at
                 // run time; stale keysyms would drop or garble typed text.
                 keymap = Keymap::read(&conn, min_keycode, max_keycode)?;
+                conn.ungrab_key(
+                    x11rb::protocol::xproto::Grab::ANY,
+                    screen.root,
+                    x11rb::protocol::xproto::ModMask::ANY,
+                )?;
+                grab_global_keys(
+                    &conn,
+                    screen.root,
+                    &keymap,
+                    min_keycode,
+                    &options.global_keys,
+                )?;
                 continue;
+            }
+            // Global shortcuts arrive on the root window we grabbed them on.
+            if let XEvent::KeyPress(press) = &event {
+                if press.event == screen.root {
+                    let row_start =
+                        usize::from(press.detail.saturating_sub(min_keycode)) * keymap.per_keycode;
+                    let row = keymap
+                        .keysyms
+                        .get(row_start..row_start + keymap.per_keycode)
+                        .unwrap_or(&[]);
+                    let state = u16::from(press.state);
+                    let pressed = modifiers(state);
+                    if let Some((keysym, _)) = options
+                        .global_keys
+                        .iter()
+                        .find(|(keysym, wanted)| *wanted == pressed && row.contains(keysym))
+                    {
+                        app.event(
+                            &Event::GlobalKey {
+                                keysym: *keysym,
+                                modifiers: pressed,
+                            },
+                            &mut control,
+                        );
+                    }
+                    continue;
+                }
             }
             let state = match &event {
                 XEvent::ButtonPress(e) => Some(u16::from(e.state)),
@@ -431,8 +504,37 @@ pub fn run<A: App>(
                 keymap.num_lock,
                 &atoms,
             );
+            // Popup windows get their exposes and input; nothing else.
+            if let Some(popup) = event_window(&event)
+                .and_then(|target| popups.iter_mut().find(|popup| popup.window == target))
+            {
+                match (&event, translated) {
+                    (XEvent::Expose(expose), _) if expose.count == 0 => popup.needs_paint = true,
+                    (
+                        XEvent::ButtonPress(_)
+                        | XEvent::ButtonRelease(_)
+                        | XEvent::MotionNotify(_)
+                        | XEvent::KeyPress(_)
+                        | XEvent::LeaveNotify(_),
+                        Some(input),
+                    ) => {
+                        let id = popup.id;
+                        app.event(
+                            &Event::Popup {
+                                id,
+                                event: Box::new(input),
+                            },
+                            &mut control,
+                        );
+                    }
+                    _ => {}
+                }
+                continue;
+            }
             match event {
-                XEvent::Expose(expose) if expose.count == 0 => needs_paint = true,
+                XEvent::Expose(expose) if expose.count == 0 && expose.window == window => {
+                    needs_paint = true
+                }
                 XEvent::ConfigureNotify(configure) if configure.window == window => {
                     let size = (
                         (u32::from(configure.width) / factor).max(1),
@@ -529,8 +631,201 @@ pub fn run<A: App>(
         }
     }
 
+    for popup in popups.drain(..) {
+        conn.destroy_window(popup.window)?;
+    }
     conn.destroy_window(window)?;
     conn.flush()?;
+    Ok(())
+}
+
+/// Grab each global shortcut on the root window under every lock state.
+fn grab_global_keys(
+    conn: &RustConnection,
+    root: u32,
+    keymap: &Keymap,
+    min_keycode: u8,
+    keys: &[(u32, crate::event::Modifiers)],
+) -> Result<(), PlatformError> {
+    for (keysym, wanted) in keys {
+        let base = modifier_mask(*wanted);
+        for keycode in keycodes_for(*keysym, &keymap.keysyms, keymap.per_keycode, min_keycode) {
+            for mask in grab_masks(base, keymap.num_lock) {
+                let grabbed = conn
+                    .grab_key(
+                        true,
+                        root,
+                        x11rb::protocol::xproto::ModMask::from(mask),
+                        keycode,
+                        x11rb::protocol::xproto::GrabMode::ASYNC,
+                        x11rb::protocol::xproto::GrabMode::ASYNC,
+                    )?
+                    .check();
+                if let Err(error) = grabbed {
+                    log::warn!("global shortcut {keysym:#x} (mask {base:#x}) is taken: {error}");
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// A popup window (menu, popover or toast) owned by the app window.
+struct Popup {
+    id: u64,
+    window: u32,
+    grab: bool,
+    surface: RasterSurface,
+    needs_paint: bool,
+}
+
+/// The window an input or expose event is addressed to.
+fn event_window(event: &XEvent) -> Option<u32> {
+    Some(match event {
+        XEvent::Expose(e) => e.window,
+        XEvent::ButtonPress(e) => e.event,
+        XEvent::ButtonRelease(e) => e.event,
+        XEvent::MotionNotify(e) => e.event,
+        XEvent::KeyPress(e) => e.event,
+        XEvent::LeaveNotify(e) => e.event,
+        XEvent::ConfigureNotify(e) => e.window,
+        _ => return None,
+    })
+}
+
+/// Open, move or close a popup window as the app asked.
+fn apply_popup(
+    conn: &RustConnection,
+    screen: &x11rb::protocol::xproto::Screen,
+    parent: u32,
+    atoms: &Atoms,
+    scale: crate::foundation::geometry::Scale,
+    popups: &mut Vec<Popup>,
+    request: PopupRequest,
+) -> Result<(), PlatformError> {
+    let factor = scale.factor();
+    match request {
+        PopupRequest::Close { id } => {
+            if let Some(index) = popups.iter().position(|popup| popup.id == id) {
+                let popup = popups.remove(index);
+                conn.destroy_window(popup.window)?;
+                if popup.grab && !popups.iter().any(|other| other.grab) {
+                    conn.ungrab_pointer(x11rb::CURRENT_TIME)?;
+                    conn.ungrab_keyboard(x11rb::CURRENT_TIME)?;
+                }
+            }
+        }
+        PopupRequest::Open { id, rect, grab } => {
+            let origin = conn
+                .translate_coordinates(parent, screen.root, 0, 0)?
+                .reply()
+                .map(|reply| (i32::from(reply.dst_x), i32::from(reply.dst_y)))
+                .unwrap_or((0, 0));
+            let screen_size = (
+                u32::from(screen.width_in_pixels),
+                u32::from(screen.height_in_pixels),
+            );
+            let placed = place_popup(origin, rect, factor, screen_size);
+            let logical = (
+                (placed.width / factor).max(1),
+                (placed.height / factor).max(1),
+            );
+            if let Some(popup) = popups.iter_mut().find(|popup| popup.id == id) {
+                conn.configure_window(
+                    popup.window,
+                    &ConfigureWindowAux::new()
+                        .x(placed.x)
+                        .y(placed.y)
+                        .width(placed.width)
+                        .height(placed.height)
+                        .stack_mode(x11rb::protocol::xproto::StackMode::ABOVE),
+                )?;
+                if (
+                    popup.surface.logical_width(),
+                    popup.surface.logical_height(),
+                ) != logical
+                {
+                    popup.surface = RasterSurface::new(logical.0, logical.1, scale)?;
+                }
+                popup.needs_paint = true;
+                return Ok(());
+            }
+            let popup_window = conn.generate_id()?;
+            conn.create_window(
+                screen.root_depth,
+                popup_window,
+                screen.root,
+                placed.x as i16,
+                placed.y as i16,
+                placed.width as u16,
+                placed.height as u16,
+                0,
+                WindowClass::INPUT_OUTPUT,
+                screen.root_visual,
+                &CreateWindowAux::new()
+                    .background_pixel(screen.white_pixel)
+                    .override_redirect(1)
+                    .save_under(1)
+                    .event_mask(
+                        EventMask::EXPOSURE
+                            | EventMask::KEY_PRESS
+                            | EventMask::BUTTON_PRESS
+                            | EventMask::BUTTON_RELEASE
+                            | EventMask::POINTER_MOTION
+                            | EventMask::LEAVE_WINDOW,
+                    ),
+            )?;
+            let kind = if grab {
+                atoms._NET_WM_WINDOW_TYPE_POPUP_MENU
+            } else {
+                atoms._NET_WM_WINDOW_TYPE_NOTIFICATION
+            };
+            conn.change_property32(
+                PropMode::REPLACE,
+                popup_window,
+                atoms._NET_WM_WINDOW_TYPE,
+                AtomEnum::ATOM,
+                &[kind],
+            )?;
+            conn.change_property32(
+                PropMode::REPLACE,
+                popup_window,
+                AtomEnum::WM_TRANSIENT_FOR,
+                AtomEnum::WINDOW,
+                &[parent],
+            )?;
+            conn.map_window(popup_window)?;
+            if grab {
+                // Owner events: presses on the app's own windows reach them
+                // as usual; presses anywhere else come to the popup with
+                // coordinates outside it, so a menu can dismiss itself.
+                conn.grab_pointer(
+                    true,
+                    popup_window,
+                    EventMask::BUTTON_PRESS | EventMask::BUTTON_RELEASE | EventMask::POINTER_MOTION,
+                    x11rb::protocol::xproto::GrabMode::ASYNC,
+                    x11rb::protocol::xproto::GrabMode::ASYNC,
+                    x11rb::NONE,
+                    x11rb::NONE,
+                    x11rb::CURRENT_TIME,
+                )?;
+                conn.grab_keyboard(
+                    true,
+                    popup_window,
+                    x11rb::CURRENT_TIME,
+                    x11rb::protocol::xproto::GrabMode::ASYNC,
+                    x11rb::protocol::xproto::GrabMode::ASYNC,
+                )?;
+            }
+            popups.push(Popup {
+                id,
+                window: popup_window,
+                grab,
+                surface: RasterSurface::new(logical.0, logical.1, scale)?,
+                needs_paint: true,
+            });
+        }
+    }
     Ok(())
 }
 
