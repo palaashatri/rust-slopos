@@ -59,7 +59,41 @@
       "status": "INTEGRATED",
       "summary": "committed at e548e82; single-agent verification",
       "updated_utc": "2026-10-30T05:52:33+00:00"
+    },
+    "UI-02": {
+      "base_sha": "7e5a734043b6162a2530adb2490314fee8584e66",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/ui02-unit.log",
+            "command": "cargo test --workspace --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "a01c1ce747c468066ba473557fc49a361df2cf7a1d86bf3eb8a6881690e9759e"
+          },
+          {
+            "artifact": ".work/p1/evidence/ui02-2x-controls.png",
+            "command": "ui02-runtime.sh gallery widgets SLOPOS_SCALE=2 + import",
+            "kind": "visual",
+            "resolution": "960x720 scale=2 Platinum",
+            "result": "PASS",
+            "review": "inspected: slider at 100, checkbox focus ring, indeterminate stripes, inactive selection, crisp 2x; menu/dialog/chooser shots inspected at 1x",
+            "sha256": "6305c05c0de71687373301bbbdeb169b775660fd2944b6307135ea0e6e1c935a"
+          },
+          {
+            "artifact": ".work/p1/evidence/ui02-runtime-2x.log",
+            "command": "LC_ALL=C.UTF-8 .work/p1/ui02-runtime.sh (Xvfb+openbox+xdotool) at scale 1 and 2",
+            "kind": "runtime",
+            "result": "PASS",
+            "sha256": "b3f819e0e3134c4c5a712bdf2757fc98026d35551e7574a25f25181452ab5b4a"
+          }
+        ],
+        "source_sha": "7e5a734043b6162a2530adb2490314fee8584e66"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at 7e5a734; single-agent verification",
+      "updated_utc": "2026-10-30T06:02:48+00:00"
     }
   },
-  "updated_utc": "2026-10-30T05:52:33+00:00"
+  "updated_utc": "2026-10-30T06:02:48+00:00"
 }
