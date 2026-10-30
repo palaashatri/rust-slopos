@@ -237,6 +237,7 @@ impl TopBar {
         });
 
         topbar.show_desktop_state();
+        announce_global_menu();
 
         // In-process local clock ticker (every 1 second, zero I/O or subprocesses)
         glib::timeout_add_seconds_local(1, move || {
@@ -397,6 +398,24 @@ impl TopBar {
         }
     }
 }
+
+/// Own the bus name that tells SLOPOS toolkit apps to hand their menus to
+/// this bar (`slopos_ui::platform::global_menu::SHELL_NAME`). Ownership ends
+/// with this process, so apps fall back to in-window menus if the shell
+/// dies. The name is held for the life of the shell.
+fn announce_global_menu() {
+    let _owner = gio::bus_own_name(
+        gio::BusType::Session,
+        GLOBAL_MENU_NAME,
+        gio::BusNameOwnerFlags::NONE,
+        |_, _| {},
+        |_, name| log::info!("Global menu bar announced as {name}"),
+        |_, name| log::warn!("Could not own {name}; apps keep in-window menus"),
+    );
+}
+
+/// Must match `slopos_ui::platform::global_menu::SHELL_NAME`.
+pub const GLOBAL_MENU_NAME: &str = "org.slopos.GlobalMenu";
 
 /// `SIGUSR2` (sent by the Ctrl+F2 listener and by automation) opens the
 /// system menu with keyboard focus on its first item.

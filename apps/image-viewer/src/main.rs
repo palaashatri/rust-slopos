@@ -17,7 +17,7 @@ use slopos_ui::accessibility::window_tree;
 use slopos_ui::controls::button::{Button, ButtonOutcome};
 use slopos_ui::controls::file_chooser::{ChooserOutcome, FileChooser};
 use slopos_ui::controls::focus::FocusChain;
-use slopos_ui::controls::menu::{MenuBar, MenuBarOutcome, MenuItem, MENU_BAR_HEIGHT};
+use slopos_ui::controls::menu::{MenuBar, MenuBarOutcome, MenuItem};
 use slopos_ui::event::{AccessibilityRequest, Event, Key, PointerButton};
 use slopos_ui::foundation::{color::Color, geometry::Rect};
 use slopos_ui::image_viewport::{ImageViewport, ZoomMode};
@@ -217,7 +217,7 @@ impl ImageViewerApp {
     }
 
     fn canvas(&self) -> Rect {
-        let top = MENU_BAR_HEIGHT as i32 + TOOLBAR_HEIGHT;
+        let top = self.menu.height() as i32 + TOOLBAR_HEIGHT;
         Rect {
             x: 0,
             y: top,
@@ -231,15 +231,16 @@ impl ImageViewerApp {
             x: 0,
             y: 0,
             width: self.window.0,
-            height: MENU_BAR_HEIGHT,
+            height: self.menu.height(),
         };
+        let toolbar_y = self.menu.height() as i32;
         let mut x = 8;
         for (button, _) in &mut self.toolbar {
             let width = measure(&button.label, &self.font).width as u32 + 22;
             let width = width.max(36);
             button.bounds = Rect {
                 x,
-                y: MENU_BAR_HEIGHT as i32 + 7,
+                y: toolbar_y + 7,
                 width,
                 height: 20,
             };
@@ -660,6 +661,12 @@ impl App for ImageViewerApp {
                 self.layout();
                 self.update_status();
             }
+            // Applied even under the chooser: the bar's height changes the layout.
+            Event::GlobalMenu(_) => {
+                self.menu.handle(event, self.window);
+                self.layout();
+                self.update_status();
+            }
             Event::Wake => {
                 if !self.receive() {
                     return;
@@ -680,6 +687,10 @@ impl App for ImageViewerApp {
         if let Err(error) = self.paint_all(surface) {
             eprintln!("slopos-image-viewer: paint failed: {error}");
         }
+    }
+
+    fn menu_bar(&self) -> Option<&MenuBar> {
+        Some(&self.menu)
     }
 
     fn accessibility(&self) -> Option<accesskit::TreeUpdate> {

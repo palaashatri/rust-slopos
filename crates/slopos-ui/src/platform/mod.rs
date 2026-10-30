@@ -1,6 +1,7 @@
 //! Window hosting. An [`App`] receives [`Event`]s and paints into a
 //! [`RasterSurface`]; the platform host owns the native window.
 
+pub mod global_menu;
 mod keys;
 pub mod x11;
 
@@ -68,6 +69,13 @@ pub trait App {
 
     /// The accessibility tree for screen readers, if the app provides one.
     fn accessibility(&self) -> Option<accesskit::TreeUpdate> {
+        None
+    }
+
+    /// The app's menus. The host exports them to the desktop's global menu
+    /// bar when one is running (see [`global_menu`]) and keeps the export in
+    /// step with enabled/checked changes after every event.
+    fn menu_bar(&self) -> Option<&crate::controls::menu::MenuBar> {
         None
     }
 }
