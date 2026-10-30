@@ -1,0 +1,18 @@
+[package]
+name = "slopos-media"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Media: native video and audio player (GStreamer backend)"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+accesskit = { workspace = true }
+env_logger = { workspace = true }
+thiserror = { workspace = true }
+gstreamer = { workspace = true }
+gstreamer-app = { workspace = true }
+gstreamer-video = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

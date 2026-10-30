@@ -37,6 +37,9 @@ apps launched from the shell or Dock: detached (setsid), reaped, not supervised
 | `slopos-catalogue` | binary | GTK 3 (legacy) | AppImage catalogue and installer. |
 | `apps/calculator` | binary | **own** | Calculator, the first native app. |
 | `apps/files` | binary | **own** | Files: bounded async folder listing, Back/Forward/Up/Home/location, multi-select list with Name/Size/Modified/Kind, menus and context menus, transactional copy/move/rename/new folder, Trash with restore/empty, confirmed permanent delete, conflict dialog, inotify refresh, MIME default-app open. |
+| `apps/image-viewer` | binary | **own** | Image Viewer: bounded PNG/JPEG/GIF/BMP/WebP/TIFF/SVG decoding with EXIF orientation, folder navigation, zoom and pan. |
+| `apps/media` | binary | **own** | Media: GStreamer `playbin` behind an engine adapter; video frames through an RGBA appsink, play/pause, seek, volume, mute, sidecar subtitles, honest missing-codec and format errors. |
+| `apps/software` | binary | **own** | Software core: Ed25519-signed catalogue, trust store, transactional AppImage install/update/uninstall with recovery; publisher CLI (keygen/sign/verify). The window is not built yet. |
 | `apps/image-viewer` | binary | **own** | PNG/SVG proof viewer, zoom and accessible toolkit controls. |
 | `tools/slopos-ui-gallery` | binary | **own** | Component gallery, with a `--snapshot` mode for captures. |
 
@@ -120,3 +123,11 @@ It proposes strict JSON actions via loopback-only Ollama (`lfm3:1.7b`) using ins
 - **Workers** (`worker.rs`): one folder-reading thread (bounded queue, stale results dropped), one thread per file operation with cancel and throttled progress wakes, and an inotify watcher thread. All wake the UI through `Proxy`; nothing polls.
 - **Operations** (`ops.rs`, `trash.rs`): copies are written under a private partial name and committed with `renameat2(RENAME_NOREPLACE)`; cancel or failure removes only the partial; Replace swaps the old item aside and deletes it only after the new one is in place; cross-device moves delete the source only after a committed copy; symlinks are copied as links; FIFOs and devices are refused; copying a folder into itself is refused. Trash follows the freedesktop spec (home trash, or `$topdir/.Trash-$uid` on other volumes), and restore never overwrites.
 - **UI** (`main.rs`): menu bar (File, Edit, View, Go), toolbar, location field (Ctrl+L), the shared `controls::list::ListView` with Name/Size/Modified/Kind columns, context menus, Rename/conflict/confirm dialogs, Trash view (restore, delete, empty), hidden-file toggle, status bar with progress and Cancel. Opening uses `slopos_core::mime` (the default app from `mimeapps.list` or a desktop entry's `MimeType`), falling back to `xdg-open`.
+
+## Native Media (`apps/media`)
+
+- **Engine** (`engine.rs`): GStreamer `playbin` with a bin of `videoconvert ! videoscale ! capsfilter(RGBA) ! appsink` (one frame buffered, newest wins; frames over 1920×1080 are scaled down by GStreamer). A bus thread turns messages into events and wakes the window; there is no polling. Paused preroll frames arrive through `new_preroll`. Without a sound server or ALSA device, audio goes to a synchronised `fakesink` instead of failing. Sidecar `.srt/.vtt/.ass/.ssa` files with the same stem are loaded as subtitles (GStreamer cannot detect very short subtitle files).
+- **Errors**: unknown formats say so; a missing decoder names the codec and the package that usually provides it (`gstreamer1.0-libav` for H.264/H.265/AAC, which SLOPOS does not ship).
+- **UI** (`main.rs`): video area scaled to fit, seek slider with times, Play/Pause, volume slider, Mute, Subtitles toggle, Open dialog filtered to media; Space/K, Left/Right (±5 s), Up/Down (volume), M, Ctrl+O. A 250 ms timer runs only while playing.
+- Licences: GStreamer core and base/good/x plugins are LGPL-2.1+, linked dynamically; gstreamer-rs is MIT/Apache-2.0.
+- Not built: playlists, fullscreen, audio/subtitle track selection, hardware decoding, embedded subtitle tracks UI.

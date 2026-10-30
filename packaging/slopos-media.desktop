@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=SLOPOS Media
+Comment=Play videos and music
+Exec=slopos-media %f
+TryExec=slopos-media
+Icon=multimedia-player
+Terminal=false
+StartupNotify=true
+Categories=AudioVideo;Player;
+MimeType=video/webm;video/x-matroska;video/mp4;video/ogg;video/quicktime;video/x-msvideo;audio/ogg;audio/mpeg;audio/flac;audio/x-wav;audio/mp4;audio/aac;audio/x-opus+ogg;

@@ -41,7 +41,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential pkg-config libgtk-3-dev libx11-dev libxrandr-dev \
+            build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
             libssl-dev libdbus-1-dev debootstrap squashfs-tools xorriso mtools \
             dosfstools grub-common ${{ matrix.grub }} initramfs-tools-core \
             imagemagick qemu-system-x86 ovmf

@@ -28,6 +28,9 @@ xdotool
 wmctrl
 adwaita-icon-theme
 librsvg2-common
+gstreamer1.0-plugins-base
+gstreamer1.0-plugins-good
+gstreamer1.0-x
 fonts-liberation
 fonts-dejavu-core
 supertux
