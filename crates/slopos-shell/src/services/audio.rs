@@ -116,6 +116,7 @@ mod tests {
                 is_default: true,
             }],
             inputs: Vec::new(),
+            streams: Vec::new(),
         };
         assert_eq!(
             audio_state_from_snapshot(&snapshot),
@@ -135,6 +136,7 @@ mod tests {
             default_input: None,
             outputs: Vec::new(),
             inputs: Vec::new(),
+            streams: Vec::new(),
         };
         assert_eq!(audio_state_from_snapshot(&snapshot), None);
         assert_eq!(audio_label_text(None), "—");

@@ -84,6 +84,25 @@ pub fn default_input(snapshot: &AudioSnapshot) -> Option<&AudioDevice> {
         .or_else(|| snapshot.inputs.first())
 }
 
+/// "Firefox — Playback" for the application pop-up.
+pub fn stream_label(stream: &slopos_services::audio::AudioStream) -> String {
+    match &stream.media {
+        Some(media) if media != &stream.application => {
+            format!("{} — {media}", stream.application)
+        }
+        _ => stream.application.clone(),
+    }
+}
+
+/// Average channel volume of an application stream, in percent.
+pub fn stream_percent(stream: &slopos_services::audio::AudioStream) -> u32 {
+    let channels = &stream.volume_millipercent;
+    if channels.is_empty() {
+        return 0;
+    }
+    (channels.iter().map(|v| u64::from(*v)).sum::<u64>() / channels.len() as u64 / 1000) as u32
+}
+
 pub fn device_name(device: &AudioDevice) -> String {
     device
         .description
@@ -447,6 +466,7 @@ mod tests {
             default_input: None,
             outputs: vec![output(vec![40_000, 60_000], true)],
             inputs: Vec::new(),
+            streams: Vec::new(),
         };
         let device = default_output(&snapshot).unwrap();
         assert_eq!(volume_percent(device), 50);
