@@ -57,6 +57,8 @@ chmod 700 "$XDG_RUNTIME_DIR"
 # Sample content.
 printf '# Meeting notes\n\n- Ship SLOPOS X11\n' >"$HOME/Documents/Notes.md"
 printf 'Hello from SLOPOS.\n' >"$HOME/Documents/Readme.txt"
+printf 'Things to try\n' >"$HOME/Desktop/Welcome.txt"
+mkdir -p "$HOME/Desktop/Projects"
 if command -v convert >/dev/null; then
   convert -size 1600x1000 -seed 7 plasma:fractal -blur 0x2 "$HOME/Pictures/Plasma.png"
   convert -size 1200x800 gradient:'#1d5e8c'-'#f2c14e' "$HOME/Pictures/Sunrise.png"
@@ -74,6 +76,8 @@ sleep 1
 openbox --config-file "$ROOT/assets/config/openbox/rc.xml" >/dev/null 2>&1 &
 sleep 1
 slopos-session --paint-desktop
+slopos-desktop >"$WORK/desktop.log" 2>&1 &
+sleep 1
 slopos-topbar >"$WORK/topbar.log" 2>&1 &
 sleep 3
 slopos-dock >"$WORK/dock.log" 2>&1 &
@@ -87,6 +91,11 @@ open_global_menu() { xdotool mousemove "$1" 12 click 1; }
 close_app() { pkill -x "${1:0:15}" 2>/dev/null || true; sleep 1; }
 
 shot desktop 1
+
+# The desktop's own context menu, on empty space.
+xdotool mousemove 500 400 click 3
+shot desktop-context-menu 1
+xdotool key Escape
 
 slopos-files "$HOME" >"$WORK/files.log" 2>&1 &
 shot files 4
@@ -113,6 +122,12 @@ shot control-panels-desktop 4
 close_app slopos-control-panels
 slopos-control-panels --sound >"$WORK/panels.log" 2>&1 &
 shot control-panels-sound 4
+close_app slopos-control-panels
+slopos-control-panels --display >"$WORK/panels.log" 2>&1 &
+shot control-panels-display 4
+close_app slopos-control-panels
+slopos-control-panels --keyboard >"$WORK/panels.log" 2>&1 &
+shot control-panels-keyboard 4
 close_app slopos-control-panels
 
 # Software with a catalogue signed for this run only.
