@@ -26,6 +26,47 @@
       "summary": "committed at 4c242cc; single-agent verification",
       "updated_utc": "2026-10-30T06:11:46+00:00"
     },
+    "FILES-02": {
+      "base_sha": "38d96c3d9728c6bee977ba7781bf41de19259555",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/files02-unit.log",
+            "command": "cargo test --workspace --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "f6122095e091eb1ceee6fe4f5a96da5cef7344963e5b520cd5781c16594c80c8"
+          },
+          {
+            "artifact": ".work/p1/evidence/files02-2x-conflict.png",
+            "command": "files-runtime.sh SLOPOS_SCALE=2 + import",
+            "kind": "visual",
+            "resolution": "1520x1080 scale=2 Platinum",
+            "result": "PASS",
+            "review": "inspected: conflict dialog buttons inside bounds, default ring on Keep Both, columns, scrim, crisp 2x; trash/context shots inspected",
+            "sha256": "7f26ee76c4964656cc700727adc62a4c05b4b001891c3815f9acad94e3231407"
+          },
+          {
+            "artifact": ".work/p1/evidence/files02-runtime-2x.log",
+            "command": "LC_ALL=C.UTF-8 .work/p1/files-runtime.sh (Xvfb+openbox+xdotool) at scale 1 and 2",
+            "kind": "runtime",
+            "result": "PASS",
+            "sha256": "b142e84af613d735a424dbac10cc70697d7660891fb0a240a9e18ff3e72b7eba"
+          },
+          {
+            "artifact": ".work/p1/evidence/files02-security.log",
+            "command": "cargo test -p slopos-files --locked -- ops:: trash:: model:: worker::",
+            "kind": "security",
+            "result": "PASS",
+            "sha256": "f2bb878d9821b0eda8303972671632be8181a7109b11edfbeb608a3f278fc676"
+          }
+        ],
+        "source_sha": "38d96c3d9728c6bee977ba7781bf41de19259555"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at 38d96c3; single-agent verification",
+      "updated_utc": "2026-10-30T06:21:37+00:00"
+    },
     "P1-00": {
       "base_sha": "85035ffb2c957e200d19c9b6c874270779aaa2c8",
       "evidence": {
@@ -120,5 +161,5 @@
       "updated_utc": "2026-10-30T06:02:48+00:00"
     }
   },
-  "updated_utc": "2026-10-30T06:11:46+00:00"
+  "updated_utc": "2026-10-30T06:21:37+00:00"
 }
