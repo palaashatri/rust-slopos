@@ -59,6 +59,12 @@ const OUTPUT_VOLUME_ID: u64 = 30;
 const OUTPUT_MUTE_ID: u64 = 31;
 const INPUT_VOLUME_ID: u64 = 32;
 const INPUT_MUTE_ID: u64 = 33;
+const OUTPUT_DEVICE_ID: u64 = 34;
+const INPUT_DEVICE_ID: u64 = 35;
+const APP_ID: u64 = 36;
+const APP_VOLUME_ID: u64 = 37;
+const APP_MUTE_ID: u64 = 38;
+const APP_OUTPUT_ID: u64 = 39;
 const BRIGHTNESS_ID: u64 = 40;
 const OUTPUT_ID: u64 = 41;
 const RESOLUTION_ID: u64 = 42;
@@ -76,6 +82,7 @@ const DISPLAY_POPUPS: [u64; 5] = [
     ROTATION_ID,
     PLACEMENT_ID,
 ];
+const SOUND_POPUPS: [u64; 4] = [OUTPUT_DEVICE_ID, INPUT_DEVICE_ID, APP_ID, APP_OUTPUT_ID];
 /// Seconds to confirm a display change before it is undone.
 const REVERT_SECONDS: u32 = 15;
 
@@ -201,6 +208,13 @@ pub struct ControlPanels {
     output_mute: Checkbox,
     input_volume: Slider,
     input_mute: Checkbox,
+    output_device: PopUpButton,
+    input_device: PopUpButton,
+    /// The application whose sound the controls below it change.
+    app: PopUpButton,
+    app_volume: Slider,
+    app_mute: Checkbox,
+    app_output: PopUpButton,
     brightness_slider: Slider,
     displays: State<DisplaySnapshot>,
     /// The output the Displays controls edit.
@@ -364,6 +378,12 @@ impl ControlPanels {
             output_mute: Checkbox::new(OUTPUT_MUTE_ID, "Mute output", false),
             input_volume: Slider::new(INPUT_VOLUME_ID, "Input volume", 0.0, 100.0, 5.0),
             input_mute: Checkbox::new(INPUT_MUTE_ID, "Mute input", false),
+            output_device: PopUpButton::new(OUTPUT_DEVICE_ID, "Output device"),
+            input_device: PopUpButton::new(INPUT_DEVICE_ID, "Input device"),
+            app: PopUpButton::new(APP_ID, "Application"),
+            app_volume: Slider::new(APP_VOLUME_ID, "Application volume", 0.0, 100.0, 5.0),
+            app_mute: Checkbox::new(APP_MUTE_ID, "Mute application", false),
+            app_output: PopUpButton::new(APP_OUTPUT_ID, "Play on"),
             brightness_slider: Slider::new(BRIGHTNESS_ID, "Brightness", 0.0, 100.0, 5.0),
             displays: model::loading(),
             output: PopUpButton::new(OUTPUT_ID, "Display"),
@@ -497,20 +517,28 @@ impl ControlPanels {
         if let Some((dialog, _)) = &mut self.password {
             dialog.layout(self.window);
         }
-        self.output_volume.bounds = Rect {
+        let popup_at = |y: i32| Rect {
             x: x + 110,
-            y: top,
+            y,
+            width: 220,
+            height: 20,
+        };
+        let slider_at = |y: i32| Rect {
+            x: x + 110,
+            y,
             width: 220,
             height: 18,
         };
-        self.output_mute = self.output_mute.clone().at(x + 350, top);
-        self.input_volume.bounds = Rect {
-            x: x + 110,
-            y: top + 60,
-            width: 220,
-            height: 18,
-        };
-        self.input_mute = self.input_mute.clone().at(x + 350, top + 60);
+        self.output_device.bounds = popup_at(top);
+        self.output_volume.bounds = slider_at(top + 30);
+        self.output_mute = self.output_mute.clone().at(x + 350, top + 30);
+        self.input_device.bounds = popup_at(top + 64);
+        self.input_volume.bounds = slider_at(top + 94);
+        self.input_mute = self.input_mute.clone().at(x + 350, top + 94);
+        self.app.bounds = popup_at(top + 132);
+        self.app_volume.bounds = slider_at(top + 162);
+        self.app_mute = self.app_mute.clone().at(x + 350, top + 162);
+        self.app_output.bounds = popup_at(top + 192);
         self.brightness_slider.bounds = Rect {
             x: x + 110,
             y: top,
@@ -614,10 +642,16 @@ impl ControlPanels {
                 FORGET_ID,
             ],
             Panel::Sound => vec![
+                OUTPUT_DEVICE_ID,
                 OUTPUT_VOLUME_ID,
                 OUTPUT_MUTE_ID,
+                INPUT_DEVICE_ID,
                 INPUT_VOLUME_ID,
                 INPUT_MUTE_ID,
+                APP_ID,
+                APP_VOLUME_ID,
+                APP_MUTE_ID,
+                APP_OUTPUT_ID,
             ],
             Panel::Display => vec![
                 BRIGHTNESS_ID,
@@ -641,7 +675,26 @@ impl ControlPanels {
             Panel::Desktop => vec![WALLPAPER_LIST_ID, SET_PICTURE_ID, CHOOSE_PICTURE_ID],
             Panel::Appearance => vec![APPEARANCE_LIST_ID, APPLY_ID],
         });
+        // A pop-up with nothing to choose is skipped, as disabled controls
+        // are on the Classic desktop.
+        ids.retain(|&id| {
+            !(DISPLAY_POPUPS.contains(&id) || SOUND_POPUPS.contains(&id)) || self.popup(id).enabled
+        });
         ids
+    }
+
+    fn popup(&self, id: u64) -> &PopUpButton {
+        match id {
+            OUTPUT_DEVICE_ID => &self.output_device,
+            INPUT_DEVICE_ID => &self.input_device,
+            APP_ID => &self.app,
+            APP_OUTPUT_ID => &self.app_output,
+            OUTPUT_ID => &self.output,
+            RESOLUTION_ID => &self.resolution,
+            REFRESH_ID => &self.refresh,
+            ROTATION_ID => &self.rotation,
+            _ => &self.placement,
+        }
     }
 
     fn sync_focus(&mut self) {
@@ -663,6 +716,12 @@ impl ControlPanels {
         self.output_mute.focused = f == Some(OUTPUT_MUTE_ID);
         self.input_volume.focused = f == Some(INPUT_VOLUME_ID);
         self.input_mute.focused = f == Some(INPUT_MUTE_ID);
+        self.output_device.focused = f == Some(OUTPUT_DEVICE_ID);
+        self.input_device.focused = f == Some(INPUT_DEVICE_ID);
+        self.app.focused = f == Some(APP_ID);
+        self.app_volume.focused = f == Some(APP_VOLUME_ID);
+        self.app_mute.focused = f == Some(APP_MUTE_ID);
+        self.app_output.focused = f == Some(APP_OUTPUT_ID);
         self.brightness_slider.focused = f == Some(BRIGHTNESS_ID);
         self.output.focused = f == Some(OUTPUT_ID);
         self.resolution.focused = f == Some(RESOLUTION_ID);
@@ -739,6 +798,7 @@ impl ControlPanels {
             }
             self.input_mute.checked = device.muted;
         }
+        self.sync_sound_choices();
         let brightness = self
             .brightness
             .as_ref()
@@ -946,6 +1006,10 @@ impl ControlPanels {
 
     fn popup_mut(&mut self, id: u64) -> &mut PopUpButton {
         match id {
+            OUTPUT_DEVICE_ID => &mut self.output_device,
+            INPUT_DEVICE_ID => &mut self.input_device,
+            APP_ID => &mut self.app,
+            APP_OUTPUT_ID => &mut self.app_output,
             OUTPUT_ID => &mut self.output,
             RESOLUTION_ID => &mut self.resolution,
             REFRESH_ID => &mut self.refresh,
@@ -1033,6 +1097,95 @@ impl ControlPanels {
             _ => return,
         }
         self.change_displays(before, after);
+    }
+
+    /// The application stream the Sound controls edit.
+    fn selected_stream(&self) -> Option<slopos_services::audio::AudioStream> {
+        let snapshot = self.audio.as_ref().ok()?;
+        snapshot.streams.get(self.app.selected()?).cloned()
+    }
+
+    /// Fill the device and application pop-ups from the sound server.
+    fn sync_sound_choices(&mut self) {
+        let Ok(snapshot) = self.audio.as_ref() else {
+            for id in SOUND_POPUPS {
+                let popup = self.popup_mut(id);
+                popup.set_items(Vec::new(), None);
+                popup.enabled = false;
+            }
+            self.app_volume.enabled = false;
+            self.app_mute.enabled = false;
+            return;
+        };
+        let names = |devices: &[slopos_services::audio::AudioDevice]| {
+            devices.iter().map(model::device_name).collect::<Vec<_>>()
+        };
+        let output = model::default_output(snapshot).map(|d| d.name.clone());
+        let input = model::default_input(snapshot).map(|d| d.name.clone());
+        let outputs = names(&snapshot.outputs);
+        let inputs = names(&snapshot.inputs);
+        let output_index = snapshot
+            .outputs
+            .iter()
+            .position(|d| Some(&d.name) == output.as_ref());
+        let input_index = snapshot
+            .inputs
+            .iter()
+            .position(|d| Some(&d.name) == input.as_ref());
+        // Keep the chosen application while it plays.
+        let chosen = self
+            .app
+            .selected()
+            .and_then(|i| snapshot.streams.get(i))
+            .map(|s| s.index);
+        let streams = snapshot.streams.clone();
+        let output_ids: Vec<u32> = snapshot.outputs.iter().map(|d| d.index).collect();
+        let (output_count, input_count) = (snapshot.outputs.len(), snapshot.inputs.len());
+        self.output_device.set_items(outputs.clone(), output_index);
+        self.output_device.enabled = output_count > 1;
+        self.input_device.set_items(inputs, input_index);
+        self.input_device.enabled = input_count > 1;
+        let selected = chosen
+            .and_then(|index| streams.iter().position(|s| s.index == index))
+            .or((!streams.is_empty()).then_some(0));
+        self.app
+            .set_items(streams.iter().map(model::stream_label).collect(), selected);
+        self.app.enabled = !streams.is_empty();
+        let stream = selected.map(|i| &streams[i]);
+        self.app_volume.enabled = stream.is_some();
+        self.app_mute.enabled = stream.is_some();
+        if let Some(stream) = stream {
+            if !self.app_volume.dragging() {
+                self.app_volume
+                    .set_value(f64::from(model::stream_percent(stream)));
+            }
+            self.app_mute.checked = stream.muted;
+        }
+        self.app_output.set_items(
+            outputs,
+            stream.and_then(|s| output_ids.iter().position(|&id| id == s.output)),
+        );
+        self.app_output.enabled = stream.is_some() && output_count > 1;
+    }
+
+    /// The user chose item `choice` of Sound pop-up `id`.
+    fn sound_chosen(&mut self, id: u64, choice: usize) {
+        let Ok(snapshot) = self.audio.as_ref() else {
+            return;
+        };
+        let output = snapshot.outputs.get(choice).map(|d| d.name.clone());
+        let input = snapshot.inputs.get(choice).map(|d| d.name.clone());
+        match (id, output, input) {
+            (OUTPUT_DEVICE_ID, Some(device), _) => self.send(Command::SetDefaultOutput(device)),
+            (INPUT_DEVICE_ID, _, Some(device)) => self.send(Command::SetDefaultInput(device)),
+            (APP_OUTPUT_ID, Some(device), _) => {
+                if let Some(stream) = self.selected_stream() {
+                    self.send(Command::MoveStream(stream.index, device));
+                }
+            }
+            // APP_ID only changes which application the controls edit.
+            _ => {}
+        }
     }
 
     /// Apply a new layout and ask whether to keep it.
@@ -1187,11 +1340,16 @@ impl ControlPanels {
         // An open pop-up menu takes every event.
         if let Some(id) = DISPLAY_POPUPS
             .into_iter()
+            .chain(SOUND_POPUPS)
             .find(|&id| self.popup_mut(id).is_open())
         {
             let window = self.window;
             if let PopUpOutcome::Selected(index) = self.popup_mut(id).handle(event, window) {
-                self.display_chosen(id, index);
+                if SOUND_POPUPS.contains(&id) {
+                    self.sound_chosen(id, index);
+                } else {
+                    self.display_chosen(id, index);
+                }
             }
             return;
         }
@@ -1375,6 +1533,21 @@ impl ControlPanels {
                 }
             }
             Panel::Sound => {
+                let window = self.window;
+                for id in SOUND_POPUPS {
+                    self.popup_mut(id).handle(event, window);
+                }
+                let stream = self.selected_stream().map(|s| s.index);
+                if let (ValueOutcome::Value { value, last: true }, Some(stream)) =
+                    (self.app_volume.handle(event), stream)
+                {
+                    self.send(Command::SetStreamVolume(stream, value as u32));
+                }
+                if let (ToggleOutcome::Toggled(muted), Some(stream)) =
+                    (self.app_mute.handle(event), stream)
+                {
+                    self.send(Command::SetStreamMuted(stream, muted));
+                }
                 let output = self
                     .audio
                     .as_ref()
@@ -1888,12 +2061,71 @@ impl ControlPanels {
                 }
             }
             Panel::Sound => {
-                surface.draw_text("Output volume", c.x, top + 2, font, colors.ink)?;
+                let label = |text: &str, y: i32, enabled: bool| {
+                    let ink = if enabled {
+                        colors.ink
+                    } else {
+                        colors.ink_secondary
+                    };
+                    surface.draw_text(text, c.x, y + 3, font, ink)
+                };
+                // A device pop-up, or a line saying there is none.
+                let device = |popup: &PopUpButton, none: &str| {
+                    if popup.items().is_empty() {
+                        surface.draw_text(
+                            none,
+                            popup.bounds.x,
+                            popup.bounds.y + 3,
+                            font,
+                            colors.ink_secondary,
+                        )
+                    } else {
+                        popup.paint(surface, font)
+                    }
+                };
+                label(
+                    "Output",
+                    self.output_device.bounds.y,
+                    self.output_volume.enabled,
+                )?;
+                device(&self.output_device, "No output device")?;
+                label(
+                    "Volume",
+                    self.output_volume.bounds.y,
+                    self.output_volume.enabled,
+                )?;
                 self.output_volume.paint(surface)?;
                 self.output_mute.paint(surface)?;
-                surface.draw_text("Input volume", c.x, top + 62, font, colors.ink)?;
+                label(
+                    "Input",
+                    self.input_device.bounds.y,
+                    self.input_volume.enabled,
+                )?;
+                device(&self.input_device, "No input device")?;
+                label(
+                    "Volume",
+                    self.input_volume.bounds.y,
+                    self.input_volume.enabled,
+                )?;
                 self.input_volume.paint(surface)?;
                 self.input_mute.paint(surface)?;
+                label("Application", self.app.bounds.y, true)?;
+                if self.app.enabled {
+                    self.app.paint(surface, font)?;
+                    label("Volume", self.app_volume.bounds.y, true)?;
+                    self.app_volume.paint(surface)?;
+                    self.app_mute.paint(surface)?;
+                    label("Play on", self.app_output.bounds.y, true)?;
+                    self.app_output.paint(surface, font)?;
+                } else {
+                    surface.draw_text(
+                        "No application is playing sound.",
+                        self.app.bounds.x,
+                        self.app.bounds.y + 3,
+                        font,
+                        colors.ink_secondary,
+                    )?;
+                }
             }
             Panel::Display => {
                 surface.draw_text("Brightness", c.x, top + 2, font, colors.ink)?;
@@ -2042,6 +2274,10 @@ impl ControlPanels {
             &self.refresh,
             &self.rotation,
             &self.placement,
+            &self.output_device,
+            &self.input_device,
+            &self.app,
+            &self.app_output,
         ] {
             popup.paint_menu(surface)?;
         }
@@ -2083,7 +2319,10 @@ impl App for ControlPanels {
             _ => self.handle(event, control),
         }
         self.sync_from_state();
-        if self.focus.ids().is_empty() {
+        // Controls enable and disable with the providers' state (not under
+        // a dialog, which disables them only while it is up).
+        let modal = self.keep.is_some() || self.password.is_some() || self.chooser.is_some();
+        if !modal && self.focus.ids() != self.focus_ids().as_slice() {
             self.sync_focus();
         }
         if std::mem::take(&mut self.start_countdown) && self.keep.is_some() {
@@ -2141,6 +2380,12 @@ impl App for ControlPanels {
                 nodes.push((OUTPUT_MUTE_ID, self.output_mute.accessibility_node()));
                 nodes.push((INPUT_VOLUME_ID, self.input_volume.accessibility_node()));
                 nodes.push((INPUT_MUTE_ID, self.input_mute.accessibility_node()));
+                nodes.extend(self.output_device.accessibility_nodes());
+                nodes.extend(self.input_device.accessibility_nodes());
+                nodes.extend(self.app.accessibility_nodes());
+                nodes.push((APP_VOLUME_ID, self.app_volume.accessibility_node()));
+                nodes.push((APP_MUTE_ID, self.app_mute.accessibility_node()));
+                nodes.extend(self.app_output.accessibility_nodes());
             }
             Panel::Display => {
                 nodes.push((BRIGHTNESS_ID, self.brightness_slider.accessibility_node()));
@@ -2222,6 +2467,10 @@ impl App for ControlPanels {
                 Some(WALLPAPER_LIST_ID) => Some(self.wallpaper_list.focus_node()),
                 Some(WIFI_LIST_ID) => Some(self.wifi_list.focus_node()),
                 Some(BT_LIST_ID) => Some(self.bt_list.focus_node()),
+                Some(OUTPUT_DEVICE_ID) => Some(self.output_device.focus_node()),
+                Some(INPUT_DEVICE_ID) => Some(self.input_device.focus_node()),
+                Some(APP_ID) => Some(self.app.focus_node()),
+                Some(APP_OUTPUT_ID) => Some(self.app_output.focus_node()),
                 Some(id) if DISPLAY_POPUPS.contains(&id) => Some(match id {
                     OUTPUT_ID => self.output.focus_node(),
                     RESOLUTION_ID => self.resolution.focus_node(),
@@ -2388,6 +2637,7 @@ mod tests {
                 is_default: true,
             }],
             inputs: Vec::new(),
+            streams: Vec::new(),
         })));
         app.sync_from_state();
         let mut control = Control::default();
@@ -2770,6 +3020,105 @@ mod tests {
         ))));
         app.sync_from_state();
         assert!(!app.resolution.enabled && !app.rotation.enabled);
+    }
+
+    #[test]
+    fn sound_devices_and_applications_are_chosen_from_pop_ups() {
+        use slopos_services::audio::{AudioDevice, AudioDirection, AudioStream};
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        let device = |index, name: &str, description: &str, default| AudioDevice {
+            index,
+            name: name.into(),
+            description: Some(description.into()),
+            direction: AudioDirection::Output,
+            muted: false,
+            volume_millipercent: vec![50_000],
+            is_default: default,
+        };
+        let mut snapshot = AudioSnapshot {
+            revision: 1,
+            availability: Availability::Available,
+            default_output: Some("speakers".into()),
+            default_input: None,
+            outputs: vec![
+                device(1, "speakers", "Speakers", true),
+                device(2, "hdmi", "HDMI Audio", false),
+            ],
+            inputs: Vec::new(),
+            streams: Vec::new(),
+        };
+        app.apply_update(Update::Audio(Ok(snapshot.clone())));
+        let mut control = Control::default();
+        app.event(&key(Key::Down), &mut control);
+        assert_eq!(app.panel(), Panel::Sound);
+        assert_eq!(app.output_device.value(), "Speakers");
+        assert!(app.output_device.enabled && !app.input_device.enabled);
+        assert!(!app.app.enabled && !app.app_volume.enabled);
+        // Output device: Tab, Space, Down, Return.
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.output_device.focused);
+        app.event(&key(Key::Space), &mut control);
+        app.event(&key(Key::Down), &mut control);
+        app.event(&key(Key::Enter), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::SetDefaultOutput("hdmi".into())
+        );
+        // An application starts playing on the speakers.
+        snapshot.streams.push(AudioStream {
+            index: 42,
+            application: "Music".into(),
+            media: Some("Song".into()),
+            output: 1,
+            muted: false,
+            volume_millipercent: vec![80_000, 80_000],
+        });
+        app.apply_update(Update::Audio(Ok(snapshot.clone())));
+        app.sync_from_state();
+        assert_eq!(app.app.value(), "Music — Song");
+        assert_eq!(app.app_volume.value(), 80.0);
+        assert_eq!(app.app_output.value(), "Speakers");
+        // Output volume and mute, input volume and mute (the Input pop-up
+        // has nothing to choose, so Tab skips it), then the application.
+        for _ in 0..6 {
+            app.event(&key(Key::Tab), &mut control);
+        }
+        assert!(app.app_volume.focused);
+        app.event(&key(Key::Left), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::SetStreamVolume(42, 75)
+        );
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Space), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::SetStreamMuted(42, true)
+        );
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.app_output.focused);
+        app.event(&key(Key::Space), &mut control);
+        app.event(&key(Key::Down), &mut control);
+        app.event(&key(Key::Enter), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::MoveStream(42, "hdmi".into())
+        );
+        let tree = app.accessibility().unwrap();
+        assert!(tree.nodes.iter().any(
+            |(_, n)| n.role() == accesskit::Role::ComboBox && n.value() == Some("Music — Song")
+        ));
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
+        // The application stops: its controls go away.
+        snapshot.streams.clear();
+        app.apply_update(Update::Audio(Ok(snapshot)));
+        app.sync_from_state();
+        assert!(!app.app.enabled && !app.app_volume.enabled && !app.app_output.enabled);
     }
 
     #[test]

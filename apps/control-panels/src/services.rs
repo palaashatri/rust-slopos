@@ -49,6 +49,13 @@ pub enum Command {
     SetOutputMuted(String, bool),
     SetInputVolume(String, u32),
     SetInputMuted(String, bool),
+    SetDefaultOutput(String),
+    SetDefaultInput(String),
+    /// Per-application sound: (stream, percent), (stream, muted),
+    /// (stream, output device).
+    SetStreamVolume(u32, u32),
+    SetStreamMuted(u32, bool),
+    MoveStream(u32, String),
     SetBrightness(String, u32),
     SetBluetoothPowered(String, bool),
     /// Search for devices on this adapter, or stop.
@@ -260,6 +267,26 @@ async fn run(
                     },
                     Command::SetInputMuted(device, muted) => match &audio {
                         Ok(client) => client.set_input_muted(&device, muted).await.map(|s| Some(Update::Audio(Ok(s)))).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::SetDefaultOutput(device) => match &audio {
+                        Ok(client) => client.set_default_output(&device).await.map(|s| Some(Update::Audio(Ok(s)))).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::SetDefaultInput(device) => match &audio {
+                        Ok(client) => client.set_default_input(&device).await.map(|s| Some(Update::Audio(Ok(s)))).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::SetStreamVolume(stream, percent) => match &audio {
+                        Ok(client) => client.set_stream_volume(stream, percent).await.map(|s| Some(Update::Audio(Ok(s)))).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::SetStreamMuted(stream, muted) => match &audio {
+                        Ok(client) => client.set_stream_muted(stream, muted).await.map(|s| Some(Update::Audio(Ok(s)))).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::MoveStream(stream, device) => match &audio {
+                        Ok(client) => client.move_stream(stream, &device).await.map(|s| Some(Update::Audio(Ok(s)))).map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
                     },
                     Command::SetBrightness(device, value) => brightness

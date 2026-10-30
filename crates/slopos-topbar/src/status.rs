@@ -252,6 +252,7 @@ mod tests {
             default_input: None,
             outputs: vec![device("a", 10, false), device("b", 45, false)],
             inputs: Vec::new(),
+            streams: Vec::new(),
         };
         assert_eq!(sound_text(&Ok(snapshot.clone())), "45%");
         let mut muted = snapshot;
