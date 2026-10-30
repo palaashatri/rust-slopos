@@ -29,7 +29,7 @@ SLOPOS-I is an experimental Linux desktop environment with a compact, Classic-Ma
 - **Calculator:** the first app on SLOPOS's own toolkit. Keyboard, mouse and screen readers all work.
 - **SLOPOS toolkit** (`crates/slopos-ui`): software rendering, shaped text, PNG/SVG images, icon themes, an X11 window host with HiDPI scaling, and AT-SPI accessibility. No GTK.
 
-Not there yet: native Files, Terminal and Text editor; volume and brightness OSDs; workspaces UI; lock screen; display settings; Dock context menus and reordering. [docs/architecture.md](docs/architecture.md) explains how everything fits together and lists the gaps.
+Still incomplete: native Files destructive operations (a read-only proof is proposed in PR #35), native Terminal and Text editor; volume and brightness OSDs; workspaces UI; lock screen; display settings; Dock context menus and reordering. [docs/architecture.md](docs/architecture.md) explains how everything fits together and lists the gaps.
 
 ## Try it
 
@@ -57,7 +57,7 @@ Next steps, in priority order:
 
 1. **Volume and brightness OSDs with media keys**, on the existing audio and brightness providers and drawn with the SLOPOS toolkit.
 2. **More toolkit controls:** text field, menu/popup, list and scroll view. These unblock Dock context menus and native apps.
-3. **Native Files, Terminal and Text editor** on the toolkit, replacing the external defaults.
+3. **Complete native Files, Terminal and Text editor** on the toolkit, replacing external defaults only after release gates.
 4. **Dock settings:** pin/unpin, reordering and auto-hide, plus a Control Panels page for them.
 5. **A bootable ISO** that boots to the session in QEMU, built and boot-tested in CI.
 6. **Moving Settings and the shell off GTK 3**, one panel and surface at a time.

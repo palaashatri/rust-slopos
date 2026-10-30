@@ -36,6 +36,8 @@ apps launched from the shell or Dock: detached (setsid), reaped, not supervised
 | `slopos-settings` | binary | GTK 3 (legacy) | Control Panels: appearance, date and time, desktop, network (live NetworkManager state and toggles), sound. |
 | `slopos-catalogue` | binary | GTK 3 (legacy) | AppImage catalogue and installer. |
 | `apps/calculator` | binary | **own** | Calculator, the first native app. |
+| `apps/files` | binary | **own** | Initial read-only Files browser: bounded async directory enumeration, navigation, accessibility, and xdg-open; no copy/move/Trash. |
+| `apps/image-viewer` | binary | **own** | PNG/SVG proof viewer, zoom and accessible toolkit controls. |
 | `tools/slopos-ui-gallery` | binary | **own** | Component gallery, with a `--snapshot` mode for captures. |
 
 `scripts/check-architecture.py` stops anything under `apps/` from depending on GTK, GDK or Pango. Rewriting the legacy GTK crates on the SLOPOS toolkit is the long-term direction. Until then they get bug fixes and truthful-state fixes only.
@@ -95,7 +97,7 @@ See [development.md](development.md) for commands.
 
 The [ledger](contract/ledger.md) has the dated evidence. In short:
 
-- No native Files, Terminal, Text editor or System Monitor yet. The defaults are pcmanfm, an installed terminal and an installed editor.
+- Native Files **read-only first slice exists on this PR branch**, but has not passed installed-VM acceptance and does not implement file mutations. Terminal, Text editor and System Monitor are not native yet. Legacy PCManFM and other donor apps remain available.
 - No OSDs, workspaces UI, lock screen, polkit agent or display-configuration UI.
 - Three user-facing programs still use GTK 3, whose Rust bindings are unmaintained.
 - X11 only. GNOME and KDE are leaving X11, so distribution support for X11 logins has to be checked per release (§21.10).
@@ -117,3 +119,19 @@ chooser, directory browsing, proper decoded-pixel admission limits, packaging QA
 media color profiles and installed-VM QA remain incomplete and required for
 P1. This is current source capability, not evidence of a finished P1 photo viewer.
 See [P1 release program](p1-x11-release.md).
+
+## Native Files bootstrap (feature branch)
+
+`apps/files` uses the shared `controls::list_view` (virtualized visible
+rows, focus/selection, keyboard and accessibility), a separate read-only
+filesystem model and a bounded off-UI-thread directory worker. Navigating
+folders, Back/Up/Home/Refresh, opening regular files through the installed
+`xdg-open` association and a headless `--snapshot` path are implemented.
+Directory symlinks are not traversed when selected from Files. Directories
+with over 8192 entries fail explicitly rather than silently truncating.
+This is **not a finished file manager**: multi-select, drag/drop, context
+menus, file chooser, copy/move/rename/Trash/undo, unusual filesystem and
+provider behavior, installed-VM GUI workflows and complete visual parity
+still require implementation and verification. See
+[QA handoff](p1-files-live-qa.md). This section becomes implementation
+truth only after the PR is merged and the exact SHA passes CI.
