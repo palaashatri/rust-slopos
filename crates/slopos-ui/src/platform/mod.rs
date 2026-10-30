@@ -3,6 +3,8 @@
 
 pub mod global_menu;
 mod keys;
+#[cfg(feature = "global-menu")]
+pub mod menu_import;
 pub mod x11;
 
 use std::time::Duration;

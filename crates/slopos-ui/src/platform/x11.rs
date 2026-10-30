@@ -127,6 +127,15 @@ impl WakePipe {
     }
 }
 
+/// A wake proxy whose pipe nobody reads (tests of code that wakes an app).
+#[cfg(test)]
+pub(crate) fn test_proxy() -> Proxy {
+    let pipe = WakePipe::new().expect("pipe");
+    let proxy = pipe.proxy.clone();
+    std::mem::forget(pipe.read);
+    proxy
+}
+
 /// Messages from the AccessKit adapter thread.
 #[cfg_attr(not(feature = "atspi"), allow(dead_code))]
 enum A11yMessage {
