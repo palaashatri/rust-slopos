@@ -14,8 +14,12 @@ fn install_script_is_x11_only() {
     let installer = include_str!("../../../install.sh");
     assert!(installer.contains("slopos-session"));
     assert!(installer.contains("slopos-shell"));
-    assert!(installer.contains("slopos-catalogue"));
-    assert!(installer.contains("slopos-settings"));
+    // Bundled apps are the native ones; the GTK settings/catalogue are not
+    // installed.
+    assert!(installer.contains("slopos-software"));
+    assert!(installer.contains("slopos-control-panels"));
+    assert!(!installer.contains("slopos-catalogue"));
+    assert!(!installer.contains("slopos-settings"));
     assert!(!installer.contains("slopos-compositor"));
     assert!(!installer.contains("share/wayland-sessions"));
 }
@@ -23,6 +27,9 @@ fn install_script_is_x11_only() {
 #[test]
 fn classic_session_has_a_real_desktop_object_manager() {
     let start = include_str!("../../../scripts/start-slopos-i");
+    // The PCManFM desktop is opt-in; by default the session paints its own.
+    assert!(start.contains("[ \"${SLOPOS_DESKTOP_MANAGER:-native}\" = pcmanfm ]"));
+    assert!(start.contains("if ! legacy_desktop_wanted; then"));
     assert!(start.contains("pcmanfm --profile=\"$SLOPOS_DESKTOP_PROFILE\" --desktop"));
     assert!(start.contains("desktop-items-0.conf"));
     assert!(start.contains("desktop_bg=\u{24}desktop_bg"));

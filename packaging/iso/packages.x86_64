@@ -17,30 +17,21 @@ lightdm
 lightdm-gtk-greeter
 
 # SLOPOS default applications
-pcmanfm
 xfce4-terminal
 mousepad
-ristretto
 zathura
 zathura-pdf-mupdf
-mpv
-galculator
 firefox
 supertux
 
 # System integration and Settings delegates
 networkmanager
-network-manager-applet
-pavucontrol
 pipewire
 pipewire-pulse
 wireplumber
-blueman
 upower
+bluez
 xfce4-power-manager
-xfce4-settings
-lxappearance
-arandr
 polkit
 
 # Visual/runtime assets

@@ -1,8 +1,8 @@
 [Desktop Entry]
 Name=Software
-Comment=Find and install applications
-Exec=slopos-catalogue
-TryExec=slopos-catalogue
+Comment=Install apps from the signed SLOPOS catalogue
+Exec=slopos-software
+TryExec=slopos-software
 Icon=system-software-install
 Terminal=false
 Type=Application

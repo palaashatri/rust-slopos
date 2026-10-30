@@ -32,7 +32,7 @@ const DEFAULT_ROLES: &[&[&str]] = &[
     ],
     &["slopos-calculator"],
     &["slopos-media"],
-    &["slopos-catalogue"],
+    &["slopos-software"],
     &["slopos-control-panels"],
 ];
 

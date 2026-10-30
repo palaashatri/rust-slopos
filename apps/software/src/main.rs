@@ -1,15 +1,15 @@
-//! SLOPOS Software. This first slice is the trust and transaction core
-//! (STORE-01) with a command-line front end for catalogue publishers; the
-//! native window arrives with STORE-02.
+//! SLOPOS Software: the native catalogue window (STORE-02) over the signed
+//! trust and transaction core (STORE-01). Without arguments it opens the
+//! window; publishers use the command-line tools:
 //!
 //! slopos-software keygen KEY-FILE
 //! slopos-software sign KEY-FILE CATALOGUE.json        (signs in place)
 //! slopos-software verify TRUST.json CATALOGUE.json
 
-// The installer is driven by the window added in STORE-02.
-#[allow(dead_code)]
 mod install;
+mod store;
 mod trust;
+mod window;
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -77,7 +77,30 @@ fn verify(trust_path: &Path, catalogue_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn run_window() -> Result<(), String> {
+    use slopos_ui::platform::{self, WindowOptions};
+    use std::sync::{Arc, Mutex};
+    let slot: window::WakeSlot = Arc::new(Mutex::new(None));
+    let app = window::SoftwareApp::new(
+        store::Sources::from_environment(),
+        install::Layout::from_environment(),
+        store::machine_architecture(),
+        window::network_installer(),
+        slot.clone(),
+    );
+    let options = WindowOptions::new("Software", "slopos-software", window::WIDTH, window::HEIGHT);
+    platform::run(options, app, move |proxy| {
+        if let Ok(mut guard) = slot.lock() {
+            *guard = Some(proxy);
+        }
+    })
+    .map_err(|error| error.to_string())
+}
+
 fn main() -> ExitCode {
+    if std::env::var_os("RUST_LOG").is_some() {
+        let _ = env_logger::try_init();
+    }
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args
         .iter()
@@ -85,6 +108,7 @@ fn main() -> ExitCode {
         .collect::<Vec<_>>()
         .as_slice()
     {
+        [] => run_window(),
         ["keygen", key] => keygen(Path::new(key)),
         ["sign", key, catalogue] => sign(Path::new(key), Path::new(catalogue)),
         ["verify", trust, catalogue] => verify(Path::new(trust), Path::new(catalogue)),
