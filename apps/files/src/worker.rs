@@ -12,6 +12,7 @@ use std::thread;
 
 use slopos_ui::platform::Proxy;
 
+use crate::archive;
 use crate::model::{self, Entry};
 use crate::ops::{self, Conflict, Job, OpError};
 use crate::trash::{self, TrashItem};
@@ -80,6 +81,13 @@ pub enum Operation {
     Restore(Vec<TrashItem>),
     Erase(Vec<TrashItem>),
     EmptyTrash,
+    Compress {
+        sources: Vec<PathBuf>,
+        dest: PathBuf,
+        format: archive::Format,
+    },
+    /// Extract each archive next to itself.
+    Extract(Vec<PathBuf>),
 }
 
 impl Operation {
@@ -91,6 +99,8 @@ impl Operation {
             Self::Delete(_) => "Deleting",
             Self::Restore(_) => "Restoring",
             Self::Erase(_) | Self::EmptyTrash => "Emptying Trash",
+            Self::Compress { .. } => "Compressing",
+            Self::Extract(_) => "Extracting",
         }
     }
 
@@ -178,6 +188,15 @@ fn run(operation: &Operation, job: &Job) -> Result<Vec<PathBuf>, OpError> {
             Ok(Vec::new())
         }
         Operation::EmptyTrash => trash::empty().map(|_| Vec::new()),
+        Operation::Compress {
+            sources,
+            dest,
+            format,
+        } => archive::compress(sources, dest, *format, job).map(|path| vec![path]),
+        Operation::Extract(archives) => archives
+            .iter()
+            .map(|path| archive::extract(path, job))
+            .collect(),
     }
 }
 

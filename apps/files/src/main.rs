@@ -5,6 +5,7 @@
 //! never touches the disk for listing or copying. Operations are the
 //! transactional ones in `ops.rs` and `trash.rs`.
 
+mod archive;
 mod model;
 mod ops;
 mod trash;
@@ -83,6 +84,9 @@ enum Command {
     GoTrash,
     Restore,
     EmptyTrash,
+    Compress,
+    CompressTarGz,
+    Extract,
 }
 
 /// (label, shortcut text, command); no command is a separator.
@@ -92,6 +96,10 @@ const FILE_MENU: MenuSpec = &[
     ("New Folder", Some("Ctrl+Shift+N"), Some(Command::NewFolder)),
     ("Open", Some("Ctrl+O"), Some(Command::Open)),
     ("Rename…", Some("F2"), Some(Command::Rename)),
+    ("", None, None),
+    ("Compress", None, Some(Command::Compress)),
+    ("Compress as .tar.gz", None, Some(Command::CompressTarGz)),
+    ("Extract Here", None, Some(Command::Extract)),
     ("", None, None),
     ("Move to Trash", Some("Delete"), Some(Command::Trash)),
     (
@@ -565,6 +573,15 @@ impl FilesApp {
             Command::Up => !self.in_trash && self.state.parent().is_some(),
             Command::EmptyTrash => !busy,
             Command::SelectAll => !self.rows.is_empty(),
+            Command::Compress | Command::CompressTarGz => selected && !self.in_trash && !busy,
+            Command::Extract => {
+                selected
+                    && !self.in_trash
+                    && !busy
+                    && self.selected_rows().iter().all(|row| {
+                        row.kind == Kind::File && archive::format_of(&row.name).is_some()
+                    })
+            }
             _ => true,
         }
     }
@@ -910,6 +927,22 @@ impl FilesApp {
                 let paths = self.selected_paths();
                 self.start(Operation::Trash(paths));
             }
+            Command::Compress | Command::CompressTarGz => {
+                let format = if command == Command::Compress {
+                    archive::Format::Zip
+                } else {
+                    archive::Format::TarGz
+                };
+                self.start(Operation::Compress {
+                    sources: self.selected_paths(),
+                    dest: self.state.current.clone(),
+                    format,
+                });
+            }
+            Command::Extract => {
+                let archives = self.selected_paths();
+                self.start(Operation::Extract(archives));
+            }
             Command::DeletePermanently => {
                 let rows: Vec<Row> = self.selected_rows().into_iter().cloned().collect();
                 let what = if rows.len() == 1 {
@@ -1101,6 +1134,9 @@ impl FilesApp {
             vec![
                 ("Open", Some(Command::Open)),
                 ("Rename…", Some(Command::Rename)),
+                ("", None),
+                ("Compress", Some(Command::Compress)),
+                ("Extract Here", Some(Command::Extract)),
                 ("", None),
                 ("Cut", Some(Command::Cut)),
                 ("Copy", Some(Command::Copy)),
@@ -1990,6 +2026,64 @@ mod tests {
         settle(&mut app);
         assert!(dir.path().join("renamed.txt").exists());
         std::env::remove_var("XDG_DATA_HOME");
+    }
+
+    #[test]
+    fn compress_and_extract_from_the_menus() {
+        let dir = fixture();
+        std::fs::write(dir.path().join("Folder/inside.txt"), b"inside").unwrap();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        let mut control = Control::default();
+        // Nothing to extract in a text file.
+        select(&mut app, "a.txt");
+        assert!(app.enabled(Command::Compress) && !app.enabled(Command::Extract));
+        // File › Compress on Folder makes Folder.zip and selects it.
+        select(&mut app, "Folder");
+        // The menu's enabled items follow the selection.
+        app.refresh_controls();
+        let compress = FILE_MENU
+            .iter()
+            .position(|(_, _, command)| *command == Some(Command::Compress))
+            .unwrap();
+        app.event(
+            &Event::MenuChosen {
+                menu: 0,
+                item: compress,
+            },
+            &mut control,
+        );
+        settle(&mut app);
+        assert!(dir.path().join("Folder.zip").is_file(), "{}", app.status);
+        assert_eq!(app.selected_rows()[0].name, "Folder.zip");
+        assert!(app.enabled(Command::Extract));
+        // Extract Here next to it: "Folder 2", since "Folder" exists.
+        app.run(Command::Extract, &mut control);
+        settle(&mut app);
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("Folder 2/inside.txt")).unwrap(),
+            "inside"
+        );
+        assert_eq!(app.selected_rows()[0].name, "Folder 2");
+        // A broken archive reports why and leaves nothing behind.
+        std::fs::write(dir.path().join("broken.tar.gz"), b"not gzip").unwrap();
+        app.request(dir.path().to_path_buf(), Navigation::Refresh);
+        settle(&mut app);
+        select(&mut app, "broken.tar.gz");
+        app.run(Command::Extract, &mut control);
+        settle(&mut app);
+        assert!(!dir.path().join("broken").exists());
+        assert!(
+            app.dialog.is_some() || app.status.contains("not an archive"),
+            "{}",
+            app.status
+        );
+        // The context menu offers both on a selection.
+        app.dialog = None;
+        select(&mut app, "a.txt");
+        app.open_context_menu(10, 10);
+        let labels: Vec<&str> = app.context.items.iter().map(|i| i.label.as_str()).collect();
+        assert!(labels.contains(&"Compress") && labels.contains(&"Extract Here"));
     }
 
     #[test]
