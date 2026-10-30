@@ -4,6 +4,10 @@
 //! the separately audited transactional filesystem engine. Directory I/O
 //! occurs on a bounded background worker, never in an X11 event callback.
 mod model;
+#[allow(dead_code)] // Wired into the UI by FILES-02.
+mod ops;
+#[allow(dead_code)]
+mod trash;
 
 use std::io;
 use std::path::{Path, PathBuf};

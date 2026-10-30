@@ -10,3 +10,8 @@ slopos-ui = { path = "../../crates/slopos-ui" }
 slopos-core = { path = "../../crates/slopos-core" }
 accesskit = { workspace = true }
 env_logger = { workspace = true }
+libc = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
