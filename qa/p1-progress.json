@@ -1,6 +1,31 @@
 {
   "schema_version": 1,
   "tasks": {
+    "FILES-01": {
+      "base_sha": "4c242ccc375f97062ad41387e0b053b2754aa5fa",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/files01-unit.log",
+            "command": "cargo test --workspace --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "9f853b7987f271038ffe3b444ae927ddb7cca1451c3e1e26a10c08620dbe0793"
+          },
+          {
+            "artifact": ".work/p1/evidence/files01-security.log",
+            "command": "cargo test -p slopos-files --locked -- ops:: trash:: model::",
+            "kind": "security",
+            "result": "PASS",
+            "sha256": "675cf0fc74e1acc9baa3c1468dc12ad7902ed58deda547472be2e73c92becc37"
+          }
+        ],
+        "source_sha": "4c242ccc375f97062ad41387e0b053b2754aa5fa"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at 4c242cc; single-agent verification",
+      "updated_utc": "2026-10-30T06:11:46+00:00"
+    },
     "P1-00": {
       "base_sha": "85035ffb2c957e200d19c9b6c874270779aaa2c8",
       "evidence": {
@@ -95,5 +120,5 @@
       "updated_utc": "2026-10-30T06:02:48+00:00"
     }
   },
-  "updated_utc": "2026-10-30T06:02:48+00:00"
+  "updated_utc": "2026-10-30T06:11:46+00:00"
 }
