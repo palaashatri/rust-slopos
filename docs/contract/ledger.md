@@ -652,3 +652,18 @@ These acknowledge existing debt only; they do not permit new ad-hoc UI.
 | PCManFM/external utility integration | Explicitly labelled interim/delegated behavior | APP-01/SHELL-05 or matching utility task; final native claims require the replacement |
 
 New engine/compatibility exceptions must name exact crate/path, API boundary, reason, test and owner here. No blanket exemption for all applications, all GTK imports or all QA failures is allowed.
+
+## P. P1 autonomous delivery log
+
+Rows written by the single coordinator following [GOAL.md](../../GOAL.md).
+Guest: disposable Ubuntu 24.04.5 x86_64 cloud container (4 CPUs, 15 GiB RAM),
+Xvfb + Openbox 3.6 + xdotool installed from the Ubuntu archive inside the
+container only. Single-agent verification: no independent reviewer was
+available, so every row is coordinator-verified. Evidence files live under
+`.work/p1/evidence/` in the guest (not committed); SHA-256 digests are in
+`qa/p1-progress.json`. Real Wi-Fi, Bluetooth, audio and backlight hardware
+are absent in this guest and are NOT_RUN unless stated otherwise.
+
+| Date | Task | State | Evidence summary |
+|---|---|---|---|
+| 2026-10-30 | P1-00 | INTEGRATED | Base `85035ffb2c957e200d19c9b6c874270779aaa2c8`. Inventory: Calculator (native), Image Viewer PNG/SVG proof (native), Dock (native), shell/settings/catalogue (GTK 3 legacy). `cargo build/test --workspace --locked` PASS; `scripts/smoke-session.sh` PASS (menu bar, Dock, Calculator open/close, logout). Screenshots inspected: status items show "—" (no NetworkManager/PipeWire in guest), Calculator renders Classic plates. Disk 25 GiB free, target 1.9 GiB. |
