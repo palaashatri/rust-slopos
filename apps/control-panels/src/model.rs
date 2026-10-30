@@ -254,6 +254,64 @@ pub fn bluetooth_lines(snapshot: &BluetoothSnapshot) -> Vec<String> {
     lines
 }
 
+/// Where Control Panels keeps the display layout, in the settings folder.
+pub const DISPLAYS_FILE: &str = "displays.conf";
+
+/// "HDMI-1" with "(built-in)" for laptop panels.
+pub fn output_label(output: &slopos_services::display::DisplayOutput) -> String {
+    let builtin = ["eDP", "LVDS", "DSI"]
+        .iter()
+        .any(|prefix| output.name.starts_with(prefix));
+    if builtin {
+        format!("{} (built-in)", output.name)
+    } else {
+        output.name.clone()
+    }
+}
+
+pub fn size_label(width: u16, height: u16) -> String {
+    format!("{width} × {height}")
+}
+
+/// "60 Hz", "59.94 Hz"; "Unknown" for modes without timing.
+pub fn refresh_label(millihz: u32) -> String {
+    if millihz == 0 {
+        "Unknown".to_owned()
+    } else if millihz % 1000 < 5 || millihz % 1000 > 995 {
+        format!("{} Hz", (millihz + 500) / 1000)
+    } else {
+        format!("{:.2} Hz", f64::from(millihz) / 1000.0)
+    }
+}
+
+pub fn rotation_label(rotation: slopos_services::display::Rotation) -> &'static str {
+    use slopos_services::display::Rotation;
+    match rotation {
+        Rotation::Normal => "Standard",
+        Rotation::Left => "90° (portrait, left)",
+        Rotation::Inverted => "180° (upside down)",
+        Rotation::Right => "270° (portrait, right)",
+    }
+}
+
+pub fn placement_label(placement: slopos_services::display::Placement, other: &str) -> String {
+    use slopos_services::display::Placement;
+    match placement {
+        Placement::RightOf => format!("Right of {other}"),
+        Placement::LeftOf => format!("Left of {other}"),
+        Placement::Above => format!("Above {other}"),
+        Placement::Below => format!("Below {other}"),
+        Placement::SameAs => format!("Mirror {other}"),
+    }
+}
+
+pub fn revert_message(seconds: u32) -> String {
+    format!(
+        "If the screen looks wrong, wait: the previous settings come back in {seconds} second{}.",
+        if seconds == 1 { "" } else { "s" }
+    )
+}
+
 /// Devices for the list: connected first, then paired, then by name.
 pub fn bluetooth_devices(snapshot: &BluetoothSnapshot) -> Vec<BluetoothDevice> {
     let mut devices = snapshot.devices.clone();

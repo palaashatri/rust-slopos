@@ -9,6 +9,7 @@ use std::thread;
 use slopos_services::audio::{AudioClient, AudioSnapshot};
 use slopos_services::bluetooth::{BluetoothClient, BluetoothSnapshot};
 use slopos_services::brightness::{BrightnessClient, BrightnessSnapshot};
+use slopos_services::display::{DisplayClient, DisplaySnapshot, OutputConfig};
 use slopos_services::network::{NetworkManagerClient, NetworkSnapshot};
 use slopos_services::timedate::{TimedateClient, TimedateSnapshot};
 use tokio::sync::mpsc as async_mpsc;
@@ -22,6 +23,9 @@ pub enum Update {
     Brightness(State<BrightnessSnapshot>),
     Bluetooth(State<BluetoothSnapshot>),
     Time(State<TimedateSnapshot>),
+    Displays(State<DisplaySnapshot>),
+    /// A display change finished: `None` when the server took it.
+    DisplaysApplied(Option<String>),
     /// Names of the saved Wi-Fi profiles (joined without a password).
     SavedWifi(Vec<String>),
     /// Pairing with this device ended: `None` when it paired.
@@ -57,6 +61,7 @@ pub enum Command {
     /// Forget (adapter, device).
     ForgetBluetooth(String, String),
     SetNtp(bool),
+    ApplyDisplays(Vec<OutputConfig>),
 }
 
 pub struct Services {
@@ -129,6 +134,22 @@ async fn run(
     // Pairing waits for the device (up to a minute), so it runs beside the
     // loop, which stays free to cancel it.
     let (paired_sender, mut paired) = async_mpsc::unbounded_channel::<Update>();
+    // RandR events arrive on the watcher's own thread.
+    let display = DisplayClient::connect();
+    match &display {
+        Ok(client) => {
+            send(Update::Displays(
+                client.snapshot().map_err(|e| unavailable!(e)),
+            ));
+            let sender = paired_sender.clone();
+            if let Err(error) = DisplayClient::watch(move |result| {
+                let _ = sender.send(Update::Displays(result.map_err(|e| unavailable!(e))));
+            }) {
+                send(Update::Displays(Err(unavailable!(error))));
+            }
+        }
+        Err(error) => send(Update::Displays(Err(unavailable!(error)))),
+    }
 
     let mut network_events = None;
     match &network {
@@ -280,6 +301,16 @@ async fn run(
                     Command::ForgetBluetooth(adapter, device) => match &bluetooth {
                         Ok(client) => client.remove_device(&adapter, &device).await.map(|s| Some(Update::Bluetooth(Ok(s)))).map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
+                    },
+                    Command::ApplyDisplays(configs) => match &display {
+                        Ok(client) => match client.apply(&configs) {
+                            Ok(snapshot) => {
+                                send(Update::Displays(Ok(snapshot)));
+                                Ok(Some(Update::DisplaysApplied(None)))
+                            }
+                            Err(error) => Ok(Some(Update::DisplaysApplied(Some(error.to_string())))),
+                        },
+                        Err(e) => Ok(Some(Update::DisplaysApplied(Some(e.to_string())))),
                     },
                     Command::SetNtp(on) => match &timedate {
                         Ok(client) => client.set_ntp(on).await.map(|s| Some(Update::Time(Ok(s)))).map_err(|e| e.to_string()),

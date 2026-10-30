@@ -18,6 +18,7 @@ use slopos_core::wallpaper::{self, Wallpaper};
 use slopos_services::audio::AudioSnapshot;
 use slopos_services::bluetooth::BluetoothSnapshot;
 use slopos_services::brightness::BrightnessSnapshot;
+use slopos_services::display::{self, DisplaySnapshot, OutputConfig, Placement};
 use slopos_services::network::{NetworkDeviceType, NetworkSnapshot};
 use slopos_services::timedate::TimedateSnapshot;
 use slopos_ui::accessibility::window_tree;
@@ -27,6 +28,7 @@ use slopos_ui::controls::file_chooser::{ChooserOutcome, FileChooser};
 use slopos_ui::controls::focus::FocusChain;
 use slopos_ui::controls::list::{ListOutcome, ListView};
 use slopos_ui::controls::menu::{MenuBar, MenuBarOutcome, MenuItem};
+use slopos_ui::controls::popup::{PopUpButton, PopUpOutcome};
 use slopos_ui::controls::range::{Checkbox, Slider, ToggleOutcome, ValueOutcome};
 use slopos_ui::event::{AccessibilityRequest, Event, Key};
 use slopos_ui::foundation::color::Color;
@@ -58,6 +60,34 @@ const OUTPUT_MUTE_ID: u64 = 31;
 const INPUT_VOLUME_ID: u64 = 32;
 const INPUT_MUTE_ID: u64 = 33;
 const BRIGHTNESS_ID: u64 = 40;
+const OUTPUT_ID: u64 = 41;
+const RESOLUTION_ID: u64 = 42;
+const REFRESH_ID: u64 = 43;
+const ROTATION_ID: u64 = 44;
+const PLACEMENT_ID: u64 = 45;
+const DISPLAY_ON_ID: u64 = 46;
+const MAIN_DISPLAY_ID: u64 = 47;
+const KEEP_DIALOG_ID: u64 = 610;
+const REVERT_TIMER: u64 = 1;
+const DISPLAY_POPUPS: [u64; 5] = [
+    OUTPUT_ID,
+    RESOLUTION_ID,
+    REFRESH_ID,
+    ROTATION_ID,
+    PLACEMENT_ID,
+];
+/// Seconds to confirm a display change before it is undone.
+const REVERT_SECONDS: u32 = 15;
+
+/// A display change on probation: undone unless kept in time.
+struct PendingDisplays {
+    previous: Vec<OutputConfig>,
+    configs: Vec<OutputConfig>,
+    left: u32,
+    /// The server took it (the countdown runs from then).
+    applied: bool,
+    dialog: Dialog,
+}
 const BLUETOOTH_ID: u64 = 50;
 const BT_SEARCH_ID: u64 = 51;
 const BT_LIST_ID: u64 = 52;
@@ -172,6 +202,19 @@ pub struct ControlPanels {
     input_volume: Slider,
     input_mute: Checkbox,
     brightness_slider: Slider,
+    displays: State<DisplaySnapshot>,
+    /// The output the Displays controls edit.
+    output: PopUpButton,
+    resolution: PopUpButton,
+    refresh: PopUpButton,
+    rotation: PopUpButton,
+    placement: PopUpButton,
+    display_on: Checkbox,
+    main_display: Checkbox,
+    /// A display change waiting to be kept or reverted.
+    keep: Option<PendingDisplays>,
+    /// The change went through: start counting down.
+    start_countdown: bool,
     bluetooth_power: Checkbox,
     bt_search: Button,
     bt_list: ListView,
@@ -322,6 +365,16 @@ impl ControlPanels {
             input_volume: Slider::new(INPUT_VOLUME_ID, "Input volume", 0.0, 100.0, 5.0),
             input_mute: Checkbox::new(INPUT_MUTE_ID, "Mute input", false),
             brightness_slider: Slider::new(BRIGHTNESS_ID, "Brightness", 0.0, 100.0, 5.0),
+            displays: model::loading(),
+            output: PopUpButton::new(OUTPUT_ID, "Display"),
+            resolution: PopUpButton::new(RESOLUTION_ID, "Resolution"),
+            refresh: PopUpButton::new(REFRESH_ID, "Refresh rate"),
+            rotation: PopUpButton::new(ROTATION_ID, "Rotation"),
+            placement: PopUpButton::new(PLACEMENT_ID, "Position"),
+            display_on: Checkbox::new(DISPLAY_ON_ID, "Use this display", false),
+            main_display: Checkbox::new(MAIN_DISPLAY_ID, "Show the menu bar here", false),
+            keep: None,
+            start_countdown: false,
             bluetooth_power: Checkbox::new(BLUETOOTH_ID, "Bluetooth", false),
             bt_search: Button::new(
                 BT_SEARCH_ID,
@@ -464,6 +517,28 @@ impl ControlPanels {
             width: 220,
             height: 18,
         };
+        for (row, popup) in [
+            &mut self.output,
+            &mut self.resolution,
+            &mut self.refresh,
+            &mut self.rotation,
+            &mut self.placement,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            popup.bounds = Rect {
+                x: x + 110,
+                y: top + 34 + row as i32 * 30,
+                width: 220,
+                height: 20,
+            };
+        }
+        self.display_on = self.display_on.clone().at(x + 110, top + 186);
+        self.main_display = self.main_display.clone().at(x + 110, top + 210);
+        if let Some(pending) = &mut self.keep {
+            pending.dialog.layout(self.window);
+        }
         self.bluetooth_power = self.bluetooth_power.clone().at(x, top);
         self.bt_search.bounds = Rect {
             x: x + 140,
@@ -544,7 +619,16 @@ impl ControlPanels {
                 INPUT_VOLUME_ID,
                 INPUT_MUTE_ID,
             ],
-            Panel::Display => vec![BRIGHTNESS_ID],
+            Panel::Display => vec![
+                BRIGHTNESS_ID,
+                OUTPUT_ID,
+                RESOLUTION_ID,
+                REFRESH_ID,
+                ROTATION_ID,
+                PLACEMENT_ID,
+                DISPLAY_ON_ID,
+                MAIN_DISPLAY_ID,
+            ],
             Panel::Bluetooth => vec![
                 BLUETOOTH_ID,
                 BT_SEARCH_ID,
@@ -580,6 +664,13 @@ impl ControlPanels {
         self.input_volume.focused = f == Some(INPUT_VOLUME_ID);
         self.input_mute.focused = f == Some(INPUT_MUTE_ID);
         self.brightness_slider.focused = f == Some(BRIGHTNESS_ID);
+        self.output.focused = f == Some(OUTPUT_ID);
+        self.resolution.focused = f == Some(RESOLUTION_ID);
+        self.refresh.focused = f == Some(REFRESH_ID);
+        self.rotation.focused = f == Some(ROTATION_ID);
+        self.placement.focused = f == Some(PLACEMENT_ID);
+        self.display_on.focused = f == Some(DISPLAY_ON_ID);
+        self.main_display.focused = f == Some(MAIN_DISPLAY_ID);
         self.bluetooth_power.focused = f == Some(BLUETOOTH_ID);
         self.bt_search.focused = f == Some(BT_SEARCH_ID);
         self.bt_list.focused = f == Some(BT_LIST_ID);
@@ -659,6 +750,7 @@ impl ControlPanels {
                 self.brightness_slider.set_value(f64::from(percent));
             }
         }
+        self.sync_displays();
         let adapter = self
             .bluetooth
             .as_ref()
@@ -720,6 +812,19 @@ impl ControlPanels {
             Update::Bluetooth(state) => self.bluetooth = state,
             Update::Time(state) => self.time = state,
             Update::SavedWifi(names) => self.saved_wifi = names,
+            Update::Displays(state) => self.displays = state,
+            Update::DisplaysApplied(error) => match (error, self.keep.as_mut()) {
+                (None, Some(pending)) if !pending.applied => {
+                    pending.applied = true;
+                    self.start_countdown = true;
+                }
+                (None, _) => {}
+                (Some(error), _) => {
+                    // Nothing changed; there is nothing to keep.
+                    self.keep = None;
+                    self.fail(format!("The display change didn't work: {error}"));
+                }
+            },
             Update::PairingDone(device, error) => {
                 self.pairing = None;
                 let name = self.bluetooth_name(&device);
@@ -739,6 +844,247 @@ impl ControlPanels {
                 self.status.clear();
             }
             None => self.fail("No service thread is running."),
+        }
+    }
+
+    /// The output being edited and the current layout.
+    fn display_state(&self) -> Option<(usize, Vec<OutputConfig>)> {
+        let snapshot = self.displays.as_ref().ok()?;
+        let index = self
+            .output
+            .selected()
+            .filter(|&i| i < snapshot.outputs.len())
+            .or_else(|| snapshot.outputs.iter().position(|o| o.primary))
+            .unwrap_or(0);
+        (!snapshot.outputs.is_empty()).then(|| (index, display::current_configs(snapshot)))
+    }
+
+    /// Fill the Displays controls from the provider's snapshot.
+    fn sync_displays(&mut self) {
+        let Some((index, configs)) = self.display_state() else {
+            for popup in [
+                &mut self.output,
+                &mut self.resolution,
+                &mut self.refresh,
+                &mut self.rotation,
+                &mut self.placement,
+            ] {
+                popup.set_items(Vec::new(), None);
+                popup.enabled = false;
+            }
+            self.display_on.enabled = false;
+            self.main_display.enabled = false;
+            return;
+        };
+        let Ok(snapshot) = self.displays.as_ref() else {
+            return;
+        };
+        let output = &snapshot.outputs[index];
+        let config = &configs[index];
+        let busy = self.keep.is_some();
+        let names: Vec<String> = snapshot.outputs.iter().map(model::output_label).collect();
+        self.output.set_items(names, Some(index));
+        self.output.enabled = snapshot.outputs.len() > 1;
+        let sizes = display::sizes(output);
+        self.resolution.set_items(
+            sizes
+                .iter()
+                .map(|&(w, h)| model::size_label(w, h))
+                .collect(),
+            sizes
+                .iter()
+                .position(|&size| size == (config.width, config.height)),
+        );
+        self.resolution.enabled = config.enabled && !busy && sizes.len() > 1;
+        let rates = display::refresh_rates(output, config.width, config.height);
+        self.refresh.set_items(
+            rates.iter().map(|&r| model::refresh_label(r)).collect(),
+            rates
+                .iter()
+                .position(|r| r.abs_diff(config.refresh_millihz) < 50),
+        );
+        self.refresh.enabled = config.enabled && !busy && rates.len() > 1;
+        self.rotation.set_items(
+            output
+                .rotations
+                .iter()
+                .map(|&r| model::rotation_label(r).to_owned())
+                .collect(),
+            output.rotations.iter().position(|&r| r == config.rotation),
+        );
+        self.rotation.enabled = config.enabled && !busy && output.rotations.len() > 1;
+        // Placement is relative to the main display (or the first other one).
+        let anchor = configs
+            .iter()
+            .enumerate()
+            .position(|(i, c)| i != index && c.primary && c.enabled)
+            .or_else(|| (0..configs.len()).find(|&i| i != index && configs[i].enabled));
+        match anchor {
+            Some(anchor) => {
+                let name = &snapshot.outputs[anchor].name;
+                self.placement.set_items(
+                    Placement::ALL
+                        .iter()
+                        .map(|&p| model::placement_label(p, name))
+                        .collect(),
+                    display::placement_of(&configs, index, anchor)
+                        .and_then(|p| Placement::ALL.iter().position(|&q| q == p)),
+                );
+                self.placement.enabled = config.enabled && !busy;
+            }
+            None => {
+                self.placement.set_items(Vec::new(), None);
+                self.placement.enabled = false;
+            }
+        }
+        self.display_on.checked = config.enabled;
+        self.display_on.enabled = !busy && snapshot.outputs.len() > 1;
+        self.main_display.checked = config.primary;
+        self.main_display.enabled =
+            !busy && config.enabled && !config.primary && snapshot.outputs.len() > 1;
+    }
+
+    fn popup_mut(&mut self, id: u64) -> &mut PopUpButton {
+        match id {
+            OUTPUT_ID => &mut self.output,
+            RESOLUTION_ID => &mut self.resolution,
+            REFRESH_ID => &mut self.refresh,
+            ROTATION_ID => &mut self.rotation,
+            _ => &mut self.placement,
+        }
+    }
+
+    /// The user picked item `choice` of pop-up `id`, or toggled a checkbox
+    /// (`choice` 1 for on).
+    fn display_chosen(&mut self, id: u64, choice: usize) {
+        let Some((index, before)) = self.display_state() else {
+            return;
+        };
+        let Ok(snapshot) = self.displays.as_ref() else {
+            return;
+        };
+        let output = &snapshot.outputs[index];
+        let mut after = before.clone();
+        let anchor = (0..after.len())
+            .find(|&i| i != index && after[i].primary && after[i].enabled)
+            .or_else(|| (0..after.len()).find(|&i| i != index && after[i].enabled));
+        match id {
+            RESOLUTION_ID => {
+                let Some(&(width, height)) = display::sizes(output).get(choice) else {
+                    return;
+                };
+                let refresh =
+                    display::find_mode(output, width, height, after[index].refresh_millihz)
+                        .map_or(0, |mode| mode.refresh_millihz);
+                after[index].width = width;
+                after[index].height = height;
+                after[index].refresh_millihz = refresh;
+                display::reflow(&before, &mut after, index);
+            }
+            REFRESH_ID => {
+                let rates = display::refresh_rates(output, after[index].width, after[index].height);
+                let Some(&rate) = rates.get(choice) else {
+                    return;
+                };
+                after[index].refresh_millihz = rate;
+            }
+            ROTATION_ID => {
+                let Some(&rotation) = output.rotations.get(choice) else {
+                    return;
+                };
+                after[index].rotation = rotation;
+                display::reflow(&before, &mut after, index);
+            }
+            PLACEMENT_ID => {
+                let (Some(&placement), Some(anchor)) = (Placement::ALL.get(choice), anchor) else {
+                    return;
+                };
+                display::place(&mut after, index, placement, anchor);
+            }
+            DISPLAY_ON_ID => {
+                after[index].enabled = choice == 1;
+                if choice == 1 {
+                    if let Some(mode) = output
+                        .preferred
+                        .and_then(|id| output.modes.iter().find(|m| m.id == id))
+                        .or(output.modes.first())
+                    {
+                        after[index].width = mode.width;
+                        after[index].height = mode.height;
+                        after[index].refresh_millihz = mode.refresh_millihz;
+                    }
+                    if let Some(anchor) = anchor {
+                        display::place(&mut after, index, Placement::RightOf, anchor);
+                    }
+                } else if after[index].primary {
+                    // The menu bar moves to a display that stays on.
+                    after[index].primary = false;
+                    if let Some(anchor) = anchor {
+                        after[anchor].primary = true;
+                    }
+                }
+                display::normalize(&mut after);
+            }
+            MAIN_DISPLAY_ID => {
+                for (i, config) in after.iter_mut().enumerate() {
+                    config.primary = i == index;
+                }
+            }
+            _ => return,
+        }
+        self.change_displays(before, after);
+    }
+
+    /// Apply a new layout and ask whether to keep it.
+    fn change_displays(&mut self, previous: Vec<OutputConfig>, configs: Vec<OutputConfig>) {
+        if previous == configs || self.keep.is_some() {
+            return;
+        }
+        if let Ok(snapshot) = self.displays.as_ref() {
+            if let Err(error) = display::plan(snapshot, &configs) {
+                return self.fail(format!("Can't use that: {error}."));
+            }
+        }
+        let mut dialog = Dialog::new(
+            KEEP_DIALOG_ID,
+            "Keep these display settings?",
+            &model::revert_message(REVERT_SECONDS),
+            &["Revert", "Keep"],
+        );
+        dialog.layout(self.window);
+        self.keep = Some(PendingDisplays {
+            previous,
+            configs: configs.clone(),
+            left: REVERT_SECONDS,
+            applied: false,
+            dialog,
+        });
+        self.send(Command::ApplyDisplays(configs));
+        self.notice("Changing the display settings…");
+    }
+
+    /// Undo the change waiting for confirmation.
+    fn revert_displays(&mut self) {
+        if let Some(pending) = self.keep.take() {
+            self.send(Command::ApplyDisplays(pending.previous));
+            self.notice("The previous display settings are back.");
+        }
+    }
+
+    fn keep_displays(&mut self) {
+        let Some(PendingDisplays { configs, .. }) = self.keep.take() else {
+            return;
+        };
+        match self
+            .config
+            .as_ref()
+            .map(|dir| dir.join(model::DISPLAYS_FILE))
+        {
+            Some(path) => match display::save(&path, &configs) {
+                Ok(()) => self.notice("The display settings are kept."),
+                Err(error) => self.fail(format!("Kept, but couldn't save them: {error}")),
+            },
+            None => self.notice("Kept for this session (no settings folder)."),
         }
     }
 
@@ -814,6 +1160,41 @@ impl ControlPanels {
     }
 
     fn handle(&mut self, event: &Event, control: &mut Control) {
+        if let Some(pending) = &mut self.keep {
+            if let Event::Timer(REVERT_TIMER) = event {
+                pending.left = pending.left.saturating_sub(1);
+                if pending.left == 0 {
+                    return self.revert_displays();
+                }
+                pending.dialog.message = model::revert_message(pending.left);
+                control.start_timer(std::time::Duration::from_secs(1), REVERT_TIMER);
+                return;
+            }
+            if !pending.applied {
+                // Still being applied: nothing to answer yet.
+                return;
+            }
+            match pending.dialog.handle(event) {
+                DialogOutcome::Chosen { index: 1, .. } => self.keep_displays(),
+                DialogOutcome::Chosen { .. } => self.revert_displays(),
+                _ => {}
+            }
+            return;
+        }
+        if let Event::Timer(REVERT_TIMER) = event {
+            return;
+        }
+        // An open pop-up menu takes every event.
+        if let Some(id) = DISPLAY_POPUPS
+            .into_iter()
+            .find(|&id| self.popup_mut(id).is_open())
+        {
+            let window = self.window;
+            if let PopUpOutcome::Selected(index) = self.popup_mut(id).handle(event, window) {
+                self.display_chosen(id, index);
+            }
+            return;
+        }
         if let Some((dialog, _)) = &mut self.password {
             match dialog.handle(event) {
                 DialogOutcome::Chosen { index, text } => {
@@ -1028,6 +1409,16 @@ impl ControlPanels {
                 }
             }
             Panel::Display => {
+                let window = self.window;
+                for id in DISPLAY_POPUPS {
+                    self.popup_mut(id).handle(event, window);
+                }
+                if let ToggleOutcome::Toggled(on) = self.display_on.handle(event) {
+                    self.display_chosen(DISPLAY_ON_ID, usize::from(on));
+                }
+                if let ToggleOutcome::Toggled(true) = self.main_display.handle(event) {
+                    self.display_chosen(MAIN_DISPLAY_ID, 1);
+                }
                 if let ValueOutcome::Value { value, last: true } =
                     self.brightness_slider.handle(event)
                 {
@@ -1318,10 +1709,26 @@ impl ControlPanels {
                 },
             ),
             Panel::Display => {
-                let mut lines = vec![match self.screen {
-                    Some((w, h)) => format!("Screen: {w} × {h} pixels"),
-                    None => "Screen size: unavailable".into(),
-                }];
+                let mut lines = match &self.displays {
+                    Ok(snapshot) if !snapshot.outputs.is_empty() => snapshot
+                        .outputs
+                        .iter()
+                        .take(2)
+                        .map(|output| match output.current_mode() {
+                            Some(mode) => format!(
+                                "{}: {}, {}",
+                                model::output_label(output),
+                                model::size_label(mode.width, mode.height),
+                                model::refresh_label(mode.refresh_millihz)
+                            ),
+                            None => format!("{}: off", model::output_label(output)),
+                        })
+                        .collect(),
+                    _ => vec![match self.screen {
+                        Some((w, h)) => format!("Screen: {w} × {h} pixels"),
+                        None => "Screen size: unavailable".into(),
+                    }],
+                };
                 lines.push(match &self.brightness {
                     Ok(snapshot) => match model::brightness_percent(snapshot) {
                         Some((name, percent)) => format!("Backlight {name}: {percent}%"),
@@ -1491,6 +1898,29 @@ impl ControlPanels {
             Panel::Display => {
                 surface.draw_text("Brightness", c.x, top + 2, font, colors.ink)?;
                 self.brightness_slider.paint(surface)?;
+                for id in DISPLAY_POPUPS {
+                    let popup = match id {
+                        OUTPUT_ID => &self.output,
+                        RESOLUTION_ID => &self.resolution,
+                        REFRESH_ID => &self.refresh,
+                        ROTATION_ID => &self.rotation,
+                        _ => &self.placement,
+                    };
+                    if id == PLACEMENT_ID && popup.items().is_empty() {
+                        continue;
+                    }
+                    let ink = if popup.enabled {
+                        colors.ink
+                    } else {
+                        colors.ink_secondary
+                    };
+                    surface.draw_text(&popup.label, c.x, popup.bounds.y + 3, font, ink)?;
+                    popup.paint(surface, font)?;
+                }
+                if self.display_on.enabled {
+                    self.display_on.paint(surface)?;
+                    self.main_display.paint(surface)?;
+                }
             }
             Panel::Bluetooth => {
                 self.bluetooth_power.paint(surface)?;
@@ -1606,8 +2036,20 @@ impl ControlPanels {
         if let Some(chooser) = &mut self.chooser {
             chooser.paint(surface)?;
         }
+        for popup in [
+            &self.output,
+            &self.resolution,
+            &self.refresh,
+            &self.rotation,
+            &self.placement,
+        ] {
+            popup.paint_menu(surface)?;
+        }
         if let Some((dialog, _)) = &mut self.password {
             dialog.paint(surface)?;
+        }
+        if let Some(pending) = self.keep.as_mut().filter(|p| p.applied) {
+            pending.dialog.paint(surface)?;
         }
         Ok(())
     }
@@ -1643,6 +2085,9 @@ impl App for ControlPanels {
         self.sync_from_state();
         if self.focus.ids().is_empty() {
             self.sync_focus();
+        }
+        if std::mem::take(&mut self.start_countdown) && self.keep.is_some() {
+            control.start_timer(std::time::Duration::from_secs(1), REVERT_TIMER);
         }
         control.request_redraw();
     }
@@ -1698,7 +2143,18 @@ impl App for ControlPanels {
                 nodes.push((INPUT_MUTE_ID, self.input_mute.accessibility_node()));
             }
             Panel::Display => {
-                nodes.push((BRIGHTNESS_ID, self.brightness_slider.accessibility_node()))
+                nodes.push((BRIGHTNESS_ID, self.brightness_slider.accessibility_node()));
+                for popup in [
+                    &self.output,
+                    &self.resolution,
+                    &self.refresh,
+                    &self.rotation,
+                    &self.placement,
+                ] {
+                    nodes.extend(popup.accessibility_nodes());
+                }
+                nodes.push((DISPLAY_ON_ID, self.display_on.accessibility_node()));
+                nodes.push((MAIN_DISPLAY_ID, self.main_display.accessibility_node()));
             }
             Panel::Bluetooth => {
                 nodes.push((BLUETOOTH_ID, self.bluetooth_power.accessibility_node()));
@@ -1741,6 +2197,11 @@ impl App for ControlPanels {
         let mut status = accesskit::Node::new(accesskit::Role::Label);
         status.set_label(self.status.as_str());
         nodes.push((STATUS_ID, status));
+        if let Some(pending) = self.keep.as_ref().filter(|p| p.applied) {
+            nodes.extend(pending.dialog.accessibility_nodes());
+            let focus = Some(pending.dialog.focus_node());
+            return Some(window_tree("Control Panels", nodes, focus));
+        }
         if let Some((dialog, _)) = &self.password {
             nodes.extend(dialog.accessibility_nodes());
             let focus = Some(dialog.focus_node());
@@ -1761,6 +2222,13 @@ impl App for ControlPanels {
                 Some(WALLPAPER_LIST_ID) => Some(self.wallpaper_list.focus_node()),
                 Some(WIFI_LIST_ID) => Some(self.wifi_list.focus_node()),
                 Some(BT_LIST_ID) => Some(self.bt_list.focus_node()),
+                Some(id) if DISPLAY_POPUPS.contains(&id) => Some(match id {
+                    OUTPUT_ID => self.output.focus_node(),
+                    RESOLUTION_ID => self.resolution.focus_node(),
+                    REFRESH_ID => self.refresh.focus_node(),
+                    ROTATION_ID => self.rotation.focus_node(),
+                    _ => self.placement.focus_node(),
+                }),
                 other => other,
             },
         };
@@ -1768,9 +2236,39 @@ impl App for ControlPanels {
     }
 }
 
+/// `--apply-displays`: put back the kept layout when the same monitors are
+/// connected. Nothing saved, or different monitors, is not an error.
+fn apply_saved_displays() -> Result<(), String> {
+    let Some(path) = wallpaper::config_dir().map(|dir| dir.join(model::DISPLAYS_FILE)) else {
+        return Ok(());
+    };
+    let saved = display::load(&path);
+    if saved.is_empty() {
+        return Ok(());
+    }
+    let client = display::DisplayClient::connect().map_err(|e| e.to_string())?;
+    let snapshot = client.snapshot().map_err(|e| e.to_string())?;
+    match display::saved_for(&snapshot, &saved) {
+        Some(configs) if configs != display::current_configs(&snapshot) => client
+            .apply(&configs)
+            .map(|_| ())
+            .map_err(|e| e.to_string()),
+        _ => Ok(()),
+    }
+}
+
 fn main() {
     if std::env::var_os("RUST_LOG").is_some() {
         let _ = env_logger::try_init();
+    }
+    if std::env::args().nth(1).as_deref() == Some("--apply-displays") {
+        std::process::exit(match apply_saved_displays() {
+            Ok(()) => 0,
+            Err(error) => {
+                eprintln!("slopos-control-panels: {error}");
+                1
+            }
+        });
     }
     let slot: WakeSlot = Arc::new(Mutex::new(None));
     let wake_slot = slot.clone();
@@ -2129,6 +2627,149 @@ mod tests {
             receiver.try_recv().unwrap(),
             Command::ForgetBluetooth("/hci0".into(), "/hci0/dev_1".into())
         );
+    }
+
+    #[test]
+    fn display_changes_are_confirmed_or_reverted() {
+        use slopos_services::display::{DisplayMode, DisplayOutput, Rotation};
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        let dir = tempfile::tempdir().unwrap();
+        app.config = Some(dir.path().to_owned());
+        let mode = |id, width, height, refresh_millihz| DisplayMode {
+            id,
+            width,
+            height,
+            refresh_millihz,
+        };
+        let output = |id: u32, name: &str, crtc: u32, x: i16| DisplayOutput {
+            id,
+            name: name.into(),
+            enabled: true,
+            primary: id == 1,
+            modes: vec![
+                mode(10, 1920, 1080, 60000),
+                mode(11, 1920, 1080, 50000),
+                mode(12, 1280, 720, 60000),
+            ],
+            preferred: Some(10),
+            mode: Some(10),
+            rotation: Rotation::Normal,
+            rotations: vec![Rotation::Normal, Rotation::Left],
+            x,
+            y: 0,
+            crtc,
+            crtcs: vec![100, 200],
+            width_mm: 0,
+            height_mm: 0,
+        };
+        let snapshot = DisplaySnapshot {
+            availability: Availability::Available,
+            outputs: vec![output(1, "eDP-1", 100, 0), output(2, "HDMI-1", 200, 1920)],
+            min_size: (320, 200),
+            max_size: (8192, 8192),
+        };
+        app.apply_update(Update::Displays(Ok(snapshot.clone())));
+        let mut control = Control::default();
+        app.event(&Event::MenuChosen { menu: 1, item: 2 }, &mut control);
+        assert_eq!(app.panel(), Panel::Display);
+        assert_eq!(app.lines().1[0], "eDP-1 (built-in): 1920 × 1080, 60 Hz");
+        assert_eq!(app.output.value(), "eDP-1 (built-in)");
+        assert_eq!(app.resolution.items(), &["1920 × 1080", "1280 × 720"]);
+        assert_eq!(app.refresh.items(), &["60 Hz", "50 Hz"]);
+        assert_eq!(app.placement.value(), "Left of HDMI-1");
+        // Tab from the sidebar: brightness (off without a backlight is
+        // still in the chain), Display, Resolution.
+        for _ in 0..3 {
+            app.event(&key(Key::Tab), &mut control);
+        }
+        assert!(app.resolution.focused);
+        app.event(&key(Key::Space), &mut control);
+        assert!(app.resolution.is_open());
+        let tree = app.accessibility().unwrap();
+        assert!(
+            tree.nodes
+                .iter()
+                .any(|(_, n)| n.role() == accesskit::Role::ComboBox
+                    && n.label() == Some("Resolution"))
+        );
+        app.event(&key(Key::Down), &mut control);
+        app.event(&key(Key::Enter), &mut control);
+        // HDMI-1 stays beside the smaller panel.
+        let Command::ApplyDisplays(changed) = receiver.try_recv().unwrap() else {
+            panic!("expected a display change");
+        };
+        assert_eq!((changed[0].width, changed[0].height), (1280, 720));
+        assert_eq!((changed[1].x, changed[1].y), (1280, 0));
+        // Until the server answers, the dialog is not shown or answerable.
+        assert!(app.keep.as_ref().is_some_and(|p| !p.applied));
+        app.event(&key(Key::Enter), &mut control);
+        assert!(app.keep.is_some());
+        app.apply_update(Update::DisplaysApplied(None));
+        assert!(app.start_countdown);
+        app.event(&Event::Wake, &mut control);
+        // Fourteen seconds pass, then the old layout comes back.
+        for _ in 0..14 {
+            app.event(&Event::Timer(REVERT_TIMER), &mut control);
+        }
+        assert!(app
+            .keep
+            .as_ref()
+            .unwrap()
+            .dialog
+            .message
+            .contains("in 1 second."));
+        let tree = app.accessibility().unwrap();
+        assert!(tree
+            .nodes
+            .iter()
+            .any(|(_, n)| n.label() == Some("Keep these display settings?")));
+        app.event(&Event::Timer(REVERT_TIMER), &mut control);
+        assert!(app.keep.is_none());
+        let Command::ApplyDisplays(reverted) = receiver.try_recv().unwrap() else {
+            panic!("expected the revert");
+        };
+        assert_eq!(reverted, display::current_configs(&snapshot));
+        // Turn the panel sideways and keep it: the layout is saved.
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.rotation.focused);
+        app.event(&key(Key::Space), &mut control);
+        app.event(&key(Key::Down), &mut control);
+        app.event(&key(Key::Enter), &mut control);
+        let Command::ApplyDisplays(turned) = receiver.try_recv().unwrap() else {
+            panic!("expected a rotation");
+        };
+        assert_eq!(turned[0].rotation, Rotation::Left);
+        assert_eq!(turned[1].x, 1080);
+        app.apply_update(Update::DisplaysApplied(None));
+        app.event(&Event::Wake, &mut control);
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
+        app.event(&key(Key::Enter), &mut control);
+        assert!(app.keep.is_none(), "{}", app.status);
+        assert_eq!(app.status, "The display settings are kept.");
+        assert_eq!(
+            display::load(&dir.path().join(model::DISPLAYS_FILE)),
+            turned
+        );
+        // A change the server refuses leaves nothing to keep.
+        app.event(&key(Key::Space), &mut control);
+        app.event(&key(Key::Up), &mut control);
+        app.event(&key(Key::Enter), &mut control);
+        assert!(receiver.try_recv().is_ok());
+        app.apply_update(Update::DisplaysApplied(Some("BadMatch".into())));
+        assert!(app.keep.is_none() && app.status_error);
+        // Without RandR the controls are off and the panel says why.
+        app.apply_update(Update::Displays(Err(model::Unavailable::new(
+            Availability::UnsupportedHardware,
+            "no RandR",
+        ))));
+        app.sync_from_state();
+        assert!(!app.resolution.enabled && !app.rotation.enabled);
     }
 
     #[test]
