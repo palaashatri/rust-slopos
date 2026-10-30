@@ -11,6 +11,23 @@ This is a plan, not a status report. What exists is in
 and a ledger row, following AGENTS.md (toolkit controls go into
 `slopos-ui`, no polling, truthful state, no GTK under `apps/`).
 
+## Status (2026-10-30)
+
+| Phase | Landed (commits on PR #36) | Left from the plan |
+|---|---|---|
+| A toolkit | popup windows, global key grabs, GMenu client (A1–A3); later `PopUpButton` and secret `TextField` | — |
+| B top bar | `slopos-topbar` replaces `slopos-shell` in the session (3059e99) | status popovers, OSDs, notification history |
+| C1 Network | Join/Disconnect/Forget with a password dialog (3da98b5) | network-secret agent, hidden networks, show-password |
+| C2 Bluetooth | search, pair/cancel, connect/disconnect, forget (992e077) | pairing agent for PIN/passkey |
+| C3 Displays | RandR provider (d881891), resolution/refresh/rotation/position/primary/on-off with 15 s revert, restore at login (b4448ff) | pointer drag arrangement; real-monitor mode switching is NOT_RUN (Xvfb has one mode) |
+| C4 Sound | device choice, per-application volume/mute/move (cff150e) | — |
+| C5 Keyboard & Mouse | layout, repeat, pointer speed, natural scrolling, left-handed; restore at login (4e68fe5) | tap to click; layout via localed (system-wide) |
+| D desktop | `slopos-desktop` (49c016e) | rename, Move to Trash, drag and drop with Files, one window per monitor |
+| E archives | Compress / Extract Here (8e36ac8) | — |
+| F later | — | Terminal, Text editor, power manager, lock screen, polkit agent, System Monitor, Screenshot, Disks |
+
+The table below is the plan as written before the work started.
+
 ## What is still not native
 
 | Surface or capability | Today | Native replacement |

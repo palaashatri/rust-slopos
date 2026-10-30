@@ -2,25 +2,28 @@
 
 This page describes the code as it is, not the target. For the target, see the [contract](CONTRACT.md). When the two disagree, this page describes reality and the contract describes where it should go. Last reviewed: 2026-10-30.
 
-SLOPOS-I is an **alpha** X11 desktop environment. Openbox manages windows. SLOPOS adds a session supervisor, a menu-bar shell, a Dock, and native applications on its own toolkit: Calculator, Files, Image Viewer, Media, Control Panels and Software. Bundled SLOPOS paths open only these native apps; GTK donor apps that duplicate them are not installed or launched.
+SLOPOS-I is an **alpha** X11 desktop environment. Openbox manages windows. SLOPOS adds a session supervisor, a top bar, a desktop window, a Dock, and native applications on its own toolkit: Calculator, Files, Image Viewer, Media, Control Panels and Software. Every surface a SLOPOS session starts is on the SLOPOS toolkit; no GTK program is started by the session. Bundled SLOPOS paths open only the native apps; GTK donor apps that duplicate them are not installed or launched.
 
 ## Processes in a session
 
 ```
 display manager ─► start-slopos-i ─► slopos-session (supervisor, pid lock)
+                                        ├─ slopos-control-panels --restore   once, ≤5 s: kept display layout, keyboard and mouse
                                         ├─ openbox            Required: its failure ends the session
                                         ├─ picom / xcompmgr   Optional: skipped if missing or SLOPOS_NO_COMPOSITOR
-                                        ├─ slopos-shell       Important: restarted with backoff, session survives
+                                        ├─ slopos-desktop     Optional: desktop icons; off with SLOPOS_NO_DESKTOP
+                                        ├─ slopos-topbar      Important: restarted with backoff, session survives
                                         └─ slopos-dock        Important: as above; off with SLOPOS_NO_DOCK
-apps launched from the shell or Dock: detached (setsid), reaped, not supervised
+apps launched from the top bar, desktop or Dock: detached (setsid), reaped, not supervised
 ```
 
 - `start-slopos-i` is the X session entry point (`packaging/slopos-i.desktop` runs it). It sets up D-Bus activation and the source-tree or installed share directory, then executes `slopos-session`.
 - `slopos-session` (`crates/slopos-session`):
   - takes a lock at `$XDG_RUNTIME_DIR/slopos-session<display>.pid`, so a second instance refuses to start;
+  - runs `slopos-control-panels --restore` (killed after 5 s) so the display layout and keyboard/mouse settings kept in Control Panels apply before anything sizes itself to the screen;
   - configures the environment (`environment.rs`): `XDG_*`, the GTK theme and GTK 2 rc for the chosen appearance and the Openbox config path, then paints the desktop itself: the saved picture (`slopos_core::wallpaper`), Platinum's default blue field, or the appearance colour, through `slopos_ui::platform::x11::set_root_background` (a retained root pixmap announced in `_XROOTPMAP_ID`). `slopos-session --paint-desktop` repaints after a change; no feh, xsetroot or PCManFM is involved;
   - supervises its children (`supervisor.rs`). After a crash a child is restarted with a delay of 250 ms × 2ⁿ. After 5 fast failures in a row it is given up, and that is reported once.
-  - `slopos-session --logout` sends SIGTERM to the running supervisor, which stops the children in reverse order (SIGTERM, then SIGKILL after 2 s). The Openbox root menu and the shell's Special menu both use it.
+  - `slopos-session --logout` sends SIGTERM to the running supervisor, which stops the children in reverse order (SIGTERM, then SIGKILL after 2 s). The Openbox root menu and the top bar's System menu both use it.
 - Appearances: `platinum` (default), `classic`, `graphite` and `oled`. Each one picks an Openbox rc file, a GTK theme and a root colour. A user's own `~/.config/slopos-i/openbox/rc.xml` always wins.
 
 ## Workspace crates
@@ -29,21 +32,23 @@ apps launched from the shell or Dock: detached (setsid), reaped, not supervised
 |---|---|---|---|
 | `slopos-core` | library | — | Shared primitives: XDG paths, `.desktop` discovery and parsing, process launch/resolve/reap, capability and IPC types. |
 | `slopos-ui` | library | **own** | The SLOPOS toolkit (below). No GTK. |
-| `slopos-services` | library | — | D-Bus providers: NetworkManager, audio (PipeWire/Pulse), brightness, UPower, timedate, Bluetooth, MPRIS, UDisks. Typed snapshots; "unavailable" when a service is missing. |
+| `slopos-services` | library | — | System providers with typed snapshots, "unavailable" when a service is missing: NetworkManager (incl. Wi-Fi join/forget), audio (PipeWire/Pulse devices and per-application streams), brightness, UPower, timedate, BlueZ (incl. pairing and forgetting devices), MPRIS, UDisks, display outputs (XRandR) and keyboard/mouse settings (XKB, XInput 2 libinput properties). |
 | `slopos-session` | binary | — | Session supervisor (above). |
-| `slopos-shell` | binary | GTK 3 (legacy) | Global menu bar, status items (sound, network, clock), launcher (Super+Space), notification daemon, desktop actions, X11/EWMH helpers. |
+| `slopos-topbar` | binary | **own** | The top bar (below): System menu, global menus, status items, launcher, notification server, window actions. |
+| `slopos-desktop` | binary | **own** | The desktop window (below): desktop picture and icons. |
+| `slopos-shell` | binary | GTK 3 (legacy) | Superseded by `slopos-topbar`. Still built in the workspace for its tests; not installed by `install.sh` or the live ISO, and the session does not start it. |
 | `slopos-dock` | binary | **own** | The Dock (below). |
 | `slopos-settings` | binary | GTK 3 (legacy) | Superseded by `apps/control-panels`. Still built in the workspace; not installed by `install.sh` or the live ISO, and nothing launches it. |
 | `slopos-catalogue` | binary | GTK 3 (legacy) | Superseded by `apps/software`. Still built; not installed or launched. |
 | `apps/calculator` | binary | **own** | Calculator, the first native app. |
-| `apps/files` | binary | **own** | Files: bounded async folder listing, Back/Forward/Up/Home/location, multi-select list with Name/Size/Modified/Kind, menus and context menus, transactional copy/move/rename/new folder, Trash with restore/empty, confirmed permanent delete, conflict dialog, inotify refresh, MIME default-app open. |
+| `apps/files` | binary | **own** | Files: bounded async folder listing, Back/Forward/Up/Home/location, multi-select list with Name/Size/Modified/Kind, menus and context menus, transactional copy/move/rename/new folder, Trash with restore/empty, confirmed permanent delete, conflict dialog, Compress / Extract Here, inotify refresh, MIME default-app open. |
 | `apps/image-viewer` | binary | **own** | Image Viewer: bounded PNG/JPEG/GIF/BMP/WebP/TIFF/SVG decoding with EXIF orientation, folder navigation, zoom and pan. |
 | `apps/media` | binary | **own** | Media: GStreamer `playbin` behind an engine adapter; video frames through an RGBA appsink, play/pause, seek, volume, mute, sidecar subtitles, honest missing-codec and format errors. |
-| `apps/control-panels` | binary | **own** | Control Panels: Network, Sound, Display, Bluetooth, Date & Time, Desktop and Appearance on `slopos-services` (below). |
+| `apps/control-panels` | binary | **own** | Control Panels: Network, Sound, Display, Bluetooth, Date & Time, Desktop, Appearance and Keyboard & Mouse on `slopos-services` (below). |
 | `apps/software` | binary | **own** | Software: the catalogue window plus the Ed25519-signed catalogue, trust store and transactional AppImage install/update/uninstall with recovery; publisher CLI (keygen/sign/verify). |
 | `tools/slopos-ui-gallery` | binary | **own** | Component gallery, with a `--snapshot` mode for captures. |
 
-`scripts/check-architecture.py` stops anything under `apps/` from depending on GTK, GDK or Pango. Rewriting the legacy GTK crates on the SLOPOS toolkit is the long-term direction. Until then they get bug fixes and truthful-state fixes only.
+`scripts/check-architecture.py` stops anything under `apps/` from depending on GTK, GDK or Pango. The three legacy GTK crates are no longer installed or started; they stay in the workspace until their remaining tests and helpers are moved or retired.
 
 ## The SLOPOS toolkit (`crates/slopos-ui`)
 
@@ -59,13 +64,13 @@ apps launched from the shell or Dock: detached (setsid), reaped, not supervised
 | `image` | `Image`: PNG decoding and SVG rasterisation (resvg, with system fonts for SVG text), bilinear scaling, and `compose_background` (fill, tile or centre over a backdrop) for desktop pictures. |
 | `icons` | `IconLookup`: freedesktop icon-theme lookup with `Inherits`, size matching, `hicolor` and `/usr/share/pixmaps`. Default theme `SLOPOS-Platinum`, overridden by `SLOPOS_ICON_THEME`. |
 | `primitives` | Classic component painters, e.g. the button plate (Regular, Default and Secondary × Rest, Pressed and Disabled, at any size). |
-| `controls` | Interactive controls as explicit state machines, each with keyboard, pointer and AccessKit support: `Button` (text, or an icon with the label kept as the accessible name); `TextField` (single-line Unicode editing, word motion, shift/drag selection, Ctrl+A/C/X/V/Z, placeholder, max length, steady caret, `TextInput` with SetValue); `FocusChain` (Tab/Shift+Tab); `ScrollState` (offset, wheel-over-area, track paging, thumb drag, Classic scrollbar); `ListView` (virtualized rows, single/multiple selection with Shift/Ctrl click and keys, type-ahead, double-click/Enter activation, context-menu requests, bounded `ListBox` a11y); `Menu` and `MenuBar` (in-window pull-down/context menus, keyboard and pointer, shortcuts text, separators, disabled/checked/checkable items, F10; a global mode in which the bar takes no space and choices arrive from the shell); `Dialog` (application-modal alert or text prompt with scrim, Enter/Escape); `FileChooser` (modal Open dialog with filtered, sorted, capped folder list, path field, Up); `Slider`, `Checkbox`, `ProgressBar` (determinate or static indeterminate). |
+| `controls` | Interactive controls as explicit state machines, each with keyboard, pointer and AccessKit support: `Button` (text, or an icon with the label kept as the accessible name); `TextField` (single-line Unicode editing, word motion, shift/drag selection, Ctrl+A/C/X/V/Z, placeholder, max length, steady caret, `TextInput` with SetValue); `FocusChain` (Tab/Shift+Tab); `ScrollState` (offset, wheel-over-area, track paging, thumb drag, Classic scrollbar); `ListView` (virtualized rows, single/multiple selection with Shift/Ctrl click and keys, type-ahead, double-click/Enter activation, context-menu requests, bounded `ListBox` a11y); `Menu` and `MenuBar` (in-window pull-down/context menus, keyboard and pointer, shortcuts text, separators, disabled/checked/checkable items, F10; a global mode in which the bar takes no space and choices arrive from the shell); `Dialog` (application-modal alert or text prompt with scrim, Enter/Escape; a standalone mode for popup windows); `TextField` secret mode (bullets, no copy/cut, `PasswordInput` with no value in the accessibility tree); `PopUpButton` (pop-up menu control: opens over the current value, press-drag-release or click, `ComboBox` semantics); `FileChooser` (modal Open dialog with filtered, sorted, capped folder list, path field, Up); `Slider`, `Checkbox`, `ProgressBar` (determinate or static indeterminate). |
 | `event` | Pointer (with host double-click detection), keyboard, scroll, focus, resize, timer, wake, clipboard paste, accessibility events (click, focus, set value, increment/decrement), and global-menu events (`MenuChosen`, `GlobalMenu(bool)`). |
-| `platform` | `App` trait, `Control` and `WindowOptions`. The x11rb host: a poll(2) loop that sleeps until there is input, a timer or a `Proxy::wake()` from another thread; frames sent with PutImage strips; Normal and Dock window kinds (with struts); HiDPI via `SLOPOS_SCALE`/`GDK_SCALE`; the X11 `CLIPBOARD` selection (`Control::set_clipboard`, `request_paste`; UTF8_STRING/STRING/TARGETS, 256 KiB, no INCR); keymap refresh on `MappingNotify`; AccessKit trees on AT-SPI (feature `atspi`, on by default); `set_root_background` for the desktop picture. `global_menu` (feature `global-menu`, on by default) exports an app's `App::menu_bar` over `org.gtk.Menus`/`org.gtk.Actions` on the session bus and tags the window with `_GTK_UNIQUE_BUS_NAME`, `_GTK_MENUBAR_OBJECT_PATH` and `_GTK_APPLICATION_OBJECT_PATH` before it maps; enabled/checked changes are pushed with `Changed` signals. The app hides its in-window bar only while the shell owns `org.slopos.GlobalMenu`; a blocking NameOwnerChanged watcher brings the bar back if the shell exits. |
+| `platform` | `App` trait, `Control` and `WindowOptions`. The x11rb host: a poll(2) loop that sleeps until there is input, a timer or a `Proxy::wake()` from another thread; frames sent with PutImage strips; Normal, Dock (with struts) and Desktop window kinds; override-redirect popup windows with pointer/keyboard grabs (`Control::open_popup`, `App::paint_popup`); desktop-wide key grabs (`WindowOptions::global_keys`, all lock-modifier combinations); HiDPI via `SLOPOS_SCALE`/`GDK_SCALE`; the X11 `CLIPBOARD` selection (`Control::set_clipboard`, `request_paste`; UTF8_STRING/STRING/TARGETS, 256 KiB, no INCR); keymap refresh on `MappingNotify`; AccessKit trees on AT-SPI (feature `atspi`, on by default); `set_root_background` for the desktop picture. `global_menu` (feature `global-menu`, on by default) exports an app's `App::menu_bar` over `org.gtk.Menus`/`org.gtk.Actions` on the session bus and tags the window with `_GTK_UNIQUE_BUS_NAME`, `_GTK_MENUBAR_OBJECT_PATH` and `_GTK_APPLICATION_OBJECT_PATH` before it maps; enabled/checked changes are pushed with `Changed` signals. The app hides its in-window bar only while the top bar owns `org.slopos.GlobalMenu`; a blocking NameOwnerChanged watcher brings the bar back if the top bar exits. `menu_import` is the other side: it reads any window's `org.gtk.Menus`/`org.gtk.Actions` model (sections, submenus, accelerators, check/radio state) and activates actions. |
 
 An app implements `App::event`, `App::paint` and, optionally, `App::accessibility`, then calls `platform::run`. The Calculator (`apps/calculator/src/main.rs`) is the reference example.
 
-Not built yet: separate popup windows (menus are drawn inside the app window), drag and drop, IME pre-edit (XIM/IBus), trees/icon grids, `slopos-appkit`, GPU/Vello/wgpu rendering, an advanced composited scene graph, and theme datasets beyond the provisional Platinum colours. See [the UI toolkit program](ui-toolkit-program.md) for in-repository toolkit milestones and optional external distribution; [native application plan](application-platform.md) and [swarm execution](swarm-execution.md) document future product slices, not implemented features.
+Not built yet: drag and drop, IME pre-edit (XIM/IBus), trees/icon grids, `slopos-appkit`, GPU/Vello/wgpu rendering, an advanced composited scene graph, and theme datasets beyond the provisional Platinum colours. See [the UI toolkit program](ui-toolkit-program.md) for in-repository toolkit milestones and optional external distribution; [native application plan](application-platform.md) and [swarm execution](swarm-execution.md) document future product slices, not implemented features.
 
 ## The Dock (`crates/slopos-dock`)
 
@@ -79,19 +84,28 @@ Not built yet: separate popup windows (menus are drawn inside the app window), d
   - Screen readers see a toolbar of buttons.
 - **Not built yet:** context menus, drag-to-reorder, pin/unpin from the UI, auto-hide, multi-monitor placement and a Settings panel.
 
-## The shell (`crates/slopos-shell`)
+## The top bar (`crates/slopos-topbar`)
 
-- The **menu bar** shows a System menu and either the desktop menus (File, View, Special, Help) or the active window's menus. The shell owns `org.slopos.GlobalMenu` and imports any window's exported `org.gtk.Menus` model: SLOPOS toolkit apps (Files, Image Viewer, Media, Control Panels, Software) and GTK apps alike. For other windows there are window actions. Settings, Software and Files entries open the native apps only (no pavucontrol, nm-connection-editor or file-manager fallbacks).
-- **Status items** come from `slopos-services` and update on events: sound, network and battery, plus the clock. Network shows the live connection, "Offline" or "Network unavailable"; it never shows a made-up interface.
-- The **launcher** (`launcher.rs`, `app_finder.rs`) searches `.desktop` entries with ranked fuzzy matching and is opened by Super+Space or SIGUSR1.
-- **Notifications:** the shell owns `org.freedesktop.Notifications` when nobody else does. Toasts are placed in the monitor's work area.
-- **Desktop:** the session paints the desktop picture; there are no desktop icons by default. PCManFM's GTK desktop is opt-in only (`SLOPOS_DESKTOP_MANAGER=pcmanfm`) and is not installed by default. The shell implements New Folder and Empty Trash (with confirmation, via `gio trash` or a symlink-safe fallback); the Openbox right-click menu lists the native apps and Control Panels pages.
+- A 26-pixel `_NET_WM_WINDOW_TYPE_DOCK` window across the top with a strut. One instance per display ("Refusing to start a second SLOPOS top bar").
+- **Menus:** the System menu (About, Control Panels, Software, Desktop Picture, appearance choices, Switch User, and Log Out/Restart/Shut Down with confirmation) and either the desktop menus (File, View, Special, Help) or the focused window's menus. The top bar owns `org.slopos.GlobalMenu` and imports the focused window's `org.gtk.Menus` model through `slopos_ui::platform::menu_import`, so SLOPOS toolkit apps and GTK applications alike show their menus here; choosing an item activates the app's action. Windows without exported menus get Close, Minimise and Zoom (EWMH requests). Menus are toolkit popup windows with keyboard navigation.
+- **Status items** come from `slopos-services` on a blocking thread: sound (output volume, mute), network (connection name, "Offline", "Network unavailable"), battery when there is one, and the clock (a timer only for the minute change).
+- **Launcher:** fuzzy search over `.desktop` entries in a popup, opened by Super+Space (Openbox sends SIGUSR1), Ctrl+F2 (a global key grab) or the System menu.
+- **Notifications:** an `org.freedesktop.Notifications` 1.2 server (body, actions, persistence; expiry, replace, close, `ActionInvoked`/`NotificationClosed`), shown as toasts under the bar's right end, three at a time.
+- **Not built yet:** status popovers (Wi-Fi/Bluetooth/volume/brightness menus), volume and brightness OSDs, a notification history, multi-monitor bars.
+
+## The desktop (`crates/slopos-desktop`)
+
+- A `_NET_WM_WINDOW_TYPE_DESKTOP` window the size of the screen, under every window. It shows a copy of the root picture the session paints (re-read when `_XROOTPMAP_ID` changes), so the desktop looks the same with or without it, and follows screen-size changes.
+- **Icons:** Home, removable volumes mounted under `/media` and `/run/media`, the items of `XDG_DESKTOP_DIR` (hidden files skipped, at most 400) and the Trash (full or empty), placed from the top-right corner down. Positions the user drags to are kept per item in `~/.config/slopos-i/desktop-positions`.
+- **Interaction:** click/Ctrl-click selection, drag to a free cell, double-click/Return/Ctrl+O to open (Files for folders, volumes and Home, `slopos-files --trash` for the Trash, the default application for files), arrows, type-to-select, Ctrl+Shift+N for a new folder that never replaces one, and a context menu (New Folder, Change Desktop Picture…, Open Desktop in Files). Items are a `List` of `ListItem`s for assistive technology.
+- Refresh is event driven: inotify on the desktop folder and the Trash, `POLLPRI` on `/proc/self/mountinfo` for mounts, X events for the picture and size.
+- **Not built yet:** rename, Move to Trash and drag and drop between the desktop and Files, mounting unmounted volumes, one window per monitor.
 
 ## Packages and CI
 
-- **Packages:** `install.sh` installs from source into a prefix: the session, shell, Dock and the native apps (Calculator, Files, Image Viewer, Media, Control Panels, Software), their desktop entries, Openbox and GTK themes, the icon theme and wallpapers. The runtime dependency lists (`packaging/deps`, the Arch ISO list and the VM installer) no longer include the GTK donor apps that duplicate SLOPOS's own (PCManFM, Ristretto, galculator, mpv, pavucontrol, blueman, arandr, lxappearance, xfce4-settings, the NetworkManager applet); they keep the services the native apps use (NetworkManager, PipeWire, BlueZ, UPower, xfce4-power-manager). `assets/config/mimeapps.list` names only native apps for images, media and folders.
+- **Packages:** `install.sh` installs from source into a prefix: the session, top bar, desktop, Dock and the native apps (Calculator, Files, Image Viewer, Media, Control Panels, Software), their desktop entries, Openbox and GTK themes, the icon theme and wallpapers. The runtime dependency lists (`packaging/deps`, the Arch ISO list and the VM installer) no longer include the GTK donor apps that duplicate SLOPOS's own (PCManFM, Ristretto, galculator, mpv, pavucontrol, blueman, arandr, lxappearance, xfce4-settings, the NetworkManager applet); they keep the services the native apps use (NetworkManager, PipeWire, BlueZ, UPower, xfce4-power-manager). `assets/config/mimeapps.list` names only native apps for images, media and folders.
 - **Live ISO:** `packaging/iso/build-live-iso.sh --arch amd64|arm64` builds an Ubuntu 24.04 casper live image (BIOS+UEFI for amd64, UEFI for arm64) that autologins into SLOPOS-I; `test-live-iso.sh` boots it in QEMU and checks the desktop and launcher. `.github/workflows/live-iso.yml` builds both and boot-tests amd64.
-- **CI:** `.github/workflows/ci.yml` is one job that runs fmt, clippy `-D warnings`, the workspace tests, the Python architecture/spec checks, shell syntax checks, and `scripts/smoke-session.sh`. The smoke test boots a real session under Xvfb and checks the menu bar, the Dock and Calculator, then logs out and checks that every process exited.
+- **CI:** `.github/workflows/ci.yml` is one job that runs fmt, clippy `-D warnings`, the workspace tests, the Python architecture/spec checks, shell syntax checks, and `scripts/smoke-session.sh`. The smoke test boots a real session under Xvfb and checks the top bar, the desktop window, the Dock and Calculator, then logs out and checks that every process exited.
 - **Nightlies:** `nightly.yml` publishes the `.deb` and `.pkg.tar.zst` from `main` to the rolling `nightly` release.
 - **Scheduled:** the heavy X11 QA runs nightly (`qa.yml`). The ISO, installed-VM, recovery and hardware-contract workflows run weekly.
 
@@ -101,10 +115,10 @@ See [development.md](development.md) for commands.
 
 The [ledger](contract/ledger.md) has the dated evidence. In short:
 
-- Native Files has no drag and drop, icon view, thumbnails, properties window, removable-volume mount/eject or network mounts yet, and has not passed installed-package VM acceptance. Terminal, Text editor and System Monitor are not native yet (the system terminal and Mousepad are still used). There are no desktop icons by default.
-- No OSDs, workspaces UI, lock screen, polkit agent or display-configuration UI beyond brightness.
+- Native Files has no drag and drop, icon view, thumbnails, properties window, removable-volume mount/eject or network mounts yet, and has not passed installed-package VM acceptance. Terminal, Text editor and System Monitor are not native yet (the system terminal and Mousepad are still used).
+- No OSDs or status popovers, workspaces UI, lock screen, polkit agent, network-secret agent (Wi-Fi passwords are asked by Control Panels only) or BlueZ pairing agent (devices that need a PIN or passkey confirmation fail with BlueZ's error).
 - No production software catalogue or publisher key exists yet, so Software shows "No software catalogue is installed" on a fresh system.
-- The shell's top bar is still GTK 3, whose Rust bindings are unmaintained; the legacy GTK settings and catalogue crates are still built but no longer shipped.
+- The legacy GTK crates (`slopos-shell`, `slopos-settings`, `slopos-catalogue`) are still built in the workspace but no longer shipped or started.
 - X11 only. GNOME and KDE are leaving X11, so distribution support for X11 logins has to be checked per release (§21.10).
 - Not tested on real hardware or on the Raspberry Pi edge target.
 
@@ -123,6 +137,7 @@ It proposes strict JSON actions via loopback-only Ollama (`lfm3:1.7b`) using ins
 
 - **Model** (`model.rs`, from PR #35): non-recursive listing via `symlink_metadata`, so directory symlinks are never traversed while listing; folders over 8192 entries fail explicitly instead of truncating; Back/Forward history.
 - **Workers** (`worker.rs`): one folder-reading thread (bounded queue, stale results dropped), one thread per file operation with cancel and throttled progress wakes, and an inotify watcher thread. All wake the UI through `Proxy`; nothing polls.
+- **Archives** (`archive.rs`): Compress (zip, tar.gz) and Extract Here (zip, tar, tar.gz, tar.xz, tar.zst) run as operations with progress and Cancel and the same partial-then-no-replace commit. Extraction refuses absolute and `..` paths, creates symlinks only after all files and only if they stay inside, skips hard links and devices, drops setuid/setgid/sticky, and caps entries (200,000) and bytes (200× the archive, ≥256 MiB, ≤64 GiB, never past free space − 64 MiB). A single top-level folder is not nested again. Pure-Rust crates: `tar` (MIT/Apache-2.0), `zip` with deflate only (MIT; `zopfli` Apache-2.0), `lzma-rs` (MIT), `ruzstd` (MIT), `flate2`.
 - **Operations** (`ops.rs`, `trash.rs`): copies are written under a private partial name and committed with `renameat2(RENAME_NOREPLACE)`; cancel or failure removes only the partial; Replace swaps the old item aside and deletes it only after the new one is in place; cross-device moves delete the source only after a committed copy; symlinks are copied as links; FIFOs and devices are refused; copying a folder into itself is refused. Trash follows the freedesktop spec (home trash, or `$topdir/.Trash-$uid` on other volumes), and restore never overwrites.
 - **UI** (`main.rs`): menu bar (File, Edit, View, Go; global when the shell runs), icon toolbar (Back, Forward, Enclosing Folder, Home), location field (Ctrl+L), a Places sidebar (Home, the standard folders that exist, Computer, Trash) that follows navigation, theme icons per row (special folders, MIME type, generic fallback), the shared `controls::list::ListView` with Name/Size/Modified/Kind columns, context menus, Rename/conflict/confirm dialogs, Trash view (restore, delete, empty), hidden-file toggle, status bar with progress and Cancel. Opening uses `slopos_core::mime` (the default app from `mimeapps.list` or a desktop entry's `MimeType`), falling back to `xdg-open`.
 
@@ -136,10 +151,16 @@ It proposes strict JSON actions via loopback-only Ollama (`lfm3:1.7b`) using ins
 
 ## Native Control Panels (`apps/control-panels`)
 
-- **Providers** (`services.rs`): one current-thread Tokio runtime connects the `slopos-services` clients (NetworkManager, audio, BlueZ, timedated, brightness), forwards their snapshot streams and runs changes; it blocks on streams and the command channel and wakes the window. A missing provider shows "unavailable" with the reason and disables its controls.
-- **Panels:** Network (networking and Wi-Fi toggles, scan, network list), Sound (output/input volume and mute for the default devices), Display (screen size, backlight), Bluetooth (adapter power), Date & Time (automatic time), Desktop (bundled patterns with thumbnails, Choose Picture… through the toolkit file chooser; saved to `~/.config/slopos-i/wallpaper` and repainted at once) and Appearance (Platinum, Classic, Graphite, OLED through `slopos-appearance`).
-- **UI:** sidebar with theme icons, File/View menus (global when the shell runs), Ctrl+1…7 to switch panels, `--network`/`--sound`/`--desktop`… flags to open a panel; status text is red only for failures.
-- Not built: Wi-Fi join with password, per-device audio routing, display arrangement and resolution, Bluetooth pairing, time zone selection, Dock settings.
+- **Providers** (`services.rs`): one current-thread Tokio runtime connects the `slopos-services` clients (NetworkManager, audio, BlueZ, timedated, brightness, RandR displays, XKB/XInput input), forwards their snapshot streams and runs changes; it blocks on streams and the command channel and wakes the window. A missing provider shows "unavailable" with the reason and disables its controls.
+- **Panels:**
+  - Network: networking and Wi-Fi toggles, scan, network list marking the connected and saved networks; Join (secured networks without a saved profile ask for the password in a dialog with a secret field; the profile is validated, then `AddAndActivateConnection`), Disconnect, Forget.
+  - Sound: Output and Input device pop-ups, volume and mute for the chosen devices; an Application section to pick a playing application and set its volume, mute it or move it to another output.
+  - Display: backlight; Display, Resolution, Refresh rate, Rotation and Position (right/left/above/below/mirror of the main display) pop-ups, Use this display, Show the menu bar here. Changes go through RandR as one plan (modes and rotations checked, CRTCs shared for mirroring, screen resized under a server grab); every change asks "Keep these display settings?" and reverts after 15 seconds without an answer. Kept layouts are saved to `displays.conf` and re-applied at login when the same monitors are connected.
+  - Bluetooth: adapter power, Search for Devices, device list (connected, paired, then by name), Pair (Cancel Pairing while it runs; paired devices are trusted and connected), Connect/Disconnect, Forget.
+  - Date & Time (automatic time), Desktop (bundled patterns with thumbnails, Choose Picture…; saved to `~/.config/slopos-i/wallpaper` and repainted at once), Appearance (Platinum, Classic, Graphite, OLED through `slopos-appearance`).
+  - Keyboard & Mouse: keyboard layout (from the XKB rules list, applied with `setxkbmap`), repeat delay and rate (XKB controls), pointer speed and natural scrolling (libinput properties, only when a device takes them), left-handed buttons. Saved to `input.conf` and re-applied at login.
+- **UI:** sidebar with theme icons, File/View menus (global when the top bar runs), Ctrl+1…8 to switch panels, `--network`/`--sound`/`--desktop`/`--keyboard`… flags to open a panel, `--restore` (also `--apply-displays`, `--apply-input`) for the session; pop-ups with nothing to choose are skipped by Tab; status text is red only for failures.
+- Not built: a network-secret agent for other apps, enterprise/hidden Wi-Fi, VPN; a BlueZ pairing agent (PIN/passkey); time zone selection; Dock settings; per-monitor scale.
 
 ## Native Software (`apps/software`)
 
