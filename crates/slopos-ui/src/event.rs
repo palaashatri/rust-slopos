@@ -96,6 +96,20 @@ pub enum Event {
     /// its global menu bar. [`crate::controls::menu::MenuBar::handle`]
     /// applies it; the app then lays out again for the bar's new height.
     GlobalMenu(bool),
+    /// Input for popup `id` (see [`crate::platform::Control::open_popup`]),
+    /// in the popup's own logical coordinates. While a grabbing popup is
+    /// open, presses outside every window of the app arrive here too, with
+    /// coordinates outside the popup's bounds.
+    Popup {
+        id: u64,
+        event: Box<Event>,
+    },
+    /// A shortcut from [`crate::platform::WindowOptions::global_keys`] was
+    /// pressed, wherever the keyboard focus was. `keysym` is the X keysym.
+    GlobalKey {
+        keysym: u32,
+        modifiers: Modifiers,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
