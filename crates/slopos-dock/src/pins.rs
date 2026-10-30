@@ -11,14 +11,8 @@ use slopos_core::xdg::XdgPaths;
 
 /// Candidate desktop ids per default role, in preference order.
 const DEFAULT_ROLES: &[&[&str]] = &[
-    &[
-        "pcmanfm",
-        "org.gnome.Nautilus",
-        "thunar",
-        "nemo",
-        "caja",
-        "org.kde.dolphin",
-    ],
+    // Bundled SLOPOS roles name only the native slopos-ui application.
+    &["slopos-files"],
     &["slopos-browser", "firefox", "firefox-esr", "chromium"],
     &[
         "xfce4-terminal",
@@ -37,6 +31,7 @@ const DEFAULT_ROLES: &[&[&str]] = &[
         "org.kde.kate",
     ],
     &["slopos-calculator"],
+    &["slopos-media"],
     &["slopos-catalogue"],
     &["slopos-control-panels"],
 ];
@@ -138,7 +133,19 @@ mod tests {
             app("xterm"),
             app("slopos-calculator"),
         ];
-        assert_eq!(defaults(&catalog), ["thunar", "xterm", "slopos-calculator"]);
+        // Donor file managers never stand in for the native Files.
+        assert_eq!(defaults(&catalog), ["xterm", "slopos-calculator"]);
+        let catalog = [
+            app("thunar"),
+            app("slopos-files"),
+            app("xterm"),
+            app("slopos-media"),
+            app("slopos-calculator"),
+        ];
+        assert_eq!(
+            defaults(&catalog),
+            ["slopos-files", "xterm", "slopos-calculator", "slopos-media"]
+        );
     }
 
     #[test]
