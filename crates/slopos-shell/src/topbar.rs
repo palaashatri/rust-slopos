@@ -527,11 +527,7 @@ fn build_desktop_menu_bar(
 
     // View
     let view_menu = Menu::new();
-    view_menu.append(&slopos_item(
-        "Control Panels…",
-        control_panels_program(),
-        &[],
-    ));
+    view_menu.append(&slopos_item("Control Panels…", CONTROL_PANELS, &[]));
     view_menu.append(&slopos_item("Software…", "slopos-catalogue", &[]));
     append_submenu(&bar, "View", &view_menu);
 
@@ -749,8 +745,8 @@ fn build_system_menu(suspend_capability: Option<SuspendCapability>) -> (Menu, Me
     menu.append(&SeparatorMenuItem::new());
 
     let settings = MenuItem::with_label("Control Panels…");
-    if session::resolve_program(control_panels_program()).is_some() {
-        settings.connect_activate(|_| spawn_resolved(control_panels_program(), &[]));
+    if session::resolve_program(CONTROL_PANELS).is_some() {
+        settings.connect_activate(|_| spawn_resolved(CONTROL_PANELS, &[]));
     } else {
         settings.set_sensitive(false);
     }
@@ -788,9 +784,9 @@ fn build_system_menu(suspend_capability: Option<SuspendCapability>) -> (Menu, Me
     appearance.set_submenu(Some(&appearance_menu));
     menu.append(&appearance);
 
-    let wallpaper = MenuItem::with_label("Desktop Wallpaper…");
-    if session::resolve_program("slopos-settings").is_some() {
-        wallpaper.connect_activate(|_| spawn_resolved("slopos-settings", &["--wallpaper"]));
+    let wallpaper = MenuItem::with_label("Desktop Picture…");
+    if session::resolve_program(CONTROL_PANELS).is_some() {
+        wallpaper.connect_activate(|_| open_control_panel("--desktop"));
     } else {
         wallpaper.set_sensitive(false);
     }
@@ -917,19 +913,13 @@ fn slopos_dialog(title: &str, message: &str, buttons: &[(&str, ResponseType)]) -
     dialog
 }
 
-/// The native Control Panels when installed, else the legacy GTK settings.
-fn control_panels_program() -> &'static str {
-    if process::resolve_program("slopos-control-panels").is_some() {
-        "slopos-control-panels"
-    } else {
-        "slopos-settings"
-    }
-}
+/// Control Panels: the native SLOPOS settings app. There is deliberately no
+/// GTK fallback for bundled SLOPOS applications.
+const CONTROL_PANELS: &str = "slopos-control-panels";
 
-/// Open one panel (`--sound`, `--network`, `--datetime`); both programs
-/// accept these flags.
+/// Open one panel (`--sound`, `--network`, `--datetime`, `--desktop`).
 fn open_control_panel(flag: &str) {
-    spawn_resolved(control_panels_program(), &[flag]);
+    spawn_resolved(CONTROL_PANELS, &[flag]);
 }
 
 fn spawn_resolved(program: &str, args: &[&str]) {
@@ -1010,7 +1000,7 @@ fn build_sound_menu() -> Menu {
 
     let settings_item = MenuItem::with_label("Sound Preferences…");
     settings_item.connect_activate(|_| {
-        if process::resolve_program(control_panels_program()).is_some() {
+        if process::resolve_program(CONTROL_PANELS).is_some() {
             open_control_panel("--sound");
         } else {
             spawn_resolved("pavucontrol", &[]);
@@ -1038,7 +1028,7 @@ fn fill_network_menu(menu: &Menu, summary: &crate::services::network::NetworkSum
     menu.append(&SeparatorMenuItem::new());
 
     let settings_item = MenuItem::with_label("Network Preferences…");
-    if process::resolve_program(control_panels_program()).is_some() {
+    if process::resolve_program(CONTROL_PANELS).is_some() {
         settings_item.connect_activate(|_| open_control_panel("--network"));
     } else if process::resolve_program("nm-connection-editor").is_some() {
         settings_item.connect_activate(|_| spawn_resolved("nm-connection-editor", &[]));

@@ -5,4 +5,5 @@ pub mod identity;
 pub mod ipc;
 pub mod mime;
 pub mod process;
+pub mod wallpaper;
 pub mod xdg;

@@ -38,7 +38,7 @@ const DEFAULT_ROLES: &[&[&str]] = &[
     ],
     &["slopos-calculator"],
     &["slopos-catalogue"],
-    &["slopos-control-panels", "slopos-settings"],
+    &["slopos-control-panels"],
 ];
 
 pub fn path() -> Option<PathBuf> {

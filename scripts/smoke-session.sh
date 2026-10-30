@@ -147,7 +147,7 @@ echo "smoke: logout ended the session cleanly"
 # generated file itself.
 fake_bin="$WORK/appearance-bin"
 mkdir -p "$fake_bin"
-for tool in openbox pkill slopos-wallpaper xsetroot; do
+for tool in openbox pkill slopos-session; do
   printf '#!/bin/sh\nexit 0\n' > "$fake_bin/$tool"
   chmod +x "$fake_bin/$tool"
 done
