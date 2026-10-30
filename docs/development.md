@@ -48,6 +48,8 @@ It writes screenshots and logs to `artifacts/smoke/` and is safe to run on a des
 | What | Command |
 |---|---|
 | Calculator | `cargo run -p slopos-calculator` |
+| Files read-only browser | `cargo run -p slopos-files -- /home/user` |
+| Files snapshot (no X server) | `cargo run -p slopos-files -- --snapshot files.png /tmp` |
 | Image Viewer proof (PNG/SVG) | `cargo run -p slopos-image-viewer -- /path/to/sample.png` |
 | Image Viewer headless screenshot | `cargo run -p slopos-image-viewer -- --snapshot preview.png /path/to/sample.png` |
 | Calculator, headless PNG | `cargo run -p slopos-calculator -- --snapshot calc.png` |
@@ -111,3 +113,14 @@ The first native Image Viewer remains a PNG/SVG proof. This branch also
 adds its freedesktop launcher, MIME association and package/install script
 entries, but real file-opening/packaging QA and additional image codecs
 must pass before it is reported as a shipped photo viewer.
+
+### Files proof app
+
+`apps/files` is initially **read-only**: real folder browsing (Back, Up,
+Home, Refresh and Open), per-row keyboard/pointer selection, accessibility
+and `xdg-open` for regular files. No unsafe file changes are exposed yet.
+Worker I/O runs off the UI thread; the first directory read is asynchronous.
+Run `cargo test -p slopos-files --locked` and
+`cargo test -p slopos-ui --locked`, then execute and visually inspect the
+[specific X11 QA plan](p1-files-live-qa.md) inside an isolated Linux VM.
+Do not call this app release-ready because a snapshot or Cargo test exists.
