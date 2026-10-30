@@ -108,17 +108,11 @@ The [ledger](contract/ledger.md) has the dated evidence. In short:
 An independent opt-in `slopos-intelligence` binary is present in `crates/slopos-intelligence`.
 It proposes strict JSON actions via loopback-only Ollama (`lfm3:1.7b`) using installed-app metadata, and asks for confirmation before launching a listed desktop application. It does not run at session startup; no window, Siri-style voice interface, personal search, accessibility-based UI control or PARAMA execution exists. See [intelligence.md](intelligence.md) for the precise trust boundary and roadmap.
 
-## Native Image Viewer proof (on main; not full P1)
+## Native Image Viewer (`apps/image-viewer`)
 
-The merged toolkit foundation contains `apps/image-viewer` (Cargo binary
-`slopos-image-viewer`) using native `slopos-ui` buttons, accessibility
-and a shared `image_viewport` model. The initial app opens PNG and SVG via
-a command-line file path, supports Fit/1:1/zoom, and offers a headless PNG
-snapshot mode. It is **not yet a full photo viewer**: JPEG/HEIF/etc., file
-chooser, directory browsing, proper decoded-pixel admission limits, packaging QA,
-media color profiles and installed-VM QA remain incomplete and required for
-P1. This is current source capability, not evidence of a finished P1 photo viewer.
-See [P1 release program](p1-x11-release.md).
+- **Decoding** (`decode.rs`, adapted from the archived Preview decoder): PNG, JPEG, GIF, BMP, WebP and TIFF through the `image` crate with only those codecs enabled, SVG through resvg. The format is sniffed from content. Files must be regular and at most 64 MB; dimensions are checked before decoding (40 MP, 32 768 px per side) and the decoder's allocation limit stops decompression bombs. EXIF orientation is applied. Decoded images live in a 256 MB LRU cache.
+- **UI** (`main.rs`): menu bar (File, View, Go), toolbar, Open dialog filtered to images, next/previous/first/last through the image's folder with the next image decoded ahead, Fit/1:1/zoom (keys, buttons, wheel), drag to pan, double-click to toggle Fit and 1:1, status line with size, format, zoom and position. Decoding runs on a worker thread and wakes the window.
+- Not built: rotation and editing, slideshow, thumbnails grid, colour management (ICC profiles are ignored), animated GIF/WebP playback (first frame only), HEIF/AVIF/RAW.
 
 ## Native Files (`apps/files`)
 

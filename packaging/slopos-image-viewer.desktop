@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
 Name=SLOPOS Image Viewer
-Comment=View PNG and SVG images using the native SLOPOS toolkit
+Comment=View photos and images
 Exec=slopos-image-viewer %f
 TryExec=slopos-image-viewer
 Icon=image-x-generic
 Terminal=false
 StartupNotify=true
 Categories=Graphics;Viewer;
-MimeType=image/png;image/svg+xml;
+MimeType=image/png;image/jpeg;image/gif;image/bmp;image/webp;image/tiff;image/svg+xml;

@@ -18,6 +18,8 @@ pub struct ImageViewport {
     area: Rect,
     mode: ZoomMode,
     custom_zoom: f64,
+    /// Pan offset in logical pixels from the centred position.
+    pan: (i64, i64),
 }
 
 impl ImageViewport {
@@ -28,7 +30,48 @@ impl ImageViewport {
             area,
             mode: ZoomMode::Fit,
             custom_zoom: 1.0,
+            pan: (0, 0),
         }
+    }
+
+    /// Show a different image, back at Fit and centred.
+    pub fn set_image(&mut self, width: u32, height: u32) {
+        self.image_width = width;
+        self.image_height = height;
+        self.mode = ZoomMode::Fit;
+        self.pan = (0, 0);
+    }
+
+    /// Move the image by `dx, dy` logical pixels. Panning only applies along
+    /// an axis where the image is larger than the area, and stops at the
+    /// edges. Returns whether anything moved.
+    pub fn pan_by(&mut self, dx: i32, dy: i32) -> bool {
+        let before = self.image_bounds();
+        self.pan.0 += i64::from(dx);
+        self.pan.1 += i64::from(dy);
+        self.pan = self.clamped_pan();
+        self.image_bounds() != before
+    }
+
+    /// Whether the scaled image is larger than the area in either direction.
+    pub fn can_pan(&self) -> bool {
+        let (w, h) = self.scaled_size();
+        w > i64::from(self.area.width) || h > i64::from(self.area.height)
+    }
+
+    fn scaled_size(&self) -> (i64, i64) {
+        let z = self.zoom();
+        (
+            (f64::from(self.image_width) * z).round() as i64,
+            (f64::from(self.image_height) * z).round() as i64,
+        )
+    }
+
+    fn clamped_pan(&self) -> (i64, i64) {
+        let (w, h) = self.scaled_size();
+        let limit = |size: i64, area: u32| ((size - i64::from(area)) / 2).max(0);
+        let (lx, ly) = (limit(w, self.area.width), limit(h, self.area.height));
+        (self.pan.0.clamp(-lx, lx), self.pan.1.clamp(-ly, ly))
     }
 
     pub fn resize(&mut self, area: Rect) {
@@ -41,6 +84,7 @@ impl ImageViewport {
 
     pub fn fit(&mut self) {
         self.mode = ZoomMode::Fit;
+        self.pan = (0, 0);
     }
 
     pub fn actual_pixels(&mut self) {
@@ -99,8 +143,9 @@ impl ImageViewport {
         let h = (f64::from(self.image_height) * z)
             .round()
             .clamp(1.0, f64::from(u32::MAX)) as u32;
-        let x = i64::from(self.area.x) + (i64::from(self.area.width) - i64::from(w)) / 2;
-        let y = i64::from(self.area.y) + (i64::from(self.area.height) - i64::from(h)) / 2;
+        let (pan_x, pan_y) = self.clamped_pan();
+        let x = i64::from(self.area.x) + (i64::from(self.area.width) - i64::from(w)) / 2 + pan_x;
+        let y = i64::from(self.area.y) + (i64::from(self.area.height) - i64::from(h)) / 2 + pan_y;
         Some(Rect {
             x: x.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
             y: y.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
@@ -113,6 +158,31 @@ impl ImageViewport {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn panning_is_clamped_to_the_image_edges() {
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+        };
+        let mut viewport = ImageViewport::new(400, 50, area);
+        viewport.actual_pixels();
+        assert!(viewport.can_pan());
+        assert!(viewport.pan_by(-1000, -1000));
+        let bounds = viewport.image_bounds().unwrap();
+        // Right edge reaches the area's right edge, no further; the short
+        // axis does not move.
+        assert_eq!(bounds.x + bounds.width as i32, 100);
+        assert_eq!(bounds.y, 25);
+        assert!(!viewport.pan_by(-5, 0));
+        viewport.fit();
+        assert!(!viewport.can_pan());
+        assert!(!viewport.pan_by(10, 10));
+        viewport.set_image(50, 50);
+        assert_eq!(viewport.image_bounds().unwrap().x, 25);
+    }
 
     fn area() -> Rect {
         Rect {
