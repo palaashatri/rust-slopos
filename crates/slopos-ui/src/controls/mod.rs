@@ -1,5 +1,11 @@
 pub mod button;
+pub mod dialog;
+pub mod file_chooser;
 pub mod focus;
+pub mod list;
+pub mod menu;
+pub mod range;
+pub mod scroll;
 pub mod text_field;
 
 use crate::foundation::geometry::Rect;

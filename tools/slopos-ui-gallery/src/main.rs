@@ -1,6 +1,8 @@
 //! Component gallery for the SLOPOS toolkit: one window per fixture, and a
 //! headless `--snapshot FILE` mode for review and QA captures.
 
+mod widgets;
+
 use slopos_ui::controls::button::{Button, ButtonOutcome};
 use slopos_ui::controls::focus::FocusChain;
 use slopos_ui::controls::text_field::{TextField, TextFieldOutcome};
@@ -16,7 +18,7 @@ use slopos_ui::scene::{Command, Scene};
 use slopos_ui::scene_raster::replay_to_raster;
 use slopos_ui::text::Font;
 
-const USAGE: &str = "usage: slopos-ui-gallery [--component surface|button-plate|buttons|text-field] [--scale INTEGER] [--snapshot FILE]";
+const USAGE: &str = "usage: slopos-ui-gallery [--component surface|button-plate|buttons|text-field|widgets] [--scale INTEGER] [--snapshot FILE]";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum GalleryFixture {
@@ -24,6 +26,7 @@ enum GalleryFixture {
     ButtonPlate,
     Buttons,
     TextField,
+    Widgets,
 }
 
 impl GalleryFixture {
@@ -33,6 +36,7 @@ impl GalleryFixture {
             Self::ButtonPlate => (320, 136),
             Self::Buttons => (320, 120),
             Self::TextField => (320, 130),
+            Self::Widgets => widgets::SIZE,
         }
     }
 
@@ -42,6 +46,7 @@ impl GalleryFixture {
             Self::ButtonPlate => "Button Plates",
             Self::Buttons => "Buttons",
             Self::TextField => "Text Fields",
+            Self::Widgets => "Widgets",
         }
     }
 }
@@ -76,8 +81,9 @@ fn parse_arguments(arguments: &[String]) -> Result<GalleryOptions, &'static str>
                     "button-plate" => GalleryFixture::ButtonPlate,
                     "buttons" => GalleryFixture::Buttons,
                     "text-field" => GalleryFixture::TextField,
+                    "widgets" => GalleryFixture::Widgets,
                     _ => return Err(
-                        "supported components are surface, button-plate, buttons and text-field",
+                        "supported components are surface, button-plate, buttons, text-field and widgets",
                     ),
                 });
             }
@@ -332,6 +338,8 @@ fn paint_fixture(
                 button.paint(surface, &gallery.font)?;
             }
         }
+        // Painted by `widgets::Widgets`, never through `Gallery`.
+        GalleryFixture::Widgets => {}
         GalleryFixture::TextField => {
             surface.clear(slopos_ui::theme::palette().surface)?;
             for field in &mut gallery.fields {
@@ -346,6 +354,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
     let options = parse_arguments(&arguments)?;
     let (width, height) = options.fixture.size();
+    if options.fixture == GalleryFixture::Widgets {
+        let mut app = widgets::Widgets::new();
+        if let Some(path) = options.snapshot {
+            let surface = RasterSurface::new(width, height, options.scale)?;
+            app.paint(&surface);
+            surface.save_png(&path)?;
+            return Ok(());
+        }
+        let mut window = WindowOptions::new("Widgets", "slopos-ui-gallery", width, height);
+        window.scale = Some(options.scale);
+        platform::run(window, app, |_| {})?;
+        return Ok(());
+    }
     let mut gallery = Gallery::new(options.fixture);
     if let Some(path) = options.snapshot {
         let surface = RasterSurface::new(width, height, options.scale)?;

@@ -258,6 +258,7 @@ pub fn run<A: App>(
     let mut surface = RasterSurface::new(logical.0, logical.1, scale)?;
     let mut needs_paint = true;
     let mut timers: Vec<(Instant, u64)> = Vec::new();
+    let mut clicks = ClickTracker::default();
     // Text this window offers on CLIPBOARD while it owns the selection.
     let mut clipboard: Option<String> = None;
     let max_request = conn.maximum_request_bytes();
@@ -380,6 +381,24 @@ pub fn run<A: App>(
                 keymap = Keymap::read(&conn, min_keycode, max_keycode)?;
                 continue;
             }
+            let state = match &event {
+                XEvent::ButtonPress(e) => Some(u16::from(e.state)),
+                XEvent::ButtonRelease(e) => Some(u16::from(e.state)),
+                XEvent::MotionNotify(e) => Some(u16::from(e.state)),
+                XEvent::KeyPress(e) => Some(u16::from(e.state)),
+                _ => None,
+            };
+            if let Some(state) = state {
+                control.modifiers = modifiers(state);
+            }
+            let primary_press = match &event {
+                XEvent::ButtonPress(press) if press.detail == 1 => Some((
+                    press.time,
+                    i32::from(press.event_x) / factor as i32,
+                    i32::from(press.event_y) / factor as i32,
+                )),
+                _ => None,
+            };
             let translated = translate(
                 &event,
                 factor,
@@ -439,6 +458,11 @@ pub fn run<A: App>(
             }
             if let Some(event) = translated {
                 app.event(&event, &mut control);
+                if let Some((time, x, y)) = primary_press {
+                    if clicks.press(time, x, y) {
+                        app.event(&Event::DoubleClicked { x, y }, &mut control);
+                    }
+                }
             }
         }
         if handled {
@@ -618,6 +642,28 @@ fn set_strut(
 
 /// The modifier bit the server maps the Num Lock key to. Usually Mod2
 /// (`0x0010`), but the mapping is server-specific.
+/// Double-click rule: a second primary press within 400 ms and 4 logical
+/// pixels of the first. A third press starts a new pair.
+#[derive(Debug, Default)]
+struct ClickTracker {
+    last: Option<(u32, i32, i32)>,
+}
+
+impl ClickTracker {
+    const INTERVAL_MS: u32 = 400;
+    const SLOP: i32 = 4;
+
+    fn press(&mut self, time: u32, x: i32, y: i32) -> bool {
+        let double = self.last.is_some_and(|(last, lx, ly)| {
+            time.wrapping_sub(last) <= Self::INTERVAL_MS
+                && (x - lx).abs() <= Self::SLOP
+                && (y - ly).abs() <= Self::SLOP
+        });
+        self.last = if double { None } else { Some((time, x, y)) };
+        double
+    }
+}
+
 /// The server's keycode → keysym table and the Num Lock modifier bit.
 struct Keymap {
     keysyms: Vec<u32>,
@@ -967,6 +1013,20 @@ mod tests {
         let unmapped = modifier_mapping(&[0; 8]);
         assert_eq!(num_lock_mask(&row, 2, 8, &unmapped), 0);
         assert_eq!(num_lock_mask(&[0x0061], 1, 8, &mapping), 0);
+    }
+
+    #[test]
+    fn double_clicks_need_time_and_place_and_do_not_chain() {
+        let mut clicks = ClickTracker::default();
+        assert!(!clicks.press(1000, 10, 10));
+        assert!(clicks.press(1300, 12, 9));
+        assert!(!clicks.press(1350, 12, 9));
+        assert!(!clicks.press(2000, 12, 9));
+        assert!(!clicks.press(2100, 30, 9));
+        // Server time wraps around after ~49 days.
+        let mut clicks = ClickTracker::default();
+        assert!(!clicks.press(u32::MAX - 10, 0, 0));
+        assert!(clicks.press(50, 0, 0));
     }
 
     #[test]

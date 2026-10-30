@@ -55,6 +55,12 @@ pub enum Event {
         button: PointerButton,
     },
     PointerLeft,
+    /// Sent right after the second of two quick primary presses at nearly the
+    /// same place (the platform's double-click rule).
+    DoubleClicked {
+        x: i32,
+        y: i32,
+    },
     /// Wheel steps: positive `dy` scrolls down.
     Scroll {
         dx: i32,

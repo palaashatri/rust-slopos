@@ -84,6 +84,7 @@ pub struct Control {
     pub(crate) scale: Option<Scale>,
     pub(crate) clipboard: Option<String>,
     pub(crate) paste: bool,
+    pub(crate) modifiers: crate::event::Modifiers,
 }
 
 impl Control {
@@ -134,6 +135,18 @@ impl Control {
     /// Whether [`Self::request_paste`] was called during this event.
     pub fn paste_requested(&self) -> bool {
         self.paste
+    }
+
+    /// Modifier keys held during the current input event. Pointer events
+    /// carry no modifiers of their own; controls such as lists use this for
+    /// Ctrl/Shift-click.
+    pub fn modifiers(&self) -> crate::event::Modifiers {
+        self.modifiers
+    }
+
+    /// Set the modifiers [`Self::modifiers`] reports (hosts and tests).
+    pub fn set_modifiers(&mut self, modifiers: crate::event::Modifiers) {
+        self.modifiers = modifiers;
     }
 
     /// Whether the app asked for a redraw (for tests).
