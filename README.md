@@ -29,7 +29,7 @@ SLOPOS-I is an experimental Linux desktop environment with a compact, Classic-Ma
 - **Calculator:** the first app on SLOPOS's own toolkit. Keyboard, mouse and screen readers all work.
 - **SLOPOS toolkit** (`crates/slopos-ui`): software rendering, shaped text, PNG/SVG images, icon themes, an X11 window host with HiDPI scaling, and AT-SPI accessibility. No GTK.
 
-Still incomplete: native Files destructive operations (a read-only proof is proposed in PR #35), native Terminal and Text editor; volume and brightness OSDs; workspaces UI; lock screen; display settings; Dock context menus and reordering. [docs/architecture.md](docs/architecture.md) explains how everything fits together and lists the gaps.
+Still incomplete: native Files drag and drop, icon view and removable volumes, native Terminal and Text editor; volume and brightness OSDs; workspaces UI; lock screen; display settings; Dock context menus and reordering. [docs/architecture.md](docs/architecture.md) explains how everything fits together and lists the gaps.
 
 ## Try it
 

@@ -3,7 +3,6 @@ pub mod dialog;
 pub mod file_chooser;
 pub mod focus;
 pub mod list;
-pub mod list_view;
 pub mod menu;
 pub mod range;
 pub mod scroll;

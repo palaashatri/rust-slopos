@@ -2678,6 +2678,7 @@ dependencies = [
  "accesskit",
  "env_logger",
  "libc",
+ "log",
  "slopos-core",
  "slopos-ui",
  "tempfile",

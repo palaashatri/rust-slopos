@@ -98,6 +98,22 @@ impl Dialog {
         self.bounds
     }
 
+    /// Make button `index` the one Enter chooses and the one drawn as
+    /// default. Destructive prompts point this at Cancel.
+    pub fn set_default(&mut self, index: usize) {
+        if index >= self.buttons.len() {
+            return;
+        }
+        self.default = index;
+        for (i, button) in self.buttons.iter_mut().enumerate() {
+            button.variant = if i == index {
+                ButtonPlateVariant::Default
+            } else {
+                ButtonPlateVariant::Regular
+            };
+        }
+    }
+
     pub fn field_text(&self) -> Option<&str> {
         self.field.as_ref().map(TextField::text)
     }
@@ -106,7 +122,17 @@ impl Dialog {
     /// field (or the default button) focus. Call before the first event and
     /// whenever the window is resized.
     pub fn layout(&mut self, window: (u32, u32)) {
-        let width = WIDTH.min(window.0.saturating_sub(16)).max(160);
+        // Wide enough for the button row, within the window.
+        let buttons: u32 = self
+            .buttons
+            .iter()
+            .map(|button| Self::button_width(button, &self.font) + 10)
+            .sum::<u32>()
+            .saturating_sub(10);
+        let width = WIDTH
+            .max(buttons + 2 * MARGIN as u32)
+            .min(window.0.saturating_sub(16))
+            .max(160);
         self.lines = wrap(&self.message, &self.font, width - 2 * MARGIN as u32);
         let line_height = measure("Ag", &self.font).height as i32;
         let title_height = line_height + 8;
@@ -134,8 +160,7 @@ impl Dialog {
         }
         let mut right = x + width as i32 - MARGIN;
         for button in self.buttons.iter_mut().rev() {
-            let label_width = measure(&button.label, &self.font).width as u32 + 24;
-            let button_width = label_width.max(button.variant.dimensions().width.min(80));
+            let button_width = Self::button_width(button, &self.font);
             right -= button_width as i32;
             button.bounds = Rect {
                 x: right,
@@ -160,6 +185,11 @@ impl Dialog {
             }
         }
         self.sync_focus();
+    }
+
+    fn button_width(button: &Button, font: &Font) -> u32 {
+        let label_width = measure(&button.label, font).width as u32 + 24;
+        label_width.max(button.variant.dimensions().width.min(80))
     }
 
     fn sync_focus(&mut self) {
@@ -430,6 +460,29 @@ mod tests {
         let nodes = dialog.accessibility_nodes();
         assert_eq!(nodes[0].1.role(), accesskit::Role::Dialog);
         assert!(nodes[0].1.is_modal());
+    }
+
+    #[test]
+    fn many_buttons_widen_the_dialog_and_stay_inside_it() {
+        let mut dialog = Dialog::new(
+            80,
+            "Conflict",
+            "Pick one.",
+            &["Cancel", "Skip", "Keep Both", "Replace"],
+        );
+        dialog.layout((760, 540));
+        let bounds = dialog.bounds();
+        for button in &dialog.buttons {
+            assert!(
+                button.bounds.x >= bounds.x + MARGIN,
+                "{} leaks left",
+                button.label
+            );
+            assert!(button.bounds.x + button.bounds.width as i32 <= bounds.x + bounds.width as i32);
+        }
+        // A narrow window still keeps the dialog on screen.
+        dialog.layout((200, 300));
+        assert!(dialog.bounds().width <= 184);
     }
 
     #[test]
