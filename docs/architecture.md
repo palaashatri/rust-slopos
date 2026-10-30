@@ -113,7 +113,7 @@ See [development.md](development.md) for commands.
 
 ## Known gaps
 
-The [ledger](contract/ledger.md) has the dated evidence. In short:
+The [ledger](contract/ledger.md) has the dated evidence; its section G.2 is the prioritized register of remaining work (GAP-* IDs). In short:
 
 - Native Files has no drag and drop, icon view, thumbnails, properties window, removable-volume mount/eject or network mounts yet, and has not passed installed-package VM acceptance. Terminal, Text editor and System Monitor are not native yet (the system terminal and Mousepad are still used).
 - No OSDs or status popovers, workspaces UI, lock screen, polkit agent, network-secret agent (Wi-Fi passwords are asked by Control Panels only) or BlueZ pairing agent (devices that need a PIN or passkey confirmation fail with BlueZ's error).

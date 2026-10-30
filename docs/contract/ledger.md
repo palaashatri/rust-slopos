@@ -123,6 +123,84 @@ The existing repository includes workspace, Xvfb/Openbox, AT-SPI, resolution, pa
 | Current candidate package/install/upgrade/remove/media evidence | MISSING |
 | ARM64/RISC-V/HDR/VRR production claims | NOT ESTABLISHED |
 
+### G.1 Subsystem readiness on 2026-10-30 (PR #36 head `6fdd0c5`)
+
+The table above is the original audit snapshot and is kept as history. This one is the current state; every "present" entry has a dated row in K. "Present" means implemented and tested as described there, **not** release-verified: real hardware, real system services and installed-package journeys are still NOT_RUN unless K says otherwise.
+
+| Subsystem (contract §) | State on 2026-10-30 |
+|---|---|
+| X11/Openbox/session (§13) | Present: `slopos-session` supervisor, restart/backoff, logout; restores display and input settings at login. Smoke session PASS. |
+| Global menu (§14.1, §12.3) | Present: toolkit apps export `org.gtk.Menus`; `slopos-topbar` imports any window's model. |
+| Top bar, status items (§14.1, §14.3) | Present on `slopos-ui` (`slopos-topbar`); status items are labels with menus. Applet framework and popovers MISSING. |
+| Dock (§14.2) | Present (`slopos-dock`); context menus, reorder, pin/unpin UI, auto-hide, multi-monitor MISSING. |
+| OSD manager (§14.4) | MISSING. |
+| Desktop (§14.5) | Present (`slopos-desktop`); rename, Move to Trash, drag and drop, per-monitor windows MISSING. |
+| Launcher/search (§14.6) | Present (apps only); files/settings/actions search MISSING. |
+| Notifications (§14.7) | Server and toasts present; history, do-not-disturb MISSING. |
+| Global shortcuts and media keys (§14.8, §18.5) | Toolkit key grabs present (Ctrl+F2 used); media, volume and brightness keys NOT bound; no shortcut service or settings. |
+| `slopos-ui` toolkit (§9) | Present: controls listed in architecture.md incl. popups, `PopUpButton`, secret `TextField`. Tree/table views, tabs, drag and drop, IME, icon grid MISSING. |
+| Files (§16.1) | Present incl. archives; DnD, icon view, thumbnails, properties, mount/eject, network locations, >8192 entries MISSING. |
+| Control Panels (§16.2) | Network join, Sound devices/per-app, Display arrangement, Bluetooth pairing, Keyboard & Mouse, Desktop, Appearance, Date & Time present. Time zone, locale, users, default apps, printers, power, accessibility, per-monitor scale MISSING. |
+| Terminal (§16.3), Notes (§16.4) | MISSING (system terminal and Mousepad are used). |
+| Calculator (§16.5) | Present. |
+| Software (§16.6) | Present; no published catalogue/publisher key (owner step). |
+| System Monitor (§16.7), Screenshot & Recorder (§16.8), System Information (§16.9) | MISSING (only an About dialog in the top bar). |
+| Image Viewer (§17.1), Media (§17.6) | Present (scope limits in architecture.md). |
+| Archive Utility (§17.2) | Partial: Files Compress/Extract only; no browse-inside window. |
+| Disks (§17.3), Fonts (§17.4), Help (§17.5), Documents (§17.7) | MISSING (Documents: zathura donor). |
+| Authentication agent (§18.1), Lock screen (§18.2) | MISSING. |
+| File chooser (§18.3) | Toolkit Open dialog present; Save dialog and the portal MISSING. |
+| Open With / Default Apps (§18.4) | MIME default-app open present; chooser UI MISSING. |
+| Clipboard manager (§18.6) | MISSING (single-selection CLIPBOARD only). |
+| Removable-media handler (§18.7) | Desktop shows mounted volumes; mount/auto-mount/eject UI MISSING. |
+| Wallpaper manager (§18.8), Display-change confirmation (§18.9) | Present. |
+| Network-secret UI (§18.10), Bluetooth pairing UI (§18.11) | Partial: password dialog inside Control Panels only; no NetworkManager secret agent; no BlueZ agent (PIN/passkey pairing fails). |
+| Printer auth (§18.12), low-battery notices (§18.13), session dialogs (§18.15), crash presentation (§18.16) | Session dialogs present (Log Out/Restart/Shut Down confirm); the others MISSING. |
+| Providers (§22) | Network, audio, brightness, Bluetooth, power, media, date/time, displays, input present with tests; printers MISSING; removable media read-only in the shell. Real-service runs NOT_RUN in this container. |
+| Packages and ISOs (§29–30) | amd64 live ISO boots to the native session (QEMU PASS); arm64 ISO builds on native CI runners, boot NOT_RUN; installed-to-disk, signed repositories, upgrade/remove journeys NOT_RUN. |
+| Accessibility and visual conformance (§9.14, §5.2) | AccessKit trees unit-tested; Orca runs and conformance review NOT_RUN. |
+| Hardware and performance (§28.3) | Real hardware, Raspberry Pi target, memory/CPU budgets NOT_RUN. |
+
+### G.2 Remaining work register (2026-10-30)
+
+What is left before SLOPOS X11 is a daily-use desktop comparable to KDE Plasma or GNOME on X11. Ordered by priority; IDs are new and are referenced by future K rows. Status changes only with a dated K row.
+
+| ID | Priority | Item | Contract | Notes |
+|---|---|---|---|---|
+| GAP-SEC-01 | P0 | Lock screen with idle/suspend locking and logind integration | §18.2 | No daily-use desktop without it. |
+| GAP-SEC-02 | P0 | Polkit authentication agent | §18.1 | Needed for admin actions from Control Panels and Software. |
+| GAP-SEC-03 | P0 | NetworkManager secret agent (system-wide Wi-Fi/VPN password prompts) | §18.10 | Today only Control Panels asks. |
+| GAP-SEC-04 | P0 | BlueZ pairing agent (PIN, passkey confirm/display) | §18.11 | Devices needing a PIN fail to pair. |
+| GAP-SEC-05 | P1 | Secret storage/keyring integration | §18 | Saved credentials for apps. |
+| GAP-SHELL-01 | P0 | Status popovers: Wi-Fi, Bluetooth, sound, battery, clock/calendar | §14.3 | Applet framework on toolkit popups. |
+| GAP-SHELL-02 | P0 | Volume and brightness OSD with media, volume and brightness keys | §14.4, §14.8 | Keys are not bound today. |
+| GAP-SHELL-03 | P1 | Notification history and do-not-disturb | §14.7 | |
+| GAP-SHELL-04 | P1 | Multi-monitor shell: top bar and desktop per monitor, Dock placement | §14.1, §14.5 | |
+| GAP-SHELL-05 | P1 | Workspaces with an overview, Alt+Tab switcher, snapping/tiling | §14 | Openbox provides basic switching only. |
+| GAP-SHELL-06 | P1 | Dock context menus, reorder, pin/unpin UI, auto-hide | §14.2 | |
+| GAP-SHELL-07 | P2 | Launcher search beyond apps (files, settings, actions) | §14.6 | |
+| GAP-SHELL-08 | P2 | Desktop rename, Move to Trash, drag and drop with Files | §14.5 | |
+| GAP-APP-01 | P0 | Native Terminal (PTY, VT parser, tabs) | §16.3 | Donor terminal still used. |
+| GAP-APP-02 | P1 | Native Text editor / Notes | §16.4 | Mousepad still used. |
+| GAP-APP-03 | P1 | System Monitor | §16.7 | |
+| GAP-APP-04 | P1 | Screenshot & Recorder (with Print Screen key) | §16.8 | |
+| GAP-APP-05 | P1 | Documents (PDF) viewer | §17.7 | zathura donor. |
+| GAP-APP-06 | P2 | Disks, Fonts, Help, System Information, Archive Utility window | §16.9, §17.2–17.5 | |
+| GAP-FILES-01 | P1 | Drag and drop, icon view, thumbnails, properties | §16.1 | |
+| GAP-FILES-02 | P1 | Mount/eject removable media, auto-mount handler | §16.1, §18.7, §22.10 | |
+| GAP-FILES-03 | P2 | Network locations (SMB/SFTP), >8192-entry folders | §16.1 | |
+| GAP-PANELS-01 | P1 | Time zone and locale, users, default apps, power, accessibility | §16.2 | |
+| GAP-PANELS-02 | P2 | Printers, per-monitor scale, tap-to-click, Dock settings | §16.2, §22.9 | |
+| GAP-TK-01 | P1 | Input methods (XIM/IBus pre-edit) | §9 | Non-Latin text entry. |
+| GAP-TK-02 | P1 | Save dialog, file chooser portal, Open With chooser | §18.3, §18.4 | |
+| GAP-TK-03 | P2 | Tree/table views, tabs, drag and drop, fractional scaling | §9.7, §9.11 | |
+| GAP-PLAT-01 | P1 | Low-battery and hardware notices; crash/error presentation | §18.13, §18.16 | |
+| GAP-PLAT-02 | P1 | Published signed software catalogue (owner publisher key) | §16.6 | Owner step. |
+| GAP-PLAT-03 | P1 | Installed-to-disk install, signed APT/Pacman repositories, updates | §29–30 | |
+| GAP-QA-01 | P0 | Real-hardware runs of the session and Control Panels against real NetworkManager, PipeWire, BlueZ, libinput and monitors | §28.3 | All NOT_RUN so far. |
+| GAP-QA-02 | P1 | Orca screen-reader journeys; Design Bible visual conformance review | §9.14, §5.2 | |
+| GAP-QA-03 | P1 | arm64 ISO boot test in CI; Raspberry Pi target; memory/CPU budgets; re-run the session benchmark | §28.3 | |
+
 ## H. Documentation audit resolution
 
 This amendment:
@@ -146,6 +224,10 @@ The active blockers are the absent spec/UI/appkit platform and conformance harne
 Start VM-00, SPEC-01 and QA-00 as in §21; then bootstrap common interfaces and dispatch independent foundation tasks. Do not begin native application polishing while its controls are missing. Fix misleading/fabricated production state under explicitly assigned migration tasks.
 
 External access blockers (VM/storage, Figma source, physical devices, signing/publication credentials) must name the exact missing access and impacted gate. Continue independent ready work. Do not ask for new product choices already settled in §0.1.
+
+### 2026-10-30 next actions
+
+Work the P0 items of G.2 first: GAP-SEC-01…04 (lock screen, polkit, network-secret and pairing agents), GAP-SHELL-01/02 (popovers, OSDs with media keys), GAP-APP-01 (Terminal) and GAP-QA-01 (real-hardware runs). The 2026-10-20 list below is kept for history: its items 1 (session entry point), 4 (live network state and Wi-Fi join), 5 (Dock on `slopos-ui`), 7 (Calculator) and 8 (CI-built ISO booting in QEMU) have landed; item 6 (OSD with media keys) is GAP-SHELL-02; items 2 and 3 were not re-checked in this pass.
 
 ### 2026-10-20 next actions (post-integration audit)
 

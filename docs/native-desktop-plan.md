@@ -26,6 +26,8 @@ and a ledger row, following AGENTS.md (toolkit controls go into
 | E archives | Compress / Extract Here (8e36ac8) | — |
 | F later | — | Terminal, Text editor, power manager, lock screen, polkit agent, System Monitor, Screenshot, Disks |
 
+What remains beyond this plan is tracked in the ledger's remaining-work register (section G.2, GAP-* IDs).
+
 The table below is the plan as written before the work started.
 
 ## What is still not native
