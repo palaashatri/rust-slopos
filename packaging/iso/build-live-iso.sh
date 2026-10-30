@@ -143,6 +143,18 @@ ln -s "$BIN_DIR" "$STAGE/release"
 for binary in "${BINARIES[@]}"; do
   [[ -x "$CHROOT/usr/bin/$binary" ]] || { echo "build-live-iso: $binary was not installed" >&2; exit 1; }
 done
+# install.sh writes its prefix into installed files (the session's Exec and
+# TryExec, theme paths); on the live system that prefix is /usr, not the
+# build chroot. Rewrite every text file that mentions the chroot, then
+# refuse to continue if any reference is left.
+grep -rlIZ --fixed-strings "$CHROOT" "$CHROOT/usr/share" "$CHROOT/usr/bin" "$CHROOT/etc" 2>/dev/null |
+  xargs -0 --no-run-if-empty sed -i "s|$CHROOT||g"
+if grep -rlI --fixed-strings "$CHROOT" "$CHROOT/usr/share" "$CHROOT/usr/bin" "$CHROOT/etc" 2>/dev/null | head -5 | grep .; then
+  echo "build-live-iso: build paths leaked into the image (files above)" >&2
+  exit 1
+fi
+grep -qx 'Exec=/usr/bin/start-slopos-i' "$CHROOT/usr/share/xsessions/slopos-i.desktop" || {
+  echo "build-live-iso: the SLOPOS-I session does not run /usr/bin/start-slopos-i" >&2; exit 1; }
 # The live image offers exactly one session: SLOPOS-I.
 find "$CHROOT/usr/share/xsessions" -name '*.desktop' ! -name 'slopos-i.desktop' -delete
 # The installed SLOPOS file associations become the system defaults.
