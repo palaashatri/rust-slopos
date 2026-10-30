@@ -24,6 +24,8 @@ pub enum Update {
     Time(State<TimedateSnapshot>),
     /// Names of the saved Wi-Fi profiles (joined without a password).
     SavedWifi(Vec<String>),
+    /// Pairing with this device ended: `None` when it paired.
+    PairingDone(String, Option<String>),
     /// A change the user asked for failed.
     Failed(String),
 }
@@ -45,6 +47,15 @@ pub enum Command {
     SetInputMuted(String, bool),
     SetBrightness(String, u32),
     SetBluetoothPowered(String, bool),
+    /// Search for devices on this adapter, or stop.
+    SetBluetoothDiscovery(String, bool),
+    /// Pair with, trust and connect to a device.
+    PairBluetooth(String),
+    CancelBluetoothPairing(String),
+    ConnectBluetooth(String),
+    DisconnectBluetooth(String),
+    /// Forget (adapter, device).
+    ForgetBluetooth(String, String),
     SetNtp(bool),
 }
 
@@ -115,6 +126,9 @@ async fn run(
     let bluetooth = BluetoothClient::connect().await;
     let timedate = TimedateClient::connect().await;
     let brightness = BrightnessClient::new();
+    // Pairing waits for the device (up to a minute), so it runs beside the
+    // loop, which stays free to cancel it.
+    let (paired_sender, mut paired) = async_mpsc::unbounded_channel::<Update>();
 
     let mut network_events = None;
     match &network {
@@ -174,6 +188,7 @@ async fn run(
             Some(result) = next_or_pending!(bluetooth_events) => send(Update::Bluetooth(result.map_err(|e| unavailable!(e)))),
             Some(result) = next_or_pending!(timedate_events) => send(Update::Time(result.map_err(|e| unavailable!(e)))),
             Some(result) = next_or_pending!(brightness_events) => send(Update::Brightness(result.map_err(|e| unavailable!(e)))),
+            Some(update) = paired.recv() => send(update),
             command = commands.recv() => {
                 let Some(command) = command else { break };
                 let outcome: Result<Option<Update>, String> = match command {
@@ -235,6 +250,37 @@ async fn run(
                         Ok(client) => client.set_powered(&adapter, on).await.map(|s| Some(Update::Bluetooth(Ok(s)))).map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
                     },
+                    Command::SetBluetoothDiscovery(adapter, on) => match &bluetooth {
+                        Ok(client) => client.set_discovery(&adapter, on).await.map(|s| Some(Update::Bluetooth(Ok(s)))).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::PairBluetooth(device) => match &bluetooth {
+                        Ok(client) => {
+                            let client = client.clone();
+                            let sender = paired_sender.clone();
+                            tokio::spawn(async move {
+                                let _ = sender.send(pair(&client, &device).await);
+                            });
+                            Ok(None)
+                        }
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::CancelBluetoothPairing(device) => match &bluetooth {
+                        Ok(client) => client.cancel_pairing(&device).await.map(|()| None).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::ConnectBluetooth(device) => match &bluetooth {
+                        Ok(client) => client.connect_device(&device).await.map(|s| Some(Update::Bluetooth(Ok(s)))).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::DisconnectBluetooth(device) => match &bluetooth {
+                        Ok(client) => client.disconnect_device(&device).await.map(|s| Some(Update::Bluetooth(Ok(s)))).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::ForgetBluetooth(adapter, device) => match &bluetooth {
+                        Ok(client) => client.remove_device(&adapter, &device).await.map(|s| Some(Update::Bluetooth(Ok(s)))).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
                     Command::SetNtp(on) => match &timedate {
                         Ok(client) => client.set_ntp(on).await.map(|s| Some(Update::Time(Ok(s)))).map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
@@ -251,6 +297,17 @@ async fn run(
 }
 
 /// Saved Wi-Fi profile names; empty when they cannot be read.
+/// Pair, then trust (so it reconnects by itself) and connect. A device
+/// that paired but would not connect is still reported as paired.
+async fn pair(client: &BluetoothClient, device: &str) -> Update {
+    if let Err(error) = client.pair_device(device).await {
+        return Update::PairingDone(device.to_owned(), Some(error.to_string()));
+    }
+    let _ = client.set_device_trusted(device, true).await;
+    let _ = client.connect_device(device).await;
+    Update::PairingDone(device.to_owned(), None)
+}
+
 async fn saved_wifi(client: &NetworkManagerClient) -> Vec<String> {
     client
         .saved_connections()

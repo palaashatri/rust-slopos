@@ -59,6 +59,11 @@ const INPUT_VOLUME_ID: u64 = 32;
 const INPUT_MUTE_ID: u64 = 33;
 const BRIGHTNESS_ID: u64 = 40;
 const BLUETOOTH_ID: u64 = 50;
+const BT_SEARCH_ID: u64 = 51;
+const BT_LIST_ID: u64 = 52;
+const BT_PAIR_ID: u64 = 53;
+const BT_CONNECT_ID: u64 = 54;
+const BT_FORGET_ID: u64 = 55;
 const NTP_ID: u64 = 60;
 const APPEARANCE_LIST_ID: u64 = 70;
 const APPLY_ID: u64 = 71;
@@ -168,6 +173,13 @@ pub struct ControlPanels {
     input_mute: Checkbox,
     brightness_slider: Slider,
     bluetooth_power: Checkbox,
+    bt_search: Button,
+    bt_list: ListView,
+    bt_pair: Button,
+    bt_connect: Button,
+    bt_forget: Button,
+    /// The device being paired, until BlueZ answers.
+    pairing: Option<String>,
     ntp: Checkbox,
     appearance_list: ListView,
     apply: Button,
@@ -311,6 +323,16 @@ impl ControlPanels {
             input_mute: Checkbox::new(INPUT_MUTE_ID, "Mute input", false),
             brightness_slider: Slider::new(BRIGHTNESS_ID, "Brightness", 0.0, 100.0, 5.0),
             bluetooth_power: Checkbox::new(BLUETOOTH_ID, "Bluetooth", false),
+            bt_search: Button::new(
+                BT_SEARCH_ID,
+                "Search for Devices",
+                ButtonPlateVariant::Regular,
+            ),
+            bt_list: ListView::new(BT_LIST_ID, "Bluetooth devices", 20),
+            bt_pair: Button::new(BT_PAIR_ID, "Pair", ButtonPlateVariant::Default),
+            bt_connect: Button::new(BT_CONNECT_ID, "Connect", ButtonPlateVariant::Regular),
+            bt_forget: Button::new(BT_FORGET_ID, "Forget", ButtonPlateVariant::Regular),
+            pairing: None,
             ntp: Checkbox::new(NTP_ID, "Set time automatically", false),
             appearance_list,
             apply: Button::new(APPLY_ID, "Apply", ButtonPlateVariant::Default),
@@ -443,6 +465,28 @@ impl ControlPanels {
             height: 18,
         };
         self.bluetooth_power = self.bluetooth_power.clone().at(x, top);
+        self.bt_search.bounds = Rect {
+            x: x + 140,
+            y: top - 1,
+            width: 150,
+            height: 20,
+        };
+        self.bt_list.set_bounds(Rect {
+            x: x + 1,
+            y: top + 32,
+            width: c.width.saturating_sub(2),
+            height: list_height,
+        });
+        let mut button_x = x + c.width as i32;
+        for button in [&mut self.bt_forget, &mut self.bt_connect, &mut self.bt_pair] {
+            button_x -= 132;
+            button.bounds = Rect {
+                x: button_x,
+                y: buttons_y,
+                width: 126,
+                height: 20,
+            };
+        }
         self.ntp = self.ntp.clone().at(x, top);
         self.appearance_list.set_bounds(Rect {
             x: x + 1,
@@ -501,7 +545,14 @@ impl ControlPanels {
                 INPUT_MUTE_ID,
             ],
             Panel::Display => vec![BRIGHTNESS_ID],
-            Panel::Bluetooth => vec![BLUETOOTH_ID],
+            Panel::Bluetooth => vec![
+                BLUETOOTH_ID,
+                BT_SEARCH_ID,
+                BT_LIST_ID,
+                BT_PAIR_ID,
+                BT_CONNECT_ID,
+                BT_FORGET_ID,
+            ],
             Panel::DateTime => vec![NTP_ID],
             Panel::Desktop => vec![WALLPAPER_LIST_ID, SET_PICTURE_ID, CHOOSE_PICTURE_ID],
             Panel::Appearance => vec![APPEARANCE_LIST_ID, APPLY_ID],
@@ -530,6 +581,11 @@ impl ControlPanels {
         self.input_mute.focused = f == Some(INPUT_MUTE_ID);
         self.brightness_slider.focused = f == Some(BRIGHTNESS_ID);
         self.bluetooth_power.focused = f == Some(BLUETOOTH_ID);
+        self.bt_search.focused = f == Some(BT_SEARCH_ID);
+        self.bt_list.focused = f == Some(BT_LIST_ID);
+        self.bt_pair.focused = f == Some(BT_PAIR_ID);
+        self.bt_connect.focused = f == Some(BT_CONNECT_ID);
+        self.bt_forget.focused = f == Some(BT_FORGET_ID);
         self.ntp.focused = f == Some(NTP_ID);
         self.appearance_list.focused = f == Some(APPEARANCE_LIST_ID);
         self.apply.focused = f == Some(APPLY_ID);
@@ -609,7 +665,38 @@ impl ControlPanels {
             .ok()
             .and_then(|s| s.adapters.first().cloned());
         self.bluetooth_power.enabled = adapter.is_some();
-        self.bluetooth_power.checked = adapter.is_some_and(|a| a.powered);
+        self.bluetooth_power.checked = adapter.as_ref().is_some_and(|a| a.powered);
+        let powered = adapter.as_ref().is_some_and(|a| a.powered);
+        let searching = adapter.as_ref().is_some_and(|a| a.discovering);
+        self.bt_search.enabled = powered;
+        self.bt_search.label = if searching {
+            "Stop Searching".into()
+        } else {
+            "Search for Devices".into()
+        };
+        let devices = self
+            .bluetooth
+            .as_ref()
+            .map(model::bluetooth_devices)
+            .unwrap_or_default();
+        if self.bt_list.len() != devices.len() {
+            self.bt_list.reset(devices.len());
+        }
+        let selected = self.bt_list.cursor().and_then(|i| devices.get(i));
+        let busy = self.pairing.is_some();
+        self.bt_pair.label = if busy {
+            "Cancel Pairing".into()
+        } else {
+            "Pair".into()
+        };
+        self.bt_pair.enabled = busy || (powered && selected.is_some_and(|d| !d.paired));
+        self.bt_connect.label = if selected.is_some_and(|d| d.connected) {
+            "Disconnect".into()
+        } else {
+            "Connect".into()
+        };
+        self.bt_connect.enabled = !busy && powered && selected.is_some_and(|d| d.paired);
+        self.bt_forget.enabled = !busy && selected.is_some_and(|d| d.paired);
         match &self.time {
             Ok(snapshot) => {
                 self.ntp.enabled = snapshot.ntp_available;
@@ -633,6 +720,14 @@ impl ControlPanels {
             Update::Bluetooth(state) => self.bluetooth = state,
             Update::Time(state) => self.time = state,
             Update::SavedWifi(names) => self.saved_wifi = names,
+            Update::PairingDone(device, error) => {
+                self.pairing = None;
+                let name = self.bluetooth_name(&device);
+                match error {
+                    None => self.notice(format!("Paired with “{name}”.")),
+                    Some(error) => self.fail(format!("Couldn't pair with “{name}”: {error}")),
+                }
+            }
             Update::Failed(error) => self.fail(format!("That change failed: {error}")),
         }
     }
@@ -645,6 +740,20 @@ impl ControlPanels {
             }
             None => self.fail("No service thread is running."),
         }
+    }
+
+    /// The selected Bluetooth device.
+    fn selected_device(&self) -> Option<slopos_services::bluetooth::BluetoothDevice> {
+        let devices = model::bluetooth_devices(self.bluetooth.as_ref().ok()?);
+        devices.get(self.bt_list.cursor()?).cloned()
+    }
+
+    fn bluetooth_name(&self, path: &str) -> String {
+        self.bluetooth
+            .as_ref()
+            .ok()
+            .and_then(|s| s.devices.iter().find(|d| d.path == path))
+            .map_or_else(|| "the device".to_owned(), |d| d.name.clone())
     }
 
     /// Join, Disconnect and Forget follow the selected network.
@@ -941,6 +1050,84 @@ impl ControlPanels {
                         .and_then(|s| s.adapters.first().map(|a| a.path.clone()));
                     if let Some(adapter) = adapter {
                         self.send(Command::SetBluetoothPowered(adapter, on));
+                    }
+                }
+                let adapter = self
+                    .bluetooth
+                    .as_ref()
+                    .ok()
+                    .and_then(|s| s.adapters.first().cloned());
+                if (self.bt_search.handle(event) == ButtonOutcome::Activated
+                    || (clicked(BT_SEARCH_ID) && self.bt_search.enabled))
+                    && self.bt_search.enabled
+                {
+                    if let Some(adapter) = &adapter {
+                        self.send(Command::SetBluetoothDiscovery(
+                            adapter.path.clone(),
+                            !adapter.discovering,
+                        ));
+                    }
+                }
+                let devices = self
+                    .bluetooth
+                    .as_ref()
+                    .map(model::bluetooth_devices)
+                    .unwrap_or_default();
+                let label = |i: usize| {
+                    devices
+                        .get(i)
+                        .map(|d| format!("{}, {}", d.name, model::bluetooth_state(d)))
+                        .unwrap_or_default()
+                };
+                let mut activated = false;
+                match self.bt_list.handle(event, control.modifiers(), &label) {
+                    ListOutcome::FocusRequested => {
+                        self.focus.focus(BT_LIST_ID);
+                        self.sync_focus();
+                    }
+                    ListOutcome::Activated(_) => activated = true,
+                    _ => {}
+                }
+                self.sync_from_state();
+                let selected = self.selected_device();
+                if self.bt_pair.handle(event) == ButtonOutcome::Activated
+                    || (clicked(BT_PAIR_ID) && self.bt_pair.enabled)
+                    || (activated && self.bt_pair.enabled && self.pairing.is_none())
+                {
+                    if let Some(device) = self.pairing.clone() {
+                        self.send(Command::CancelBluetoothPairing(device));
+                        self.notice("Cancelling pairing…".to_owned());
+                    } else if let Some(device) = selected.clone() {
+                        self.send(Command::PairBluetooth(device.path.clone()));
+                        self.notice(format!(
+                            "Pairing with “{}”… Confirm on the device if it asks.",
+                            device.name
+                        ));
+                        self.pairing = Some(device.path);
+                    }
+                } else if (self.bt_connect.handle(event) == ButtonOutcome::Activated
+                    || (clicked(BT_CONNECT_ID) && self.bt_connect.enabled)
+                    || (activated && self.bt_connect.enabled))
+                    && self.bt_connect.enabled
+                {
+                    if let Some(device) = selected.clone() {
+                        if device.connected {
+                            self.send(Command::DisconnectBluetooth(device.path));
+                        } else {
+                            self.send(Command::ConnectBluetooth(device.path));
+                            self.notice(format!("Connecting to “{}”…", device.name));
+                        }
+                    }
+                }
+                if self.bt_forget.handle(event) == ButtonOutcome::Activated
+                    || (clicked(BT_FORGET_ID) && self.bt_forget.enabled)
+                {
+                    if let Some(device) = selected {
+                        self.send(Command::ForgetBluetooth(
+                            device.adapter_path.clone(),
+                            device.path.clone(),
+                        ));
+                        self.notice(format!("Forgetting “{}”…", device.name));
                     }
                 }
             }
@@ -1305,7 +1492,55 @@ impl ControlPanels {
                 surface.draw_text("Brightness", c.x, top + 2, font, colors.ink)?;
                 self.brightness_slider.paint(surface)?;
             }
-            Panel::Bluetooth => self.bluetooth_power.paint(surface)?,
+            Panel::Bluetooth => {
+                self.bluetooth_power.paint(surface)?;
+                self.bt_search.paint(surface, font)?;
+                let devices = self
+                    .bluetooth
+                    .as_ref()
+                    .map(model::bluetooth_devices)
+                    .unwrap_or_default();
+                let pairing = self.pairing.as_deref();
+                let list = self.bt_list.bounds();
+                self.bt_list.paint(surface, |surface, i, rect, selected| {
+                    let device = &devices[i];
+                    let ink = if selected {
+                        colors.selection_ink
+                    } else {
+                        colors.ink
+                    };
+                    let soft = if selected {
+                        colors.selection_ink
+                    } else {
+                        colors.ink_secondary
+                    };
+                    surface.draw_text(&device.name, rect.x + 8, rect.y + 2, font, ink)?;
+                    let state = if pairing == Some(device.path.as_str()) {
+                        "Pairing…"
+                    } else {
+                        model::bluetooth_state(device)
+                    };
+                    surface.draw_text(
+                        state,
+                        rect.x + list.width as i32 - 110,
+                        rect.y + 2,
+                        font,
+                        soft,
+                    )
+                })?;
+                if devices.is_empty() {
+                    surface.draw_text(
+                        "No Bluetooth devices to show",
+                        list.x + 8,
+                        list.y + 6,
+                        font,
+                        colors.ink_secondary,
+                    )?;
+                }
+                self.bt_pair.paint(surface, font)?;
+                self.bt_connect.paint(surface, font)?;
+                self.bt_forget.paint(surface, font)?;
+            }
             Panel::DateTime => self.ntp.paint(surface)?,
             Panel::Desktop => {
                 let pictures = bundled_pictures();
@@ -1466,7 +1701,23 @@ impl App for ControlPanels {
                 nodes.push((BRIGHTNESS_ID, self.brightness_slider.accessibility_node()))
             }
             Panel::Bluetooth => {
-                nodes.push((BLUETOOTH_ID, self.bluetooth_power.accessibility_node()))
+                nodes.push((BLUETOOTH_ID, self.bluetooth_power.accessibility_node()));
+                nodes.push((BT_SEARCH_ID, self.bt_search.accessibility_node()));
+                nodes.push((BT_PAIR_ID, self.bt_pair.accessibility_node()));
+                nodes.push((BT_CONNECT_ID, self.bt_connect.accessibility_node()));
+                nodes.push((BT_FORGET_ID, self.bt_forget.accessibility_node()));
+                let devices = self
+                    .bluetooth
+                    .as_ref()
+                    .map(model::bluetooth_devices)
+                    .unwrap_or_default();
+                let label = |i: usize| {
+                    devices
+                        .get(i)
+                        .map(|d| format!("{}, {}", d.name, model::bluetooth_state(d)))
+                        .unwrap_or_default()
+                };
+                nodes.extend(self.bt_list.accessibility_nodes(&label))
             }
             Panel::DateTime => nodes.push((NTP_ID, self.ntp.accessibility_node())),
             Panel::Appearance => {
@@ -1508,6 +1759,8 @@ impl App for ControlPanels {
             None => match self.focus.focused() {
                 Some(SIDEBAR_ID) => Some(self.sidebar.focus_node()),
                 Some(WALLPAPER_LIST_ID) => Some(self.wallpaper_list.focus_node()),
+                Some(WIFI_LIST_ID) => Some(self.wifi_list.focus_node()),
+                Some(BT_LIST_ID) => Some(self.bt_list.focus_node()),
                 other => other,
             },
         };
@@ -1766,6 +2019,115 @@ mod tests {
         assert_eq!(
             receiver.try_recv().unwrap(),
             Command::ForgetWifi("Home".into())
+        );
+    }
+
+    #[test]
+    fn bluetooth_devices_are_searched_paired_connected_and_forgotten() {
+        use slopos_services::bluetooth::{BluetoothAdapter, BluetoothDevice};
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        let device = |path: &str, name: &str, paired, connected| BluetoothDevice {
+            path: path.into(),
+            name: name.into(),
+            address: name.into(),
+            adapter_path: "/hci0".into(),
+            paired,
+            trusted: paired,
+            connected,
+        };
+        let mut snapshot = BluetoothSnapshot {
+            revision: 1,
+            availability: Availability::Available,
+            adapters: vec![BluetoothAdapter {
+                path: "/hci0".into(),
+                name: "slopos".into(),
+                address: "AA".into(),
+                powered: true,
+                discovering: false,
+            }],
+            devices: vec![
+                device("/hci0/dev_1", "Speaker", false, false),
+                device("/hci0/dev_2", "Mouse", true, true),
+            ],
+        };
+        app.apply_update(Update::Bluetooth(Ok(snapshot.clone())));
+        let mut control = Control::default();
+        app.event(&Event::MenuChosen { menu: 1, item: 3 }, &mut control);
+        assert_eq!(app.panel(), Panel::Bluetooth);
+        // From the sidebar: power, then Search; Space starts searching.
+        for _ in 0..2 {
+            app.event(&key(Key::Tab), &mut control);
+        }
+        assert!(app.bt_search.focused && app.bt_search.enabled);
+        app.event(&key(Key::Space), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::SetBluetoothDiscovery("/hci0".into(), true)
+        );
+        snapshot.adapters[0].discovering = true;
+        app.apply_update(Update::Bluetooth(Ok(snapshot.clone())));
+        app.sync_from_state();
+        assert_eq!(app.bt_search.label, "Stop Searching");
+        // The connected Mouse is listed first; nothing to pair there.
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.bt_list.focused);
+        app.event(&key(Key::Down), &mut control);
+        assert_eq!(app.selected_device().unwrap().name, "Mouse");
+        assert!(!app.bt_pair.enabled && app.bt_connect.enabled && app.bt_forget.enabled);
+        assert_eq!(app.bt_connect.label, "Disconnect");
+        // The Speaker pairs with Return; Pair becomes Cancel Pairing.
+        app.event(&key(Key::Down), &mut control);
+        assert_eq!(app.selected_device().unwrap().name, "Speaker");
+        assert!(app.bt_pair.enabled && !app.bt_connect.enabled && !app.bt_forget.enabled);
+        app.event(&key(Key::Enter), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::PairBluetooth("/hci0/dev_1".into())
+        );
+        assert_eq!(app.bt_pair.label, "Cancel Pairing");
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.bt_pair.focused);
+        app.event(&key(Key::Space), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::CancelBluetoothPairing("/hci0/dev_1".into())
+        );
+        let tree = app.accessibility().unwrap();
+        assert!(tree
+            .nodes
+            .iter()
+            .any(|(_, n)| n.label() == Some("Speaker, Not paired")));
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
+        app.apply_update(Update::PairingDone(
+            "/hci0/dev_1".into(),
+            Some("Authentication Canceled".into()),
+        ));
+        assert!(app.status_error && app.status.contains("Speaker"));
+        // Paired and connected: Disconnect, then Forget.
+        snapshot.devices[0].paired = true;
+        snapshot.devices[0].connected = true;
+        app.apply_update(Update::Bluetooth(Ok(snapshot)));
+        app.apply_update(Update::PairingDone("/hci0/dev_1".into(), None));
+        app.sync_from_state();
+        assert_eq!(app.status, "Paired with “Speaker”.");
+        assert_eq!(app.selected_device().unwrap().name, "Speaker");
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.bt_connect.focused);
+        app.event(&key(Key::Space), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::DisconnectBluetooth("/hci0/dev_1".into())
+        );
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Space), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::ForgetBluetooth("/hci0".into(), "/hci0/dev_1".into())
         );
     }
 
