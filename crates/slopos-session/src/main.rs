@@ -62,7 +62,7 @@ fn main() -> ExitCode {
 
     environment::configure();
     install_signal_handlers();
-    restore_displays();
+    restore_settings();
     environment::apply_root_background();
 
     let mut wm = Child::new("Openbox", Policy::Required, spawn_openbox);
@@ -127,18 +127,16 @@ fn spawn_openbox() -> Option<std::process::Child> {
     }
 }
 
-/// Put back the display layout kept in Control Panels, before anything
-/// sizes itself to the screen. Missing or slow, the session goes on.
-fn restore_displays() {
+/// Put back the display layout, keyboard and mouse settings kept in
+/// Control Panels, before anything sizes itself to the screen. Missing or
+/// slow, the session goes on.
+fn restore_settings() {
     let path = slopos_core::process::resolve_program("slopos-control-panels")
         .unwrap_or_else(|| PathBuf::from("slopos-control-panels"));
-    let mut child = match std::process::Command::new(&path)
-        .arg("--apply-displays")
-        .spawn()
-    {
+    let mut child = match std::process::Command::new(&path).arg("--restore").spawn() {
         Ok(child) => child,
         Err(error) => {
-            log::info!("Not restoring the display layout: {error}");
+            log::info!("Not restoring display and input settings: {error}");
             return;
         }
     };
@@ -149,10 +147,10 @@ fn restore_displays() {
     });
     match receiver.recv_timeout(Duration::from_secs(5)) {
         Ok(Ok(status)) if status.success() => {}
-        Ok(Ok(status)) => log::warn!("Restoring the display layout failed ({status})"),
-        Ok(Err(error)) => log::warn!("Restoring the display layout failed: {error}"),
+        Ok(Ok(status)) => log::warn!("Restoring display and input settings failed ({status})"),
+        Ok(Err(error)) => log::warn!("Restoring display and input settings failed: {error}"),
         Err(_) => {
-            log::warn!("Restoring the display layout took too long; going on without it");
+            log::warn!("Restoring display and input settings took too long; going on");
             // SAFETY: plain kill(2) on the child we started.
             unsafe { libc::kill(id as libc::pid_t, libc::SIGKILL) };
         }

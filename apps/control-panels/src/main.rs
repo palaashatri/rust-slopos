@@ -83,6 +83,8 @@ const DISPLAY_POPUPS: [u64; 5] = [
     PLACEMENT_ID,
 ];
 const SOUND_POPUPS: [u64; 4] = [OUTPUT_DEVICE_ID, INPUT_DEVICE_ID, APP_ID, APP_OUTPUT_ID];
+/// Where Control Panels keeps keyboard and mouse settings.
+const INPUT_FILE: &str = "input.conf";
 /// Seconds to confirm a display change before it is undone.
 const REVERT_SECONDS: u32 = 15;
 
@@ -102,6 +104,12 @@ const BT_PAIR_ID: u64 = 53;
 const BT_CONNECT_ID: u64 = 54;
 const BT_FORGET_ID: u64 = 55;
 const NTP_ID: u64 = 60;
+const LAYOUT_ID: u64 = 90;
+const REPEAT_DELAY_ID: u64 = 91;
+const REPEAT_RATE_ID: u64 = 92;
+const POINTER_SPEED_ID: u64 = 93;
+const NATURAL_SCROLL_ID: u64 = 94;
+const LEFT_HANDED_ID: u64 = 95;
 const APPEARANCE_LIST_ID: u64 = 70;
 const APPLY_ID: u64 = 71;
 const WALLPAPER_LIST_ID: u64 = 80;
@@ -121,10 +129,11 @@ enum Panel {
     DateTime,
     Desktop,
     Appearance,
+    Input,
 }
 
 /// Theme icon candidates per panel (Adwaita ships mostly symbolic ones).
-const PANEL_ICONS: [&[&str]; 7] = [
+const PANEL_ICONS: [&[&str]; 8] = [
     &[
         "network-workgroup",
         "network-wireless-symbolic",
@@ -148,9 +157,14 @@ const PANEL_ICONS: [&[&str]; 7] = [
         "preferences-desktop-appearance-symbolic",
         "preferences-system",
     ],
+    &[
+        "input-keyboard",
+        "input-keyboard-symbolic",
+        "input-mouse-symbolic",
+    ],
 ];
 
-const PANELS: [(Panel, &str); 7] = [
+const PANELS: [(Panel, &str); 8] = [
     (Panel::Network, "Network"),
     (Panel::Sound, "Sound"),
     (Panel::Display, "Display"),
@@ -158,6 +172,7 @@ const PANELS: [(Panel, &str); 7] = [
     (Panel::DateTime, "Date & Time"),
     (Panel::Desktop, "Desktop"),
     (Panel::Appearance, "Appearance"),
+    (Panel::Input, "Keyboard & Mouse"),
 ];
 
 type WakeSlot = Arc<Mutex<Option<Proxy>>>;
@@ -173,6 +188,7 @@ fn panel_for_argument(argument: &str) -> Option<usize> {
         "bluetooth" => Panel::Bluetooth,
         "appearance" | "theme" => Panel::Appearance,
         "desktop" | "wallpaper" | "background" => Panel::Desktop,
+        "keyboard" | "mouse" | "input" | "touchpad" => Panel::Input,
         other => {
             return PANELS
                 .iter()
@@ -217,6 +233,17 @@ pub struct ControlPanels {
     app_output: PopUpButton,
     brightness_slider: Slider,
     displays: State<DisplaySnapshot>,
+    input: State<slopos_services::input::InputSnapshot>,
+    /// Keyboard layouts the system offers: (code, description).
+    layouts: Vec<(String, String)>,
+    layout: PopUpButton,
+    repeat_delay: Slider,
+    repeat_rate: Slider,
+    pointer_speed: Slider,
+    natural_scroll: Checkbox,
+    left_handed: Checkbox,
+    /// Settings sent and not yet answered; the controls show these.
+    input_sent: Option<slopos_services::input::InputSettings>,
     /// The output the Displays controls edit.
     output: PopUpButton,
     resolution: PopUpButton,
@@ -386,6 +413,15 @@ impl ControlPanels {
             app_output: PopUpButton::new(APP_OUTPUT_ID, "Play on"),
             brightness_slider: Slider::new(BRIGHTNESS_ID, "Brightness", 0.0, 100.0, 5.0),
             displays: model::loading(),
+            input: model::loading(),
+            layouts: slopos_services::input::layouts(),
+            layout: PopUpButton::new(LAYOUT_ID, "Keyboard layout"),
+            repeat_delay: Slider::new(REPEAT_DELAY_ID, "Delay until repeat", 150.0, 1000.0, 50.0),
+            repeat_rate: Slider::new(REPEAT_RATE_ID, "Key repeat rate", 5.0, 60.0, 5.0),
+            pointer_speed: Slider::new(POINTER_SPEED_ID, "Pointer speed", 0.0, 100.0, 5.0),
+            natural_scroll: Checkbox::new(NATURAL_SCROLL_ID, "Natural scrolling", false),
+            left_handed: Checkbox::new(LEFT_HANDED_ID, "Left-handed buttons", false),
+            input_sent: None,
             output: PopUpButton::new(OUTPUT_ID, "Display"),
             resolution: PopUpButton::new(RESOLUTION_ID, "Resolution"),
             refresh: PopUpButton::new(REFRESH_ID, "Refresh rate"),
@@ -529,6 +565,15 @@ impl ControlPanels {
             width: 220,
             height: 18,
         };
+        self.layout.bounds = Rect {
+            width: 260,
+            ..popup_at(top)
+        };
+        self.repeat_delay.bounds = slider_at(top + 38);
+        self.repeat_rate.bounds = slider_at(top + 80);
+        self.pointer_speed.bounds = slider_at(top + 132);
+        self.natural_scroll = self.natural_scroll.clone().at(x + 110, top + 172);
+        self.left_handed = self.left_handed.clone().at(x + 110, top + 196);
         self.output_device.bounds = popup_at(top);
         self.output_volume.bounds = slider_at(top + 30);
         self.output_mute = self.output_mute.clone().at(x + 350, top + 30);
@@ -674,17 +719,27 @@ impl ControlPanels {
             Panel::DateTime => vec![NTP_ID],
             Panel::Desktop => vec![WALLPAPER_LIST_ID, SET_PICTURE_ID, CHOOSE_PICTURE_ID],
             Panel::Appearance => vec![APPEARANCE_LIST_ID, APPLY_ID],
+            Panel::Input => vec![
+                LAYOUT_ID,
+                REPEAT_DELAY_ID,
+                REPEAT_RATE_ID,
+                POINTER_SPEED_ID,
+                NATURAL_SCROLL_ID,
+                LEFT_HANDED_ID,
+            ],
         });
         // A pop-up with nothing to choose is skipped, as disabled controls
         // are on the Classic desktop.
         ids.retain(|&id| {
-            !(DISPLAY_POPUPS.contains(&id) || SOUND_POPUPS.contains(&id)) || self.popup(id).enabled
+            !(DISPLAY_POPUPS.contains(&id) || SOUND_POPUPS.contains(&id) || id == LAYOUT_ID)
+                || self.popup(id).enabled
         });
         ids
     }
 
     fn popup(&self, id: u64) -> &PopUpButton {
         match id {
+            LAYOUT_ID => &self.layout,
             OUTPUT_DEVICE_ID => &self.output_device,
             INPUT_DEVICE_ID => &self.input_device,
             APP_ID => &self.app,
@@ -716,6 +771,12 @@ impl ControlPanels {
         self.output_mute.focused = f == Some(OUTPUT_MUTE_ID);
         self.input_volume.focused = f == Some(INPUT_VOLUME_ID);
         self.input_mute.focused = f == Some(INPUT_MUTE_ID);
+        self.layout.focused = f == Some(LAYOUT_ID);
+        self.repeat_delay.focused = f == Some(REPEAT_DELAY_ID);
+        self.repeat_rate.focused = f == Some(REPEAT_RATE_ID);
+        self.pointer_speed.focused = f == Some(POINTER_SPEED_ID);
+        self.natural_scroll.focused = f == Some(NATURAL_SCROLL_ID);
+        self.left_handed.focused = f == Some(LEFT_HANDED_ID);
         self.output_device.focused = f == Some(OUTPUT_DEVICE_ID);
         self.input_device.focused = f == Some(INPUT_DEVICE_ID);
         self.app.focused = f == Some(APP_ID);
@@ -799,6 +860,7 @@ impl ControlPanels {
             self.input_mute.checked = device.muted;
         }
         self.sync_sound_choices();
+        self.sync_input();
         let brightness = self
             .brightness
             .as_ref()
@@ -873,6 +935,10 @@ impl ControlPanels {
             Update::Time(state) => self.time = state,
             Update::SavedWifi(names) => self.saved_wifi = names,
             Update::Displays(state) => self.displays = state,
+            Update::Input(state) => {
+                self.input = state;
+                self.input_sent = None;
+            }
             Update::DisplaysApplied(error) => match (error, self.keep.as_mut()) {
                 (None, Some(pending)) if !pending.applied => {
                     pending.applied = true;
@@ -1006,6 +1072,7 @@ impl ControlPanels {
 
     fn popup_mut(&mut self, id: u64) -> &mut PopUpButton {
         match id {
+            LAYOUT_ID => &mut self.layout,
             OUTPUT_DEVICE_ID => &mut self.output_device,
             INPUT_DEVICE_ID => &mut self.input_device,
             APP_ID => &mut self.app,
@@ -1097,6 +1164,80 @@ impl ControlPanels {
             _ => return,
         }
         self.change_displays(before, after);
+    }
+
+    /// Fill the Keyboard & Mouse controls from the X server's settings.
+    fn sync_input(&mut self) {
+        let settings = self.input.as_ref().ok().map(|s| {
+            (
+                self.input_sent
+                    .clone()
+                    .unwrap_or_else(|| s.settings.clone()),
+                s.tunable_pointers,
+            )
+        });
+        let enabled = settings.is_some();
+        self.layout.set_items(
+            self.layouts.iter().map(|(_, name)| name.clone()).collect(),
+            settings
+                .as_ref()
+                .and_then(|(s, _)| self.layouts.iter().position(|(code, _)| *code == s.layout)),
+        );
+        self.layout.enabled = enabled && self.layouts.len() > 1;
+        for control in [&mut self.repeat_delay, &mut self.repeat_rate] {
+            control.enabled = enabled;
+        }
+        self.left_handed.enabled = enabled;
+        let tunable = settings.as_ref().is_some_and(|(_, n)| *n > 0);
+        self.pointer_speed.enabled = tunable;
+        self.natural_scroll.enabled = tunable;
+        if let Some((settings, _)) = settings {
+            if !self.repeat_delay.dragging() {
+                self.repeat_delay
+                    .set_value(f64::from(settings.repeat_delay_ms));
+            }
+            if !self.repeat_rate.dragging() {
+                self.repeat_rate
+                    .set_value(f64::from(settings.repeat_rate_hz));
+            }
+            if !self.pointer_speed.dragging() {
+                self.pointer_speed
+                    .set_value(f64::from((settings.pointer_speed + 1.0) * 50.0));
+            }
+            self.natural_scroll.checked = settings.natural_scrolling;
+            self.left_handed.checked = settings.left_handed;
+        }
+    }
+
+    /// Send the controls' settings (with layout `layout`, an index into
+    /// the layout list, when it changed).
+    fn input_changed(&mut self, layout: Option<usize>) {
+        let Ok(snapshot) = self.input.as_ref() else {
+            return;
+        };
+        let mut settings = snapshot.settings.clone();
+        if let Some(sent) = &self.input_sent {
+            settings = sent.clone();
+        }
+        if let Some((code, _)) = layout.and_then(|i| self.layouts.get(i)) {
+            if *code != settings.layout {
+                settings.layout = code.clone();
+                settings.variant.clear();
+            }
+        }
+        settings.repeat_delay_ms = self.repeat_delay.value() as u16;
+        settings.repeat_rate_hz = self.repeat_rate.value() as u16;
+        if snapshot.tunable_pointers > 0 {
+            settings.pointer_speed = (self.pointer_speed.value() / 50.0 - 1.0) as f32;
+            settings.natural_scrolling = self.natural_scroll.checked;
+        }
+        settings.left_handed = self.left_handed.checked;
+        if settings == snapshot.settings && self.input_sent.is_none() {
+            return;
+        }
+        let path = self.config.as_ref().map(|dir| dir.join(INPUT_FILE));
+        self.input_sent = Some(settings.clone());
+        self.send(Command::ApplyInput(settings, path));
     }
 
     /// The application stream the Sound controls edit.
@@ -1341,11 +1482,14 @@ impl ControlPanels {
         if let Some(id) = DISPLAY_POPUPS
             .into_iter()
             .chain(SOUND_POPUPS)
+            .chain([LAYOUT_ID])
             .find(|&id| self.popup_mut(id).is_open())
         {
             let window = self.window;
             if let PopUpOutcome::Selected(index) = self.popup_mut(id).handle(event, window) {
-                if SOUND_POPUPS.contains(&id) {
+                if id == LAYOUT_ID {
+                    self.input_changed(Some(index));
+                } else if SOUND_POPUPS.contains(&id) {
                     self.sound_chosen(id, index);
                 } else {
                     self.display_chosen(id, index);
@@ -1732,6 +1876,25 @@ impl ControlPanels {
                     self.open_chooser();
                 }
             }
+            Panel::Input => {
+                if let ValueOutcome::Value { last: true, .. } = self.repeat_delay.handle(event) {
+                    self.input_changed(None);
+                }
+                if let ValueOutcome::Value { last: true, .. } = self.repeat_rate.handle(event) {
+                    self.input_changed(None);
+                }
+                if let ValueOutcome::Value { last: true, .. } = self.pointer_speed.handle(event) {
+                    self.input_changed(None);
+                }
+                if let ToggleOutcome::Toggled(_) = self.natural_scroll.handle(event) {
+                    self.input_changed(None);
+                }
+                if let ToggleOutcome::Toggled(_) = self.left_handed.handle(event) {
+                    self.input_changed(None);
+                }
+                let window = self.window;
+                self.layout.handle(event, window);
+            }
             Panel::Appearance => {
                 let names = |i: usize| {
                     APPEARANCES
@@ -1934,6 +2097,13 @@ impl ControlPanels {
                     },
                     "Pick a pattern, or choose one of your own PNG pictures.".into(),
                 ],
+            ),
+            Panel::Input => (
+                "Keyboard & Mouse".into(),
+                match &self.input {
+                    Ok(snapshot) => model::input_lines(snapshot, &self.layouts),
+                    Err(error) => unavailable(error, "the X server's input settings"),
+                },
             ),
             Panel::Appearance => (
                 "Appearance".into(),
@@ -2241,6 +2411,56 @@ impl ControlPanels {
                 self.set_picture.paint(surface, font)?;
                 self.choose_picture.paint(surface, font)?;
             }
+            Panel::Input => {
+                let label = |text: &str, y: i32, enabled: bool| {
+                    let ink = if enabled {
+                        colors.ink
+                    } else {
+                        colors.ink_secondary
+                    };
+                    surface.draw_text(text, c.x, y + 3, font, ink)
+                };
+                label("Layout", self.layout.bounds.y, self.layout.enabled)?;
+                self.layout.paint(surface, font)?;
+                label(
+                    "Repeat delay",
+                    self.repeat_delay.bounds.y,
+                    self.repeat_delay.enabled,
+                )?;
+                self.repeat_delay.paint(surface)?;
+                label(
+                    "Repeat rate",
+                    self.repeat_rate.bounds.y,
+                    self.repeat_rate.enabled,
+                )?;
+                self.repeat_rate.paint(surface)?;
+                label(
+                    "Pointer speed",
+                    self.pointer_speed.bounds.y,
+                    self.pointer_speed.enabled,
+                )?;
+                self.pointer_speed.paint(surface)?;
+                let small = &slopos_ui::text::Font::system(10.0);
+                let ends = |rect: Rect, low: &str, high: &str| -> Result<(), RenderError> {
+                    let y = rect.y + rect.height as i32 + 1;
+                    surface.draw_text(low, rect.x, y, small, colors.ink_secondary)?;
+                    let width = slopos_ui::text::measure(high, small).width as i32;
+                    surface.draw_text(
+                        high,
+                        rect.x + rect.width as i32 - width,
+                        y,
+                        small,
+                        colors.ink_secondary,
+                    )
+                };
+                ends(self.repeat_delay.bounds, "Short", "Long")?;
+                ends(self.repeat_rate.bounds, "Slow", "Fast")?;
+                ends(self.pointer_speed.bounds, "Slow", "Fast")?;
+                if self.pointer_speed.enabled {
+                    self.natural_scroll.paint(surface)?;
+                }
+                self.left_handed.paint(surface)?;
+            }
             Panel::Appearance => {
                 self.appearance_list.paint(surface, |surface, i, rect, _| {
                     surface.draw_text(APPEARANCES[i].1, rect.x + 8, rect.y + 3, font, colors.ink)
@@ -2421,6 +2641,14 @@ impl App for ControlPanels {
                 nodes.extend(self.bt_list.accessibility_nodes(&label))
             }
             Panel::DateTime => nodes.push((NTP_ID, self.ntp.accessibility_node())),
+            Panel::Input => {
+                nodes.extend(self.layout.accessibility_nodes());
+                nodes.push((REPEAT_DELAY_ID, self.repeat_delay.accessibility_node()));
+                nodes.push((REPEAT_RATE_ID, self.repeat_rate.accessibility_node()));
+                nodes.push((POINTER_SPEED_ID, self.pointer_speed.accessibility_node()));
+                nodes.push((NATURAL_SCROLL_ID, self.natural_scroll.accessibility_node()));
+                nodes.push((LEFT_HANDED_ID, self.left_handed.accessibility_node()));
+            }
             Panel::Appearance => {
                 let names = |i: usize| {
                     APPEARANCES
@@ -2506,18 +2734,38 @@ fn apply_saved_displays() -> Result<(), String> {
     }
 }
 
+/// `--apply-input`: put back the saved keyboard and mouse settings.
+fn apply_saved_input() -> Result<(), String> {
+    use slopos_services::input;
+    let Some(saved) = wallpaper::config_dir().and_then(|dir| input::load(&dir.join(INPUT_FILE)))
+    else {
+        return Ok(());
+    };
+    let client = input::InputClient::connect().map_err(|e| e.to_string())?;
+    client.apply(&saved).map(|_| ()).map_err(|e| e.to_string())
+}
+
 fn main() {
     if std::env::var_os("RUST_LOG").is_some() {
         let _ = env_logger::try_init();
     }
-    if std::env::args().nth(1).as_deref() == Some("--apply-displays") {
-        std::process::exit(match apply_saved_displays() {
-            Ok(()) => 0,
-            Err(error) => {
-                eprintln!("slopos-control-panels: {error}");
-                1
+    let argument = std::env::args().nth(1);
+    if let Some(flag @ ("--restore" | "--apply-displays" | "--apply-input")) = argument.as_deref() {
+        let mut failed = false;
+        type Step = fn() -> Result<(), String>;
+        let steps: [(&str, Step); 2] = [
+            ("--apply-displays", apply_saved_displays),
+            ("--apply-input", apply_saved_input),
+        ];
+        for (name, step) in steps {
+            if flag == "--restore" || flag == name {
+                if let Err(error) = step() {
+                    eprintln!("slopos-control-panels: {error}");
+                    failed = true;
+                }
             }
-        });
+        }
+        std::process::exit(i32::from(failed));
     }
     let slot: WakeSlot = Arc::new(Mutex::new(None));
     let wake_slot = slot.clone();
@@ -3119,6 +3367,102 @@ mod tests {
         app.apply_update(Update::Audio(Ok(snapshot)));
         app.sync_from_state();
         assert!(!app.app.enabled && !app.app_volume.enabled && !app.app_output.enabled);
+    }
+
+    #[test]
+    fn keyboard_and_mouse_settings_are_sent_and_saved() {
+        use slopos_services::input::{InputSettings, InputSnapshot};
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        let dir = tempfile::tempdir().unwrap();
+        app.config = Some(dir.path().to_owned());
+        app.layouts = vec![
+            ("us".into(), "English (US)".into()),
+            ("de".into(), "German".into()),
+        ];
+        let settings = InputSettings {
+            layout: "us".into(),
+            variant: String::new(),
+            repeat_delay_ms: 500,
+            repeat_rate_hz: 30,
+            pointer_speed: 0.0,
+            natural_scrolling: false,
+            left_handed: false,
+        };
+        app.apply_update(Update::Input(Ok(InputSnapshot {
+            availability: Availability::Available,
+            settings: settings.clone(),
+            tunable_pointers: 0,
+        })));
+        let mut control = Control::default();
+        app.event(
+            &Event::KeyPressed {
+                key: Key::Character('8'),
+                modifiers: Modifiers {
+                    control: true,
+                    ..Modifiers::default()
+                },
+            },
+            &mut control,
+        );
+        assert_eq!(app.panel(), Panel::Input);
+        assert_eq!(app.lines().1[0], "Keyboard: English (US)");
+        assert_eq!(
+            app.lines().1[1],
+            "No mouse or touchpad here takes speed settings."
+        );
+        assert_eq!(app.layout.value(), "English (US)");
+        assert!(!app.pointer_speed.enabled && !app.natural_scroll.enabled);
+        assert_eq!(app.repeat_delay.value(), 500.0);
+        // Layout pop-up: German. Settings are saved where they belong.
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.layout.focused);
+        app.event(&key(Key::Space), &mut control);
+        app.event(&key(Key::Down), &mut control);
+        app.event(&key(Key::Enter), &mut control);
+        let Command::ApplyInput(german, path) = receiver.try_recv().unwrap() else {
+            panic!("expected an input change");
+        };
+        assert_eq!(german.layout, "de");
+        assert_eq!(path, Some(dir.path().join(INPUT_FILE)));
+        // Repeat delay one step shorter; Tab skips the disabled pointer
+        // controls to reach Left-handed.
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Left), &mut control);
+        let Command::ApplyInput(shorter, _) = receiver.try_recv().unwrap() else {
+            panic!("expected an input change");
+        };
+        assert_eq!(shorter.repeat_delay_ms, 450);
+        assert_eq!(shorter.layout, "de", "the shown layout is kept");
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.left_handed.focused);
+        app.event(&key(Key::Space), &mut control);
+        let Command::ApplyInput(left, _) = receiver.try_recv().unwrap() else {
+            panic!("expected an input change");
+        };
+        assert!(left.left_handed);
+        let tree = app.accessibility().unwrap();
+        assert!(tree
+            .nodes
+            .iter()
+            .any(|(_, n)| n.label() == Some("Key repeat rate")));
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
+        // A touchpad appears: its controls are on.
+        app.apply_update(Update::Input(Ok(InputSnapshot {
+            availability: Availability::Available,
+            settings,
+            tunable_pointers: 1,
+        })));
+        app.sync_from_state();
+        assert!(app.pointer_speed.enabled && app.natural_scroll.enabled);
+        assert_eq!(app.pointer_speed.value(), 50.0);
     }
 
     #[test]

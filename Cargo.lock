@@ -3166,6 +3166,7 @@ name = "slopos-services"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "libc",
  "slopos-core",
  "tempfile",
  "thiserror 1.0.69",

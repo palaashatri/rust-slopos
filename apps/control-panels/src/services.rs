@@ -10,6 +10,7 @@ use slopos_services::audio::{AudioClient, AudioSnapshot};
 use slopos_services::bluetooth::{BluetoothClient, BluetoothSnapshot};
 use slopos_services::brightness::{BrightnessClient, BrightnessSnapshot};
 use slopos_services::display::{DisplayClient, DisplaySnapshot, OutputConfig};
+use slopos_services::input::{self, InputClient, InputSettings, InputSnapshot};
 use slopos_services::network::{NetworkManagerClient, NetworkSnapshot};
 use slopos_services::timedate::{TimedateClient, TimedateSnapshot};
 use tokio::sync::mpsc as async_mpsc;
@@ -24,6 +25,7 @@ pub enum Update {
     Bluetooth(State<BluetoothSnapshot>),
     Time(State<TimedateSnapshot>),
     Displays(State<DisplaySnapshot>),
+    Input(State<InputSnapshot>),
     /// A display change finished: `None` when the server took it.
     DisplaysApplied(Option<String>),
     /// Names of the saved Wi-Fi profiles (joined without a password).
@@ -34,7 +36,7 @@ pub enum Update {
     Failed(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Command {
     SetNetworking(bool),
     SetWifi(bool),
@@ -69,6 +71,8 @@ pub enum Command {
     ForgetBluetooth(String, String),
     SetNtp(bool),
     ApplyDisplays(Vec<OutputConfig>),
+    /// Apply keyboard and mouse settings, then save them here.
+    ApplyInput(InputSettings, Option<std::path::PathBuf>),
 }
 
 pub struct Services {
@@ -141,6 +145,11 @@ async fn run(
     // Pairing waits for the device (up to a minute), so it runs beside the
     // loop, which stays free to cancel it.
     let (paired_sender, mut paired) = async_mpsc::unbounded_channel::<Update>();
+    let input = InputClient::connect();
+    send(Update::Input(match &input {
+        Ok(client) => client.snapshot().map_err(|e| unavailable!(e)),
+        Err(error) => Err(unavailable!(error)),
+    }));
     // RandR events arrive on the watcher's own thread.
     let display = DisplayClient::connect();
     match &display {
@@ -338,6 +347,20 @@ async fn run(
                             Err(error) => Ok(Some(Update::DisplaysApplied(Some(error.to_string())))),
                         },
                         Err(e) => Ok(Some(Update::DisplaysApplied(Some(e.to_string())))),
+                    },
+                    Command::ApplyInput(settings, path) => match &input {
+                        Ok(client) => match client.apply(&settings) {
+                            Ok(snapshot) => {
+                                let saved = path.map_or(Ok(()), |path| input::save(&path, &settings));
+                                send(Update::Input(Ok(snapshot)));
+                                saved.map(|()| None).map_err(|e| format!("Changed, but couldn't save it: {e}"))
+                            }
+                            Err(error) => {
+                                send(Update::Input(client.snapshot().map_err(|e| unavailable!(e))));
+                                Err(error.to_string())
+                            }
+                        },
+                        Err(e) => Err(e.to_string()),
                     },
                     Command::SetNtp(on) => match &timedate {
                         Ok(client) => client.set_ntp(on).await.map(|s| Some(Update::Time(Ok(s)))).map_err(|e| e.to_string()),
