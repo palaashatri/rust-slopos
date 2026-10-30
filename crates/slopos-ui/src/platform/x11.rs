@@ -13,7 +13,8 @@ use x11rb::connection::{Connection, RequestConnection};
 use x11rb::properties::WmSizeHints;
 use x11rb::protocol::xproto::{
     AtomEnum, ClientMessageEvent, ConfigureWindowAux, ConnectionExt, CreateGCAux, CreateWindowAux,
-    EventMask, GetModifierMappingReply, ImageFormat, ImageOrder, PropMode, WindowClass,
+    EventMask, GetModifierMappingReply, ImageFormat, ImageOrder, PropMode, SelectionNotifyEvent,
+    SelectionRequestEvent, WindowClass, SELECTION_NOTIFY_EVENT,
 };
 use x11rb::protocol::Event as XEvent;
 use x11rb::rust_connection::RustConnection;
@@ -36,6 +37,9 @@ x11rb::atom_manager! {
         _NET_WM_WINDOW_TYPE_DOCK,
         _NET_WM_STRUT,
         _NET_WM_STRUT_PARTIAL,
+        CLIPBOARD,
+        TARGETS,
+        SLOPOS_PASTE,
     }
 }
 
@@ -232,17 +236,7 @@ pub fn run<A: App>(
 
     let min_keycode = conn.setup().min_keycode;
     let max_keycode = conn.setup().max_keycode;
-    let mapping = conn
-        .get_keyboard_mapping(min_keycode, max_keycode - min_keycode + 1)?
-        .reply()?;
-    let per_keycode = usize::from(mapping.keysyms_per_keycode.max(1));
-    let modifier_mapping = conn.get_modifier_mapping()?.reply()?;
-    let num_lock = num_lock_mask(
-        &mapping.keysyms,
-        per_keycode,
-        min_keycode,
-        &modifier_mapping,
-    );
+    let mut keymap = Keymap::read(&conn, min_keycode, max_keycode)?;
 
     conn.map_window(window)?;
     if let Some((x, y)) = options.position {
@@ -264,6 +258,8 @@ pub fn run<A: App>(
     let mut surface = RasterSurface::new(logical.0, logical.1, scale)?;
     let mut needs_paint = true;
     let mut timers: Vec<(Instant, u64)> = Vec::new();
+    // Text this window offers on CLIPBOARD while it owns the selection.
+    let mut clipboard: Option<String> = None;
     let max_request = conn.maximum_request_bytes();
     let mut frame = Vec::new();
 
@@ -334,6 +330,29 @@ pub fn run<A: App>(
         }
         control.redraw = false;
         control.accessibility_changed = false;
+        if let Some(text) = control.clipboard.take() {
+            conn.set_selection_owner(window, atoms.CLIPBOARD, x11rb::CURRENT_TIME)?;
+            clipboard = Some(text);
+        }
+        if std::mem::take(&mut control.paste) {
+            match &clipboard {
+                // We own the selection: no round trip through the server.
+                Some(text) => {
+                    let text = text.clone();
+                    app.event(&Event::Paste(text), &mut control);
+                    continue;
+                }
+                None => {
+                    conn.convert_selection(
+                        window,
+                        atoms.CLIPBOARD,
+                        atoms.UTF8_STRING,
+                        atoms.SLOPOS_PASTE,
+                        x11rb::CURRENT_TIME,
+                    )?;
+                }
+            }
+        }
 
         if needs_paint {
             needs_paint = false;
@@ -355,13 +374,19 @@ pub fn run<A: App>(
         let mut handled = false;
         while let Some(event) = conn.poll_for_event()? {
             handled = true;
+            if let XEvent::MappingNotify(_) = event {
+                // Layout switches and tools like xdotool remap keycodes at
+                // run time; stale keysyms would drop or garble typed text.
+                keymap = Keymap::read(&conn, min_keycode, max_keycode)?;
+                continue;
+            }
             let translated = translate(
                 &event,
                 factor,
-                &mapping.keysyms,
-                per_keycode,
+                &keymap.keysyms,
+                keymap.per_keycode,
                 min_keycode,
-                num_lock,
+                keymap.num_lock,
                 &atoms,
             );
             match event {
@@ -377,6 +402,30 @@ pub fn run<A: App>(
                         needs_paint = true;
                     }
                     accessibility.set_bounds(&conn, window, screen.root);
+                }
+                XEvent::SelectionRequest(request) => {
+                    answer_selection(&conn, &atoms, &request, clipboard.as_deref())?;
+                }
+                XEvent::SelectionClear(clear) if clear.selection == atoms.CLIPBOARD => {
+                    clipboard = None;
+                }
+                XEvent::SelectionNotify(notify)
+                    if notify.requestor == window && notify.property == atoms.SLOPOS_PASTE =>
+                {
+                    let reply = conn
+                        .get_property(
+                            true,
+                            window,
+                            atoms.SLOPOS_PASTE,
+                            AtomEnum::ANY,
+                            0,
+                            (super::MAX_CLIPBOARD_BYTES / 4) as u32,
+                        )?
+                        .reply()?;
+                    if reply.format == 8 && !reply.value.is_empty() {
+                        let text = String::from_utf8_lossy(&reply.value).into_owned();
+                        app.event(&Event::Paste(text), &mut control);
+                    }
                 }
                 XEvent::FocusIn(_) => accessibility.focus(true),
                 XEvent::FocusOut(_) => accessibility.focus(false),
@@ -427,6 +476,64 @@ pub fn run<A: App>(
 
     conn.destroy_window(window)?;
     conn.flush()?;
+    Ok(())
+}
+
+/// Answer another client's request for our CLIPBOARD contents (ICCCM §2.2).
+fn answer_selection(
+    conn: &RustConnection,
+    atoms: &Atoms,
+    request: &SelectionRequestEvent,
+    text: Option<&str>,
+) -> Result<(), PlatformError> {
+    // Obsolete clients send property None; ICCCM says use the target.
+    let property = if request.property == x11rb::NONE {
+        request.target
+    } else {
+        request.property
+    };
+    let answered = match text {
+        Some(_) if request.selection != atoms.CLIPBOARD => false,
+        Some(_) if request.target == atoms.TARGETS => {
+            let targets = [
+                atoms.TARGETS,
+                atoms.UTF8_STRING,
+                u32::from(AtomEnum::STRING),
+            ];
+            conn.change_property32(
+                PropMode::REPLACE,
+                request.requestor,
+                property,
+                AtomEnum::ATOM,
+                &targets,
+            )?;
+            true
+        }
+        Some(text)
+            if request.target == atoms.UTF8_STRING
+                || request.target == u32::from(AtomEnum::STRING) =>
+        {
+            conn.change_property8(
+                PropMode::REPLACE,
+                request.requestor,
+                property,
+                request.target,
+                text.as_bytes(),
+            )?;
+            true
+        }
+        _ => false,
+    };
+    let notify = SelectionNotifyEvent {
+        response_type: SELECTION_NOTIFY_EVENT,
+        sequence: 0,
+        time: request.time,
+        requestor: request.requestor,
+        selection: request.selection,
+        target: request.target,
+        property: if answered { property } else { x11rb::NONE },
+    };
+    conn.send_event(false, request.requestor, EventMask::NO_EVENT, notify)?;
     Ok(())
 }
 
@@ -511,6 +618,38 @@ fn set_strut(
 
 /// The modifier bit the server maps the Num Lock key to. Usually Mod2
 /// (`0x0010`), but the mapping is server-specific.
+/// The server's keycode → keysym table and the Num Lock modifier bit.
+struct Keymap {
+    keysyms: Vec<u32>,
+    per_keycode: usize,
+    num_lock: u16,
+}
+
+impl Keymap {
+    fn read(
+        conn: &RustConnection,
+        min_keycode: u8,
+        max_keycode: u8,
+    ) -> Result<Self, PlatformError> {
+        let mapping = conn
+            .get_keyboard_mapping(min_keycode, max_keycode - min_keycode + 1)?
+            .reply()?;
+        let per_keycode = usize::from(mapping.keysyms_per_keycode.max(1));
+        let modifier_mapping = conn.get_modifier_mapping()?.reply()?;
+        let num_lock = num_lock_mask(
+            &mapping.keysyms,
+            per_keycode,
+            min_keycode,
+            &modifier_mapping,
+        );
+        Ok(Self {
+            keysyms: mapping.keysyms,
+            per_keycode,
+            num_lock,
+        })
+    }
+}
+
 fn num_lock_mask(
     keysyms: &[u32],
     per_keycode: usize,
@@ -704,6 +843,14 @@ mod atspi {
             let request = match request.action {
                 accesskit::Action::Click => AccessibilityRequest::Click(node),
                 accesskit::Action::Focus => AccessibilityRequest::Focus(node),
+                accesskit::Action::Increment => AccessibilityRequest::Increment(node),
+                accesskit::Action::Decrement => AccessibilityRequest::Decrement(node),
+                accesskit::Action::SetValue => match request.data {
+                    Some(accesskit::ActionData::Value(value)) => {
+                        AccessibilityRequest::SetValue(node, value.into())
+                    }
+                    _ => return,
+                },
                 _ => return,
             };
             let _ = self.0.send(A11yMessage::Request(request));

@@ -45,20 +45,22 @@ apps launched from the shell or Dock: detached (setsid), reaped, not supervised
 | Module | Contents |
 |---|---|
 | `foundation`, `layout` | Integer geometry (`Rect`, `Scale`), colours, insets and layout helpers. |
-| `render` | `RasterSurface`: a tiny-skia pixmap at an integer scale, with rect fill/stroke, image and text drawing, and PNG output. All coordinates are logical pixels. |
+| `render` | `RasterSurface`: a tiny-skia pixmap at an integer scale, with rect fill/stroke, image and text drawing, a nested clip stack (`push_clip`/`pop_clip`/`with_clip`) and PNG output. All coordinates are logical pixels. |
 | `scene`, `scene_raster` | Early renderer-neutral, bounded command recording (clear, fill/stroke rectangles) and a software adapter that replays into the existing `RasterSurface`. No GPU renderer or full UI scene graph yet. |
 | `animation` | Pure, deterministic timeline sampling (linear/cubic easings and reduced-motion completion). The caller remains responsible for event-based frame scheduling. |
-| `text` | `Font` and `measure`. cosmic-text shaping, preferring Liberation Sans or DejaVu Sans. |
+| `text` | `Font`, `measure`, and `caret_stops`/`hit_test` for caret placement (char boundaries, clusters and RTL runs). cosmic-text shaping, preferring Liberation Sans or DejaVu Sans. |
+| `theme` | Semantic colour roles (`Palette`: surface, content, ink, selection, focus, menu highlight, danger, scrollbar…). Only the provisional Platinum values exist. |
+| `accessibility` | `window_tree`: builds an app's flat AccessKit window tree with focus fallback. |
 | `image` | `Image`: PNG decoding and SVG rasterisation (resvg, with system fonts for SVG text), plus bilinear scaling. |
 | `icons` | `IconLookup`: freedesktop icon-theme lookup with `Inherits`, size matching, `hicolor` and `/usr/share/pixmaps`. Default theme `SLOPOS-Platinum`, overridden by `SLOPOS_ICON_THEME`. |
 | `primitives` | Classic component painters, e.g. the button plate (Regular, Default and Secondary × Rest, Pressed and Disabled, at any size). |
-| `controls` | Interactive controls as explicit state machines. So far: `Button` (pointer and keyboard activation, drag-out cancel, focus ring, accessibility node). |
-| `event` | Pointer, keyboard, scroll, focus, resize, timer, wake and accessibility events. |
-| `platform` | `App` trait, `Control` and `WindowOptions`. The x11rb host: a poll(2) loop that sleeps until there is input, a timer or a `Proxy::wake()` from another thread; frames sent with PutImage strips; Normal and Dock window kinds (with struts); HiDPI via `SLOPOS_SCALE`/`GDK_SCALE`; AccessKit trees on AT-SPI (feature `atspi`, on by default). |
+| `controls` | Interactive controls as explicit state machines: `Button` (pointer and keyboard activation, drag-out cancel, focus ring, accessibility node); `TextField` (single-line Unicode editing, word motion, shift/drag selection, Ctrl+A/C/X/V/Z, placeholder, max length, horizontal scrolling, steady caret, `TextInput` node with SetValue); `FocusChain` (Tab/Shift+Tab order with wrap). |
+| `event` | Pointer, keyboard, scroll, focus, resize, timer, wake, clipboard paste and accessibility events (click, focus, set value, increment/decrement). |
+| `platform` | `App` trait, `Control` and `WindowOptions`. The x11rb host: a poll(2) loop that sleeps until there is input, a timer or a `Proxy::wake()` from another thread; frames sent with PutImage strips; Normal and Dock window kinds (with struts); HiDPI via `SLOPOS_SCALE`/`GDK_SCALE`; the X11 `CLIPBOARD` selection (`Control::set_clipboard`, `request_paste`; UTF8_STRING/STRING/TARGETS, 256 KiB, no INCR); keymap refresh on `MappingNotify`; AccessKit trees on AT-SPI (feature `atspi`, on by default). |
 
 An app implements `App::event`, `App::paint` and, optionally, `App::accessibility`, then calls `platform::run`. The Calculator (`apps/calculator/src/main.rs`) is the reference example.
 
-Not built yet: text fields, menus and popups, lists, scroll views, dialogs, `slopos-appkit`, GPU/Vello/wgpu rendering, an advanced composited scene graph, and theme datasets beyond the provisional Platinum colours. See [the UI toolkit program](ui-toolkit-program.md) for in-repository toolkit milestones and optional external distribution; [native application plan](application-platform.md) and [swarm execution](swarm-execution.md) document future product slices, not implemented features.
+Not built yet: menus and popups, lists, scroll views, dialogs, `slopos-appkit`, GPU/Vello/wgpu rendering, an advanced composited scene graph, and theme datasets beyond the provisional Platinum colours. See [the UI toolkit program](ui-toolkit-program.md) for in-repository toolkit milestones and optional external distribution; [native application plan](application-platform.md) and [swarm execution](swarm-execution.md) document future product slices, not implemented features.
 
 ## The Dock (`crates/slopos-dock`)
 
