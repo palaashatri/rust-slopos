@@ -210,7 +210,7 @@ impl TopBar {
         clock_button.add(&clock_label);
         clock_button.set_tooltip_text(Some("Local time (Click for Date & Time Settings)"));
         set_accessible_name(&clock_button, "Date and time settings");
-        clock_button.connect_clicked(|_| spawn_resolved("slopos-settings", &["--datetime"]));
+        clock_button.connect_clicked(|_| open_control_panel("--datetime"));
         status_box.pack_start(&clock_button, false, false, 2);
 
         main_box.pack_end(&status_box, false, false, 0);
@@ -508,7 +508,11 @@ fn build_desktop_menu_bar(
 
     // View
     let view_menu = Menu::new();
-    view_menu.append(&slopos_item("Control Panels…", "slopos-settings", &[]));
+    view_menu.append(&slopos_item(
+        "Control Panels…",
+        control_panels_program(),
+        &[],
+    ));
     view_menu.append(&slopos_item("Software…", "slopos-catalogue", &[]));
     append_submenu(&bar, "View", &view_menu);
 
@@ -726,8 +730,8 @@ fn build_system_menu(suspend_capability: Option<SuspendCapability>) -> (Menu, Me
     menu.append(&SeparatorMenuItem::new());
 
     let settings = MenuItem::with_label("Control Panels…");
-    if session::resolve_program("slopos-settings").is_some() {
-        settings.connect_activate(|_| spawn_resolved("slopos-settings", &[]));
+    if session::resolve_program(control_panels_program()).is_some() {
+        settings.connect_activate(|_| spawn_resolved(control_panels_program(), &[]));
     } else {
         settings.set_sensitive(false);
     }
@@ -894,6 +898,21 @@ fn slopos_dialog(title: &str, message: &str, buttons: &[(&str, ResponseType)]) -
     dialog
 }
 
+/// The native Control Panels when installed, else the legacy GTK settings.
+fn control_panels_program() -> &'static str {
+    if process::resolve_program("slopos-control-panels").is_some() {
+        "slopos-control-panels"
+    } else {
+        "slopos-settings"
+    }
+}
+
+/// Open one panel (`--sound`, `--network`, `--datetime`); both programs
+/// accept these flags.
+fn open_control_panel(flag: &str) {
+    spawn_resolved(control_panels_program(), &[flag]);
+}
+
 fn spawn_resolved(program: &str, args: &[&str]) {
     if let Err(error) = process::launch(program, args) {
         log::warn!("{error}");
@@ -972,8 +991,8 @@ fn build_sound_menu() -> Menu {
 
     let settings_item = MenuItem::with_label("Sound Preferences…");
     settings_item.connect_activate(|_| {
-        if process::resolve_program("slopos-settings").is_some() {
-            spawn_resolved("slopos-settings", &["--sound"]);
+        if process::resolve_program(control_panels_program()).is_some() {
+            open_control_panel("--sound");
         } else {
             spawn_resolved("pavucontrol", &[]);
         }
@@ -1000,8 +1019,8 @@ fn fill_network_menu(menu: &Menu, summary: &crate::services::network::NetworkSum
     menu.append(&SeparatorMenuItem::new());
 
     let settings_item = MenuItem::with_label("Network Preferences…");
-    if process::resolve_program("slopos-settings").is_some() {
-        settings_item.connect_activate(|_| spawn_resolved("slopos-settings", &["--network"]));
+    if process::resolve_program(control_panels_program()).is_some() {
+        settings_item.connect_activate(|_| open_control_panel("--network"));
     } else if process::resolve_program("nm-connection-editor").is_some() {
         settings_item.connect_activate(|_| spawn_resolved("nm-connection-editor", &[]));
     } else {

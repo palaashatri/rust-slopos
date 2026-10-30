@@ -15,6 +15,7 @@ members = [
     "apps/image-viewer",
     "apps/software",
     "apps/media",
+    "apps/control-panels",
     "apps/files",
 ]
 

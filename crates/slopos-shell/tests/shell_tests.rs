@@ -469,7 +469,11 @@ fn browser_and_upstream_apps_remain_integrated_not_forked() {
     assert!(browser.contains("chromium"));
     assert!(browser.contains("GDK_BACKEND=\"x11\""));
     assert!(mimeapps.contains("text/html=slopos-browser.desktop"));
-    assert!(mimeapps.contains("image/png=ristretto.desktop"));
+    // Native SLOPOS apps are the defaults; the upstream apps stay listed as
+    // fallbacks rather than being forked or removed.
+    assert!(mimeapps.contains("image/png=slopos-image-viewer.desktop;ristretto.desktop"));
+    assert!(mimeapps.contains("video/mp4=slopos-media.desktop;mpv.desktop"));
+    assert!(mimeapps.contains("inode/directory=slopos-files.desktop;pcmanfm.desktop"));
 }
 
 #[test]
