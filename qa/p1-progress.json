@@ -25,7 +25,41 @@
       "status": "INTEGRATED",
       "summary": "baseline recorded in ledger",
       "updated_utc": "2026-10-30T05:43:08+00:00"
+    },
+    "UI-01": {
+      "base_sha": "e548e82565aefb2827d9212bb154a533925647ea",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/ui01-unit.log",
+            "command": "cargo test --workspace --locked",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "7c085ec9a9e6bc47aded573dc2ea1f33ef57a5a5e2fc203584e48b02885af74b"
+          },
+          {
+            "artifact": ".work/p1/evidence/ui01-text-2x.png",
+            "command": "slopos-ui-gallery --component text-field --scale 2 --snapshot",
+            "kind": "visual",
+            "resolution": "640x260 scale=2 Platinum",
+            "result": "PASS",
+            "review": "inspected: focus border, selection, CJK glyphs, placeholder, disabled ink, no clipping leak",
+            "sha256": "16d57b06834bf1a61e4e40fd67b168f8c43fbc3de3479c123909423d66abccd6"
+          },
+          {
+            "artifact": ".work/p1/evidence/ui01-runtime.log",
+            "command": "LC_ALL=C.UTF-8 .work/p1/ui01-runtime.sh (Xvfb+openbox+xdotool+xclip)",
+            "kind": "runtime",
+            "result": "PASS",
+            "sha256": "483a4e02ca2058a46cee7ab4de0f64b90db82e52d1178af126d4acbdc94df9b5"
+          }
+        ],
+        "source_sha": "e548e82565aefb2827d9212bb154a533925647ea"
+      },
+      "status": "INTEGRATED",
+      "summary": "committed at e548e82; single-agent verification",
+      "updated_utc": "2026-10-30T05:52:33+00:00"
     }
   },
-  "updated_utc": "2026-10-30T05:43:08+00:00"
+  "updated_utc": "2026-10-30T05:52:33+00:00"
 }
