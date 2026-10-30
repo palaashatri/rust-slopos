@@ -6,6 +6,7 @@ use std::sync::{Arc, OnceLock};
 use resvg::usvg;
 use tiny_skia::{Pixmap, PremultipliedColorU8, Transform};
 
+use crate::foundation::color::Color;
 use crate::render::int_size;
 
 #[derive(Debug, thiserror::Error)]
@@ -33,6 +34,36 @@ fn system_fonts() -> Arc<usvg::fontdb::Database> {
             Arc::new(database)
         })
         .clone()
+}
+
+/// How a desktop background image covers the screen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BackgroundMode {
+    /// Scale to cover the screen, cropping the overflow evenly.
+    Fill,
+    /// Repeat at 1:1 from the top-left corner (patterns stay crisp).
+    Tile,
+    /// One copy at 1:1 in the middle.
+    Center,
+}
+
+impl BackgroundMode {
+    /// Parse a saved mode; anything unknown is `Fill`.
+    pub fn parse(text: &str) -> Self {
+        match text.trim() {
+            "tile" => Self::Tile,
+            "center" => Self::Center,
+            _ => Self::Fill,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Fill => "fill",
+            Self::Tile => "tile",
+            Self::Center => "center",
+        }
+    }
 }
 
 /// A premultiplied RGBA image.
@@ -147,6 +178,78 @@ impl Image {
         Some(&self.pixmap)
     }
 
+    /// Premultiplied RGBA bytes, row by row.
+    pub fn data(&self) -> &[u8] {
+        self.pixmap.data()
+    }
+
+    /// A `width × height` desktop background: this image placed by `mode`
+    /// over an opaque `backdrop`.
+    pub fn compose_background(
+        &self,
+        width: u32,
+        height: u32,
+        mode: BackgroundMode,
+        backdrop: Color,
+    ) -> Result<Self, ImageError> {
+        let mut pixmap = Pixmap::new(width, height).ok_or(ImageError::Dimensions)?;
+        pixmap.fill(tiny_skia::Color::from_rgba8(
+            backdrop.red,
+            backdrop.green,
+            backdrop.blue,
+            255,
+        ));
+        let (image_width, image_height) = (self.width() as f32, self.height() as f32);
+        let paint = tiny_skia::PixmapPaint {
+            quality: tiny_skia::FilterQuality::Bilinear,
+            ..Default::default()
+        };
+        match mode {
+            BackgroundMode::Fill => {
+                let scale = (width as f32 / image_width).max(height as f32 / image_height);
+                let dx = (width as f32 - image_width * scale) / 2.0;
+                let dy = (height as f32 - image_height * scale) / 2.0;
+                pixmap.draw_pixmap(
+                    0,
+                    0,
+                    self.pixmap.as_ref(),
+                    &paint,
+                    Transform::from_row(scale, 0.0, 0.0, scale, dx, dy),
+                    None,
+                );
+            }
+            BackgroundMode::Center => {
+                let x = (width as i64 - self.width() as i64) / 2;
+                let y = (height as i64 - self.height() as i64) / 2;
+                pixmap.draw_pixmap(
+                    x as i32,
+                    y as i32,
+                    self.pixmap.as_ref(),
+                    &paint,
+                    Transform::identity(),
+                    None,
+                );
+            }
+            BackgroundMode::Tile => {
+                let shader = tiny_skia::Pattern::new(
+                    self.pixmap.as_ref(),
+                    tiny_skia::SpreadMode::Repeat,
+                    tiny_skia::FilterQuality::Nearest,
+                    1.0,
+                    Transform::identity(),
+                );
+                let rect = tiny_skia::Rect::from_xywh(0.0, 0.0, width as f32, height as f32)
+                    .ok_or(ImageError::Dimensions)?;
+                let paint = tiny_skia::Paint {
+                    shader,
+                    ..Default::default()
+                };
+                pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+            }
+        }
+        Ok(Self { pixmap })
+    }
+
     /// Premultiplied pixel, for tests.
     pub fn pixel(&self, x: u32, y: u32) -> Option<PremultipliedColorU8> {
         self.pixmap.pixel(x, y)
@@ -204,5 +307,49 @@ mod tests {
         assert_eq!(pixel(2, 2).blue(), 255);
         assert_eq!(pixel(2, 2).red(), 0);
         assert_eq!(pixel(3, 3).blue(), 255);
+    }
+
+    #[test]
+    fn backgrounds_fill_tile_and_center() {
+        let red = Color {
+            red: 255,
+            green: 0,
+            blue: 0,
+            alpha: 255,
+        };
+        // A 2x1 image: white then black.
+        let image = Image::from_rgba(2, 1, vec![255, 255, 255, 255, 0, 0, 0, 255]).unwrap();
+        let tile = image
+            .compose_background(5, 2, BackgroundMode::Tile, red)
+            .unwrap();
+        let rgb = |image: &Image, x, y| {
+            let pixel = image.pixel(x, y).unwrap();
+            (pixel.red(), pixel.green(), pixel.blue(), pixel.alpha())
+        };
+        assert_eq!(rgb(&tile, 0, 1), (255, 255, 255, 255));
+        assert_eq!(rgb(&tile, 3, 0), (0, 0, 0, 255));
+        assert_eq!(rgb(&tile, 4, 1), (255, 255, 255, 255));
+        let center = image
+            .compose_background(6, 3, BackgroundMode::Center, red)
+            .unwrap();
+        assert_eq!(rgb(&center, 0, 0), (255, 0, 0, 255));
+        assert_eq!(rgb(&center, 2, 1), (255, 255, 255, 255));
+        assert_eq!(rgb(&center, 3, 1), (0, 0, 0, 255));
+        // Fill covers the whole screen: no backdrop shows anywhere.
+        let fill = image
+            .compose_background(7, 9, BackgroundMode::Fill, red)
+            .unwrap();
+        for (x, y) in [(0, 0), (6, 8), (3, 4)] {
+            assert_ne!(rgb(&fill, x, y), (255, 0, 0, 255));
+        }
+        assert!(image
+            .compose_background(0, 9, BackgroundMode::Fill, red)
+            .is_err());
+        assert_eq!(BackgroundMode::parse("tile\n"), BackgroundMode::Tile);
+        assert_eq!(BackgroundMode::parse("max"), BackgroundMode::Fill);
+        assert_eq!(
+            BackgroundMode::parse(BackgroundMode::Center.as_str()),
+            BackgroundMode::Center
+        );
     }
 }

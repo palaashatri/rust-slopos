@@ -1,5 +1,5 @@
 //! SLOPOS Control Panels: native Network, Sound, Display, Bluetooth,
-//! Date & Time and Appearance panels on the SLOPOS toolkit.
+//! Date & Time, Desktop and Appearance panels on the SLOPOS toolkit.
 //!
 //! All state comes from `slopos-services` through the provider thread in
 //! `services.rs`; a panel whose provider is missing says so and disables its
@@ -9,10 +9,12 @@
 mod model;
 mod services;
 
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use model::{State, APPEARANCES};
 use services::{Command, Services, Update};
+use slopos_core::wallpaper::{self, Wallpaper};
 use slopos_services::audio::AudioSnapshot;
 use slopos_services::bluetooth::BluetoothSnapshot;
 use slopos_services::brightness::BrightnessSnapshot;
@@ -20,11 +22,15 @@ use slopos_services::network::{NetworkDeviceType, NetworkSnapshot};
 use slopos_services::timedate::TimedateSnapshot;
 use slopos_ui::accessibility::window_tree;
 use slopos_ui::controls::button::{Button, ButtonOutcome};
+use slopos_ui::controls::file_chooser::{ChooserOutcome, FileChooser};
 use slopos_ui::controls::focus::FocusChain;
 use slopos_ui::controls::list::{ListOutcome, ListView};
+use slopos_ui::controls::menu::{MenuBar, MenuBarOutcome, MenuItem};
 use slopos_ui::controls::range::{Checkbox, Slider, ToggleOutcome, ValueOutcome};
 use slopos_ui::event::{AccessibilityRequest, Event, Key};
+use slopos_ui::foundation::color::Color;
 use slopos_ui::foundation::geometry::Rect;
+use slopos_ui::image::{BackgroundMode, Image};
 use slopos_ui::platform::{self, App, Control, Proxy, WindowOptions};
 use slopos_ui::primitives::button_plate::ButtonPlateVariant;
 use slopos_ui::render::{RasterSurface, RenderError};
@@ -51,6 +57,13 @@ const BLUETOOTH_ID: u64 = 50;
 const NTP_ID: u64 = 60;
 const APPEARANCE_LIST_ID: u64 = 70;
 const APPLY_ID: u64 = 71;
+const WALLPAPER_LIST_ID: u64 = 80;
+const SET_PICTURE_ID: u64 = 81;
+const CHOOSE_PICTURE_ID: u64 = 82;
+const MENU_ID: u64 = 100;
+const CHOOSER_ID: u64 = 300;
+/// Thumbnail size in the Desktop panel's picture list.
+const THUMBNAIL: (u32, u32) = (64, 36);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Panel {
@@ -59,15 +72,17 @@ enum Panel {
     Display,
     Bluetooth,
     DateTime,
+    Desktop,
     Appearance,
 }
 
-const PANELS: [(Panel, &str); 6] = [
+const PANELS: [(Panel, &str); 7] = [
     (Panel::Network, "Network"),
     (Panel::Sound, "Sound"),
     (Panel::Display, "Display"),
     (Panel::Bluetooth, "Bluetooth"),
     (Panel::DateTime, "Date & Time"),
+    (Panel::Desktop, "Desktop"),
     (Panel::Appearance, "Appearance"),
 ];
 
@@ -83,6 +98,7 @@ fn panel_for_argument(argument: &str) -> Option<usize> {
         "display" | "displays" | "brightness" => Panel::Display,
         "bluetooth" => Panel::Bluetooth,
         "appearance" | "theme" => Panel::Appearance,
+        "desktop" | "wallpaper" | "background" => Panel::Desktop,
         other => {
             return PANELS
                 .iter()
@@ -116,9 +132,80 @@ pub struct ControlPanels {
     ntp: Checkbox,
     appearance_list: ListView,
     apply: Button,
+    wallpaper: Option<Wallpaper>,
+    wallpaper_list: ListView,
+    /// Bundled-picture thumbnails, decoded the first time Desktop shows.
+    thumbnails: Option<Vec<Option<Image>>>,
+    set_picture: Button,
+    choose_picture: Button,
+    chooser: Option<FileChooser>,
+    /// Where the wallpaper choice is saved (`~/.config/slopos-i`).
+    config: Option<PathBuf>,
+    /// Paints a background on the desktop (the X root window).
+    paint_root: RootPainter,
+    menu: MenuBar,
     focus: FocusChain,
     status: String,
+    /// Whether `status` reports a failure (shown in the danger color).
+    status_error: bool,
     font: Font,
+}
+
+type RootPainter = fn(&Image, BackgroundMode) -> Result<(), String>;
+
+fn paint_x11_root(image: &Image, mode: BackgroundMode) -> Result<(), String> {
+    platform::x11::set_root_background(|width, height| {
+        image
+            .compose_background(width, height, mode, Color::BLACK)
+            .ok()
+    })
+    .map_err(|error| error.to_string())
+}
+
+/// The menu bar: File, and View with one item per panel.
+fn menu_bar() -> MenuBar {
+    let panels = PANELS
+        .iter()
+        .enumerate()
+        .map(|(index, (_, name))| {
+            MenuItem::new(name)
+                .shortcut(&format!("Ctrl+{}", index + 1))
+                .checkable()
+        })
+        .collect();
+    MenuBar::new(
+        MENU_ID,
+        vec![
+            (
+                "File",
+                vec![MenuItem::new("Close Window").shortcut("Ctrl+W")],
+            ),
+            ("View", panels),
+        ],
+    )
+}
+
+/// Bundled pictures that are installed, as (path, display name, mode).
+fn bundled_pictures() -> Vec<(PathBuf, &'static str, &'static str)> {
+    let dirs = wallpaper::bundled_dirs();
+    wallpaper::BUNDLED
+        .iter()
+        .filter_map(|(file, name, mode)| {
+            wallpaper::find_bundled(&dirs, file).map(|path| (path, *name, *mode))
+        })
+        .collect()
+}
+
+/// A name for the desktop picture at `path`.
+fn picture_name(path: &Path) -> String {
+    let file = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    wallpaper::BUNDLED
+        .iter()
+        .find(|(bundled, _, _)| *bundled == file)
+        .map_or_else(|| file.to_owned(), |entry| entry.1.to_owned())
 }
 
 fn config_home() -> std::path::PathBuf {
@@ -146,6 +233,17 @@ impl ControlPanels {
         {
             appearance_list.select_only(index);
         }
+        let config = wallpaper::config_dir();
+        let wallpaper = wallpaper::current(config.as_deref(), &wallpaper::bundled_dirs());
+        let mut wallpaper_list = ListView::new(WALLPAPER_LIST_ID, "Desktop pictures", 44);
+        let pictures = bundled_pictures();
+        wallpaper_list.set_len(pictures.len());
+        if let Some(index) = pictures
+            .iter()
+            .position(|(path, _, _)| Some(path) == wallpaper.as_ref().map(|w| &w.path))
+        {
+            wallpaper_list.select_only(index);
+        }
         let mut app = Self {
             window: (WIDTH, HEIGHT),
             services,
@@ -170,12 +268,30 @@ impl ControlPanels {
             ntp: Checkbox::new(NTP_ID, "Set time automatically", false),
             appearance_list,
             apply: Button::new(APPLY_ID, "Apply", ButtonPlateVariant::Default),
+            wallpaper,
+            wallpaper_list,
+            thumbnails: None,
+            set_picture: Button::new(
+                SET_PICTURE_ID,
+                "Set Desktop Picture",
+                ButtonPlateVariant::Default,
+            ),
+            choose_picture: Button::new(
+                CHOOSE_PICTURE_ID,
+                "Choose Picture…",
+                ButtonPlateVariant::Regular,
+            ),
+            chooser: None,
+            config,
+            paint_root: paint_x11_root,
+            menu: menu_bar(),
             focus: FocusChain::default(),
             status: String::new(),
+            status_error: false,
             font: Font::system(12.0),
         };
         if app.services.is_none() {
-            app.status = "Can't start the service thread; panels show no live state.".into();
+            app.fail("Can't start the service thread; panels show no live state.");
         }
         app.layout();
         app.sync_from_state();
@@ -186,22 +302,45 @@ impl ControlPanels {
         PANELS[self.sidebar.cursor().unwrap_or(0).min(PANELS.len() - 1)].0
     }
 
+    fn notice(&mut self, text: impl Into<String>) {
+        self.status = text.into();
+        self.status_error = false;
+    }
+
+    fn fail(&mut self, text: impl Into<String>) {
+        self.status = text.into();
+        self.status_error = true;
+    }
+
+    /// Below the in-window menu bar, or the window top when menus are global.
+    fn top(&self) -> i32 {
+        self.menu.height() as i32
+    }
+
     fn content(&self) -> Rect {
+        let top = self.top();
         Rect {
             x: SIDEBAR_WIDTH as i32 + 16,
-            y: 16,
+            y: top + 16,
             width: self.window.0.saturating_sub(SIDEBAR_WIDTH + 32),
-            height: self.window.1.saturating_sub(48),
+            height: self.window.1.saturating_sub(top as u32 + 48),
         }
     }
 
     fn layout(&mut self) {
-        let (_, height) = self.window;
+        let (width, height) = self.window;
+        let top = self.top();
+        self.menu.bounds = Rect {
+            x: 0,
+            y: 0,
+            width,
+            height: self.menu.height(),
+        };
         self.sidebar.set_bounds(Rect {
             x: 1,
-            y: 1,
+            y: top + 1,
             width: SIDEBAR_WIDTH,
-            height: height.saturating_sub(26),
+            height: height.saturating_sub(top as u32 + 26),
         });
         let c = self.content();
         let x = c.x;
@@ -255,6 +394,29 @@ impl ControlPanels {
             width: 80,
             height: 20,
         };
+        let list_width = c.width.saturating_sub(170).max(200);
+        self.wallpaper_list.set_bounds(Rect {
+            x: x + 1,
+            y: c.y + 60,
+            width: list_width,
+            height: c.height.saturating_sub(64),
+        });
+        let buttons_x = x + list_width as i32 + 14;
+        self.set_picture.bounds = Rect {
+            x: buttons_x,
+            y: c.y + 60,
+            width: 140,
+            height: 20,
+        };
+        self.choose_picture.bounds = Rect {
+            x: buttons_x,
+            y: c.y + 88,
+            width: 140,
+            height: 20,
+        };
+        if let Some(chooser) = &mut self.chooser {
+            chooser.layout(self.window);
+        }
     }
 
     /// The focusable controls of the current panel, in Tab order.
@@ -271,6 +433,7 @@ impl ControlPanels {
             Panel::Display => vec![BRIGHTNESS_ID],
             Panel::Bluetooth => vec![BLUETOOTH_ID],
             Panel::DateTime => vec![NTP_ID],
+            Panel::Desktop => vec![WALLPAPER_LIST_ID, SET_PICTURE_ID, CHOOSE_PICTURE_ID],
             Panel::Appearance => vec![APPEARANCE_LIST_ID, APPLY_ID],
         });
         ids
@@ -297,6 +460,9 @@ impl ControlPanels {
         self.ntp.focused = f == Some(NTP_ID);
         self.appearance_list.focused = f == Some(APPEARANCE_LIST_ID);
         self.apply.focused = f == Some(APPLY_ID);
+        self.wallpaper_list.focused = f == Some(WALLPAPER_LIST_ID);
+        self.set_picture.focused = f == Some(SET_PICTURE_ID);
+        self.choose_picture.focused = f == Some(CHOOSE_PICTURE_ID);
     }
 
     /// Copy provider state into the controls; disable what can't be used.
@@ -375,6 +541,11 @@ impl ControlPanels {
             Err(_) => self.ntp.enabled = false,
         }
         self.apply.enabled = self.appearance_list.cursor().is_some();
+        self.set_picture.enabled = self.wallpaper_list.cursor().is_some();
+        let current = self.panel();
+        for (item, (panel, _)) in self.menu.menus[1].items.iter_mut().zip(PANELS) {
+            item.checked = panel == current;
+        }
     }
 
     fn apply_update(&mut self, update: Update) {
@@ -384,7 +555,7 @@ impl ControlPanels {
             Update::Brightness(state) => self.brightness = state,
             Update::Bluetooth(state) => self.bluetooth = state,
             Update::Time(state) => self.time = state,
-            Update::Failed(error) => self.status = format!("That change failed: {error}"),
+            Update::Failed(error) => self.fail(format!("That change failed: {error}")),
         }
     }
 
@@ -394,11 +565,50 @@ impl ControlPanels {
                 services.send(command);
                 self.status.clear();
             }
-            None => self.status = "No service thread is running.".into(),
+            None => self.fail("No service thread is running."),
         }
     }
 
     fn handle(&mut self, event: &Event, control: &mut Control) {
+        if let Some(chooser) = &mut self.chooser {
+            match chooser.handle(event, control.modifiers()) {
+                ChooserOutcome::Chosen(path) => {
+                    self.chooser = None;
+                    self.set_wallpaper(Wallpaper {
+                        path,
+                        mode: BackgroundMode::Fill.as_str().to_owned(),
+                    });
+                }
+                ChooserOutcome::Cancelled => self.chooser = None,
+                ChooserOutcome::Copy(text) => control.set_clipboard(&text),
+                ChooserOutcome::PasteRequested => control.request_paste(),
+                _ => {}
+            }
+            return;
+        }
+        match self.menu.handle(event, self.window) {
+            MenuBarOutcome::Chosen { menu: 0, .. } => return control.quit(),
+            MenuBarOutcome::Chosen { item, .. } => {
+                self.show_panel(item);
+                return;
+            }
+            MenuBarOutcome::Changed => return,
+            MenuBarOutcome::Ignored => {}
+        }
+        if let Event::KeyPressed {
+            key: Key::Character(digit @ '1'..='9'),
+            modifiers,
+        } = event
+        {
+            if modifiers.control {
+                if let Some(index) = digit.to_digit(10).map(|d| d as usize - 1) {
+                    if index < PANELS.len() {
+                        self.show_panel(index);
+                    }
+                }
+                return;
+            }
+        }
         if self.focus.handle(event).is_some() {
             self.sync_focus();
             return;
@@ -465,7 +675,7 @@ impl ControlPanels {
                     });
                     if let Some(device) = device {
                         self.send(Command::ScanWifi(device));
-                        self.status = "Searching for Wi-Fi networks…".into();
+                        self.notice("Searching for Wi-Fi networks…");
                     }
                 }
                 let networks = self
@@ -546,6 +756,38 @@ impl ControlPanels {
                     self.send(Command::SetNtp(on));
                 }
             }
+            Panel::Desktop => {
+                let pictures = bundled_pictures();
+                let names = |i: usize| pictures.get(i).map(|p| p.1.to_owned()).unwrap_or_default();
+                let outcome = self
+                    .wallpaper_list
+                    .handle(event, control.modifiers(), &names);
+                if outcome == ListOutcome::FocusRequested {
+                    self.focus.focus(WALLPAPER_LIST_ID);
+                    self.sync_focus();
+                }
+                let activated = matches!(outcome, ListOutcome::Activated(_));
+                if activated
+                    || self.set_picture.handle(event) == ButtonOutcome::Activated
+                    || (clicked(SET_PICTURE_ID) && self.set_picture.enabled)
+                {
+                    if let Some((path, _, mode)) = self
+                        .wallpaper_list
+                        .cursor()
+                        .and_then(|i| pictures.get(i).cloned())
+                    {
+                        self.set_wallpaper(Wallpaper {
+                            path,
+                            mode: mode.to_owned(),
+                        });
+                    }
+                }
+                if self.choose_picture.handle(event) == ButtonOutcome::Activated
+                    || clicked(CHOOSE_PICTURE_ID)
+                {
+                    self.open_chooser();
+                }
+            }
             Panel::Appearance => {
                 let names = |i: usize| {
                     APPEARANCES
@@ -571,6 +813,85 @@ impl ControlPanels {
         }
     }
 
+    /// Switch to panel `index` (sidebar, View menu or Ctrl+digit).
+    fn show_panel(&mut self, index: usize) {
+        if index < PANELS.len() && self.sidebar.cursor() != Some(index) {
+            self.sidebar.select_only(index);
+            self.status.clear();
+            self.sync_focus();
+        }
+    }
+
+    fn open_chooser(&mut self) {
+        let dir = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .map(|home| {
+                let pictures = home.join("Pictures");
+                if pictures.is_dir() {
+                    pictures
+                } else {
+                    home
+                }
+            })
+            .unwrap_or_else(|| PathBuf::from("/"));
+        let mut chooser = FileChooser::new(
+            CHOOSER_ID,
+            "Choose a Desktop Picture",
+            &dir,
+            Some(vec!["png".into()]),
+        );
+        chooser.layout(self.window);
+        self.chooser = Some(chooser);
+    }
+
+    /// Save `choice` and repaint the desktop with it. The picture is decoded
+    /// first, so an unreadable file changes nothing.
+    fn set_wallpaper(&mut self, choice: Wallpaper) {
+        let image = match Image::load(&choice.path, 512) {
+            Ok(image) => image,
+            Err(error) => return self.fail(format!("Can't use that picture: {error}")),
+        };
+        let Some(config) = self.config.clone() else {
+            return self.fail("Can't find your settings folder (HOME is not set).");
+        };
+        if let Err(error) = wallpaper::save(&config, &choice) {
+            return self.fail(format!("Can't save the desktop picture: {error}"));
+        }
+        let name = picture_name(&choice.path);
+        let painted = (self.paint_root)(&image, BackgroundMode::parse(&choice.mode));
+        self.wallpaper = Some(choice);
+        match painted {
+            Ok(()) => self.notice(format!("The desktop picture is now {name}.")),
+            Err(error) => self.fail(format!(
+                "Saved {name}, but the desktop could not be repainted: {error}"
+            )),
+        }
+    }
+
+    /// Decode the bundled thumbnails once, when Desktop is first shown.
+    fn ensure_thumbnails(&mut self) {
+        if self.thumbnails.is_some() {
+            return;
+        }
+        let (width, height) = THUMBNAIL;
+        self.thumbnails = Some(
+            bundled_pictures()
+                .iter()
+                .map(|(path, _, mode)| {
+                    let image = Image::load(path, width).ok()?;
+                    image
+                        .compose_background(
+                            width,
+                            height,
+                            BackgroundMode::parse(mode),
+                            Color::BLACK,
+                        )
+                        .ok()
+                })
+                .collect(),
+        );
+    }
+
     fn apply_appearance(&mut self) {
         let Some((id, name)) = self
             .appearance_list
@@ -582,9 +903,9 @@ impl ControlPanels {
         match slopos_core::process::launch("slopos-appearance", &[id]) {
             Ok(_) => {
                 self.appearance = Some((*id).to_owned());
-                self.status = format!("Switching to the {name} appearance…");
+                self.notice(format!("Switching to the {name} appearance…"));
             }
-            Err(error) => self.status = format!("Can't change the appearance: {error}"),
+            Err(error) => self.fail(format!("Can't change the appearance: {error}")),
         }
     }
 
@@ -644,6 +965,16 @@ impl ControlPanels {
                     Err(error) => unavailable(error, "systemd-timedated"),
                 },
             ),
+            Panel::Desktop => (
+                "Desktop".into(),
+                vec![
+                    match &self.wallpaper {
+                        Some(choice) => format!("Desktop picture: {}", picture_name(&choice.path)),
+                        None => "Desktop picture: none (the appearance color shows)".into(),
+                    },
+                    "Pick a pattern, or choose one of your own PNG pictures.".into(),
+                ],
+            ),
             Panel::Appearance => (
                 "Appearance".into(),
                 vec![format!(
@@ -660,7 +991,11 @@ impl ControlPanels {
     fn paint_all(&mut self, surface: &RasterSurface) -> Result<(), RenderError> {
         let colors = palette();
         let (width, height) = self.window;
+        if self.panel() == Panel::Desktop {
+            self.ensure_thumbnails();
+        }
         surface.clear(colors.surface)?;
+        self.menu.paint(surface)?;
         let font = &self.font;
         let line = measure("Ag", font).height as i32;
         self.sidebar.paint(surface, |surface, index, rect, _| {
@@ -735,6 +1070,43 @@ impl ControlPanels {
             }
             Panel::Bluetooth => self.bluetooth_power.paint(surface)?,
             Panel::DateTime => self.ntp.paint(surface)?,
+            Panel::Desktop => {
+                let pictures = bundled_pictures();
+                let thumbnails = self.thumbnails.as_deref().unwrap_or(&[]);
+                let current = self.wallpaper.as_ref().map(|w| w.path.clone());
+                let bold = font.clone().bold();
+                self.wallpaper_list.paint(surface, |surface, i, rect, _| {
+                    let thumb = Rect {
+                        x: rect.x + 6,
+                        y: rect.y + (rect.height as i32 - THUMBNAIL.1 as i32) / 2,
+                        width: THUMBNAIL.0,
+                        height: THUMBNAIL.1,
+                    };
+                    surface.fill_rect(
+                        Rect {
+                            x: thumb.x - 1,
+                            y: thumb.y - 1,
+                            width: thumb.width + 2,
+                            height: thumb.height + 2,
+                        },
+                        colors.border,
+                    )?;
+                    if let Some(Some(image)) = thumbnails.get(i) {
+                        surface.draw_image(image, thumb.x, thumb.y)?;
+                    }
+                    let (path, name, _) = &pictures[i];
+                    let is_current = current.as_ref() == Some(path);
+                    surface.draw_text(
+                        name,
+                        thumb.x + thumb.width as i32 + 12,
+                        rect.y + (rect.height as i32 - line) / 2,
+                        if is_current { &bold } else { font },
+                        colors.ink,
+                    )
+                })?;
+                self.set_picture.paint(surface, font)?;
+                self.choose_picture.paint(surface, font)?;
+            }
             Panel::Appearance => {
                 self.appearance_list.paint(surface, |surface, i, rect, _| {
                     surface.draw_text(APPEARANCES[i].1, rect.x + 8, rect.y + 3, font, colors.ink)
@@ -752,7 +1124,17 @@ impl ControlPanels {
             },
             colors.bevel_shadow,
         )?;
-        surface.draw_text(&self.status, c.x, status_y + 2, font, colors.danger)
+        let ink = if self.status_error {
+            colors.danger
+        } else {
+            colors.ink_secondary
+        };
+        surface.draw_text(&self.status, c.x, status_y + 2, font, ink)?;
+        self.menu.paint_menus(surface)?;
+        if let Some(chooser) = &mut self.chooser {
+            chooser.paint(surface)?;
+        }
+        Ok(())
     }
 }
 
@@ -762,6 +1144,11 @@ impl App for ControlPanels {
             Event::CloseRequested => return control.quit(),
             Event::Resized { width, height } => {
                 self.window = (*width, *height);
+                self.layout();
+            }
+            // Applied even under the chooser: the bar's height changes the layout.
+            Event::GlobalMenu(_) => {
+                self.menu.handle(event, self.window);
                 self.layout();
             }
             Event::Wake => {
@@ -791,6 +1178,10 @@ impl App for ControlPanels {
         }
     }
 
+    fn menu_bar(&self) -> Option<&MenuBar> {
+        Some(&self.menu)
+    }
+
     fn accessibility(&self) -> Option<accesskit::TreeUpdate> {
         let names = |index: usize| {
             PANELS
@@ -798,7 +1189,8 @@ impl App for ControlPanels {
                 .map(|(_, name)| (*name).to_owned())
                 .unwrap_or_default()
         };
-        let mut nodes = self.sidebar.accessibility_nodes(&names);
+        let mut nodes = self.menu.accessibility_nodes();
+        nodes.extend(self.sidebar.accessibility_nodes(&names));
         let (title, lines) = self.lines();
         let mut text = accesskit::Node::new(accesskit::Role::Label);
         text.set_label(format!("{title}. {}", lines.join(". ")));
@@ -844,13 +1236,32 @@ impl App for ControlPanels {
                 nodes.extend(self.appearance_list.accessibility_nodes(&names));
                 nodes.push((APPLY_ID, self.apply.accessibility_node()));
             }
+            Panel::Desktop => {
+                let pictures = bundled_pictures();
+                let names = |i: usize| pictures.get(i).map(|p| p.1.to_owned()).unwrap_or_default();
+                nodes.extend(self.wallpaper_list.accessibility_nodes(&names));
+                nodes.push((SET_PICTURE_ID, self.set_picture.accessibility_node()));
+                nodes.push((CHOOSE_PICTURE_ID, self.choose_picture.accessibility_node()));
+            }
         }
         let mut status = accesskit::Node::new(accesskit::Role::Label);
         status.set_label(self.status.as_str());
         nodes.push((STATUS_ID, status));
-        let focus = match self.focus.focused() {
-            Some(SIDEBAR_ID) => Some(self.sidebar.focus_node()),
-            other => other,
+        if let Some(chooser) = &self.chooser {
+            nodes.extend(chooser.accessibility_nodes());
+            return Some(window_tree(
+                "Control Panels",
+                nodes,
+                Some(chooser.focus_node()),
+            ));
+        }
+        let focus = match self.menu.focus_node() {
+            Some(node) => Some(node),
+            None => match self.focus.focused() {
+                Some(SIDEBAR_ID) => Some(self.sidebar.focus_node()),
+                Some(WALLPAPER_LIST_ID) => Some(self.wallpaper_list.focus_node()),
+                other => other,
+            },
         };
         Some(window_tree("Control Panels", nodes, focus))
     }
@@ -1003,5 +1414,77 @@ mod tests {
             .nodes
             .iter()
             .any(|(_, n)| n.label() == Some("Output volume")));
+    }
+
+    #[test]
+    fn desktop_picture_is_saved_painted_and_reported() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static PAINTED: AtomicUsize = AtomicUsize::new(0);
+        fn painter(image: &Image, mode: BackgroundMode) -> Result<(), String> {
+            assert_eq!((image.width(), image.height()), (1, 1));
+            assert_eq!(mode, BackgroundMode::Fill);
+            PAINTED.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = ControlPanels::new(None);
+        app.config = Some(dir.path().join("config"));
+        app.paint_root = painter;
+        let mut control = Control::default();
+        // Ctrl+6 and the View menu both reach the Desktop panel.
+        app.event(
+            &Event::KeyPressed {
+                key: Key::Character('6'),
+                modifiers: Modifiers {
+                    control: true,
+                    ..Modifiers::default()
+                },
+            },
+            &mut control,
+        );
+        assert_eq!(app.panel(), Panel::Desktop);
+        app.event(&Event::MenuChosen { menu: 1, item: 0 }, &mut control);
+        assert_eq!(app.panel(), Panel::Network);
+        assert!(app.menu.menus[1].items[0].checked && !app.menu.menus[1].items[5].checked);
+        app.event(&Event::MenuChosen { menu: 1, item: 5 }, &mut control);
+        assert_eq!(app.panel(), Panel::Desktop);
+        // A picture that doesn't decode changes nothing.
+        let broken = dir.path().join("broken.png");
+        std::fs::write(&broken, b"not a png").unwrap();
+        app.set_wallpaper(Wallpaper {
+            path: broken,
+            mode: "fill".into(),
+        });
+        assert!(app.status_error && app.status.starts_with("Can't use that picture"));
+        assert_eq!(PAINTED.load(Ordering::SeqCst), 0);
+        assert!(wallpaper::load(&dir.path().join("config")).is_none());
+        // A real picture is saved, painted and named.
+        let picture = dir.path().join("Beach.png");
+        let surface = RasterSurface::new(1, 1, Scale::new(1).unwrap()).unwrap();
+        std::fs::write(&picture, surface.encode_png().unwrap()).unwrap();
+        app.set_wallpaper(Wallpaper {
+            path: picture.clone(),
+            mode: "fill".into(),
+        });
+        assert_eq!(PAINTED.load(Ordering::SeqCst), 1);
+        assert!(!app.status_error, "{}", app.status);
+        assert_eq!(app.status, "The desktop picture is now Beach.png.");
+        assert_eq!(
+            wallpaper::load(&dir.path().join("config")).map(|w| w.path),
+            Some(picture)
+        );
+        assert_eq!(app.lines().1[0], "Desktop picture: Beach.png");
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
+        // The global bar takes the in-window menu bar away.
+        app.event(&Event::GlobalMenu(true), &mut control);
+        assert_eq!(app.content().y, 16);
+        app.event(&Event::GlobalMenu(false), &mut control);
+        assert_eq!(app.content().y, 36);
+        // File > Close Window quits.
+        app.event(&Event::MenuChosen { menu: 0, item: 0 }, &mut control);
+        assert!(control.quit_requested());
     }
 }

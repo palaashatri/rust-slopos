@@ -123,6 +123,7 @@ impl WakePipe {
 }
 
 /// Messages from the AccessKit adapter thread.
+#[cfg_attr(not(feature = "atspi"), allow(dead_code))]
 enum A11yMessage {
     Activated,
     Request(AccessibilityRequest),
@@ -861,11 +862,36 @@ fn present(
     max_request: usize,
     frame: &mut Vec<u8>,
 ) -> Result<(), PlatformError> {
-    let width = surface.device_width();
-    let height = surface.device_height();
+    put_rgba(
+        conn,
+        window,
+        gc,
+        (surface.device_width(), surface.device_height()),
+        &surface.data(),
+        depth,
+        lsb_first,
+        max_request,
+        frame,
+    )
+}
+
+/// Upload premultiplied RGBA to a 32-bit-per-pixel drawable, splitting the
+/// rows across as many `PutImage` requests as the server's limit needs.
+#[allow(clippy::too_many_arguments)]
+fn put_rgba(
+    conn: &RustConnection,
+    drawable: u32,
+    gc: u32,
+    (width, height): (u32, u32),
+    data: &[u8],
+    depth: u8,
+    lsb_first: bool,
+    max_request: usize,
+    frame: &mut Vec<u8>,
+) -> Result<(), PlatformError> {
     frame.clear();
     frame.reserve(width as usize * height as usize * 4);
-    for [red, green, blue, _] in surface.data().as_chunks::<4>().0 {
+    for [red, green, blue, _] in data.as_chunks::<4>().0 {
         // Premultiplied RGBA over black is exactly what an opaque window shows.
         if lsb_first {
             frame.extend_from_slice(&[*blue, *green, *red, 0]);
@@ -879,7 +905,7 @@ fn present(
         let rows = chunk.len() / row_bytes;
         conn.put_image(
             ImageFormat::Z_PIXMAP,
-            window,
+            drawable,
             gc,
             width as u16,
             rows as u16,
@@ -1074,6 +1100,97 @@ fn fallback_tree(title: &str) -> accesskit::TreeUpdate {
         tree_id: accesskit::TreeId::ROOT,
         focus: root,
     }
+}
+
+/// Make `image` the X root window's background, the way `xsetroot`/`feh`
+/// do it: a pixmap the server keeps after this connection closes, announced
+/// in `_XROOTPMAP_ID`/`ESETROOT_PMAP_ID` so the previous one is freed and
+/// pseudo-transparent clients can find it. `compose` receives the screen
+/// size and returns the finished background.
+pub fn set_root_background(
+    compose: impl FnOnce(u32, u32) -> Option<crate::image::Image>,
+) -> Result<(), PlatformError> {
+    let (conn, screen_number) = x11rb::connect(None)?;
+    let screen = conn.setup().roots[screen_number].clone();
+    let (width, height) = (
+        u32::from(screen.width_in_pixels),
+        u32::from(screen.height_in_pixels),
+    );
+    let bits = conn
+        .setup()
+        .pixmap_formats
+        .iter()
+        .find(|format| format.depth == screen.root_depth)
+        .map(|format| format.bits_per_pixel);
+    if bits != Some(32) {
+        return Err(PlatformError::UnsupportedVisual(screen.root_depth));
+    }
+    let Some(image) =
+        compose(width, height).filter(|image| image.width() == width && image.height() == height)
+    else {
+        return Ok(());
+    };
+    let xroot = conn.intern_atom(false, b"_XROOTPMAP_ID")?.reply()?.atom;
+    let esetroot = conn.intern_atom(false, b"ESETROOT_PMAP_ID")?.reply()?.atom;
+
+    let pixmap = conn.generate_id()?;
+    conn.create_pixmap(
+        screen.root_depth,
+        pixmap,
+        screen.root,
+        width as u16,
+        height as u16,
+    )?;
+    let gc = conn.generate_id()?;
+    conn.create_gc(gc, pixmap, &CreateGCAux::new())?;
+    let lsb_first = conn.setup().image_byte_order == ImageOrder::LSB_FIRST;
+    put_rgba(
+        &conn,
+        pixmap,
+        gc,
+        (width, height),
+        image.data(),
+        screen.root_depth,
+        lsb_first,
+        conn.maximum_request_bytes(),
+        &mut Vec::new(),
+    )?;
+    conn.free_gc(gc)?;
+
+    // Free the pixmap an earlier setter left behind (Esetroot convention:
+    // only when both properties name it, so we never kill a live client).
+    let read = |atom| -> Option<u32> {
+        let reply = conn
+            .get_property(false, screen.root, atom, AtomEnum::PIXMAP, 0, 1)
+            .ok()?
+            .reply()
+            .ok()?;
+        let pixmap = reply.value32()?.next();
+        pixmap
+    };
+    if let (Some(old), Some(also)) = (read(xroot), read(esetroot)) {
+        if old == also && old != 0 {
+            let _ = conn.kill_client(old);
+        }
+    }
+
+    conn.change_window_attributes(
+        screen.root,
+        &x11rb::protocol::xproto::ChangeWindowAttributesAux::new().background_pixmap(pixmap),
+    )?;
+    conn.clear_area(false, screen.root, 0, 0, 0, 0)?;
+    for atom in [xroot, esetroot] {
+        conn.change_property32(
+            PropMode::REPLACE,
+            screen.root,
+            atom,
+            AtomEnum::PIXMAP,
+            &[pixmap],
+        )?;
+    }
+    conn.set_close_down_mode(x11rb::protocol::xproto::CloseDown::RETAIN_PERMANENT)?;
+    conn.sync()?;
+    Ok(())
 }
 
 /// Rect helper for apps that position docks against the screen.

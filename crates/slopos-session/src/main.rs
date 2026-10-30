@@ -26,15 +26,21 @@ fn main() -> ExitCode {
 
     match env::args().nth(1).as_deref() {
         Some("--logout") => return logout(),
+        Some("--paint-desktop") => {
+            // Repaint after an appearance or wallpaper change; no session lock.
+            environment::apply_root_background();
+            return ExitCode::SUCCESS;
+        }
         Some("--version") => {
             println!("slopos-session {}", env!("CARGO_PKG_VERSION"));
             return ExitCode::SUCCESS;
         }
         Some("--help" | "-h") => {
             println!(
-                "Usage: slopos-session [--logout | --version]\n\n\
+                "Usage: slopos-session [--logout | --paint-desktop | --version]\n\n\
                  Without arguments, supervise Openbox and the SLOPOS shell on $DISPLAY.\n\
-                 --logout   end the SLOPOS session running on $DISPLAY"
+                 --logout         end the SLOPOS session running on $DISPLAY\n\
+                 --paint-desktop  repaint the desktop picture on $DISPLAY"
             );
             return ExitCode::SUCCESS;
         }

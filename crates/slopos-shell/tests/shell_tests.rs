@@ -645,3 +645,26 @@ fn shell_announces_the_global_menu_name_toolkit_apps_watch() {
         );
     }
 }
+
+#[test]
+fn bundled_settings_open_native_control_panels_never_gtk() {
+    let topbar = include_str!("../src/topbar.rs");
+    let pins = include_str!("../../slopos-dock/src/pins.rs");
+    let desktop_menu = include_str!("../../../assets/config/openbox/menu.xml");
+    for (name, source) in [
+        ("topbar", topbar),
+        ("dock pins", pins),
+        ("desktop menu", desktop_menu),
+    ] {
+        for gtk in ["slopos-settings", "slopos-wallpaper", "pcmanfm"] {
+            assert!(!source.contains(gtk), "{name} still launches {gtk}");
+        }
+    }
+    assert!(topbar.contains("const CONTROL_PANELS: &str = \"slopos-control-panels\";"));
+    assert!(topbar.contains("open_control_panel(\"--desktop\")"));
+    assert!(desktop_menu.contains("slopos-control-panels --desktop"));
+    // The session paints the desktop itself; nothing shells out to feh.
+    let environment = include_str!("../../slopos-session/src/environment.rs");
+    assert!(environment.contains("set_root_background"));
+    assert!(!environment.contains("\"feh\""));
+}
