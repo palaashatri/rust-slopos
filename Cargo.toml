@@ -12,6 +12,7 @@ members = [
     "crates/slopos-settings",
     "crates/slopos-dock",
     "crates/slopos-topbar",
+    "crates/slopos-desktop",
     "apps/calculator",
     "apps/image-viewer",
     "apps/software",

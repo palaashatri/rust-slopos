@@ -38,6 +38,7 @@ x11rb::atom_manager! {
         _NET_WM_PID,
         _NET_WM_WINDOW_TYPE,
         _NET_WM_WINDOW_TYPE_NORMAL,
+        _NET_WM_WINDOW_TYPE_DESKTOP,
         _NET_WM_WINDOW_TYPE_DOCK,
         _NET_WM_WINDOW_TYPE_POPUP_MENU,
         _NET_WM_WINDOW_TYPE_NOTIFICATION,
@@ -226,6 +227,7 @@ pub fn run<A: App>(
     let window_type = match options.kind {
         WindowKind::Normal => atoms._NET_WM_WINDOW_TYPE_NORMAL,
         WindowKind::Dock { .. } => atoms._NET_WM_WINDOW_TYPE_DOCK,
+        WindowKind::Desktop => atoms._NET_WM_WINDOW_TYPE_DESKTOP,
     };
     conn.change_property32(
         PropMode::REPLACE,

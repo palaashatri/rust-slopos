@@ -3100,6 +3100,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-desktop"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "env_logger",
+ "libc",
+ "log",
+ "slopos-core",
+ "slopos-ui",
+ "tempfile",
+ "x11rb",
+]
+
+[[package]]
 name = "slopos-dock"
 version = "0.1.0"
 dependencies = [

@@ -102,7 +102,7 @@ if [[ $NO_BUILD -eq 0 ]]; then
   cargo build --release --workspace --locked
 fi
 
-BINARIES=(slopos-session slopos-topbar slopos-dock slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-software)
+BINARIES=(slopos-session slopos-topbar slopos-desktop slopos-dock slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-software)
 for name in "${BINARIES[@]}"; do
   src="$CARGO_TARGET_DIR/release/$name"
   if [[ ! -x "$src" ]]; then
@@ -225,6 +225,7 @@ cat <<EOF
 Binaries:
   $PREFIX/bin/slopos-session
   $PREFIX/bin/slopos-topbar
+  $PREFIX/bin/slopos-desktop
   $PREFIX/bin/slopos-dock
   $PREFIX/bin/slopos-calculator
   $PREFIX/bin/slopos-image-viewer
