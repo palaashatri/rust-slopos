@@ -87,3 +87,7 @@ menu.window.active.button.pressed.bg: flat gradient vertical
 menu.window.active.button.pressed.bg.color: #B8BCC6
 menu.window.active.button.pressed.bg.colorTo: #D0D5DD
 menu.window.active.button.pressed.bg.border: 1 1 1 1
+
+# No bottom handle strip: SLOPOS apps draw their own status bars, and
+# windows still resize from their edges and the window menu.
+window.handle.width: 0

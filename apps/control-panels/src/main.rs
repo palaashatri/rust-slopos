@@ -76,6 +76,33 @@ enum Panel {
     Appearance,
 }
 
+/// Theme icon candidates per panel (Adwaita ships mostly symbolic ones).
+const PANEL_ICONS: [&[&str]; 7] = [
+    &[
+        "network-workgroup",
+        "network-wireless-symbolic",
+        "network-wired-symbolic",
+    ],
+    &["audio-volume-high", "audio-volume-high-symbolic"],
+    &["video-display", "video-display-symbolic", "computer"],
+    &[
+        "bluetooth",
+        "bluetooth-active-symbolic",
+        "bluetooth-symbolic",
+    ],
+    &[
+        "preferences-system-time",
+        "preferences-system-time-symbolic",
+        "x-office-calendar-symbolic",
+    ],
+    &["user-desktop", "preferences-desktop-wallpaper-symbolic"],
+    &[
+        "preferences-desktop-theme",
+        "preferences-desktop-appearance-symbolic",
+        "preferences-system",
+    ],
+];
+
 const PANELS: [(Panel, &str); 7] = [
     (Panel::Network, "Network"),
     (Panel::Sound, "Sound"),
@@ -144,6 +171,8 @@ pub struct ControlPanels {
     /// Paints a background on the desktop (the X root window).
     paint_root: RootPainter,
     menu: MenuBar,
+    /// Sidebar icons, looked up on the first paint (per scale).
+    panel_icons: Option<(u32, Vec<Option<Image>>)>,
     focus: FocusChain,
     status: String,
     /// Whether `status` reports a failure (shown in the danger color).
@@ -285,6 +314,7 @@ impl ControlPanels {
             config,
             paint_root: paint_x11_root,
             menu: menu_bar(),
+            panel_icons: None,
             focus: FocusChain::default(),
             status: String::new(),
             status_error: false,
@@ -996,17 +1026,35 @@ impl ControlPanels {
         }
         surface.clear(colors.surface)?;
         self.menu.paint(surface)?;
+        let scale = surface.scale().factor();
+        if self.panel_icons.as_ref().map(|(s, _)| *s) != Some(scale) {
+            let mut lookup = slopos_ui::icons::IconLookup::from_environment();
+            let icons = PANEL_ICONS
+                .iter()
+                .map(|names| names.iter().find_map(|name| lookup.load(name, 16, scale)))
+                .collect();
+            self.panel_icons = Some((scale, icons));
+        }
+        let icons = self.panel_icons.as_ref().map(|(_, icons)| icons.as_slice());
         let font = &self.font;
         let line = measure("Ag", font).height as i32;
-        self.sidebar.paint(surface, |surface, index, rect, _| {
-            surface.draw_text(
-                PANELS[index].1,
-                rect.x + 10,
-                rect.y + (rect.height as i32 - line) / 2,
-                font,
-                colors.ink,
-            )
-        })?;
+        self.sidebar
+            .paint(surface, |surface, index, rect, selected| {
+                if let Some(Some(icon)) = icons.and_then(|icons| icons.get(index)) {
+                    surface.draw_image_scaled(icon, rect.x + 8, rect.y + 4, 16, 16)?;
+                }
+                surface.draw_text(
+                    PANELS[index].1,
+                    rect.x + 30,
+                    rect.y + (rect.height as i32 - line) / 2,
+                    font,
+                    if selected {
+                        colors.selection_ink
+                    } else {
+                        colors.ink
+                    },
+                )
+            })?;
         let c = self.content();
         let (title, lines) = self.lines();
         surface.draw_text(&title, c.x, c.y, &font.clone().bold(), colors.ink)?;
