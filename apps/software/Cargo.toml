@@ -1,0 +1,22 @@
+[package]
+name = "slopos-software"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Software: trusted, signed AppImage catalogue and installer"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+slopos-core = { path = "../../crates/slopos-core" }
+accesskit = { workspace = true }
+env_logger = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+reqwest = { workspace = true }
+ed25519-dalek = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
