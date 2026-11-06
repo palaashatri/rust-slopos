@@ -49,6 +49,7 @@ It writes screenshots and logs to `artifacts/smoke/` and is safe to run on a des
 |---|---|
 | Calculator | `cargo run -p slopos-calculator` |
 | Files | `cargo run -p slopos-files -- /home/user` |
+| Volume Mixer | `cargo run -p slopos-volume-mixer` |
 | Files snapshot (no X server) | `cargo run -p slopos-files -- --snapshot files.png /tmp` |
 | Image Viewer proof (PNG/SVG) | `cargo run -p slopos-image-viewer -- /path/to/sample.png` |
 | Image Viewer headless screenshot | `cargo run -p slopos-image-viewer -- --snapshot preview.png /path/to/sample.png` |

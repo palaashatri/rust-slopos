@@ -13,6 +13,9 @@
     <item label="Calculator">
       <action name="Execute"><command>slopos-calculator</command></action>
     </item>
+    <item label="Volume Mixer">
+      <action name="Execute"><command>slopos-volume-mixer</command></action>
+    </item>
     <item label="Image Viewer">
       <action name="Execute"><command>slopos-image-viewer</command></action>
     </item>

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Volume Mixer
+Comment=Set the volume of the output, the input and each application
+Exec=slopos-volume-mixer
+TryExec=slopos-volume-mixer
+Icon=audio-volume-high
+Terminal=false
+StartupNotify=true
+Categories=AudioVideo;Audio;Mixer;

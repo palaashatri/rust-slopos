@@ -1,0 +1,12 @@
+[package]
+name = "slopos-volume-mixer"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Volume Mixer: a fader per output, input and application"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+slopos-mixer = { path = "../../crates/slopos-mixer" }
+accesskit = { workspace = true }
+env_logger = { workspace = true }
