@@ -608,9 +608,6 @@ impl TopBar {
         }
     }
 
-    /// Input for the Volume Mixer popover. Escape, or a press outside it,
-    /// closes it; everything else goes to the mixer's controls, and a finished
-    /// change goes to the sound server.
     /// Whether an accessibility request names a control of the open popover.
     fn mixer_owns(&self, request: &AccessibilityRequest) -> bool {
         let id = match request {
@@ -625,6 +622,9 @@ impl TopBar {
             .is_some_and(|(view, _)| view.owns_node(id))
     }
 
+    /// Input for the Volume Mixer popover. Escape, or a press outside it,
+    /// closes it; everything else goes to the mixer's controls, and a finished
+    /// change goes to the sound server.
     fn handle_mixer(&mut self, event: &Event, control: &mut Control) {
         let Some((view, _)) = &mut self.mixer else {
             return;
@@ -1068,20 +1068,10 @@ impl TopBar {
                     StatusUpdate::Audio(state) => {
                         self.audio = state;
                         // The popover follows the answer and resizes with the channels.
-                        if let Some((view, x)) = &mut self.mixer {
+                        if let Some((view, _)) = &mut self.mixer {
                             view.set_state(&self.audio);
-                            let (width, height) = view.size();
-                            control.open_popup(
-                                POPUP_MIXER,
-                                Rect {
-                                    x: *x,
-                                    y: HEIGHT as i32,
-                                    width,
-                                    height,
-                                },
-                                true,
-                            );
                         }
+                        self.show_mixer_popup(control);
                     }
                     StatusUpdate::Network(state) => self.network = state,
                     StatusUpdate::Power(state) => {

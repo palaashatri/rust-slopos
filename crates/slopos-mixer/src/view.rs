@@ -145,6 +145,10 @@ pub struct MixerView {
     channels: Vec<Channel>,
     /// What the provider said, before any "not shown" note.
     base_status: String,
+    /// Whether the last answer from the sound server was an error.
+    unavailable: bool,
+    /// Text added to the unavailable status, for a host that offers a retry.
+    retry_hint: Option<String>,
     /// The last command's failure, shown until the next command or until the
     /// sound server is unavailable. A refresh does not clear it.
     failure: Option<String>,
@@ -170,6 +174,8 @@ impl MixerView {
             strips: Vec::new(),
             channels: Vec::new(),
             base_status: "Waiting for the sound server…".to_owned(),
+            unavailable: false,
+            retry_hint: None,
             failure: None,
             status: "Waiting for the sound server…".to_owned(),
             width_limit: None,
@@ -186,15 +192,31 @@ impl MixerView {
                 let channels: Channels = model::channels(snapshot);
                 self.base_status = model::status_line(&channels);
                 self.channels = channels.channels;
+                self.unavailable = false;
             }
             Err(error) => {
-                self.base_status = format!("Sound unavailable: {error}");
+                self.base_status = match &self.retry_hint {
+                    Some(hint) => format!("Sound unavailable: {error}. {hint}"),
+                    None => format!("Sound unavailable: {error}"),
+                };
                 self.channels = Vec::new();
+                self.unavailable = true;
                 // The unavailable state says more than an earlier command's failure.
                 self.failure = None;
             }
         }
         self.rebuild();
+    }
+
+    /// Whether the sound server could not be reached by the last answer.
+    pub fn is_unavailable(&self) -> bool {
+        self.unavailable
+    }
+
+    /// Say how to retry, in the unavailable status. Set it before the first
+    /// answer; hosts that reconnect without asking (the top bar) leave it unset.
+    pub fn set_retry_hint(&mut self, hint: Option<&str>) {
+        self.retry_hint = hint.map(str::to_owned);
     }
 
     /// Fit the channels into a window `width` pixels wide. Channels narrow
@@ -738,6 +760,20 @@ mod tests {
                 muted: true
             })
         );
+    }
+
+    #[test]
+    fn an_unavailable_server_can_say_how_to_retry() {
+        let mut view = MixerView::new();
+        view.set_retry_hint(Some("Press R or Try again to reconnect."));
+        view.set_state(&Err("no PulseAudio server".into()));
+        assert!(view.is_unavailable());
+        assert_eq!(
+            view.status(),
+            "Sound unavailable: no PulseAudio server. Press R or Try again to reconnect."
+        );
+        view.set_state(&Ok(snapshot(vec![stream(7, "Music", 40)])));
+        assert!(!view.is_unavailable());
     }
 
     #[test]

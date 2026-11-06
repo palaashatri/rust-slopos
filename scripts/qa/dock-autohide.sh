@@ -4,7 +4,8 @@
 # checks the window's height and reserved strut at each step against the expected
 # values. The last steps turn auto-hide off from the Dock's right-click menu (Down,
 # Return) and check that the choice is saved. Exits nonzero on any mismatch.
-# Needs Xvfb, openbox, xdotool and ImageMagick's import. Build the workspace first.
+# Needs Xvfb, openbox, xdotool, xwininfo, xprop, wmctrl and ImageMagick's import,
+# convert and display. Build the workspace first.
 set -u
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT="$ROOT/.work/qa-runtime/dock-autohide"

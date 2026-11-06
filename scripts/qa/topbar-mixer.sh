@@ -36,7 +36,8 @@ sleep 1
 openbox >"$OUT/openbox.log" 2>&1 &
 OPENBOX=$!
 sleep 1
-RUST_LOG=info "$BIN/slopos-topbar" >"$OUT/topbar.log" 2>&1 &
+# The bar's PATH is the empty directory alone, so a host pactl cannot be found.
+env PATH="$OUT/late-bin" RUST_LOG=info "$BIN/slopos-topbar" >"$OUT/topbar.log" 2>&1 &
 BAR=$!
 sleep 3
 import -window root "$OUT/topbar-0-bar.png"
