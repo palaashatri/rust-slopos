@@ -13,7 +13,7 @@ depends=(
   blueman upower xfce4-power-manager xfce4-settings lxappearance arandr xorg-xrandr xorg-xsetroot
   xdotool wmctrl adwaita-icon-theme librsvg ttf-liberation ttf-dejavu feh
 )
-makedepends=(cargo pkgconf rust git openssl)
+makedepends=(cargo pkgconf rust git openssl gstreamer gst-plugins-base-libs)
 optdepends=('firefox: web browser' 'lightdm: graphical display manager')
 provides=('slopos-i')
 conflicts=('slopos-i-git')

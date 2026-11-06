@@ -44,7 +44,8 @@ jobs:
             bash -lc '
               set -euo pipefail
               pacman -Syu --noconfirm --needed \
-                git rust pkgconf gtk3 gdk-pixbuf2 libx11 libxrandr openssl dbus libarchive
+                git rust pkgconf gtk3 gdk-pixbuf2 libx11 libxrandr openssl dbus libarchive \
+                gstreamer gst-plugins-base-libs
               git config --global --add safe.directory /workspace
               test "$(git -C /workspace rev-parse HEAD)" = "$SOURCE_SHA"
 
