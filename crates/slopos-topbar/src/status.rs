@@ -32,6 +32,9 @@ pub enum Command {
     SetDefaultOutput(String),
     /// A Volume Mixer change, run on the sound server.
     Mixer(slopos_mixer::Command),
+    /// The Volume Mixer was opened: connect to the sound server again, if it was
+    /// unavailable. Sent by the user's action, not on a timer.
+    ReconnectAudio,
     Suspend,
 }
 
@@ -86,7 +89,7 @@ async fn run(
         let _ = sender.send(update);
         wake();
     };
-    let audio = AudioClient::connect().await;
+    let mut audio = AudioClient::connect().await;
     let network = NetworkManagerClient::connect().await;
     let power = PowerClient::connect().await;
 
@@ -145,6 +148,20 @@ async fn run(
                         Ok(client) => client.set_default_output(&device).await.map(|s| Some(Update::Audio(Ok(s)))).map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
                     },
+                    Command::ReconnectAudio => {
+                        if audio.is_err() {
+                            match AudioClient::connect().await {
+                                Ok(client) => {
+                                    let snapshot = client.snapshot().await.map_err(|e| e.to_string());
+                                    audio_events = Some(client.watch());
+                                    audio = Ok(client);
+                                    send(Update::Audio(snapshot));
+                                }
+                                Err(error) => send(Update::Audio(Err(error.to_string()))),
+                            }
+                        }
+                        Ok(None)
+                    }
                     Command::Mixer(command) => {
                         match &audio {
                             Ok(client) => match slopos_mixer::apply(client, &command).await {

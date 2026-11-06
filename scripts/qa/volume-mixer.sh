@@ -21,6 +21,8 @@ SCREEN="${SCREEN_GEOMETRY:-1280x800x24}"
 rm -rf "$OUT" && mkdir -p "$OUT/home/.config" "$OUT/fake-pactl/state"
 cp "$ROOT/scripts/qa/fake-pactl/pactl" "$OUT/fake-pactl/pactl"
 STATE="$OUT/fake-pactl/state"
+# The fixture finds its state through this, wherever a copy of it is on the path.
+export FAKE_PACTL_STATE="$STATE"
 printf 85 > "$STATE/output_volume"; printf 60 > "$STATE/input_volume"
 printf 0 > "$STATE/output_mute"; printf 0 > "$STATE/input_mute"
 printf sink.one > "$STATE/default_output"; printf source.one > "$STATE/default_input"
@@ -37,12 +39,22 @@ wid_of() { timeout 5 xdotool search --name '^Volume Mixer$' | head -1; }
 absolute() { xwininfo -id "$1" | awk '/Absolute upper-left X/{x=$4} /Absolute upper-left Y/{y=$4} END{print x, y}'; }
 
 if command -v pactl >/dev/null 2>&1 && [ "$(command -v pactl)" = "$OUT/fake-pactl/pactl" ]; then :; fi
-env PATH=/usr/bin:/bin RUST_LOG=info "$BIN/slopos-volume-mixer" >"$OUT/mixer-unavailable.log" 2>&1 &
+FAILED=0
+# late-bin is on the path but holds no pactl yet, so the server cannot be reached.
+rm -rf "$OUT/late-bin" && mkdir -p "$OUT/late-bin"
+env PATH="$OUT/late-bin:/usr/bin:/bin" RUST_LOG=info "$BIN/slopos-volume-mixer" >"$OUT/mixer-unavailable.log" 2>&1 &
 MIX=$!
 sleep 2.5
 WID=$(wid_of)
 echo "1 without a sound server: window=${WID:-none}"
 [ -n "$WID" ] && import -window "$WID" "$OUT/mixer-1-unavailable.png"
+# The server appears after the window opened. R asks for a new connection, which finds it.
+if [ -e "$STATE/calls" ]; then echo "FAIL 1b the sound server was reached before the retry"; FAILED=1; fi
+cp "$OUT/fake-pactl/pactl" "$OUT/late-bin/pactl"
+[ -n "$WID" ] && xdotool windowfocus --sync "$WID" 2>/dev/null
+xdotool key r; sleep 1.5
+if [ -s "$STATE/calls" ]; then echo "PASS 1b the retry reached the sound server"; else echo "FAIL 1b the retry did not reach the sound server"; FAILED=1; fi
+[ -n "$WID" ] && import -window "$WID" "$OUT/mixer-1b-retried.png"
 kill $MIX 2>/dev/null; wait $MIX 2>/dev/null; sleep 1
 
 export PATH="$OUT/fake-pactl:$PATH"
@@ -56,7 +68,6 @@ import -window "$WID" "$OUT/mixer-2-initial.png"
 # The application's fader (third channel): 0..150 from y 44 to y 194; y 119 is about 75.
 xdotool mousemove $((AX + 220)) $((AY + 119)); sleep 0.2
 xdotool mousedown 1; sleep 0.2; xdotool mouseup 1; sleep 1.5
-FAILED=0
 volume=$(cat "$STATE/stream_volume")
 if [ "$volume" -ge 70 ] && [ "$volume" -le 80 ]; then
   echo "PASS 3 application volume reached the server: $volume% (expected 70-80)"

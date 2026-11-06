@@ -27,7 +27,8 @@ printf 0 > "$OUT/fake-pactl/state/output_mute"; printf 0 > "$OUT/fake-pactl/stat
 printf sink.one > "$OUT/fake-pactl/state/default_output"; printf source.one > "$OUT/fake-pactl/state/default_input"
 printf 100 > "$OUT/fake-pactl/state/stream_volume"; printf no > "$OUT/fake-pactl/state/stream_mute"
 export HOME="$OUT/home" XDG_CONFIG_HOME="$OUT/home/.config" XDG_DATA_HOME="$OUT/home/.local/share"
-export DISPLAY="$DISPLAY_NUMBER" PATH="$OUT/fake-pactl:$PATH"
+rm -rf "$OUT/late-bin" && mkdir -p "$OUT/late-bin"
+export DISPLAY="$DISPLAY_NUMBER" PATH="$OUT/late-bin:$PATH" FAKE_PACTL_STATE="$OUT/fake-pactl/state"
 Xvfb "$DISPLAY_NUMBER" -screen 0 1280x800x24 -noreset >"$OUT/xvfb.log" 2>&1 &
 XVFB=$!
 sleep 1
@@ -38,6 +39,11 @@ RUST_LOG=info "$BIN/slopos-topbar" >"$OUT/topbar.log" 2>&1 &
 BAR=$!
 sleep 3
 import -window root "$OUT/topbar-0-bar.png"
+FAILED=0
+# The bar started before the sound server existed, so nothing has reached it. The
+# server is installed now; the first opening of the mixer asks for a new connection.
+if [ -e "$OUT/fake-pactl/state/calls" ]; then echo "FAIL the sound server was reached before the mixer opened"; FAILED=1; fi
+cp "$OUT/fake-pactl/pactl" "$OUT/late-bin/pactl"
 if [ -z "$SOUND_X" ]; then
   echo "usage: topbar-mixer.sh SOUND_X   (the sound item's x, from topbar-0-bar.png)" >&2
   kill $BAR $OPENBOX $XVFB 2>/dev/null
@@ -50,10 +56,10 @@ import -window root "$OUT/topbar-2-closed.png"
 kill $BAR $OPENBOX $XVFB 2>/dev/null
 sleep 1
 # Pixel checks: inside the popover's body (#DDDDDD) when open, black once closed.
-FAILED=0
 pixel() { convert "$1" -crop 1x1+900+150 txt:- | tail -1 | grep -o '#[0-9A-F]*' | head -1; }
 opened=$(pixel "$OUT/topbar-1-popover.png")
 closed=$(pixel "$OUT/topbar-2-closed.png")
 if [ "$opened" = "#DDDDDD" ]; then echo "PASS popover open: pixel $opened"; else echo "FAIL popover open: pixel $opened (expected #DDDDDD)"; FAILED=1; fi
 if [ "$closed" = "#000000" ]; then echo "PASS popover closed by a press outside: pixel $closed"; else echo "FAIL popover closed: pixel $closed (expected #000000)"; FAILED=1; fi
+if [ -s "$OUT/fake-pactl/state/calls" ]; then echo "PASS the mixer's opening reached the sound server (reconnect)"; else echo "FAIL the mixer's opening did not reconnect"; FAILED=1; fi
 exit $FAILED

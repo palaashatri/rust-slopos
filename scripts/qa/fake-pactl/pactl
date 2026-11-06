@@ -2,7 +2,9 @@
 # Runtime fixture for the Volume Mixer check: a PulseAudio-compatible pactl over
 # state files. One output (speakers), one input (microphone), one application.
 set -eu
-root=$(dirname "$0")/state
+root=${FAKE_PACTL_STATE:-$(dirname "$0")/state}
+# Every call is logged, so a check can tell whether the server was reached at all.
+printf '%s\n' "$*" >> "$root/calls"
 case "$1" in
   info)
     printf 'Server Name: fixture\nDefault Sink: %s\nDefault Source: %s\n' "$(cat "$root/default_output")" "$(cat "$root/default_input")" ;;
