@@ -145,6 +145,9 @@ pub struct MixerView {
     channels: Vec<Channel>,
     /// What the provider said, before any "not shown" note.
     base_status: String,
+    /// The last command's failure, shown until the next command or until the
+    /// sound server is unavailable. A refresh does not clear it.
+    failure: Option<String>,
     status: String,
     /// The window's width, if the host fixed one.
     width_limit: Option<u32>,
@@ -167,6 +170,7 @@ impl MixerView {
             strips: Vec::new(),
             channels: Vec::new(),
             base_status: "Waiting for the sound server…".to_owned(),
+            failure: None,
             status: "Waiting for the sound server…".to_owned(),
             width_limit: None,
             font: Font::system(12.0),
@@ -186,6 +190,8 @@ impl MixerView {
             Err(error) => {
                 self.base_status = format!("Sound unavailable: {error}");
                 self.channels = Vec::new();
+                // The unavailable state says more than an earlier command's failure.
+                self.failure = None;
             }
         }
         self.rebuild();
@@ -204,9 +210,11 @@ impl MixerView {
         self.accessibility_children().contains(&id)
     }
 
-    /// A command failed: say so, and keep the channels as they were.
+    /// A command failed: say so, and keep the channels as they were. The
+    /// message stays until the next command.
     pub fn set_failure(&mut self, message: &str) {
-        self.status = message.to_owned();
+        self.failure = Some(message.to_owned());
+        self.refresh_status();
     }
 
     /// The status line, as shown.
@@ -271,7 +279,6 @@ impl MixerView {
 
     fn rebuild(&mut self) {
         let shown = self.channels.len().min(self.capacity());
-        let hidden = self.channels.len() - shown;
         let width = self.strip_width(shown);
         let previous = std::mem::take(&mut self.strips);
         let focused = self.focus.and_then(|position| {
@@ -315,15 +322,27 @@ impl MixerView {
                 .position(|strip| strip.channel.target == target)
                 .map(|index| 2 * index + part)
         });
-        self.status = if hidden > 0 {
-            format!(
-                "{} · {hidden} not shown here; see Control Panels",
-                self.base_status
-            )
-        } else {
-            self.base_status.clone()
-        };
+        self.refresh_status();
         self.sync_focus();
+    }
+
+    /// The status line: a failure while one is pending, else the provider's
+    /// status, with a note about the channels that do not fit.
+    fn refresh_status(&mut self) {
+        self.status = match &self.failure {
+            Some(failure) => failure.clone(),
+            None => {
+                let hidden = self.channels.len().saturating_sub(self.strips.len());
+                if hidden > 0 {
+                    format!(
+                        "{} · {hidden} not shown here; see Control Panels",
+                        self.base_status
+                    )
+                } else {
+                    self.base_status.clone()
+                }
+            }
+        };
     }
 
     fn sync_focus(&mut self) {
@@ -421,6 +440,11 @@ impl MixerView {
             self.focus = Some(position);
             self.sync_focus();
         }
+        // A new command is a new attempt, so the last failure no longer applies.
+        if outcome.command.is_some() {
+            self.failure = None;
+            self.refresh_status();
+        }
         outcome
     }
 
@@ -476,6 +500,15 @@ impl MixerView {
             nodes.push((mute_node(index), mute));
         }
         nodes
+    }
+
+    /// Whether the Mute box with accessibility id `id` is checked, if the view
+    /// shows that box.
+    pub fn mute_checked(&self, id: u64) -> Option<bool> {
+        self.strips
+            .iter()
+            .find(|strip| strip.mute.id == id)
+            .map(|strip| strip.mute.checked)
     }
 
     /// The accessibility node that has keyboard focus, if a control has it.
@@ -705,6 +738,23 @@ mod tests {
                 muted: true
             })
         );
+    }
+
+    #[test]
+    fn a_failed_command_stays_in_the_status_until_the_next_command() {
+        let mut view = MixerView::new();
+        view.set_state(&Ok(snapshot(vec![stream(7, "Music", 40)])));
+        view.set_failure("Could not change the sound: busy");
+        assert_eq!(view.status(), "Could not change the sound: busy");
+        // A successful refresh reports the server's state but keeps the failure.
+        view.set_state(&Ok(snapshot(vec![stream(7, "Music", 40)])));
+        assert_eq!(view.status(), "Could not change the sound: busy");
+        // The next command is a new attempt, so the old failure goes.
+        view.handle(&Event::Accessibility(AccessibilityRequest::Focus(
+            mute_node(1),
+        )));
+        assert!(view.handle(&key(Key::Space)).command.is_some());
+        assert_eq!(view.status(), "1 playing");
     }
 
     #[test]
