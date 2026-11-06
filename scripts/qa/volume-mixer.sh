@@ -61,7 +61,11 @@ kill $MIX 2>/dev/null; wait $MIX 2>/dev/null; sleep 1
 # 1c: the Try again button does what R does. A fresh window starts with no server; the
 # fixture is installed, and a click on the button (bottom-left, 8 px in) reaches it.
 rm -f "$OUT/late-bin/pactl" "$STATE/calls"
-env PATH="$OUT/late-bin" RUST_LOG=info "$BIN/slopos-volume-mixer" >"$OUT/mixer-click.log" 2>&1 &
+# The fixture needs sleep and cat, so the PATH holds links to just those, and no pactl.
+rm -rf "$OUT/tools" && mkdir -p "$OUT/tools"
+ln -s "$(command -v sleep)" "$OUT/tools/sleep"
+ln -s "$(command -v cat)" "$OUT/tools/cat"
+env PATH="$OUT/late-bin:$OUT/tools" RUST_LOG=info "$BIN/slopos-volume-mixer" >"$OUT/mixer-click.log" 2>&1 &
 MIX=$!
 sleep 2.5
 WID=$(wid_of)
@@ -73,6 +77,12 @@ xdotool mousemove $((CX + 8 + 60)) $((CY + H - 8 - 13)); sleep 0.2
 xdotool mousedown 1; sleep 0.2; xdotool mouseup 1; sleep 1.5
 if [ -s "$STATE/calls" ]; then echo "PASS 1c the Try again button reached the sound server"; else echo "FAIL 1c the Try again button did not reach the sound server"; FAILED=1; fi
 [ -n "$WID" ] && import -window "$WID" "$OUT/mixer-1c-clicked.png"
+# The recovered controls must work too: drag the application's fader (as step 3 does)
+# and check that the server received the level.
+xdotool mousemove $((CX + 220)) $((CY + 119)); sleep 0.2
+xdotool mousedown 1; sleep 0.2; xdotool mouseup 1; sleep 1.5
+recovered=$(cat "$STATE/stream_volume")
+if [ "$recovered" -ge 70 ] && [ "$recovered" -le 80 ]; then echo "PASS 1c the recovered controls reached the server: $recovered%"; else echo "FAIL 1c the recovered controls: $recovered% (expected 70-80)"; FAILED=1; fi
 kill $MIX 2>/dev/null; wait $MIX 2>/dev/null; sleep 1
 
 export PATH="$OUT/fake-pactl:$PATH"

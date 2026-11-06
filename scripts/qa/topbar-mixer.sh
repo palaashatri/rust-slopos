@@ -36,8 +36,12 @@ sleep 1
 openbox >"$OUT/openbox.log" 2>&1 &
 OPENBOX=$!
 sleep 1
-# The bar's PATH is the empty directory alone, so a host pactl cannot be found.
-env PATH="$OUT/late-bin" RUST_LOG=info "$BIN/slopos-topbar" >"$OUT/topbar.log" 2>&1 &
+# The bar's PATH holds no host pactl. The fixture needs sleep and cat, so links to just
+# those are on the PATH too.
+rm -rf "$OUT/tools" && mkdir -p "$OUT/tools"
+ln -s "$(command -v sleep)" "$OUT/tools/sleep"
+ln -s "$(command -v cat)" "$OUT/tools/cat"
+env PATH="$OUT/late-bin:$OUT/tools" RUST_LOG=info "$BIN/slopos-topbar" >"$OUT/topbar.log" 2>&1 &
 BAR=$!
 sleep 3
 import -window root "$OUT/topbar-0-bar.png"
@@ -63,5 +67,7 @@ opened=$(pixel "$OUT/topbar-1-popover.png")
 closed=$(pixel "$OUT/topbar-2-closed.png")
 if [ "$opened" = "#DDDDDD" ]; then echo "PASS popover open: pixel $opened"; else echo "FAIL popover open: pixel $opened (expected #DDDDDD)"; FAILED=1; fi
 if [ "$closed" = "#000000" ]; then echo "PASS popover closed by a press outside: pixel $closed"; else echo "FAIL popover closed: pixel $closed (expected #000000)"; FAILED=1; fi
-if [ -s "$OUT/fake-pactl/state/calls" ]; then echo "PASS the mixer's opening reached the sound server (reconnect)"; else echo "FAIL the mixer's opening did not reconnect"; FAILED=1; fi
+# The reconnect must bring up the whole connection: the snapshot (info) and the event
+# stream (subscribe), which the watcher needs to keep the controls live.
+if grep -qx subscribe "$OUT/fake-pactl/state/calls" 2>/dev/null; then echo "PASS the mixer's opening reconnected to the sound server with its event stream"; else echo "FAIL the mixer's opening did not reconnect with its event stream"; FAILED=1; fi
 exit $FAILED
