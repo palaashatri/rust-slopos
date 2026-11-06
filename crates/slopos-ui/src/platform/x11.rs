@@ -360,19 +360,9 @@ pub fn run<A: App>(
                     .height(rect.height * factor),
             )?;
             // Crossings that this move causes arrive after it; they must see the new size.
+            // The strut waits for the window manager's ConfigureNotify, which
+            // reports where the window was actually placed.
             device_size = ((rect.width * factor) as i32, (rect.height * factor) as i32);
-            dock_span = (rect.x * factor as i32, rect.width * factor);
-            if let Some(edge) = dock_edge {
-                set_strut(
-                    &conn,
-                    window,
-                    &atoms,
-                    edge,
-                    dock_strut * factor,
-                    dock_span.0,
-                    dock_span.1,
-                )?;
-            }
         }
         if let Some(strut) = control.strut.take() {
             if let Some(edge) = dock_edge {
@@ -586,8 +576,24 @@ pub fn run<A: App>(
                 }
                 XEvent::ConfigureNotify(configure) if configure.window == window => {
                     device_size = (i32::from(configure.width), i32::from(configure.height));
-                    // The window's span as the window manager placed it.
-                    dock_span = (i32::from(configure.x), u32::from(configure.width));
+                    if let Some(edge) = dock_edge {
+                        // The strut is the window's root-relative span as the window
+                        // manager placed it. A reparented window reports its position
+                        // relative to its frame, so the origin is asked for on the root.
+                        let origin = conn
+                            .translate_coordinates(window, screen.root, 0, 0)?
+                            .reply()?;
+                        dock_span = (i32::from(origin.dst_x), u32::from(configure.width));
+                        set_strut(
+                            &conn,
+                            window,
+                            &atoms,
+                            edge,
+                            dock_strut * factor,
+                            dock_span.0,
+                            dock_span.1,
+                        )?;
+                    }
                     let size = (
                         (u32::from(configure.width) / factor).max(1),
                         (u32::from(configure.height) / factor).max(1),
@@ -1055,10 +1061,20 @@ fn set_fixed_size(
     Ok(())
 }
 
-/// Whether the pointer is over `window`: the server's answer for the root's
-/// child under the pointer (the top window there).
+/// Whether the pointer is over `window`, or over the frame the window manager
+/// put around it. The top window under the pointer is the root's child; a
+/// reparenting window manager (Openbox does this to the Dock) makes that the
+/// frame, which is the window's parent. Another window covering `window` is
+/// neither, so it is not over it.
 fn pointer_over(conn: &RustConnection, root: u32, window: u32) -> Result<bool, PlatformError> {
-    Ok(conn.query_pointer(root)?.reply()?.child == window)
+    let top = conn.query_pointer(root)?.reply()?.child;
+    if top == 0 {
+        return Ok(false);
+    }
+    if top == window {
+        return Ok(true);
+    }
+    Ok(conn.query_tree(window)?.reply()?.parent == top)
 }
 
 /// Whether a crossing's window-relative position is still inside the window.
