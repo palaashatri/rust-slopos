@@ -1716,13 +1716,18 @@ mod tests {
             .expect("the sound item is laid out");
         bar.event(&press(sound.x + 4, 12), &mut control);
         assert!(bar.mixer.is_some());
-        // The master's Mute box is the mixer's second node.
+        // The master's Mute box is the mixer's second node. The click must reach the
+        // mixer and flip that box, not merely request a redraw.
         let mute = slopos_mixer::view::NODE_BASE + 2;
+        let (view, _) = bar.mixer.as_ref().expect("the mixer is open");
+        assert_eq!(view.mute_checked(mute), Some(false));
         let mut control = Control::default();
         bar.event(
             &Event::Accessibility(AccessibilityRequest::Click(mute)),
             &mut control,
         );
+        let (view, _) = bar.mixer.as_ref().expect("the mixer is still open");
+        assert_eq!(view.mute_checked(mute), Some(true));
         assert!(control.redraw_requested());
     }
 
