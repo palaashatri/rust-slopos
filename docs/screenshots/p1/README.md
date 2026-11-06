@@ -35,3 +35,21 @@ panels honestly show those as unavailable.
 `iso-amd64-*.png` and `iso-arm64-*.png` come from `packaging/iso/test-live-iso.sh`:
 the live ISO booted in QEMU (TCG, no KVM), autologin into SLOPOS-I, then
 Super+Space, typing "files" and Return.
+
+## 2026-11-06: Volume Mixer and Dock auto-hide
+
+Captured with `scripts/qa/volume-mixer.sh`, `scripts/qa/topbar-mixer.sh` and
+`scripts/qa/dock-autohide.sh` under Xvfb + Openbox. The sound data comes from
+`scripts/qa/fake-pactl` (a PulseAudio-compatible fixture), not a real sound server.
+
+- `volume-mixer-no-sound-server.png`: the app with no `pactl` on the path. It says
+  the sound service is unavailable and draws no levels.
+- `volume-mixer-app.png`: the standalone Volume Mixer with the fixture's output,
+  microphone and one application.
+- `volume-mixer-muted.png`: the output muted through the Mute box; the fader
+  keeps its level, the label reads "Muted", and the focused fader has its ring.
+- `top-bar-volume-mixer-popover.png`: the top bar's popover, opened from the sound
+  item and right-aligned under it.
+- `dock-autohide-shown.png`: the Dock shown with auto-hide turned off from its menu.
+  The placeholder tile is the Dock's own fallback icon, because the icon theme is
+  not installed in this container.
