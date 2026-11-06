@@ -14,6 +14,12 @@ if [ -z "${INSIDE_BUS:-}" ]; then
   mkdir -p "$OUT"
   exec env INSIDE_BUS=1 dbus-run-session -- bash "$0" "$SOUND_X"
 fi
+BAR= OPENBOX= XVFB=
+# However the script ends, including a signal, reap what it started so the
+# display number is free for the next run.
+cleanup() { kill $BAR $OPENBOX $XVFB 2>/dev/null; wait $BAR $OPENBOX $XVFB 2>/dev/null; }
+trap cleanup EXIT
+trap 'exit 130' INT TERM
 rm -rf "$OUT/home" && mkdir -p "$OUT/home/.config" "$OUT/fake-pactl/state"
 cp "$ROOT/scripts/qa/fake-pactl/pactl" "$OUT/fake-pactl/pactl"
 printf 85 > "$OUT/fake-pactl/state/output_volume"; printf 60 > "$OUT/fake-pactl/state/input_volume"
