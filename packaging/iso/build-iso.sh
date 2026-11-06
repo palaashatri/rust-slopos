@@ -75,6 +75,10 @@ install -Dm755 scripts/slopos-recovery.sh "$ROOTFS/usr/local/bin/slopos-recovery
 install -Dm644 packaging/slopos-browser.desktop \
   "$ROOTFS/usr/local/share/applications/slopos-browser.desktop"
 install -Dm644 packaging/slopos-i.desktop "$ROOTFS/usr/share/xsessions/slopos-i.desktop"
+# The shipped apps' menu entries, so each app is discoverable from the live session.
+for app in slopos-calculator slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-settings slopos-software slopos-volume-mixer; do
+  install -Dm644 "packaging/$app.desktop" "$ROOTFS/usr/share/applications/$app.desktop"
+done
 install -Dm644 assets/config/openbox/rc.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc.xml"
 install -Dm644 assets/config/openbox/rc-classic.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc-classic.xml"
 install -Dm644 assets/config/openbox/rc-graphite.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc-graphite.xml"

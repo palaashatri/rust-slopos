@@ -40,9 +40,10 @@ absolute() { xwininfo -id "$1" | awk '/Absolute upper-left X/{x=$4} /Absolute up
 
 if command -v pactl >/dev/null 2>&1 && [ "$(command -v pactl)" = "$OUT/fake-pactl/pactl" ]; then :; fi
 FAILED=0
-# late-bin is on the path but holds no pactl yet, so the server cannot be reached.
+# late-bin is the only PATH entry, and it holds no pactl yet, so a host pactl cannot
+# be found and the server really is absent.
 rm -rf "$OUT/late-bin" && mkdir -p "$OUT/late-bin"
-env PATH="$OUT/late-bin:/usr/bin:/bin" RUST_LOG=info "$BIN/slopos-volume-mixer" >"$OUT/mixer-unavailable.log" 2>&1 &
+env PATH="$OUT/late-bin" RUST_LOG=info "$BIN/slopos-volume-mixer" >"$OUT/mixer-unavailable.log" 2>&1 &
 MIX=$!
 sleep 2.5
 WID=$(wid_of)
@@ -55,6 +56,23 @@ cp "$OUT/fake-pactl/pactl" "$OUT/late-bin/pactl"
 xdotool key r; sleep 1.5
 if [ -s "$STATE/calls" ]; then echo "PASS 1b the retry reached the sound server"; else echo "FAIL 1b the retry did not reach the sound server"; FAILED=1; fi
 [ -n "$WID" ] && import -window "$WID" "$OUT/mixer-1b-retried.png"
+kill $MIX 2>/dev/null; wait $MIX 2>/dev/null; sleep 1
+
+# 1c: the Try again button does what R does. A fresh window starts with no server; the
+# fixture is installed, and a click on the button (bottom-left, 8 px in) reaches it.
+rm -f "$OUT/late-bin/pactl" "$STATE/calls"
+env PATH="$OUT/late-bin" RUST_LOG=info "$BIN/slopos-volume-mixer" >"$OUT/mixer-click.log" 2>&1 &
+MIX=$!
+sleep 2.5
+WID=$(wid_of)
+read CX CY < <(absolute "$WID")
+H=$(xwininfo -id "$WID" | awk '/Height:/{print $2}')
+if [ -e "$STATE/calls" ]; then echo "FAIL 1c the sound server was reached before the click"; FAILED=1; fi
+cp "$OUT/fake-pactl/pactl" "$OUT/late-bin/pactl"
+xdotool mousemove $((CX + 8 + 60)) $((CY + H - 8 - 13)); sleep 0.2
+xdotool mousedown 1; sleep 0.2; xdotool mouseup 1; sleep 1.5
+if [ -s "$STATE/calls" ]; then echo "PASS 1c the Try again button reached the sound server"; else echo "FAIL 1c the Try again button did not reach the sound server"; FAILED=1; fi
+[ -n "$WID" ] && import -window "$WID" "$OUT/mixer-1c-clicked.png"
 kill $MIX 2>/dev/null; wait $MIX 2>/dev/null; sleep 1
 
 export PATH="$OUT/fake-pactl:$PATH"

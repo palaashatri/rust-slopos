@@ -95,7 +95,7 @@ Not built yet: drag and drop, IME pre-edit (XIM/IBus), trees/icon grids, `slopos
 - **Volume Mixer:** a left-click on the sound item opens the mixer as a popover under it; another click on the item, Escape or a press outside closes it. A right-click opens the sound menu, whose "Volume Mixer…" entry does the same. The popover shows the same `MixerView` as the app and sends its changes to the top bar's status provider. With no sound server it says "Sound unavailable: …"; opening the popover asks the status thread to connect again, so a server that started later is found without a restart. `scripts/qa/topbar-mixer.sh` checks the popover and that reconnect under Xvfb. The standalone app retries the same way on R.
 - **Launcher:** fuzzy search over `.desktop` entries in a popup, opened by Super+Space (Openbox sends SIGUSR1), Ctrl+F2 (a global key grab) or the System menu.
 - **Notifications:** an `org.freedesktop.Notifications` 1.2 server (body, actions, persistence; expiry, replace, close, `ActionInvoked`/`NotificationClosed`), shown as toasts under the bar's right end, three at a time.
-- **Not built yet:** status popovers (Wi-Fi/Bluetooth/volume/brightness menus), volume and brightness OSDs, a notification history, multi-monitor bars.
+- **Not built yet:** status popovers for Wi-Fi, Bluetooth, battery and clock (the sound popover is the Volume Mixer), volume and brightness OSDs, a notification history, multi-monitor bars.
 
 ## The desktop (`crates/slopos-desktop`)
 
@@ -120,7 +120,7 @@ See [development.md](development.md) for commands.
 The [ledger](contract/ledger.md) has the dated evidence; its section G.2 is the prioritized register of remaining work (GAP-* IDs). In short:
 
 - Native Files has no drag and drop, icon view, thumbnails, properties window, removable-volume mount/eject or network mounts yet, and has not passed installed-package VM acceptance. Terminal, Text editor and System Monitor are not native yet (the system terminal and Mousepad are still used).
-- No OSDs or status popovers, workspaces UI, lock screen, polkit agent, network-secret agent (Wi-Fi passwords are asked by Control Panels only) or BlueZ pairing agent (devices that need a PIN or passkey confirmation fail with BlueZ's error).
+- No OSDs, and no status popovers besides the Volume Mixer; workspaces UI, lock screen, polkit agent, network-secret agent (Wi-Fi passwords are asked by Control Panels only) or BlueZ pairing agent (devices that need a PIN or passkey confirmation fail with BlueZ's error).
 - No production software catalogue or publisher key exists yet, so Software shows "No software catalogue is installed" on a fresh system.
 - The legacy GTK crates (`slopos-shell`, `slopos-settings`, `slopos-catalogue`) are still built in the workspace but no longer shipped or started.
 - X11 only. GNOME and KDE are leaving X11, so distribution support for X11 logins has to be checked per release (§21.10).

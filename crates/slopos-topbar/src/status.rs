@@ -15,6 +15,13 @@ use tokio::sync::mpsc as async_mpsc;
 /// A provider's latest answer: a snapshot, or why there is none.
 pub type State<T> = Result<T, String>;
 
+/// Whether opening the mixer should ask the sound server for a connection. A
+/// connection whose last answer was an error still exists while its watcher
+/// retries, so a failed answer counts as lost even with a client in hand.
+pub fn needs_audio_reconnect(connected: bool, last_answer_failed: bool) -> bool {
+    !connected || last_answer_failed
+}
+
 #[derive(Debug, Clone)]
 pub enum Update {
     Audio(State<AudioSnapshot>),
@@ -93,12 +100,15 @@ async fn run(
     let network = NetworkManagerClient::connect().await;
     let power = PowerClient::connect().await;
 
+    // Whether the last answer about the sound server was an error. A watcher that
+    // reports one keeps its client while it retries, so `audio` alone cannot say so.
+    let mut audio_failed = audio.is_err();
     let mut audio_events = None;
     match &audio {
         Ok(client) => {
-            send(Update::Audio(
-                client.snapshot().await.map_err(|e| e.to_string()),
-            ));
+            let state = client.snapshot().await.map_err(|e| e.to_string());
+            audio_failed = state.is_err();
+            send(Update::Audio(state));
             audio_events = Some(client.watch());
         }
         Err(error) => send(Update::Audio(Err(error.to_string()))),
@@ -126,7 +136,11 @@ async fn run(
 
     loop {
         tokio::select! {
-            Some(result) = next_or_pending!(audio_events) => send(Update::Audio(result.map_err(|e| e.to_string()))),
+            Some(result) = next_or_pending!(audio_events) => {
+                let state = result.map_err(|e| e.to_string());
+                audio_failed = state.is_err();
+                send(Update::Audio(state));
+            }
             Some(result) = next_or_pending!(network_events) => send(Update::Network(result.map_err(|e| e.to_string()))),
             Some(result) = next_or_pending!(power_events) => match result {
                 Ok(PowerEvent::Changed(snapshot)) => send(Update::Power(Ok(snapshot))),
@@ -149,15 +163,19 @@ async fn run(
                         Err(e) => Err(e.to_string()),
                     },
                     Command::ReconnectAudio => {
-                        if audio.is_err() {
+                        if needs_audio_reconnect(audio.is_ok(), audio_failed) {
                             match AudioClient::connect().await {
                                 Ok(client) => {
                                     let snapshot = client.snapshot().await.map_err(|e| e.to_string());
+                                    audio_failed = snapshot.is_err();
                                     audio_events = Some(client.watch());
                                     audio = Ok(client);
                                     send(Update::Audio(snapshot));
                                 }
-                                Err(error) => send(Update::Audio(Err(error.to_string()))),
+                                Err(error) => {
+                                    audio_failed = true;
+                                    send(Update::Audio(Err(error.to_string())));
+                                }
                             }
                         }
                         Ok(None)
@@ -310,5 +328,16 @@ mod tests {
         assert_eq!(network_text(&Ok(offline.clone())), "Offline");
         assert!(!on_wifi(&Ok(offline)));
         assert_eq!(battery_text(&Err("no upower".into())), None);
+    }
+
+    #[test]
+    fn a_failed_answer_asks_for_a_reconnect_even_with_a_client_in_hand() {
+        // Server lost after a good connection: the client is still held while its
+        // watcher retries, so the mixer's opening must still ask for a connection.
+        assert!(needs_audio_reconnect(true, true));
+        assert!(needs_audio_reconnect(false, false));
+        assert!(needs_audio_reconnect(false, true));
+        // A live connection whose last answer was good needs nothing.
+        assert!(!needs_audio_reconnect(true, false));
     }
 }
