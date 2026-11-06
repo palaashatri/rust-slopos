@@ -63,6 +63,9 @@ const MENU_POPUP: u64 = 1;
 /// The menu's accessibility id. Its items are derived from it, so it must not
 /// be the root (1) or a tile (100 and up).
 const MENU_NODE: u64 = 2;
+/// The auto-hide checkbox, always in the tree, so an assistive technology can
+/// change the setting without a pointer.
+const AUTO_HIDE_NODE: u64 = 3;
 const FIRST_TILE_NODE: u64 = 100;
 
 struct Dock {
@@ -364,6 +367,10 @@ impl App for Dock {
                 };
                 self.perform(action);
             }
+            Event::Accessibility(AccessibilityRequest::Click(id)) if *id == AUTO_HIDE_NODE => {
+                let on = !self.auto.enabled();
+                self.set_autohide(on, control);
+            }
             Event::Accessibility(AccessibilityRequest::Click(id)) => {
                 let index = id.checked_sub(FIRST_TILE_NODE).map(|index| index as usize);
                 if let Some(item) = index.and_then(|index| self.items.get(index)) {
@@ -507,6 +514,16 @@ impl App for Dock {
             nodes.push((id, node));
             children.push(id);
         }
+        let mut toggle = Node::new(Role::CheckBox);
+        toggle.set_label("Dock auto-hide");
+        toggle.set_toggled(if self.auto.enabled() {
+            accesskit::Toggled::True
+        } else {
+            accesskit::Toggled::False
+        });
+        toggle.add_action(A11yAction::Click);
+        nodes.push((NodeId(AUTO_HIDE_NODE), toggle));
+        children.push(NodeId(AUTO_HIDE_NODE));
         let mut focus = NodeId(ROOT_NODE);
         if self.menu.is_open() {
             // The right-click menu (its auto-hide item) is part of the Dock.
@@ -726,6 +743,36 @@ mod tests {
     }
 
     #[test]
+    fn the_auto_hide_checkbox_is_always_in_the_tree_and_a_click_toggles_the_dock() {
+        use accesskit::{NodeId, Role, Toggled};
+        // Toggling saves the preference, so the test points it at a scratch directory.
+        let config = std::env::temp_dir().join(format!("slopos-dock-a11y-{}", std::process::id()));
+        std::fs::create_dir_all(&config).expect("a scratch config directory");
+        std::env::set_var("XDG_CONFIG_HOME", &config);
+        let mut dock = dock(vec![app("a")], Vec::new());
+        let mut control = Control::default();
+        let checkbox = |dock: &Dock| {
+            let tree = dock.accessibility().expect("the Dock has a tree");
+            tree.nodes
+                .iter()
+                .find(|(id, _)| *id == NodeId(AUTO_HIDE_NODE))
+                .map(|(_, node)| (node.role(), node.toggled()))
+                .expect("the auto-hide checkbox is in the tree")
+        };
+        assert_eq!(checkbox(&dock), (Role::CheckBox, Some(Toggled::False)));
+        dock.event(
+            &Event::Accessibility(AccessibilityRequest::Click(AUTO_HIDE_NODE)),
+            &mut control,
+        );
+        assert!(dock.auto.enabled());
+        assert_eq!(checkbox(&dock), (Role::CheckBox, Some(Toggled::True)));
+        let saved = std::fs::read_to_string(config.join("slopos-i/dock.conf"))
+            .expect("the saved preference");
+        assert!(saved.contains("autohide = true"), "{saved:?}");
+        std::fs::remove_dir_all(&config).ok();
+    }
+
+    #[test]
     fn a_press_on_the_dock_dismisses_its_open_menu() {
         let mut dock = dock(vec![app("a")], Vec::new());
         let mut control = Control::default();
@@ -785,6 +832,7 @@ mod tests {
             .iter()
             .filter_map(|(_, node)| node.label())
             .collect();
-        assert_eq!(labels, ["Dock", "Files, 2 windows"]);
+        // The Dock, its tiles, then the auto-hide checkbox that is always present.
+        assert_eq!(labels, ["Dock", "Files, 2 windows", "Dock auto-hide"]);
     }
 }

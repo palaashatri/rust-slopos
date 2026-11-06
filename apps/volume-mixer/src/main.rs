@@ -10,7 +10,7 @@ use std::sync::{Arc, OnceLock};
 use accesskit::{Node, NodeId, Role, TreeId, TreeInfo, TreeUpdate};
 use slopos_mixer::provider::{Provider, Update};
 use slopos_mixer::MixerView;
-use slopos_ui::event::Event;
+use slopos_ui::event::{Event, Key};
 use slopos_ui::platform::{self, App, Control, Proxy, WindowOptions};
 use slopos_ui::render::RasterSurface;
 
@@ -54,6 +54,11 @@ impl App for VolumeMixer {
                     control.request_redraw();
                 }
             }
+            // R asks the sound server again, for a mixer opened before the server ran.
+            Event::KeyPressed {
+                key: Key::Character('r' | 'R'),
+                ..
+            } => self.provider.retry(),
             _ => {
                 let outcome = self.view.handle(event);
                 if let Some(command) = outcome.command {

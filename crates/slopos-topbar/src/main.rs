@@ -575,6 +575,11 @@ impl TopBar {
         let mut view = MixerView::new();
         view.fit_width(self.width.saturating_sub(8));
         view.set_state(&self.audio);
+        // Opening the mixer is the user's cue to try the sound server again, in
+        // case it started after the Shell did. The answer arrives as an update.
+        if let Some(status) = &self.status {
+            status.send(status::Command::ReconnectAudio);
+        }
         let (width, _) = view.size();
         let x = (rect.x + rect.width as i32 - width as i32).max(0);
         self.mixer = Some((view, x));
