@@ -573,6 +573,7 @@ impl TopBar {
             return;
         };
         let mut view = MixerView::new();
+        view.fit_width(self.width.saturating_sub(8));
         view.set_state(&self.audio);
         let (width, _) = view.size();
         let x = (rect.x + rect.width as i32 - width as i32).max(0);
@@ -605,6 +606,20 @@ impl TopBar {
     /// Input for the Volume Mixer popover. Escape, or a press outside it,
     /// closes it; everything else goes to the mixer's controls, and a finished
     /// change goes to the sound server.
+    /// Whether an accessibility request names a control of the open popover.
+    fn mixer_owns(&self, request: &AccessibilityRequest) -> bool {
+        let id = match request {
+            AccessibilityRequest::Click(id)
+            | AccessibilityRequest::Focus(id)
+            | AccessibilityRequest::Increment(id)
+            | AccessibilityRequest::Decrement(id)
+            | AccessibilityRequest::SetValue(id, _) => *id,
+        };
+        self.mixer
+            .as_ref()
+            .is_some_and(|(view, _)| view.owns_node(id))
+    }
+
     fn handle_mixer(&mut self, event: &Event, control: &mut Control) {
         let Some((view, _)) = &mut self.mixer else {
             return;
@@ -1177,6 +1192,10 @@ impl TopBar {
                     }
                 }
             }
+            // Requests for the popover's controls are the mixer's, not the bar's.
+            Event::Accessibility(request) if self.mixer_owns(request) => {
+                self.handle_mixer(event, control);
+            }
             Event::Accessibility(AccessibilityRequest::Click(id)) => {
                 let index = (*id).checked_sub(BAR_ID + 1).map(|i| i as usize);
                 if let Some(index) = index.filter(|i| *i < self.specs.len()) {
@@ -1657,6 +1676,47 @@ mod tests {
             key,
             modifiers: Modifiers::default(),
         }
+    }
+
+    #[test]
+    fn a_screen_reader_click_on_a_mixer_control_reaches_the_mixer() {
+        use slopos_core::capability::Availability;
+        use slopos_services::audio::{AudioDevice, AudioDirection, AudioSnapshot};
+        let mut bar = bar();
+        bar.audio = Ok(AudioSnapshot {
+            revision: 1,
+            availability: Availability::Available,
+            default_output: Some("speakers".into()),
+            default_input: None,
+            outputs: vec![AudioDevice {
+                index: 1,
+                name: "speakers".into(),
+                description: Some("Speakers".into()),
+                direction: AudioDirection::Output,
+                muted: false,
+                volume_millipercent: vec![50_000],
+                is_default: true,
+            }],
+            inputs: Vec::new(),
+            streams: Vec::new(),
+        });
+        let mut control = Control::default();
+        let sound = bar
+            .status_rects()
+            .into_iter()
+            .find(|(kind, _, _)| *kind == StatusMenu::Sound)
+            .map(|(_, rect, _)| rect)
+            .expect("the sound item is laid out");
+        bar.event(&press(sound.x + 4, 12), &mut control);
+        assert!(bar.mixer.is_some());
+        // The master's Mute box is the mixer's second node.
+        let mute = slopos_mixer::view::NODE_BASE + 2;
+        let mut control = Control::default();
+        bar.event(
+            &Event::Accessibility(AccessibilityRequest::Click(mute)),
+            &mut control,
+        );
+        assert!(control.redraw_requested());
     }
 
     #[test]

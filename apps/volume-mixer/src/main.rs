@@ -115,13 +115,18 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let (width, height) = MixerView::full_size();
+    // The window is as wide as the room the channels need, but never wider than
+    // the screen; channels that do not fit are counted in the status line.
+    let (full_width, height) = MixerView::full_size();
+    let screen_width = platform::x11::screen_size()
+        .map(|(width, _)| width)
+        .unwrap_or(full_width);
+    let width = full_width.min(screen_width.saturating_sub(8)).max(1);
     let mut options = WindowOptions::new("Volume Mixer", APP_ID, width, height);
     options.resizable = false;
-    let app = VolumeMixer {
-        view: MixerView::new(),
-        provider,
-    };
+    let mut view = MixerView::new();
+    view.fit_width(width);
+    let app = VolumeMixer { view, provider };
     let result = platform::run(options, app, move |proxy| {
         let _ = proxy_slot.set(proxy);
         // Anything the provider sent before the slot was filled.
