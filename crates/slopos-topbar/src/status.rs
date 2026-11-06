@@ -151,10 +151,12 @@ async fn run(
                                 Ok(snapshot) => send(Update::Audio(Ok(snapshot))),
                                 Err(error) => {
                                     send(Update::AudioFailed(error.to_string()));
-                                    // Show the server's state again, so the controls drop the value that failed.
-                                    if let Ok(snapshot) = client.snapshot().await {
-                                        send(Update::Audio(Ok(snapshot)));
-                                    }
+                                    // Show the server's state again, so the controls drop the value that
+                                    // failed. If it cannot be read, the controls say so instead of
+                                    // keeping the value that was asked for.
+                                    send(Update::Audio(
+                                        client.snapshot().await.map_err(|e| e.to_string()),
+                                    ));
                                 }
                             },
                             Err(error) => send(Update::AudioFailed(error.to_string())),

@@ -621,6 +621,20 @@ mod tests {
     }
 
     #[test]
+    fn a_failed_command_then_an_unreadable_server_drops_the_controls() {
+        // The provider reports the failure first. When the server state cannot be
+        // read either, the controls must not keep the value that was asked for.
+        let mut view = MixerView::new();
+        view.set_state(&Ok(snapshot(vec![stream(7, "Music", 40)])));
+        view.set_failure("Could not change the sound: connection lost");
+        assert_eq!(view.status(), "Could not change the sound: connection lost");
+        assert_eq!(view.channels().len(), 2);
+        view.set_state(&Err("connection lost".into()));
+        assert!(view.channels().is_empty());
+        assert_eq!(view.status(), "Sound unavailable: connection lost");
+    }
+
+    #[test]
     fn dragging_a_fader_sends_one_command_on_release() {
         let mut view = MixerView::new();
         view.set_state(&Ok(snapshot(vec![stream(7, "Music", 40)])));
