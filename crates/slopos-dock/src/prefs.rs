@@ -6,12 +6,23 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use slopos_core::xdg::XdgPaths;
-
+/// `$XDG_CONFIG_HOME/slopos-i/dock.conf`, or `~/.config/...` when that is unset
+/// or relative. Only the config directory is needed, so the other XDG
+/// directories are not required.
 pub fn path() -> Option<PathBuf> {
-    XdgPaths::from_environment()
-        .ok()
-        .map(|paths| paths.config.join("slopos-i/dock.conf"))
+    config_file(
+        std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from),
+        std::env::var_os("HOME").map(PathBuf::from),
+    )
+}
+
+/// The preferences file under `xdg_config_home` (when absolute), else under
+/// `home/.config`.
+fn config_file(xdg_config_home: Option<PathBuf>, home: Option<PathBuf>) -> Option<PathBuf> {
+    let config = xdg_config_home
+        .filter(|path| path.is_absolute())
+        .or_else(|| home.map(|home| home.join(".config")))?;
+    Some(config.join("slopos-i/dock.conf"))
 }
 
 /// Whether auto-hide is on in `contents`.
@@ -42,7 +53,8 @@ pub fn save_autohide(on: bool) -> io::Result<()> {
         if on { "true" } else { "false" }
     );
     // Write then rename, so a crash never leaves a half-written file.
-    let temporary = path.with_extension("tmp");
+    // One temporary file per process, so two saves never share a file.
+    let temporary = path.with_extension(format!("{}.tmp", std::process::id()));
     fs::write(&temporary, contents)?;
     fs::rename(temporary, path)
 }
@@ -50,6 +62,23 @@ pub fn save_autohide(on: bool) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_config_file_needs_only_the_config_directory() {
+        let absolute = config_file(Some("/cfg".into()), Some("/home/u".into()));
+        assert_eq!(absolute, Some(PathBuf::from("/cfg/slopos-i/dock.conf")));
+        // A relative XDG_CONFIG_HOME is ignored, as the XDG spec says.
+        let relative = config_file(Some("cfg".into()), Some("/home/u".into()));
+        assert_eq!(
+            relative,
+            Some(PathBuf::from("/home/u/.config/slopos-i/dock.conf"))
+        );
+        assert_eq!(
+            config_file(None, Some("/home/u".into())),
+            Some(PathBuf::from("/home/u/.config/slopos-i/dock.conf"))
+        );
+        assert_eq!(config_file(None, None), None);
+    }
 
     #[test]
     fn autohide_is_read_from_the_preferences_text() {

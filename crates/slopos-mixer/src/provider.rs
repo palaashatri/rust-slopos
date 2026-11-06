@@ -89,7 +89,14 @@ async fn run(
             command = commands.recv() => match command {
                 Some(command) => match apply(&client, &command).await {
                     Ok(snapshot) => send(Update::State(Ok(snapshot))),
-                    Err(error) => send(Update::Failed(error.to_string())),
+                    Err(error) => {
+                        send(Update::Failed(error.to_string()));
+                        // Show the server's state again, so the controls do not keep
+                        // the value that just failed.
+                        if let Ok(snapshot) = client.snapshot().await {
+                            send(Update::State(Ok(snapshot)));
+                        }
+                    }
                 },
                 None => break,
             },

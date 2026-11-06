@@ -10,7 +10,7 @@
 use accesskit::{Node, Role};
 use slopos_services::audio::AudioSnapshot;
 use slopos_ui::controls::range::{Checkbox, Slider, ToggleOutcome, ValueOutcome};
-use slopos_ui::event::{AccessibilityRequest, Event, Key};
+use slopos_ui::event::{AccessibilityRequest, Event, Key, PointerButton};
 use slopos_ui::foundation::geometry::Rect;
 use slopos_ui::render::{RasterSurface, RenderError};
 use slopos_ui::text::{measure, Font};
@@ -298,6 +298,13 @@ impl MixerView {
                         fader.label = strip.fader.label.clone();
                         strip.fader = fader;
                     }
+                    // A Mute press in progress carries on in the same way; the
+                    // box shows the provider's state.
+                    let mut mute = old.mute.clone();
+                    mute.checked = strip.mute.checked;
+                    mute.id = strip.mute.id;
+                    mute.bounds = strip.mute.bounds;
+                    strip.mute = mute;
                 }
                 strip
             })
@@ -362,7 +369,19 @@ impl MixerView {
             outcome.redraw = true;
             return outcome;
         }
-        let mut focus_request = None;
+        // Pressing a Mute box gives it keyboard focus, as pressing a fader does.
+        let mut focus_request = match event {
+            Event::PointerPressed {
+                x,
+                y,
+                button: PointerButton::Primary,
+            } => self
+                .strips
+                .iter()
+                .position(|strip| strip.mute.bounds.contains(*x, *y))
+                .map(|index| 2 * index + 1),
+            _ => None,
+        };
         for (index, strip) in self.strips.iter_mut().enumerate() {
             match strip.fader.handle(event) {
                 ValueOutcome::Ignored => {}
@@ -457,6 +476,11 @@ impl MixerView {
             nodes.push((mute_node(index), mute));
         }
         nodes
+    }
+
+    /// The accessibility node that has keyboard focus, if a control has it.
+    pub fn focused_node(&self) -> Option<u64> {
+        self.focus.map(|_| self.focus_node())
     }
 
     /// The node with keyboard focus; the status line when none has it.
@@ -651,6 +675,25 @@ mod tests {
     }
 
     #[test]
+    fn a_mute_press_survives_a_snapshot_and_its_release_still_toggles() {
+        let mut view = MixerView::new();
+        view.set_state(&Ok(snapshot(vec![stream(7, "Music", 40)])));
+        let mute = view.strips[1].mute.bounds;
+        let (x, y) = (mute.x + 4, mute.y + 4);
+        view.handle(&click_at(x, y));
+        assert!(view.strips[1].mute.focused, "a press focuses the Mute box");
+        view.set_state(&Ok(snapshot(vec![stream(7, "Music", 40)])));
+        let released = view.handle(&release_at(x, y));
+        assert_eq!(
+            released.command,
+            Some(Command::SetMuted {
+                target: Target::Stream(7),
+                muted: true
+            })
+        );
+    }
+
+    #[test]
     fn accessibility_focus_moves_to_the_named_control_and_its_keys_work() {
         let mut view = MixerView::new();
         view.set_state(&Ok(snapshot(vec![stream(7, "Music", 40)])));
@@ -660,6 +703,7 @@ mod tests {
             mute_node(1),
         )));
         assert!(focused.redraw);
+        assert_eq!(view.focused_node(), Some(mute_node(1)));
         assert!(view.strips[1].mute.focused);
         assert!(!view.strips[0].mute.focused);
         let toggled = view.handle(&key(Key::Space));

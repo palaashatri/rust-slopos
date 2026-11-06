@@ -20,6 +20,8 @@ pub enum Update {
     Audio(State<AudioSnapshot>),
     Network(State<NetworkSnapshot>),
     Power(State<PowerSnapshot>),
+    /// A Volume Mixer change failed on the sound server.
+    AudioFailed(String),
     Failed(String),
 }
 
@@ -143,10 +145,22 @@ async fn run(
                         Ok(client) => client.set_default_output(&device).await.map(|s| Some(Update::Audio(Ok(s)))).map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
                     },
-                    Command::Mixer(command) => match &audio {
-                        Ok(client) => slopos_mixer::apply(client, &command).await.map(|s| Some(Update::Audio(Ok(s)))).map_err(|e| e.to_string()),
-                        Err(e) => Err(e.to_string()),
-                    },
+                    Command::Mixer(command) => {
+                        match &audio {
+                            Ok(client) => match slopos_mixer::apply(client, &command).await {
+                                Ok(snapshot) => send(Update::Audio(Ok(snapshot))),
+                                Err(error) => {
+                                    send(Update::AudioFailed(error.to_string()));
+                                    // Show the server's state again, so the controls drop the value that failed.
+                                    if let Ok(snapshot) = client.snapshot().await {
+                                        send(Update::Audio(Ok(snapshot)));
+                                    }
+                                }
+                            },
+                            Err(error) => send(Update::AudioFailed(error.to_string())),
+                        }
+                        Ok(None)
+                    }
                     Command::Suspend => match &power {
                         Ok(client) => client.request_suspend().await.map(|()| None).map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
