@@ -13,12 +13,14 @@ members = [
     "crates/slopos-dock",
     "crates/slopos-topbar",
     "crates/slopos-desktop",
+    "crates/slopos-mixer",
     "apps/calculator",
     "apps/image-viewer",
     "apps/software",
     "apps/media",
     "apps/control-panels",
     "apps/files",
+    "apps/volume-mixer",
 ]
 
 [workspace.dependencies]

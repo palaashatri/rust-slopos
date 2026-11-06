@@ -296,6 +296,9 @@ pub fn run<A: App>(
     let mut accessibility = Accessibility::new(a11y_sender, wake.proxy.clone());
 
     let mut logical = (options.width, options.height);
+    // The window's size in device pixels, to tell a real leave from a crossing
+    // that a moving or growing window reports while the pointer is still in it.
+    let mut device_size = (device_width as i32, device_height as i32);
     let mut surface = RasterSurface::new(logical.0, logical.1, scale)?;
     let mut needs_paint = true;
     let mut timers: Vec<(Instant, u64)> = Vec::new();
@@ -305,6 +308,13 @@ pub fn run<A: App>(
     let max_request = conn.maximum_request_bytes();
     let mut frame = Vec::new();
     let mut popups: Vec<Popup> = Vec::new();
+    // A dock's reserved strip can change while it runs (auto-hide): the
+    // edge is fixed, the strip size and the window's span are tracked.
+    let (dock_edge, mut dock_strut) = match options.kind {
+        WindowKind::Dock { edge, strut } => (Some(edge), strut),
+        _ => (None, 0),
+    };
+    let mut dock_span = (device_x, device_width);
 
     let mut control = Control {
         scale: Some(scale),
@@ -349,15 +359,32 @@ pub fn run<A: App>(
                     .width(rect.width * factor)
                     .height(rect.height * factor),
             )?;
-            if let WindowKind::Dock { edge, strut } = options.kind {
+            // Crossings that this move causes arrive after it; they must see the new size.
+            device_size = ((rect.width * factor) as i32, (rect.height * factor) as i32);
+            dock_span = (rect.x * factor as i32, rect.width * factor);
+            if let Some(edge) = dock_edge {
                 set_strut(
                     &conn,
                     window,
                     &atoms,
                     edge,
-                    strut * factor,
-                    rect.x * factor as i32,
-                    rect.width * factor,
+                    dock_strut * factor,
+                    dock_span.0,
+                    dock_span.1,
+                )?;
+            }
+        }
+        if let Some(strut) = control.strut.take() {
+            if let Some(edge) = dock_edge {
+                dock_strut = strut;
+                set_strut(
+                    &conn,
+                    window,
+                    &atoms,
+                    edge,
+                    dock_strut * factor,
+                    dock_span.0,
+                    dock_span.1,
                 )?;
             }
         }
@@ -506,6 +533,13 @@ pub fn run<A: App>(
                 )),
                 _ => None,
             };
+            if let XEvent::LeaveNotify(leave) = &event {
+                if leave.event == window
+                    && crossing_is_inside(device_size, leave.event_x, leave.event_y)
+                {
+                    continue;
+                }
+            }
             let translated = translate(
                 &event,
                 factor,
@@ -547,6 +581,7 @@ pub fn run<A: App>(
                     needs_paint = true
                 }
                 XEvent::ConfigureNotify(configure) if configure.window == window => {
+                    device_size = (i32::from(configure.width), i32::from(configure.height));
                     let size = (
                         (u32::from(configure.width) / factor).max(1),
                         (u32::from(configure.height) / factor).max(1),
@@ -1012,6 +1047,11 @@ fn set_fixed_size(
     });
     hints.set_normal_hints(conn, window)?;
     Ok(())
+}
+
+/// Whether a crossing's window-relative position is still inside the window.
+fn crossing_is_inside(size: (i32, i32), x: i16, y: i16) -> bool {
+    (0..size.0).contains(&i32::from(x)) && (0..size.1).contains(&i32::from(y))
 }
 
 fn set_strut(
@@ -1550,6 +1590,16 @@ mod tests {
         let mut clicks = ClickTracker::default();
         assert!(!clicks.press(u32::MAX - 10, 0, 0));
         assert!(clicks.press(50, 0, 0));
+    }
+
+    #[test]
+    fn crossings_inside_the_window_are_not_leaves() {
+        // A 66-row window: row 65 is inside, row 66 is not.
+        assert!(crossing_is_inside((64, 66), 32, 65));
+        assert!(crossing_is_inside((64, 66), 0, 0));
+        assert!(!crossing_is_inside((64, 66), 32, 66));
+        assert!(!crossing_is_inside((64, 66), -1, 10));
+        assert!(!crossing_is_inside((64, 66), 64, 10));
     }
 
     #[test]

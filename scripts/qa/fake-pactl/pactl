@@ -1,0 +1,30 @@
+#!/bin/sh
+# Runtime fixture for the Volume Mixer check: a PulseAudio-compatible pactl over
+# state files. One output (speakers), one input (microphone), one application.
+set -eu
+root=$(dirname "$0")/state
+case "$1" in
+  info)
+    printf 'Server Name: fixture\nDefault Sink: %s\nDefault Source: %s\n' "$(cat "$root/default_output")" "$(cat "$root/default_input")" ;;
+  list)
+    if [ "$2" = sink-inputs ]; then
+      printf 'Sink Input #42\n\tDriver: protocol-native.c\n\tSink: 1\n\tMute: %s\n\tVolume: front-left: 65536 / %s%% / 0 dB, front-right: 65536 / %s%% / 0 dB\n\tProperties:\n\t\tmedia.name = "Playback"\n\t\tapplication.name = "Fixture Player"\n' "$(cat "$root/stream_mute")" "$(cat "$root/stream_volume")" "$(cat "$root/stream_volume")"
+    elif [ "$2" = sinks ]; then
+      mute=$(cat "$root/output_mute"); [ "$mute" = 1 ] && mute=yes || mute=no
+      v=$(cat "$root/output_volume")
+      printf 'Sink #1\n\tName: sink.one\n\tDescription: Fixture speakers\n\tMute: %s\n\tVolume: front-left: 65536 / %s%% / 0 dB, front-right: 65536 / %s%% / 0 dB\n' "$mute" "$v" "$v"
+    else
+      mute=$(cat "$root/input_mute"); [ "$mute" = 1 ] && mute=yes || mute=no
+      v=$(cat "$root/input_volume")
+      printf 'Source #1\n\tName: source.one\n\tDescription: Fixture microphone\n\tMute: %s\n\tVolume: mono: 65536 / %s%% / 0 dB\n' "$mute" "$v"
+    fi ;;
+  set-sink-volume) printf '%s\n' "${3%%%}" > "$root/output_volume" ;;
+  set-source-volume) printf '%s\n' "${3%%%}" > "$root/input_volume" ;;
+  set-sink-mute) printf '%s\n' "$3" > "$root/output_mute" ;;
+  set-source-mute) printf '%s\n' "$3" > "$root/input_mute" ;;
+  set-sink-input-volume) printf '%s\n' "${3%%%}" > "$root/stream_volume" ;;
+  set-sink-input-mute) if [ "$3" = 1 ]; then printf yes > "$root/stream_mute"; else printf no > "$root/stream_mute"; fi ;;
+  set-default-sink|set-default-source) ;;
+  subscribe) exec sleep 1000000 ;;
+  *) echo "unexpected: $*" >&2; exit 2 ;;
+esac

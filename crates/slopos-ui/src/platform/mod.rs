@@ -110,6 +110,7 @@ pub struct Control {
     pub(crate) paste: bool,
     pub(crate) modifiers: crate::event::Modifiers,
     pub(crate) popups: Vec<PopupRequest>,
+    pub(crate) strut: Option<u32>,
 }
 
 /// A popup change asked for during one event, applied by the host in order.
@@ -151,6 +152,13 @@ impl Control {
     /// Move and resize the window (logical pixels).
     pub fn set_geometry(&mut self, rect: Rect) {
         self.geometry = Some(rect);
+    }
+
+    /// Change how many logical pixels a [`WindowKind::Dock`] window reserves
+    /// on its edge; 0 releases the space (a hidden, auto-hiding dock). Other
+    /// window kinds ignore it.
+    pub fn set_strut(&mut self, strut: u32) {
+        self.strut = Some(strut);
     }
 
     /// Offer `text` on the system clipboard (the X11 `CLIPBOARD` selection).

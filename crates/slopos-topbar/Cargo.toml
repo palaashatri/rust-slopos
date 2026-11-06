@@ -9,6 +9,7 @@ description = "SLOPOS top bar on the SLOPOS toolkit: System menu, global menus, 
 slopos-ui = { path = "../slopos-ui" }
 slopos-core = { path = "../slopos-core" }
 slopos-services = { path = "../slopos-services" }
+slopos-mixer = { path = "../slopos-mixer" }
 accesskit = { workspace = true }
 x11rb = { workspace = true }
 zbus = { workspace = true }

@@ -28,6 +28,8 @@ pub enum Command {
     SetOutputVolume(String, u32),
     SetOutputMuted(String, bool),
     SetDefaultOutput(String),
+    /// A Volume Mixer change, run on the sound server.
+    Mixer(slopos_mixer::Command),
     Suspend,
 }
 
@@ -139,6 +141,10 @@ async fn run(
                     },
                     Command::SetDefaultOutput(device) => match &audio {
                         Ok(client) => client.set_default_output(&device).await.map(|s| Some(Update::Audio(Ok(s)))).map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::Mixer(command) => match &audio {
+                        Ok(client) => slopos_mixer::apply(client, &command).await.map(|s| Some(Update::Audio(Ok(s)))).map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
                     },
                     Command::Suspend => match &power {
