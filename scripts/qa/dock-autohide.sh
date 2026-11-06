@@ -53,6 +53,8 @@ check() {
     FAILED=1
   fi
 }
+# span_of: the strut's horizontal span, which must follow the Dock wherever it is placed.
+span_of() { xprop -id "$WID" _NET_WM_STRUT_PARTIAL | sed 's/.*= //' | awk -F', ' '{print $11"-"$12}'; }
 check "1 start, hidden" 4 0
 xdotool mousemove 640 799; sleep 0.6
 check "2 pointer on the edge" 66 66
@@ -68,12 +70,15 @@ check "5 pointer away again" 4 0
 convert -size 1280x800 xc:'#400020' "$OUT/cover.png"
 xdotool mousemove 640 799; sleep 0.6
 check "5a revealed under the pointer" 66 66
+span_before=$(span_of)
 display -title SLOPOS-QA-COVER "$OUT/cover.png" >/dev/null 2>&1 &
 COVER=$!
 sleep 1.5
 wmctrl -r SLOPOS-QA-COVER -b add,fullscreen; sleep 0.6
 xdotool mousemove 640 700; sleep 1.2
 check "5b a fullscreen window covers the revealed Dock" 4 0
+# The cover's window adds a tile, so the Dock moves; the strut must have moved with it.
+if [ "$(span_of)" != "$span_before" ]; then echo "PASS 5b the strut moved with the Dock: $span_before -> $(span_of)"; else echo "FAIL 5b the Dock did not move under the cover (span $span_before)"; FAILED=1; fi
 kill $COVER 2>/dev/null; wait $COVER 2>/dev/null; sleep 0.8
 xdotool mousemove 640 400; sleep 1.2
 xdotool mousemove 640 799; sleep 0.4; xdotool click 3; sleep 0.6
@@ -87,6 +92,18 @@ else
 fi
 xdotool mousemove 640 400; sleep 1.5
 check "7 auto-hide off stays shown" 66 66
+# Shown, so the strut is live: a window that adds a tile makes the Dock widen and move,
+# and the strut must follow the new root-relative span, then return when it closes.
+span_shown=$(span_of)
+convert -size 300x200 xc:'#303030' "$OUT/tile.png"
+display -title SLOPOS-QA-TILE "$OUT/tile.png" >/dev/null 2>&1 &
+TILE=$!
+sleep 1.5
+check "8 a window adds a tile while the Dock is shown" 66 66
+if [ "$(span_of)" != "$span_shown" ]; then echo "PASS 8 the strut moved with the Dock: $span_shown -> $(span_of)"; else echo "FAIL 8 the Dock did not move (span $span_shown)"; FAILED=1; fi
+kill $TILE 2>/dev/null; wait $TILE 2>/dev/null; sleep 1.5
+check "9 the tile closed; the Dock is back where it was" 66 66
+if [ "$(span_of)" = "$span_shown" ]; then echo "PASS 9 the span returned to $span_shown"; else echo "FAIL 9 span $(span_of), expected $span_shown"; FAILED=1; fi
 import -window root "$OUT/dock-autohide-off.png"
 kill $DOCK $OPENBOX $XVFB 2>/dev/null
 sleep 1

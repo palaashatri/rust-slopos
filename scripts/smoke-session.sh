@@ -176,4 +176,18 @@ if grep -Fq "include \"$HOME/.gtkrc-2.0\"" "$HOME/.gtkrc-2.0"; then
 fi
 echo "smoke: slopos-appearance kept the legacy GTK 2 settings"
 
+# Display-only checks of the Dock, the Volume Mixer and the top bar's popover (AGENTS.md
+# rule 6). Each starts its own display and exits nonzero on a mismatch. They run the
+# binaries in target/debug; 1044 is the sound item's x on the 1280-wide screen.
+qa_log() { echo "$OUT/qa-$1.log"; }
+bash "$ROOT/scripts/qa/dock-autohide.sh" >"$(qa_log dock-autohide)" 2>&1 \
+  || { tail -n 40 "$(qa_log dock-autohide)" >&2; fail "the Dock auto-hide check failed"; }
+echo "smoke: the Dock follows auto-hide, the strut and a window's tile"
+bash "$ROOT/scripts/qa/volume-mixer.sh" >"$(qa_log volume-mixer)" 2>&1 \
+  || { tail -n 40 "$(qa_log volume-mixer)" >&2; fail "the Volume Mixer app check failed"; }
+echo "smoke: the Volume Mixer app reaches the sound server and retries"
+bash "$ROOT/scripts/qa/topbar-mixer.sh" 1044 >"$(qa_log topbar-mixer)" 2>&1 \
+  || { tail -n 40 "$(qa_log topbar-mixer)" >&2; fail "the top bar's mixer popover check failed"; }
+echo "smoke: the top bar's mixer popover opens, closes and reconnects"
+
 echo "SMOKE PASS (screenshots in $OUT)"
