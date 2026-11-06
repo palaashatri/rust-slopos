@@ -91,7 +91,8 @@ impl App for VolumeMixer {
             nodes,
             tree: Some(TreeInfo::new(NodeId(ROOT_NODE))),
             tree_id: TreeId::ROOT,
-            focus: NodeId(ROOT_NODE),
+            // The focused control, or the window when none has focus.
+            focus: NodeId(self.view.focused_node().unwrap_or(ROOT_NODE)),
         })
     }
 }

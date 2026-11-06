@@ -50,12 +50,22 @@ import -window "$WID" "$OUT/mixer-2-initial.png"
 # The application's fader (third channel): 0..150 from y 44 to y 194; y 119 is about 75.
 xdotool mousemove $((AX + 220)) $((AY + 119)); sleep 0.2
 xdotool mousedown 1; sleep 0.2; xdotool mouseup 1; sleep 1.5
-echo "3 application volume reached the server: $(cat "$STATE/stream_volume")% (expect about 74)"
-import -window "$WID" "$OUT/mixer-3-dragged.png"
+FAILED=0
+volume=$(cat "$STATE/stream_volume")
+if [ "$volume" -ge 70 ] && [ "$volume" -le 80 ]; then
+  echo "PASS 3 application volume reached the server: $volume% (expected 70-80)"
+else
+  echo "FAIL 3 application volume: $volume% (expected 70-80)"; FAILED=1
+fi
 # The speakers' Mute box (first channel).
 xdotool mousemove $((AX + 30)) $((AY + 209)); sleep 0.2
 xdotool mousedown 1; sleep 0.2; xdotool mouseup 1; sleep 1.5
-echo "4 output mute reached the server: $(cat "$STATE/output_mute") (expect 1)"
 import -window "$WID" "$OUT/mixer-4-muted.png"
+if [ "$(cat "$STATE/output_mute")" = 1 ]; then
+  echo "PASS 4 output mute reached the server"
+else
+  echo "FAIL 4 output mute: $(cat "$STATE/output_mute") (expected 1)"; FAILED=1
+fi
 kill $MIX 2>/dev/null; sleep 1
 kill $OPENBOX $XVFB 2>/dev/null
+exit $FAILED

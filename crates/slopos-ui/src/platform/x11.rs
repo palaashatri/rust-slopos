@@ -534,8 +534,12 @@ pub fn run<A: App>(
                 _ => None,
             };
             if let XEvent::LeaveNotify(leave) = &event {
+                // A leave inside the window is only a crossing caused by a move
+                // or resize when the pointer is still over the window; another
+                // window covering it is a real leave.
                 if leave.event == window
                     && crossing_is_inside(device_size, leave.event_x, leave.event_y)
+                    && pointer_over(&conn, screen.root, window)?
                 {
                     continue;
                 }
@@ -582,6 +586,8 @@ pub fn run<A: App>(
                 }
                 XEvent::ConfigureNotify(configure) if configure.window == window => {
                     device_size = (i32::from(configure.width), i32::from(configure.height));
+                    // The window's span as the window manager placed it.
+                    dock_span = (i32::from(configure.x), u32::from(configure.width));
                     let size = (
                         (u32::from(configure.width) / factor).max(1),
                         (u32::from(configure.height) / factor).max(1),
@@ -1047,6 +1053,12 @@ fn set_fixed_size(
     });
     hints.set_normal_hints(conn, window)?;
     Ok(())
+}
+
+/// Whether the pointer is over `window`: the server's answer for the root's
+/// child under the pointer (the top window there).
+fn pointer_over(conn: &RustConnection, root: u32, window: u32) -> Result<bool, PlatformError> {
+    Ok(conn.query_pointer(root)?.reply()?.child == window)
 }
 
 /// Whether a crossing's window-relative position is still inside the window.

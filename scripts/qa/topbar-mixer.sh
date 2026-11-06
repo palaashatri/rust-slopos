@@ -32,13 +32,22 @@ RUST_LOG=info "$BIN/slopos-topbar" >"$OUT/topbar.log" 2>&1 &
 BAR=$!
 sleep 3
 import -window root "$OUT/topbar-0-bar.png"
-if [ -n "$SOUND_X" ]; then
-  xdotool mousemove "$SOUND_X" 12; sleep 0.2; xdotool click 1; sleep 1.2
-  import -window root "$OUT/topbar-1-popover.png"
-  echo "popover: screenshot topbar-1-popover.png (a left click on the sound item)"
-  xdotool mousemove 600 500; sleep 0.2; xdotool click 1; sleep 0.8
-  import -window root "$OUT/topbar-2-closed.png"
-  echo "outside press: screenshot topbar-2-closed.png"
+if [ -z "$SOUND_X" ]; then
+  echo "usage: topbar-mixer.sh SOUND_X   (the sound item's x, from topbar-0-bar.png)" >&2
+  kill $BAR $OPENBOX $XVFB 2>/dev/null
+  exit 2
 fi
+xdotool mousemove "$SOUND_X" 12; sleep 0.2; xdotool click 1; sleep 1.2
+import -window root "$OUT/topbar-1-popover.png"
+xdotool mousemove 600 500; sleep 0.2; xdotool click 1; sleep 0.8
+import -window root "$OUT/topbar-2-closed.png"
 kill $BAR $OPENBOX $XVFB 2>/dev/null
 sleep 1
+# Pixel checks: inside the popover's body (#DDDDDD) when open, black once closed.
+FAILED=0
+pixel() { convert "$1" -crop 1x1+900+150 txt:- | tail -1 | grep -o '#[0-9A-F]*' | head -1; }
+opened=$(pixel "$OUT/topbar-1-popover.png")
+closed=$(pixel "$OUT/topbar-2-closed.png")
+if [ "$opened" = "#DDDDDD" ]; then echo "PASS popover open: pixel $opened"; else echo "FAIL popover open: pixel $opened (expected #DDDDDD)"; FAILED=1; fi
+if [ "$closed" = "#000000" ]; then echo "PASS popover closed by a press outside: pixel $closed"; else echo "FAIL popover closed: pixel $closed (expected #000000)"; FAILED=1; fi
+exit $FAILED

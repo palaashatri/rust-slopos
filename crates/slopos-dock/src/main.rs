@@ -326,6 +326,11 @@ impl App for Dock {
                 // A press on the reveal strip shows the Dock first.
                 let effect = self.auto.pointer_moved();
                 self.apply(effect, control);
+                if self.menu.is_open() {
+                    // A press on the Dock dismisses its menu, as one anywhere else does.
+                    self.close_menu(control);
+                    return;
+                }
                 if *button == PointerButton::Secondary {
                     self.open_menu(*x, control);
                     return;
@@ -572,6 +577,10 @@ fn main() {
             eprintln!("slopos-dock: could not save the preference: {error}");
             std::process::exit(1);
         }
+        println!(
+            "slopos-dock: auto-hide {}; a running Dock applies it when it next starts",
+            if on { "on" } else { "off" }
+        );
         return;
     }
     let screen = match platform::x11::screen_size() {
@@ -714,6 +723,23 @@ mod tests {
             .nodes
             .iter()
             .any(|(_, node)| node.label() == Some(AUTO_HIDE)));
+    }
+
+    #[test]
+    fn a_press_on_the_dock_dismisses_its_open_menu() {
+        let mut dock = dock(vec![app("a")], Vec::new());
+        let mut control = Control::default();
+        dock.open_menu(40, &mut control);
+        assert!(dock.menu.is_open());
+        dock.event(
+            &Event::PointerPressed {
+                x: 40,
+                y: 40,
+                button: PointerButton::Primary,
+            },
+            &mut control,
+        );
+        assert!(!dock.menu.is_open());
     }
 
     #[test]

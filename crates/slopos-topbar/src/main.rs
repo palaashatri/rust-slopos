@@ -953,6 +953,8 @@ impl TopBar {
     }
 
     fn show_dialog(&mut self, mut dialog: Dialog, pending: Pending, control: &mut Control) {
+        // A dialog takes the grab, so the mixer closes first.
+        self.close_mixer(control);
         let (width, height) = dialog.layout_standalone(420);
         control.open_popup(
             POPUP_DIALOG,
@@ -968,6 +970,8 @@ impl TopBar {
     }
 
     fn open_launcher(&mut self, control: &mut Control) {
+        // The launcher takes the grab, so the mixer closes first.
+        self.close_mixer(control);
         if self.launcher.is_some() {
             return;
         }
@@ -1081,13 +1085,14 @@ impl TopBar {
                         });
                         self.power = state;
                     }
-                    StatusUpdate::Failed(error) => {
-                        log::warn!("status change failed: {error}");
+                    StatusUpdate::AudioFailed(error) => {
+                        log::warn!("sound change failed: {error}");
                         if let Some((view, _)) = &mut self.mixer {
                             view.set_failure(&format!("Could not change the sound: {error}"));
                             control.request_redraw();
                         }
                     }
+                    StatusUpdate::Failed(error) => log::warn!("status change failed: {error}"),
                 }
             }
         }
@@ -1554,7 +1559,9 @@ impl App for TopBar {
         let mut focus = None;
         if let Some((view, _)) = &self.mixer {
             nodes.extend(view.accessibility_nodes());
-            focus = Some(view.focus_node());
+            if let Some(node) = view.focused_node() {
+                focus = Some(node);
+            }
         }
         if self.open.is_some() {
             nodes.extend(self.menu.accessibility_nodes());
