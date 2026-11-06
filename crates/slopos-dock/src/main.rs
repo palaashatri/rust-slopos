@@ -60,6 +60,9 @@ const fn rgb(red: u8, green: u8, blue: u8) -> Color {
 const ROOT_NODE: u64 = 1;
 /// The right-click menu's popup.
 const MENU_POPUP: u64 = 1;
+/// The menu's accessibility id. Its items are derived from it, so it must not
+/// be the root (1) or a tile (100 and up).
+const MENU_NODE: u64 = 2;
 const FIRST_TILE_NODE: u64 = 100;
 
 struct Dock {
@@ -98,7 +101,7 @@ impl Dock {
             screen,
             font: Font::system(18.0).bold(),
             auto: AutoHide::new(autohide),
-            menu: Menu::new(MENU_POPUP, Vec::new()),
+            menu: Menu::new(MENU_NODE, Vec::new()),
         };
         dock.rebuild();
         dock
@@ -499,13 +502,22 @@ impl App for Dock {
             nodes.push((id, node));
             children.push(id);
         }
+        let mut focus = NodeId(ROOT_NODE);
+        if self.menu.is_open() {
+            // The right-click menu (its auto-hide item) is part of the Dock.
+            children.push(NodeId(MENU_NODE));
+            for (id, node) in self.menu.accessibility_nodes() {
+                nodes.push((NodeId(id), node));
+            }
+            focus = NodeId(self.menu.focus_node());
+        }
         root.set_children(children);
         nodes.insert(0, (NodeId(ROOT_NODE), root));
         Some(TreeUpdate {
             nodes,
             tree: Some(TreeInfo::new(NodeId(ROOT_NODE))),
             tree_id: TreeId::ROOT,
-            focus: NodeId(ROOT_NODE),
+            focus,
         })
     }
 }
@@ -635,7 +647,7 @@ mod tests {
             screen: (1280, 800),
             font: Font::system(18.0).bold(),
             auto: AutoHide::new(false),
-            menu: Menu::new(MENU_POPUP, Vec::new()),
+            menu: Menu::new(MENU_NODE, Vec::new()),
         };
         dock.rebuild();
         dock
@@ -677,6 +689,31 @@ mod tests {
         assert!(!dock.auto.hidden());
         assert_eq!(dock.current_geometry(), dock.geometry());
         assert_eq!(dock.strut(), HEIGHT);
+    }
+
+    #[test]
+    fn an_open_right_click_menu_with_its_auto_hide_item_is_in_the_tree() {
+        const AUTO_HIDE: &str = "Automatically Hide and Show the Dock";
+        let mut dock = dock(vec![app("a")], Vec::new());
+        let mut control = Control::default();
+        let closed = dock.accessibility().expect("the Dock has a tree");
+        assert!(!closed
+            .nodes
+            .iter()
+            .any(|(_, node)| node.label() == Some(AUTO_HIDE)));
+        dock.open_menu(40, &mut control);
+        let open = dock.accessibility().expect("the Dock has a tree");
+        assert!(open
+            .nodes
+            .iter()
+            .any(|(_, node)| node.label() == Some(AUTO_HIDE)));
+        assert_eq!(open.focus, accesskit::NodeId(dock.menu.focus_node()));
+        dock.close_menu(&mut control);
+        let again = dock.accessibility().expect("the Dock has a tree");
+        assert!(!again
+            .nodes
+            .iter()
+            .any(|(_, node)| node.label() == Some(AUTO_HIDE)));
     }
 
     #[test]

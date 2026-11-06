@@ -4,12 +4,14 @@
 # 2. With scripts/qa/fake-pactl (a PulseAudio-compatible fixture over state files):
 #    a drag on the application's fader and a click on the speakers' Mute box must
 #    reach the fixture. Screenshots are written next to the logs.
+# SCREEN_GEOMETRY (default 1280x800x24) sets the display, e.g. 800x600x24 for a narrow one.
 # Needs Xvfb, openbox, xdotool and ImageMagick's import. Build the workspace first.
 set -u
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT="$ROOT/.work/qa-runtime/volume-mixer"
 BIN="$ROOT/target/debug"
 DISPLAY_NUMBER=:63
+SCREEN="${SCREEN_GEOMETRY:-1280x800x24}"
 rm -rf "$OUT" && mkdir -p "$OUT/home/.config" "$OUT/fake-pactl/state"
 cp "$ROOT/scripts/qa/fake-pactl/pactl" "$OUT/fake-pactl/pactl"
 STATE="$OUT/fake-pactl/state"
@@ -19,7 +21,7 @@ printf sink.one > "$STATE/default_output"; printf source.one > "$STATE/default_i
 printf 100 > "$STATE/stream_volume"; printf no > "$STATE/stream_mute"
 export HOME="$OUT/home" XDG_CONFIG_HOME="$OUT/home/.config" XDG_DATA_HOME="$OUT/home/.local/share"
 export DISPLAY="$DISPLAY_NUMBER"
-Xvfb "$DISPLAY_NUMBER" -screen 0 1280x800x24 -noreset >"$OUT/xvfb.log" 2>&1 &
+Xvfb "$DISPLAY_NUMBER" -screen 0 "$SCREEN" -noreset >"$OUT/xvfb.log" 2>&1 &
 XVFB=$!
 sleep 1
 openbox >"$OUT/openbox.log" 2>&1 &

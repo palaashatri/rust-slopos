@@ -10,7 +10,7 @@
 use accesskit::{Node, Role};
 use slopos_services::audio::AudioSnapshot;
 use slopos_ui::controls::range::{Checkbox, Slider, ToggleOutcome, ValueOutcome};
-use slopos_ui::event::{Event, Key};
+use slopos_ui::event::{AccessibilityRequest, Event, Key};
 use slopos_ui::foundation::geometry::Rect;
 use slopos_ui::render::{RasterSurface, RenderError};
 use slopos_ui::text::{measure, Font};
@@ -29,6 +29,9 @@ const GAP: i32 = 6;
 const CHECK_HEIGHT: i32 = 18;
 const NAME_HEIGHT: i32 = 16;
 const MIN_WIDTH: u32 = 280;
+/// The narrowest a channel may be drawn when the window is narrower than
+/// all of them; below this, fewer channels are shown.
+const MIN_STRIP_WIDTH: u32 = 56;
 /// Faders run 0..=150 percent, like the sound server's own range.
 const MAX_PERCENT: f64 = 150.0;
 
@@ -77,9 +80,7 @@ struct Strip {
 }
 
 impl Strip {
-    fn new(index: usize, channel: Channel) -> Self {
-        let x = MARGIN + index as i32 * STRIP_WIDTH as i32;
-        let fader_top = MARGIN + STATUS_HEIGHT + PERCENT_HEIGHT;
+    fn new(index: usize, channel: Channel, width: u32) -> Self {
         let mut fader = Slider::new(
             fader_node(index),
             &format!("{} volume", channel.name),
@@ -88,34 +89,51 @@ impl Strip {
             1.0,
         )
         .vertical();
-        fader.bounds = Rect {
-            x: x + (STRIP_WIDTH - FADER_WIDTH) as i32 / 2,
+        fader.set_value(f64::from(channel.percent));
+        let mute = Checkbox::new(mute_node(index), "Mute", channel.muted);
+        let mut strip = Self {
+            channel,
+            fader,
+            mute,
+            percent_at: Rect::default(),
+            name_at: Rect::default(),
+        };
+        strip.layout(index, width);
+        strip
+    }
+
+    /// Place this channel's controls in column `index`, `width` pixels wide.
+    fn layout(&mut self, index: usize, width: u32) {
+        let x = MARGIN + index as i32 * width as i32;
+        let fader_top = MARGIN + STATUS_HEIGHT + PERCENT_HEIGHT;
+        self.fader.id = fader_node(index);
+        self.fader.bounds = Rect {
+            x: x + (width - FADER_WIDTH) as i32 / 2,
             y: fader_top,
             width: FADER_WIDTH,
             height: FADER_HEIGHT as u32,
         };
-        fader.set_value(f64::from(channel.percent));
         let mute_top = fader_top + FADER_HEIGHT + GAP;
-        let mut mute = Checkbox::new(mute_node(index), "Mute", channel.muted).at(x + 6, mute_top);
-        mute.bounds.width = STRIP_WIDTH - 12;
+        self.mute.id = mute_node(index);
+        self.mute.bounds = Rect {
+            x: x + 6,
+            y: mute_top,
+            width: width - 12,
+            height: CHECK_HEIGHT as u32,
+        };
         let name_top = mute_top + CHECK_HEIGHT + GAP;
-        Self {
-            percent_at: Rect {
-                x,
-                y: MARGIN + STATUS_HEIGHT,
-                width: STRIP_WIDTH,
-                height: PERCENT_HEIGHT as u32,
-            },
-            name_at: Rect {
-                x,
-                y: name_top,
-                width: STRIP_WIDTH,
-                height: NAME_HEIGHT as u32,
-            },
-            channel,
-            fader,
-            mute,
-        }
+        self.percent_at = Rect {
+            x,
+            y: MARGIN + STATUS_HEIGHT,
+            width,
+            height: PERCENT_HEIGHT as u32,
+        };
+        self.name_at = Rect {
+            x,
+            y: name_top,
+            width,
+            height: NAME_HEIGHT as u32,
+        };
     }
 }
 
@@ -123,7 +141,13 @@ impl Strip {
 #[derive(Debug)]
 pub struct MixerView {
     strips: Vec<Strip>,
+    /// Every channel the provider reported; `strips` shows as many as fit.
+    channels: Vec<Channel>,
+    /// What the provider said, before any "not shown" note.
+    base_status: String,
     status: String,
+    /// The window's width, if the host fixed one.
+    width_limit: Option<u32>,
     font: Font,
     /// Position in the Tab order: `2 * channel` is the fader, `2 * channel + 1`
     /// the mute box.
@@ -141,7 +165,10 @@ impl MixerView {
     pub fn new() -> Self {
         Self {
             strips: Vec::new(),
+            channels: Vec::new(),
+            base_status: "Waiting for the sound server…".to_owned(),
             status: "Waiting for the sound server…".to_owned(),
+            width_limit: None,
             font: Font::system(12.0),
             focus: None,
         }
@@ -153,14 +180,28 @@ impl MixerView {
         match state {
             Ok(snapshot) => {
                 let channels: Channels = model::channels(snapshot);
-                self.status = model::status_line(&channels);
-                self.rebuild(channels.channels);
+                self.base_status = model::status_line(&channels);
+                self.channels = channels.channels;
             }
             Err(error) => {
-                self.status = format!("Sound unavailable: {error}");
-                self.rebuild(Vec::new());
+                self.base_status = format!("Sound unavailable: {error}");
+                self.channels = Vec::new();
             }
         }
+        self.rebuild();
+    }
+
+    /// Fit the channels into a window `width` pixels wide. Channels narrow
+    /// before any is dropped; when even the narrowest will not fit, the rest
+    /// are left out and the status line says so.
+    pub fn fit_width(&mut self, width: u32) {
+        self.width_limit = Some(width);
+        self.rebuild();
+    }
+
+    /// Whether accessibility request target `id` is one of this view's nodes.
+    pub fn owns_node(&self, id: u64) -> bool {
+        self.accessibility_children().contains(&id)
     }
 
     /// A command failed: say so, and keep the channels as they were.
@@ -181,10 +222,9 @@ impl MixerView {
     /// The size this view wants: as wide as its channels need.
     pub fn size(&self) -> (u32, u32) {
         let strips = self.strips.len().max(1) as u32;
-        (
-            (2 * MARGIN as u32 + strips * STRIP_WIDTH).max(MIN_WIDTH),
-            HEIGHT,
-        )
+        let natural = (2 * MARGIN as u32 + strips * STRIP_WIDTH).max(MIN_WIDTH);
+        let width = self.width_limit.map_or(natural, |limit| natural.min(limit));
+        (width, HEIGHT)
     }
 
     /// The fixed window size for the app: room for every channel it can show.
@@ -193,24 +233,70 @@ impl MixerView {
         (2 * MARGIN as u32 + strips * STRIP_WIDTH, HEIGHT)
     }
 
-    fn rebuild(&mut self, channels: Vec<Channel>) {
+    /// How many channels fit at the fitted width.
+    fn capacity(&self) -> usize {
+        match self.width_limit {
+            None => 2 + MAX_APPLICATIONS,
+            Some(limit) => {
+                let room = limit.saturating_sub(2 * MARGIN as u32);
+                (room / MIN_STRIP_WIDTH).max(1) as usize
+            }
+        }
+    }
+
+    /// The width of each of `shown` channels.
+    fn strip_width(&self, shown: usize) -> u32 {
+        match self.width_limit {
+            None => STRIP_WIDTH,
+            Some(limit) => {
+                let room = limit.saturating_sub(2 * MARGIN as u32);
+                (room / shown.max(1) as u32).clamp(MIN_STRIP_WIDTH, STRIP_WIDTH)
+            }
+        }
+    }
+
+    /// The flat focus position of the control with accessibility id `id`,
+    /// if this view has one.
+    fn position_of(&self, id: u64) -> Option<usize> {
+        self.strips.iter().enumerate().find_map(|(index, strip)| {
+            if strip.fader.id == id {
+                Some(2 * index)
+            } else if strip.mute.id == id {
+                Some(2 * index + 1)
+            } else {
+                None
+            }
+        })
+    }
+
+    fn rebuild(&mut self) {
+        let shown = self.channels.len().min(self.capacity());
+        let hidden = self.channels.len() - shown;
+        let width = self.strip_width(shown);
         let previous = std::mem::take(&mut self.strips);
         let focused = self.focus.and_then(|position| {
             previous
                 .get(position / 2)
                 .map(|strip| (strip.channel.target.clone(), position % 2))
         });
-        self.strips = channels
-            .into_iter()
+        self.strips = self.channels[..shown]
+            .iter()
+            .cloned()
             .enumerate()
             .map(|(index, channel)| {
-                let mut strip = Strip::new(index, channel);
+                let mut strip = Strip::new(index, channel, width);
                 if let Some(old) = previous
                     .iter()
                     .find(|old| old.channel.target == strip.channel.target)
                 {
+                    // A drag in progress must carry on: keep the slider that is
+                    // being dragged, moved to its new place.
                     if old.fader.dragging() {
-                        strip.fader.set_value(old.fader.value());
+                        let mut fader = old.fader.clone();
+                        fader.id = strip.fader.id;
+                        fader.bounds = strip.fader.bounds;
+                        fader.label = strip.fader.label.clone();
+                        strip.fader = fader;
                     }
                 }
                 strip
@@ -222,6 +308,14 @@ impl MixerView {
                 .position(|strip| strip.channel.target == target)
                 .map(|index| 2 * index + part)
         });
+        self.status = if hidden > 0 {
+            format!(
+                "{} · {hidden} not shown here; see Control Panels",
+                self.base_status
+            )
+        } else {
+            self.base_status.clone()
+        };
         self.sync_focus();
     }
 
@@ -251,6 +345,14 @@ impl MixerView {
     /// actions. Tab and Shift+Tab move through the controls in order.
     pub fn handle(&mut self, event: &Event) -> Outcome {
         let mut outcome = Outcome::default();
+        if let Event::Accessibility(AccessibilityRequest::Focus(id)) = event {
+            if let Some(position) = self.position_of(*id) {
+                self.focus = Some(position);
+                self.sync_focus();
+                outcome.redraw = true;
+            }
+            return outcome;
+        }
         if let Event::KeyPressed {
             key: Key::Tab,
             modifiers,
@@ -316,7 +418,7 @@ impl MixerView {
         )?;
         for (index, strip) in self.strips.iter().enumerate() {
             if index > 0 {
-                let x = MARGIN + index as i32 * STRIP_WIDTH as i32 - 4;
+                let x = strip.percent_at.x - 4;
                 surface.fill_rect(
                     Rect {
                         x,
@@ -335,7 +437,7 @@ impl MixerView {
             centred(surface, &percent, strip.percent_at, &self.font, colors.ink)?;
             strip.fader.paint(surface)?;
             strip.mute.paint(surface)?;
-            let name = fit(&strip.channel.name, &self.font, STRIP_WIDTH - 8);
+            let name = fit(&strip.channel.name, &self.font, strip.name_at.width - 8);
             centred(surface, &name, strip.name_at, &self.font, colors.ink)?;
         }
         Ok(())
@@ -522,19 +624,78 @@ mod tests {
     }
 
     #[test]
-    fn a_fader_drag_survives_a_snapshot_until_it_is_released() {
+    fn a_fader_drag_survives_a_snapshot_and_its_release_still_sends_a_command() {
         let mut view = MixerView::new();
         view.set_state(&Ok(snapshot(vec![stream(7, "Music", 40)])));
         let bounds = fader_bounds(&view, 1);
         let x = bounds.x + bounds.width as i32 / 2;
-        view.handle(&click_at(x, bounds.y + 6));
-        let dragged = view.strips[1].fader.value();
-        // The provider reports the old volume while the user is still dragging.
-        view.set_state(&Ok(snapshot(vec![stream(7, "Music", 10)])));
-        assert!((view.strips[1].fader.value() - dragged).abs() < 1.0);
-        view.handle(&release_at(x, bounds.y + 6));
+        let top = bounds.y + 6;
+        let bottom = bounds.y + bounds.height as i32 - 6;
+        view.handle(&click_at(x, top));
+        view.handle(&Event::PointerMoved { x, y: bottom });
+        // The provider reports the old volume while the user is still dragging:
+        // the fader keeps where the user has taken it.
+        view.set_state(&Ok(snapshot(vec![stream(7, "Music", 40)])));
+        assert_eq!(view.strips[1].fader.value(), 0.0);
+        let released = view.handle(&release_at(x, bottom));
+        assert_eq!(
+            released.command,
+            Some(Command::SetVolume {
+                target: Target::Stream(7),
+                percent: 0
+            })
+        );
+        // Once the drag is over, the provider's values are shown again.
         view.set_state(&Ok(snapshot(vec![stream(7, "Music", 10)])));
         assert_eq!(view.strips[1].fader.value(), 10.0);
+    }
+
+    #[test]
+    fn accessibility_focus_moves_to_the_named_control_and_its_keys_work() {
+        let mut view = MixerView::new();
+        view.set_state(&Ok(snapshot(vec![stream(7, "Music", 40)])));
+        assert!(view.owns_node(mute_node(1)));
+        assert!(!view.owns_node(12_345));
+        let focused = view.handle(&Event::Accessibility(AccessibilityRequest::Focus(
+            mute_node(1),
+        )));
+        assert!(focused.redraw);
+        assert!(view.strips[1].mute.focused);
+        assert!(!view.strips[0].mute.focused);
+        let toggled = view.handle(&key(Key::Space));
+        assert_eq!(
+            toggled.command,
+            Some(Command::SetMuted {
+                target: Target::Stream(7),
+                muted: true
+            })
+        );
+    }
+
+    #[test]
+    fn a_narrow_window_fits_its_channels_and_says_what_it_leaves_out() {
+        let mut view = MixerView::new();
+        let streams = (0..MAX_APPLICATIONS as u32)
+            .map(|i| stream(10 + i, &format!("App {i}"), 10))
+            .collect();
+        view.set_state(&Ok(snapshot(streams)));
+        // 400 px leaves room for six columns of at least 56 px after the margins.
+        view.fit_width(400);
+        assert_eq!(view.strips.len(), 6);
+        assert!(view
+            .status()
+            .ends_with("3 not shown here; see Control Panels"));
+        assert!(view.size().0 <= 400);
+        for strip in &view.strips {
+            assert!(strip.percent_at.width >= MIN_STRIP_WIDTH);
+            assert!(strip.percent_at.x >= 0);
+            assert!(strip.percent_at.x + strip.percent_at.width as i32 <= 400 - MARGIN);
+        }
+        // A wide window shows them all again, at full column width.
+        view.fit_width(MixerView::full_size().0);
+        assert_eq!(view.strips.len(), 1 + MAX_APPLICATIONS);
+        assert_eq!(view.strips[1].percent_at.width, STRIP_WIDTH);
+        assert_eq!(view.status(), "8 playing");
     }
 
     #[test]
