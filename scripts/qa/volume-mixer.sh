@@ -11,6 +11,12 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT="$ROOT/.work/qa-runtime/volume-mixer"
 BIN="$ROOT/target/debug"
 DISPLAY_NUMBER=:63
+XVFB= OPENBOX= MIX=
+# However the script ends, including a signal, reap what it started so the
+# display number is free for the next run.
+cleanup() { kill $MIX $OPENBOX $XVFB 2>/dev/null; wait $MIX $OPENBOX $XVFB 2>/dev/null; }
+trap cleanup EXIT
+trap 'exit 130' INT TERM
 SCREEN="${SCREEN_GEOMETRY:-1280x800x24}"
 rm -rf "$OUT" && mkdir -p "$OUT/home/.config" "$OUT/fake-pactl/state"
 cp "$ROOT/scripts/qa/fake-pactl/pactl" "$OUT/fake-pactl/pactl"
