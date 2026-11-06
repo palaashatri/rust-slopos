@@ -103,7 +103,7 @@ jobs:
             'usr/share/applications/slopos-browser.desktop'
             'usr/share/applications/slopos-calculator.desktop'
             'usr/share/applications/slopos-settings.desktop'
-            'usr/share/applications/slopos-catalogue.desktop'
+            'usr/share/applications/slopos-software.desktop'
             'usr/share/slopos-i/openbox/rc.xml'
             'usr/share/slopos-i/openbox/rc-graphite.xml'
             'usr/share/slopos-i/mimeapps.list'

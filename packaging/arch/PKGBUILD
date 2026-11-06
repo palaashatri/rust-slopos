@@ -31,7 +31,7 @@ package() {
   cd "$srcdir/rust-slopos"
   export CARGO_TARGET_DIR="$srcdir/.cargo-target"
 
-  for binary in slopos-session slopos-shell slopos-dock slopos-catalogue slopos-settings slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-volume-mixer; do
+  for binary in slopos-session slopos-shell slopos-dock slopos-catalogue slopos-settings slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-volume-mixer slopos-software; do
     install -Dm755 "$CARGO_TARGET_DIR/release/$binary" "$pkgdir/usr/bin/$binary"
   done
   install -Dm755 scripts/start-slopos-i "$pkgdir/usr/bin/start-slopos-i"
@@ -48,7 +48,7 @@ package() {
   install -Dm644 packaging/slopos-media.desktop "$pkgdir/usr/share/applications/slopos-media.desktop"
   install -Dm644 packaging/slopos-control-panels.desktop "$pkgdir/usr/share/applications/slopos-control-panels.desktop"
   install -Dm644 packaging/slopos-settings.desktop "$pkgdir/usr/share/applications/slopos-settings.desktop"
-  install -Dm644 packaging/slopos-catalogue.desktop "$pkgdir/usr/share/applications/slopos-catalogue.desktop"
+  install -Dm644 packaging/slopos-software.desktop "$pkgdir/usr/share/applications/slopos-software.desktop"
 
   install -Dm644 packaging/slopos-i.desktop "$pkgdir/usr/share/xsessions/slopos-i.desktop"
   install -Dm644 assets/config/openbox/rc.xml "$pkgdir/usr/share/slopos-i/openbox/rc.xml"
