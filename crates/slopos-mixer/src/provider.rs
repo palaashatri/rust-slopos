@@ -92,10 +92,11 @@ async fn run(
                     Err(error) => {
                         send(Update::Failed(error.to_string()));
                         // Show the server's state again, so the controls do not keep
-                        // the value that just failed.
-                        if let Ok(snapshot) = client.snapshot().await {
-                            send(Update::State(Ok(snapshot)));
-                        }
+                        // the value that just failed. If it cannot be read, the view
+                        // says the sound is unavailable instead.
+                        send(Update::State(
+                            client.snapshot().await.map_err(|e| e.to_string()),
+                        ));
                     }
                 },
                 None => break,
