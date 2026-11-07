@@ -148,6 +148,14 @@ file_permissions["/usr/local/bin/install-browser-theme.sh"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-appearance"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-wallpaper"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-recovery"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-dock"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-calculator"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-volume-mixer"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-control-panels"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-files"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-image-viewer"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-media"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-software"]="0:0:755"
 EOF
 
 # Materialize the live account during image construction as well as at boot.
