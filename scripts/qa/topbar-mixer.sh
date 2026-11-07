@@ -67,7 +67,8 @@ opened=$(pixel "$OUT/topbar-1-popover.png")
 closed=$(pixel "$OUT/topbar-2-closed.png")
 if [ "$opened" = "#DDDDDD" ]; then echo "PASS popover open: pixel $opened"; else echo "FAIL popover open: pixel $opened (expected #DDDDDD)"; FAILED=1; fi
 if [ "$closed" = "#000000" ]; then echo "PASS popover closed by a press outside: pixel $closed"; else echo "FAIL popover closed: pixel $closed (expected #000000)"; FAILED=1; fi
-# The reconnect must bring up the whole connection: the snapshot (info) and the event
-# stream (subscribe), which the watcher needs to keep the controls live.
-if grep -qx subscribe "$OUT/fake-pactl/state/calls" 2>/dev/null; then echo "PASS the mixer's opening reconnected to the sound server with its event stream"; else echo "FAIL the mixer's opening did not reconnect with its event stream"; FAILED=1; fi
+# The reconnect must bring up the whole connection: the event stream (subscribe), which the
+# watcher needs to keep the controls live, and a snapshot the bar could read. The bar logs
+# the second only when that snapshot succeeds; a failed one logs a warning instead.
+if grep -qx subscribe "$OUT/fake-pactl/state/calls" 2>/dev/null && grep -q 'reconnected to the sound server$' "$OUT/topbar.log" 2>/dev/null; then echo "PASS the mixer's opening reconnected to the sound server with its event stream"; else echo "FAIL the mixer's opening did not reconnect with its event stream and a readable snapshot"; FAILED=1; fi
 exit $FAILED

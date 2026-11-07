@@ -22,6 +22,12 @@ pub fn needs_audio_reconnect(connected: bool, last_answer_failed: bool) -> bool 
     !connected || last_answer_failed
 }
 
+/// Whether the sound server is unreachable after this answer. A snapshot that
+/// follows a write is an answer too, so a good one clears an earlier failure.
+pub fn audio_failed_after<T>(answer: &State<T>) -> bool {
+    answer.is_err()
+}
+
 #[derive(Debug, Clone)]
 pub enum Update {
     Audio(State<AudioSnapshot>),
@@ -167,12 +173,17 @@ async fn run(
                             match AudioClient::connect().await {
                                 Ok(client) => {
                                     let snapshot = client.snapshot().await.map_err(|e| e.to_string());
-                                    audio_failed = snapshot.is_err();
+                                    match &snapshot {
+                                        Ok(_) => log::info!("reconnected to the sound server"),
+                                        Err(error) => log::warn!("reconnected to the sound server, but could not read it: {error}"),
+                                    }
+                                    audio_failed = audio_failed_after(&snapshot);
                                     audio_events = Some(client.watch());
                                     audio = Ok(client);
                                     send(Update::Audio(snapshot));
                                 }
                                 Err(error) => {
+                                    log::warn!("could not reconnect to the sound server: {error}");
                                     audio_failed = true;
                                     send(Update::Audio(Err(error.to_string())));
                                 }
@@ -183,15 +194,18 @@ async fn run(
                     Command::Mixer(command) => {
                         match &audio {
                             Ok(client) => match slopos_mixer::apply(client, &command).await {
-                                Ok(snapshot) => send(Update::Audio(Ok(snapshot))),
+                                Ok(snapshot) => {
+                                    audio_failed = false;
+                                    send(Update::Audio(Ok(snapshot)));
+                                }
                                 Err(error) => {
                                     send(Update::AudioFailed(error.to_string()));
                                     // Show the server's state again, so the controls drop the value that
                                     // failed. If it cannot be read, the controls say so instead of
                                     // keeping the value that was asked for.
-                                    send(Update::Audio(
-                                        client.snapshot().await.map_err(|e| e.to_string()),
-                                    ));
+                                    let snapshot = client.snapshot().await.map_err(|e| e.to_string());
+                                    audio_failed = audio_failed_after(&snapshot);
+                                    send(Update::Audio(snapshot));
                                 }
                             },
                             Err(error) => send(Update::AudioFailed(error.to_string())),
@@ -204,7 +218,13 @@ async fn run(
                     },
                 };
                 match outcome {
-                    Ok(Some(update)) => send(update),
+                    Ok(Some(update)) => {
+                        // A snapshot from a write is an answer from the server, like any other.
+                        if let Update::Audio(state) = &update {
+                            audio_failed = audio_failed_after(state);
+                        }
+                        send(update);
+                    }
                     Ok(None) => {}
                     Err(error) => send(Update::Failed(error)),
                 }
@@ -339,5 +359,23 @@ mod tests {
         assert!(needs_audio_reconnect(false, true));
         // A live connection whose last answer was good needs nothing.
         assert!(!needs_audio_reconnect(true, false));
+    }
+
+    #[test]
+    fn a_failed_snapshot_after_a_failed_command_keeps_the_server_marked_lost() {
+        // The command's failure is reported on its own; the snapshot after it decides
+        // whether the server is still lost, and an unreadable one means a reconnect.
+        let snapshot: State<()> = Err("no PulseAudio server".into());
+        let lost = audio_failed_after(&snapshot);
+        assert!(lost);
+        assert!(needs_audio_reconnect(true, lost));
+    }
+
+    #[test]
+    fn a_good_snapshot_clears_an_earlier_failure() {
+        let snapshot: State<()> = Ok(());
+        let lost = audio_failed_after(&snapshot);
+        assert!(!lost);
+        assert!(!needs_audio_reconnect(true, lost));
     }
 }

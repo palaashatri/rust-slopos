@@ -37,6 +37,17 @@ OPENBOX=$!
 sleep 1
 wid_of() { timeout 5 xdotool search --name '^Volume Mixer$' | head -1; }
 absolute() { xwininfo -id "$1" | awk '/Absolute upper-left X/{x=$4} /Absolute upper-left Y/{y=$4} END{print x, y}'; }
+# Sets WID to the mixer window once it appears. If none appears within 10 s, the check stops
+# here, so no later step runs with an empty window ID.
+mixer_window() {
+  local end=$((SECONDS + 10))
+  while :; do
+    WID=$(wid_of)
+    [ -n "$WID" ] && return 0
+    if [ "$SECONDS" -ge "$end" ]; then echo "FAIL the Volume Mixer window did not appear"; exit 1; fi
+    sleep 0.2
+  done
+}
 
 if command -v pactl >/dev/null 2>&1 && [ "$(command -v pactl)" = "$OUT/fake-pactl/pactl" ]; then :; fi
 FAILED=0
@@ -45,8 +56,7 @@ FAILED=0
 rm -rf "$OUT/late-bin" && mkdir -p "$OUT/late-bin"
 env PATH="$OUT/late-bin" RUST_LOG=info "$BIN/slopos-volume-mixer" >"$OUT/mixer-unavailable.log" 2>&1 &
 MIX=$!
-sleep 2.5
-WID=$(wid_of)
+mixer_window
 echo "1 without a sound server: window=${WID:-none}"
 [ -n "$WID" ] && import -window "$WID" "$OUT/mixer-1-unavailable.png"
 # The server appears after the window opened. R asks for a new connection, which finds it.
@@ -67,8 +77,7 @@ ln -s "$(command -v sleep)" "$OUT/tools/sleep"
 ln -s "$(command -v cat)" "$OUT/tools/cat"
 env PATH="$OUT/late-bin:$OUT/tools" RUST_LOG=info "$BIN/slopos-volume-mixer" >"$OUT/mixer-click.log" 2>&1 &
 MIX=$!
-sleep 2.5
-WID=$(wid_of)
+mixer_window
 read CX CY < <(absolute "$WID")
 H=$(xwininfo -id "$WID" | awk '/Height:/{print $2}')
 if [ -e "$STATE/calls" ]; then echo "FAIL 1c the sound server was reached before the click"; FAILED=1; fi
@@ -88,8 +97,7 @@ kill $MIX 2>/dev/null; wait $MIX 2>/dev/null; sleep 1
 export PATH="$OUT/fake-pactl:$PATH"
 RUST_LOG=info "$BIN/slopos-volume-mixer" >"$OUT/mixer.log" 2>&1 &
 MIX=$!
-sleep 2.5
-WID=$(wid_of)
+mixer_window
 read AX AY < <(absolute "$WID")
 echo "2 with the fixture: window=$WID at $AX,$AY size=$(xwininfo -id "$WID" | awk '/Width:/{w=$2} /Height:/{h=$2} END{print w"x"h}')"
 import -window "$WID" "$OUT/mixer-2-initial.png"
