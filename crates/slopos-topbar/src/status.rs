@@ -15,11 +15,26 @@ use tokio::sync::mpsc as async_mpsc;
 /// A provider's latest answer: a snapshot, or why there is none.
 pub type State<T> = Result<T, String>;
 
+/// Whether opening the mixer should ask the sound server for a connection. A
+/// connection whose last answer was an error still exists while its watcher
+/// retries, so a failed answer counts as lost even with a client in hand.
+pub fn needs_audio_reconnect(connected: bool, last_answer_failed: bool) -> bool {
+    !connected || last_answer_failed
+}
+
+/// Whether the sound server is unreachable after this answer. A snapshot that
+/// follows a write is an answer too, so a good one clears an earlier failure.
+pub fn audio_failed_after<T>(answer: &State<T>) -> bool {
+    answer.is_err()
+}
+
 #[derive(Debug, Clone)]
 pub enum Update {
     Audio(State<AudioSnapshot>),
     Network(State<NetworkSnapshot>),
     Power(State<PowerSnapshot>),
+    /// A Volume Mixer change failed on the sound server.
+    AudioFailed(String),
     Failed(String),
 }
 
@@ -28,6 +43,11 @@ pub enum Command {
     SetOutputVolume(String, u32),
     SetOutputMuted(String, bool),
     SetDefaultOutput(String),
+    /// A Volume Mixer change, run on the sound server.
+    Mixer(slopos_mixer::Command),
+    /// The Volume Mixer was opened: connect to the sound server again, if it was
+    /// unavailable. Sent by the user's action, not on a timer.
+    ReconnectAudio,
     Suspend,
 }
 
@@ -82,16 +102,19 @@ async fn run(
         let _ = sender.send(update);
         wake();
     };
-    let audio = AudioClient::connect().await;
+    let mut audio = AudioClient::connect().await;
     let network = NetworkManagerClient::connect().await;
     let power = PowerClient::connect().await;
 
+    // Whether the last answer about the sound server was an error. A watcher that
+    // reports one keeps its client while it retries, so `audio` alone cannot say so.
+    let mut audio_failed = audio.is_err();
     let mut audio_events = None;
     match &audio {
         Ok(client) => {
-            send(Update::Audio(
-                client.snapshot().await.map_err(|e| e.to_string()),
-            ));
+            let state = client.snapshot().await.map_err(|e| e.to_string());
+            audio_failed = state.is_err();
+            send(Update::Audio(state));
             audio_events = Some(client.watch());
         }
         Err(error) => send(Update::Audio(Err(error.to_string()))),
@@ -119,7 +142,11 @@ async fn run(
 
     loop {
         tokio::select! {
-            Some(result) = next_or_pending!(audio_events) => send(Update::Audio(result.map_err(|e| e.to_string()))),
+            Some(result) = next_or_pending!(audio_events) => {
+                let state = result.map_err(|e| e.to_string());
+                audio_failed = state.is_err();
+                send(Update::Audio(state));
+            }
             Some(result) = next_or_pending!(network_events) => send(Update::Network(result.map_err(|e| e.to_string()))),
             Some(result) = next_or_pending!(power_events) => match result {
                 Ok(PowerEvent::Changed(snapshot)) => send(Update::Power(Ok(snapshot))),
@@ -141,13 +168,63 @@ async fn run(
                         Ok(client) => client.set_default_output(&device).await.map(|s| Some(Update::Audio(Ok(s)))).map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
                     },
+                    Command::ReconnectAudio => {
+                        if needs_audio_reconnect(audio.is_ok(), audio_failed) {
+                            match AudioClient::connect().await {
+                                Ok(client) => {
+                                    let snapshot = client.snapshot().await.map_err(|e| e.to_string());
+                                    match &snapshot {
+                                        Ok(_) => log::info!("reconnected to the sound server"),
+                                        Err(error) => log::warn!("reconnected to the sound server, but could not read it: {error}"),
+                                    }
+                                    audio_failed = audio_failed_after(&snapshot);
+                                    audio_events = Some(client.watch());
+                                    audio = Ok(client);
+                                    send(Update::Audio(snapshot));
+                                }
+                                Err(error) => {
+                                    log::warn!("could not reconnect to the sound server: {error}");
+                                    audio_failed = true;
+                                    send(Update::Audio(Err(error.to_string())));
+                                }
+                            }
+                        }
+                        Ok(None)
+                    }
+                    Command::Mixer(command) => {
+                        match &audio {
+                            Ok(client) => match slopos_mixer::apply(client, &command).await {
+                                Ok(snapshot) => {
+                                    audio_failed = false;
+                                    send(Update::Audio(Ok(snapshot)));
+                                }
+                                Err(error) => {
+                                    send(Update::AudioFailed(error.to_string()));
+                                    // Show the server's state again, so the controls drop the value that
+                                    // failed. If it cannot be read, the controls say so instead of
+                                    // keeping the value that was asked for.
+                                    let snapshot = client.snapshot().await.map_err(|e| e.to_string());
+                                    audio_failed = audio_failed_after(&snapshot);
+                                    send(Update::Audio(snapshot));
+                                }
+                            },
+                            Err(error) => send(Update::AudioFailed(error.to_string())),
+                        }
+                        Ok(None)
+                    }
                     Command::Suspend => match &power {
                         Ok(client) => client.request_suspend().await.map(|()| None).map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
                     },
                 };
                 match outcome {
-                    Ok(Some(update)) => send(update),
+                    Ok(Some(update)) => {
+                        // A snapshot from a write is an answer from the server, like any other.
+                        if let Update::Audio(state) = &update {
+                            audio_failed = audio_failed_after(state);
+                        }
+                        send(update);
+                    }
                     Ok(None) => {}
                     Err(error) => send(Update::Failed(error)),
                 }
@@ -271,5 +348,34 @@ mod tests {
         assert_eq!(network_text(&Ok(offline.clone())), "Offline");
         assert!(!on_wifi(&Ok(offline)));
         assert_eq!(battery_text(&Err("no upower".into())), None);
+    }
+
+    #[test]
+    fn a_failed_answer_asks_for_a_reconnect_even_with_a_client_in_hand() {
+        // Server lost after a good connection: the client is still held while its
+        // watcher retries, so the mixer's opening must still ask for a connection.
+        assert!(needs_audio_reconnect(true, true));
+        assert!(needs_audio_reconnect(false, false));
+        assert!(needs_audio_reconnect(false, true));
+        // A live connection whose last answer was good needs nothing.
+        assert!(!needs_audio_reconnect(true, false));
+    }
+
+    #[test]
+    fn a_failed_snapshot_after_a_failed_command_keeps_the_server_marked_lost() {
+        // The command's failure is reported on its own; the snapshot after it decides
+        // whether the server is still lost, and an unreadable one means a reconnect.
+        let snapshot: State<()> = Err("no PulseAudio server".into());
+        let lost = audio_failed_after(&snapshot);
+        assert!(lost);
+        assert!(needs_audio_reconnect(true, lost));
+    }
+
+    #[test]
+    fn a_good_snapshot_clears_an_earlier_failure() {
+        let snapshot: State<()> = Ok(());
+        let lost = audio_failed_after(&snapshot);
+        assert!(!lost);
+        assert!(!needs_audio_reconnect(true, lost));
     }
 }

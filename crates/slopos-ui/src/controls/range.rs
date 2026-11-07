@@ -19,7 +19,9 @@ pub enum ValueOutcome {
     FocusRequested,
 }
 
-/// A horizontal slider over `min..=max` in `step` increments.
+/// A slider over `min..=max` in `step` increments. Horizontal by default;
+/// [`Slider::vertical`] turns it into a channel fader whose maximum is at
+/// the top, like the Windows XP volume mixer.
 #[derive(Debug, Clone)]
 pub struct Slider {
     pub id: u64,
@@ -32,6 +34,7 @@ pub struct Slider {
     pub focused: bool,
     value: f64,
     dragging: bool,
+    vertical: bool,
 }
 
 const KNOB_WIDTH: u32 = 11;
@@ -55,7 +58,19 @@ impl Slider {
             focused: false,
             value: min,
             dragging: false,
+            vertical: false,
         }
+    }
+
+    /// Lay the slider out vertically: `min` at the bottom, `max` at the top.
+    /// Keys and assistive technology work the same either way.
+    pub fn vertical(mut self) -> Self {
+        self.vertical = true;
+        self
+    }
+
+    pub fn is_vertical(&self) -> bool {
+        self.vertical
     }
 
     pub fn value(&self) -> f64 {
@@ -79,6 +94,14 @@ impl Slider {
     }
 
     fn track(&self) -> Rect {
+        if self.vertical {
+            return Rect {
+                x: self.bounds.x + self.bounds.width as i32 / 2 - 2,
+                y: self.bounds.y + KNOB_WIDTH as i32 / 2,
+                width: 4,
+                height: self.bounds.height.saturating_sub(KNOB_WIDTH),
+            };
+        }
         Rect {
             x: self.bounds.x + KNOB_WIDTH as i32 / 2,
             y: self.bounds.y + self.bounds.height as i32 / 2 - 2,
@@ -97,6 +120,16 @@ impl Slider {
 
     fn knob(&self) -> Rect {
         let track = self.track();
+        if self.vertical {
+            // The top of the track is the maximum.
+            let y = track.y + (f64::from(track.height) * (1.0 - self.fraction())).round() as i32;
+            return Rect {
+                x: self.bounds.x + 2,
+                y: y - KNOB_WIDTH as i32 / 2,
+                width: self.bounds.width.saturating_sub(4),
+                height: KNOB_WIDTH,
+            };
+        }
         let x = track.x + (f64::from(track.width) * self.fraction()).round() as i32;
         Rect {
             x: x - KNOB_WIDTH as i32 / 2,
@@ -106,9 +139,13 @@ impl Slider {
         }
     }
 
-    fn value_at(&self, x: i32) -> f64 {
+    fn value_at(&self, x: i32, y: i32) -> f64 {
         let track = self.track();
-        let fraction = f64::from(x - track.x) / f64::from(track.width.max(1));
+        let fraction = if self.vertical {
+            1.0 - f64::from(y - track.y) / f64::from(track.height.max(1))
+        } else {
+            f64::from(x - track.x) / f64::from(track.width.max(1))
+        };
         self.min + fraction.clamp(0.0, 1.0) * (self.max - self.min)
     }
 
@@ -134,7 +171,7 @@ impl Slider {
                 button: PointerButton::Primary,
             } if self.bounds.contains(*x, *y) => {
                 self.dragging = true;
-                let outcome = self.report(self.value_at(*x), false);
+                let outcome = self.report(self.value_at(*x, *y), false);
                 if !self.focused {
                     ValueOutcome::FocusRequested
                 } else if outcome == ValueOutcome::Ignored {
@@ -143,14 +180,16 @@ impl Slider {
                     outcome
                 }
             }
-            Event::PointerMoved { x, .. } if self.dragging => self.report(self.value_at(*x), false),
+            Event::PointerMoved { x, y } if self.dragging => {
+                self.report(self.value_at(*x, *y), false)
+            }
             Event::PointerReleased {
                 x,
+                y,
                 button: PointerButton::Primary,
-                ..
             } if self.dragging => {
                 self.dragging = false;
-                self.report(self.value_at(*x), true)
+                self.report(self.value_at(*x, *y), true)
             }
             Event::KeyPressed { key, .. } if self.focused => {
                 let page = ((self.max - self.min) / 10.0).max(self.step);
@@ -180,9 +219,19 @@ impl Slider {
         let track = self.track();
         surface.fill_rect(track, colors.track)?;
         surface.stroke_rect(track, colors.bevel_shadow)?;
-        let filled = Rect {
-            width: (self.knob().x + KNOB_WIDTH as i32 / 2 - track.x).max(0) as u32,
-            ..track
+        let filled = if self.vertical {
+            // From the value up to the bottom of the track.
+            let top = self.knob().y + KNOB_WIDTH as i32 / 2;
+            Rect {
+                y: top,
+                height: (track.y + track.height as i32 - top).max(0) as u32,
+                ..track
+            }
+        } else {
+            Rect {
+                width: (self.knob().x + KNOB_WIDTH as i32 / 2 - track.x).max(0) as u32,
+                ..track
+            }
         };
         if self.enabled {
             surface.fill_rect(filled, colors.thumb)?;
@@ -219,6 +268,11 @@ impl Slider {
         node.set_min_numeric_value(self.min);
         node.set_max_numeric_value(self.max);
         node.set_numeric_value_step(self.step);
+        node.set_orientation(if self.vertical {
+            accesskit::Orientation::Vertical
+        } else {
+            accesskit::Orientation::Horizontal
+        });
         if self.enabled {
             node.add_action(accesskit::Action::Focus);
             node.add_action(accesskit::Action::Increment);
@@ -551,6 +605,67 @@ mod tests {
         );
         slider.enabled = false;
         assert_eq!(slider.handle(&key(Key::End)), ValueOutcome::Ignored);
+    }
+
+    #[test]
+    fn vertical_slider_runs_bottom_to_top_and_reads_its_own_axis() {
+        let mut slider = Slider::new(7, "Output", 0.0, 100.0, 1.0).vertical();
+        slider.bounds = Rect {
+            x: 10,
+            y: 20,
+            width: 24,
+            height: 104,
+        };
+        slider.focused = true;
+        assert!(slider.is_vertical());
+        let track = slider.track();
+        let press = |y| Event::PointerPressed {
+            x: 22,
+            y,
+            button: PointerButton::Primary,
+        };
+        let release = |y| Event::PointerReleased {
+            x: 22,
+            y,
+            button: PointerButton::Primary,
+        };
+        // The top of the track is the maximum, whatever the x position.
+        assert_eq!(
+            slider.handle(&press(track.y)),
+            ValueOutcome::Value {
+                value: 100.0,
+                last: false
+            }
+        );
+        assert_eq!(
+            slider.handle(&release(track.y + track.height as i32)),
+            ValueOutcome::Value {
+                value: 0.0,
+                last: true
+            }
+        );
+        assert_eq!(slider.value(), 0.0);
+        // The knob sits at the bottom of the track at the minimum...
+        assert_eq!(
+            slider.knob().y + KNOB_WIDTH as i32 / 2,
+            track.y + track.height as i32
+        );
+        // ...and at the top at the maximum.
+        assert!(slider.set_value(100.0));
+        assert_eq!(slider.knob().y + KNOB_WIDTH as i32 / 2, track.y);
+        // Keys move it the same way as for a horizontal slider.
+        assert!(slider.set_value(0.0));
+        assert_eq!(
+            slider.handle(&key(Key::Up)),
+            ValueOutcome::Value {
+                value: 1.0,
+                last: true
+            }
+        );
+        assert_eq!(
+            slider.accessibility_node().orientation(),
+            Some(accesskit::Orientation::Vertical)
+        );
     }
 
     #[test]

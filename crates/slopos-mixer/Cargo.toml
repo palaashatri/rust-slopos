@@ -1,0 +1,15 @@
+[package]
+name = "slopos-mixer"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Volume Mixer: channels, controls and sound-server commands"
+
+[dependencies]
+slopos-ui = { path = "../slopos-ui" }
+slopos-services = { path = "../slopos-services" }
+accesskit = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+slopos-core = { path = "../slopos-core" }

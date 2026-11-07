@@ -77,7 +77,7 @@ mkdir -p config/includes.chroot/usr/bin \
          config/includes.chroot/usr/share/themes \
          config/includes.chroot/usr/share/icons
 
-for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-volume-mixer slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-software; do
   install -Dm755 "$ROOT/target/release/$binary" "config/includes.chroot/usr/bin/$binary"
 done
 install -Dm755 "$ROOT/scripts/start-slopos-i" "config/includes.chroot/usr/bin/start-slopos-i"
@@ -86,6 +86,10 @@ install -Dm755 "$ROOT/scripts/slopos-appearance" "config/includes.chroot/usr/bin
 install -Dm755 "$ROOT/scripts/slopos-recovery.sh" "config/includes.chroot/usr/bin/slopos-recovery"
 install -Dm644 "$ROOT/packaging/slopos-i.desktop" "config/includes.chroot/usr/share/xsessions/slopos-i.desktop"
 install -Dm644 "$ROOT/packaging/slopos-browser.desktop" "config/includes.chroot/usr/share/applications/slopos-browser.desktop"
+# The shipped apps' menu entries, so each app is discoverable from the live session.
+for app in slopos-calculator slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-settings slopos-software slopos-volume-mixer; do
+  install -Dm644 "$ROOT/packaging/$app.desktop" "config/includes.chroot/usr/share/applications/$app.desktop"
+done
 
 # Copy openbox configs and themes
 install -Dm644 "$ROOT/assets/config/openbox/rc.xml" "config/includes.chroot/usr/share/slopos-i/openbox/rc.xml"

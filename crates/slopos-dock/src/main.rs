@@ -3,16 +3,25 @@
 //! Click a tile to start the application or bring its window forward; click
 //! again to cycle through its windows. Middle-click starts another instance.
 //! Pins live in `~/.config/slopos-i/dock-pins`.
+//!
+//! Auto-hide slides the Dock out of view until the pointer reaches the
+//! bottom edge. Turn it on from the Dock's right-click menu or with
+//! `slopos-dock --autohide on|off`; the setting lives in
+//! `~/.config/slopos-i/dock.conf`.
 
+mod autohide;
 mod model;
 mod pins;
+mod prefs;
 mod windows;
 
 use std::collections::HashMap;
 use std::sync::mpsc::{self, Receiver};
 
+use autohide::{AutoHide, Effect, HIDE_DELAY, REVEAL_STRIP};
 use model::{Action, Item};
 use slopos_core::desktop_entry::{scan_desktop_apps, DesktopApp};
+use slopos_ui::controls::menu::{Menu, MenuItem, MenuOutcome};
 use slopos_ui::event::{AccessibilityRequest, Event, PointerButton};
 use slopos_ui::foundation::color::Color;
 use slopos_ui::foundation::geometry::Rect;
@@ -49,6 +58,14 @@ const fn rgb(red: u8, green: u8, blue: u8) -> Color {
 }
 
 const ROOT_NODE: u64 = 1;
+/// The right-click menu's popup.
+const MENU_POPUP: u64 = 1;
+/// The menu's accessibility id. Its items are derived from it, so it must not
+/// be the root (1) or a tile (100 and up).
+const MENU_NODE: u64 = 2;
+/// The auto-hide checkbox, always in the tree, so an assistive technology can
+/// change the setting without a pointer.
+const AUTO_HIDE_NODE: u64 = 3;
 const FIRST_TILE_NODE: u64 = 100;
 
 struct Dock {
@@ -65,10 +82,12 @@ struct Dock {
     pressed: Option<(usize, PointerButton)>,
     screen: (u32, u32),
     font: Font,
+    auto: AutoHide,
+    menu: Menu,
 }
 
 impl Dock {
-    fn new(updates: Receiver<Snapshot>, screen: (u32, u32)) -> Self {
+    fn new(updates: Receiver<Snapshot>, screen: (u32, u32), autohide: bool) -> Self {
         let catalog = scan_desktop_apps();
         let pins = pins::load(&catalog);
         let mut dock = Self {
@@ -84,6 +103,8 @@ impl Dock {
             pressed: None,
             screen,
             font: Font::system(18.0).bold(),
+            auto: AutoHide::new(autohide),
+            menu: Menu::new(MENU_NODE, Vec::new()),
         };
         dock.rebuild();
         dock
@@ -103,6 +124,33 @@ impl Dock {
 
     fn has_separator(&self) -> bool {
         self.items.iter().any(|item| item.pinned) && self.items.iter().any(|item| !item.pinned)
+    }
+
+    /// Where the Dock is shown now: its whole height, or only the reveal strip
+    /// while auto-hide has it out of view.
+    fn current_geometry(&self) -> Rect {
+        if self.auto.hidden() {
+            self.hidden_geometry()
+        } else {
+            self.geometry()
+        }
+    }
+
+    fn hidden_geometry(&self) -> Rect {
+        Rect {
+            y: self.screen.1.saturating_sub(REVEAL_STRIP) as i32,
+            height: REVEAL_STRIP,
+            ..self.geometry()
+        }
+    }
+
+    /// The space the Dock reserves on its edge right now.
+    fn strut(&self) -> u32 {
+        if self.auto.hidden() {
+            0
+        } else {
+            HEIGHT
+        }
     }
 
     /// Centred on the bottom edge of the screen.
@@ -160,6 +208,79 @@ impl Dock {
         self.icon_cache.get(name).cloned().flatten()
     }
 
+    /// Carry out what auto-hide decided: move, reserve or release the edge,
+    /// or arm the hide timer.
+    fn apply(&mut self, effect: Effect, control: &mut Control) {
+        if effect != Effect::None {
+            log::debug!("dock auto-hide: {effect:?}");
+        }
+        match effect {
+            Effect::None => {}
+            Effect::Reveal => {
+                control.set_geometry(self.geometry());
+                control.set_strut(HEIGHT);
+                control.request_redraw();
+            }
+            Effect::Hide => {
+                control.set_geometry(self.hidden_geometry());
+                control.set_strut(0);
+                control.request_redraw();
+            }
+            Effect::ScheduleHide(id) => control.start_timer(HIDE_DELAY, id),
+        }
+    }
+
+    fn open_menu(&mut self, x: i32, control: &mut Control) {
+        self.menu.items = vec![
+            MenuItem::new("Automatically Hide and Show the Dock").checked(self.auto.enabled())
+        ];
+        let (width, height) = self.menu.size();
+        let size = (width + 2, height + 2);
+        self.menu.open_at(0, 0, size);
+        // Above the Dock, at the pointer; the platform keeps it on screen.
+        control.open_popup(
+            MENU_POPUP,
+            Rect {
+                x,
+                y: -(size.1 as i32) - 4,
+                width: size.0,
+                height: size.1,
+            },
+            true,
+        );
+        let effect = self.auto.hold(true);
+        self.apply(effect, control);
+    }
+
+    fn close_menu(&mut self, control: &mut Control) {
+        self.menu.close();
+        control.close_popup(MENU_POPUP);
+        let effect = self.auto.hold(false);
+        self.apply(effect, control);
+    }
+
+    fn set_autohide(&mut self, on: bool, control: &mut Control) {
+        let effect = self.auto.set_enabled(on);
+        self.apply(effect, control);
+        if let Err(error) = prefs::save_autohide(on) {
+            log::warn!("Dock cannot save its auto-hide setting: {error}");
+        }
+        control.request_redraw();
+    }
+
+    fn handle_menu(&mut self, event: &Event, control: &mut Control) {
+        match self.menu.handle(event) {
+            MenuOutcome::Chosen(_) => {
+                self.close_menu(control);
+                let on = !self.auto.enabled();
+                self.set_autohide(on, control);
+            }
+            MenuOutcome::Dismissed => self.close_menu(control),
+            MenuOutcome::Changed => control.request_redraw(),
+            MenuOutcome::Ignored | MenuOutcome::Neighbour(_) => {}
+        }
+    }
+
     fn apply_updates(&mut self, control: &mut Control) {
         let mut latest = None;
         while let Ok(snapshot) = self.updates.try_recv() {
@@ -171,7 +292,7 @@ impl Dock {
         self.snapshot = snapshot;
         self.rebuild();
         if self.items.len() != had || self.has_separator() != had_separator {
-            control.set_geometry(self.geometry());
+            control.set_geometry(self.current_geometry());
         }
         control.request_redraw();
     }
@@ -189,6 +310,8 @@ impl App for Dock {
             Event::Wake => self.apply_updates(control),
             Event::CloseRequested => control.quit(),
             Event::PointerMoved { x, y } => {
+                let effect = self.auto.pointer_moved();
+                self.apply(effect, control);
                 let hovered = self.tile_at(*x, *y);
                 if hovered != self.hovered {
                     self.hovered = hovered;
@@ -196,15 +319,36 @@ impl App for Dock {
                 }
             }
             Event::PointerLeft => {
+                let effect = self.auto.pointer_left();
+                self.apply(effect, control);
                 if self.hovered.take().is_some() || self.pressed.take().is_some() {
                     control.request_redraw();
                 }
             }
             Event::PointerPressed { x, y, button } => {
+                // A press on the reveal strip shows the Dock first.
+                let effect = self.auto.pointer_moved();
+                self.apply(effect, control);
+                if self.menu.is_open() {
+                    // A press on the Dock dismisses its menu, as one anywhere else does.
+                    self.close_menu(control);
+                    return;
+                }
+                if *button == PointerButton::Secondary {
+                    self.open_menu(*x, control);
+                    return;
+                }
                 if let Some(index) = self.tile_at(*x, *y) {
                     self.pressed = Some((index, *button));
                     control.request_redraw();
                 }
+            }
+            Event::Timer(id) => {
+                let effect = self.auto.timer(*id);
+                self.apply(effect, control);
+            }
+            Event::Popup { id, event } if *id == MENU_POPUP => {
+                self.handle_menu(event, control);
             }
             Event::PointerReleased { x, y, button } => {
                 let pressed = self.pressed.take();
@@ -223,6 +367,10 @@ impl App for Dock {
                 };
                 self.perform(action);
             }
+            Event::Accessibility(AccessibilityRequest::Click(id)) if *id == AUTO_HIDE_NODE => {
+                let on = !self.auto.enabled();
+                self.set_autohide(on, control);
+            }
             Event::Accessibility(AccessibilityRequest::Click(id)) => {
                 let index = id.checked_sub(FIRST_TILE_NODE).map(|index| index as usize);
                 if let Some(item) = index.and_then(|index| self.items.get(index)) {
@@ -233,7 +381,27 @@ impl App for Dock {
         }
     }
 
+    fn paint_popup(&mut self, id: u64, surface: &RasterSurface) {
+        if id == MENU_POPUP {
+            let _ = self.menu.paint(surface);
+        }
+    }
+
     fn paint(&mut self, surface: &RasterSurface) {
+        if self.auto.hidden() {
+            // The reveal strip: a light line along the Dock's edge.
+            let _ = surface.clear(BODY);
+            let _ = surface.fill_rect(
+                Rect {
+                    x: 0,
+                    y: 0,
+                    width: surface.logical_width(),
+                    height: 1,
+                },
+                LIGHT,
+            );
+            return;
+        }
         let width = surface.logical_width();
         let height = surface.logical_height();
         let _ = surface.clear(BODY);
@@ -346,13 +514,32 @@ impl App for Dock {
             nodes.push((id, node));
             children.push(id);
         }
+        let mut toggle = Node::new(Role::CheckBox);
+        toggle.set_label("Dock auto-hide");
+        toggle.set_toggled(if self.auto.enabled() {
+            accesskit::Toggled::True
+        } else {
+            accesskit::Toggled::False
+        });
+        toggle.add_action(A11yAction::Click);
+        nodes.push((NodeId(AUTO_HIDE_NODE), toggle));
+        children.push(NodeId(AUTO_HIDE_NODE));
+        let mut focus = NodeId(ROOT_NODE);
+        if self.menu.is_open() {
+            // The right-click menu (its auto-hide item) is part of the Dock.
+            children.push(NodeId(MENU_NODE));
+            for (id, node) in self.menu.accessibility_nodes() {
+                nodes.push((NodeId(id), node));
+            }
+            focus = NodeId(self.menu.focus_node());
+        }
         root.set_children(children);
         nodes.insert(0, (NodeId(ROOT_NODE), root));
         Some(TreeUpdate {
             nodes,
             tree: Some(TreeInfo::new(NodeId(ROOT_NODE))),
             tree_id: TreeId::ROOT,
-            focus: NodeId(ROOT_NODE),
+            focus,
         })
     }
 }
@@ -393,6 +580,26 @@ fn main() {
         }
         return;
     }
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(index) = args.iter().position(|arg| arg == "--autohide") {
+        let on = match args.get(index + 1).map(String::as_str) {
+            Some("on") => true,
+            Some("off") => false,
+            _ => {
+                eprintln!("usage: slopos-dock --autohide on|off");
+                std::process::exit(2);
+            }
+        };
+        if let Err(error) = prefs::save_autohide(on) {
+            eprintln!("slopos-dock: could not save the preference: {error}");
+            std::process::exit(1);
+        }
+        println!(
+            "slopos-dock: auto-hide {}; a running Dock applies it when it next starts",
+            if on { "on" } else { "off" }
+        );
+        return;
+    }
     let screen = match platform::x11::screen_size() {
         Ok(size) => size,
         Err(error) => {
@@ -403,12 +610,12 @@ fn main() {
     let scale = platform::scale_from_environment().factor();
     let logical_screen = (screen.0 / scale, screen.1 / scale);
     let (sender, receiver) = mpsc::channel();
-    let dock = Dock::new(receiver, logical_screen);
-    let geometry = dock.geometry();
+    let dock = Dock::new(receiver, logical_screen, prefs::autohide());
+    let geometry = dock.current_geometry();
     let mut options = WindowOptions::new("SLOPOS Dock", APP_ID, geometry.width, geometry.height);
     options.kind = WindowKind::Dock {
         edge: Edge::Bottom,
-        strut: HEIGHT,
+        strut: dock.strut(),
     };
     options.resizable = false;
     options.position = Some((geometry.x, geometry.y));
@@ -465,6 +672,8 @@ mod tests {
             pressed: None,
             screen: (1280, 800),
             font: Font::system(18.0).bold(),
+            auto: AutoHide::new(false),
+            menu: Menu::new(MENU_NODE, Vec::new()),
         };
         dock.rebuild();
         dock
@@ -488,6 +697,96 @@ mod tests {
         assert_eq!(geometry.x * 2 + geometry.width as i32, 1280);
         let bigger = dock(vec![app("a")], vec![window(2, "Other")]);
         assert_eq!(bigger.width(), small.width() + TILE + SEPARATOR);
+    }
+
+    #[test]
+    fn a_hidden_dock_is_a_strip_on_the_bottom_edge_that_reserves_nothing() {
+        let mut dock = dock(vec![app("a")], Vec::new());
+        dock.auto = AutoHide::new(true);
+        assert!(dock.auto.hidden());
+        let strip = dock.current_geometry();
+        assert_eq!(strip.height, REVEAL_STRIP);
+        assert_eq!(strip.y as u32 + strip.height, 800);
+        assert_eq!(strip.width, dock.width());
+        assert_eq!(dock.strut(), 0);
+        // The pointer reaching the strip shows the whole Dock again.
+        let mut control = Control::default();
+        dock.event(&Event::PointerMoved { x: 10, y: 1 }, &mut control);
+        assert!(!dock.auto.hidden());
+        assert_eq!(dock.current_geometry(), dock.geometry());
+        assert_eq!(dock.strut(), HEIGHT);
+    }
+
+    #[test]
+    fn an_open_right_click_menu_with_its_auto_hide_item_is_in_the_tree() {
+        const AUTO_HIDE: &str = "Automatically Hide and Show the Dock";
+        let mut dock = dock(vec![app("a")], Vec::new());
+        let mut control = Control::default();
+        let closed = dock.accessibility().expect("the Dock has a tree");
+        assert!(!closed
+            .nodes
+            .iter()
+            .any(|(_, node)| node.label() == Some(AUTO_HIDE)));
+        dock.open_menu(40, &mut control);
+        let open = dock.accessibility().expect("the Dock has a tree");
+        assert!(open
+            .nodes
+            .iter()
+            .any(|(_, node)| node.label() == Some(AUTO_HIDE)));
+        assert_eq!(open.focus, accesskit::NodeId(dock.menu.focus_node()));
+        dock.close_menu(&mut control);
+        let again = dock.accessibility().expect("the Dock has a tree");
+        assert!(!again
+            .nodes
+            .iter()
+            .any(|(_, node)| node.label() == Some(AUTO_HIDE)));
+    }
+
+    #[test]
+    fn the_auto_hide_checkbox_is_always_in_the_tree_and_a_click_toggles_the_dock() {
+        use accesskit::{NodeId, Role, Toggled};
+        // Toggling saves the preference, so the test points it at a scratch directory.
+        let config = std::env::temp_dir().join(format!("slopos-dock-a11y-{}", std::process::id()));
+        std::fs::create_dir_all(&config).expect("a scratch config directory");
+        std::env::set_var("XDG_CONFIG_HOME", &config);
+        let mut dock = dock(vec![app("a")], Vec::new());
+        let mut control = Control::default();
+        let checkbox = |dock: &Dock| {
+            let tree = dock.accessibility().expect("the Dock has a tree");
+            tree.nodes
+                .iter()
+                .find(|(id, _)| *id == NodeId(AUTO_HIDE_NODE))
+                .map(|(_, node)| (node.role(), node.toggled()))
+                .expect("the auto-hide checkbox is in the tree")
+        };
+        assert_eq!(checkbox(&dock), (Role::CheckBox, Some(Toggled::False)));
+        dock.event(
+            &Event::Accessibility(AccessibilityRequest::Click(AUTO_HIDE_NODE)),
+            &mut control,
+        );
+        assert!(dock.auto.enabled());
+        assert_eq!(checkbox(&dock), (Role::CheckBox, Some(Toggled::True)));
+        let saved = std::fs::read_to_string(config.join("slopos-i/dock.conf"))
+            .expect("the saved preference");
+        assert!(saved.contains("autohide = true"), "{saved:?}");
+        std::fs::remove_dir_all(&config).ok();
+    }
+
+    #[test]
+    fn a_press_on_the_dock_dismisses_its_open_menu() {
+        let mut dock = dock(vec![app("a")], Vec::new());
+        let mut control = Control::default();
+        dock.open_menu(40, &mut control);
+        assert!(dock.menu.is_open());
+        dock.event(
+            &Event::PointerPressed {
+                x: 40,
+                y: 40,
+                button: PointerButton::Primary,
+            },
+            &mut control,
+        );
+        assert!(!dock.menu.is_open());
     }
 
     #[test]
@@ -533,6 +832,7 @@ mod tests {
             .iter()
             .filter_map(|(_, node)| node.label())
             .collect();
-        assert_eq!(labels, ["Dock", "Files, 2 windows"]);
+        // The Dock, its tiles, then the auto-hide checkbox that is always present.
+        assert_eq!(labels, ["Dock", "Files, 2 windows", "Dock auto-hide"]);
     }
 }

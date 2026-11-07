@@ -52,6 +52,49 @@ donors may serve users until equivalent native replacements are proven,
 but P1 release requires replacing the first-party GTK UI in the chosen
 core app/shell surfaces.
 
+## Status on PR #37 (2026-11-07)
+
+Evidence for each item is in [the ledger](contract/ledger.md): rows
+DOCK-AUTOHIDE, VOLUME-MIXER, REVIEW-37 and PR37-REVIEW-THREADS.
+
+**Done on this branch**
+
+- **Dock auto-hide:** right-click menu, `slopos-dock --autohide on|off`, saved
+  in `dock.conf`, a 4-pixel reveal strip, an accessibility checkbox, and the
+  strut follows the window manager's placement. `scripts/qa/dock-autohide.sh`.
+- **Volume Mixer:** the top-bar sound popover and the standalone app share
+  `MixerView`. The sound server is connected again on opening the popover, on
+  R, and on "Try again"; an unavailable server is shown as text.
+  `scripts/qa/volume-mixer.sh` and `scripts/qa/topbar-mixer.sh`.
+- **Packaging:** the Volume Mixer and Software binaries, desktop entries and
+  payload checks in the Debian, Arch and ISO builders; the GStreamer tools the
+  Debian media tests need.
+- **Smoke test:** `scripts/smoke-session.sh` runs the Dock, Volume Mixer and
+  popover checks after its session checks.
+
+**Pending, by P1 item**
+
+1. **Files:** pagination over 8192 rows, drag and drop, icon view,
+   thumbnails, properties and removable volumes. None is in this PR.
+2. **Image Viewer:** still the PNG/SVG proof slice (item 3 above).
+3. **Software:** no trusted catalogue or publisher key is shipped
+   (`SOFTWARE-SHIPPED-CATALOGUE`, MISSING).
+4. **Installer and Secure Boot:** there is no installer and no Secure Boot
+   support (`INSTALLER-SECURE-BOOT`, MISSING).
+5. **Shell surfaces:** Wi-Fi, Bluetooth, battery and clock popovers; volume
+   and brightness OSDs; a notification history.
+6. **Dock:** keyboard focus; applying `--autohide` to a running Dock (the CLI
+   says it takes effect at the next start); a 4-pixel strip on an odd physical
+   height at scale 2 leaves the last device row uncovered (the toolkit's
+   geometry is logical); drag-to-reorder and pin/unpin.
+7. **Not run (NOT_RUN):** event delivery after a sound-server reconnect; the
+   provider against a server that fails writes but answers reads; recovery
+   when the server is lost while the mixer is open; a Dock moved by the window
+   manager; real hardware; multi-monitor; HiDPI at run time; an AT-SPI
+   walkthrough; the Design Bible review of visible UI.
+8. **Packaging CI on the current head:** the Debian and Arch package builds
+   are run by CI; their result is recorded on the PR, not here.
+
 ## Implementation milestones
 
 | Milestone | Work | Gate / unlock |

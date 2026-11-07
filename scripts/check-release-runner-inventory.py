@@ -71,7 +71,7 @@ REQUIRED_RUNNER_SCRIPTS = (
     (
         "debian-package",
         "scripts/run-debian-package-qa.sh",
-        "a2ba5c29ab50ec0a7d44fd091ecd8724d743a8b2eb170942bd374563093b8ae7",
+        "07aed83770bb724de8b673934b05cf3fd74a84195f34724c273c2871de04849e",
     ),
     (
         "package-repositories",

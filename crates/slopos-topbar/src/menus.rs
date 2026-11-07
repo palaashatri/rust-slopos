@@ -11,6 +11,7 @@ pub enum Command {
     About,
     ControlPanels,
     Software,
+    VolumeMixer,
     Appearance(&'static str),
     DesktopPicture,
     Lock,
@@ -37,6 +38,7 @@ pub enum Command {
 pub struct Capabilities {
     pub control_panels: bool,
     pub software: bool,
+    pub volume_mixer: bool,
     pub files: bool,
     pub appearance: bool,
     pub text_editor: bool,
@@ -101,6 +103,7 @@ pub fn system_menu(can: &Capabilities) -> MenuSpec {
             can.control_panels,
         )
         .item("Software…", Command::Software, can.software)
+        .item("Volume Mixer…", Command::VolumeMixer, can.volume_mixer)
         .item(
             "Desktop Picture…",
             Command::DesktopPicture,
@@ -244,6 +247,7 @@ mod tests {
         assert!(!find("Control Panels…").0);
         let all = Capabilities {
             control_panels: true,
+            volume_mixer: true,
             restart: true,
             ..Capabilities::default()
         };

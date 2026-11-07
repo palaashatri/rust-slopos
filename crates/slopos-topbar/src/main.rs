@@ -25,10 +25,11 @@ use std::time::Duration;
 
 use menus::{Capabilities, Command, MenuSpec};
 use slopos_core::process;
+use slopos_mixer::MixerView;
 use slopos_ui::accessibility::window_tree;
 use slopos_ui::controls::dialog::{Dialog, DialogOutcome};
 use slopos_ui::controls::menu::{Menu, MenuItem, MenuOutcome};
-use slopos_ui::event::{AccessibilityRequest, Event, Modifiers, PointerButton};
+use slopos_ui::event::{AccessibilityRequest, Event, Key, Modifiers, PointerButton};
 use slopos_ui::foundation::geometry::Rect;
 use slopos_ui::icons::IconLookup;
 use slopos_ui::image::Image;
@@ -44,6 +45,7 @@ const HEIGHT: u32 = 26;
 const POPUP_MENU: u64 = 1;
 const POPUP_LAUNCHER: u64 = 2;
 const POPUP_DIALOG: u64 = 3;
+const POPUP_MIXER: u64 = 4;
 const CLOCK_TIMER: u64 = 1;
 /// Toast popups and expiry timers use these plus the notification id.
 const TOAST_POPUP: u64 = 1_000;
@@ -57,6 +59,7 @@ const DIALOG_ID: u64 = 400;
 const CONTROL_PANELS: &str = "slopos-control-panels";
 const SOFTWARE: &str = "slopos-software";
 const FILES: &str = "slopos-files";
+const VOLUME_MIXER: &str = "slopos-volume-mixer";
 
 // X keysyms for the global shortcuts.
 const XK_SPACE: u32 = 0x20;
@@ -86,6 +89,8 @@ enum StatusCommand {
     ToggleMute,
     Output(String),
     OpenPanel(&'static str),
+    /// The Volume Mixer as a popover under the sound status.
+    OpenMixer,
 }
 
 /// A dialog's purpose.
@@ -179,6 +184,7 @@ fn capabilities() -> Capabilities {
     Capabilities {
         control_panels: has(CONTROL_PANELS),
         software: has(SOFTWARE),
+        volume_mixer: has(VOLUME_MIXER),
         files: has(FILES),
         appearance: has("slopos-appearance"),
         text_editor: process::first_available(process::TEXT_EDITORS).is_some(),
@@ -270,6 +276,8 @@ pub struct TopBar {
     status_commands: Vec<Option<StatusCommand>>,
     status: Option<Status>,
     audio: status::State<slopos_services::audio::AudioSnapshot>,
+    /// The Volume Mixer popover while it is open, with its anchor x.
+    mixer: Option<(MixerView, i32)>,
     network: status::State<slopos_services::network::NetworkSnapshot>,
     power: status::State<slopos_services::power::PowerSnapshot>,
     clock: String,
@@ -308,6 +316,7 @@ impl TopBar {
             status_commands: Vec::new(),
             status: None,
             audio: Err("loading".into()),
+            mixer: None,
             network: Err("loading".into()),
             power: Err("loading".into()),
             clock,
@@ -530,6 +539,7 @@ impl TopBar {
     }
 
     fn show_menu(&mut self, x: i32, keyboard: bool, open: Open, control: &mut Control) {
+        self.close_mixer(control);
         let (width, height) = self.menu.size();
         let size = (width + 2, height + 2);
         if keyboard {
@@ -548,6 +558,98 @@ impl TopBar {
             true,
         );
         self.open = Some(open);
+    }
+
+    /// The Volume Mixer as a popover under the sound status item, lined up
+    /// with that item's right edge (the status items sit at the bar's right).
+    fn open_mixer(&mut self, control: &mut Control) {
+        self.close_menu(control);
+        let Some(rect) = self
+            .status_rects()
+            .into_iter()
+            .find(|(kind, _, _)| *kind == StatusMenu::Sound)
+            .map(|(_, rect, _)| rect)
+        else {
+            return;
+        };
+        let mut view = MixerView::new();
+        view.fit_width(self.width.saturating_sub(8));
+        view.set_state(&self.audio);
+        // Opening the mixer is the user's cue to try the sound server again, in
+        // case it started after the Shell did. The answer arrives as an update.
+        if let Some(status) = &self.status {
+            status.send(status::Command::ReconnectAudio);
+        }
+        let (width, _) = view.size();
+        let x = (rect.x + rect.width as i32 - width as i32).max(0);
+        self.mixer = Some((view, x));
+        self.show_mixer_popup(control);
+    }
+
+    fn show_mixer_popup(&self, control: &mut Control) {
+        if let Some((view, x)) = &self.mixer {
+            let (width, height) = view.size();
+            control.open_popup(
+                POPUP_MIXER,
+                Rect {
+                    x: *x,
+                    y: HEIGHT as i32,
+                    width,
+                    height,
+                },
+                true,
+            );
+        }
+    }
+
+    fn close_mixer(&mut self, control: &mut Control) {
+        if self.mixer.take().is_some() {
+            control.close_popup(POPUP_MIXER);
+        }
+    }
+
+    /// Whether an accessibility request names a control of the open popover.
+    fn mixer_owns(&self, request: &AccessibilityRequest) -> bool {
+        let id = match request {
+            AccessibilityRequest::Click(id)
+            | AccessibilityRequest::Focus(id)
+            | AccessibilityRequest::Increment(id)
+            | AccessibilityRequest::Decrement(id)
+            | AccessibilityRequest::SetValue(id, _) => *id,
+        };
+        self.mixer
+            .as_ref()
+            .is_some_and(|(view, _)| view.owns_node(id))
+    }
+
+    /// Input for the Volume Mixer popover. Escape, or a press outside it,
+    /// closes it; everything else goes to the mixer's controls, and a finished
+    /// change goes to the sound server.
+    fn handle_mixer(&mut self, event: &Event, control: &mut Control) {
+        let Some((view, _)) = &mut self.mixer else {
+            return;
+        };
+        let (width, height) = view.size();
+        let close = match event {
+            Event::KeyPressed {
+                key: Key::Escape, ..
+            } => true,
+            Event::PointerPressed { x, y, .. } => {
+                *x < 0 || *y < 0 || *x >= width as i32 || *y >= height as i32
+            }
+            _ => false,
+        };
+        if close {
+            self.close_mixer(control);
+            return;
+        }
+        let outcome = view.handle(event);
+        if let (Some(command), Some(status)) = (outcome.command, &self.status) {
+            status.send(status::Command::Mixer(command));
+        }
+        if outcome.redraw {
+            control.request_redraw();
+        }
     }
 
     fn close_menu(&mut self, control: &mut Control) {
@@ -634,6 +736,12 @@ impl TopBar {
                     ),
                 }
                 separator(&mut items, &mut commands);
+                action(
+                    MenuItem::new("Volume Mixer…"),
+                    StatusCommand::OpenMixer,
+                    &mut items,
+                    &mut commands,
+                );
                 action(
                     MenuItem::new("Sound Preferences…").enabled(panels),
                     StatusCommand::OpenPanel("--sound"),
@@ -758,6 +866,7 @@ impl TopBar {
             }
             Command::ControlPanels => launch(CONTROL_PANELS, &[]),
             Command::Software => launch(SOFTWARE, &[]),
+            Command::VolumeMixer => launch(VOLUME_MIXER, &[]),
             Command::DesktopPicture => launch(CONTROL_PANELS, &["--desktop"]),
             Command::Appearance(id) => launch("slopos-appearance", &[id]),
             Command::NewFilesWindow => launch(FILES, &[]),
@@ -849,6 +958,8 @@ impl TopBar {
     }
 
     fn show_dialog(&mut self, mut dialog: Dialog, pending: Pending, control: &mut Control) {
+        // A dialog takes the grab, so the mixer closes first.
+        self.close_mixer(control);
         let (width, height) = dialog.layout_standalone(420);
         control.open_popup(
             POPUP_DIALOG,
@@ -864,6 +975,8 @@ impl TopBar {
     }
 
     fn open_launcher(&mut self, control: &mut Control) {
+        // The launcher takes the grab, so the mixer closes first.
+        self.close_mixer(control);
         if self.launcher.is_some() {
             return;
         }
@@ -952,13 +1065,27 @@ impl TopBar {
             for update in status.updates.try_iter() {
                 changed = true;
                 match update {
-                    StatusUpdate::Audio(state) => self.audio = state,
+                    StatusUpdate::Audio(state) => {
+                        self.audio = state;
+                        // The popover follows the answer and resizes with the channels.
+                        if let Some((view, _)) = &mut self.mixer {
+                            view.set_state(&self.audio);
+                        }
+                        self.show_mixer_popup(control);
+                    }
                     StatusUpdate::Network(state) => self.network = state,
                     StatusUpdate::Power(state) => {
                         self.can.sleep = state.as_ref().is_ok_and(|p| {
                             p.suspend == slopos_services::power::SuspendCapability::Available
                         });
                         self.power = state;
+                    }
+                    StatusUpdate::AudioFailed(error) => {
+                        log::warn!("sound change failed: {error}");
+                        if let Some((view, _)) = &mut self.mixer {
+                            view.set_failure(&format!("Could not change the sound: {error}"));
+                            control.request_redraw();
+                        }
                     }
                     StatusUpdate::Failed(error) => log::warn!("status change failed: {error}"),
                 }
@@ -1008,6 +1135,8 @@ impl TopBar {
                 y,
                 button: PointerButton::Primary,
             } => {
+                let mixer_open = self.mixer.is_some();
+                self.close_mixer(control);
                 if let Some(index) = self.title_rects().iter().position(|r| r.contains(*x, *y)) {
                     if self.open == Some(Open::Bar(index)) {
                         self.close_menu(control);
@@ -1022,6 +1151,14 @@ impl TopBar {
                     .find(|(_, rect, _)| rect.contains(*x, *y))
                     .map(|(kind, _, _)| kind)
                 {
+                    // Like the speaker on the Windows taskbar: a click shows the
+                    // mixer, and another click on it hides the mixer again.
+                    if kind == StatusMenu::Sound {
+                        if !mixer_open {
+                            self.open_mixer(control);
+                        }
+                        return;
+                    }
                     if self.open == Some(Open::Status(kind)) {
                         self.close_menu(control);
                     } else {
@@ -1030,6 +1167,20 @@ impl TopBar {
                     return;
                 }
                 self.close_menu(control);
+            }
+            // A right-click on the sound item opens its menu (volume actions,
+            // the mixer and Sound Preferences), as on the Windows taskbar.
+            Event::PointerPressed {
+                x,
+                y,
+                button: PointerButton::Secondary,
+            } if self
+                .status_rects()
+                .iter()
+                .any(|(kind, rect, _)| *kind == StatusMenu::Sound && rect.contains(*x, *y)) =>
+            {
+                self.close_mixer(control);
+                self.open_status_menu(StatusMenu::Sound, false, control);
             }
             // While a menu is open, sliding across titles switches menus.
             Event::PointerMoved { x, y } if self.open.is_some() => {
@@ -1040,6 +1191,10 @@ impl TopBar {
                         self.open_bar_menu(index, false, control);
                     }
                 }
+            }
+            // Requests for the popover's controls are the mixer's, not the bar's.
+            Event::Accessibility(request) if self.mixer_owns(request) => {
+                self.handle_mixer(event, control);
             }
             Event::Accessibility(AccessibilityRequest::Click(id)) => {
                 let index = (*id).checked_sub(BAR_ID + 1).map(|i| i as usize);
@@ -1068,7 +1223,11 @@ impl TopBar {
                     }
                     Open::Status(_) => {
                         if let Some(Some(command)) = self.status_commands.get(item).cloned() {
-                            self.run_status(command);
+                            if command == StatusCommand::OpenMixer {
+                                self.open_mixer(control);
+                            } else {
+                                self.run_status(command);
+                            }
                         }
                     }
                 }
@@ -1280,6 +1439,7 @@ impl App for TopBar {
                 let event = event.as_ref();
                 match *id {
                     POPUP_MENU => self.handle_menu(event, control),
+                    POPUP_MIXER => self.handle_mixer(event, control),
                     POPUP_DIALOG => self.handle_dialog(event, control),
                     POPUP_LAUNCHER => self.handle_launcher(event, control),
                     toast if toast >= TOAST_POPUP => {
@@ -1332,6 +1492,12 @@ impl App for TopBar {
             toast if toast >= TOAST_POPUP => {
                 self.paint_toast((toast - TOAST_POPUP) as u32, surface)
             }
+            POPUP_MIXER => match &self.mixer {
+                Some((view, _)) => surface
+                    .clear(palette().surface)
+                    .and_then(|()| view.paint(surface)),
+                None => Ok(()),
+            },
             POPUP_LAUNCHER => {
                 let mut launcher = self.launcher.take();
                 let result = match &mut launcher {
@@ -1386,6 +1552,12 @@ impl App for TopBar {
         bar.set_children(children);
         nodes.insert(0, (BAR_ID, bar));
         let mut focus = None;
+        if let Some((view, _)) = &self.mixer {
+            nodes.extend(view.accessibility_nodes());
+            if let Some(node) = view.focused_node() {
+                focus = Some(node);
+            }
+        }
         if self.open.is_some() {
             nodes.extend(self.menu.accessibility_nodes());
             focus = Some(self.menu.focus_node());
@@ -1506,6 +1678,88 @@ mod tests {
             key,
             modifiers: Modifiers::default(),
         }
+    }
+
+    #[test]
+    fn a_screen_reader_click_on_a_mixer_control_reaches_the_mixer() {
+        use slopos_core::capability::Availability;
+        use slopos_services::audio::{AudioDevice, AudioDirection, AudioSnapshot};
+        let mut bar = bar();
+        bar.audio = Ok(AudioSnapshot {
+            revision: 1,
+            availability: Availability::Available,
+            default_output: Some("speakers".into()),
+            default_input: None,
+            outputs: vec![AudioDevice {
+                index: 1,
+                name: "speakers".into(),
+                description: Some("Speakers".into()),
+                direction: AudioDirection::Output,
+                muted: false,
+                volume_millipercent: vec![50_000],
+                is_default: true,
+            }],
+            inputs: Vec::new(),
+            streams: Vec::new(),
+        });
+        let mut control = Control::default();
+        let sound = bar
+            .status_rects()
+            .into_iter()
+            .find(|(kind, _, _)| *kind == StatusMenu::Sound)
+            .map(|(_, rect, _)| rect)
+            .expect("the sound item is laid out");
+        bar.event(&press(sound.x + 4, 12), &mut control);
+        assert!(bar.mixer.is_some());
+        // The master's Mute box is the mixer's second node. The click must reach the
+        // mixer and flip that box, not merely request a redraw.
+        let mute = slopos_mixer::view::NODE_BASE + 2;
+        let (view, _) = bar.mixer.as_ref().expect("the mixer is open");
+        assert_eq!(view.mute_checked(mute), Some(false));
+        let mut control = Control::default();
+        bar.event(
+            &Event::Accessibility(AccessibilityRequest::Click(mute)),
+            &mut control,
+        );
+        let (view, _) = bar.mixer.as_ref().expect("the mixer is still open");
+        assert_eq!(view.mute_checked(mute), Some(true));
+        assert!(control.redraw_requested());
+    }
+
+    #[test]
+    fn the_sound_item_toggles_the_volume_mixer_and_a_press_outside_closes_it() {
+        let mut bar = bar();
+        let mut control = Control::default();
+        let sound = bar
+            .status_rects()
+            .into_iter()
+            .find(|(kind, _, _)| *kind == StatusMenu::Sound)
+            .map(|(_, rect, _)| rect)
+            .expect("the sound item is laid out");
+        let (x, y) = (sound.x + 4, 12);
+        bar.event(&press(x, y), &mut control);
+        assert!(bar.mixer.is_some());
+        assert!(control.popup_requests().iter().any(|request| matches!(
+            request,
+            platform::PopupRequest::Open { id, .. } if *id == POPUP_MIXER
+        )));
+        // A second press on the sound item hides the mixer again.
+        bar.event(&press(x, y), &mut control);
+        assert!(bar.mixer.is_none());
+        bar.event(&press(x, y), &mut control);
+        assert!(bar.mixer.is_some());
+        // A press outside the popover's own bounds closes it.
+        bar.event(
+            &Event::Popup {
+                id: POPUP_MIXER,
+                event: Box::new(press(-5, 300)),
+            },
+            &mut control,
+        );
+        assert!(bar.mixer.is_none());
+        assert!(control
+            .popup_requests()
+            .contains(&platform::PopupRequest::Close { id: POPUP_MIXER }));
     }
 
     #[test]

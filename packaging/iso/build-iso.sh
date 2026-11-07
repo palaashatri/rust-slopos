@@ -33,7 +33,7 @@ cd "$ROOT"
 echo "[1/6] Building current SLOPOS-I release binaries"
 cargo build --release --workspace --locked
 
-for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-volume-mixer slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-software; do
   test -x "target/release/$binary" || {
     echo "ERROR: target/release/$binary is missing" >&2
     exit 1
@@ -63,7 +63,7 @@ mv "$PROFILE/packages.x86_64.tmp" "$PROFILE/packages.x86_64"
 ROOTFS="$PROFILE/airootfs"
 
 echo "[3/6] Staging SLOPOS-I X11 session into the live root filesystem"
-for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-volume-mixer slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-software; do
   install -Dm755 "target/release/$binary" "$ROOTFS/usr/local/bin/$binary"
 done
 install -Dm755 scripts/start-slopos-i "$ROOTFS/usr/local/bin/start-slopos-i"
@@ -75,6 +75,10 @@ install -Dm755 scripts/slopos-recovery.sh "$ROOTFS/usr/local/bin/slopos-recovery
 install -Dm644 packaging/slopos-browser.desktop \
   "$ROOTFS/usr/local/share/applications/slopos-browser.desktop"
 install -Dm644 packaging/slopos-i.desktop "$ROOTFS/usr/share/xsessions/slopos-i.desktop"
+# The shipped apps' menu entries, so each app is discoverable from the live session.
+for app in slopos-calculator slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-settings slopos-software slopos-volume-mixer; do
+  install -Dm644 "packaging/$app.desktop" "$ROOTFS/usr/share/applications/$app.desktop"
+done
 install -Dm644 assets/config/openbox/rc.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc.xml"
 install -Dm644 assets/config/openbox/rc-classic.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc-classic.xml"
 install -Dm644 assets/config/openbox/rc-graphite.xml "$ROOTFS/usr/local/share/slopos-i/openbox/rc-graphite.xml"
@@ -144,6 +148,14 @@ file_permissions["/usr/local/bin/install-browser-theme.sh"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-appearance"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-wallpaper"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-recovery"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-dock"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-calculator"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-volume-mixer"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-control-panels"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-files"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-image-viewer"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-media"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-software"]="0:0:755"
 EOF
 
 # Materialize the live account during image construction as well as at boot.
