@@ -66,6 +66,7 @@ For a quicker loop on one crate, use `cargo test -p <crate>`.
 
 - Work on a branch and open a PR to `main`. Don't push to `main` unless the owner says so.
 - Keep commits small, with messages that say what changed and why.
+- Commit messages and PR bodies carry no session links, `Claude-Session:` lines or `Co-Authored-By` trailers.
 - In the PR, list what you ran and what you couldn't run.
 
 ## Shared UI toolkit development (owner-directed)
