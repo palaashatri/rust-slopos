@@ -21,18 +21,31 @@ rm -rf "$OUT" && mkdir -p "$OUT/home/.config"
 export HOME="$OUT/home" XDG_CONFIG_HOME="$OUT/home/.config" XDG_DATA_HOME="$OUT/home/.local/share"
 export DISPLAY="$DISPLAY_NUMBER"
 FAILED=0
+# wait_until SECONDS COMMAND...: runs COMMAND every 0.2 s until it succeeds, and fails once
+# SECONDS have passed, so a display, window manager or Dock that never appears cannot hang
+# the check.
+wait_until() {
+  local end=$((SECONDS + $1)); shift
+  until "$@" 2>/dev/null; do
+    [ "$SECONDS" -ge "$end" ] && return 1
+    sleep 0.2
+  done
+}
+x_ready() { xdotool getdisplaygeometry >/dev/null 2>&1; }
+# Openbox publishes its check window on the root once it has started.
+wm_ready() { xprop -root _NET_SUPPORTING_WM_CHECK 2>/dev/null | grep -q 'window id'; }
+dock_window() { WID=$(timeout 5 xdotool search --class '^slopos-dock$' | head -1); [ -n "$WID" ]; }
 Xvfb "$DISPLAY_NUMBER" -screen 0 1280x800x24 -noreset >"$OUT/xvfb.log" 2>&1 &
 XVFB=$!
-sleep 1
+wait_until 10 x_ready || { echo "FAIL: the X display did not start"; exit 1; }
 openbox >"$OUT/openbox.log" 2>&1 &
 OPENBOX=$!
-sleep 1
+wait_until 10 wm_ready || { echo "FAIL: Openbox did not start"; exit 1; }
 "$BIN/slopos-dock" --autohide on || { kill $XVFB $OPENBOX; exit 1; }
 echo "config: $(tr '\n' ' ' < "$XDG_CONFIG_HOME/slopos-i/dock.conf")"
 RUST_LOG=debug "$BIN/slopos-dock" >"$OUT/dock.log" 2>&1 &
 DOCK=$!
-sleep 2
-WID=$(timeout 5 xdotool search --class '^slopos-dock$' | head -1)
+wait_until 10 dock_window || WID=
 if [ -z "$WID" ]; then
   echo "FAIL: the Dock window was not found"
   kill $DOCK $OPENBOX $XVFB 2>/dev/null
