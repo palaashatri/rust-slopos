@@ -1362,6 +1362,8 @@ fn is_delete(message: &ClientMessageEvent, atoms: &Atoms) -> bool {
 struct Accessibility {
     #[cfg(feature = "atspi")]
     adapter: accesskit_unix::Adapter,
+    #[cfg(feature = "atspi")]
+    scaler: crate::accessibility::TreeScaler,
 }
 
 #[cfg(feature = "atspi")]
@@ -1418,7 +1420,10 @@ impl Accessibility {
                 atspi::Actions(sender, proxy),
                 atspi::Deactivation,
             );
-            Self { adapter }
+            Self {
+                adapter,
+                scaler: Default::default(),
+            }
         }
         #[cfg(not(feature = "atspi"))]
         {
@@ -1430,11 +1435,14 @@ impl Accessibility {
     /// Send the app's tree, built in logical pixels, scaled to the window.
     fn update<A: App>(&mut self, app: &A, title: &str, factor: u32) {
         #[cfg(feature = "atspi")]
-        self.adapter.update_if_active(|| {
-            let mut tree = app.accessibility().unwrap_or_else(|| fallback_tree(title));
-            crate::accessibility::scale_tree(&mut tree, factor);
-            tree
-        });
+        {
+            let scaler = &mut self.scaler;
+            self.adapter.update_if_active(|| {
+                let mut tree = app.accessibility().unwrap_or_else(|| fallback_tree(title));
+                scaler.scale(&mut tree, factor);
+                tree
+            });
+        }
         #[cfg(not(feature = "atspi"))]
         let _ = (app, title, factor);
     }
