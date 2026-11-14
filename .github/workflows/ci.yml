@@ -38,7 +38,8 @@ jobs:
             build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
             libssl-dev libdbus-1-dev \
             xvfb openbox xdotool wmctrl dbus-x11 x11-utils x11-xserver-utils \
-            imagemagick gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-x fonts-liberation fonts-dejavu-core adwaita-icon-theme
+            imagemagick gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-x fonts-liberation fonts-dejavu-core adwaita-icon-theme \
+            at-spi2-core libglib2.0-bin python3-gi gir1.2-atspi-2.0
       - name: Select the pinned Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@v2
@@ -77,6 +78,8 @@ jobs:
         run: |
           cargo build --workspace --locked
           bash scripts/smoke-session.sh "$RUNNER_TEMP/smoke"
+      - name: Calculator keyboard, pointer and AT-SPI QA at 1x and 2x
+        run: bash scripts/run-calculator-qa.sh --bin-dir target/debug "$RUNNER_TEMP/smoke/calculator"
       - name: Upload smoke screenshots and logs
         if: always()
         uses: actions/upload-artifact@v4

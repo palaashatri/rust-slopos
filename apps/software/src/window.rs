@@ -895,12 +895,10 @@ impl App for SoftwareApp {
                 .unwrap_or_default()
         };
         nodes.extend(self.list.accessibility_nodes(&label));
-        let mut state = accesskit::Node::new(accesskit::Role::Label);
-        state.set_label(self.state.describe());
+        let state = slopos_ui::accessibility::text_label(self.state.describe());
         nodes.push((STATE_ID, state));
         if let Some(row) = self.selected() {
-            let mut details = accesskit::Node::new(accesskit::Role::Label);
-            details.set_label(format!(
+            let details = slopos_ui::accessibility::text_label(format!(
                 "{}. {}. {}",
                 row.name,
                 row.version_text(),
@@ -919,8 +917,7 @@ impl App for SoftwareApp {
             nodes.push((PROGRESS_ID, self.progress.accessibility_node()));
             nodes.push((CANCEL_ID, self.cancel.accessibility_node()));
         }
-        let mut status = accesskit::Node::new(accesskit::Role::Label);
-        status.set_label(self.status.as_str());
+        let status = slopos_ui::accessibility::text_label(self.status.as_str());
         nodes.push((STATUS_ID, status));
         let focus = if let Some((dialog, _)) = &self.dialog {
             nodes.extend(dialog.accessibility_nodes());

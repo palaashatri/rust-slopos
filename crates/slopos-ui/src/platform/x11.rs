@@ -395,7 +395,7 @@ pub fn run<A: App>(
             apply_popup(&conn, &screen, window, &atoms, scale, &mut popups, request)?;
         }
         if control.accessibility_changed {
-            accessibility.update(&app, &options.title);
+            accessibility.update(&app, &options.title, factor);
             // Menu state follows the same changes as the accessibility tree.
             menus.update(&app);
         }
@@ -677,7 +677,7 @@ pub fn run<A: App>(
         let mut woke = false;
         for message in a11y_messages.try_iter() {
             match message {
-                A11yMessage::Activated => accessibility.update(&app, &options.title),
+                A11yMessage::Activated => accessibility.update(&app, &options.title, factor),
                 A11yMessage::Request(request) => {
                     app.event(&Event::Accessibility(request), &mut control)
                 }
@@ -1362,6 +1362,8 @@ fn is_delete(message: &ClientMessageEvent, atoms: &Atoms) -> bool {
 struct Accessibility {
     #[cfg(feature = "atspi")]
     adapter: accesskit_unix::Adapter,
+    #[cfg(feature = "atspi")]
+    scaler: crate::accessibility::TreeScaler,
 }
 
 #[cfg(feature = "atspi")]
@@ -1418,7 +1420,10 @@ impl Accessibility {
                 atspi::Actions(sender, proxy),
                 atspi::Deactivation,
             );
-            Self { adapter }
+            Self {
+                adapter,
+                scaler: Default::default(),
+            }
         }
         #[cfg(not(feature = "atspi"))]
         {
@@ -1427,12 +1432,19 @@ impl Accessibility {
         }
     }
 
-    fn update<A: App>(&mut self, app: &A, title: &str) {
+    /// Send the app's tree, built in logical pixels, scaled to the window.
+    fn update<A: App>(&mut self, app: &A, title: &str, factor: u32) {
         #[cfg(feature = "atspi")]
-        self.adapter
-            .update_if_active(|| app.accessibility().unwrap_or_else(|| fallback_tree(title)));
+        {
+            let scaler = &mut self.scaler;
+            self.adapter.update_if_active(|| {
+                let mut tree = app.accessibility().unwrap_or_else(|| fallback_tree(title));
+                scaler.scale(&mut tree, factor);
+                tree
+            });
+        }
         #[cfg(not(feature = "atspi"))]
-        let _ = (app, title);
+        let _ = (app, title, factor);
     }
 
     fn focus(&mut self, focused: bool) {

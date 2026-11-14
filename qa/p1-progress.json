@@ -1,6 +1,52 @@
 {
   "schema_version": 1,
   "tasks": {
+    "CALC-01": {
+      "base_sha": "9f4c24b944a81287af973b3bb80aa60a686729ed",
+      "evidence": {
+        "checks": [
+          {
+            "artifact": ".work/p1/evidence/calc-01-unit.log",
+            "command": "cargo test --locked --no-fail-fast -p slopos-ui -p slopos-calculator -p slopos-control-panels -p slopos-image-viewer -p slopos-media -p slopos-files -p slopos-software -p slopos-mixer -p slopos-ui-gallery",
+            "kind": "unit",
+            "result": "PASS",
+            "sha256": "fc01719ab9a0861896d608b5d164a0cf15be07aa73d491af96ebe1a393ad1360"
+          },
+          {
+            "artifact": ".work/p1/evidence/calc-live/calculator-42-2x.png",
+            "command": "bash scripts/run-calculator-qa.sh --bin-dir .work/p1/target/release .work/p1/evidence/calc-live (CALC_QA_BASELINE_BIN=nightly bda0b74)",
+            "kind": "visual",
+            "resolution": "398x438 window at SLOPOS_SCALE=2 (also 199x219 at 1x: calculator-42-1x.png, calculator-focus-1x/2x.png), Xvfb 1280x800, Openbox SLOPOS rc.xml, Platinum",
+            "result": "PASS",
+            "review": "Captures opened and inspected at 1x and 2x: 42 right-aligned in the display after 7*6=, no clipping or truncation, all 19 key labels legible, dotted focus ring around 7 after Tab x5. Live window is pixel-identical to --snapshot at both scales, and the --snapshot render is pixel-identical to the last nightly (bda0b74) at 1x and 2x, so no cosmetic regression.",
+            "sha256": "47d7be4756b34879b7f8f091e9269bda5d31bcadd704771ebbe6e556b9927ca0"
+          },
+          {
+            "artifact": ".work/p1/evidence/calc-live/calculator-qa.log",
+            "command": "bash scripts/run-calculator-qa.sh --bin-dir .work/p1/target/release .work/p1/evidence/calc-live; SLOPOS_BIN_DIR=target/debug bash scripts/smoke-session.sh .work/p1/evidence/smoke",
+            "kind": "runtime",
+            "result": "PASS",
+            "sha256": "a30aa9147b247146907dbf97666375c52d06e342e530c67e7898e0bb0908b8d5"
+          },
+          {
+            "artifact": ".work/p1/evidence/calc-deb/calculator-qa.log",
+            "command": "dpkg-buildpackage --build=binary --no-sign -d (sha256 1eede1314117067b8fecf017c199ed3bbb7b72f80afaac687d9828890568fcee); bash scripts/run-calculator-qa.sh --deb .work/p1/pkg/slopos-i_20260824-1_amd64.deb .work/p1/evidence/calc-deb",
+            "kind": "package",
+            "result": "PASS",
+            "sha256": "aed29732b08d079a371f62837cb24077ccb5811f6afd51cf66235f4b215eea5b"
+          }
+        ],
+        "not_run": [
+          "Installed-package journey in a full VM with the package installed by apt and launched from the top bar/Dock (that is P1-RELEASE); Orca speech output was not exercised, only the AT-SPI tree a screen reader reads.",
+          "Review: single-agent verification; no second reviewer."
+        ],
+        "source_sha": "8871edee8b9cea485757f23d10cb663646971950",
+        "task": "CALC-01"
+      },
+      "status": "VERIFIED",
+      "summary": "Unit 260 PASS; live QA PASS at 1x/2x (release build and this branch's .deb); renders pixel-identical to nightly bda0b74; nightly .deb fails 14/15 checks on the fixed bugs; smoke-session PASS. NOT_RUN: apt-installed VM journey (P1-RELEASE), Orca speech.",
+      "updated_utc": "2026-11-14T07:22:29+00:00"
+    },
     "FILES-01": {
       "base_sha": "4c242ccc375f97062ad41387e0b053b2754aa5fa",
       "evidence": {
@@ -242,5 +288,5 @@
       "updated_utc": "2026-10-30T06:02:48+00:00"
     }
   },
-  "updated_utc": "2026-10-30T11:26:08+00:00"
+  "updated_utc": "2026-11-14T07:22:29+00:00"
 }

@@ -252,8 +252,8 @@ impl App for CalculatorApp {
         use accesskit::{Node, NodeId, Role, TreeId, TreeInfo, TreeUpdate};
         let mut root = Node::new(Role::Window);
         root.set_label("Calculator");
-        let mut display = Node::new(Role::Label);
-        display.set_label(format!("Result {}", self.calculator.display()));
+        let display =
+            slopos_ui::accessibility::text_label(format!("Result {}", self.calculator.display()));
         let mut nodes = vec![(NodeId(DISPLAY_NODE), display)];
         let mut children = vec![NodeId(DISPLAY_NODE)];
         for key in &self.keys {
@@ -389,8 +389,16 @@ mod tests {
             .iter()
             .filter_map(|(_, node)| node.label())
             .collect();
-        assert!(labels.contains(&"Result 7"));
         assert!(labels.contains(&"Divide"));
+        // AT-SPI reads a Label's name and text from its value.
+        let display = tree
+            .nodes
+            .iter()
+            .find(|(id, _)| *id == accesskit::NodeId(DISPLAY_NODE))
+            .map(|(_, node)| node)
+            .expect("result node");
+        assert_eq!(display.role(), accesskit::Role::Label);
+        assert_eq!(display.value(), Some("Result 7"));
         assert_eq!(tree.nodes.len(), 2 + KEYS.len());
     }
 
