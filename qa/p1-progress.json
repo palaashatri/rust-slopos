@@ -43,9 +43,9 @@
         "source_sha": "8871edee8b9cea485757f23d10cb663646971950",
         "task": "CALC-01"
       },
-      "status": "VERIFIED",
-      "summary": "Unit 260 PASS; live QA PASS at 1x/2x (release build and this branch's .deb); renders pixel-identical to nightly bda0b74; nightly .deb fails 14/15 checks on the fixed bugs; smoke-session PASS. NOT_RUN: apt-installed VM journey (P1-RELEASE), Orca speech.",
-      "updated_utc": "2026-11-14T07:22:29+00:00"
+      "status": "INTEGRATED",
+      "summary": "Merged to main in PR #38 (1aca7d6) with CI green: checks job incl. run-calculator-qa.sh, amd64/arm64 live ISO.",
+      "updated_utc": "2026-11-14T10:56:04+00:00"
     },
     "FILES-01": {
       "base_sha": "4c242ccc375f97062ad41387e0b053b2754aa5fa",
@@ -288,5 +288,5 @@
       "updated_utc": "2026-10-30T06:02:48+00:00"
     }
   },
-  "updated_utc": "2026-11-14T07:22:29+00:00"
+  "updated_utc": "2026-11-14T10:56:04+00:00"
 }
