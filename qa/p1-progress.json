@@ -1,6 +1,11 @@
 {
   "schema_version": 1,
   "tasks": {
+    "CALC-01": {
+      "base_sha": "9f4c24b944a81287af973b3bb80aa60a686729ed",
+      "status": "CLAIMED",
+      "updated_utc": "2026-11-14T06:56:48+00:00"
+    },
     "FILES-01": {
       "base_sha": "4c242ccc375f97062ad41387e0b053b2754aa5fa",
       "evidence": {
@@ -242,5 +247,5 @@
       "updated_utc": "2026-10-30T06:02:48+00:00"
     }
   },
-  "updated_utc": "2026-10-30T11:26:08+00:00"
+  "updated_utc": "2026-11-14T06:56:48+00:00"
 }

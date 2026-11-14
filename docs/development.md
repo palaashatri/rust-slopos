@@ -32,6 +32,7 @@ python3 scripts/check-release-runner-inventory.py
 
 cargo build --workspace --locked
 bash scripts/smoke-session.sh                  # real session under Xvfb, ~30 s
+bash scripts/run-calculator-qa.sh --bin-dir target/debug   # Calculator via keyboard, pointer and AT-SPI
 ```
 
 `smoke-session.sh` uses display `:97` (override with `SMOKE_DISPLAY`) and a throwaway `HOME`. It checks:
@@ -42,6 +43,17 @@ bash scripts/smoke-session.sh                  # real session under Xvfb, ~30 s
 - logging out ends every session process.
 
 It writes screenshots and logs to `artifacts/smoke/` and is safe to run on a desktop machine.
+
+`run-calculator-qa.sh` uses display `:93` (`CALC_QA_DISPLAY`), its own AT-SPI bus and Openbox with the SLOPOS `rc.xml`, at scales 1 and 2 (`CALC_QA_SCALES`). It launches Calculator from its desktop entry and checks, through AT-SPI:
+
+- the window, the result label's text and the 19 named keys;
+- typed sums, Escape, Backspace, Delete, F9, Return and division by zero;
+- Tab and Shift+Tab focus, and Space on the focused key;
+- pointer clicks at the centres AT-SPI reports, so wrong accessible geometry fails;
+- the AT-SPI Click action;
+- that the live window is pixel-identical to `--snapshot`, and that Super+Q ends the process.
+
+`--deb FILE` runs the same checks on a package's desktop entry and binary, extracted into a throwaway root. `CALC_QA_BASELINE_BIN` compares renders with an earlier build and writes a diff image for review. Output goes to `artifacts/calculator-qa/`. It needs `at-spi2-core`, `python3-gi` and `gir1.2-atspi-2.0`; it picks whichever `python3*` loads the AT-SPI bindings.
 
 ## Running things from the source tree
 
