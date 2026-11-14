@@ -37,9 +37,27 @@ pub fn window_tree(title: &str, nodes: Vec<(u64, Node)>, focus: Option<u64>) -> 
     }
 }
 
+/// A text label, such as a status line or Calculator's result.
+///
+/// AccessKit takes a `Label` node's accessible name and text from its
+/// *value*, not its `label` property: a `Label` with only `set_label` reaches
+/// AT-SPI with an empty name and no text, so screen readers say nothing.
+pub fn text_label(text: impl Into<String>) -> Node {
+    let mut node = Node::new(Role::Label);
+    node.set_value(text);
+    node
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn text_labels_carry_their_text_as_the_value() {
+        let node = text_label("Result 42");
+        assert_eq!(node.role(), Role::Label);
+        assert_eq!(node.value(), Some("Result 42"));
+    }
 
     #[test]
     fn focus_falls_back_to_the_window() {

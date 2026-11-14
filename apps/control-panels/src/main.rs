@@ -2571,8 +2571,7 @@ impl App for ControlPanels {
         let mut nodes = self.menu.accessibility_nodes();
         nodes.extend(self.sidebar.accessibility_nodes(&names));
         let (title, lines) = self.lines();
-        let mut text = accesskit::Node::new(accesskit::Role::Label);
-        text.set_label(format!("{title}. {}", lines.join(". ")));
+        let text = slopos_ui::accessibility::text_label(format!("{title}. {}", lines.join(". ")));
         nodes.push((LINES_ID, text));
         match self.panel() {
             Panel::Network => {
@@ -2667,8 +2666,7 @@ impl App for ControlPanels {
                 nodes.push((CHOOSE_PICTURE_ID, self.choose_picture.accessibility_node()));
             }
         }
-        let mut status = accesskit::Node::new(accesskit::Role::Label);
-        status.set_label(self.status.as_str());
+        let status = slopos_ui::accessibility::text_label(self.status.as_str());
         nodes.push((STATUS_ID, status));
         if let Some(pending) = self.keep.as_ref().filter(|p| p.applied) {
             nodes.extend(pending.dialog.accessibility_nodes());

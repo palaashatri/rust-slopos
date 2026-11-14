@@ -711,8 +711,7 @@ impl App for MediaApp {
                 .unwrap_or_else(|| "No media".into()),
         );
         nodes.push((VIDEO_ID, video));
-        let mut status = accesskit::Node::new(accesskit::Role::Label);
-        status.set_label(self.status.as_str());
+        let status = slopos_ui::accessibility::text_label(self.status.as_str());
         nodes.push((STATUS_ID, status));
         let focus = match &self.chooser {
             Some(chooser) => {

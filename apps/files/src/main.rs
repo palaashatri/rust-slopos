@@ -1733,8 +1733,7 @@ impl App for FilesApp {
                 .unwrap_or_default()
         };
         nodes.extend(self.list.accessibility_nodes(&label));
-        let mut status = accesskit::Node::new(accesskit::Role::Label);
-        status.set_label(self.status.as_str());
+        let status = slopos_ui::accessibility::text_label(self.status.as_str());
         nodes.push((STATUS_ID, status));
         if self.running.is_some() {
             nodes.push((PROGRESS_ID, self.progress.accessibility_node()));

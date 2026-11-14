@@ -303,8 +303,7 @@ impl App for Widgets {
         nodes.push((SLIDER, self.slider.accessibility_node()));
         nodes.push((CHECK, self.check.accessibility_node()));
         nodes.push((self.progress.id, self.progress.accessibility_node()));
-        let mut status = accesskit::Node::new(accesskit::Role::Label);
-        status.set_label(self.status.as_str());
+        let status = slopos_ui::accessibility::text_label(self.status.as_str());
         nodes.push((24, status));
         let focus = if let Some(chooser) = &self.chooser {
             nodes.extend(chooser.accessibility_nodes());

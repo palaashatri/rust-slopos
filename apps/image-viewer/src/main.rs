@@ -728,8 +728,7 @@ impl App for ImageViewerApp {
             });
         }
         nodes.push((IMAGE_ID, image));
-        let mut status = accesskit::Node::new(accesskit::Role::Label);
-        status.set_label(self.status.as_str());
+        let status = slopos_ui::accessibility::text_label(self.status.as_str());
         nodes.push((STATUS_ID, status));
         let focus = if let Some(chooser) = &self.chooser {
             nodes.extend(chooser.accessibility_nodes());

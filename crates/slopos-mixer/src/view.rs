@@ -7,7 +7,7 @@
 //! returned as a [`Command`] for the host to run; the faders follow the
 //! provider's next snapshot.
 
-use accesskit::{Node, Role};
+use accesskit::Node;
 use slopos_services::audio::AudioSnapshot;
 use slopos_ui::controls::range::{Checkbox, Slider, ToggleOutcome, ValueOutcome};
 use slopos_ui::event::{AccessibilityRequest, Event, Key, PointerButton};
@@ -512,8 +512,7 @@ impl MixerView {
     /// and mute box. [`MixerView::accessibility_children`] lists the direct
     /// children of the window.
     pub fn accessibility_nodes(&self) -> Vec<(u64, Node)> {
-        let mut status = Node::new(Role::Label);
-        status.set_label(self.status.as_str());
+        let status = slopos_ui::accessibility::text_label(self.status.as_str());
         let mut nodes = vec![(STATUS_NODE, status)];
         for (index, strip) in self.strips.iter().enumerate() {
             nodes.push((fader_node(index), strip.fader.accessibility_node()));
@@ -589,6 +588,7 @@ pub fn fit(text: &str, font: &Font, max_width: u32) -> String {
 mod tests {
     use super::*;
     use crate::model::Target;
+    use accesskit::Role;
     use slopos_core::capability::Availability;
     use slopos_services::audio::{AudioDevice, AudioDirection, AudioStream};
     use slopos_ui::event::PointerButton;
