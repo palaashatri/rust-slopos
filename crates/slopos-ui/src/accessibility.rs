@@ -48,9 +48,66 @@ pub fn text_label(text: impl Into<String>) -> Node {
     node
 }
 
+/// Map a tree built in logical pixels onto a window drawn at `factor`.
+///
+/// Apps describe bounds in the same logical units they paint in. The host
+/// renders at an integer scale, so assistive technology must see every
+/// rectangle multiplied by it; otherwise a screen reader or magnifier points
+/// at the wrong control at 2x. AccessKit applies a node's transform to all
+/// of its descendants, so one scale on the tree's root is enough. An update
+/// without the root node (an incremental one) is left alone.
+pub fn scale_tree(tree: &mut TreeUpdate, factor: u32) {
+    let Some(root) = tree.tree.as_ref().map(|info| info.root) else {
+        return;
+    };
+    let Some((_, node)) = tree.nodes.iter_mut().find(|(id, _)| *id == root) else {
+        return;
+    };
+    let scale = accesskit::Affine::scale(f64::from(factor));
+    let transform = node.transform().map_or(scale, |existing| scale * *existing);
+    if transform == accesskit::Affine::IDENTITY {
+        node.clear_transform();
+    } else {
+        node.set_transform(transform);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn scale_tree_scales_from_the_root() {
+        let mut tree = window_tree("Calculator", vec![(5, Node::new(Role::Button))], None);
+        scale_tree(&mut tree, 2);
+        assert_eq!(
+            tree.nodes[0].1.transform(),
+            Some(&accesskit::Affine::scale(2.0))
+        );
+        assert_eq!(tree.nodes[1].1.transform(), None);
+
+        let mut tree = window_tree("Calculator", vec![], None);
+        scale_tree(&mut tree, 1);
+        assert_eq!(tree.nodes[0].1.transform(), None);
+
+        // An app transform (here a translation) is kept, under the scale.
+        let mut tree = window_tree("Calculator", vec![], None);
+        tree.nodes[0]
+            .1
+            .set_transform(accesskit::Affine::translate((3.0, 4.0)));
+        scale_tree(&mut tree, 2);
+        let combined = *tree.nodes[0].1.transform().unwrap();
+        assert_eq!(
+            combined * accesskit::Point::new(1.0, 1.0),
+            accesskit::Point::new(8.0, 10.0)
+        );
+
+        // Incremental updates carry no root and are not touched.
+        let mut tree = window_tree("Calculator", vec![], None);
+        tree.tree = None;
+        scale_tree(&mut tree, 2);
+        assert_eq!(tree.nodes[0].1.transform(), None);
+    }
 
     #[test]
     fn text_labels_carry_their_text_as_the_value() {
