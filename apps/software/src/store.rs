@@ -40,9 +40,6 @@ impl Sources {
 /// The catalogue's standing, shown above the list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CatalogueState {
-    /// No publisher trust store is configured, so nothing can be verified
-    /// and no catalogue entry is offered. Installed apps are still listed.
-    NoPublisherKey,
     /// No catalogue file is installed.
     Missing,
     /// A catalogue exists but failed to load or verify; nothing from it is
@@ -57,9 +54,6 @@ pub enum CatalogueState {
 impl CatalogueState {
     pub fn describe(&self) -> String {
         match self {
-            Self::NoPublisherKey => {
-                "Unavailable: no publisher key configured. Installed apps are listed below.".into()
-            }
             Self::Missing => {
                 "No software catalogue is installed. Installed apps are listed below.".into()
             }
@@ -130,12 +124,7 @@ pub fn machine_architecture() -> &'static str {
 
 /// Load and verify the catalogue, then merge in installed AppImages.
 pub fn load(sources: &Sources, layout: &Layout, architecture: &str) -> (CatalogueState, Vec<Row>) {
-    // Without a publisher trust store nothing can be verified, so the catalogue
-    // stays unavailable however its file looks. The tab goes live as soon as the
-    // owner installs the trust store; no code change is needed.
-    let trust_configured = fs::symlink_metadata(&sources.trust).is_ok();
     let (state, entries) = match &sources.catalogue {
-        _ if !trust_configured => (CatalogueState::NoPublisherKey, Vec::new()),
         None => (CatalogueState::Missing, Vec::new()),
         Some(path) => match verified(&sources.trust, path) {
             Ok(catalogue) => (
@@ -359,45 +348,11 @@ pub(crate) mod tests {
             load(&sources, &layout, "x86_64").0,
             CatalogueState::Rejected(_)
         ));
-        // A trust store that is present but a catalogue that is absent is Missing.
-        let no_catalogue = Sources {
-            trust: sources.trust.clone(),
+        let missing = Sources {
+            trust: dir.path().join("none.json"),
             catalogue: None,
         };
-        assert_eq!(
-            load(&no_catalogue, &layout, "x86_64").0,
-            CatalogueState::Missing
-        );
-    }
-
-    #[test]
-    fn no_publisher_key_means_unavailable_and_offers_nothing() {
-        let dir = tempfile::tempdir().unwrap();
-        let layout = Layout::for_home(&dir.path().join("home"));
-        // A validly signed catalogue is still unavailable without a trust store.
-        let (catalogue, trust) = signed(6);
-        let mut sources = write_sources(dir.path(), &catalogue, &trust);
-        fs::remove_file(&sources.trust).unwrap();
-        let (state, rows) = load(&sources, &layout, "x86_64");
-        assert_eq!(state, CatalogueState::NoPublisherKey);
-        assert!(state
-            .describe()
-            .starts_with("Unavailable: no publisher key configured"));
-        assert!(rows.iter().all(|row| row.entry.is_none()));
-        // With no catalogue either, the state is the same.
-        sources.catalogue = None;
-        assert_eq!(
-            load(&sources, &layout, "x86_64").0,
-            CatalogueState::NoPublisherKey
-        );
-        // A trust store that appears later makes the catalogue live.
-        fs::write(&sources.trust, serde_json::to_vec(&trust).unwrap()).unwrap();
-        fs::set_permissions(&sources.trust, fs::Permissions::from_mode(0o644)).unwrap();
-        sources.catalogue = Some(dir.path().join("catalogue.json"));
-        assert!(matches!(
-            load(&sources, &layout, "x86_64").0,
-            CatalogueState::Verified { .. }
-        ));
+        assert_eq!(load(&missing, &layout, "x86_64").0, CatalogueState::Missing);
     }
 
     #[test]
