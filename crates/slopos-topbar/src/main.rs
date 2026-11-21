@@ -9,6 +9,11 @@
 
 mod desktop_files;
 mod launcher;
+// Pure AppMenu model and registrar; phase 2 wires them to D-Bus and X11.
+#[allow(dead_code)]
+mod menu_registrar;
+#[allow(dead_code)]
+mod menu_registrar_layout;
 mod menus;
 mod notifications;
 mod session;
