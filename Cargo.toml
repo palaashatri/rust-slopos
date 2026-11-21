@@ -21,6 +21,7 @@ members = [
     "apps/control-panels",
     "apps/files",
     "apps/volume-mixer",
+    "apps/terminal",
 ]
 
 [workspace.dependencies]
