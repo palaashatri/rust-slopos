@@ -54,8 +54,10 @@ pub enum CatalogueState {
 impl CatalogueState {
     pub fn describe(&self) -> String {
         match self {
+            // Nothing is offered until the owner's publisher key signs a
+            // catalogue; say so rather than invent one.
             Self::Missing => {
-                "No software catalogue is installed. Installed apps are listed below.".into()
+                "unavailable: no signed catalogue. Installed apps are listed below.".into()
             }
             Self::Rejected(why) => format!("The software catalogue was rejected: {why}"),
             Self::Verified { publisher, key_id } => {
@@ -364,5 +366,13 @@ pub(crate) mod tests {
         assert_eq!(size_text(999), "999 bytes");
         assert_eq!(size_text(12_300_000), "12.3 MB");
         assert_eq!(size_text(1_500_000_000), "1.5 GB");
+    }
+
+    #[test]
+    fn a_missing_catalogue_says_it_is_unavailable() {
+        assert_eq!(
+            CatalogueState::Missing.describe(),
+            "unavailable: no signed catalogue. Installed apps are listed below."
+        );
     }
 }

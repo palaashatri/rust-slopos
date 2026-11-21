@@ -8,6 +8,8 @@
 
 mod backends;
 mod install;
+mod packages;
+mod run;
 mod sources;
 mod store;
 mod trust;
@@ -90,7 +92,10 @@ fn run_window() -> Result<(), String> {
         window::network_installer(),
         slot.clone(),
         sources::Environment::from_system(),
-        Arc::new(backends::run_system),
+        window::Commands {
+            search: Arc::new(backends::run_system),
+            install: Arc::new(packages::run_install),
+        },
     );
     let options = WindowOptions::new("Software", "slopos-software", window::WIDTH, window::HEIGHT);
     platform::run(options, app, move |proxy| {

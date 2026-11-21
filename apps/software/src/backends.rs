@@ -2,17 +2,18 @@
 //!
 //! Each source has a query builder (pure, validates the search text), a
 //! parser (pure, takes the tool's stdout) and the one runner that actually
-//! starts the tool. Nothing else reads command output. Results are listing
-//! only: installing from these sources is not built yet.
+//! starts the tool. Nothing else reads command output. Installs are built
+//! by [`crate::packages`].
 
-use std::process::{Command, Stdio};
 use std::sync::Arc;
+
+use crate::run::{self, Cancel, Stream};
 
 /// Most results kept from one search; the rest are counted, not shown.
 pub const MAX_RESULTS: usize = 500;
 /// Longest search text accepted.
 const MAX_QUERY: usize = 64;
-/// Output past this many bytes is cut, bounding memory on a huge search.
+/// Output past this many bytes is dropped, bounding memory on a huge search.
 const MAX_OUTPUT: usize = 8 * 1024 * 1024;
 
 /// One package as a source lists it.
@@ -51,8 +52,9 @@ pub struct Search {
     pub args: Vec<String>,
 }
 
-/// Runs a search and returns the tool's standard output.
-pub type Runner = Arc<dyn Fn(&Search) -> Result<String, String> + Send + Sync>;
+/// Runs a search and returns the tool's standard output. The run stops when
+/// the cancel handle is cancelled.
+pub type Runner = Arc<dyn Fn(&Search, &Cancel) -> Result<String, String> + Send + Sync>;
 
 /// Accept only plain search text: letters, digits and `+ - . _` and spaces,
 /// not starting with a dash (so it cannot be read as an option).
@@ -109,23 +111,43 @@ pub fn parse(format: Format, text: &str) -> Vec<Package> {
 /// Start the tool with `LC_ALL=C` and return its standard output.
 ///
 /// A non-zero exit with no output means "no matches" (pacman does this), so
-/// it returns empty text. A non-zero exit with output on stderr is an error.
-pub fn run_system(search: &Search) -> Result<String, String> {
-    let program = slopos_core::process::resolve_program(&search.program)
-        .ok_or_else(|| format!("{} not found", search.program))?;
-    let output = Command::new(program)
-        .args(&search.args)
-        .env("LC_ALL", "C")
-        .stdin(Stdio::null())
-        .output()
-        .map_err(|error| format!("{}: {error}", search.program))?;
-    let mut stdout = output.stdout;
-    stdout.truncate(MAX_OUTPUT);
-    let stdout = String::from_utf8_lossy(&stdout).into_owned();
-    if !output.status.success() && stdout.trim().is_empty() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return match stderr.lines().map(str::trim).find(|line| !line.is_empty()) {
-            Some(line) => Err(line.to_owned()),
+/// it returns empty text. A non-zero exit with no output but a message on
+/// stderr is an error carrying that message. Cancelling returns
+/// [`run::CANCELLED`].
+pub fn run_system(search: &Search, cancel: &Cancel) -> Result<String, String> {
+    let argv: Vec<String> = std::iter::once(search.program.clone())
+        .chain(search.args.iter().cloned())
+        .collect();
+    let mut stdout = String::new();
+    let mut first_error: Option<String> = None;
+    let mut truncated = false;
+    let status = run::run(
+        &argv,
+        &[("LC_ALL", "C")],
+        cancel,
+        &mut |stream, line| match stream {
+            Stream::Out => {
+                if truncated {
+                    return;
+                }
+                if stdout.len() + line.len() + 1 > MAX_OUTPUT {
+                    truncated = true;
+                    return;
+                }
+                stdout.push_str(line);
+                stdout.push('\n');
+            }
+            Stream::Err => {
+                let line = line.trim();
+                if first_error.is_none() && !line.is_empty() {
+                    first_error = Some(line.to_owned());
+                }
+            }
+        },
+    )?;
+    if !status.success() && stdout.trim().is_empty() {
+        return match first_error {
+            Some(line) => Err(line),
             None => Ok(String::new()),
         };
     }
@@ -481,5 +503,49 @@ vlc        3.0.21      videolan✓      -      Media player
         assert_eq!(flatpak.args[0], "search");
         assert_eq!(flatpak.args[2], "gimp");
         assert!(search(Format::Apt, "apt-cache", "-x").is_err());
+    }
+
+    /// A search that runs `sh -c SCRIPT` in place of the real tool.
+    fn shell_search(script: &str) -> Search {
+        Search {
+            format: Format::Apt,
+            program: "sh".into(),
+            args: vec!["-c".into(), script.into()],
+        }
+    }
+
+    #[test]
+    fn a_search_returns_the_tools_output() {
+        let cancel = Cancel::default();
+        let text = run_system(&shell_search("echo zstd - fast; echo x >&2"), &cancel).unwrap();
+        assert_eq!(text, "zstd - fast\n");
+    }
+
+    #[test]
+    fn an_empty_failed_search_is_no_matches_or_its_error_line() {
+        let cancel = Cancel::default();
+        assert_eq!(
+            run_system(&shell_search("exit 1"), &cancel),
+            Ok(String::new())
+        );
+        assert_eq!(
+            run_system(&shell_search("echo 'E: bad db' >&2; exit 2"), &cancel),
+            Err("E: bad db".to_owned())
+        );
+        // A failure that still printed results keeps them.
+        assert_eq!(
+            run_system(&shell_search("echo found; exit 2"), &cancel),
+            Ok("found\n".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_cancelled_search_stops_and_says_so() {
+        let cancel = Cancel::default();
+        cancel.cancel();
+        assert_eq!(
+            run_system(&shell_search("sleep 30"), &cancel),
+            Err(run::CANCELLED.to_owned())
+        );
     }
 }
