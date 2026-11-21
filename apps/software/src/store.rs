@@ -87,6 +87,8 @@ pub struct Row {
     /// The verified catalogue entry, when the app is offered.
     pub entry: Option<CatalogueEntry>,
     pub installed_version: Option<String>,
+    /// The version a native, Flatpak, Snap or AUR source lists, when it has one.
+    pub version: String,
 }
 
 impl Row {
@@ -112,7 +114,7 @@ impl Row {
             (Some(entry), None) => entry.version.clone(),
             (None, Some(installed)) if installed.is_empty() => "installed".into(),
             (None, Some(installed)) => format!("{installed} (installed)"),
-            (None, None) => String::new(),
+            (None, None) => self.version.clone(),
         }
     }
 }
@@ -153,6 +155,7 @@ pub fn load(sources: &Sources, layout: &Layout, architecture: &str) -> (Catalogu
             publisher: entry.publisher.clone(),
             license: entry.license.clone(),
             installed_version: None,
+            version: String::new(),
             entry: Some(entry),
         })
         .collect();
@@ -216,6 +219,7 @@ fn installed_apps(layout: &Layout) -> Vec<Row> {
             license: String::new(),
             entry: None,
             installed_version: Some(field("X-SLOPOS-Version")),
+            version: String::new(),
         });
     }
     rows
