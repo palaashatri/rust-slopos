@@ -22,12 +22,18 @@ use x11rb::wrapper::ConnectionExt as _;
 
 use super::global_menu::Message as MenuMessage;
 use super::keys::{grab_masks, key_for, keycodes_for, keysym_for, modifier_mask, modifiers};
+use super::present::{DeviceRect, Frame, Presenter};
 use super::{
     place_popup, scale_from_environment, App, Control, Edge, PopupRequest, WindowKind,
     WindowOptions,
 };
 use crate::event::{AccessibilityRequest, Event, PointerButton};
 use crate::render::RasterSurface;
+#[cfg(feature = "gpu")]
+use crate::render::{
+    gpu::WgpuExecutor,
+    list::{DrawExecutor, DrawList},
+};
 
 x11rb::atom_manager! {
     Atoms: AtomsCookie {
@@ -67,6 +73,11 @@ pub enum PlatformError {
     UnsupportedVisual(u8),
     #[error(transparent)]
     Render(#[from] crate::render::RenderError),
+    #[error("frame pixels do not match the frame size, or the frame is too large for X requests")]
+    BadFrame,
+    #[cfg(feature = "gpu")]
+    #[error("GPU frame: {0}")]
+    Gpu(String),
     #[error("{0}")]
     Io(#[from] std::io::Error),
 }
@@ -305,7 +316,10 @@ pub fn run<A: App>(
     // Text this window offers on CLIPBOARD while it owns the selection.
     let mut clipboard: Option<String> = None;
     let max_request = conn.maximum_request_bytes();
+    // Scratch for the X byte layout of an uploaded region.
     let mut frame = Vec::new();
+    // What the server holds for the main window; only changed rows are sent.
+    let mut presenter = Presenter::new();
     let mut popups: Vec<Popup> = Vec::new();
     // A dock's reserved strip can change while it runs (auto-hide): the
     // edge is fixed, the strip size and the window's span are tracked.
@@ -425,30 +439,28 @@ pub fn run<A: App>(
         if needs_paint {
             needs_paint = false;
             app.paint(&surface);
-            present(
-                &conn,
-                window,
+            let upload = Upload {
+                conn: &conn,
+                drawable: window,
                 gc,
-                &surface,
-                screen.root_depth,
+                depth: screen.root_depth,
                 lsb_first,
                 max_request,
-                &mut frame,
-            )?;
+            };
+            present_surface(&upload, &mut presenter, &surface, &mut frame)?;
         }
         for popup in &mut popups {
             if std::mem::take(&mut popup.needs_paint) {
                 app.paint_popup(popup.id, &popup.surface);
-                present(
-                    &conn,
-                    popup.window,
+                let upload = Upload {
+                    conn: &conn,
+                    drawable: popup.window,
                     gc,
-                    &popup.surface,
-                    screen.root_depth,
+                    depth: screen.root_depth,
                     lsb_first,
                     max_request,
-                    &mut frame,
-                )?;
+                };
+                present_surface(&upload, &mut popup.presenter, &popup.surface, &mut frame)?;
             }
         }
         conn.flush()?;
@@ -545,7 +557,11 @@ pub fn run<A: App>(
                 .and_then(|target| popups.iter_mut().find(|popup| popup.window == target))
             {
                 match (&event, translated) {
-                    (XEvent::Expose(expose), _) if expose.count == 0 => popup.needs_paint = true,
+                    (XEvent::Expose(expose), _) if expose.count == 0 => {
+                        // The server may have dropped the popup's pixels.
+                        popup.presenter.invalidate();
+                        popup.needs_paint = true;
+                    }
                     (
                         XEvent::ButtonPress(_)
                         | XEvent::ButtonRelease(_)
@@ -569,6 +585,8 @@ pub fn run<A: App>(
             }
             match event {
                 XEvent::Expose(expose) if expose.count == 0 && expose.window == window => {
+                    // The server may have dropped the window's pixels: resend all of them.
+                    presenter.invalidate();
                     needs_paint = true
                 }
                 XEvent::ConfigureNotify(configure) if configure.window == window => {
@@ -598,6 +616,7 @@ pub fn run<A: App>(
                     if size != logical {
                         logical = size;
                         surface = RasterSurface::new(size.0, size.1, scale)?;
+                        presenter.invalidate();
                         needs_paint = true;
                     }
                     accessibility.set_bounds(&conn, window, screen.root);
@@ -731,6 +750,7 @@ struct Popup {
     window: u32,
     grab: bool,
     surface: RasterSurface,
+    presenter: Presenter,
     needs_paint: bool,
 }
 
@@ -802,6 +822,8 @@ fn apply_popup(
                 {
                     popup.surface = RasterSurface::new(logical.0, logical.1, scale)?;
                 }
+                // The window may have moved or been remapped: resend its pixels.
+                popup.presenter.invalidate();
                 popup.needs_paint = true;
                 return Ok(());
             }
@@ -877,6 +899,7 @@ fn apply_popup(
                 window: popup_window,
                 grab,
                 surface: RasterSurface::new(logical.0, logical.1, scale)?,
+                presenter: Presenter::new(),
                 needs_paint: true,
             });
         }
@@ -1237,72 +1260,137 @@ fn wait(x_fd: RawFd, wake_fd: RawFd, timeout: Option<Duration>) -> std::io::Resu
     Ok(fds[1].revents & libc::POLLIN != 0)
 }
 
-#[allow(clippy::too_many_arguments)]
-fn present(
-    conn: &RustConnection,
-    window: u32,
-    gc: u32,
-    surface: &RasterSurface,
-    depth: u8,
-    lsb_first: bool,
-    max_request: usize,
-    frame: &mut Vec<u8>,
-) -> Result<(), PlatformError> {
-    put_rgba(
-        conn,
-        window,
-        gc,
-        (surface.device_width(), surface.device_height()),
-        &surface.data(),
-        depth,
-        lsb_first,
-        max_request,
-        frame,
-    )
-}
-
-/// Upload premultiplied RGBA to a 32-bit-per-pixel drawable, splitting the
-/// rows across as many `PutImage` requests as the server's limit needs.
-#[allow(clippy::too_many_arguments)]
-fn put_rgba(
-    conn: &RustConnection,
+/// Where frames go for one drawable: its connection, graphics context and the
+/// server's pixel layout. Every upload is a `PutImage` on this drawable.
+struct Upload<'a> {
+    conn: &'a RustConnection,
     drawable: u32,
     gc: u32,
-    (width, height): (u32, u32),
-    data: &[u8],
     depth: u8,
     lsb_first: bool,
     max_request: usize,
-    frame: &mut Vec<u8>,
+}
+
+/// Send the damaged part of a window's surface, if it changed since the server
+/// last received it. Returns the rectangle sent, or `None` when no request was
+/// needed.
+fn present_surface(
+    upload: &Upload,
+    presenter: &mut Presenter,
+    surface: &RasterSurface,
+    scratch: &mut Vec<u8>,
+) -> Result<Option<DeviceRect>, PlatformError> {
+    let pixels = surface.data();
+    let frame = Frame::new(surface.device_width(), surface.device_height(), &pixels)
+        .ok_or(PlatformError::BadFrame)?;
+    present_frame(upload, presenter, frame, scratch)
+}
+
+/// Send the damaged part of `frame` (premultiplied RGBA) to the drawable.
+/// Returns the rectangle sent, or `None` when the frame matched the server's copy.
+fn present_frame(
+    upload: &Upload,
+    presenter: &mut Presenter,
+    frame: Frame,
+    scratch: &mut Vec<u8>,
+) -> Result<Option<DeviceRect>, PlatformError> {
+    let Some(damage) = presenter.damage(&frame) else {
+        return Ok(None);
+    };
+    put_region(upload, &frame, damage, scratch)?;
+    Ok(Some(damage))
+}
+
+/// Draw `list` with the wgpu executor and present the result to the drawable.
+///
+/// This is the **readback** path: the GPU frame is copied into a CPU buffer
+/// (`WgpuExecutor::read_pixels`) and then sent with the same `PutImage` code as
+/// the CPU path. It is not a direct GPU present (DRI3 or the Present
+/// extension); that is a follow-up. Nothing in an app calls this yet: the
+/// X11 readback test is its only user.
+#[cfg(feature = "gpu")]
+#[cfg_attr(not(test), allow(dead_code))]
+fn present_gpu_list(
+    upload: &Upload,
+    presenter: &mut Presenter,
+    executor: &mut WgpuExecutor,
+    list: &DrawList,
+    (width, height): (u32, u32),
+    scale: crate::foundation::geometry::Scale,
+    scratch: &mut Vec<u8>,
+) -> Result<Option<DeviceRect>, PlatformError> {
+    let gpu_error = |error: &dyn std::fmt::Display| PlatformError::Gpu(error.to_string());
+    let mut gpu_frame = executor
+        .create_frame(width, height, scale)
+        .map_err(|error| gpu_error(&error))?;
+    executor.clear(&mut gpu_frame, crate::foundation::color::Color::TRANSPARENT);
+    executor
+        .execute(list, &mut gpu_frame)
+        .map_err(|error| gpu_error(&error))?;
+    let pixels = executor
+        .read_pixels(&gpu_frame)
+        .map_err(|error| gpu_error(&error))?;
+    let frame = Frame::new(gpu_frame.device_width(), gpu_frame.device_height(), &pixels)
+        .ok_or(PlatformError::BadFrame)?;
+    present_frame(upload, presenter, frame, scratch)
+}
+
+/// Send one rectangle of `frame` to the drawable, in the server's byte order,
+/// split across as many `PutImage` requests as the server's limit needs.
+fn put_region(
+    upload: &Upload,
+    frame: &Frame,
+    rect: DeviceRect,
+    scratch: &mut Vec<u8>,
 ) -> Result<(), PlatformError> {
-    frame.clear();
-    frame.reserve(width as usize * height as usize * 4);
-    for [red, green, blue, _] in data.as_chunks::<4>().0 {
-        // Premultiplied RGBA over black is exactly what an opaque window shows.
-        if lsb_first {
-            frame.extend_from_slice(&[*blue, *green, *red, 0]);
-        } else {
-            frame.extend_from_slice(&[0, *red, *green, *blue]);
-        }
+    if rect.width == 0 || rect.height == 0 {
+        return Ok(());
     }
-    let row_bytes = width as usize * 4;
-    let rows_per_request = ((max_request.saturating_sub(64)) / row_bytes).max(1);
-    for (index, chunk) in frame.chunks(rows_per_request * row_bytes).enumerate() {
+    let x = i16::try_from(rect.x).map_err(|_| PlatformError::BadFrame)?;
+    let y = i16::try_from(rect.y).map_err(|_| PlatformError::BadFrame)?;
+    let width = u16::try_from(rect.width).map_err(|_| PlatformError::BadFrame)?;
+    x_pixels(frame, rect, upload.lsb_first, scratch);
+    let row_bytes = rect.width as usize * 4;
+    let rows_per_request = ((upload.max_request.saturating_sub(64)) / row_bytes).max(1);
+    for (index, chunk) in scratch.chunks(rows_per_request * row_bytes).enumerate() {
         let rows = chunk.len() / row_bytes;
-        conn.put_image(
+        let row = i32::from(y) + (index * rows_per_request) as i32;
+        let row = i16::try_from(row).map_err(|_| PlatformError::BadFrame)?;
+        upload.conn.put_image(
             ImageFormat::Z_PIXMAP,
-            drawable,
-            gc,
-            width as u16,
+            upload.drawable,
+            upload.gc,
+            width,
             rows as u16,
+            x,
+            row,
             0,
-            (index * rows_per_request) as i16,
-            0,
-            depth,
+            upload.depth,
             chunk,
         )?;
     }
     Ok(())
+}
+
+/// Rearrange a rectangle of premultiplied RGBA into the X server's 32-bit
+/// pixel layout, row by row, into `out`. Premultiplied RGBA over black is what
+/// an opaque window shows, so the alpha byte is written as zero padding.
+fn x_pixels(frame: &Frame, rect: DeviceRect, lsb_first: bool, out: &mut Vec<u8>) {
+    out.clear();
+    let row_bytes = rect.width as usize * 4;
+    out.reserve(row_bytes * rect.height as usize);
+    let stride = frame.width() as usize * 4;
+    let pixels = frame.pixels();
+    for row in rect.y..rect.y + rect.height {
+        let start = row as usize * stride + rect.x as usize * 4;
+        for [red, green, blue, _] in pixels[start..start + row_bytes].as_chunks::<4>().0 {
+            if lsb_first {
+                out.extend_from_slice(&[*blue, *green, *red, 0]);
+            } else {
+                out.extend_from_slice(&[0, *red, *green, *blue]);
+            }
+        }
+    }
 }
 
 fn translate(
@@ -1542,15 +1630,19 @@ pub fn set_root_background(
     let gc = conn.generate_id()?;
     conn.create_gc(gc, pixmap, &CreateGCAux::new())?;
     let lsb_first = conn.setup().image_byte_order == ImageOrder::LSB_FIRST;
-    put_rgba(
-        &conn,
-        pixmap,
+    let upload = Upload {
+        conn: &conn,
+        drawable: pixmap,
         gc,
-        (width, height),
-        image.data(),
-        screen.root_depth,
+        depth: screen.root_depth,
         lsb_first,
-        conn.maximum_request_bytes(),
+        max_request: conn.maximum_request_bytes(),
+    };
+    let whole = Frame::new(width, height, image.data()).ok_or(PlatformError::BadFrame)?;
+    put_region(
+        &upload,
+        &whole,
+        DeviceRect::full(width, height),
         &mut Vec::new(),
     )?;
     conn.free_gc(gc)?;
@@ -1727,5 +1819,457 @@ mod tests {
                 .find("</context>")
                 .expect("unclosed context");
         &config[start..end]
+    }
+}
+
+/// Presentation tests. The byte-order test needs no server. The readback tests
+/// draw on the display named by `DISPLAY`, print `NOT_RUN` and return when no
+/// server answers, and fail instead when `SLOPOS_REQUIRE_X11` is set.
+#[cfg(test)]
+mod upload_tests {
+    use std::io::Write;
+    use std::sync::Mutex;
+
+    use x11rb::protocol::xproto::{CreateWindowAux, WindowClass};
+
+    use super::*;
+    use crate::foundation::color::Color;
+    use crate::foundation::geometry::{Rect, Scale};
+    use crate::render::list::{DrawCommand, DrawList};
+
+    /// Serialises the tests that draw on the shared display, so one test's
+    /// window never overlaps another's when its pixels are read back.
+    static DISPLAY_LOCK: Mutex<()> = Mutex::new(());
+
+    /// Writes NOT_RUN to stderr directly: libtest hides `eprintln!` from
+    /// passing tests, which would hide the line.
+    fn not_run(test: &str, reason: &str) {
+        let _ = writeln!(std::io::stderr(), "NOT_RUN {test}: {reason}");
+        assert!(
+            std::env::var_os("SLOPOS_REQUIRE_X11").is_none(),
+            "SLOPOS_REQUIRE_X11 is set but {test} cannot run: {reason}"
+        );
+    }
+
+    fn open_display(test: &str) -> Option<(RustConnection, usize)> {
+        match x11rb::connect(None) {
+            Ok((conn, screen)) => {
+                let setup = conn.setup();
+                let depth = setup.roots[screen].root_depth;
+                let xrgb = depth == 24
+                    && setup
+                        .pixmap_formats
+                        .iter()
+                        .any(|format| format.depth == 24 && format.bits_per_pixel == 32);
+                if xrgb {
+                    Some((conn, screen))
+                } else {
+                    not_run(test, "the screen is not 24-bit depth with 32-bit pixels");
+                    None
+                }
+            }
+            Err(error) => {
+                not_run(test, &format!("no X display: {error}"));
+                None
+            }
+        }
+    }
+
+    /// A window mapped at the origin of the display, with its graphics context.
+    struct TestWindow {
+        window: u32,
+        gc: u32,
+        depth: u8,
+        lsb_first: bool,
+        max_request: usize,
+    }
+
+    impl TestWindow {
+        fn upload<'a>(&self, conn: &'a RustConnection) -> Upload<'a> {
+            Upload {
+                conn,
+                drawable: self.window,
+                gc: self.gc,
+                depth: self.depth,
+                lsb_first: self.lsb_first,
+                max_request: self.max_request,
+            }
+        }
+    }
+
+    fn map_test_window(
+        conn: &RustConnection,
+        screen_number: usize,
+        width: u16,
+        height: u16,
+    ) -> Result<TestWindow, PlatformError> {
+        let screen = &conn.setup().roots[screen_number];
+        let window = conn.generate_id()?;
+        conn.create_window(
+            screen.root_depth,
+            window,
+            screen.root,
+            0,
+            0,
+            width,
+            height,
+            0,
+            WindowClass::INPUT_OUTPUT,
+            screen.root_visual,
+            // Override-redirect: no window manager may move or decorate it.
+            &CreateWindowAux::new().override_redirect(1),
+        )?;
+        conn.map_window(window)?;
+        let gc = conn.generate_id()?;
+        conn.create_gc(gc, window, &CreateGCAux::new())?;
+        // Round trip, so the map has been processed before any pixels go in.
+        conn.sync()?;
+        Ok(TestWindow {
+            window,
+            gc,
+            depth: screen.root_depth,
+            lsb_first: conn.setup().image_byte_order == ImageOrder::LSB_FIRST,
+            max_request: conn.maximum_request_bytes(),
+        })
+    }
+
+    /// The window's pixels as `[red, green, blue]`, read back with GetImage.
+    fn read_back(
+        conn: &RustConnection,
+        window: &TestWindow,
+        width: u32,
+        height: u32,
+    ) -> Result<Vec<[u8; 3]>, PlatformError> {
+        let reply = conn
+            .get_image(
+                ImageFormat::Z_PIXMAP,
+                window.window,
+                0,
+                0,
+                width as u16,
+                height as u16,
+                u32::MAX,
+            )?
+            .reply()?;
+        Ok(reply
+            .data
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|pixel| {
+                if window.lsb_first {
+                    [pixel[2], pixel[1], pixel[0]]
+                } else {
+                    [pixel[1], pixel[2], pixel[3]]
+                }
+            })
+            .collect())
+    }
+
+    /// Asserts the window shows `expected` (premultiplied RGBA, opaque) pixel
+    /// for pixel, and names the first pixel that differs.
+    fn assert_window_shows(
+        conn: &RustConnection,
+        window: &TestWindow,
+        (width, height): (u32, u32),
+        expected: &[u8],
+        label: &str,
+    ) {
+        assert!(
+            expected
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .all(|pixel| pixel[3] == 255),
+            "{label}: the reference must be opaque so premultiplied equals straight"
+        );
+        let actual = read_back(conn, window, width, height).unwrap();
+        let wanted: Vec<[u8; 3]> = expected
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|pixel| [pixel[0], pixel[1], pixel[2]])
+            .collect();
+        assert_eq!(actual.len(), wanted.len(), "{label}: pixel count");
+        if let Some(index) = actual.iter().zip(&wanted).position(|(a, b)| a != b) {
+            panic!(
+                "{label}: pixel ({}, {}) is {:?}, expected {:?}",
+                index % width as usize,
+                index / width as usize,
+                actual[index],
+                wanted[index]
+            );
+        }
+    }
+
+    #[test]
+    fn x_pixels_use_the_servers_byte_order_for_a_region() {
+        // A 3 × 2 frame whose pixels encode their position: red = x, green = y, blue = 7.
+        let pixels: Vec<u8> = (0..2u8)
+            .flat_map(|y| (0..3u8).flat_map(move |x| [x, y, 7, 255]))
+            .collect();
+        let frame = Frame::new(3, 2, &pixels).unwrap();
+        let rect = DeviceRect {
+            x: 1,
+            y: 1,
+            width: 2,
+            height: 1,
+        };
+        let mut out = Vec::new();
+        x_pixels(&frame, rect, true, &mut out);
+        assert_eq!(out, [7, 1, 1, 0, 7, 1, 2, 0], "little-endian: B, G, R, pad");
+        x_pixels(&frame, rect, false, &mut out);
+        assert_eq!(out, [0, 1, 1, 7, 0, 2, 1, 7], "big-endian: pad, R, G, B");
+    }
+
+    #[test]
+    fn a_frame_presented_to_the_display_reads_back_identical() {
+        const TEST: &str = "a_frame_presented_to_the_display_reads_back_identical";
+        let _guard = DISPLAY_LOCK
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let Some((conn, screen_number)) = open_display(TEST) else {
+            return;
+        };
+        let scale = Scale::new(2).unwrap();
+        let surface = RasterSurface::new(37, 23, scale).unwrap();
+        let mut list = DrawList::new(16);
+        for command in [
+            DrawCommand::FillRect {
+                rect: Rect {
+                    x: 0,
+                    y: 0,
+                    width: 37,
+                    height: 23,
+                },
+                color: Color {
+                    red: 30,
+                    green: 40,
+                    blue: 50,
+                    alpha: 255,
+                },
+            },
+            DrawCommand::FillRect {
+                rect: Rect {
+                    x: 3,
+                    y: 2,
+                    width: 11,
+                    height: 7,
+                },
+                color: Color {
+                    red: 200,
+                    green: 20,
+                    blue: 20,
+                    alpha: 255,
+                },
+            },
+            DrawCommand::RoundedRect {
+                rect: Rect {
+                    x: 14,
+                    y: 5,
+                    width: 15,
+                    height: 12,
+                },
+                radius: 4,
+                color: Color {
+                    red: 20,
+                    green: 180,
+                    blue: 90,
+                    alpha: 255,
+                },
+            },
+            DrawCommand::StrokeRect {
+                rect: Rect {
+                    x: 0,
+                    y: 0,
+                    width: 37,
+                    height: 23,
+                },
+                color: Color {
+                    red: 255,
+                    green: 255,
+                    blue: 0,
+                    alpha: 255,
+                },
+            },
+        ] {
+            list.push(command).unwrap();
+        }
+        list.execute(&surface).unwrap();
+        let size = (surface.device_width(), surface.device_height());
+        let window = map_test_window(&conn, screen_number, size.0 as u16, size.1 as u16).unwrap();
+        let upload = window.upload(&conn);
+        let mut presenter = Presenter::new();
+        let mut scratch = Vec::new();
+
+        // The first frame goes whole, and the window shows the known picture.
+        let sent = present_surface(&upload, &mut presenter, &surface, &mut scratch).unwrap();
+        assert_eq!(sent, Some(DeviceRect::full(size.0, size.1)));
+        assert_window_shows(&conn, &window, size, &surface.data(), "first frame");
+        // Logical (0, 0) is the yellow outline; logical (1, 1) is the background.
+        let pixels = read_back(&conn, &window, size.0, size.1).unwrap();
+        assert_eq!(pixels[0], [255, 255, 0], "the outline is at the corner");
+        let inside = 2 * size.0 as usize + 2;
+        assert_eq!(pixels[inside], [30, 40, 50], "the background is inside it");
+
+        // The same frame again sends no request.
+        let sent = present_surface(&upload, &mut presenter, &surface, &mut scratch).unwrap();
+        assert_eq!(sent, None);
+
+        // One filled rectangle changes: only its device rectangle is sent.
+        surface
+            .fill_rect(
+                Rect {
+                    x: 20,
+                    y: 10,
+                    width: 5,
+                    height: 4,
+                },
+                Color {
+                    red: 1,
+                    green: 2,
+                    blue: 3,
+                    alpha: 255,
+                },
+            )
+            .unwrap();
+        let sent = present_surface(&upload, &mut presenter, &surface, &mut scratch).unwrap();
+        assert_eq!(
+            sent,
+            Some(DeviceRect {
+                x: 40,
+                y: 20,
+                width: 10,
+                height: 8
+            }),
+            "the damage is the changed rectangle at scale 2"
+        );
+        assert_window_shows(
+            &conn,
+            &window,
+            size,
+            &surface.data(),
+            "after a partial update",
+        );
+
+        // A forced full resend (what Expose does), split by a small request
+        // limit into several PutImage calls, shows the same pixels.
+        presenter.invalidate();
+        let row_bytes = size.0 as usize * 4;
+        let split = Upload {
+            max_request: 64 + 3 * row_bytes,
+            ..window.upload(&conn)
+        };
+        let sent = present_surface(&split, &mut presenter, &surface, &mut scratch).unwrap();
+        assert_eq!(sent, Some(DeviceRect::full(size.0, size.1)));
+        assert_window_shows(&conn, &window, size, &surface.data(), "split upload");
+
+        conn.destroy_window(window.window).unwrap();
+        conn.sync().unwrap();
+    }
+
+    #[cfg(feature = "gpu")]
+    #[test]
+    fn gpu_readback_presented_to_the_display_matches_the_cpu_reference() {
+        const TEST: &str = "gpu_readback_presented_to_the_display_matches_the_cpu_reference";
+        let _guard = DISPLAY_LOCK
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let Some((conn, screen_number)) = open_display(TEST) else {
+            return;
+        };
+        let mut executor = match WgpuExecutor::new_headless() {
+            Ok(executor) => executor,
+            Err(error) => {
+                not_run(TEST, &format!("no wgpu adapter: {error}"));
+                return;
+            }
+        };
+        let scale = Scale::new(2).unwrap();
+        let (width, height) = (37, 23);
+        // Opaque fills only: the parity suite records no differences for them.
+        let mut list = DrawList::new(16);
+        for command in [
+            DrawCommand::FillRect {
+                rect: Rect {
+                    x: 0,
+                    y: 0,
+                    width,
+                    height,
+                },
+                color: Color {
+                    red: 30,
+                    green: 40,
+                    blue: 50,
+                    alpha: 255,
+                },
+            },
+            DrawCommand::FillRect {
+                rect: Rect {
+                    x: 3,
+                    y: 2,
+                    width: 11,
+                    height: 7,
+                },
+                color: Color {
+                    red: 200,
+                    green: 20,
+                    blue: 20,
+                    alpha: 255,
+                },
+            },
+            DrawCommand::FillRect {
+                rect: Rect {
+                    x: 9,
+                    y: 6,
+                    width: 20,
+                    height: 9,
+                },
+                color: Color {
+                    red: 20,
+                    green: 180,
+                    blue: 90,
+                    alpha: 255,
+                },
+            },
+        ] {
+            list.push(command).unwrap();
+        }
+        let reference = RasterSurface::new(width, height, scale).unwrap();
+        list.execute(&reference).unwrap();
+        let size = (reference.device_width(), reference.device_height());
+        let window = map_test_window(&conn, screen_number, size.0 as u16, size.1 as u16).unwrap();
+        let upload = window.upload(&conn);
+        let mut presenter = Presenter::new();
+        let mut scratch = Vec::new();
+
+        let sent = present_gpu_list(
+            &upload,
+            &mut presenter,
+            &mut executor,
+            &list,
+            (width, height),
+            scale,
+            &mut scratch,
+        )
+        .unwrap();
+        assert_eq!(sent, Some(DeviceRect::full(size.0, size.1)));
+        assert_window_shows(&conn, &window, size, &reference.data(), "GPU readback");
+
+        // The same list again is the same frame: nothing is sent.
+        let sent = present_gpu_list(
+            &upload,
+            &mut presenter,
+            &mut executor,
+            &list,
+            (width, height),
+            scale,
+            &mut scratch,
+        )
+        .unwrap();
+        assert_eq!(sent, None);
+
+        conn.destroy_window(window.window).unwrap();
+        conn.sync().unwrap();
     }
 }

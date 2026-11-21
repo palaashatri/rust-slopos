@@ -5,6 +5,8 @@ pub mod global_menu;
 mod keys;
 #[cfg(feature = "global-menu")]
 pub mod menu_import;
+/// Damage tracking for presented frames. No X11 types: see the module docs.
+mod present;
 pub mod x11;
 
 use std::time::Duration;
