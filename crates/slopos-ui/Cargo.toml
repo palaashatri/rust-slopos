@@ -16,6 +16,11 @@ libc.workspace = true
 accesskit.workspace = true
 accesskit_unix = { workspace = true, optional = true }
 zbus = { workspace = true, optional = true }
+# Phase B GPU backend. Pinned exactly; enabled only by the `gpu` feature. Only
+# the Vulkan and GLES backends are kept (no DX12, Metal or WebGPU), so the
+# default build never sees wgpu.
+wgpu = { version = "=30.0.2", optional = true, default-features = false, features = ["std", "wgsl", "vulkan", "gles"] }
+futures = { workspace = true, optional = true }
 
 [features]
 default = ["atspi", "global-menu"]
@@ -23,6 +28,6 @@ default = ["atspi", "global-menu"]
 atspi = ["dep:accesskit_unix"]
 # Export app menus to the desktop's global menu bar over D-Bus.
 global-menu = ["dep:zbus"]
-# Reserved for the phase-B GPU backend. It is empty and not implemented; the
-# default build never enables it, and it adds no dependencies.
-gpu = []
+# wgpu executor for draw lists (crates/slopos-ui/src/render/gpu.rs). Off by
+# default: the default build does not compile or link wgpu.
+gpu = ["dep:wgpu", "dep:futures"]
