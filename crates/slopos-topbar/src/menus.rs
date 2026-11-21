@@ -31,6 +31,8 @@ pub enum Command {
     CloseWindow,
     /// Item `item` of the focused app's imported menu `menu`.
     Imported(usize, usize),
+    /// The dbusmenu item with this id in the focused app's menu bar.
+    DbusMenu(i32),
 }
 
 /// What is available on this system.
