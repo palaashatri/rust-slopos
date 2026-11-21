@@ -12,7 +12,8 @@
 #      NetworkManager manage wired devices and replaces /etc/network/interfaces
 #      with a loopback-only file.
 #   2. Removes any extra ifupdown stanza under /etc/network/interfaces.d.
-#   3. Makes /etc/resolv.conf the systemd-resolved stub symlink.
+#   3. Installs a systemd-tmpfiles rule (usr/lib/tmpfiles.d/slopos-resolv.conf in the
+#      overlay) that makes /etc/resolv.conf the systemd-resolved stub at boot.
 #   4. Enables NetworkManager and systemd-resolved with the symlinks that
 #      `systemctl enable` would create. No systemd or chroot systemctl run is needed.
 #
@@ -32,10 +33,6 @@ slopos_apply_live_network() {
 
   mkdir -p "$rootfs/etc/network/interfaces.d"
   find "$rootfs/etc/network/interfaces.d" -mindepth 1 -maxdepth 1 -delete
-
-  mkdir -p "$rootfs/etc"
-  rm -f "$rootfs/etc/resolv.conf"
-  ln -s /run/systemd/resolve/stub-resolv.conf "$rootfs/etc/resolv.conf"
 
   mkdir -p "$rootfs/etc/systemd/system/multi-user.target.wants"
   ln -sfn /usr/lib/systemd/system/NetworkManager.service \

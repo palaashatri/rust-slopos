@@ -37,11 +37,14 @@ check() {
   fi
 }
 
-# Lines in $1 that configure a device other than loopback. The `|| true` keeps
-# an empty result from failing under pipefail.
+# Lines in FILE that configure a device other than loopback. grep exits 1 when
+# nothing matches (fine) and 2 on a read error (FAIL, so an unreadable file is
+# never reported as loopback-only).
 non_loopback_stanzas() {
-  grep -hE '^[[:space:]]*(auto|allow-[^[:space:]]+|iface|mapping|source)[[:space:]]' "$1" 2>/dev/null |
-    grep -vE '^[[:space:]]*(auto|allow-[^[:space:]]+|iface)[[:space:]]+lo([[:space:]]|$)' || true
+  local out status=0
+  out="$(grep -hE '^[[:space:]]*(auto|allow-[^[:space:]]+|iface|mapping|source)[[:space:]]' "$1")" || status=$?
+  (( status <= 1 )) || return 1
+  printf '%s\n' "$out" | grep -vE '^[[:space:]]*(auto|allow-[^[:space:]]+|iface)[[:space:]]+lo([[:space:]]|$)' || true
 }
 
 # NetworkManager drop-in in TREE: wired devices are managed and nothing marks them unmanaged.
@@ -57,10 +60,14 @@ nm_drop_in_manages_ethernet() {
 
 # /etc/network/interfaces in TREE has loopback only, and no interfaces.d stanza is left.
 interfaces_loopback_only() {
-  local f="$1/etc/network/interfaces"
-  [[ -f "$f" ]] || return 1
-  [[ -z "$(non_loopback_stanzas "$f")" ]] || return 1
-  [[ -z "$(ls -A "$1/etc/network/interfaces.d" 2>/dev/null || true)" ]]
+  local f="$1/etc/network/interfaces" d="$1/etc/network/interfaces.d" stanzas listing
+  [[ -r "$f" ]] || return 1
+  stanzas="$(non_loopback_stanzas "$f")" || return 1
+  [[ -z "$stanzas" ]] || return 1
+  if [[ -e "$d" ]]; then
+    listing="$(ls -A "$d")" || return 1      # an unreadable directory is a FAIL, not empty
+    [[ -z "$listing" ]] || return 1
+  fi
 }
 
 # LightDM starts after NetworkManager and systemd-resolved, and wants both.
@@ -90,11 +97,14 @@ verify_tree() {
   check "netplan renderer is NetworkManager ($tree)" netplan_defers_to_networkmanager "$tree"
 }
 
-# Checks on a built tree: resolv.conf, enabled units, and unit files that exist.
-resolv_uses_stub() {
-  [[ -L "$1/etc/resolv.conf" ]] &&
-    [[ "$(readlink "$1/etc/resolv.conf")" == /run/systemd/resolve/stub-resolv.conf ]]
+# The tmpfiles rule that makes /etc/resolv.conf the systemd-resolved stub at boot.
+resolv_rule_present() {
+  local f="$1/usr/lib/tmpfiles.d/slopos-resolv.conf"
+  [[ -f "$f" ]] &&
+    grep -qxE 'L\+[[:space:]]+/etc/resolv\.conf[[:space:]]+-[[:space:]]+-[[:space:]]+-[[:space:]]+-[[:space:]]+/run/systemd/resolve/stub-resolv\.conf' "$f"
 }
+
+# Checks on a built tree: resolv.conf rule, enabled units, and unit files that exist.
 
 unit_enabled() {  # TREE UNIT: enabled symlink that points at an existing unit file
   local link="$1/etc/systemd/system/multi-user.target.wants/$2" target
@@ -107,8 +117,7 @@ unit_enabled() {  # TREE UNIT: enabled symlink that points at an existing unit f
 verify_builders() {
   check "shared helper parses" bash -n "$HELPER"
   check "helper applies the overlay" grep -qF 'cp -a "$SLOPOS_LIVE_NETWORK_OVERLAY/."' "$HELPER"
-  check "helper links resolv.conf to the systemd-resolved stub" \
-    grep -qF 'ln -s /run/systemd/resolve/stub-resolv.conf' "$HELPER"
+  check "overlay has the boot-time resolv.conf rule" resolv_rule_present "$OVERLAY"
   check "helper enables NetworkManager" grep -qF 'NetworkManager.service' "$HELPER"
   check "helper enables systemd-resolved" grep -qF 'systemd-resolved.service' "$HELPER"
   local builder
@@ -130,7 +139,7 @@ if [[ -n "$ROOTFS" ]]; then
   ROOTFS="$(cd "$ROOTFS" && pwd)"
   echo "== built tree: $ROOTFS =="
   verify_tree "$ROOTFS"
-  check "resolv.conf is the systemd-resolved stub symlink" resolv_uses_stub "$ROOTFS"
+  check "resolv.conf rule points at the systemd-resolved stub" resolv_rule_present "$ROOTFS"
   check "NetworkManager is enabled" unit_enabled "$ROOTFS" NetworkManager.service
   check "systemd-resolved is enabled" unit_enabled "$ROOTFS" systemd-resolved.service
   check "NetworkManager unit file is installed" test -e "$ROOTFS/usr/lib/systemd/system/NetworkManager.service"
