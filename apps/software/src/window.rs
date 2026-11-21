@@ -2245,10 +2245,33 @@ mod tests {
         assert_eq!(app.active, Source::Slopos);
         let (standing, _) = app.standing();
         assert!(
-            standing.starts_with("unavailable: no signed catalogue"),
+            standing.starts_with("unavailable: no publisher key configured"),
             "{standing}"
         );
         assert!(!app.primary.enabled);
+
+        // With a trust store but no catalogue, the narrower state is shown.
+        let (catalogue, trust) = signed(9);
+        let with_key = write_sources(dir.path(), &catalogue, &trust);
+        let sources = Sources {
+            trust: with_key.trust.clone(),
+            catalogue: None,
+        };
+        let (environment, commands) = catalogue_only(dir.path());
+        let app = SoftwareApp::new(
+            sources,
+            Layout::for_home(&dir.path().join("home")),
+            "x86_64",
+            network_installer(),
+            Arc::new(Mutex::new(None)),
+            environment,
+            commands,
+        );
+        let (standing, _) = app.standing();
+        assert!(
+            standing.starts_with("unavailable: no signed catalogue"),
+            "{standing}"
+        );
     }
 
     #[test]

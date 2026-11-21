@@ -40,6 +40,9 @@ impl Sources {
 /// The catalogue's standing, shown above the list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CatalogueState {
+    /// No trust store is configured (`SLOPOS_SOFTWARE_TRUST`, or
+    /// `/etc/slopos-i/software/trust.json`), so nothing can be verified.
+    NoPublisherKey,
     /// No catalogue file is installed.
     Missing,
     /// A catalogue exists but failed to load or verify; nothing from it is
@@ -56,6 +59,9 @@ impl CatalogueState {
         match self {
             // Nothing is offered until the owner's publisher key signs a
             // catalogue; say so rather than invent one.
+            Self::NoPublisherKey => {
+                "unavailable: no publisher key configured. Installed apps are listed below.".into()
+            }
             Self::Missing => {
                 "unavailable: no signed catalogue. Installed apps are listed below.".into()
             }
@@ -128,7 +134,12 @@ pub fn machine_architecture() -> &'static str {
 
 /// Load and verify the catalogue, then merge in installed AppImages.
 pub fn load(sources: &Sources, layout: &Layout, architecture: &str) -> (CatalogueState, Vec<Row>) {
+    // Without a trust store nothing can be verified, whatever catalogue is
+    // there. An unreadable trust store is not "missing": it is reported by
+    // verification below.
+    let key_configured = fs::symlink_metadata(&sources.trust).is_ok();
     let (state, entries) = match &sources.catalogue {
+        _ if !key_configured => (CatalogueState::NoPublisherKey, Vec::new()),
         None => (CatalogueState::Missing, Vec::new()),
         Some(path) => match verified(&sources.trust, path) {
             Ok(catalogue) => (
@@ -354,11 +365,61 @@ pub(crate) mod tests {
             load(&sources, &layout, "x86_64").0,
             CatalogueState::Rejected(_)
         ));
-        let missing = Sources {
+        // No trust store at all: nothing can be verified, so say so first.
+        let no_key = Sources {
             trust: dir.path().join("none.json"),
             catalogue: None,
         };
-        assert_eq!(load(&missing, &layout, "x86_64").0, CatalogueState::Missing);
+        assert_eq!(
+            load(&no_key, &layout, "x86_64").0,
+            CatalogueState::NoPublisherKey
+        );
+        let (catalogue, trust) = signed(4);
+        let signed_sources = write_sources(dir.path(), &catalogue, &trust);
+        let without_key = Sources {
+            trust: dir.path().join("none.json"),
+            catalogue: signed_sources.catalogue.clone(),
+        };
+        let (state, rows) = load(&without_key, &layout, "x86_64");
+        assert_eq!(state, CatalogueState::NoPublisherKey);
+        assert!(rows.is_empty(), "a catalogue without a key offers nothing");
+        // A key but no catalogue is a different, narrower state.
+        let no_catalogue = Sources {
+            trust: signed_sources.trust.clone(),
+            catalogue: None,
+        };
+        assert_eq!(
+            load(&no_catalogue, &layout, "x86_64").0,
+            CatalogueState::Missing
+        );
+    }
+
+    #[test]
+    fn an_unsigned_or_badly_signed_catalogue_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::for_home(&dir.path().join("home"));
+        let (catalogue, trust) = signed(8);
+
+        let mut unsigned = catalogue.clone();
+        unsigned.signature.clear();
+        let sources_unsigned = write_sources(dir.path(), &unsigned, &trust);
+        let (state, rows) = load(&sources_unsigned, &layout, "x86_64");
+        assert!(matches!(state, CatalogueState::Rejected(ref why) if why.contains("not signed")));
+        assert!(rows.is_empty());
+
+        let mut forged = catalogue.clone();
+        forged.signature = "00".repeat(64);
+        let sources_forged = write_sources(dir.path(), &forged, &trust);
+        let (state, rows) = load(&sources_forged, &layout, "x86_64");
+        assert!(matches!(state, CatalogueState::Rejected(ref why) if why.contains("not valid")));
+        assert!(rows.is_empty());
+
+        // The same paths hold the good catalogue again.
+        let sources = write_sources(dir.path(), &catalogue, &trust);
+        assert!(matches!(
+            load(&sources, &layout, "x86_64").0,
+            CatalogueState::Verified { .. }
+        ));
     }
 
     #[test]
@@ -373,6 +434,10 @@ pub(crate) mod tests {
         assert_eq!(
             CatalogueState::Missing.describe(),
             "unavailable: no signed catalogue. Installed apps are listed below."
+        );
+        assert_eq!(
+            CatalogueState::NoPublisherKey.describe(),
+            "unavailable: no publisher key configured. Installed apps are listed below."
         );
     }
 }
