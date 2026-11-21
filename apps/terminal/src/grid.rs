@@ -7,8 +7,28 @@
 
 use std::collections::VecDeque;
 
+use unicode_width::UnicodeWidthChar;
+
 /// Lines kept above the screen. The oldest line is dropped first.
 pub const SCROLLBACK_LINES: usize = 2000;
+
+/// Zero-width characters kept per cell. Later marks on the same base
+/// character are dropped, which keeps the memory per cell fixed.
+pub const MARKS_PER_CELL: usize = 2;
+
+const NO_MARKS: [char; MARKS_PER_CELL] = ['\0'; MARKS_PER_CELL];
+
+/// How many columns a cell occupies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Width {
+    /// An ordinary one-column character, or a blank.
+    #[default]
+    Single,
+    /// The first of the two columns a wide (CJK or emoji) character fills.
+    Wide,
+    /// The second column of a wide character. It has no glyph of its own.
+    Spacer,
+}
 
 /// A text colour: the theme's default, or an entry of the xterm 256-colour
 /// table (0-7 normal, 8-15 bright, 16-231 colour cube, 232-255 greys).
@@ -32,6 +52,9 @@ pub struct Attr {
 pub struct Cell {
     pub ch: char,
     pub attr: Attr,
+    pub width: Width,
+    /// Zero-width characters attached to `ch`; `'\0'` marks an unused slot.
+    pub marks: [char; MARKS_PER_CELL],
 }
 
 impl Cell {
@@ -43,7 +66,39 @@ impl Cell {
             bold: false,
             inverse: false,
         },
+        width: Width::Single,
+        marks: NO_MARKS,
     };
+
+    /// A one-column character with no combining marks.
+    fn single(ch: char, attr: Attr) -> Self {
+        Self {
+            ch,
+            attr,
+            width: Width::Single,
+            marks: NO_MARKS,
+        }
+    }
+
+    /// Whether the cell is an unstyled-looking space that trailing-blank
+    /// trimming may drop.
+    fn is_plain_space(&self) -> bool {
+        self.ch == ' ' && self.width == Width::Single && self.marks == NO_MARKS
+    }
+
+    /// Appends the cell's characters (base and marks) to `out`. A spacer
+    /// contributes nothing: its wide character was already written.
+    pub fn push_text(&self, out: &mut String) {
+        match self.width {
+            Width::Spacer => {}
+            Width::Single | Width::Wide => {
+                out.push(self.ch);
+                for mark in self.marks.iter().take_while(|mark| **mark != '\0') {
+                    out.push(*mark);
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -63,7 +118,7 @@ impl Line {
     }
 
     fn is_blank(&self) -> bool {
-        self.cells.iter().all(|cell| cell.ch == ' ')
+        self.cells.iter().all(Cell::is_plain_space)
     }
 }
 
@@ -179,7 +234,10 @@ impl Grid {
         let mut out = String::new();
         for row in 0..self.rows {
             let line = self.line_at(row);
-            let text: String = line.cells.iter().map(|cell| cell.ch).collect();
+            let mut text = String::new();
+            for cell in &line.cells {
+                cell.push_text(&mut text);
+            }
             out.push_str(text.trim_end());
             if row + 1 < self.rows && !line.wrapped {
                 out.push('\n');
@@ -189,21 +247,120 @@ impl Grid {
     }
 
     /// Writes `ch` at the cursor with the current attributes and advances.
+    /// A wide character takes two columns; a zero-width character attaches
+    /// to the cell before the cursor instead of taking one of its own.
     pub fn put(&mut self, ch: char) {
-        if self.pending_wrap {
-            self.pending_wrap = false;
-            self.screen[self.cursor_row].wrapped = true;
-            self.cursor_col = 0;
-            self.line_feed();
-        }
-        self.screen[self.cursor_row].cells[self.cursor_col] = Cell {
-            ch,
-            attr: self.attr,
+        let width = match UnicodeWidthChar::width(ch) {
+            // Control characters have no width and are not drawn.
+            None => return,
+            Some(0) => {
+                self.attach_mark(ch);
+                return;
+            }
+            Some(2) if self.cols >= 2 => 2,
+            Some(_) => 1,
         };
-        if self.cursor_col + 1 < self.cols {
-            self.cursor_col += 1;
+        if self.pending_wrap {
+            self.wrap();
+        }
+        if width == 2 && self.cursor_col + 1 == self.cols {
+            // No room for the second column: leave this one blank and
+            // start the wide character on the next line.
+            let (row, col) = (self.cursor_row, self.cursor_col);
+            self.screen[row].cells[col] = self.erased();
+            self.wrap();
+        }
+        let (row, col) = (self.cursor_row, self.cursor_col);
+        self.break_wide_pair(row, col);
+        if width == 2 {
+            self.break_wide_pair(row, col + 1);
+            let cells = &mut self.screen[row].cells;
+            cells[col] = Cell {
+                ch,
+                attr: self.attr,
+                width: Width::Wide,
+                marks: NO_MARKS,
+            };
+            cells[col + 1] = Cell {
+                ch: ' ',
+                attr: self.attr,
+                width: Width::Spacer,
+                marks: NO_MARKS,
+            };
         } else {
+            self.screen[row].cells[col] = Cell {
+                ch,
+                attr: self.attr,
+                width: Width::Single,
+                marks: NO_MARKS,
+            };
+        }
+        let last = col + width - 1;
+        if last + 1 < self.cols {
+            self.cursor_col = last + 1;
+        } else {
+            self.cursor_col = last;
             self.pending_wrap = true;
+        }
+    }
+
+    /// Moves to column 0 of the next row, marking the row as soft-wrapped.
+    fn wrap(&mut self) {
+        self.pending_wrap = false;
+        self.screen[self.cursor_row].wrapped = true;
+        self.cursor_col = 0;
+        self.line_feed();
+    }
+
+    /// Attaches a zero-width character to the cell before the cursor (the
+    /// first half of a wide character if that is what precedes it). With no
+    /// cell before the cursor, the mark is dropped.
+    fn attach_mark(&mut self, mark: char) {
+        let col = if self.pending_wrap {
+            self.cols - 1
+        } else if self.cursor_col > 0 {
+            self.cursor_col - 1
+        } else {
+            return;
+        };
+        let cells = &mut self.screen[self.cursor_row].cells;
+        let col = if cells[col].width == Width::Spacer && col > 0 {
+            col - 1
+        } else {
+            col
+        };
+        if let Some(slot) = cells[col].marks.iter_mut().find(|slot| **slot == '\0') {
+            *slot = mark;
+        }
+    }
+
+    /// Before column `col` is overwritten, undoes the half of a wide
+    /// character that it belongs to: the other half becomes a blank.
+    fn break_wide_pair(&mut self, row: usize, col: usize) {
+        let cells = &mut self.screen[row].cells;
+        if cells[col].width == Width::Spacer && col > 0 {
+            cells[col - 1] = Cell::single(' ', cells[col - 1].attr);
+        }
+        if cells[col].width == Width::Wide && col + 1 < cells.len() {
+            cells[col + 1] = Cell::single(' ', cells[col + 1].attr);
+        }
+    }
+
+    /// Blanks any wide character on the row whose other half was erased,
+    /// shifted out or overwritten by a range operation.
+    fn repair_row(&mut self, row: usize) {
+        let cells = &mut self.screen[row].cells;
+        for col in 0..cells.len() {
+            let orphan = match cells[col].width {
+                Width::Wide => cells
+                    .get(col + 1)
+                    .is_none_or(|next| next.width != Width::Spacer),
+                Width::Spacer => col == 0 || cells[col - 1].width != Width::Wide,
+                Width::Single => false,
+            };
+            if orphan {
+                cells[col] = Cell::single(' ', cells[col].attr);
+            }
         }
     }
 
@@ -261,6 +418,7 @@ impl Grid {
         for cell in &mut self.screen[self.cursor_row].cells[start..end] {
             *cell = erased;
         }
+        self.repair_row(self.cursor_row);
     }
 
     /// Erases part of the screen: 0 from the cursor to the end, 1 from the
@@ -306,6 +464,7 @@ impl Grid {
             cells.pop();
             cells.insert(col, erased);
         }
+        self.repair_row(self.cursor_row);
     }
 
     /// Deletes `count` cells at the cursor, pulling the rest of the line
@@ -319,6 +478,7 @@ impl Grid {
             cells.remove(col);
             cells.push(erased);
         }
+        self.repair_row(self.cursor_row);
     }
 
     /// Blanks `count` cells from the cursor without moving the rest.
@@ -329,6 +489,7 @@ impl Grid {
         for cell in &mut self.screen[self.cursor_row].cells[start..end] {
             *cell = erased;
         }
+        self.repair_row(self.cursor_row);
     }
 
     /// Inserts `count` blank lines at the cursor row; lines pushed past the
@@ -399,9 +560,19 @@ impl Grid {
         let mut out = String::new();
         for row in r0..=r1 {
             let line = self.line_at(row);
-            let start = if row == r0 { c0 } else { 0 };
-            let end = if row == r1 { c1 + 1 } else { self.cols };
-            let mut piece: String = line.cells[start..end].iter().map(|c| c.ch).collect();
+            let mut start = if row == r0 { c0 } else { 0 };
+            let mut end = if row == r1 { c1 + 1 } else { self.cols };
+            // A wide character is selected whole or not at all.
+            if start > 0 && line.cells[start].width == Width::Spacer {
+                start -= 1;
+            }
+            if end < self.cols && line.cells[end - 1].width == Width::Wide {
+                end += 1;
+            }
+            let mut piece = String::new();
+            for cell in &line.cells[start..end] {
+                cell.push_text(&mut piece);
+            }
             let kept = piece.trim_end().len();
             piece.truncate(kept);
             out.push_str(&piece);
@@ -452,23 +623,15 @@ impl Grid {
             }
             // Trailing blanks are not content, unless the cursor sits on them.
             let keep = cursor_offset.map_or(0, |offset| offset + 1);
-            while cells.len() > keep && cells.last().is_some_and(|cell| cell.ch == ' ') {
+            while cells.len() > keep && cells.last().is_some_and(Cell::is_plain_space) {
                 cells.pop();
             }
-            let mut count = cells.len().div_ceil(cols).max(1);
-            if let Some(offset) = cursor_offset {
-                count = count.max(offset / cols + 1);
+            let packed = pack_rows(&cells, cols, cursor_offset);
+            if let Some((row, col)) = packed.cursor {
+                cursor_at = (out.len() + row, col);
             }
-            for chunk in 0..count {
-                let base = chunk * cols;
-                let row: Vec<Cell> = (0..cols)
-                    .map(|x| cells.get(base + x).copied().unwrap_or(Cell::BLANK))
-                    .collect();
-                if let Some(offset) = cursor_offset {
-                    if offset / cols == chunk {
-                        cursor_at = (out.len(), offset % cols);
-                    }
-                }
+            let count = packed.rows.len();
+            for (chunk, row) in packed.rows.into_iter().enumerate() {
                 out.push(Line {
                     cells: row,
                     wrapped: chunk + 1 < count,
@@ -507,13 +670,13 @@ impl Grid {
     }
 
     fn erased(&self) -> Cell {
-        Cell {
-            ch: ' ',
-            attr: Attr {
+        Cell::single(
+            ' ',
+            Attr {
                 bg: self.attr.bg,
                 ..Attr::default()
             },
-        }
+        )
     }
 
     fn blank_row(&mut self, row: usize) {
@@ -560,6 +723,55 @@ impl Grid {
             (selection.head, selection.anchor)
         })
     }
+}
+
+/// The rows one logical line occupies at a new width.
+struct Packed {
+    /// Each row is exactly `cols` cells, blank-padded.
+    rows: Vec<Vec<Cell>>,
+    /// The cursor's row index within `rows` and its column.
+    cursor: Option<(usize, usize)>,
+}
+
+/// Packs a logical line's cells into rows of `cols` columns. A wide character
+/// is never split across two rows; a row that has no room for one ends early.
+/// `cursor` is an index into `cells`. Below two columns a wide character
+/// cannot fit at all, so it is narrowed and its spacer dropped.
+fn pack_rows(cells: &[Cell], cols: usize, cursor: Option<usize>) -> Packed {
+    let mut rows: Vec<Vec<Cell>> = Vec::new();
+    let mut row: Vec<Cell> = Vec::with_capacity(cols);
+    let mut found = None;
+    for (index, cell) in cells.iter().enumerate() {
+        let mut cell = *cell;
+        if cell.width == Width::Spacer && cols < 2 {
+            if cursor == Some(index) {
+                found = Some((rows.len(), row.len()));
+            }
+            continue;
+        }
+        if cell.width == Width::Wide && cols < 2 {
+            cell.width = Width::Single;
+        }
+        let need = if cell.width == Width::Wide { 2 } else { 1 };
+        if row.len() + need > cols {
+            rows.push(pad_row(std::mem::take(&mut row), cols));
+            row = Vec::with_capacity(cols);
+        }
+        if cursor == Some(index) {
+            found = Some((rows.len(), row.len()));
+        }
+        row.push(cell);
+    }
+    rows.push(pad_row(row, cols));
+    Packed {
+        rows,
+        cursor: found,
+    }
+}
+
+fn pad_row(mut row: Vec<Cell>, cols: usize) -> Vec<Cell> {
+    row.resize(cols, Cell::BLANK);
+    row
 }
 
 #[cfg(test)]
@@ -713,6 +925,136 @@ mod tests {
         assert_eq!(grid.selected_text().as_deref(), Some("efg\nxy"));
         grid.clear_selection();
         assert_eq!(grid.selected_text(), None);
+    }
+
+    #[test]
+    fn a_wide_character_takes_two_columns() {
+        let mut grid = Grid::new(6, 1);
+        put_str(&mut grid, "中a");
+        assert_eq!(grid.viewport_cell(0, 0).ch, '中');
+        assert_eq!(grid.viewport_cell(0, 0).width, Width::Wide);
+        assert_eq!(grid.viewport_cell(0, 1).width, Width::Spacer);
+        assert_eq!(grid.viewport_cell(0, 2).ch, 'a');
+        assert_eq!(grid.cursor(), (0, 3));
+        // The spacer contributes no text of its own.
+        assert_eq!(grid.text(), "中a");
+    }
+
+    #[test]
+    fn emoji_are_wide_and_a_variation_selector_attaches_to_them() {
+        let mut grid = Grid::new(6, 1);
+        grid.put('😀');
+        grid.put('\u{fe0f}');
+        assert_eq!(grid.viewport_cell(0, 0).width, Width::Wide);
+        assert_eq!(grid.viewport_cell(0, 0).marks[0], '\u{fe0f}');
+        assert_eq!(grid.cursor(), (0, 2));
+        assert_eq!(grid.text(), "😀\u{fe0f}");
+    }
+
+    #[test]
+    fn combining_marks_attach_to_the_previous_cell() {
+        let mut grid = Grid::new(4, 1);
+        put_str(&mut grid, "e\u{301}x");
+        // The mark takes no column of its own.
+        assert_eq!(grid.cursor(), (0, 2));
+        assert_eq!(grid.viewport_cell(0, 0).ch, 'e');
+        assert_eq!(grid.viewport_cell(0, 0).marks[0], '\u{301}');
+        assert_eq!(grid.text(), "e\u{301}x");
+    }
+
+    #[test]
+    fn a_mark_after_a_full_row_attaches_to_the_last_cell_and_extra_marks_are_dropped() {
+        let mut grid = Grid::new(2, 1);
+        put_str(&mut grid, "ab");
+        grid.put('\u{301}');
+        assert_eq!(grid.viewport_cell(0, 1).marks[0], '\u{301}');
+        // A third mark would exceed MARKS_PER_CELL and is dropped.
+        grid.put('\u{302}');
+        grid.put('\u{303}');
+        assert_eq!(grid.viewport_cell(0, 1).marks, ['\u{301}', '\u{302}']);
+        assert_eq!(grid.cursor(), (0, 1));
+    }
+
+    #[test]
+    fn a_mark_after_a_wide_character_attaches_to_its_first_half() {
+        let mut grid = Grid::new(4, 1);
+        put_str(&mut grid, "中");
+        grid.put('\u{301}');
+        assert_eq!(grid.viewport_cell(0, 0).marks[0], '\u{301}');
+        assert_eq!(grid.viewport_cell(0, 1).marks, ['\0'; MARKS_PER_CELL]);
+    }
+
+    #[test]
+    fn a_wide_character_that_does_not_fit_starts_the_next_row() {
+        let mut grid = Grid::new(3, 2);
+        put_str(&mut grid, "ab中");
+        // The last column is left blank and the character starts below.
+        assert_eq!(grid.viewport_cell(0, 2).ch, ' ');
+        assert_eq!(grid.viewport_cell(1, 0).ch, '中');
+        assert_eq!(grid.cursor(), (1, 2));
+        assert_eq!(grid.text(), "ab中");
+    }
+
+    #[test]
+    fn overwriting_half_of_a_wide_character_blanks_the_other_half() {
+        let mut grid = Grid::new(4, 1);
+        put_str(&mut grid, "中中");
+        grid.move_cursor(0, 1);
+        grid.put('x');
+        assert_eq!(grid.viewport_cell(0, 0).width, Width::Single);
+        assert_eq!(grid.viewport_cell(0, 0).ch, ' ');
+        assert_eq!(grid.viewport_cell(0, 1).ch, 'x');
+        assert_eq!(grid.viewport_cell(0, 2).width, Width::Wide);
+        assert_eq!(grid.text(), " x中");
+    }
+
+    #[test]
+    fn erasing_one_column_of_a_wide_character_blanks_the_rest_of_it() {
+        let mut grid = Grid::new(6, 1);
+        put_str(&mut grid, "a中b");
+        grid.move_cursor(0, 2);
+        grid.erase_chars(1);
+        assert_eq!(grid.viewport_cell(0, 1).width, Width::Single);
+        assert_eq!(grid.viewport_cell(0, 1).ch, ' ');
+        assert_eq!(grid.text(), "a  b");
+    }
+
+    #[test]
+    fn deleting_the_first_half_of_a_wide_character_blanks_its_spacer() {
+        let mut grid = Grid::new(4, 1);
+        put_str(&mut grid, "中b");
+        grid.move_cursor(0, 0);
+        grid.delete_chars(1);
+        assert_eq!(grid.viewport_cell(0, 0).width, Width::Single);
+        assert_eq!(grid.text(), " b");
+    }
+
+    #[test]
+    fn selecting_part_of_a_wide_character_selects_all_of_it() {
+        let mut grid = Grid::new(6, 1);
+        put_str(&mut grid, "a中b");
+        grid.begin_selection(0, 2);
+        grid.extend_selection(0, 3);
+        assert_eq!(grid.selected_text().as_deref(), Some("中b"));
+        grid.begin_selection(0, 0);
+        grid.extend_selection(0, 1);
+        assert_eq!(grid.selected_text().as_deref(), Some("a中"));
+    }
+
+    #[test]
+    fn narrowing_keeps_wide_characters_whole() {
+        let mut grid = Grid::new(6, 2);
+        put_str(&mut grid, "a中中");
+        assert_eq!(grid.cursor(), (0, 5));
+        grid.resize(4, 2);
+        // "a中" fills the first row (the next character needs two columns
+        // and only one is left); the second character starts the next row.
+        assert_eq!(grid.viewport_cell(0, 1).width, Width::Wide);
+        assert_eq!(grid.viewport_cell(0, 3).ch, ' ');
+        assert_eq!(grid.viewport_cell(1, 0).ch, '中');
+        assert_eq!(grid.viewport_cell(1, 1).width, Width::Spacer);
+        assert_eq!(grid.cursor(), (1, 2));
+        assert_eq!(grid.text(), "a中中");
     }
 
     #[test]

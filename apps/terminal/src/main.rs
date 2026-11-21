@@ -30,7 +30,7 @@ use slopos_ui::render::{RasterSurface, RenderError};
 use slopos_ui::text::{measure, Font};
 use slopos_ui::theme::palette;
 
-use grid::Grid;
+use grid::{Grid, Width};
 use parser::Terminal;
 use pty::Output;
 
@@ -333,6 +333,12 @@ impl TerminalApp {
     fn style_at(&self, row: usize, col: usize, cursor: Option<(usize, usize)>) -> Style {
         let colors = palette();
         let grid = self.terminal.grid();
+        // The second column of a wide character takes its first column's style.
+        let col = if grid.viewport_cell(row, col).width == Width::Spacer && col > 0 {
+            col - 1
+        } else {
+            col
+        };
         let cell = grid.viewport_cell(row, col);
         let mut fg = colors::resolve(cell.attr.fg, colors.ink);
         let mut bg = colors::resolve(cell.attr.bg, colors.content);
@@ -373,28 +379,48 @@ impl TerminalApp {
                 while end < grid.cols() && self.style_at(row, end, cursor) == style {
                     end += 1;
                 }
-                let x = origin_x + col as i32 * cell_w;
                 let width = (end - col) as u32 * self.cell.0;
                 surface.fill_rect(
                     Rect {
-                        x,
+                        x: origin_x + col as i32 * cell_w,
                         y,
                         width,
                         height: self.cell.1,
                     },
                     style.bg,
                 )?;
-                let text: String = (col..end)
-                    .map(|index| grid.viewport_cell(row, index).ch)
-                    .collect();
-                if !text.trim().is_empty() {
-                    let font = if style.bold {
-                        &self.bold_font
-                    } else {
-                        &self.font
-                    };
-                    surface.draw_text(&text, x, y, font, style.fg)?;
+                let font = if style.bold {
+                    &self.bold_font
+                } else {
+                    &self.font
+                };
+                // Narrow characters are drawn as one string. A wide character
+                // is drawn alone in its first column; its spacer draws nothing.
+                let mut text = String::new();
+                let mut text_col = col;
+                for index in col..end {
+                    let cell = grid.viewport_cell(row, index);
+                    match cell.width {
+                        Width::Spacer => {}
+                        Width::Wide => {
+                            let x = origin_x + text_col as i32 * cell_w;
+                            flush_text(surface, &mut text, x, y, font, style.fg)?;
+                            let mut wide = String::new();
+                            cell.push_text(&mut wide);
+                            let x = origin_x + index as i32 * cell_w;
+                            surface.draw_text(&wide, x, y, font, style.fg)?;
+                            text_col = index + 2;
+                        }
+                        Width::Single => {
+                            if text.is_empty() {
+                                text_col = index;
+                            }
+                            cell.push_text(&mut text);
+                        }
+                    }
                 }
+                let x = origin_x + text_col as i32 * cell_w;
+                flush_text(surface, &mut text, x, y, font, style.fg)?;
                 col = end;
             }
         }
@@ -404,6 +430,22 @@ impl TerminalApp {
     fn visible_text(&self) -> String {
         self.terminal.grid().text()
     }
+}
+
+/// Draws pending narrow text at `x` unless it is only spaces, then clears it.
+fn flush_text(
+    surface: &RasterSurface,
+    text: &mut String,
+    x: i32,
+    y: i32,
+    font: &Font,
+    color: Rgb,
+) -> Result<(), RenderError> {
+    if !text.trim().is_empty() {
+        surface.draw_text(text, x, y, font, color)?;
+    }
+    text.clear();
+    Ok(())
 }
 
 impl App for TerminalApp {

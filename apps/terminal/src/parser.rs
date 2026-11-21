@@ -247,7 +247,7 @@ impl Performer<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::grid::Cell;
+    use crate::grid::{Cell, Width};
 
     fn terminal_text(terminal: &Terminal) -> String {
         terminal.grid().text().trim_end().to_owned()
@@ -362,6 +362,29 @@ mod tests {
         assert!(!terminal.grid().cursor_visible());
         terminal.feed(b"\x1b[?25h");
         assert!(terminal.grid().cursor_visible());
+    }
+
+    #[test]
+    fn wide_and_combining_text_from_utf8_bytes_is_placed_by_column() {
+        let mut terminal = Terminal::new(10, 1);
+        terminal.feed("中文e\u{301}😀".as_bytes());
+        assert_eq!(cell(&terminal, 0, 0).ch, '中');
+        assert_eq!(cell(&terminal, 0, 0).width, Width::Wide);
+        assert_eq!(cell(&terminal, 0, 2).ch, '文');
+        assert_eq!(cell(&terminal, 0, 4).marks[0], '\u{301}');
+        assert_eq!(cell(&terminal, 0, 5).ch, '😀');
+        assert_eq!(terminal.grid().cursor(), (0, 7));
+        assert_eq!(terminal_text(&terminal), "中文e\u{301}😀");
+    }
+
+    #[test]
+    fn a_utf8_character_split_across_reads_is_decoded_once() {
+        let mut terminal = Terminal::new(10, 1);
+        let bytes = "中".as_bytes();
+        terminal.feed(&bytes[..1]);
+        terminal.feed(&bytes[1..]);
+        assert_eq!(cell(&terminal, 0, 0).ch, '中');
+        assert_eq!(terminal.grid().cursor(), (0, 2));
     }
 
     #[test]

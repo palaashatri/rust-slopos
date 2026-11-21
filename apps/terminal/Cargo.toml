@@ -12,3 +12,4 @@ accesskit = { workspace = true }
 env_logger = { workspace = true }
 libc = { workspace = true }
 vte = "0.15"
+unicode-width = "0.2"
