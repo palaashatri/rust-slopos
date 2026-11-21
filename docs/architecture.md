@@ -117,6 +117,10 @@ The KDE/Canonical AppMenu protocol is wired in the bar. `registrar_bus.rs` owns 
 
 See [development.md](development.md) for commands.
 
+## Installer
+
+The live ISO includes Calamares 3.3 (`calamares`, Ubuntu noble universe) as its graphical disk installer. `packaging/iso/installer/` holds `settings.conf`, the per-module YAML in `modules/`, the `slopos` branding (`branding/slopos/`) and the "Install SLOPOS-I" launcher; `live-installer.sh` copies them into the live root, and `scripts/check-live-installer-config.sh` checks them in `live-iso.yml` before the ISO build. The launcher runs `pkexec /usr/bin/calamares`. The sequence is welcome, locale, keyboard, partition, users and summary, then the install steps: partition (erase disk is selected by default, and manual partitioning is hidden), mount, unpackfs (copies `casper/filesystem.squashfs` from the medium), machineid, fstab, locale, keyboard, users, networkcfg, hwclock, shellprocess (removes the live-only launchers from the installed system), initramfs, bootloader (GRUB for UEFI and, on amd64, BIOS), umount, then finished. The installer does not sign anything for Secure Boot, so an installed system will not boot with Secure Boot enforced. It does not install over the network, and it does not offer partition layouts other than erase. Replace and Alongside can still appear on a disk that has room for them. Nothing here has been run on a disk yet; the install is NOT_RUN.
+
 ## Known gaps
 
 The [ledger](contract/ledger.md) has the dated evidence; its section G.2 is the prioritized register of remaining work (GAP-* IDs). In short:
