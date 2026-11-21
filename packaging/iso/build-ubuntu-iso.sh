@@ -17,6 +17,11 @@ need() {
 need debootstrap
 need xorriso
 need cargo
+need curl
+need gpg
+
+# shellcheck source=packaging/iso/mozilla-apt.sh
+source "$ROOT/packaging/iso/mozilla-apt.sh"
 
 cd "$ROOT"
 echo "[1/5] Building SLOPOS-I binaries for Ubuntu live media"
@@ -46,6 +51,14 @@ chroot chroot /bin/bash -c "
   set -euo pipefail
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
+  apt-get install -y --no-install-recommends ca-certificates
+"
+# Mozilla's Firefox .deb repository, with its key verified before use.
+install_mozilla_apt chroot "$ROOT/packaging/iso/overlay"
+chroot chroot /bin/bash -c "
+  set -euo pipefail
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update
   apt-get install -y --no-install-recommends \
     linux-generic \
     live-boot \
@@ -67,8 +80,15 @@ chroot chroot /bin/bash -c "
     wireplumber \
     pulseaudio-utils \
     pavucontrol \
-    upower
+    upower \
+    firefox
 "
+# Fail closed unless the browser is Mozilla's build, not Ubuntu's snap wrapper.
+firefox_version="$(chroot chroot dpkg-query -W -f='${Version}' firefox)"
+case "$firefox_version" in
+  *snap*) echo "ERROR: Ubuntu's snap firefox ($firefox_version) was installed" >&2; exit 1 ;;
+esac
+chroot chroot test -x /usr/bin/firefox || { echo "ERROR: /usr/bin/firefox is missing" >&2; exit 1; }
 
 echo "[4/5] Staging SLOPOS-I desktop payload into live rootfs"
 mkdir -p chroot/usr/bin \
@@ -86,6 +106,8 @@ install -Dm755 "$ROOT/scripts/slopos-appearance" "chroot/usr/bin/slopos-appearan
 install -Dm755 "$ROOT/scripts/slopos-recovery.sh" "chroot/usr/bin/slopos-recovery"
 install -Dm644 "$ROOT/packaging/slopos-i.desktop" "chroot/usr/share/xsessions/slopos-i.desktop"
 install -Dm644 "$ROOT/packaging/slopos-browser.desktop" "chroot/usr/share/applications/slopos-browser.desktop"
+# Default applications: slopos-browser.desktop (Firefox) for text/html and http/https.
+install -Dm644 "$ROOT/assets/config/mimeapps.list" "chroot/etc/xdg/mimeapps.list"
 # The shipped apps' menu entries, so each app is discoverable from the live session.
 for app in slopos-calculator slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-settings slopos-software slopos-volume-mixer; do
   install -Dm644 "$ROOT/packaging/$app.desktop" "chroot/usr/share/applications/$app.desktop"
