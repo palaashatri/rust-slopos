@@ -100,9 +100,13 @@ pub fn launch(program: &str, args: &[&str]) -> Result<u32, String> {
     spawn_detached(&path, args).map_err(|error| format!("could not start {program}: {error}"))
 }
 
-/// Terminal emulators in preference order. `x-terminal-emulator` honours the
-/// Debian alternatives system, so the user's configured choice wins there.
+/// Terminal emulators in preference order. `slopos-terminal` is the SLOPOS
+/// terminal, found beside the other SLOPOS programs or on `PATH`, so it comes
+/// first. The donor emulators follow as fallbacks, and `x-terminal-emulator`
+/// honours the Debian alternatives system, so the user's configured choice
+/// wins among them.
 pub const TERMINALS: &[(&str, &[&str])] = &[
+    ("slopos-terminal", &[]),
     ("x-terminal-emulator", &[]),
     ("xdg-terminal-exec", &[]),
     ("xfce4-terminal", &[]),
@@ -173,6 +177,43 @@ mod tests {
             Some(other.clone().into_os_string()),
         );
         assert_eq!(found, Some(bin.join("slopos-settings")));
+    }
+
+    #[test]
+    fn slopos_terminal_is_the_first_terminal_and_the_donors_follow_in_order() {
+        let programs: Vec<&str> = TERMINALS.iter().map(|(program, _)| *program).collect();
+        assert_eq!(
+            programs,
+            [
+                "slopos-terminal",
+                "x-terminal-emulator",
+                "xdg-terminal-exec",
+                "xfce4-terminal",
+                "gnome-terminal",
+                "konsole",
+                "lxterminal",
+                "alacritty",
+                "kitty",
+                "xterm",
+            ]
+        );
+    }
+
+    #[test]
+    fn the_first_installed_terminal_wins_and_slopos_terminal_is_preferred() {
+        let dir = temp_dir("terminals");
+        make_executable(&dir, "xterm");
+        let path_var = Some(dir.clone().into_os_string());
+        // Only xterm is installed: it is the first candidate that resolves.
+        let first = |path: Option<std::ffi::OsString>| {
+            TERMINALS
+                .iter()
+                .find_map(|(program, _)| resolve_program_in(program, None, path.clone()))
+        };
+        assert_eq!(first(path_var.clone()), Some(dir.join("xterm")));
+        // Once slopos-terminal is installed beside it, that one wins.
+        make_executable(&dir, "slopos-terminal");
+        assert_eq!(first(path_var), Some(dir.join("slopos-terminal")));
     }
 
     #[test]
