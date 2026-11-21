@@ -18,6 +18,11 @@ use crate::foundation::{
 use crate::image::Image;
 use crate::text::{self, Font};
 
+#[cfg(feature = "gpu")]
+pub mod gpu;
+/// Backend-neutral draw lists, executed onto this surface as the CPU reference.
+pub mod list;
+
 #[derive(Debug, thiserror::Error)]
 pub enum RenderError {
     #[error("surface dimensions must be nonzero")]
@@ -258,6 +263,20 @@ impl RasterSurface {
         width: u32,
         height: u32,
     ) -> Result<(), RenderError> {
+        self.draw_image_scaled_with_opacity(image, origin_x, origin_y, width, height, u8::MAX)
+    }
+
+    /// As [`Self::draw_image_scaled`], with the image's alpha multiplied by
+    /// `opacity` (0 draws nothing, 255 is the image unchanged).
+    pub fn draw_image_scaled_with_opacity(
+        &self,
+        image: &Image,
+        origin_x: i32,
+        origin_y: i32,
+        width: u32,
+        height: u32,
+        opacity: u8,
+    ) -> Result<(), RenderError> {
         let Some(source) = image.pixmap() else {
             return Ok(());
         };
@@ -271,6 +290,7 @@ impl RasterSurface {
             } else {
                 FilterQuality::Bicubic
             },
+            opacity: f32::from(opacity) / f32::from(u8::MAX),
             ..PixmapPaint::default()
         };
         let x = origin_x as f32 * factor;

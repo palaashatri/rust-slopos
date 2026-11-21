@@ -23,3 +23,6 @@ default = ["atspi", "global-menu"]
 atspi = ["dep:accesskit_unix"]
 # Export app menus to the desktop's global menu bar over D-Bus.
 global-menu = ["dep:zbus"]
+# Reserved for the phase-B GPU backend. It is empty and not implemented; the
+# default build never enables it, and it adds no dependencies.
+gpu = []
