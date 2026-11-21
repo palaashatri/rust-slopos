@@ -6,7 +6,11 @@
 //! slopos-software sign KEY-FILE CATALOGUE.json        (signs in place)
 //! slopos-software verify TRUST.json CATALOGUE.json
 
+mod backends;
 mod install;
+mod packages;
+mod run;
+mod sources;
 mod store;
 mod trust;
 mod window;
@@ -87,6 +91,11 @@ fn run_window() -> Result<(), String> {
         store::machine_architecture(),
         window::network_installer(),
         slot.clone(),
+        sources::Environment::from_system(),
+        window::Commands {
+            search: Arc::new(backends::run_system),
+            install: Arc::new(packages::run_install),
+        },
     );
     let options = WindowOptions::new("Software", "slopos-software", window::WIDTH, window::HEIGHT);
     platform::run(options, app, move |proxy| {
