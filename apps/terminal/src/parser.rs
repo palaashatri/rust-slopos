@@ -5,13 +5,15 @@
 //! Supported: printing, CR, LF, BS, tab, cursor movement (CUU/CUD/CUF/CUB,
 //! CNL/CPL, CHA, VPA, CUP/HVP), erase (EL, ED), insert/delete of characters
 //! and lines (ICH, DCH, ECH, IL, DL), SGR text attributes with the 16 basic
-//! and bright colours and the 256-colour table, device status reports
+//! and bright colours, the 256-colour table and true colour (`38;2;r;g;b`
+//! and `48;2;r;g;b`), device status reports
 //! (CSI 5 n and CSI 6 n), DECTCEM cursor visibility (`?25`), the alternate
 //! screen (`?47`, `?1047`, `?1049`), and OSC 0/2 window titles. Anything else
 //! is ignored.
 //!
-//! Not supported yet: scroll regions (DECSTBM), true colour (`38;2`, parsed
-//! and skipped), character sets, mouse reporting, and save/restore cursor
+//! Not supported yet: scroll regions (DECSTBM), the colon form of the
+//! extended colours (`38:2::r:g:b`), character sets, mouse reporting, and
+//! save/restore cursor
 //! (DECSC/DECRC; only mode 1049 saves the cursor).
 
 use crate::grid::{Attr, Color, Grid};
@@ -77,6 +79,11 @@ fn flatten(params: &vte::Params) -> Vec<u16> {
         .iter()
         .flat_map(|group| group.iter().copied())
         .collect()
+}
+
+/// One channel of a true colour; values above 255 saturate.
+fn clamp_channel(value: u16) -> u8 {
+    value.min(255) as u8
 }
 
 impl vte::Perform for Performer<'_> {
@@ -226,21 +233,37 @@ impl Performer<'_> {
                 100..=107 => attr.bg = Color::Indexed((code - 100 + 8) as u8),
                 38 | 48 => {
                     let is_foreground = code == 38;
+                    let mut set = |color: Color| {
+                        if is_foreground {
+                            attr.fg = color;
+                        } else {
+                            attr.bg = color;
+                        }
+                    };
                     match values.get(index + 1).copied() {
                         // 38;5;n and 48;5;n pick a colour from the 256 table.
                         Some(5) => {
                             if let Some(&entry) = values.get(index + 2) {
-                                let color = Color::Indexed(entry.min(255) as u8);
-                                if is_foreground {
-                                    attr.fg = color;
-                                } else {
-                                    attr.bg = color;
-                                }
+                                set(Color::Indexed(entry.min(255) as u8));
                             }
                             index += 2;
                         }
-                        // True colour is not drawn yet; skip its r, g and b.
-                        Some(2) => index += 4,
+                        // 38;2;r;g;b and 48;2;r;g;b give a true colour. The
+                        // three operands are skipped even when they are short.
+                        Some(2) => {
+                            if let (Some(&r), Some(&g), Some(&b)) = (
+                                values.get(index + 2),
+                                values.get(index + 3),
+                                values.get(index + 4),
+                            ) {
+                                set(Color::Rgb(
+                                    clamp_channel(r),
+                                    clamp_channel(g),
+                                    clamp_channel(b),
+                                ));
+                            }
+                            index += 4;
+                        }
                         _ => {}
                     }
                 }
@@ -319,11 +342,37 @@ mod tests {
     }
 
     #[test]
-    fn true_colour_operands_are_skipped_not_printed() {
+    fn true_colour_sets_foreground_and_background() {
         let mut terminal = Terminal::new(10, 1);
-        terminal.feed(b"\x1b[38;2;1;2;3mT");
-        assert_eq!(terminal_text(&terminal), "T");
-        assert_eq!(cell(&terminal, 0, 0).attr.fg, Color::Default);
+        terminal.feed(b"\x1b[38;2;255;128;1mA\x1b[48;2;10;20;30mB\x1b[39mC\x1b[49mD");
+        assert_eq!(terminal_text(&terminal), "ABCD");
+        assert_eq!(cell(&terminal, 0, 0).attr.fg, Color::Rgb(255, 128, 1));
+        assert_eq!(cell(&terminal, 0, 1).attr.fg, Color::Rgb(255, 128, 1));
+        assert_eq!(cell(&terminal, 0, 1).attr.bg, Color::Rgb(10, 20, 30));
+        // 39 and 49 restore the defaults, true colours included.
+        assert_eq!(cell(&terminal, 0, 2).attr.fg, Color::Default);
+        assert_eq!(cell(&terminal, 0, 2).attr.bg, Color::Rgb(10, 20, 30));
+        assert_eq!(cell(&terminal, 0, 3).attr.bg, Color::Default);
+    }
+
+    #[test]
+    fn true_colour_channels_saturate_and_a_short_sequence_is_skipped() {
+        let mut terminal = Terminal::new(10, 1);
+        terminal.feed(b"\x1b[38;2;300;0;9mA");
+        assert_eq!(cell(&terminal, 0, 0).attr.fg, Color::Rgb(255, 0, 9));
+        // Missing operands: no colour is set and the operands are not printed.
+        terminal.feed(b"\x1b[0m\x1b[48;2;1mB");
+        assert_eq!(terminal_text(&terminal), "AB");
+        assert_eq!(cell(&terminal, 0, 1).attr.bg, Color::Default);
+    }
+
+    #[test]
+    fn true_colour_and_the_256_table_can_be_mixed() {
+        let mut terminal = Terminal::new(10, 1);
+        terminal.feed(b"\x1b[38;5;196mA\x1b[38;2;0;0;255mB\x1b[38;5;2mC");
+        assert_eq!(cell(&terminal, 0, 0).attr.fg, Color::Indexed(196));
+        assert_eq!(cell(&terminal, 0, 1).attr.fg, Color::Rgb(0, 0, 255));
+        assert_eq!(cell(&terminal, 0, 2).attr.fg, Color::Indexed(2));
     }
 
     #[test]

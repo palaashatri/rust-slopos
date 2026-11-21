@@ -56,6 +56,12 @@ pub fn resolve(color: Color, default: Rgb) -> Rgb {
                 alpha: 255,
             }
         }
+        Color::Rgb(red, green, blue) => Rgb {
+            red,
+            green,
+            blue,
+            alpha: 255,
+        },
     }
 }
 
@@ -71,6 +77,25 @@ mod tests {
         assert_eq!(indexed_rgb(232), (8, 8, 8));
         assert_eq!(indexed_rgb(255), (238, 238, 238));
         assert_eq!(indexed_rgb(9), (255, 0, 0));
+    }
+
+    #[test]
+    fn true_colours_are_used_as_given() {
+        let ink = Rgb {
+            red: 0,
+            green: 0,
+            blue: 0,
+            alpha: 255,
+        };
+        assert_eq!(
+            resolve(Color::Rgb(18, 52, 86), ink),
+            Rgb {
+                red: 18,
+                green: 52,
+                blue: 86,
+                alpha: 255
+            }
+        );
     }
 
     #[test]

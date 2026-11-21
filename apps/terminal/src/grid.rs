@@ -30,13 +30,15 @@ pub enum Width {
     Spacer,
 }
 
-/// A text colour: the theme's default, or an entry of the xterm 256-colour
-/// table (0-7 normal, 8-15 bright, 16-231 colour cube, 232-255 greys).
+/// A text colour: the theme's default, an entry of the xterm 256-colour
+/// table (0-7 normal, 8-15 bright, 16-231 colour cube, 232-255 greys), or a
+/// true colour set with `38;2;r;g;b` or `48;2;r;g;b`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Color {
     #[default]
     Default,
     Indexed(u8),
+    Rgb(u8, u8, u8),
 }
 
 /// The attributes new text is written with.
