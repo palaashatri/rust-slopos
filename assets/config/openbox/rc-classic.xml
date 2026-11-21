@@ -65,6 +65,25 @@
         <action name="ShowMenu"><menu>client-list-combined-menu</menu></action>
       </mousebind>
     </context>
+    <!-- Edge and corner resize. Openbox loads only this file, so the stock
+         Top/Left/Right/Bottom and corner contexts must be listed here or
+         windows cannot be resized from their borders. -->
+    <context name="Top">
+      <mousebind button="Left" action="Drag"><action name="Resize"><edge>top</edge></action></mousebind>
+    </context>
+    <context name="Left">
+      <mousebind button="Left" action="Drag"><action name="Resize"><edge>left</edge></action></mousebind>
+    </context>
+    <context name="Right">
+      <mousebind button="Left" action="Drag"><action name="Resize"><edge>right</edge></action></mousebind>
+    </context>
+    <context name="Bottom">
+      <mousebind button="Left" action="Drag"><action name="Resize"><edge>bottom</edge></action></mousebind>
+    </context>
+    <context name="TRCorner BRCorner TLCorner BLCorner">
+      <mousebind button="Left" action="Press"><action name="Focus"/><action name="Raise"/><action name="Unshade"/></mousebind>
+      <mousebind button="Left" action="Drag"><action name="Resize"/></mousebind>
+    </context>
   </mouse>
   <applications>
     <application class="*slopos-topbar*" title="*Top Bar*">
