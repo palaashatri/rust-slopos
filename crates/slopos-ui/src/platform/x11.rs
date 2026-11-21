@@ -22,6 +22,8 @@ use x11rb::wrapper::ConnectionExt as _;
 
 use super::global_menu::Message as MenuMessage;
 use super::keys::{grab_masks, key_for, keycodes_for, keysym_for, modifier_mask, modifiers};
+#[cfg(feature = "gpu")]
+use super::paint_path::{GpuPaint, RECORD_COMMAND_LIMIT};
 use super::present::{DeviceRect, Frame, Presenter};
 use super::{
     place_popup, scale_from_environment, App, Control, Edge, PopupRequest, WindowKind,
@@ -320,6 +322,9 @@ pub fn run<A: App>(
     let mut frame = Vec::new();
     // What the server holds for the main window; only changed rows are sent.
     let mut presenter = Presenter::new();
+    // SLOPOS_GPU=1 paints the main window through the GPU; the CPU otherwise.
+    #[cfg(feature = "gpu")]
+    let mut gpu = GpuPaint::from_environment();
     let mut popups: Vec<Popup> = Vec::new();
     // A dock's reserved strip can change while it runs (auto-hide): the
     // edge is fixed, the strip size and the window's span are tracked.
@@ -438,7 +443,6 @@ pub fn run<A: App>(
 
         if needs_paint {
             needs_paint = false;
-            app.paint(&surface);
             let upload = Upload {
                 conn: &conn,
                 drawable: window,
@@ -447,7 +451,22 @@ pub fn run<A: App>(
                 lsb_first,
                 max_request,
             };
-            present_surface(&upload, &mut presenter, &surface, &mut frame)?;
+            #[cfg(feature = "gpu")]
+            let on_gpu = present_gpu_frame(
+                &mut app,
+                &upload,
+                &mut presenter,
+                &mut gpu,
+                logical,
+                scale,
+                &mut frame,
+            )?;
+            #[cfg(not(feature = "gpu"))]
+            let on_gpu = false;
+            if !on_gpu {
+                app.paint(&surface);
+                present_surface(&upload, &mut presenter, &surface, &mut frame)?;
+            }
         }
         for popup in &mut popups {
             if std::mem::take(&mut popup.needs_paint) {
@@ -1301,15 +1320,60 @@ fn present_frame(
     Ok(Some(damage))
 }
 
+/// Paint one frame of `app` on the GPU and present it. Returns `Ok(false)`
+/// when the CPU must paint this frame: GPU painting is off for the window, or
+/// it failed. A GPU failure turns painting off for the window for good, and
+/// its reason is logged once. X11 errors are not GPU failures, so they are
+/// returned.
+#[cfg(feature = "gpu")]
+fn present_gpu_frame<A: App>(
+    app: &mut A,
+    upload: &Upload,
+    presenter: &mut Presenter,
+    gpu: &mut GpuPaint,
+    logical: (u32, u32),
+    scale: crate::foundation::geometry::Scale,
+    scratch: &mut Vec<u8>,
+) -> Result<bool, PlatformError> {
+    let Some(executor) = gpu.executor() else {
+        return Ok(false);
+    };
+    match record_and_present(app, upload, presenter, executor, logical, scale, scratch) {
+        Ok(()) => Ok(true),
+        Err(error @ (PlatformError::Gpu(_) | PlatformError::Render(_))) => {
+            gpu.fail(&error);
+            Ok(false)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+/// Record one paint of `app` into a draw list and present its GPU replay.
+#[cfg(feature = "gpu")]
+fn record_and_present<A: App>(
+    app: &mut A,
+    upload: &Upload,
+    presenter: &mut Presenter,
+    executor: &mut WgpuExecutor,
+    logical: (u32, u32),
+    scale: crate::foundation::geometry::Scale,
+    scratch: &mut Vec<u8>,
+) -> Result<(), PlatformError> {
+    let recording = RasterSurface::recording(logical.0, logical.1, scale, RECORD_COMMAND_LIMIT)?;
+    app.paint(&recording);
+    let list = recording.take_recording()?;
+    present_gpu_list(upload, presenter, executor, &list, logical, scale, scratch)?;
+    Ok(())
+}
+
 /// Draw `list` with the wgpu executor and present the result to the drawable.
 ///
 /// This is the **readback** path: the GPU frame is copied into a CPU buffer
 /// (`WgpuExecutor::read_pixels`) and then sent with the same `PutImage` code as
 /// the CPU path. It is not a direct GPU present (DRI3 or the Present
-/// extension); that is a follow-up. Nothing in an app calls this yet: the
-/// X11 readback test is its only user.
+/// extension); that is a follow-up. The main window uses it when `SLOPOS_GPU=1`
+/// (see [`present_gpu_frame`]).
 #[cfg(feature = "gpu")]
-#[cfg_attr(not(test), allow(dead_code))]
 fn present_gpu_list(
     upload: &Upload,
     presenter: &mut Presenter,
@@ -2268,6 +2332,117 @@ mod upload_tests {
         )
         .unwrap();
         assert_eq!(sent, None);
+
+        conn.destroy_window(window.window).unwrap();
+        conn.sync().unwrap();
+    }
+
+    /// A paint with fills, an outline, text and a button plate, the kinds of
+    /// call the Calculator makes. The window path records it and presents the
+    /// GPU replay.
+    #[cfg(feature = "gpu")]
+    struct RecordedFrameApp;
+
+    #[cfg(feature = "gpu")]
+    impl App for RecordedFrameApp {
+        fn event(&mut self, _event: &Event, _control: &mut Control) {}
+
+        fn paint(&mut self, surface: &RasterSurface) {
+            use crate::primitives::button_plate::{
+                paint_button_plate, ButtonPlateState, ButtonPlateVariant,
+            };
+            surface
+                .clear(Color {
+                    red: 0xdd,
+                    green: 0xdd,
+                    blue: 0xdd,
+                    alpha: 0xff,
+                })
+                .unwrap();
+            let display = Rect {
+                x: 4,
+                y: 4,
+                width: 60,
+                height: 20,
+            };
+            surface.fill_rect(display, Color::WHITE).unwrap();
+            surface.stroke_rect(display, Color::BLACK).unwrap();
+            surface
+                .draw_text("42", 8, 8, &crate::text::Font::system(12.0), Color::BLACK)
+                .unwrap();
+            paint_button_plate(
+                surface,
+                4,
+                30,
+                ButtonPlateVariant::Regular,
+                ButtonPlateState::Rest,
+            )
+            .unwrap();
+        }
+    }
+
+    #[cfg(feature = "gpu")]
+    #[test]
+    fn a_recorded_window_frame_presented_on_the_gpu_matches_the_cpu_paint() {
+        const TEST: &str = "a_recorded_window_frame_presented_on_the_gpu_matches_the_cpu_paint";
+        let _guard = DISPLAY_LOCK
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let Some((conn, screen_number)) = open_display(TEST) else {
+            return;
+        };
+        let executor = match WgpuExecutor::new_headless() {
+            Ok(executor) => executor,
+            Err(error) => {
+                not_run(TEST, &format!("no wgpu adapter: {error}"));
+                return;
+            }
+        };
+        let scale = Scale::new(2).unwrap();
+        let (width, height) = (72, 56);
+        let reference = RasterSurface::new(width, height, scale).unwrap();
+        RecordedFrameApp.paint(&reference);
+        let size = (reference.device_width(), reference.device_height());
+        let window = map_test_window(&conn, screen_number, size.0 as u16, size.1 as u16).unwrap();
+        let upload = window.upload(&conn);
+        let mut presenter = Presenter::new();
+        let mut scratch = Vec::new();
+        let mut app = RecordedFrameApp;
+
+        let mut gpu = GpuPaint::Ready(Box::new(executor));
+        let on_gpu = present_gpu_frame(
+            &mut app,
+            &upload,
+            &mut presenter,
+            &mut gpu,
+            (width, height),
+            scale,
+            &mut scratch,
+        )
+        .unwrap();
+        assert!(on_gpu, "a ready window presents its frame on the GPU");
+        assert!(matches!(gpu, GpuPaint::Ready(_)));
+        assert_window_shows(
+            &conn,
+            &window,
+            size,
+            &reference.data(),
+            "recorded GPU frame",
+        );
+
+        // With GPU painting off, the caller paints the frame on the CPU.
+        let mut off = GpuPaint::Off;
+        let on_gpu = present_gpu_frame(
+            &mut app,
+            &upload,
+            &mut presenter,
+            &mut off,
+            (width, height),
+            scale,
+            &mut scratch,
+        )
+        .unwrap();
+        assert!(!on_gpu);
 
         conn.destroy_window(window.window).unwrap();
         conn.sync().unwrap();
