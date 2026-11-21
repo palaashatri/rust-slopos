@@ -130,6 +130,20 @@ struct Selection {
     head: (usize, usize),
 }
 
+/// The main screen, put aside while the alternate screen is active.
+#[derive(Debug, Clone)]
+struct SavedScreen {
+    screen: Vec<Line>,
+    cursor_row: usize,
+    cursor_col: usize,
+    pending_wrap: bool,
+    attr: Attr,
+    display_offset: usize,
+    /// Whether leaving restores the cursor and attributes (DECSC/DECRC, mode
+    /// 1049) or only the screen (modes 47 and 1047).
+    restore_cursor: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct Grid {
     cols: usize,
@@ -146,6 +160,9 @@ pub struct Grid {
     /// Lines scrolled back from the bottom; 0 shows the live screen.
     display_offset: usize,
     selection: Option<Selection>,
+    /// The main screen while the alternate screen is active. The alternate
+    /// screen has no history: its scrolling is lost, not kept.
+    alternate: Option<SavedScreen>,
 }
 
 impl Grid {
@@ -165,6 +182,7 @@ impl Grid {
             cursor_visible: true,
             display_offset: 0,
             selection: None,
+            alternate: None,
         }
     }
 
@@ -213,7 +231,53 @@ impl Grid {
     pub fn scroll_view(&mut self, lines: isize) {
         self.clear_selection();
         let offset = (self.display_offset as isize).saturating_add(lines);
-        self.display_offset = offset.clamp(0, self.scrollback.len() as isize) as usize;
+        self.display_offset = offset.clamp(0, self.history_len() as isize) as usize;
+    }
+
+    /// Whether the alternate screen is showing (DECSET 47, 1047 or 1049).
+    #[cfg(test)]
+    pub fn in_alternate_screen(&self) -> bool {
+        self.alternate.is_some()
+    }
+
+    /// Switches to a blank alternate screen, putting the main screen aside.
+    /// Nothing written there reaches the history. With `save_cursor` (mode
+    /// 1049) the cursor and attributes are restored on leaving. Entering
+    /// while already on the alternate screen does nothing.
+    pub fn enter_alternate_screen(&mut self, save_cursor: bool) {
+        if self.alternate.is_some() {
+            return;
+        }
+        self.clear_selection();
+        let blank = (0..self.rows).map(|_| Line::blank(self.cols)).collect();
+        let screen = std::mem::replace(&mut self.screen, blank);
+        self.alternate = Some(SavedScreen {
+            screen,
+            cursor_row: self.cursor_row,
+            cursor_col: self.cursor_col,
+            pending_wrap: self.pending_wrap,
+            attr: self.attr,
+            display_offset: self.display_offset,
+            restore_cursor: save_cursor,
+        });
+        self.display_offset = 0;
+    }
+
+    /// Returns to the main screen, restoring what [`Self::enter_alternate_screen`]
+    /// put aside. Does nothing when the main screen is showing.
+    pub fn leave_alternate_screen(&mut self) {
+        let Some(saved) = self.alternate.take() else {
+            return;
+        };
+        self.clear_selection();
+        self.screen = saved.screen;
+        if saved.restore_cursor {
+            self.cursor_row = saved.cursor_row;
+            self.cursor_col = saved.cursor_col;
+            self.pending_wrap = saved.pending_wrap;
+            self.attr = saved.attr;
+        }
+        self.display_offset = saved.display_offset.min(self.scrollback.len());
     }
 
     pub fn scroll_to_bottom(&mut self) {
@@ -594,6 +658,35 @@ impl Grid {
             return;
         }
         self.clear_selection();
+        let Some(mut saved) = self.alternate.take() else {
+            self.reflow(cols, rows);
+            return;
+        };
+        // The main screen is reflowed as if it were showing, so that leaving
+        // the alternate screen finds it at the new size. The alternate screen
+        // starts again blank; a full-screen program redraws it after a resize.
+        let (alt_row, alt_col) = (self.cursor_row, self.cursor_col);
+        std::mem::swap(&mut self.screen, &mut saved.screen);
+        self.cursor_row = saved.cursor_row;
+        self.cursor_col = saved.cursor_col;
+        self.reflow(cols, rows);
+        saved.screen = std::mem::replace(
+            &mut self.screen,
+            (0..rows).map(|_| Line::blank(cols)).collect(),
+        );
+        saved.cursor_row = self.cursor_row;
+        saved.cursor_col = self.cursor_col;
+        saved.pending_wrap = self.pending_wrap;
+        saved.display_offset = self.display_offset;
+        self.cursor_row = alt_row.min(rows - 1);
+        self.cursor_col = alt_col.min(cols - 1);
+        self.pending_wrap = false;
+        self.alternate = Some(saved);
+    }
+
+    /// Re-wraps the history and the screen to `cols` by `rows` (both at least
+    /// one). The cursor follows its character.
+    fn reflow(&mut self, cols: usize, rows: usize) {
         self.pending_wrap = false;
         self.display_offset = 0;
 
@@ -689,9 +782,11 @@ impl Grid {
         self.clear_selection();
         for _ in 0..count {
             let top = self.screen.remove(0);
-            self.scrollback.push_back(top);
-            if self.scrollback.len() > SCROLLBACK_LINES {
-                self.scrollback.pop_front();
+            if self.alternate.is_none() {
+                self.scrollback.push_back(top);
+                if self.scrollback.len() > SCROLLBACK_LINES {
+                    self.scrollback.pop_front();
+                }
             }
             self.screen.push(Line::blank(self.cols));
             if self.display_offset > 0 {
@@ -701,13 +796,23 @@ impl Grid {
         }
     }
 
+    /// The history lines that can be viewed: none on the alternate screen.
+    fn history_len(&self) -> usize {
+        if self.alternate.is_some() {
+            0
+        } else {
+            self.scrollback.len()
+        }
+    }
+
     fn line_at(&self, row: usize) -> &Line {
-        let top = self.scrollback.len() - self.display_offset;
+        let history = self.history_len();
+        let top = history - self.display_offset;
         let index = top + row;
-        if index < self.scrollback.len() {
+        if index < history {
             &self.scrollback[index]
         } else {
-            &self.screen[index - self.scrollback.len()]
+            &self.screen[index - history]
         }
     }
 

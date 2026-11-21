@@ -6,12 +6,13 @@
 //! CNL/CPL, CHA, VPA, CUP/HVP), erase (EL, ED), insert/delete of characters
 //! and lines (ICH, DCH, ECH, IL, DL), SGR text attributes with the 16 basic
 //! and bright colours and the 256-colour table, device status reports
-//! (CSI 5 n and CSI 6 n), DECTCEM cursor visibility (`?25`), and OSC 0/2
-//! window titles. Anything else is ignored.
+//! (CSI 5 n and CSI 6 n), DECTCEM cursor visibility (`?25`), the alternate
+//! screen (`?47`, `?1047`, `?1049`), and OSC 0/2 window titles. Anything else
+//! is ignored.
 //!
-//! Not supported yet: the alternate screen (`?1049`), scroll regions (DECSTBM),
-//! true colour (`38;2`, parsed and skipped), character sets, mouse reporting,
-//! and save/restore cursor.
+//! Not supported yet: scroll regions (DECSTBM), true colour (`38;2`, parsed
+//! and skipped), character sets, mouse reporting, and save/restore cursor
+//! (DECSC/DECRC; only mode 1049 saves the cursor).
 
 use crate::grid::{Attr, Color, Grid};
 
@@ -178,16 +179,23 @@ impl vte::Perform for Performer<'_> {
 }
 
 impl Performer<'_> {
-    /// DEC private modes (`CSI ? Pm h` / `l`). Only the cursor is handled.
+    /// DEC private modes (`CSI ? Pm h` to set, `l` to reset): the cursor's
+    /// visibility and the alternate screen.
     fn private_mode(&mut self, params: &vte::Params, action: char) {
-        let visible = match action {
+        let set = match action {
             'h' => true,
             'l' => false,
             _ => return,
         };
         for mode in flatten(params) {
-            if mode == 25 {
-                self.grid.set_cursor_visible(visible);
+            match (mode, set) {
+                (25, _) => self.grid.set_cursor_visible(set),
+                // 1049 also saves the cursor on entry and restores it on exit.
+                (1049, true) => self.grid.enter_alternate_screen(true),
+                (1049, false) => self.grid.leave_alternate_screen(),
+                (47 | 1047, true) => self.grid.enter_alternate_screen(false),
+                (47 | 1047, false) => self.grid.leave_alternate_screen(),
+                _ => {}
             }
         }
     }
@@ -390,8 +398,93 @@ mod tests {
     #[test]
     fn unsupported_sequences_are_ignored_without_damage() {
         let mut terminal = Terminal::new(10, 2);
-        // Alternate screen, scroll region, character set and a bogus CSI.
-        terminal.feed(b"\x1b[?1049h\x1b[1;2r\x1b(B\x1b[zok");
+        // Mouse reporting, scroll region, character set and a bogus CSI.
+        terminal.feed(b"\x1b[?1000h\x1b[1;2r\x1b(B\x1b[zok");
         assert_eq!(terminal_text(&terminal), "ok");
+    }
+
+    /// Writes `count` numbered lines the way a program's output does: each
+    /// line ends with CR LF, so the screen scrolls as it fills.
+    fn write_lines(terminal: &mut Terminal, prefix: &str, count: usize) {
+        for index in 0..count {
+            terminal.feed(format!("{prefix}{index}\r\n").as_bytes());
+        }
+    }
+
+    #[test]
+    fn full_screen_programs_leave_no_scrollback_behind() {
+        let mut terminal = Terminal::new(10, 3);
+        write_lines(&mut terminal, "main", 4);
+        let history = terminal.grid().scrollback_len();
+        assert!(history > 0);
+
+        // What `less` or `vim` does: enter, clear, draw and scroll a lot.
+        terminal.feed(b"\x1b[?1049h\x1b[H\x1b[2J");
+        assert!(terminal.grid().in_alternate_screen());
+        write_lines(&mut terminal, "alt", 50);
+        assert_eq!(terminal.grid().scrollback_len(), history);
+        // The view cannot scroll back into the main screen's history either.
+        terminal.grid_mut().scroll_view(isize::MAX);
+        assert_eq!(terminal.grid().display_offset(), 0);
+        assert!(!terminal_text(&terminal).contains("main"));
+
+        terminal.feed(b"\x1b[?1049l");
+        assert!(!terminal.grid().in_alternate_screen());
+        assert_eq!(terminal.grid().scrollback_len(), history);
+        assert!(terminal_text(&terminal).contains("main3"));
+        assert!(!terminal_text(&terminal).contains("alt"));
+    }
+
+    #[test]
+    fn mode_1049_restores_the_cursor_and_attributes_on_exit() {
+        let mut terminal = Terminal::new(10, 3);
+        terminal.feed(b"\x1b[2;4H\x1b[32m");
+        terminal.feed(b"\x1b[?1049h\x1b[H\x1b[0mdraw\x1b[31m");
+        terminal.feed(b"\x1b[?1049l");
+        assert_eq!(terminal.grid().cursor(), (1, 3));
+        assert_eq!(terminal.grid().attr().fg, Color::Indexed(2));
+        terminal.feed(b"x");
+        assert_eq!(cell(&terminal, 1, 3).ch, 'x');
+        assert_eq!(cell(&terminal, 1, 3).attr.fg, Color::Indexed(2));
+    }
+
+    #[test]
+    fn modes_47_and_1047_switch_screens_without_moving_the_cursor() {
+        for mode in ["47", "1047"] {
+            let mut terminal = Terminal::new(10, 2);
+            terminal.feed(b"main");
+            terminal.feed(format!("\x1b[?{mode}h\x1b[2;2Halt").as_bytes());
+            assert!(terminal.grid().in_alternate_screen(), "mode {mode}");
+            assert_eq!(terminal.grid().cursor(), (1, 4), "mode {mode}");
+            assert!(!terminal_text(&terminal).contains("main"), "mode {mode}");
+            terminal.feed(format!("\x1b[?{mode}l").as_bytes());
+            assert!(!terminal.grid().in_alternate_screen(), "mode {mode}");
+            assert_eq!(terminal_text(&terminal), "main", "mode {mode}");
+            // Without mode 1049 the cursor is not restored; it stays where
+            // the alternate screen left it.
+            assert_eq!(terminal.grid().cursor(), (1, 4), "mode {mode}");
+        }
+    }
+
+    #[test]
+    fn leaving_without_entering_does_nothing() {
+        let mut terminal = Terminal::new(10, 1);
+        terminal.feed(b"keep\x1b[?1049l");
+        assert_eq!(terminal_text(&terminal), "keep");
+        assert_eq!(terminal.grid().cursor(), (0, 4));
+    }
+
+    #[test]
+    fn resizing_while_on_the_alternate_screen_reflows_the_main_screen() {
+        let mut terminal = Terminal::new(10, 2);
+        terminal.feed(b"abcdefgh\x1b[?1049h\x1b[Hfull");
+        terminal.grid_mut().resize(4, 3);
+        assert!(terminal.grid().in_alternate_screen());
+        // The alternate screen is blank at the new size.
+        assert_eq!(terminal_text(&terminal), "");
+        terminal.feed(b"\x1b[?1049l");
+        // The main text was narrowed to four columns and is still there.
+        assert_eq!(terminal.grid().cols(), 4);
+        assert_eq!(terminal_text(&terminal), "abcdefgh");
     }
 }
