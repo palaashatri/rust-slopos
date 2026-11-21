@@ -18,6 +18,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=packaging/iso/mozilla-apt.sh
+source "$ROOT/packaging/iso/mozilla-apt.sh"
 ARCH=""
 BIN_DIR=""
 OUT_DIR="$ROOT/artifacts/iso"
@@ -57,7 +59,7 @@ case "$ARCH" in
 esac
 
 [[ $EUID -eq 0 ]] || { echo "build-live-iso: run as root (debootstrap, chroot, mounts)" >&2; exit 2; }
-for tool in debootstrap mksquashfs grub-mkrescue xorriso mformat unmkinitramfs sha256sum; do
+for tool in debootstrap mksquashfs grub-mkrescue xorriso mformat unmkinitramfs sha256sum curl gpg; do
   command -v "$tool" >/dev/null || { echo "build-live-iso: $tool is required" >&2; exit 2; }
 done
 if [[ "$ARCH" == arm64 && "$(dpkg --print-architecture)" != arm64 ]]; then
@@ -117,6 +119,15 @@ printf '#!/bin/sh\nexit 101\n' >"$CHROOT/usr/sbin/policy-rc.d"
 chmod 755 "$CHROOT/usr/sbin/policy-rc.d"
 echo slopos >"$CHROOT/etc/hostname"
 
+# Mozilla's Firefox repository is HTTPS, so the chroot needs CA roots before
+# its sources entry is added. Then add the verified key, sources and pin.
+chroot "$CHROOT" /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+  DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 /bin/bash -euo pipefail -c "
+  apt-get update
+  apt-get install -y --no-install-recommends ca-certificates
+"
+install_mozilla_apt "$CHROOT" "$ROOT/packaging/iso/overlay"
+
 # Runtime dependencies come from the same list install.sh uses; SuperTux is
 # a demo game and stays out of the live image.
 mapfile -t RUNTIME < <(grep -Ev '^\s*(#|$)' "$ROOT/packaging/deps/ubuntu.txt" | grep -vx supertux)
@@ -132,9 +143,15 @@ chroot "$CHROOT" /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
     xserver-xorg-input-all mesa-utils gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good gstreamer1.0-tools shared-mime-info \
     desktop-file-utils xdg-utils gtk2-engines-pixbuf \
-    $GRUB_PACKAGES ${RUNTIME[*]}
+    $GRUB_PACKAGES ${RUNTIME[*]} firefox
   apt-get clean
 "
+# Fail closed unless the browser is Mozilla's build, not Ubuntu's snap wrapper.
+firefox_version="$(chroot "$CHROOT" dpkg-query -W -f='${Version}' firefox)"
+case "$firefox_version" in
+  *snap*) echo "build-live-iso: Ubuntu's snap firefox ($firefox_version) was installed" >&2; exit 1 ;;
+esac
+chroot "$CHROOT" test -x /usr/bin/firefox || { echo "build-live-iso: /usr/bin/firefox is missing" >&2; exit 1; }
 
 log "3/7 installing the SLOPOS payload with install.sh"
 STAGE="$WORK_DIR/cargo-stage"
@@ -159,7 +176,9 @@ grep -qx 'Exec=/usr/bin/start-slopos-i' "$CHROOT/usr/share/xsessions/slopos-i.de
   echo "build-live-iso: the SLOPOS-I session does not run /usr/bin/start-slopos-i" >&2; exit 1; }
 # The live image offers exactly one session: SLOPOS-I.
 find "$CHROOT/usr/share/xsessions" -name '*.desktop' ! -name 'slopos-i.desktop' -delete
-# The installed SLOPOS file associations become the system defaults.
+# The installed SLOPOS file associations become the system defaults. They make
+# slopos-browser.desktop (which runs start-slopos-browser, i.e. Firefox) the
+# default for text/html and http/https.
 install -Dm644 "$ROOT/assets/config/mimeapps.list" "$CHROOT/etc/xdg/mimeapps.list"
 
 log "4/7 configuring the live user and autologin"

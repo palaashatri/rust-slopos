@@ -1,0 +1,7 @@
+# Mozilla's official Firefox .deb repository (not snap). The signing key is
+# installed by packaging/iso/mozilla-apt.sh after its fingerprint is verified.
+Types: deb
+URIs: https://packages.mozilla.org/apt
+Suites: mozilla
+Components: main
+Signed-By: /etc/apt/keyrings/packages.mozilla.org.asc
