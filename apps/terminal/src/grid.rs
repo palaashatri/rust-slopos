@@ -130,6 +130,41 @@ impl Line {
 struct Selection {
     anchor: (usize, usize),
     head: (usize, usize),
+    /// Made by a word or line selection, so a single character still counts
+    /// as a selection. A dragged selection with no movement does not.
+    whole: bool,
+}
+
+/// How a character groups with its neighbours for double-click selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CharClass {
+    /// Letters, digits and underscore: a run of these is one word.
+    Word,
+    Space,
+    /// Any other character. Each one is its own class, so `((` is a run of
+    /// the same character only.
+    Punct(char),
+}
+
+fn class_of(ch: char) -> CharClass {
+    if ch.is_whitespace() || ch == '\0' {
+        CharClass::Space
+    } else if ch.is_alphanumeric() || ch == '_' {
+        CharClass::Word
+    } else {
+        CharClass::Punct(ch)
+    }
+}
+
+/// The class of the character at `index`. A spacer belongs to the wide
+/// character before it.
+fn class_at(cells: &[Cell], index: usize) -> CharClass {
+    let index = if cells[index].width == Width::Spacer && index > 0 {
+        index - 1
+    } else {
+        index
+    };
+    class_of(cells[index].ch)
 }
 
 /// The main screen, put aside while the alternate screen is active.
@@ -589,6 +624,49 @@ impl Grid {
         self.selection = Some(Selection {
             anchor: (row, col),
             head: (row, col),
+            whole: false,
+        });
+    }
+
+    /// Selects the word under a viewport position: a run of letters, digits
+    /// and underscores, a run of spaces, or a run of one punctuation
+    /// character. The word stays on its row.
+    pub fn select_word(&mut self, row: usize, col: usize) {
+        let row = row.min(self.rows - 1);
+        let col = col.min(self.cols - 1);
+        let cells = &self.line_at(row).cells;
+        let class = class_at(cells, col);
+        let mut start = col;
+        while start > 0 && class_at(cells, start - 1) == class {
+            start -= 1;
+        }
+        let mut end = col;
+        while end + 1 < self.cols && class_at(cells, end + 1) == class {
+            end += 1;
+        }
+        self.selection = Some(Selection {
+            anchor: (row, start),
+            head: (row, end),
+            whole: true,
+        });
+    }
+
+    /// Selects the logical line at a viewport row: the row and any rows it
+    /// is soft-wrapped into or from.
+    pub fn select_line(&mut self, row: usize) {
+        let row = row.min(self.rows - 1);
+        let mut first = row;
+        while first > 0 && self.line_at(first - 1).wrapped {
+            first -= 1;
+        }
+        let mut last = row;
+        while last + 1 < self.rows && self.line_at(last).wrapped {
+            last += 1;
+        }
+        self.selection = Some(Selection {
+            anchor: (first, 0),
+            head: (last, self.cols - 1),
+            whole: true,
         });
     }
 
@@ -821,7 +899,7 @@ impl Grid {
     /// Selection bounds in reading order, or `None` for an empty selection.
     fn selection_bounds(&self) -> Option<((usize, usize), (usize, usize))> {
         let selection = self.selection?;
-        if selection.anchor == selection.head {
+        if selection.anchor == selection.head && !selection.whole {
             return None;
         }
         Some(if selection.anchor <= selection.head {
@@ -1162,6 +1240,82 @@ mod tests {
         assert_eq!(grid.viewport_cell(1, 1).width, Width::Spacer);
         assert_eq!(grid.cursor(), (1, 2));
         assert_eq!(grid.text(), "a中中");
+    }
+
+    /// The selected text of a word selection at `(row, col)`.
+    fn word_at(grid: &mut Grid, row: usize, col: usize) -> Option<String> {
+        grid.select_word(row, col);
+        grid.selected_text()
+    }
+
+    #[test]
+    fn a_double_click_selects_a_word() {
+        let mut grid = Grid::new(20, 1);
+        put_str(&mut grid, "foo bar.baz  x");
+        assert_eq!(word_at(&mut grid, 0, 1).as_deref(), Some("foo"));
+        assert_eq!(word_at(&mut grid, 0, 4).as_deref(), Some("bar"));
+        // A punctuation mark is a word of its own.
+        assert_eq!(word_at(&mut grid, 0, 7).as_deref(), Some("."));
+        assert_eq!(word_at(&mut grid, 0, 8).as_deref(), Some("baz"));
+        // The run of spaces is selected as well, and reads as nothing.
+        grid.select_word(0, 11);
+        assert!(grid.is_selected(0, 11) && grid.is_selected(0, 12));
+        assert!(!grid.is_selected(0, 13));
+        // A single letter is a word too, so it is selected on its own.
+        assert_eq!(word_at(&mut grid, 0, 13).as_deref(), Some("x"));
+        assert!(grid.has_selection());
+    }
+
+    #[test]
+    fn a_word_selection_stops_at_the_edges_of_the_row() {
+        let mut grid = Grid::new(5, 1);
+        put_str(&mut grid, "ab_cd");
+        assert_eq!(word_at(&mut grid, 0, 0).as_deref(), Some("ab_cd"));
+        assert_eq!(word_at(&mut grid, 0, 4).as_deref(), Some("ab_cd"));
+        // Only one of a run of identical punctuation characters is a word.
+        let mut grid = Grid::new(4, 1);
+        put_str(&mut grid, "a((b");
+        assert_eq!(word_at(&mut grid, 0, 1).as_deref(), Some("(("));
+    }
+
+    #[test]
+    fn a_word_selection_takes_a_wide_character_whole() {
+        let mut grid = Grid::new(8, 1);
+        put_str(&mut grid, "中文 x");
+        assert_eq!(word_at(&mut grid, 0, 3).as_deref(), Some("中文"));
+        assert_eq!(word_at(&mut grid, 0, 1).as_deref(), Some("中文"));
+    }
+
+    #[test]
+    fn a_triple_click_selects_the_line() {
+        let mut grid = Grid::new(10, 3);
+        put_str(&mut grid, "one\ntwo words");
+        grid.select_line(1);
+        assert_eq!(grid.selected_text().as_deref(), Some("two words"));
+        // The selection covers the whole row, not only the text.
+        assert!(grid.is_selected(1, 9));
+        assert!(!grid.is_selected(0, 0));
+    }
+
+    #[test]
+    fn a_triple_click_on_a_wrapped_line_selects_all_of_it() {
+        let mut grid = Grid::new(4, 3);
+        put_str(&mut grid, "abcdefg\nxy");
+        // Row 0 wraps into row 1; row 2 is a line of its own.
+        grid.select_line(1);
+        assert_eq!(grid.selected_text().as_deref(), Some("abcdefg"));
+        grid.select_line(2);
+        assert_eq!(grid.selected_text().as_deref(), Some("xy"));
+    }
+
+    #[test]
+    fn a_drag_after_a_word_selection_replaces_it() {
+        let mut grid = Grid::new(10, 1);
+        put_str(&mut grid, "hello");
+        grid.select_word(0, 0);
+        grid.begin_selection(0, 0);
+        // A press without a drag selects nothing again.
+        assert_eq!(grid.selected_text(), None);
     }
 
     #[test]

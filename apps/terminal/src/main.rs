@@ -7,9 +7,9 @@
 //! window never polls. Window size changes reflow the grid and tell the shell
 //! the new size (TIOCSWINSZ).
 //!
-//! Not in this slice: wide and combining characters, the alternate screen,
-//! true colour, mouse reporting, word or line selection, and the GPU path.
+//! Not in this slice: mouse reporting, and the GPU path.
 
+mod clicks;
 mod colors;
 mod grid;
 mod input;
@@ -18,6 +18,7 @@ mod pty;
 
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, OnceLock};
+use std::time::Instant;
 
 use accesskit::{Node, Role, TreeUpdate};
 use slopos_ui::accessibility::window_tree;
@@ -143,6 +144,8 @@ struct TerminalApp {
     window: (u32, u32),
     /// A primary-button drag is extending the selection.
     selecting: bool,
+    /// The last primary-button press, for double and triple clicks.
+    last_click: Option<clicks::Click>,
     shown_title: String,
 }
 
@@ -162,6 +165,7 @@ impl TerminalApp {
             cell,
             window: (0, 0),
             selecting: false,
+            last_click: None,
             shown_title: "Terminal".into(),
         };
         app.window = app.window_for(DEFAULT_COLS, DEFAULT_ROWS);
@@ -280,6 +284,27 @@ impl TerminalApp {
             control.quit();
         }
         control.request_redraw();
+    }
+
+    /// A primary-button press on a cell: a single press starts a drag
+    /// selection, a double press selects the word under it and a triple press
+    /// the line.
+    fn press(&mut self, (row, col): (usize, usize), now: Instant) {
+        let count = clicks::next_count(self.last_click, now, (row, col));
+        self.last_click = Some(clicks::Click {
+            at: now,
+            cell: (row, col),
+            count,
+        });
+        let grid = self.terminal.grid_mut();
+        match count {
+            2 => grid.select_word(row, col),
+            3 => grid.select_line(row),
+            _ => {
+                grid.begin_selection(row, col);
+                self.selecting = true;
+            }
+        }
     }
 
     fn key(&mut self, key: &Key, modifiers: Modifiers, control: &mut Control) {
@@ -526,9 +551,9 @@ impl TerminalApp {
             } => {
                 self.selecting = false;
                 self.terminal.grid_mut().clear_selection();
-                if let Some((row, col)) = self.cell_at(*x, *y) {
-                    self.selecting = true;
-                    self.terminal.grid_mut().begin_selection(row, col);
+                match self.cell_at(*x, *y) {
+                    Some(cell) => self.press(cell, Instant::now()),
+                    None => self.last_click = None,
                 }
                 control.request_redraw();
             }
@@ -706,6 +731,88 @@ mod tests {
         }
         assert!(control.quit_requested());
         assert!(app.terminal.grid().text().contains("bye"));
+    }
+
+    /// The pixel position of the middle of a cell.
+    fn point(app: &TerminalApp, row: usize, col: usize) -> (i32, i32) {
+        let (left, top) = app.origin();
+        (
+            left + col as i32 * app.cell.0 as i32 + 1,
+            top + row as i32 * app.cell.1 as i32 + 1,
+        )
+    }
+
+    /// A primary-button press and release at a pixel position.
+    fn click(app: &mut TerminalApp, (x, y): (i32, i32), control: &mut Control) {
+        app.event(
+            &Event::PointerPressed {
+                x,
+                y,
+                button: PointerButton::Primary,
+            },
+            control,
+        );
+        app.event(
+            &Event::PointerReleased {
+                x,
+                y,
+                button: PointerButton::Primary,
+            },
+            control,
+        );
+    }
+
+    #[test]
+    fn a_double_click_selects_the_word_and_a_triple_click_the_line() {
+        let mut app = TerminalApp::new();
+        app.terminal.feed(b"hello world\r\nsecond line");
+        let mut control = Control::default();
+        let on_hello = point(&app, 0, 1);
+        click(&mut app, on_hello, &mut control);
+        click(&mut app, on_hello, &mut control);
+        assert_eq!(
+            app.terminal.grid().selected_text().as_deref(),
+            Some("hello")
+        );
+
+        let on_second = point(&app, 1, 2);
+        for _ in 0..3 {
+            click(&mut app, on_second, &mut control);
+        }
+        assert_eq!(
+            app.terminal.grid().selected_text().as_deref(),
+            Some("second line")
+        );
+    }
+
+    #[test]
+    fn a_single_click_and_drag_still_select_a_range() {
+        let mut app = TerminalApp::new();
+        app.terminal.feed(b"hello world");
+        let mut control = Control::default();
+        let start = point(&app, 0, 0);
+        let end = point(&app, 0, 4);
+        app.event(
+            &Event::PointerPressed {
+                x: start.0,
+                y: start.1,
+                button: PointerButton::Primary,
+            },
+            &mut control,
+        );
+        app.event(&Event::PointerMoved { x: end.0, y: end.1 }, &mut control);
+        app.event(
+            &Event::PointerReleased {
+                x: end.0,
+                y: end.1,
+                button: PointerButton::Primary,
+            },
+            &mut control,
+        );
+        assert_eq!(
+            app.terminal.grid().selected_text().as_deref(),
+            Some("hello")
+        );
     }
 
     #[test]
