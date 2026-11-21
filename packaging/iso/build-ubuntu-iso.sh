@@ -62,6 +62,7 @@ chroot chroot /bin/bash -c "
     pcmanfm \
     xfce4-terminal \
     network-manager \
+    systemd-resolved \
     pipewire \
     pipewire-pulse \
     wireplumber \
@@ -69,6 +70,12 @@ chroot chroot /bin/bash -c "
     pavucontrol \
     upower
 "
+
+# Wired networking: NetworkManager manages the NICs, systemd-resolved is the resolver.
+# shellcheck source=packaging/iso/live-network.sh
+. "$ROOT/packaging/iso/live-network.sh"
+slopos_apply_live_network chroot
+slopos_check_live_network_units chroot
 
 echo "[4/5] Staging SLOPOS-I desktop payload into live rootfs"
 mkdir -p chroot/usr/bin \

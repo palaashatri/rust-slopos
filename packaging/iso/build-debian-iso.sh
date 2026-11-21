@@ -56,6 +56,7 @@ mpv
 galculator
 network-manager
 network-manager-gnome
+systemd-resolved
 pavucontrol
 pipewire
 pipewire-pulse
@@ -109,6 +110,13 @@ install -Dm644 "$ROOT/assets/config/gtk-3.0/gtk-graphite.css" "config/includes.c
 cp -a "$ROOT/themes/platinum" "config/includes.chroot/usr/share/slopos-i/themes/platinum"
 cp -a "$ROOT/themes/graphite" "config/includes.chroot/usr/share/slopos-i/themes/graphite"
 cp -a "$ROOT/themes/platinum/icon-theme" "config/includes.chroot/usr/share/icons/SLOPOS-Platinum"
+
+# Wired networking: NetworkManager manages the NICs and systemd-resolved is the
+# resolver. live-build copies includes.chroot after the package install; its unit
+# files are not present in this directory, so no unit check runs here.
+# shellcheck source=packaging/iso/live-network.sh
+. "$ROOT/packaging/iso/live-network.sh"
+slopos_apply_live_network config/includes.chroot
 
 echo "[5/5] Building live ISO image"
 lb build

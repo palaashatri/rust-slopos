@@ -1,0 +1,5 @@
+# SLOPOS live images: NetworkManager configures the wired NICs (see
+# /etc/NetworkManager/conf.d/10-slopos-ethernet.conf). Keep only loopback here;
+# no ifupdown stanza may claim an ethernet device.
+auto lo
+iface lo inet loopback

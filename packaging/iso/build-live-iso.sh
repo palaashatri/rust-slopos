@@ -179,7 +179,14 @@ greeter-session=lightdm-gtk-greeter
 EOF
 echo 'LANG=C.UTF-8' >"$CHROOT/etc/default/locale"
 ln -sf /usr/share/zoneinfo/Etc/UTC "$CHROOT/etc/localtime"
-chroot "$CHROOT" systemctl enable lightdm NetworkManager >/dev/null 2>&1 || true
+# Wired networking: NetworkManager manages the NICs (DHCP, default route), and
+# systemd-resolved is the resolver behind /etc/resolv.conf. The units are
+# enabled before LightDM starts (see live-overlay's lightdm drop-in).
+# shellcheck source=packaging/iso/live-network.sh
+. "$ROOT/packaging/iso/live-network.sh"
+slopos_apply_live_network "$CHROOT"
+slopos_check_live_network_units "$CHROOT"
+chroot "$CHROOT" systemctl enable lightdm >/dev/null 2>&1 || true
 chroot "$CHROOT" systemctl set-default graphical.target >/dev/null
 chroot "$CHROOT" systemctl mask apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 || true
 cat >"$CHROOT/etc/os-release.slopos" <<EOF
