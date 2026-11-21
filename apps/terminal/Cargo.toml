@@ -1,0 +1,15 @@
+[package]
+name = "slopos-terminal"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Terminal: a native terminal emulator that runs the user's shell on a pseudo-terminal"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+slopos-core = { path = "../../crates/slopos-core" }
+accesskit = { workspace = true }
+env_logger = { workspace = true }
+libc = { workspace = true }
+vte = "0.15"
+unicode-width = "0.2"
