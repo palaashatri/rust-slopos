@@ -215,6 +215,11 @@ impl DrawList {
     /// again before this returns, even when it fails. A list whose clips are
     /// unbalanced is refused before anything is drawn.
     pub fn execute(&self, surface: &RasterSurface) -> Result<(), ListError> {
+        if surface.is_recording() {
+            return Err(ListError::Render(RenderError::Recording(
+                "a draw list cannot be replayed onto a recording surface".into(),
+            )));
+        }
         if self.clip_depth != 0 {
             return Err(ListError::UnbalancedClip);
         }
