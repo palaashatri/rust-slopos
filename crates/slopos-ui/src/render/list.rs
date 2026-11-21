@@ -22,7 +22,10 @@
 //! [`Scene`](crate::scene::Scene) is the older M0 recorder (clear, fill and
 //! stroke only). This module is the richer list that later backends target.
 
-use crate::foundation::{color::Color, geometry::Rect};
+use crate::foundation::{
+    color::Color,
+    geometry::{Rect, Scale},
+};
 use crate::image::Image;
 use crate::render::{RasterSurface, RenderError};
 use crate::text::Font;
@@ -35,6 +38,14 @@ pub const MAX_CORNER_RADIUS: u32 = 256;
 /// Identifies an image owned by the [`DrawList`] that returned it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ImageHandle(u32);
+
+#[cfg(feature = "gpu")]
+impl ImageHandle {
+    /// Position of the image in its list, for backends that cache uploads.
+    pub(crate) fn index(self) -> usize {
+        self.0 as usize
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DrawCommand {
@@ -194,7 +205,7 @@ impl DrawList {
         Ok(())
     }
 
-    fn image(&self, handle: ImageHandle) -> Result<&Image, ListError> {
+    pub(crate) fn image(&self, handle: ImageHandle) -> Result<&Image, ListError> {
         self.images
             .get(handle.0 as usize)
             .ok_or(ListError::UnknownImage)
@@ -266,6 +277,33 @@ impl DrawList {
     }
 }
 
+/// Replays a [`DrawList`] onto a frame. Each backend implements this for its
+/// own frame type. [`CpuExecutor`] is the reference: any other executor must
+/// match its output, and every difference is recorded in that executor's docs.
+pub trait DrawExecutor {
+    /// The surface or frame that commands are drawn into.
+    type Frame;
+    /// Errors specific to the backend, wrapping [`ListError`] for shared ones.
+    type Error;
+
+    /// Draw `list` into `frame`. Commands run in recording order. On failure,
+    /// the commands before the failing one stay drawn.
+    fn execute(&mut self, list: &DrawList, frame: &mut Self::Frame) -> Result<(), Self::Error>;
+}
+
+/// The software reference: replays commands onto a [`RasterSurface`].
+#[derive(Debug, Default, Clone, Copy)]
+pub struct CpuExecutor;
+
+impl DrawExecutor for CpuExecutor {
+    type Frame = RasterSurface;
+    type Error = ListError;
+
+    fn execute(&mut self, list: &DrawList, frame: &mut RasterSurface) -> Result<(), ListError> {
+        list.execute(frame)
+    }
+}
+
 /// A rectangle from 64-bit logical or device extents. Negative sizes and
 /// values beyond the `i32`/`u32` range are overflow errors.
 fn rect_from_wide(x: i64, y: i64, width: i64, height: i64) -> Result<Rect, RenderError> {
@@ -278,25 +316,30 @@ fn rect_from_wide(x: i64, y: i64, width: i64, height: i64) -> Result<Rect, Rende
     })
 }
 
-/// Outline as four disjoint edges, so each pixel is painted once.
-fn stroke_edges(surface: &RasterSurface, rect: Rect, color: Color) -> Result<(), RenderError> {
+/// Outline as four disjoint edges, so each pixel is painted once. Edges are
+/// in logical pixels, in the order the reference paints them.
+pub(crate) fn stroke_edge_rects(rect: Rect) -> Result<Vec<Rect>, RenderError> {
     if rect.width == 0 || rect.height == 0 {
-        return Ok(());
+        return Ok(Vec::new());
     }
     let (x, y) = (i64::from(rect.x), i64::from(rect.y));
     let (width, height) = (i64::from(rect.width), i64::from(rect.height));
-    let edge = |x: i64, y: i64, width: i64, height: i64| -> Result<(), RenderError> {
-        surface.fill_rect(rect_from_wide(x, y, width, height)?, color)
-    };
-    edge(x, y, width, 1)?;
+    let mut edges = vec![rect_from_wide(x, y, width, 1)?];
     if height >= 2 {
-        edge(x, y + height - 1, width, 1)?;
+        edges.push(rect_from_wide(x, y + height - 1, width, 1)?);
     }
     if height >= 3 {
-        edge(x, y + 1, 1, height - 2)?;
+        edges.push(rect_from_wide(x, y + 1, 1, height - 2)?);
         if width >= 2 {
-            edge(x + width - 1, y + 1, 1, height - 2)?;
+            edges.push(rect_from_wide(x + width - 1, y + 1, 1, height - 2)?);
         }
+    }
+    Ok(edges)
+}
+
+fn stroke_edges(surface: &RasterSurface, rect: Rect, color: Color) -> Result<(), RenderError> {
+    for edge in stroke_edge_rects(rect)? {
+        surface.fill_rect(edge, color)?;
     }
     Ok(())
 }
@@ -307,7 +350,7 @@ fn stroke_edges(surface: &RasterSurface, rect: Rect, color: Color) -> Result<(),
 /// is painted when its centre lies inside the circle of radius `radius`
 /// centred at (`radius`, `radius`). Callers use `row` both from the top and,
 /// mirrored, from the bottom.
-fn corner_inset(radius: i64, row: i64) -> i64 {
+pub(crate) fn corner_inset(radius: i64, row: i64) -> i64 {
     let diameter = 2 * radius;
     let dy = diameter - (2 * row + 1);
     let reach = diameter * diameter;
@@ -321,44 +364,59 @@ fn corner_inset(radius: i64, row: i64) -> i64 {
         .unwrap_or(radius)
 }
 
-/// Fill a rounded rectangle, painting every device pixel once. The middle
-/// band is one fill, and each corner row is one fill per corner.
-fn fill_rounded(
-    surface: &RasterSurface,
+/// The device-pixel spans that paint a rounded rectangle, each device pixel
+/// in exactly one span. The middle band comes first, then each corner row
+/// (top, then bottom). Spans may be empty and callers skip them.
+pub(crate) fn rounded_spans(
     rect: Rect,
     radius: u32,
-    color: Color,
-) -> Result<(), RenderError> {
+    scale: Scale,
+) -> Result<Vec<Rect>, RenderError> {
     if rect.width == 0 || rect.height == 0 {
-        return Ok(());
+        return Ok(Vec::new());
     }
-    let scale = surface.scale();
     let device = rect.to_device(scale).ok_or(RenderError::GeometryOverflow)?;
     let (left, top) = (i64::from(device.x), i64::from(device.y));
     let (width, height) = (i64::from(device.width), i64::from(device.height));
     let logical = radius.min(MAX_CORNER_RADIUS);
     let radius = i64::from(logical.saturating_mul(scale.factor())).min(width.min(height) / 2);
     if radius == 0 {
-        return surface.fill_rect(rect, color);
+        return Ok(vec![device]);
     }
-    surface.fill_device_rect(
-        rect_from_wide(left, top + radius, width, height - 2 * radius)?,
-        color,
-    );
+    let mut spans = vec![rect_from_wide(
+        left,
+        top + radius,
+        width,
+        height - 2 * radius,
+    )?];
     for row in 0..radius {
         let inset = corner_inset(radius, row);
         let (start, end) = (left + inset, left + width - inset);
         if end > start {
             let span = end - start;
-            surface.fill_device_rect(rect_from_wide(start, top + row, span, 1)?, color);
-            surface.fill_device_rect(
-                rect_from_wide(start, top + height - 1 - row, span, 1)?,
-                color,
-            );
+            spans.push(rect_from_wide(start, top + row, span, 1)?);
+            spans.push(rect_from_wide(start, top + height - 1 - row, span, 1)?);
         }
+    }
+    Ok(spans)
+}
+
+/// Fill a rounded rectangle, painting every device pixel once.
+fn fill_rounded(
+    surface: &RasterSurface,
+    rect: Rect,
+    radius: u32,
+    color: Color,
+) -> Result<(), RenderError> {
+    for span in rounded_spans(rect, radius, surface.scale())? {
+        surface.fill_device_rect(span, color);
     }
     Ok(())
 }
+
+/// Phase-A parity scenarios, shared with the GPU executor's parity suite.
+#[cfg(all(test, feature = "gpu"))]
+pub(crate) mod parity_fixtures;
 
 #[cfg(test)]
 mod tests {
