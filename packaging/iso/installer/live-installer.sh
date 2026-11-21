@@ -12,7 +12,8 @@
 #   usr/share/calamares/branding/slopos/*       <- branding/slopos/*
 #   usr/share/applications/slopos-install.desktop   (menu entry)
 #   etc/skel/Desktop/slopos-install.desktop         (copied to the live user's desktop)
-#   usr/libexec/slopos-install/remove-live-launchers.sh (run in the installed system)
+#   etc/polkit-1/rules.d/49-slopos-live-installer.rules (passwordless pkexec for calamares)
+#   usr/libexec/slopos-install/strip-live-system.sh (run in the installed system)
 #
 # Call it after the packages are installed, so package postinst scripts cannot
 # overwrite the result. It does not install calamares itself: that comes from
@@ -39,6 +40,9 @@ slopos_apply_live_installer() {
   install -Dm755 "$src/desktop/slopos-install.desktop" \
     "$rootfs/etc/skel/Desktop/slopos-install.desktop"
 
-  install -Dm755 "$src/remove-live-launchers.sh" \
-    "$rootfs/usr/libexec/slopos-install/remove-live-launchers.sh"
+  install -Dm644 "$src/polkit/49-slopos-live-installer.rules" \
+    "$rootfs/etc/polkit-1/rules.d/49-slopos-live-installer.rules"
+
+  install -Dm755 "$src/strip-live-system.sh" \
+    "$rootfs/usr/libexec/slopos-install/strip-live-system.sh"
 }
