@@ -20,3 +20,6 @@ __pycache__/
 
 # Bounded, disposable autonomous P1 builds/captures (never commit binaries).
 .work/
+
+# Git worktrees created for parallel agent work (not project files)
+.claude/worktrees/
