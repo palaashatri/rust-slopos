@@ -457,8 +457,7 @@ pub fn run<A: App>(
                 &upload,
                 &mut presenter,
                 &mut gpu,
-                logical,
-                scale,
+                &mut surface,
                 &mut frame,
             )?;
             #[cfg(not(feature = "gpu"))]
@@ -1331,16 +1330,18 @@ fn present_gpu_frame<A: App>(
     upload: &Upload,
     presenter: &mut Presenter,
     gpu: &mut GpuPaint,
-    logical: (u32, u32),
-    scale: crate::foundation::geometry::Scale,
+    surface: &mut RasterSurface,
     scratch: &mut Vec<u8>,
 ) -> Result<bool, PlatformError> {
     let Some(executor) = gpu.executor() else {
         return Ok(false);
     };
-    match record_and_present(app, upload, presenter, executor, logical, scale, scratch) {
+    match record_and_present(app, upload, presenter, executor, surface, scratch) {
         Ok(()) => Ok(true),
-        Err(error @ (PlatformError::Gpu(_) | PlatformError::Render(_))) => {
+        // A frame the list cannot hold is painted on the CPU; the GPU stays on
+        // for the next frame.
+        Err(PlatformError::Render(_)) => Ok(false),
+        Err(error @ PlatformError::Gpu(_)) => {
             gpu.fail(&error);
             Ok(false)
         }
@@ -1355,18 +1356,27 @@ fn record_and_present<A: App>(
     upload: &Upload,
     presenter: &mut Presenter,
     executor: &mut WgpuExecutor,
-    logical: (u32, u32),
-    scale: crate::foundation::geometry::Scale,
+    surface: &mut RasterSurface,
     scratch: &mut Vec<u8>,
 ) -> Result<(), PlatformError> {
-    let recording = RasterSurface::recording(logical.0, logical.1, scale, RECORD_COMMAND_LIMIT)?;
+    let recording = RasterSurface::recording(
+        surface.logical_width(),
+        surface.logical_height(),
+        surface.scale(),
+        RECORD_COMMAND_LIMIT,
+    )?;
     app.paint(&recording);
     let list = recording.take_recording()?;
-    present_gpu_list(upload, presenter, executor, &list, logical, scale, scratch)?;
+    present_gpu_list(upload, presenter, executor, surface, &list, scratch)?;
     Ok(())
 }
 
 /// Draw `list` with the wgpu executor and present the result to the drawable.
+///
+/// The frame starts from `surface`, the window's persistent destination, so a
+/// paint that does not clear the surface builds on what is already there, as
+/// the CPU path does. After a successful GPU paint the surface takes the result,
+/// so a later CPU frame starts from the same pixels.
 ///
 /// This is the **readback** path: the GPU frame is copied into a CPU buffer
 /// (`WgpuExecutor::read_pixels`) and then sent with the same `PutImage` code as
@@ -1378,22 +1388,31 @@ fn present_gpu_list(
     upload: &Upload,
     presenter: &mut Presenter,
     executor: &mut WgpuExecutor,
+    surface: &mut RasterSurface,
     list: &DrawList,
-    (width, height): (u32, u32),
-    scale: crate::foundation::geometry::Scale,
     scratch: &mut Vec<u8>,
 ) -> Result<Option<DeviceRect>, PlatformError> {
     let gpu_error = |error: &dyn std::fmt::Display| PlatformError::Gpu(error.to_string());
     let mut gpu_frame = executor
-        .create_frame(width, height, scale)
+        .create_frame(
+            surface.logical_width(),
+            surface.logical_height(),
+            surface.scale(),
+        )
         .map_err(|error| gpu_error(&error))?;
-    executor.clear(&mut gpu_frame, crate::foundation::color::Color::TRANSPARENT);
+    {
+        let destination = surface.data();
+        executor
+            .load(&gpu_frame, &destination)
+            .map_err(|error| gpu_error(&error))?;
+    }
     executor
         .execute(list, &mut gpu_frame)
         .map_err(|error| gpu_error(&error))?;
     let pixels = executor
         .read_pixels(&gpu_frame)
         .map_err(|error| gpu_error(&error))?;
+    surface.load_pixels(&pixels)?;
     let frame = Frame::new(gpu_frame.device_width(), gpu_frame.device_height(), &pixels)
         .ok_or(PlatformError::BadFrame)?;
     present_frame(upload, presenter, frame, scratch)
@@ -2306,14 +2325,14 @@ mod upload_tests {
         let upload = window.upload(&conn);
         let mut presenter = Presenter::new();
         let mut scratch = Vec::new();
+        let mut surface = RasterSurface::new(width, height, scale).unwrap();
 
         let sent = present_gpu_list(
             &upload,
             &mut presenter,
             &mut executor,
+            &mut surface,
             &list,
-            (width, height),
-            scale,
             &mut scratch,
         )
         .unwrap();
@@ -2325,9 +2344,8 @@ mod upload_tests {
             &upload,
             &mut presenter,
             &mut executor,
+            &mut surface,
             &list,
-            (width, height),
-            scale,
             &mut scratch,
         )
         .unwrap();
@@ -2410,13 +2428,13 @@ mod upload_tests {
         let mut app = RecordedFrameApp;
 
         let mut gpu = GpuPaint::Ready(Box::new(executor));
+        let mut surface = RasterSurface::new(width, height, scale).unwrap();
         let on_gpu = present_gpu_frame(
             &mut app,
             &upload,
             &mut presenter,
             &mut gpu,
-            (width, height),
-            scale,
+            &mut surface,
             &mut scratch,
         )
         .unwrap();
@@ -2437,12 +2455,106 @@ mod upload_tests {
             &upload,
             &mut presenter,
             &mut off,
-            (width, height),
-            scale,
+            &mut surface,
             &mut scratch,
         )
         .unwrap();
         assert!(!on_gpu);
+
+        conn.destroy_window(window.window).unwrap();
+        conn.sync().unwrap();
+    }
+
+    /// Fills a translucent band without clearing first. Each paint adds to the
+    /// pixels the surface already holds, so the result depends on the
+    /// destination the frame starts from.
+    #[cfg(feature = "gpu")]
+    struct TranslucentApp;
+
+    #[cfg(feature = "gpu")]
+    impl App for TranslucentApp {
+        fn event(&mut self, _event: &Event, _control: &mut Control) {}
+
+        fn paint(&mut self, surface: &RasterSurface) {
+            surface
+                .fill_rect(
+                    Rect {
+                        x: 2,
+                        y: 2,
+                        width: 20,
+                        height: 12,
+                    },
+                    Color {
+                        red: 0x20,
+                        green: 0x40,
+                        blue: 0x60,
+                        alpha: 0x80,
+                    },
+                )
+                .unwrap();
+        }
+    }
+
+    #[cfg(feature = "gpu")]
+    #[test]
+    fn repeated_translucent_gpu_frames_build_on_the_surface_as_the_cpu_does() {
+        const TEST: &str = "repeated_translucent_gpu_frames_build_on_the_surface_as_the_cpu_does";
+        let _guard = DISPLAY_LOCK
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let Some((conn, screen_number)) = open_display(TEST) else {
+            return;
+        };
+        let executor = match WgpuExecutor::new_headless() {
+            Ok(executor) => executor,
+            Err(error) => {
+                not_run(TEST, &format!("no wgpu adapter: {error}"));
+                return;
+            }
+        };
+        let scale = Scale::new(1).unwrap();
+        let (width, height) = (40, 30);
+        // The CPU reference: two paints onto one persistent surface.
+        // Start from opaque white, so the window (which is opaque) can show it.
+        let reference = RasterSurface::new(width, height, scale).unwrap();
+        reference.clear(Color::WHITE).unwrap();
+        let mut app = TranslucentApp;
+        app.paint(&reference);
+        app.paint(&reference);
+        let size = (reference.device_width(), reference.device_height());
+        let window = map_test_window(&conn, screen_number, size.0 as u16, size.1 as u16).unwrap();
+        let upload = window.upload(&conn);
+        let mut presenter = Presenter::new();
+        let mut scratch = Vec::new();
+        let mut gpu = GpuPaint::Ready(Box::new(executor));
+        let mut surface = RasterSurface::new(width, height, scale).unwrap();
+        surface.clear(Color::WHITE).unwrap();
+
+        for _ in 0..2 {
+            let on_gpu = present_gpu_frame(
+                &mut app,
+                &upload,
+                &mut presenter,
+                &mut gpu,
+                &mut surface,
+                &mut scratch,
+            )
+            .unwrap();
+            assert!(on_gpu, "a ready window presents its frame on the GPU");
+        }
+        assert!(matches!(gpu, GpuPaint::Ready(_)));
+        assert_eq!(
+            &*surface.data(),
+            &*reference.data(),
+            "the GPU surface after two translucent paints matches the CPU reference"
+        );
+        assert_window_shows(
+            &conn,
+            &window,
+            size,
+            &reference.data(),
+            "repeated translucent GPU frames",
+        );
 
         conn.destroy_window(window.window).unwrap();
         conn.sync().unwrap();

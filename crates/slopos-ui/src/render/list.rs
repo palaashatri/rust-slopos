@@ -35,15 +35,28 @@ use crate::text::Font;
 /// per-corner work.
 pub const MAX_CORNER_RADIUS: u32 = 256;
 
-/// Identifies an image owned by the [`DrawList`] that returned it.
+/// Identifies an image owned by the [`DrawList`] that returned it. A handle
+/// is valid only in that list, and only until the list is cleared: its epoch
+/// must match the list's current epoch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ImageHandle(u32);
+pub struct ImageHandle {
+    index: u32,
+    epoch: u64,
+}
+
+/// Source of unique list epochs. Every new or cleared list takes a fresh one,
+/// so a handle from another list, or from before a clear, never matches.
+static NEXT_EPOCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+fn fresh_epoch() -> u64 {
+    NEXT_EPOCH.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+}
 
 #[cfg(feature = "gpu")]
 impl ImageHandle {
     /// Position of the image in its list, for backends that cache uploads.
     pub(crate) fn index(self) -> usize {
-        self.0 as usize
+        self.index as usize
     }
 }
 
@@ -133,6 +146,7 @@ pub struct DrawList {
     images: Vec<Image>,
     command_limit: usize,
     clip_depth: usize,
+    epoch: u64,
 }
 
 impl DrawList {
@@ -142,7 +156,13 @@ impl DrawList {
             images: Vec::new(),
             command_limit,
             clip_depth: 0,
+            epoch: fresh_epoch(),
         }
+    }
+
+    /// The number of clips pushed and not yet popped.
+    pub fn clip_depth(&self) -> usize {
+        self.clip_depth
     }
 
     pub fn commands(&self) -> &[DrawCommand] {
@@ -162,6 +182,7 @@ impl DrawList {
         self.commands.clear();
         self.images.clear();
         self.clip_depth = 0;
+        self.epoch = fresh_epoch();
     }
 
     /// Give the list ownership of `image` and return the handle that
@@ -175,7 +196,10 @@ impl DrawList {
             .try_reserve(1)
             .map_err(|_| ListError::AllocationFailed)?;
         self.images.push(image);
-        Ok(ImageHandle(index))
+        Ok(ImageHandle {
+            index,
+            epoch: self.epoch,
+        })
     }
 
     /// Record a command. Unbalanced clips and unknown image handles are
@@ -206,8 +230,11 @@ impl DrawList {
     }
 
     pub(crate) fn image(&self, handle: ImageHandle) -> Result<&Image, ListError> {
+        if handle.epoch != self.epoch {
+            return Err(ListError::UnknownImage);
+        }
         self.images
-            .get(handle.0 as usize)
+            .get(handle.index as usize)
             .ok_or(ListError::UnknownImage)
     }
 
@@ -990,15 +1017,29 @@ mod tests {
     fn image_handles_belong_to_their_list() {
         let mut owner = DrawList::new(8);
         let handle = owner.add_image(checker()).unwrap();
+        let blit = |image| DrawCommand::ImageBlit {
+            image,
+            rect: rect(0, 0, 2, 2),
+            opacity: 255,
+        };
+        // A second list with an image at the same index must still refuse the
+        // first list's handle: the index alone does not identify the image.
         let mut other = DrawList::new(8);
+        other.add_image(checker()).unwrap();
         assert!(matches!(
-            other.push(DrawCommand::ImageBlit {
-                image: handle,
-                rect: rect(0, 0, 2, 2),
-                opacity: 255,
-            }),
+            other.push(blit(handle)),
             Err(ListError::UnknownImage)
         ));
+        // A handle kept across clear() stops matching, even after another image
+        // takes its index again.
+        owner.clear();
+        owner.add_image(checker()).unwrap();
+        assert!(matches!(
+            owner.push(blit(handle)),
+            Err(ListError::UnknownImage)
+        ));
+        let fresh = owner.add_image(checker()).unwrap();
+        owner.push(blit(fresh)).unwrap();
     }
 
     #[test]

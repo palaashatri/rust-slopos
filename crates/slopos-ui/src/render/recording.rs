@@ -14,9 +14,12 @@
 //!   pixel once, so it is not used here.
 //! - `clear` is recorded as a full-surface fill. The two agree on a blank
 //!   surface, and for an opaque colour. Any other `clear` is a failure.
-//! - Calls that a list cannot express (`draw_surface`, unbalanced clips, a
-//!   full command limit) are latched as the first failure. `take` reports it,
-//!   so an incomplete list is never returned as if it were whole.
+//! - Calls that a list cannot express (`draw_surface`, a translucent or
+//!   clipped `clear`, an open clip at the end, a full command limit) are latched
+//!   as the first failure and the call itself returns `Ok`. Immediate-mode apps
+//!   therefore never see an error that the CPU path would not return, and never
+//!   unwind out of their paint. `take` reports the latched failure, so the frame
+//!   falls back to the CPU and an incomplete list is never returned as whole.
 
 use std::cell::RefCell;
 
@@ -40,46 +43,55 @@ impl Recorder {
         }
     }
 
-    /// Append `command`. After a failure, every later command is refused.
+    /// Append `command`. A command that cannot be recorded is latched as the
+    /// failure; the call still returns `Ok`, and `take` reports it.
     pub(super) fn record(&self, command: DrawCommand) -> Result<(), RenderError> {
         if self.failure.borrow().is_some() {
-            return Err(RenderError::Recording(
-                "an earlier command could not be recorded".into(),
-            ));
+            return Ok(());
         }
         let result = self.list.borrow_mut().push(command);
-        result.map_err(|error| self.fail(error.to_string()))
+        if let Err(error) = result {
+            self.latch(error.to_string());
+        }
+        Ok(())
     }
 
-    /// Latch `message` as the failure if none is latched yet, and return it as
-    /// an error for the caller.
-    pub(super) fn fail(&self, message: String) -> RenderError {
+    /// Latch `message` as the failure if none is latched yet. Later commands
+    /// are then ignored, and `take` returns the failure.
+    pub(super) fn latch(&self, message: String) {
         let mut failure = self.failure.borrow_mut();
         if failure.is_none() {
-            *failure = Some(message.clone());
+            *failure = Some(message);
         }
-        RenderError::Recording(message)
     }
 
-    /// Whether nothing has been recorded since the last take.
-    pub(super) fn is_blank(&self) -> bool {
-        self.list.borrow().is_empty()
-    }
-
-    /// Give the list a copy of `image` and return the handle for it.
-    pub(super) fn image(&self, image: &Image) -> Result<ImageHandle, RenderError> {
+    /// Give the list a copy of `image` and return its handle, or `None` after
+    /// latching a failure.
+    pub(super) fn image(&self, image: &Image) -> Option<ImageHandle> {
         let result = self.list.borrow_mut().add_image(image.clone());
-        result.map_err(|error| self.fail(error.to_string()))
+        match result {
+            Ok(handle) => Some(handle),
+            Err(error) => {
+                self.latch(error.to_string());
+                None
+            }
+        }
     }
 
-    /// Return the recorded list and start an empty one. Returns the first
-    /// failure instead when there was one; the list is then discarded.
+    /// Return the recorded list and start an empty one. A latched failure is
+    /// returned instead, and stays latched. A list that still has an open clip
+    /// is refused and kept, so its clip state never falls out of step with the
+    /// surface.
     pub(super) fn take(&self) -> Result<DrawList, RenderError> {
-        let list = self.list.replace(DrawList::new(self.command_limit));
-        match self.failure.borrow_mut().take() {
-            Some(message) => Err(RenderError::Recording(message)),
-            None => Ok(list),
+        if let Some(message) = self.failure.borrow().clone() {
+            return Err(RenderError::Recording(message));
         }
+        if self.list.borrow().clip_depth() != 0 {
+            return Err(RenderError::Recording(
+                "a clip is still open when the recording ends".into(),
+            ));
+        }
+        Ok(self.list.replace(DrawList::new(self.command_limit)))
     }
 }
 
@@ -241,8 +253,10 @@ mod tests {
             alpha: 96,
         };
         assert_recording_matches_direct("translucent", 40, 24, scale, |surface| {
-            // A translucent clear is allowed while the surface is still blank.
-            surface.clear(translucent_blue)?;
+            // A translucent fill of the whole surface stands in for a clear: a
+            // translucent clear is not recordable, since replay is onto a
+            // surface that already has pixels.
+            surface.fill_rect(whole(40, 24), translucent_blue)?;
             let block = Rect {
                 x: 2,
                 y: 2,
@@ -358,17 +372,18 @@ mod tests {
         let scale = Scale::new(1).unwrap();
         let source = RasterSurface::new(4, 4, scale).unwrap();
         let surface = RasterSurface::recording(8, 8, scale, LIMIT).unwrap();
-        assert!(matches!(
-            surface.draw_surface(&source, 0, 0),
-            Err(RenderError::Recording(_))
-        ));
+        // The call returns Ok, as the CPU path does; the failure is latched.
+        surface.draw_surface(&source, 0, 0).unwrap();
         assert!(matches!(
             surface.take_recording(),
             Err(RenderError::Recording(_))
         ));
-        // A failed take empties the surface, so the next paint starts clean.
+        // The failure stays latched for the rest of the recording.
         surface.fill_rect(whole(4, 4), Color::BLACK).unwrap();
-        assert_eq!(surface.take_recording().unwrap().len(), 1);
+        assert!(matches!(
+            surface.take_recording(),
+            Err(RenderError::Recording(_))
+        ));
     }
 
     #[test]
@@ -382,10 +397,7 @@ mod tests {
             blue: 3,
             alpha: 4,
         };
-        assert!(matches!(
-            surface.clear(translucent),
-            Err(RenderError::Recording(_))
-        ));
+        surface.clear(translucent).unwrap();
         assert!(matches!(
             surface.take_recording(),
             Err(RenderError::Recording(_))
@@ -397,10 +409,7 @@ mod tests {
         let scale = Scale::new(1).unwrap();
         let surface = RasterSurface::recording(8, 8, scale, LIMIT).unwrap();
         surface.push_clip(whole(4, 4)).unwrap();
-        assert!(matches!(
-            surface.clear(Color::WHITE),
-            Err(RenderError::Recording(_))
-        ));
+        surface.clear(Color::WHITE).unwrap();
         surface.pop_clip();
         assert!(surface.take_recording().is_err());
     }
@@ -418,10 +427,8 @@ mod tests {
         let full = RasterSurface::recording(8, 8, scale, 2).unwrap();
         full.fill_rect(whole(1, 1), Color::BLACK).unwrap();
         full.fill_rect(whole(2, 2), Color::BLACK).unwrap();
-        assert!(matches!(
-            full.fill_rect(whole(3, 3), Color::BLACK),
-            Err(RenderError::Recording(_))
-        ));
+        // Over the limit the call still returns Ok; the take reports it.
+        full.fill_rect(whole(3, 3), Color::BLACK).unwrap();
         assert!(matches!(
             full.take_recording(),
             Err(RenderError::Recording(_))

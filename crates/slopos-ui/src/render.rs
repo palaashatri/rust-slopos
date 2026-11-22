@@ -233,12 +233,15 @@ impl RasterSurface {
     /// opaque; other cases are recording failures.
     pub fn clear(&self, color: Color) -> Result<(), RenderError> {
         if let Some(recorder) = &self.recorder {
-            let blank = recorder.is_blank();
-            if !self.clips.borrow().is_empty() || (!blank && color.alpha != u8::MAX) {
-                return Err(recorder.fail(
-                    "clear() of a translucent colour after drawing, or inside a clip, is not a fill"
-                        .into(),
-                ));
+            // An opaque full-surface fill replaces the destination exactly as
+            // clear does. Anything else would need the destination's pixels, and
+            // a recording is replayed onto a surface that already holds some, so
+            // it is latched and the frame is painted on the CPU instead.
+            if !self.clips.borrow().is_empty() || color.alpha != u8::MAX {
+                recorder.latch(
+                    "clear() of a translucent colour or inside a clip cannot be recorded".into(),
+                );
+                return Ok(());
             }
             let whole = Rect {
                 x: 0,
@@ -269,7 +272,7 @@ impl RasterSurface {
         if let Some(recorder) = &self.recorder {
             // Only the draw-list replay fills in device space, and it refuses
             // recording surfaces, so this is a defensive failure.
-            let _ = recorder.fail("device-space fills cannot be recorded".into());
+            recorder.latch("device-space fills cannot be recorded".into());
             return;
         }
         let (clip_left, clip_top, clip_right, clip_bottom) = self.clip_bounds();
@@ -326,9 +329,15 @@ impl RasterSurface {
         origin_y: i32,
     ) -> Result<(), RenderError> {
         if let Some(recorder) = &self.recorder {
-            return Err(recorder.fail(
+            recorder.latch(
                 "draw_surface() composites pixels that a draw list cannot hold; draw the source as an image"
                     .into(),
+            );
+            return Ok(());
+        }
+        if source.is_recording() {
+            return Err(RenderError::Recording(
+                "draw_surface() cannot composite a recording surface".into(),
             ));
         }
         let ratio = self.scale.factor() as f32 / source.scale.factor() as f32;
@@ -394,7 +403,9 @@ impl RasterSurface {
             if image.pixmap().is_none() || width == 0 || height == 0 || opacity == 0 {
                 return Ok(());
             }
-            let image: ImageHandle = recorder.image(image)?;
+            let Some(image): Option<ImageHandle> = recorder.image(image) else {
+                return Ok(());
+            };
             let rect = Rect {
                 x: origin_x,
                 y: origin_y,
@@ -496,6 +507,25 @@ impl RasterSurface {
         )
     }
 
+    /// Replace every pixel with `bytes`, which must be the layout of
+    /// [`Self::data`]. Used to bring the surface up to date with a frame that
+    /// was painted elsewhere, such as the GPU path.
+    #[cfg(feature = "gpu")]
+    pub(crate) fn load_pixels(&self, bytes: &[u8]) -> Result<(), RenderError> {
+        if self.recorder.is_some() {
+            return Err(RenderError::Recording(
+                "a recording surface has no pixels to load".into(),
+            ));
+        }
+        let mut pixmap = self.pixmap.borrow_mut();
+        let destination = pixmap.data_mut();
+        if destination.len() != bytes.len() {
+            return Err(RenderError::InvalidDimensions);
+        }
+        destination.copy_from_slice(bytes);
+        Ok(())
+    }
+
     /// Premultiplied RGBA bytes, row-major, no padding. Empty for a recording
     /// surface.
     pub fn data(&self) -> Ref<'_, [u8]> {
@@ -555,6 +585,92 @@ fn blend_straight_over(destination: &mut [u8], color: Color) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn half_alpha() -> Color {
+        Color {
+            red: 0x20,
+            green: 0x40,
+            blue: 0x60,
+            alpha: 0x80,
+        }
+    }
+
+    #[test]
+    fn a_translucent_clear_on_a_recording_is_latched_and_the_call_returns_ok() {
+        let recording = RasterSurface::recording(8, 8, Scale::new(1).unwrap(), 64).unwrap();
+        // The app must not unwind here: the CPU path would return Ok too.
+        recording.clear(half_alpha()).unwrap();
+        assert!(recording.take_recording().is_err());
+    }
+
+    #[test]
+    fn a_clear_inside_a_clip_on_a_recording_is_latched_and_the_call_returns_ok() {
+        let recording = RasterSurface::recording(8, 8, Scale::new(1).unwrap(), 64).unwrap();
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 4,
+            height: 4,
+        };
+        recording
+            .with_clip(area, || recording.clear(Color::WHITE))
+            .unwrap();
+        assert!(recording.take_recording().is_err());
+    }
+
+    #[test]
+    fn an_opaque_clear_on_a_recording_is_recorded_and_replays_as_a_fill() {
+        let recording = RasterSurface::recording(8, 8, Scale::new(1).unwrap(), 64).unwrap();
+        recording.clear(Color::WHITE).unwrap();
+        recording.clear(Color::BLACK).unwrap();
+        let list = recording.take_recording().unwrap();
+        assert_eq!(list.len(), 2);
+    }
+
+    #[test]
+    fn draw_surface_onto_a_recording_is_latched_and_the_call_returns_ok() {
+        let source = RasterSurface::new(4, 4, Scale::new(1).unwrap()).unwrap();
+        let recording = RasterSurface::recording(8, 8, Scale::new(1).unwrap(), 64).unwrap();
+        recording.draw_surface(&source, 0, 0).unwrap();
+        assert!(recording.take_recording().is_err());
+    }
+
+    #[test]
+    fn a_recording_source_cannot_be_composited_onto_a_raster_surface() {
+        let source = RasterSurface::recording(4, 4, Scale::new(1).unwrap(), 64).unwrap();
+        let target = RasterSurface::new(8, 8, Scale::new(1).unwrap()).unwrap();
+        assert!(target.draw_surface(&source, 0, 0).is_err());
+    }
+
+    #[test]
+    fn a_recording_with_an_open_clip_is_refused_and_the_list_is_kept() {
+        let recording = RasterSurface::recording(8, 8, Scale::new(1).unwrap(), 64).unwrap();
+        recording
+            .push_clip(Rect {
+                x: 0,
+                y: 0,
+                width: 4,
+                height: 4,
+            })
+            .unwrap();
+        recording
+            .fill_rect(
+                Rect {
+                    x: 0,
+                    y: 0,
+                    width: 2,
+                    height: 2,
+                },
+                Color::BLACK,
+            )
+            .unwrap();
+        assert!(recording.take_recording().is_err());
+        // Refused, not reset: the open clip is still in the list, and a second
+        // take refuses it again.
+        assert!(recording.take_recording().is_err());
+        recording.pop_clip();
+        assert_eq!(recording.take_recording().unwrap().len(), 3);
+    }
 
     #[test]
     fn clips_nest_and_restore_at_both_scales() {

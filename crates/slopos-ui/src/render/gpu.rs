@@ -765,7 +765,9 @@ impl WgpuExecutor {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::COPY_SRC
+                | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -779,6 +781,38 @@ impl WgpuExecutor {
     }
 
     /// Replace every pixel of `frame`, as [`RasterSurface::clear`] does.
+    /// Start `frame` from `pixels`: premultiplied RGBA, row-major, with no
+    /// padding, the layout of `RasterSurface::data`. A frame that continues a
+    /// surface's painting must start from that surface's pixels, not from
+    /// transparent.
+    pub fn load(&self, frame: &GpuFrame, pixels: &[u8]) -> Result<(), GpuError> {
+        let (width, height) = (frame.device_width, frame.device_height);
+        let expected = width as usize * height as usize * 4;
+        if pixels.len() != expected {
+            return Err(RenderError::InvalidDimensions.into());
+        }
+        self.queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &frame.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            pixels,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(width * 4),
+                rows_per_image: Some(height),
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+        Ok(())
+    }
+
     pub fn clear(&mut self, frame: &mut GpuFrame, color: Color) {
         let alpha = f64::from(color.alpha) / 255.0;
         let value = wgpu::Color {
@@ -1013,6 +1047,16 @@ impl DrawExecutor for WgpuExecutor {
 
     fn execute(&mut self, list: &DrawList, frame: &mut GpuFrame) -> Result<(), GpuError> {
         let (recording, error) = record(list, frame.scale, frame.device_width, frame.device_height);
+        // A layer texture larger than the device limit makes wgpu panic, and the
+        // window could then not fall back to the CPU path. Refuse it before drawing.
+        let max = self.device.limits().max_texture_dimension_2d;
+        if recording
+            .layers
+            .iter()
+            .any(|layer| layer.width > max || layer.height > max)
+        {
+            return Err(RenderError::GeometryOverflow.into());
+        }
         self.draw(frame, &recording);
         match error {
             None => Ok(()),
@@ -1068,9 +1112,9 @@ fn floats_to_bytes(values: &[f32]) -> Vec<u8> {
 fn vertices_to_bytes(vertices: &[Vertex]) -> Vec<u8> {
     let mut out = Vec::with_capacity(vertices.len() * VERTEX_STRIDE as usize);
     for vertex in vertices {
-        out.extend(floats_to_bytes(&vertex.pos));
-        out.extend(floats_to_bytes(&vertex.uv));
-        out.extend(floats_to_bytes(&vertex.tint));
+        for value in vertex.pos.iter().chain(&vertex.uv).chain(&vertex.tint) {
+            out.extend_from_slice(&value.to_le_bytes());
+        }
     }
     out
 }
