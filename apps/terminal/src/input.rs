@@ -12,7 +12,24 @@ pub const PASTE_LIMIT: usize = 64 * 1024;
 
 /// The bytes for a key press, or `None` when the key has no terminal meaning
 /// (for example a bare modifier or an unsupported function key).
-pub fn key_bytes(key: &Key, modifiers: Modifiers) -> Option<Vec<u8>> {
+pub fn key_bytes(key: &Key, modifiers: Modifiers, application_cursor: bool) -> Option<Vec<u8>> {
+    // With application cursor keys (`CSI ?1 h`), an unmodified arrow, Home or
+    // End is SS3 instead of CSI. Modified ones keep the CSI form.
+    let unmodified = !modifiers.shift && !modifiers.control && !modifiers.alt;
+    if application_cursor && unmodified {
+        let ss3: Option<&[u8]> = match key {
+            Key::Up => Some(b"\x1bOA"),
+            Key::Down => Some(b"\x1bOB"),
+            Key::Right => Some(b"\x1bOC"),
+            Key::Left => Some(b"\x1bOD"),
+            Key::Home => Some(b"\x1bOH"),
+            Key::End => Some(b"\x1bOF"),
+            _ => None,
+        };
+        if let Some(bytes) = ss3 {
+            return Some(bytes.to_vec());
+        }
+    }
     let bytes: &[u8] = match key {
         Key::Character(ch) => return character_bytes(*ch, modifiers),
         Key::Space => return character_bytes(' ', modifiers),
@@ -76,15 +93,33 @@ fn control_code(ch: char) -> Option<u8> {
 
 /// The bytes a paste sends. Line breaks become CR, as typing Enter does, and
 /// the text is cut to [`PASTE_LIMIT`] bytes at a character boundary.
-pub fn paste_bytes(text: &str) -> Vec<u8> {
+///
+/// With bracketed paste on (`CSI ?2004 h`) the text is wrapped in the paste
+/// markers, so the shell does not run its lines as they arrive, and any escape
+/// characters in it are removed so it cannot end the paste early. Without it,
+/// a multi-line paste is refused: each line break would run a command.
+pub fn paste_bytes(text: &str, bracketed: bool) -> Option<Vec<u8>> {
     let mut end = text.len().min(PASTE_LIMIT);
     while !text.is_char_boundary(end) {
         end -= 1;
     }
-    text[..end]
-        .replace("\r\n", "\n")
-        .replace('\n', "\r")
-        .into_bytes()
+    let text = &text[..end];
+    if bracketed {
+        let body: String = text
+            .replace("\r\n", "\n")
+            .replace('\n', "\r")
+            .chars()
+            .filter(|ch| *ch != '\x1b')
+            .collect();
+        let mut out = b"\x1b[200~".to_vec();
+        out.extend_from_slice(body.as_bytes());
+        out.extend_from_slice(b"\x1b[201~");
+        return Some(out);
+    }
+    if text.contains('\n') || text.contains('\r') {
+        return None;
+    }
+    Some(text.as_bytes().to_vec())
 }
 
 #[cfg(test)]
@@ -104,43 +139,64 @@ mod tests {
 
     #[test]
     fn enter_backspace_and_tab() {
-        assert_eq!(key_bytes(&Key::Enter, plain()), Some(b"\r".to_vec()));
-        assert_eq!(key_bytes(&Key::Backspace, plain()), Some(vec![0x7f]));
-        assert_eq!(key_bytes(&Key::Tab, plain()), Some(b"\t".to_vec()));
+        assert_eq!(key_bytes(&Key::Enter, plain(), false), Some(b"\r".to_vec()));
+        assert_eq!(key_bytes(&Key::Backspace, plain(), false), Some(vec![0x7f]));
+        assert_eq!(key_bytes(&Key::Tab, plain(), false), Some(b"\t".to_vec()));
         let shift = Modifiers {
             shift: true,
             ..Modifiers::default()
         };
-        assert_eq!(key_bytes(&Key::Tab, shift), Some(b"\x1b[Z".to_vec()));
+        assert_eq!(key_bytes(&Key::Tab, shift, false), Some(b"\x1b[Z".to_vec()));
     }
 
     #[test]
     fn ctrl_letters_send_control_codes() {
-        assert_eq!(key_bytes(&Key::Character('c'), ctrl()), Some(vec![0x03]));
-        assert_eq!(key_bytes(&Key::Character('D'), ctrl()), Some(vec![0x04]));
-        assert_eq!(key_bytes(&Key::Character('['), ctrl()), Some(vec![0x1b]));
-        assert_eq!(key_bytes(&Key::Space, ctrl()), Some(vec![0]));
-        assert_eq!(key_bytes(&Key::Character('1'), ctrl()), None);
+        assert_eq!(
+            key_bytes(&Key::Character('c'), ctrl(), false),
+            Some(vec![0x03])
+        );
+        assert_eq!(
+            key_bytes(&Key::Character('D'), ctrl(), false),
+            Some(vec![0x04])
+        );
+        assert_eq!(
+            key_bytes(&Key::Character('['), ctrl(), false),
+            Some(vec![0x1b])
+        );
+        assert_eq!(key_bytes(&Key::Space, ctrl(), false), Some(vec![0]));
+        assert_eq!(key_bytes(&Key::Character('1'), ctrl(), false), None);
     }
 
     #[test]
     fn cursor_and_editing_keys_use_xterm_sequences() {
-        assert_eq!(key_bytes(&Key::Up, plain()), Some(b"\x1b[A".to_vec()));
-        assert_eq!(key_bytes(&Key::Left, plain()), Some(b"\x1b[D".to_vec()));
-        assert_eq!(key_bytes(&Key::Delete, plain()), Some(b"\x1b[3~".to_vec()));
-        assert_eq!(key_bytes(&Key::PageUp, plain()), Some(b"\x1b[5~".to_vec()));
         assert_eq!(
-            key_bytes(&Key::Function(1), plain()),
+            key_bytes(&Key::Up, plain(), false),
+            Some(b"\x1b[A".to_vec())
+        );
+        assert_eq!(
+            key_bytes(&Key::Left, plain(), false),
+            Some(b"\x1b[D".to_vec())
+        );
+        assert_eq!(
+            key_bytes(&Key::Delete, plain(), false),
+            Some(b"\x1b[3~".to_vec())
+        );
+        assert_eq!(
+            key_bytes(&Key::PageUp, plain(), false),
+            Some(b"\x1b[5~".to_vec())
+        );
+        assert_eq!(
+            key_bytes(&Key::Function(1), plain(), false),
             Some(b"\x1bOP".to_vec())
         );
-        assert_eq!(key_bytes(&Key::Function(20), plain()), None);
-        assert_eq!(key_bytes(&Key::Other(0xffe1), plain()), None);
+        assert_eq!(key_bytes(&Key::Function(20), plain(), false), None);
+        assert_eq!(key_bytes(&Key::Other(0xffe1), plain(), false), None);
     }
 
     #[test]
     fn text_is_sent_as_utf8_and_alt_prefixes_escape() {
         assert_eq!(
-            key_bytes(&Key::Character('é'), plain()),
+            key_bytes(&Key::Character('é'), plain(), false),
             Some("é".as_bytes().to_vec())
         );
         let alt = Modifiers {
@@ -148,20 +204,47 @@ mod tests {
             ..Modifiers::default()
         };
         assert_eq!(
-            key_bytes(&Key::Character('x'), alt),
+            key_bytes(&Key::Character('x'), alt, false),
             Some(b"\x1bx".to_vec())
         );
     }
 
     #[test]
-    fn paste_turns_line_breaks_into_carriage_returns_and_is_capped() {
+    fn bracketed_paste_wraps_the_text_and_turns_line_breaks_into_carriage_returns() {
         assert_eq!(
-            paste_bytes("one\ntwo\r\nthree"),
-            b"one\rtwo\rthree".to_vec()
+            paste_bytes("one\ntwo\r\nthree", true),
+            Some(b"\x1b[200~one\rtwo\rthree\x1b[201~".to_vec())
         );
         let long = "é".repeat(PASTE_LIMIT);
-        let pasted = paste_bytes(&long);
-        assert!(pasted.len() <= PASTE_LIMIT);
-        assert!(std::str::from_utf8(&pasted).is_ok());
+        let pasted = paste_bytes(&long, true).unwrap();
+        assert!(pasted.len() <= PASTE_LIMIT + 12);
+        assert!(std::str::from_utf8(&pasted[6..pasted.len() - 6]).is_ok());
+    }
+
+    #[test]
+    fn escape_characters_cannot_end_a_bracketed_paste_early() {
+        assert_eq!(
+            paste_bytes("a\x1b[201~b", true),
+            Some(b"\x1b[200~a[201~b\x1b[201~".to_vec())
+        );
+    }
+
+    #[test]
+    fn a_multi_line_paste_is_refused_without_bracketed_paste() {
+        assert_eq!(paste_bytes("one\ntwo", false), None);
+        assert_eq!(paste_bytes("one", false), Some(b"one".to_vec()));
+    }
+
+    #[test]
+    fn application_cursor_keys_use_ss3_only_when_unmodified() {
+        assert_eq!(key_bytes(&Key::Up, plain(), true), Some(b"\x1bOA".to_vec()));
+        assert_eq!(
+            key_bytes(&Key::Up, plain(), false),
+            Some(b"\x1b[A".to_vec())
+        );
+        assert_eq!(
+            key_bytes(&Key::Up, ctrl(), true),
+            key_bytes(&Key::Up, ctrl(), false)
+        );
     }
 }

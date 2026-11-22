@@ -512,6 +512,10 @@ pub fn run<A: App>(
             if let Some(state) = state {
                 control.modifiers = modifiers(state);
             }
+            control.press_time = match &event {
+                XEvent::ButtonPress(press) => Some(press.time),
+                _ => None,
+            };
             let primary_press = match &event {
                 XEvent::ButtonPress(press) if press.detail == 1 => Some((
                     press.time,
@@ -671,7 +675,6 @@ pub fn run<A: App>(
             app.event(&event, &mut control);
             control.accessibility_changed = true;
         }
-        let mut woke = false;
         for message in a11y_messages.try_iter() {
             match message {
                 A11yMessage::Activated => accessibility.update(&app, &options.title, factor),
@@ -679,9 +682,10 @@ pub fn run<A: App>(
                     app.event(&Event::Accessibility(request), &mut control)
                 }
             }
-            woke = true;
         }
-        if (signalled || drained) && !woke {
+        // The wake depends only on the pipe, so an accessibility message handled
+        // in the same turn cannot hide output that an app still has to read.
+        if signalled || drained {
             app.event(&Event::Wake, &mut control);
         }
     }

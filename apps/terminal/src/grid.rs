@@ -82,10 +82,14 @@ impl Cell {
         }
     }
 
-    /// Whether the cell is an unstyled-looking space that trailing-blank
-    /// trimming may drop.
+    /// Whether the cell is a space that trailing-blank trimming may drop. A
+    /// space with a background colour or inverse video is content: it shows.
     fn is_plain_space(&self) -> bool {
-        self.ch == ' ' && self.width == Width::Single && self.marks == NO_MARKS
+        self.ch == ' '
+            && self.width == Width::Single
+            && self.marks == NO_MARKS
+            && self.attr.bg == Color::Default
+            && !self.attr.inverse
     }
 
     /// Appends the cell's characters (base and marks) to `out`. A spacer
@@ -109,6 +113,9 @@ struct Line {
     /// The line continues on the next line (soft wrap). Copying and
     /// reflowing join such lines without a newline.
     wrapped: bool,
+    /// The last cell is padding that was added before a wide character that
+    /// did not fit. Reflow drops it, so a widened line does not gain a space.
+    pad_last: bool,
 }
 
 impl Line {
@@ -116,6 +123,7 @@ impl Line {
         Self {
             cells: vec![Cell::BLANK; cols],
             wrapped: false,
+            pad_last: false,
         }
     }
 
@@ -179,6 +187,9 @@ struct SavedScreen {
     /// Whether leaving restores the cursor and attributes (DECSC/DECRC, mode
     /// 1049) or only the screen (modes 47 and 1047).
     restore_cursor: bool,
+    /// Whether the alternate screen's contents are kept for the next entry
+    /// (mode 47). Modes 1047 and 1049 clear it.
+    keep_contents: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -200,6 +211,9 @@ pub struct Grid {
     /// The main screen while the alternate screen is active. The alternate
     /// screen has no history: its scrolling is lost, not kept.
     alternate: Option<SavedScreen>,
+    /// The alternate screen's contents after a mode 47 exit, so the next
+    /// mode 47 entry shows them again.
+    alt_store: Option<Vec<Line>>,
 }
 
 impl Grid {
@@ -220,6 +234,7 @@ impl Grid {
             display_offset: 0,
             selection: None,
             alternate: None,
+            alt_store: None,
         }
     }
 
@@ -277,17 +292,23 @@ impl Grid {
         self.alternate.is_some()
     }
 
-    /// Switches to a blank alternate screen, putting the main screen aside.
+    /// Switches to the alternate screen, putting the main screen aside.
     /// Nothing written there reaches the history. With `save_cursor` (mode
-    /// 1049) the cursor and attributes are restored on leaving. Entering
-    /// while already on the alternate screen does nothing.
-    pub fn enter_alternate_screen(&mut self, save_cursor: bool) {
+    /// 1049) the cursor and attributes are restored on leaving. With
+    /// `keep_contents` (mode 47) the alternate screen shows what it held when
+    /// it was last left; otherwise (modes 1047 and 1049) it starts blank.
+    /// Entering while already on the alternate screen does nothing.
+    pub fn enter_alternate_screen(&mut self, save_cursor: bool, keep_contents: bool) {
         if self.alternate.is_some() {
             return;
         }
         self.clear_selection();
-        let blank = (0..self.rows).map(|_| Line::blank(self.cols)).collect();
-        let screen = std::mem::replace(&mut self.screen, blank);
+        let blank: Vec<Line> = (0..self.rows).map(|_| Line::blank(self.cols)).collect();
+        let alternate = match (keep_contents, self.alt_store.take()) {
+            (true, Some(kept)) => kept,
+            _ => blank,
+        };
+        let screen = std::mem::replace(&mut self.screen, alternate);
         self.alternate = Some(SavedScreen {
             screen,
             cursor_row: self.cursor_row,
@@ -296,6 +317,7 @@ impl Grid {
             attr: self.attr,
             display_offset: self.display_offset,
             restore_cursor: save_cursor,
+            keep_contents,
         });
         self.display_offset = 0;
     }
@@ -307,7 +329,8 @@ impl Grid {
             return;
         };
         self.clear_selection();
-        self.screen = saved.screen;
+        let alternate = std::mem::replace(&mut self.screen, saved.screen);
+        self.alt_store = saved.keep_contents.then_some(alternate);
         if saved.restore_cursor {
             self.cursor_row = saved.cursor_row;
             self.cursor_col = saved.cursor_col;
@@ -366,12 +389,15 @@ impl Grid {
         }
         if width == 2 && self.cursor_col + 1 == self.cols {
             // No room for the second column: leave this one blank and
-            // start the wide character on the next line.
+            // start the wide character on the next line. The blank is padding.
             let (row, col) = (self.cursor_row, self.cursor_col);
+            self.break_wide_pair(row, col);
             self.screen[row].cells[col] = self.erased();
+            self.screen[row].pad_last = true;
             self.wrap();
         }
         let (row, col) = (self.cursor_row, self.cursor_col);
+        self.screen[row].pad_last = false;
         self.break_wide_pair(row, col);
         if width == 2 {
             self.break_wide_pair(row, col + 1);
@@ -524,33 +550,34 @@ impl Grid {
 
     /// Erases part of the screen: 0 from the cursor to the end, 1 from the
     /// start to the cursor, 2 the whole screen, 3 the scrollback too.
+    ///
+    /// Mode 3 clears the saved lines (the history) and leaves the screen as it
+    /// is. Other modes are ignored.
     pub fn erase_display(&mut self, mode: u16) {
         match mode {
             0 => {
                 self.erase_line(0);
                 for row in self.cursor_row + 1..self.rows {
-                    self.blank_row(row);
+                    self.erase_row(row);
                 }
             }
             1 => {
                 for row in 0..self.cursor_row {
-                    self.blank_row(row);
+                    self.erase_row(row);
                 }
                 self.erase_line(1);
             }
             2 => {
                 for row in 0..self.rows {
-                    self.blank_row(row);
+                    self.erase_row(row);
                 }
             }
-            _ => {
-                for row in 0..self.rows {
-                    self.blank_row(row);
-                }
+            3 => {
                 self.scrollback.clear();
                 self.display_offset = 0;
                 self.clear_selection();
             }
+            _ => {}
         }
     }
 
@@ -558,13 +585,13 @@ impl Grid {
     /// line right; cells pushed past the edge are lost.
     pub fn insert_chars(&mut self, count: usize) {
         let erased = self.erased();
+        let cols = self.cols;
         let col = self.cursor_col;
-        let count = count.min(self.cols - col);
+        let count = count.min(cols - col);
         let cells = &mut self.screen[self.cursor_row].cells;
-        for _ in 0..count {
-            cells.pop();
-            cells.insert(col, erased);
-        }
+        // Each retained cell moves once, to its new place on the right.
+        cells.copy_within(col..cols - count, col + count);
+        cells[col..col + count].fill(erased);
         self.repair_row(self.cursor_row);
     }
 
@@ -572,13 +599,22 @@ impl Grid {
     /// left; blanks come in at the right edge.
     pub fn delete_chars(&mut self, count: usize) {
         let erased = self.erased();
+        let cols = self.cols;
         let col = self.cursor_col;
-        let count = count.min(self.cols - col);
+        let count = count.min(cols - col);
+        let end = col + count;
         let cells = &mut self.screen[self.cursor_row].cells;
-        for _ in 0..count {
-            cells.remove(col);
-            cells.push(erased);
+        // A wide character cut by the left edge loses its first half, which
+        // stays on the line; one cut by the right edge loses its spacer.
+        if col > 0 && cells[col].width == Width::Spacer {
+            cells[col - 1] = Cell::single(' ', cells[col - 1].attr);
         }
+        if end < cols && cells[end].width == Width::Spacer {
+            cells[end] = Cell::single(' ', cells[end].attr);
+        }
+        // Each retained cell moves once, to its new place on the left.
+        cells.copy_within(end..cols, col);
+        cells[cols - count..].fill(erased);
         self.repair_row(self.cursor_row);
     }
 
@@ -728,9 +764,15 @@ impl Grid {
     }
 
     /// Changes the size. Soft-wrapped lines are re-wrapped to the new width,
-    /// the cursor follows its character, and the history is kept (up to
-    /// [`SCROLLBACK_LINES`]). A height change moves rows between the screen
-    /// and the history so the cursor stays visible. The selection is cleared.
+    /// the cursor follows the position after its last character, and the
+    /// history is kept (up to [`SCROLLBACK_LINES`]). A height change moves rows
+    /// between the screen and the history so the cursor stays visible. The
+    /// selection is cleared.
+    ///
+    /// Truncation rule: when the height shrinks, the rows below the cursor that
+    /// no longer fit are dropped, as xterm drops them. The cursor row and the
+    /// rows above it are kept, and a later growth does not bring the dropped
+    /// rows back.
     pub fn resize(&mut self, cols: usize, rows: usize) {
         let cols = cols.max(1);
         let rows = rows.max(1);
@@ -738,6 +780,8 @@ impl Grid {
             return;
         }
         self.clear_selection();
+        // A kept alternate screen was sized for the old grid; it starts blank.
+        self.alt_store = None;
         let Some(mut saved) = self.alternate.take() else {
             self.reflow(cols, rows);
             return;
@@ -767,10 +811,12 @@ impl Grid {
     /// Re-wraps the history and the screen to `cols` by `rows` (both at least
     /// one). The cursor follows its character.
     fn reflow(&mut self, cols: usize, rows: usize) {
+        let cursor_pending = self.pending_wrap;
         self.pending_wrap = false;
         self.display_offset = 0;
 
         let cursor_index = self.scrollback.len() + self.cursor_row;
+        let mut cursor_wraps = false;
         let all: Vec<Line> = self
             .scrollback
             .drain(..)
@@ -792,22 +838,59 @@ impl Grid {
                 if start + position == cursor_index {
                     cursor_offset = Some(cells.len() + self.cursor_col);
                 }
-                cells.extend_from_slice(&line.cells);
+                // Padding before a wide character is not text; drop it while it
+                // is still blank.
+                let padding = line.pad_last && line.cells.last().is_some_and(Cell::is_plain_space);
+                let shown = if padding {
+                    &line.cells[..line.cells.len() - 1]
+                } else {
+                    &line.cells[..]
+                };
+                cells.extend_from_slice(shown);
             }
             // Trailing blanks are not content, unless the cursor sits on them.
             let keep = cursor_offset.map_or(0, |offset| offset + 1);
             while cells.len() > keep && cells.last().is_some_and(Cell::is_plain_space) {
                 cells.pop();
             }
-            let packed = pack_rows(&cells, cols, cursor_offset);
+            let mut packed = pack_rows(&cells, cols, cursor_offset);
             if let Some((row, col)) = packed.cursor {
-                cursor_at = (out.len() + row, col);
+                // The cursor is the position after the last written cell. A
+                // pending wrap stays pending only while that position is the
+                // margin.
+                if cursor_pending && col + 1 < cols {
+                    cursor_at = (out.len() + row, col + 1);
+                    cursor_wraps = false;
+                } else if row > 0
+                    && col == 0
+                    && cursor_offset
+                        .and_then(|offset| cells.get(offset))
+                        .is_some_and(Cell::is_plain_space)
+                {
+                    // Past the blanks at the start of a continuation row: the
+                    // position is the end of the row before, as a pending wrap.
+                    cursor_at = (out.len() + row - 1, cols - 1);
+                    cursor_wraps = true;
+                    // The blank row that held the cursor is not content.
+                    if packed.rows.len() > 1
+                        && packed
+                            .rows
+                            .last()
+                            .is_some_and(|last| last.iter().all(Cell::is_plain_space))
+                    {
+                        packed.rows.pop();
+                    }
+                } else {
+                    cursor_at = (out.len() + row, col);
+                    cursor_wraps = cursor_pending;
+                }
             }
             let count = packed.rows.len();
             for (chunk, row) in packed.rows.into_iter().enumerate() {
                 out.push(Line {
                     cells: row,
                     wrapped: chunk + 1 < count,
+                    pad_last: false,
                 });
             }
             start = end + 1;
@@ -840,6 +923,7 @@ impl Grid {
         self.scrollback = scrollback;
         self.cursor_row = cursor_index - screen_start;
         self.cursor_col = cursor_col.min(cols - 1);
+        self.pending_wrap = cursor_wraps;
     }
 
     fn erased(&self) -> Cell {
@@ -852,8 +936,13 @@ impl Grid {
         )
     }
 
-    fn blank_row(&mut self, row: usize) {
-        self.screen[row] = Line::blank(self.cols);
+    /// Erases a whole row with the current background, as xterm does for
+    /// ED. The row is no longer a soft-wrapped continuation.
+    fn erase_row(&mut self, row: usize) {
+        let erased = self.erased();
+        let mut line = Line::blank(self.cols);
+        line.cells.fill(erased);
+        self.screen[row] = line;
     }
 
     /// Pushes the top screen row into the history and adds a blank row at
@@ -902,11 +991,21 @@ impl Grid {
         if selection.anchor == selection.head && !selection.whole {
             return None;
         }
-        Some(if selection.anchor <= selection.head {
+        let (mut start, mut end) = if selection.anchor <= selection.head {
             (selection.anchor, selection.head)
         } else {
             (selection.head, selection.anchor)
-        })
+        };
+        // A wide character touched by either end is selected whole: the
+        // highlight, the copied text and the word and line rules all use these
+        // bounds.
+        if start.1 > 0 && self.line_at(start.0).cells[start.1].width == Width::Spacer {
+            start.1 -= 1;
+        }
+        if end.1 + 1 < self.cols && self.line_at(end.0).cells[end.1].width == Width::Wide {
+            end.1 += 1;
+        }
+        Some((start, end))
     }
 }
 
@@ -1076,11 +1175,17 @@ mod tests {
         grid.resize(4, 3);
         // All three rows are soft-wrapped, so the text has no newlines.
         assert_eq!(grid.text(), "abcdefghij");
-        // The cursor stays on the last character written ('j').
-        assert_eq!(grid.cursor(), (2, 1));
+        // The cursor is after the last character written ('j'), so the next
+        // character follows it instead of overwriting it.
+        assert_eq!(grid.cursor(), (2, 2));
         grid.resize(10, 3);
         assert_eq!(grid.text(), "abcdefghij\n\n");
+        // Widening puts it back at the margin, where a pending wrap waits.
         assert_eq!(grid.cursor(), (0, 9));
+        // 'k' wraps onto the next row, which is joined to the line above.
+        grid.put('k');
+        assert_eq!(grid.text(), "abcdefghijk\n");
+        assert_eq!(grid.cursor(), (1, 1));
     }
 
     #[test]
@@ -1325,5 +1430,130 @@ mod tests {
         grid.begin_selection(0, 1);
         assert!(!grid.has_selection());
         assert_eq!(grid.selected_text(), None);
+    }
+}
+
+#[cfg(test)]
+mod regression_tests {
+    use super::*;
+
+    fn put_str(grid: &mut Grid, text: &str) {
+        for ch in text.chars() {
+            match ch {
+                '\n' => {
+                    grid.carriage_return();
+                    grid.line_feed();
+                }
+                _ => grid.put(ch),
+            }
+        }
+    }
+
+    #[test]
+    fn erase_display_3_clears_the_history_and_keeps_the_screen() {
+        let mut grid = Grid::new(6, 2);
+        put_str(&mut grid, "one\ntwo\nthree");
+        assert!(grid.scrollback_len() > 0);
+        grid.erase_display(3);
+        assert_eq!(grid.scrollback_len(), 0);
+        assert_eq!(grid.text(), "two\nthree");
+    }
+
+    #[test]
+    fn an_unsupported_erase_mode_changes_nothing() {
+        let mut grid = Grid::new(6, 2);
+        put_str(&mut grid, "ab");
+        grid.erase_display(9);
+        assert_eq!(grid.text(), "ab\n");
+    }
+
+    #[test]
+    fn erase_display_fills_full_rows_with_the_current_background() {
+        let mut grid = Grid::new(4, 2);
+        grid.set_attr(Attr {
+            bg: Color::Indexed(1),
+            ..Attr::default()
+        });
+        grid.erase_display(2);
+        assert_eq!(grid.viewport_cell(0, 3).attr.bg, Color::Indexed(1));
+        assert_eq!(grid.viewport_cell(1, 0).attr.bg, Color::Indexed(1));
+    }
+
+    #[test]
+    fn a_coloured_blank_survives_reflow() {
+        let mut grid = Grid::new(4, 2);
+        grid.set_attr(Attr {
+            bg: Color::Indexed(1),
+            ..Attr::default()
+        });
+        put_str(&mut grid, "a ");
+        grid.set_attr(Attr::default());
+        grid.resize(8, 2);
+        assert_eq!(grid.viewport_cell(0, 1).attr.bg, Color::Indexed(1));
+    }
+
+    #[test]
+    fn delete_chars_clears_a_wide_character_cut_at_either_edge() {
+        // 中 at 0-1, 文 at 2-3. Deleting columns 1 and 2 cuts both characters.
+        let mut grid = Grid::new(4, 1);
+        put_str(&mut grid, "中文");
+        grid.move_cursor(0, 1);
+        grid.delete_chars(2);
+        assert_eq!(grid.viewport_cell(0, 0).width, Width::Single);
+        assert_eq!(grid.text(), "");
+    }
+
+    #[test]
+    fn insert_chars_shifts_the_line_once() {
+        let mut grid = Grid::new(5, 1);
+        put_str(&mut grid, "abcde");
+        grid.move_cursor(0, 1);
+        grid.insert_chars(2);
+        assert_eq!(grid.text(), "a  bc");
+    }
+
+    #[test]
+    fn a_wide_character_that_wraps_leaves_no_space_when_widened() {
+        // "ab" fills two of three columns; the wide character starts the next row,
+        // so the blank column is padding and must not come back as a space.
+        let mut grid = Grid::new(3, 3);
+        put_str(&mut grid, "ab中");
+        grid.resize(6, 3);
+        assert_eq!(grid.text(), "ab中\n\n");
+    }
+
+    #[test]
+    fn overwriting_a_spacer_in_the_margin_clears_the_wide_pair() {
+        let mut grid = Grid::new(3, 2);
+        put_str(&mut grid, "a中");
+        // The spacer is in the last column; the cursor goes onto it.
+        grid.move_cursor(0, 2);
+        grid.put('文');
+        assert_eq!(grid.viewport_cell(0, 1).width, Width::Single);
+        assert_eq!(grid.viewport_cell(0, 1).ch, ' ');
+    }
+
+    #[test]
+    fn a_pending_wrap_survives_a_resize_at_the_margin() {
+        let mut grid = Grid::new(4, 2);
+        put_str(&mut grid, "abcd");
+        grid.resize(6, 2);
+        // The cursor is still at the margin, so the next character wraps.
+        grid.put('e');
+        assert_eq!(grid.text(), "abcde\n");
+        assert_eq!(grid.cursor(), (0, 5));
+    }
+
+    #[test]
+    fn the_alternate_screen_keeps_its_contents_for_mode_47_only() {
+        let mut grid = Grid::new(4, 2);
+        grid.enter_alternate_screen(false, true);
+        put_str(&mut grid, "alt");
+        grid.leave_alternate_screen();
+        grid.enter_alternate_screen(false, true);
+        assert_eq!(grid.text(), "alt\n");
+        grid.leave_alternate_screen();
+        grid.enter_alternate_screen(false, false);
+        assert_eq!(grid.text(), "\n");
     }
 }

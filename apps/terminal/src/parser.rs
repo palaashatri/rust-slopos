@@ -11,12 +11,34 @@
 //! screen (`?47`, `?1047`, `?1049`), and OSC 0/2 window titles. Anything else
 //! is ignored.
 //!
+//! Also tracked: application cursor keys (`?1`, which changes the arrow keys'
+//! encoding) and bracketed paste (`?2004`).
+//!
 //! Not supported yet: scroll regions (DECSTBM), the colon form of the
-//! extended colours (`38:2::r:g:b`), character sets, mouse reporting, and
-//! save/restore cursor
+//! extended colours (`38:2::r:g:b`; colon groups are ignored), character
+//! sets, mouse reporting, and save/restore cursor
 //! (DECSC/DECRC; only mode 1049 saves the cursor).
 
 use crate::grid::{Attr, Color, Grid};
+
+/// The longest OSC string handed to vte. A title is far shorter; a longer one
+/// is cut here, so an unterminated string cannot grow the parser's buffer.
+const MAX_OSC_BYTES: usize = 4096;
+
+/// Where the byte stream is, as far as OSC strings go. vte buffers an OSC
+/// until its end, so the overlong ones are cut before vte sees them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OscState {
+    Ground,
+    Escape,
+    /// Inside an OSC string with this many bytes so far.
+    Osc(usize),
+    /// An ESC inside an OSC string: `\` ends it, anything else starts a sequence.
+    OscEscape,
+    /// Dropping the rest of an overlong OSC string.
+    Discard,
+    DiscardEscape,
+}
 
 /// A terminal: the grid plus the parser state that persists between reads.
 pub struct Terminal {
@@ -24,6 +46,9 @@ pub struct Terminal {
     parser: vte::Parser,
     replies: Vec<u8>,
     title: Option<String>,
+    application_cursor: bool,
+    bracketed_paste: bool,
+    osc: OscState,
 }
 
 impl Terminal {
@@ -33,17 +58,102 @@ impl Terminal {
             parser: vte::Parser::new(),
             replies: Vec::new(),
             title: None,
+            application_cursor: false,
+            bracketed_paste: false,
+            osc: OscState::Ground,
         }
     }
 
     /// Feed bytes from the PTY. Sequences may be split across calls.
     pub fn feed(&mut self, bytes: &[u8]) {
+        let mut filtered = Vec::with_capacity(bytes.len());
+        for &byte in bytes {
+            self.filter_osc(byte, &mut filtered);
+        }
         let mut performer = Performer {
             grid: &mut self.grid,
             replies: &mut self.replies,
             title: &mut self.title,
+            application_cursor: &mut self.application_cursor,
+            bracketed_paste: &mut self.bracketed_paste,
         };
-        self.parser.advance(&mut performer, bytes);
+        self.parser.advance(&mut performer, &filtered);
+    }
+
+    /// Passes `byte` on to vte unless it belongs to an overlong OSC string.
+    fn filter_osc(&mut self, byte: u8, out: &mut Vec<u8>) {
+        loop {
+            match self.osc {
+                OscState::Ground => {
+                    if byte == 0x1B {
+                        self.osc = OscState::Escape;
+                    }
+                    out.push(byte);
+                    return;
+                }
+                OscState::Escape => {
+                    self.osc = if byte == b']' {
+                        OscState::Osc(0)
+                    } else {
+                        OscState::Ground
+                    };
+                    out.push(byte);
+                    return;
+                }
+                OscState::Osc(length) => {
+                    if byte == 0x07 {
+                        self.osc = OscState::Ground;
+                    } else if byte == 0x1B {
+                        self.osc = OscState::OscEscape;
+                    } else if length >= MAX_OSC_BYTES {
+                        // End the string inside vte, then drop the rest of it
+                        // through its real terminator.
+                        out.push(0x07);
+                        self.osc = OscState::Discard;
+                        return;
+                    } else {
+                        self.osc = OscState::Osc(length + 1);
+                    }
+                    out.push(byte);
+                    return;
+                }
+                OscState::OscEscape => {
+                    if byte == b'\\' {
+                        self.osc = OscState::Ground;
+                        out.push(byte);
+                        return;
+                    }
+                    self.osc = OscState::Escape;
+                }
+                OscState::Discard => {
+                    match byte {
+                        0x07 => self.osc = OscState::Ground,
+                        0x1B => self.osc = OscState::DiscardEscape,
+                        _ => {}
+                    }
+                    return;
+                }
+                OscState::DiscardEscape => {
+                    if byte == b'\\' {
+                        self.osc = OscState::Ground;
+                        return;
+                    }
+                    // The ESC began another sequence: it reaches vte after all.
+                    out.push(0x1B);
+                    self.osc = OscState::Escape;
+                }
+            }
+        }
+    }
+
+    /// Whether the program asked for application cursor keys (`CSI ?1 h`).
+    pub fn application_cursor(&self) -> bool {
+        self.application_cursor
+    }
+
+    /// Whether the program asked for bracketed paste (`CSI ?2004 h`).
+    pub fn bracketed_paste(&self) -> bool {
+        self.bracketed_paste
     }
 
     pub fn grid(&self) -> &Grid {
@@ -70,6 +180,19 @@ struct Performer<'a> {
     grid: &'a mut Grid,
     replies: &'a mut Vec<u8>,
     title: &'a mut Option<String>,
+    application_cursor: &'a mut bool,
+    bracketed_paste: &'a mut bool,
+}
+
+/// The parameters that are plain numbers. A colon-separated group (such as
+/// `4:0`, which vte reports as one group) is not a list of codes: it is
+/// skipped whole, not read as standalone codes.
+fn plain_params(params: &vte::Params) -> Vec<u16> {
+    params
+        .iter()
+        .filter(|group| group.len() == 1)
+        .map(|group| group[0])
+        .collect()
 }
 
 /// The sequence's numeric parameters, subparameters flattened. An empty
@@ -122,7 +245,9 @@ impl vte::Perform for Performer<'_> {
         if ignore {
             return;
         }
-        if intermediates.first() == Some(&b'?') {
+        // Only the exact `?` marker is a private mode; `?` with other
+        // intermediates (such as `CSI ?25$l`) has no effect.
+        if intermediates == *b"?" {
             self.private_mode(params, action);
             return;
         }
@@ -168,7 +293,18 @@ impl vte::Perform for Performer<'_> {
             'X' => self.grid.erase_chars(arg(0, 1)),
             'L' => self.grid.insert_lines(arg(0, 1)),
             'M' => self.grid.delete_lines(arg(0, 1)),
-            'm' => self.sgr(&values),
+            // A sequence whose only parameters are colon groups it cannot use
+            // changes nothing; an empty `CSI m` is a reset.
+            'm' => {
+                if params.iter().next().is_none() {
+                    self.sgr(&[]);
+                } else {
+                    let plain = plain_params(params);
+                    if !plain.is_empty() {
+                        self.sgr(&plain);
+                    }
+                }
+            }
             'n' => match first {
                 5 => self.replies.extend_from_slice(b"\x1b[0n"),
                 6 => {
@@ -197,10 +333,16 @@ impl Performer<'_> {
         for mode in flatten(params) {
             match (mode, set) {
                 (25, _) => self.grid.set_cursor_visible(set),
-                // 1049 also saves the cursor on entry and restores it on exit.
-                (1049, true) => self.grid.enter_alternate_screen(true),
+                (1, _) => *self.application_cursor = set,
+                (2004, _) => *self.bracketed_paste = set,
+                // 1049 also saves the cursor on entry and restores it on exit,
+                // and starts the alternate screen blank.
+                (1049, true) => self.grid.enter_alternate_screen(true, false),
                 (1049, false) => self.grid.leave_alternate_screen(),
-                (47 | 1047, true) => self.grid.enter_alternate_screen(false),
+                // 47 keeps the alternate screen's contents across exits; 1047
+                // starts it blank.
+                (47, true) => self.grid.enter_alternate_screen(false, true),
+                (1047, true) => self.grid.enter_alternate_screen(false, false),
                 (47 | 1047, false) => self.grid.leave_alternate_screen(),
                 _ => {}
             }
@@ -535,5 +677,83 @@ mod tests {
         // The main text was narrowed to four columns and is still there.
         assert_eq!(terminal.grid().cols(), 4);
         assert_eq!(terminal_text(&terminal), "abcdefgh");
+    }
+}
+
+#[cfg(test)]
+mod regression_tests {
+    use super::*;
+
+    fn cell_fg(term: &Terminal, col: usize) -> Color {
+        term.grid().viewport_cell(0, col).attr.fg
+    }
+
+    #[test]
+    fn a_question_mark_with_another_intermediate_is_not_a_private_mode() {
+        let mut term = Terminal::new(10, 2);
+        term.feed(b"\x1b[?25$l");
+        assert!(term.grid().cursor_visible());
+        term.feed(b"\x1b[?25l");
+        assert!(!term.grid().cursor_visible());
+    }
+
+    #[test]
+    fn a_colon_group_in_sgr_does_not_reset_the_colour() {
+        let mut term = Terminal::new(10, 2);
+        term.feed(b"\x1b[31m\x1b[4:0ma");
+        assert_eq!(cell_fg(&term, 0), Color::Indexed(1));
+        term.feed(b"\x1b[4;32mb");
+        assert_eq!(cell_fg(&term, 1), Color::Indexed(2));
+    }
+
+    #[test]
+    fn mode_47_keeps_the_alternate_screen_and_1047_clears_it() {
+        let mut term = Terminal::new(6, 2);
+        term.feed(b"\x1b[?47hkeep\x1b[?47l\x1b[?47h");
+        assert_eq!(term.grid().text(), "keep\n");
+        term.feed(b"\x1b[?47l\x1b[?1047h");
+        assert_eq!(term.grid().text(), "\n");
+    }
+
+    #[test]
+    fn application_cursor_and_bracketed_paste_follow_their_modes() {
+        let mut term = Terminal::new(10, 2);
+        assert!(!term.application_cursor());
+        assert!(!term.bracketed_paste());
+        term.feed(b"\x1b[?1h\x1b[?2004h");
+        assert!(term.application_cursor());
+        assert!(term.bracketed_paste());
+        term.feed(b"\x1b[?1l\x1b[?2004l");
+        assert!(!term.application_cursor());
+        assert!(!term.bracketed_paste());
+    }
+
+    #[test]
+    fn an_overlong_osc_string_is_cut_without_leaking_its_text() {
+        let mut term = Terminal::new(40, 2);
+        let mut bytes = b"\x1b]0;".to_vec();
+        bytes.extend(std::iter::repeat_n(b'x', 10_000));
+        bytes.extend_from_slice(b"\x07after");
+        term.feed(&bytes);
+        // The payload is not shown; the text after the string is.
+        assert_eq!(term.grid().text(), "after\n");
+        assert!(term.title().map_or(0, str::len) <= MAX_OSC_BYTES);
+    }
+
+    #[test]
+    fn an_overlong_osc_ended_by_st_resumes_normal_text() {
+        let mut term = Terminal::new(40, 2);
+        let mut bytes = b"\x1b]0;".to_vec();
+        bytes.extend(std::iter::repeat_n(b'y', 10_000));
+        bytes.extend_from_slice(b"\x1b\\ok");
+        term.feed(&bytes);
+        assert_eq!(term.grid().text(), "ok\n");
+    }
+
+    #[test]
+    fn a_short_osc_title_is_still_set() {
+        let mut term = Terminal::new(10, 2);
+        term.feed(b"\x1b]2;shell\x07");
+        assert_eq!(term.title(), Some("shell"));
     }
 }

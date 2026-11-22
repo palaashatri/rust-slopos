@@ -18,7 +18,6 @@ mod pty;
 
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, OnceLock};
-use std::time::Instant;
 
 use accesskit::{Node, Role, TreeUpdate};
 use slopos_ui::accessibility::window_tree;
@@ -147,7 +146,14 @@ struct TerminalApp {
     /// The last primary-button press, for double and triple clicks.
     last_click: Option<clicks::Click>,
     shown_title: String,
+    /// The window's proxy, filled in once it exists. Used to ask for another
+    /// output turn when a turn stopped at its budget.
+    wake_slot: Arc<OnceLock<Proxy>>,
 }
+
+/// Output bytes the window feeds to the terminal in one turn. The rest waits
+/// for the next turn, so painting and Close keep up with a fast program.
+const OUTPUT_BUDGET: usize = 64 * 1024;
 
 impl TerminalApp {
     /// A terminal of the default size, with no shell running yet.
@@ -167,6 +173,7 @@ impl TerminalApp {
             selecting: false,
             last_click: None,
             shown_title: "Terminal".into(),
+            wake_slot: Arc::new(OnceLock::new()),
         };
         app.window = app.window_for(DEFAULT_COLS, DEFAULT_ROWS);
         app.layout();
@@ -258,7 +265,18 @@ impl TerminalApp {
 
     fn write(&self, bytes: &[u8]) {
         if let Some((shell, _)) = &self.shell {
-            shell.write(bytes);
+            if let Err(error) = shell.write(bytes) {
+                // The program is not taking its input; the keystroke is refused.
+                eprintln!("slopos-terminal: {error}");
+            }
+        }
+    }
+
+    /// Ask the window for another output turn. The reader's wake-ups coalesce
+    /// into one turn, so a turn that stopped at its budget asks for the next.
+    fn request_output_turn(&self) {
+        if let Some(proxy) = self.wake_slot.get() {
+            proxy.wake();
         }
     }
 
@@ -266,14 +284,23 @@ impl TerminalApp {
     /// device-status replies. The window closes when the shell exits.
     fn drain_output(&mut self, control: &mut Control) {
         let mut exited = false;
+        let mut more = false;
+        let mut fed = 0;
         if let Some((shell, output)) = &self.shell {
             while let Ok(message) = output.try_recv() {
                 match message {
                     Output::Data(bytes) => {
+                        fed += bytes.len();
                         self.terminal.feed(&bytes);
                         let replies = self.terminal.take_replies();
                         if !replies.is_empty() {
-                            shell.write(&replies);
+                            if let Err(error) = shell.write(&replies) {
+                                eprintln!("slopos-terminal: {error}");
+                            }
+                        }
+                        if fed >= OUTPUT_BUDGET {
+                            more = true;
+                            break;
                         }
                     }
                     Output::Exited => exited = true,
@@ -283,13 +310,16 @@ impl TerminalApp {
         if exited {
             control.quit();
         }
+        if more {
+            self.request_output_turn();
+        }
         control.request_redraw();
     }
 
     /// A primary-button press on a cell: a single press starts a drag
     /// selection, a double press selects the word under it and a triple press
     /// the line.
-    fn press(&mut self, (row, col): (usize, usize), now: Instant) {
+    fn press(&mut self, (row, col): (usize, usize), now: u32) {
         let count = clicks::next_count(self.last_click, now, (row, col));
         self.last_click = Some(clicks::Click {
             at: now,
@@ -312,16 +342,25 @@ impl TerminalApp {
             self.run(command, control);
             return;
         }
-        self.terminal.grid_mut().scroll_to_bottom();
-        if let Some(bytes) = input::key_bytes(key, modifiers) {
+        // A key that sends nothing leaves the scrollback view and the selection
+        // as they are.
+        if let Some(bytes) = input::key_bytes(key, modifiers, self.terminal.application_cursor()) {
+            self.terminal.grid_mut().scroll_to_bottom();
             self.write(&bytes);
         }
         control.request_redraw();
     }
 
     fn paste(&mut self, text: &str) {
-        self.terminal.grid_mut().scroll_to_bottom();
-        self.write(&input::paste_bytes(text));
+        match input::paste_bytes(text, self.terminal.bracketed_paste()) {
+            Some(bytes) => {
+                self.terminal.grid_mut().scroll_to_bottom();
+                self.write(&bytes);
+            }
+            None => eprintln!(
+                "slopos-terminal: a multi-line paste is refused until the program enables bracketed paste"
+            ),
+        }
     }
 
     fn run(&mut self, command: Command, control: &mut Control) {
@@ -358,16 +397,18 @@ impl TerminalApp {
     fn style_at(&self, row: usize, col: usize, cursor: Option<(usize, usize)>) -> Style {
         let colors = palette();
         let grid = self.terminal.grid();
-        // The second column of a wide character takes its first column's style.
-        let col = if grid.viewport_cell(row, col).width == Width::Spacer && col > 0 {
+        // The second column of a wide character takes its first column's style,
+        // and the cursor covers either column of it.
+        let lead = if grid.viewport_cell(row, col).width == Width::Spacer && col > 0 {
             col - 1
         } else {
             col
         };
-        let cell = grid.viewport_cell(row, col);
+        let cell = grid.viewport_cell(row, lead);
         let mut fg = colors::resolve(cell.attr.fg, colors.ink);
         let mut bg = colors::resolve(cell.attr.bg, colors.content);
-        if cell.attr.inverse ^ (cursor == Some((row, col))) {
+        let at_cursor = cursor.is_some_and(|(r, c)| r == row && (c == col || c == lead));
+        if cell.attr.inverse ^ at_cursor {
             std::mem::swap(&mut fg, &mut bg);
         }
         if grid.is_selected(row, col) {
@@ -386,11 +427,7 @@ impl TerminalApp {
         let (origin_x, origin_y) = self.origin();
         let (cell_w, cell_h) = (self.cell.0 as i32, self.cell.1 as i32);
         if self.shell.is_none() {
-            let message = if self.status.is_empty() {
-                "No shell is running."
-            } else {
-                self.status.as_str()
-            };
+            let message = self.no_shell_message();
             return surface.draw_text(message, origin_x, origin_y, &self.font, colors.ink);
         }
         let grid: &Grid = self.terminal.grid();
@@ -419,33 +456,19 @@ impl TerminalApp {
                 } else {
                     &self.font
                 };
-                // Narrow characters are drawn as one string. A wide character
-                // is drawn alone in its first column; its spacer draws nothing.
-                let mut text = String::new();
-                let mut text_col = col;
+                // Each character is drawn at its own column, so glyphs cannot
+                // drift from the backgrounds and the hit-test cells. A wide
+                // character is drawn across its two columns; a spacer draws nothing.
                 for index in col..end {
                     let cell = grid.viewport_cell(row, index);
-                    match cell.width {
-                        Width::Spacer => {}
-                        Width::Wide => {
-                            let x = origin_x + text_col as i32 * cell_w;
-                            flush_text(surface, &mut text, x, y, font, style.fg)?;
-                            let mut wide = String::new();
-                            cell.push_text(&mut wide);
-                            let x = origin_x + index as i32 * cell_w;
-                            surface.draw_text(&wide, x, y, font, style.fg)?;
-                            text_col = index + 2;
-                        }
-                        Width::Single => {
-                            if text.is_empty() {
-                                text_col = index;
-                            }
-                            cell.push_text(&mut text);
-                        }
+                    if cell.width == Width::Spacer || cell.ch == ' ' && cell.marks[0] == '\0' {
+                        continue;
                     }
+                    let mut text = String::new();
+                    cell.push_text(&mut text);
+                    let x = origin_x + index as i32 * cell_w;
+                    surface.draw_text(&text, x, y, font, style.fg)?;
                 }
-                let x = origin_x + text_col as i32 * cell_w;
-                flush_text(surface, &mut text, x, y, font, style.fg)?;
                 col = end;
             }
         }
@@ -455,22 +478,16 @@ impl TerminalApp {
     fn visible_text(&self) -> String {
         self.terminal.grid().text()
     }
-}
 
-/// Draws pending narrow text at `x` unless it is only spaces, then clears it.
-fn flush_text(
-    surface: &RasterSurface,
-    text: &mut String,
-    x: i32,
-    y: i32,
-    font: &Font,
-    color: Rgb,
-) -> Result<(), RenderError> {
-    if !text.trim().is_empty() {
-        surface.draw_text(text, x, y, font, color)?;
+    /// The line shown in place of the screen when no shell runs: the reason
+    /// the shell did not start, or a plain notice.
+    fn no_shell_message(&self) -> &str {
+        if self.status.is_empty() {
+            "No shell is running."
+        } else {
+            self.status.as_str()
+        }
     }
-    text.clear();
-    Ok(())
 }
 
 impl App for TerminalApp {
@@ -552,7 +569,8 @@ impl TerminalApp {
                 self.selecting = false;
                 self.terminal.grid_mut().clear_selection();
                 match self.cell_at(*x, *y) {
-                    Some(cell) => self.press(cell, Instant::now()),
+                    // The server's press time; 0 when the host reports none.
+                    Some(cell) => self.press(cell, control.press_time().unwrap_or(0)),
                     None => self.last_click = None,
                 }
                 control.request_redraw();
@@ -611,6 +629,7 @@ fn main() {
         .ok()
         .filter(|shell| !shell.is_empty())
         .unwrap_or_else(|| "/bin/sh".into());
+    app.wake_slot = Arc::clone(&proxy_slot);
     app.start_shell(&shell, &[], wake);
     let (width, height) = app.window;
     let options = WindowOptions::new("Terminal", APP_ID, width, height);
@@ -817,8 +836,16 @@ mod tests {
 
     #[test]
     fn without_a_shell_the_window_says_so() {
-        let app = TerminalApp::new();
+        let mut app = TerminalApp::new();
         assert!(app.shell.is_none());
         assert!(!app.terminal.grid().has_selection());
+        // With no reason recorded, the window shows the plain notice.
+        assert_eq!(app.no_shell_message(), "No shell is running.");
+        // A start failure is what the window shows instead.
+        app.status = "Could not start /bin/zsh: No such file or directory".into();
+        assert_eq!(
+            app.no_shell_message(),
+            "Could not start /bin/zsh: No such file or directory"
+        );
     }
 }
