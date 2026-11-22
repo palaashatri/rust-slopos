@@ -16,7 +16,17 @@ use crate::foundation::{
     geometry::{Rect, Scale},
 };
 use crate::image::Image;
+use crate::render::list::{DrawCommand, DrawList, ImageHandle};
 use crate::text::{self, Font};
+
+#[cfg(feature = "gpu")]
+pub mod gpu;
+/// Backend-neutral draw lists, executed onto this surface as the CPU reference.
+pub mod list;
+/// The recording mode of [`RasterSurface`]: paint is captured as a [`DrawList`].
+mod recording;
+
+use recording::Recorder;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RenderError {
@@ -26,44 +36,105 @@ pub enum RenderError {
     GeometryOverflow,
     #[error("could not encode PNG: {0}")]
     Encode(String),
+    /// A recording surface could not capture a command, or it was used in a
+    /// way a draw list cannot express. The message names the cause.
+    #[error("draw recording failed: {0}")]
+    Recording(String),
 }
 
 pub struct RasterSurface {
+    /// Device pixels. A recording surface keeps a 1x1 placeholder instead.
     pixmap: RefCell<Pixmap>,
     scale: Scale,
     logical_width: u32,
     logical_height: u32,
+    device_width: u32,
+    device_height: u32,
     /// Stack of device-space clip boxes (left, top, right, bottom); the last
     /// entry is the effective clip, already intersected with its parents.
     clips: RefCell<Vec<(i64, i64, i64, i64)>>,
+    /// Set for a recording surface: drawing calls append to a draw list.
+    recorder: Option<Recorder>,
+}
+
+/// Device size of a `width × height` logical surface at `scale`.
+fn device_size(width: u32, height: u32, scale: Scale) -> Result<(u32, u32), RenderError> {
+    if width == 0 || height == 0 {
+        return Err(RenderError::InvalidDimensions);
+    }
+    let device = Rect {
+        x: 0,
+        y: 0,
+        width,
+        height,
+    }
+    .to_device(scale)
+    .ok_or(RenderError::GeometryOverflow)?;
+    // Keep device sizes within i32 so every coordinate stays representable.
+    if device.width > i32::MAX as u32 || device.height > i32::MAX as u32 {
+        return Err(RenderError::GeometryOverflow);
+    }
+    Ok((device.width, device.height))
 }
 
 impl RasterSurface {
     pub fn new(width: u32, height: u32, scale: Scale) -> Result<Self, RenderError> {
-        if width == 0 || height == 0 {
-            return Err(RenderError::InvalidDimensions);
-        }
-        let device = Rect {
-            x: 0,
-            y: 0,
-            width,
-            height,
-        }
-        .to_device(scale)
-        .ok_or(RenderError::GeometryOverflow)?;
-        // Keep device sizes within i32 so every coordinate stays representable.
-        if device.width > i32::MAX as u32 || device.height > i32::MAX as u32 {
-            return Err(RenderError::GeometryOverflow);
-        }
+        let (device_width, device_height) = device_size(width, height, scale)?;
         let pixmap =
-            Pixmap::new(device.width, device.height).ok_or(RenderError::GeometryOverflow)?;
+            Pixmap::new(device_width, device_height).ok_or(RenderError::GeometryOverflow)?;
         Ok(Self {
             pixmap: RefCell::new(pixmap),
             scale,
             logical_width: width,
             logical_height: height,
+            device_width,
+            device_height,
             clips: RefCell::new(Vec::new()),
+            recorder: None,
         })
+    }
+
+    /// A surface that records its drawing instead of rasterising it. Paint
+    /// code is unchanged: the same calls succeed or fail the same way, and
+    /// [`Self::take_recording`] returns the [`DrawList`] they produced, which
+    /// any [`list::DrawExecutor`] can replay. `command_limit` bounds the list.
+    /// A recording surface has no pixels: [`Self::pixel`] returns `None` and
+    /// PNG encoding fails.
+    pub fn recording(
+        width: u32,
+        height: u32,
+        scale: Scale,
+        command_limit: usize,
+    ) -> Result<Self, RenderError> {
+        let (device_width, device_height) = device_size(width, height, scale)?;
+        let placeholder = Pixmap::new(1, 1).ok_or(RenderError::GeometryOverflow)?;
+        Ok(Self {
+            pixmap: RefCell::new(placeholder),
+            scale,
+            logical_width: width,
+            logical_height: height,
+            device_width,
+            device_height,
+            clips: RefCell::new(Vec::new()),
+            recorder: Some(Recorder::new(command_limit)),
+        })
+    }
+
+    /// Whether this surface records drawing rather than rasterising it.
+    pub fn is_recording(&self) -> bool {
+        self.recorder.is_some()
+    }
+
+    /// Take the draw list recorded since the last take. Returns the first
+    /// failure instead when a command could not be recorded: the list is then
+    /// incomplete and must not be presented. The surface keeps recording.
+    pub fn take_recording(&self) -> Result<DrawList, RenderError> {
+        match &self.recorder {
+            Some(recorder) => recorder.take(),
+            None => Err(RenderError::Recording(
+                "the surface is not recording".into(),
+            )),
+        }
     }
 
     pub fn scale(&self) -> Scale {
@@ -79,11 +150,11 @@ impl RasterSurface {
     }
 
     pub fn device_width(&self) -> u32 {
-        self.pixmap.borrow().width()
+        self.device_width
     }
 
     pub fn device_height(&self) -> u32 {
-        self.pixmap.borrow().height()
+        self.device_height
     }
 
     /// Restrict drawing to `rect` (logical pixels), intersected with any
@@ -100,12 +171,20 @@ impl RasterSurface {
             (i64::from(device.y) + i64::from(device.height)).clamp(top, bottom),
         );
         self.clips.borrow_mut().push(clip);
+        if let Some(recorder) = &self.recorder {
+            recorder.record(DrawCommand::PushClip { rect })?;
+        }
         Ok(())
     }
 
     /// Remove the innermost clip pushed with [`Self::push_clip`].
     pub fn pop_clip(&self) {
         self.clips.borrow_mut().pop();
+        if let Some(recorder) = &self.recorder {
+            // A pop without a matching push is recorded as a failure, which
+            // `take_recording` reports.
+            let _ = recorder.record(DrawCommand::PopClip);
+        }
     }
 
     /// Run `draw` with drawing clipped to `rect`.
@@ -122,8 +201,12 @@ impl RasterSurface {
 
     /// The effective clip in device pixels: (left, top, right, bottom).
     fn clip_bounds(&self) -> (i64, i64, i64, i64) {
-        let pixmap = self.pixmap.borrow();
-        let full = (0, 0, i64::from(pixmap.width()), i64::from(pixmap.height()));
+        let full = (
+            0,
+            0,
+            i64::from(self.device_width),
+            i64::from(self.device_height),
+        );
         self.clips.borrow().last().copied().unwrap_or(full)
     }
 
@@ -144,8 +227,30 @@ impl RasterSurface {
         Some(mask)
     }
 
-    /// Replace every pixel, including alpha.
+    /// Replace every pixel, including alpha. A recording surface records this
+    /// as a full-surface fill. That is the same operation only while the
+    /// surface is still blank and no clip is active, or when the colour is
+    /// opaque; other cases are recording failures.
     pub fn clear(&self, color: Color) -> Result<(), RenderError> {
+        if let Some(recorder) = &self.recorder {
+            // An opaque full-surface fill replaces the destination exactly as
+            // clear does. Anything else would need the destination's pixels, and
+            // a recording is replayed onto a surface that already holds some, so
+            // it is latched and the frame is painted on the CPU instead.
+            if !self.clips.borrow().is_empty() || color.alpha != u8::MAX {
+                recorder.latch(
+                    "clear() of a translucent colour or inside a clip cannot be recorded".into(),
+                );
+                return Ok(());
+            }
+            let whole = Rect {
+                x: 0,
+                y: 0,
+                width: self.logical_width,
+                height: self.logical_height,
+            };
+            return recorder.record(DrawCommand::FillRect { rect: whole, color });
+        }
         self.pixmap.borrow_mut().fill(to_skia(color));
         Ok(())
     }
@@ -153,14 +258,23 @@ impl RasterSurface {
     /// Fill a logical rectangle (source-over, no anti-aliasing). Parts outside
     /// the surface are clipped.
     pub fn fill_rect(&self, rect: Rect, color: Color) -> Result<(), RenderError> {
-        let rect = rect
+        let device = rect
             .to_device(self.scale)
             .ok_or(RenderError::GeometryOverflow)?;
-        self.fill_device_rect(rect, color);
+        if let Some(recorder) = &self.recorder {
+            return recorder.record(DrawCommand::FillRect { rect, color });
+        }
+        self.fill_device_rect(device, color);
         Ok(())
     }
 
     fn fill_device_rect(&self, rect: Rect, color: Color) {
+        if let Some(recorder) = &self.recorder {
+            // Only the draw-list replay fills in device space, and it refuses
+            // recording surfaces, so this is a defensive failure.
+            recorder.latch("device-space fills cannot be recorded".into());
+            return;
+        }
         let (clip_left, clip_top, clip_right, clip_bottom) = self.clip_bounds();
         let mut pixmap = self.pixmap.borrow_mut();
         let left = i64::from(rect.x).clamp(clip_left, clip_right);
@@ -214,6 +328,18 @@ impl RasterSurface {
         origin_x: i32,
         origin_y: i32,
     ) -> Result<(), RenderError> {
+        if let Some(recorder) = &self.recorder {
+            recorder.latch(
+                "draw_surface() composites pixels that a draw list cannot hold; draw the source as an image"
+                    .into(),
+            );
+            return Ok(());
+        }
+        if source.is_recording() {
+            return Err(RenderError::Recording(
+                "draw_surface() cannot composite a recording surface".into(),
+            ));
+        }
         let ratio = self.scale.factor() as f32 / source.scale.factor() as f32;
         let x = origin_x
             .checked_mul(self.scale.factor() as i32)
@@ -258,6 +384,40 @@ impl RasterSurface {
         width: u32,
         height: u32,
     ) -> Result<(), RenderError> {
+        self.draw_image_scaled_with_opacity(image, origin_x, origin_y, width, height, u8::MAX)
+    }
+
+    /// As [`Self::draw_image_scaled`], with the image's alpha multiplied by
+    /// `opacity` (0 draws nothing, 255 is the image unchanged).
+    pub fn draw_image_scaled_with_opacity(
+        &self,
+        image: &Image,
+        origin_x: i32,
+        origin_y: i32,
+        width: u32,
+        height: u32,
+        opacity: u8,
+    ) -> Result<(), RenderError> {
+        if let Some(recorder) = &self.recorder {
+            // These calls draw nothing on the reference path either.
+            if image.pixmap().is_none() || width == 0 || height == 0 || opacity == 0 {
+                return Ok(());
+            }
+            let Some(image): Option<ImageHandle> = recorder.image(image) else {
+                return Ok(());
+            };
+            let rect = Rect {
+                x: origin_x,
+                y: origin_y,
+                width,
+                height,
+            };
+            return recorder.record(DrawCommand::ImageBlit {
+                image,
+                rect,
+                opacity,
+            });
+        }
         let Some(source) = image.pixmap() else {
             return Ok(());
         };
@@ -271,6 +431,7 @@ impl RasterSurface {
             } else {
                 FilterQuality::Bicubic
             },
+            opacity: f32::from(opacity) / f32::from(u8::MAX),
             ..PixmapPaint::default()
         };
         let x = origin_x as f32 * factor;
@@ -299,6 +460,15 @@ impl RasterSurface {
         let factor = self.scale.factor() as i32;
         let origin_x = x.checked_mul(factor).ok_or(RenderError::GeometryOverflow)?;
         let origin_y = y.checked_mul(factor).ok_or(RenderError::GeometryOverflow)?;
+        if let Some(recorder) = &self.recorder {
+            return recorder.record(DrawCommand::TextRun {
+                x,
+                y,
+                text: content.to_owned(),
+                font: font.clone(),
+                color,
+            });
+        }
         let (clip_left, clip_top, clip_right, clip_bottom) = self.clip_bounds();
         let mut pixmap = self.pixmap.borrow_mut();
         let width = pixmap.width() as i32;
@@ -321,8 +491,12 @@ impl RasterSurface {
         Ok(())
     }
 
-    /// Premultiplied pixel at device coordinates as 0xAARRGGBB.
+    /// Premultiplied pixel at device coordinates as 0xAARRGGBB. `None` for a
+    /// recording surface, which has no pixels.
     pub fn pixel(&self, device_x: u32, device_y: u32) -> Option<u32> {
+        if self.recorder.is_some() {
+            return None;
+        }
         let pixmap = self.pixmap.borrow();
         let pixel = pixmap.pixel(device_x, device_y)?;
         Some(
@@ -333,13 +507,45 @@ impl RasterSurface {
         )
     }
 
-    /// Premultiplied RGBA bytes, row-major, no padding.
+    /// Replace every pixel with `bytes`, which must be the layout of
+    /// [`Self::data`]. Used to bring the surface up to date with a frame that
+    /// was painted elsewhere, such as the GPU path.
+    #[cfg(feature = "gpu")]
+    pub(crate) fn load_pixels(&self, bytes: &[u8]) -> Result<(), RenderError> {
+        if self.recorder.is_some() {
+            return Err(RenderError::Recording(
+                "a recording surface has no pixels to load".into(),
+            ));
+        }
+        let mut pixmap = self.pixmap.borrow_mut();
+        let destination = pixmap.data_mut();
+        if destination.len() != bytes.len() {
+            return Err(RenderError::InvalidDimensions);
+        }
+        destination.copy_from_slice(bytes);
+        Ok(())
+    }
+
+    /// Premultiplied RGBA bytes, row-major, no padding. Empty for a recording
+    /// surface.
     pub fn data(&self) -> Ref<'_, [u8]> {
-        Ref::map(self.pixmap.borrow(), |pixmap| pixmap.data())
+        let recording = self.recorder.is_some();
+        Ref::map(self.pixmap.borrow(), |pixmap| {
+            if recording {
+                &[][..]
+            } else {
+                pixmap.data()
+            }
+        })
     }
 
     /// Encode the device pixels as a PNG (for snapshots and evidence).
     pub fn encode_png(&self) -> Result<Vec<u8>, RenderError> {
+        if self.recorder.is_some() {
+            return Err(RenderError::Encode(
+                "a recording surface has no pixels".into(),
+            ));
+        }
         self.pixmap
             .borrow()
             .encode_png()
@@ -379,6 +585,92 @@ fn blend_straight_over(destination: &mut [u8], color: Color) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn half_alpha() -> Color {
+        Color {
+            red: 0x20,
+            green: 0x40,
+            blue: 0x60,
+            alpha: 0x80,
+        }
+    }
+
+    #[test]
+    fn a_translucent_clear_on_a_recording_is_latched_and_the_call_returns_ok() {
+        let recording = RasterSurface::recording(8, 8, Scale::new(1).unwrap(), 64).unwrap();
+        // The app must not unwind here: the CPU path would return Ok too.
+        recording.clear(half_alpha()).unwrap();
+        assert!(recording.take_recording().is_err());
+    }
+
+    #[test]
+    fn a_clear_inside_a_clip_on_a_recording_is_latched_and_the_call_returns_ok() {
+        let recording = RasterSurface::recording(8, 8, Scale::new(1).unwrap(), 64).unwrap();
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 4,
+            height: 4,
+        };
+        recording
+            .with_clip(area, || recording.clear(Color::WHITE))
+            .unwrap();
+        assert!(recording.take_recording().is_err());
+    }
+
+    #[test]
+    fn an_opaque_clear_on_a_recording_is_recorded_and_replays_as_a_fill() {
+        let recording = RasterSurface::recording(8, 8, Scale::new(1).unwrap(), 64).unwrap();
+        recording.clear(Color::WHITE).unwrap();
+        recording.clear(Color::BLACK).unwrap();
+        let list = recording.take_recording().unwrap();
+        assert_eq!(list.len(), 2);
+    }
+
+    #[test]
+    fn draw_surface_onto_a_recording_is_latched_and_the_call_returns_ok() {
+        let source = RasterSurface::new(4, 4, Scale::new(1).unwrap()).unwrap();
+        let recording = RasterSurface::recording(8, 8, Scale::new(1).unwrap(), 64).unwrap();
+        recording.draw_surface(&source, 0, 0).unwrap();
+        assert!(recording.take_recording().is_err());
+    }
+
+    #[test]
+    fn a_recording_source_cannot_be_composited_onto_a_raster_surface() {
+        let source = RasterSurface::recording(4, 4, Scale::new(1).unwrap(), 64).unwrap();
+        let target = RasterSurface::new(8, 8, Scale::new(1).unwrap()).unwrap();
+        assert!(target.draw_surface(&source, 0, 0).is_err());
+    }
+
+    #[test]
+    fn a_recording_with_an_open_clip_is_refused_and_the_list_is_kept() {
+        let recording = RasterSurface::recording(8, 8, Scale::new(1).unwrap(), 64).unwrap();
+        recording
+            .push_clip(Rect {
+                x: 0,
+                y: 0,
+                width: 4,
+                height: 4,
+            })
+            .unwrap();
+        recording
+            .fill_rect(
+                Rect {
+                    x: 0,
+                    y: 0,
+                    width: 2,
+                    height: 2,
+                },
+                Color::BLACK,
+            )
+            .unwrap();
+        assert!(recording.take_recording().is_err());
+        // Refused, not reset: the open clip is still in the list, and a second
+        // take refuses it again.
+        assert!(recording.take_recording().is_err());
+        recording.pop_clip();
+        assert_eq!(recording.take_recording().unwrap().len(), 3);
+    }
 
     #[test]
     fn clips_nest_and_restore_at_both_scales() {
