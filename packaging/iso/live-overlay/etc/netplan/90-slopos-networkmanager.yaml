@@ -1,0 +1,6 @@
+# SLOPOS live images: let NetworkManager manage every device. Where netplan is
+# installed it writes the NetworkManager global-management config from this
+# file. With no ethernets stanza, no NIC is handed to systemd-networkd.
+network:
+  version: 2
+  renderer: NetworkManager

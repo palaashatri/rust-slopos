@@ -233,6 +233,13 @@ ln -sfn /usr/lib/systemd/system/lightdm.service \
 ln -sfn /usr/lib/systemd/system/graphical.target \
   "$ROOTFS/etc/systemd/system/default.target"
 
+# Wired networking: NetworkManager manages the NICs and systemd-resolved is the
+# resolver. mkarchiso installs the packages after this stage, so the unit files
+# are not present yet and the enable symlinks are created without a unit check.
+# shellcheck source=packaging/iso/live-network.sh
+. "$ROOT/packaging/iso/live-network.sh"
+slopos_apply_live_network "$ROOTFS"
+
 # SLOPOS-specific environment defaults for all live-session processes.
 install -d "$ROOTFS/etc/environment.d"
 cat > "$ROOTFS/etc/environment.d/90-slopos.conf" <<'EOF'

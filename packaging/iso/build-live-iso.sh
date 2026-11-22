@@ -18,6 +18,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=packaging/iso/mozilla-apt.sh
+source "$ROOT/packaging/iso/mozilla-apt.sh"
 ARCH=""
 BIN_DIR=""
 OUT_DIR="$ROOT/artifacts/iso"
@@ -57,7 +59,7 @@ case "$ARCH" in
 esac
 
 [[ $EUID -eq 0 ]] || { echo "build-live-iso: run as root (debootstrap, chroot, mounts)" >&2; exit 2; }
-for tool in debootstrap mksquashfs grub-mkrescue xorriso mformat unmkinitramfs sha256sum; do
+for tool in debootstrap mksquashfs grub-mkrescue xorriso mformat unmkinitramfs sha256sum curl gpg; do
   command -v "$tool" >/dev/null || { echo "build-live-iso: $tool is required" >&2; exit 2; }
 done
 if [[ "$ARCH" == arm64 && "$(dpkg --print-architecture)" != arm64 ]]; then
@@ -117,6 +119,15 @@ printf '#!/bin/sh\nexit 101\n' >"$CHROOT/usr/sbin/policy-rc.d"
 chmod 755 "$CHROOT/usr/sbin/policy-rc.d"
 echo slopos >"$CHROOT/etc/hostname"
 
+# Mozilla's Firefox repository is HTTPS, so the chroot needs CA roots before
+# its sources entry is added. Then add the verified key, sources and pin.
+chroot "$CHROOT" /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+  DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 /bin/bash -euo pipefail -c "
+  apt-get update
+  apt-get install -y --no-install-recommends ca-certificates
+"
+install_mozilla_apt "$CHROOT" "$ROOT/packaging/iso/overlay"
+
 # Runtime dependencies come from the same list install.sh uses; SuperTux is
 # a demo game and stays out of the live image.
 mapfile -t RUNTIME < <(grep -Ev '^\s*(#|$)' "$ROOT/packaging/deps/ubuntu.txt" | grep -vx supertux)
@@ -132,9 +143,16 @@ chroot "$CHROOT" /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
     xserver-xorg-input-all mesa-utils gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good gstreamer1.0-tools shared-mime-info \
     desktop-file-utils xdg-utils gtk2-engines-pixbuf \
-    $GRUB_PACKAGES ${RUNTIME[*]}
+    calamares pkexec squashfs-tools rsync gdisk dosfstools parted efibootmgr grub2-common \
+    $GRUB_PACKAGES ${RUNTIME[*]} firefox
   apt-get clean
 "
+# Fail closed unless the browser is Mozilla's build, not Ubuntu's snap wrapper.
+firefox_version="$(chroot "$CHROOT" dpkg-query -W -f='${Version}' firefox)"
+case "$firefox_version" in
+  *snap*) echo "build-live-iso: Ubuntu's snap firefox ($firefox_version) was installed" >&2; exit 1 ;;
+esac
+chroot "$CHROOT" test -x /usr/bin/firefox || { echo "build-live-iso: /usr/bin/firefox is missing" >&2; exit 1; }
 
 log "3/7 installing the SLOPOS payload with install.sh"
 STAGE="$WORK_DIR/cargo-stage"
@@ -159,7 +177,9 @@ grep -qx 'Exec=/usr/bin/start-slopos-i' "$CHROOT/usr/share/xsessions/slopos-i.de
   echo "build-live-iso: the SLOPOS-I session does not run /usr/bin/start-slopos-i" >&2; exit 1; }
 # The live image offers exactly one session: SLOPOS-I.
 find "$CHROOT/usr/share/xsessions" -name '*.desktop' ! -name 'slopos-i.desktop' -delete
-# The installed SLOPOS file associations become the system defaults.
+# The installed SLOPOS file associations become the system defaults. They make
+# slopos-browser.desktop (which runs start-slopos-browser, i.e. Firefox) the
+# default for text/html and http/https.
 install -Dm644 "$ROOT/assets/config/mimeapps.list" "$CHROOT/etc/xdg/mimeapps.list"
 
 log "4/7 configuring the live user and autologin"
@@ -179,7 +199,19 @@ greeter-session=lightdm-gtk-greeter
 EOF
 echo 'LANG=C.UTF-8' >"$CHROOT/etc/default/locale"
 ln -sf /usr/share/zoneinfo/Etc/UTC "$CHROOT/etc/localtime"
-chroot "$CHROOT" systemctl enable lightdm NetworkManager >/dev/null 2>&1 || true
+# Wired networking: NetworkManager manages the NICs (DHCP, default route), and
+# systemd-resolved is the resolver behind /etc/resolv.conf. The units are
+# enabled before LightDM starts (see live-overlay's lightdm drop-in).
+# shellcheck source=packaging/iso/live-network.sh
+. "$ROOT/packaging/iso/live-network.sh"
+slopos_apply_live_network "$CHROOT"
+slopos_check_live_network_units "$CHROOT"
+# The graphical installer (Calamares) and its configuration: see
+# packaging/iso/installer/ and docs/architecture.md (Installer).
+# shellcheck source=packaging/iso/installer/live-installer.sh
+. "$ROOT/packaging/iso/installer/live-installer.sh"
+slopos_apply_live_installer "$CHROOT"
+chroot "$CHROOT" systemctl enable lightdm >/dev/null 2>&1 || true
 chroot "$CHROOT" systemctl set-default graphical.target >/dev/null
 chroot "$CHROOT" systemctl mask apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 || true
 cat >"$CHROOT/etc/os-release.slopos" <<EOF
@@ -210,7 +242,10 @@ rm -rf "$UNPACKED"
 echo "SLOPOS X11 $VERSION ($SUITE $ARCH) $(date -u +%Y%m%d)" >"$IMAGE/.disk/info"
 du -sx --block-size=1 "$CHROOT" | cut -f1 >"$IMAGE/casper/filesystem.size"
 chroot "$CHROOT" dpkg-query -W --showformat='${Package} ${Version}\n' >"$IMAGE/casper/filesystem.manifest"
-mksquashfs "$CHROOT" "$IMAGE/casper/filesystem.squashfs" -comp zstd -Xcompression-level 15 -b 1M -noappend -e boot -quiet
+# The root filesystem keeps /boot: the installer copies the kernel and initrd
+# from it into the installed system. The live boot still uses casper/vmlinuz
+# and casper/initrd from the medium.
+mksquashfs "$CHROOT" "$IMAGE/casper/filesystem.squashfs" -comp zstd -Xcompression-level 15 -b 1M -noappend -quiet
 
 cat >"$IMAGE/boot/grub/grub.cfg" <<'EOF'
 set timeout=5
