@@ -127,7 +127,7 @@ The live ISO includes Calamares 3.3 (`calamares`, Ubuntu noble universe) as its 
 
 The [ledger](contract/ledger.md) has the dated evidence; its section G.2 is the prioritized register of remaining work (GAP-* IDs). In short:
 
-- Native Files has no drag and drop, icon view, thumbnails, properties window, removable-volume mount/eject or network mounts yet, and has not passed installed-package VM acceptance. Terminal, Text editor and System Monitor are not native yet (the system terminal and Mousepad are still used).
+- Native Files has no drag and drop, icon view, thumbnails, properties window, removable-volume mount/eject or network mounts yet, and has not passed installed-package VM acceptance. Text editor and System Monitor are not native yet (Mousepad is still used). The native terminal (`apps/terminal`, PTY, VT parser, grid, CPU drawing) is preferred when installed; the GPU terminal path is not built, and a shell-only check of its escape handling has not been run on a live X server.
 - No OSDs, and no status popovers besides the Volume Mixer; workspaces UI, lock screen, polkit agent, network-secret agent (Wi-Fi passwords are asked by Control Panels only) or BlueZ pairing agent (devices that need a PIN or passkey confirmation fail with BlueZ's error).
 - No production software catalogue or publisher key exists yet, so Software shows "No software catalogue is installed" on a fresh system.
 - The legacy GTK crates (`slopos-shell`, `slopos-settings`, `slopos-catalogue`) are still built in the workspace but no longer shipped or started.

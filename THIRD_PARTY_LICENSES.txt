@@ -26,6 +26,17 @@ X11 server, Openbox, Mesa, PipeWire, NetworkManager, BlueZ, UDisks2,
 systemd/logind and installed fonts. They are not covered by the SLOPOS-I MIT
 grant. SLOPOS-I does not ship model weights or require a Vision/AI runtime.
 
+Direct dependencies of the terminal app
+---------------------------------------
+
+Licences below are the `license` fields of the locked versions, checked
+against their packages in the registry. The release bundle above remains the
+complete inventory and also covers their transitive dependencies.
+
+- vte 0.15.0, Apache-2.0 OR MIT: the VT escape-sequence parser in
+  apps/terminal.
+- unicode-width 0.2.3, MIT OR Apache-2.0: character widths for wide and
+  combining characters in apps/terminal.
 GPU renderer (cargo feature "gpu" of slopos-ui, off by default)
 ---------------------------------------------------------------
 

@@ -114,6 +114,7 @@ pub struct Control {
     pub(crate) clipboard: Option<String>,
     pub(crate) paste: bool,
     pub(crate) modifiers: crate::event::Modifiers,
+    pub(crate) press_time: Option<u32>,
     pub(crate) popups: Vec<PopupRequest>,
     pub(crate) strut: Option<u32>,
 }
@@ -190,6 +191,13 @@ impl Control {
     /// Whether [`Self::request_paste`] was called during this event.
     pub fn paste_requested(&self) -> bool {
         self.paste
+    }
+
+    /// The server's timestamp, in milliseconds, of the button press being
+    /// dispatched, when the platform reports one. Apps that count clicks use it
+    /// rather than the time the event reached them, which can be later.
+    pub fn press_time(&self) -> Option<u32> {
+        self.press_time
     }
 
     /// Modifier keys held during the current input event. Pointer events
