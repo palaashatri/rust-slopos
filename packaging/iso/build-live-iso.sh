@@ -143,7 +143,6 @@ chroot "$CHROOT" /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
     xserver-xorg-input-all mesa-utils gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good gstreamer1.0-tools shared-mime-info \
     desktop-file-utils xdg-utils gtk2-engines-pixbuf \
-    calamares pkexec squashfs-tools rsync gdisk dosfstools parted efibootmgr grub2-common \
     $GRUB_PACKAGES ${RUNTIME[*]} firefox
   apt-get clean
 "
@@ -206,11 +205,6 @@ ln -sf /usr/share/zoneinfo/Etc/UTC "$CHROOT/etc/localtime"
 . "$ROOT/packaging/iso/live-network.sh"
 slopos_apply_live_network "$CHROOT"
 slopos_check_live_network_units "$CHROOT"
-# The graphical installer (Calamares) and its configuration: see
-# packaging/iso/installer/ and docs/architecture.md (Installer).
-# shellcheck source=packaging/iso/installer/live-installer.sh
-. "$ROOT/packaging/iso/installer/live-installer.sh"
-slopos_apply_live_installer "$CHROOT"
 chroot "$CHROOT" systemctl enable lightdm >/dev/null 2>&1 || true
 chroot "$CHROOT" systemctl set-default graphical.target >/dev/null
 chroot "$CHROOT" systemctl mask apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 || true
@@ -242,10 +236,7 @@ rm -rf "$UNPACKED"
 echo "SLOPOS X11 $VERSION ($SUITE $ARCH) $(date -u +%Y%m%d)" >"$IMAGE/.disk/info"
 du -sx --block-size=1 "$CHROOT" | cut -f1 >"$IMAGE/casper/filesystem.size"
 chroot "$CHROOT" dpkg-query -W --showformat='${Package} ${Version}\n' >"$IMAGE/casper/filesystem.manifest"
-# The root filesystem keeps /boot: the installer copies the kernel and initrd
-# from it into the installed system. The live boot still uses casper/vmlinuz
-# and casper/initrd from the medium.
-mksquashfs "$CHROOT" "$IMAGE/casper/filesystem.squashfs" -comp zstd -Xcompression-level 15 -b 1M -noappend -quiet
+mksquashfs "$CHROOT" "$IMAGE/casper/filesystem.squashfs" -comp zstd -Xcompression-level 15 -b 1M -noappend -e boot -quiet
 
 cat >"$IMAGE/boot/grub/grub.cfg" <<'EOF'
 set timeout=5
