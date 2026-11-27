@@ -586,17 +586,13 @@ mod tests {
         assert_eq!(error.availability(), Availability::Failed);
 
         fs::write(device.join("brightness"), "50\n").unwrap();
-        let recovered = timeout(Duration::from_secs(6), async {
-            loop {
-                match events.next().await {
-                    Some(Ok(snapshot)) => break snapshot,
-                    Some(Err(error)) => panic!("watch still failing after recovery: {error:?}"),
-                    None => panic!("watch stream ended before recovery"),
-                }
-            }
-        })
-        .await
-        .unwrap();
+        // Nothing is sent while the reading is invalid, so the next event is
+        // the recovered state.
+        let recovered = timeout(Duration::from_secs(6), events.next())
+            .await
+            .unwrap()
+            .expect("watch stream ended before recovery")
+            .expect("watch still failing after recovery");
         assert_eq!(recovered.devices[0].current, 50);
         events.close().await;
     }
