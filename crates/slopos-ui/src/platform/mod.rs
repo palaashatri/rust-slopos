@@ -230,6 +230,11 @@ impl Control {
         &self.popups
     }
 
+    /// Timers asked for so far, as (delay, id), for tests.
+    pub fn timer_requests(&self) -> &[(Duration, u64)] {
+        &self.timers
+    }
+
     /// Whether the app asked for a redraw (for tests).
     pub fn redraw_requested(&self) -> bool {
         self.redraw
