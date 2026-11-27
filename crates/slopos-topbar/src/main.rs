@@ -623,14 +623,17 @@ impl TopBar {
     /// Status items from the right edge: clock, network, Bluetooth, sound,
     /// battery, then the notification bell at the left end.
     fn status_rects(&self) -> Vec<(StatusMenu, Rect, String)> {
+        // Items are placed from the right edge. Bluetooth sits to the left of
+        // Sound, so Sound keeps the position it has on main: the QA mixer check
+        // clicks Sound at a fixed x.
         let mut items = vec![
             (StatusMenu::Clock, self.clock.clone()),
             (StatusMenu::Network, status::network_text(&self.network)),
+            (StatusMenu::Sound, status::sound_text(&self.audio)),
             (
                 StatusMenu::Bluetooth,
                 popovers::bluetooth_text(self.bluetooth.as_ref()),
             ),
-            (StatusMenu::Sound, status::sound_text(&self.audio)),
         ];
         if let Some(battery) = status::battery_item(self.power.as_ref()) {
             items.push((StatusMenu::Battery, battery));
@@ -2244,8 +2247,9 @@ mod tests {
         let bar = bar();
         let items: Vec<String> = bar.status_rects().into_iter().map(|(_, _, t)| t).collect();
         assert_eq!(items[1], "Network unavailable");
-        assert_eq!(items[2], "…", "Bluetooth is read when its popover opens");
-        assert_eq!(items[3], "—");
+        assert_eq!(items[1], "Network unavailable");
+        assert_eq!(items[2], "—");
+        assert_eq!(items[3], "…", "Bluetooth is read when its popover opens");
         assert_eq!(items[4], "", "the bell shows no count without notices");
         assert_eq!(items.len(), 5, "no battery item without a battery");
         let (lines, _) = bar.status_menu(StatusMenu::Sound);
