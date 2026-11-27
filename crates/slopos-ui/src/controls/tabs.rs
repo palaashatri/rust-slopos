@@ -394,7 +394,7 @@ mod tests {
     fn painting_fills_the_selected_tab_differently_from_the_others() {
         let surface = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
         surface.clear(Color::WHITE).unwrap();
-        let mut strip = strip();
+        let strip = strip();
         strip.paint(&surface, &Font::system(12.0)).unwrap();
         // Probe inside each tab's top-left corner, clear of the border and the label.
         assert_eq!(surface.pixel(12, 12), Some(opaque(palette().content)));
@@ -406,14 +406,22 @@ mod tests {
         let surface = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
         surface.clear(Color::WHITE).unwrap();
         let mut strip = strip();
+        // Sample the whole first tab: the ring's dots sit on alternating rows and
+        // columns, so a single probe line can miss them entirely.
+        let sample = |surface: &RasterSurface| -> Vec<Option<u32>> {
+            (10..60)
+                .flat_map(|x| (10..34).map(move |y| (x, y)))
+                .map(|(x, y)| surface.pixel(x, y))
+                .collect()
+        };
         strip.focused = false;
         strip.paint(&surface, &Font::system(12.0)).unwrap();
-        let unfocused: Vec<Option<u32>> = (13..17).map(|x| surface.pixel(x, 22)).collect();
+        let unfocused = sample(&surface);
 
         surface.clear(Color::WHITE).unwrap();
         strip.focused = true;
         strip.paint(&surface, &Font::system(12.0)).unwrap();
-        let focused: Vec<Option<u32>> = (13..17).map(|x| surface.pixel(x, 22)).collect();
+        let focused = sample(&surface);
         assert_ne!(unfocused, focused);
     }
 
@@ -421,7 +429,7 @@ mod tests {
     fn painting_at_two_scales_puts_the_selected_fill_at_the_scaled_position() {
         let surface = RasterSurface::new(340, 48, Scale::new(2).unwrap()).unwrap();
         surface.clear(Color::WHITE).unwrap();
-        let mut strip = strip();
+        let strip = strip();
         strip.paint(&surface, &Font::system(12.0)).unwrap();
         // The logical probe (12, 12) is device (24, 24) at scale 2.
         assert_eq!(surface.pixel(24, 24), Some(opaque(palette().content)));
