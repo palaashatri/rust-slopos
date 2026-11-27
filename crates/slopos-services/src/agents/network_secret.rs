@@ -18,8 +18,8 @@ use zbus::{
 };
 
 use super::{
-    close, next_prompt_id, register_while_owned, show, AgentError, DialogAnswer, DialogSpec,
-    FieldKind, FieldSpec, Presenter, PromptOutcome, Secret, AGENT_IDENTIFIER,
+    close, next_prompt_id, register_while_owned, sender_of, show, AgentError, DialogAnswer,
+    DialogSpec, FieldKind, FieldSpec, Presenter, PromptOutcome, Secret, AGENT_IDENTIFIER,
 };
 
 pub const AGENT_PATH: &str = "/org/freedesktop/NetworkManager/SecretAgent";
@@ -30,7 +30,11 @@ const MANAGER_INTERFACE: &str = "org.freedesktop.NetworkManager.AgentManager";
 pub const WIRELESS_SECURITY: &str = "802-11-wireless-security";
 pub const VPN: &str = "vpn";
 const PSK_KEY: &str = "psk";
+const KEY_MGMT: &str = "key-mgmt";
 const VPN_PASSWORD_KEY: &str = "password";
+/// Key-management modes that take a pre-shared key: WPA-PSK and WPA3-SAE.
+/// `none` (WEP) and the 802.1X modes are refused.
+const PSK_KEY_MGMT: [&str; 2] = ["wpa-psk", "sae"];
 
 /// `NMSecretAgentGetSecretsFlags`.
 const FLAG_ALLOW_INTERACTION: u32 = 0x1;
@@ -61,6 +65,9 @@ pub struct SecretRequest {
     pub setting: String,
     pub hints: Vec<String>,
     pub flags: SecretFlags,
+    /// The `key-mgmt` of the connection's Wi-Fi security setting, if it has
+    /// one. It decides whether the request is for a pre-shared key.
+    pub key_mgmt: Option<String>,
 }
 
 impl SecretRequest {
@@ -73,12 +80,14 @@ impl SecretRequest {
     ) -> Self {
         let connection_id = setting_string(connection, "connection", "id")
             .unwrap_or_else(|| connection_path.to_owned());
+        let key_mgmt = setting_string(connection, WIRELESS_SECURITY, KEY_MGMT);
         Self {
             connection_path: connection_path.to_owned(),
             connection_id,
             setting: setting.to_owned(),
             hints,
             flags,
+            key_mgmt,
         }
     }
 }
@@ -95,14 +104,26 @@ pub enum SecretKind {
 pub enum SecretRefusal {
     /// NetworkManager did not allow interaction.
     NoInteraction,
-    /// The setting or its hints name a secret this agent cannot supply
-    /// (for example 802.1X certificates or WEP keys).
+    /// The setting, its hints or its key management name a secret this agent
+    /// cannot supply (for example 802.1X certificates, WEP keys, or a Wi-Fi
+    /// profile without a pre-shared key).
     Unsupported,
 }
 
 /// Map a request to the dialog that asks for its secret.
 pub fn prompt_for(request: &SecretRequest) -> Result<(SecretKind, DialogSpec), SecretRefusal> {
     let kind = secret_kind(&request.setting, &request.hints).ok_or(SecretRefusal::Unsupported)?;
+    if kind == SecretKind::WifiPsk {
+        // Hints alone cannot tell a WEP profile from a WPA one, so the
+        // connection's key management decides.
+        let psk = request
+            .key_mgmt
+            .as_deref()
+            .is_some_and(|mode| PSK_KEY_MGMT.contains(&mode));
+        if !psk {
+            return Err(SecretRefusal::Unsupported);
+        }
+    }
     if !request.flags.allow_interaction() {
         return Err(SecretRefusal::NoInteraction);
     }
@@ -110,11 +131,13 @@ pub fn prompt_for(request: &SecretRequest) -> Result<(SecretKind, DialogSpec), S
     let spec = match kind {
         SecretKind::WifiPsk => DialogSpec {
             title: "Wi-Fi password".into(),
-            message: format!("Enter the password for the Wi-Fi network \"{name}\"."),
+            message: format!(
+                "Enter the password for the Wi-Fi network \"{name}\" (8 to 63 bytes, or 64 hex digits)."
+            ),
             buttons: vec!["Cancel".into(), "Connect".into()],
             field: Some(FieldSpec {
                 label: "Password".into(),
-                kind: FieldKind::Secret,
+                kind: FieldKind::WpaPassphrase,
                 min_len: 8,
                 max_len: 64,
             }),
@@ -135,6 +158,7 @@ pub fn prompt_for(request: &SecretRequest) -> Result<(SecretKind, DialogSpec), S
 }
 
 fn secret_kind(setting: &str, hints: &[String]) -> Option<SecretKind> {
+    // An empty hint list is valid for a PSK profile.
     let hinted = |name: &str| hints.is_empty() || hints.iter().any(|hint| hint == name);
     match setting {
         WIRELESS_SECURITY if hinted(PSK_KEY) => Some(SecretKind::WifiPsk),
@@ -143,11 +167,13 @@ fn secret_kind(setting: &str, hints: &[String]) -> Option<SecretKind> {
     }
 }
 
-/// Whether `text` is an acceptable answer for `kind`: a WPA passphrase of
-/// 8 to 63 characters or 64 hex digits, or a non-empty VPN password.
+/// Whether `text` is an acceptable answer for `kind`: a WPA passphrase
+/// (8 to 63 bytes, or 64 hex digits) or a non-empty VPN password. The Wi-Fi
+/// rule is the field's own rule, so the host's Connect check and this check
+/// cannot disagree.
 pub fn valid_answer(kind: SecretKind, text: &str) -> bool {
     match kind {
-        SecretKind::WifiPsk => crate::network::valid_wpa_passphrase(text),
+        SecretKind::WifiPsk => FieldKind::WpaPassphrase.accepts(text),
         SecretKind::VpnPassword => !text.is_empty(),
     }
 }
@@ -210,31 +236,49 @@ pub fn secrets_reply(kind: SecretKind, secret: &Secret) -> zbus::zvariant::Resul
     Ok(reply)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingRequest {
+    id: u64,
+    /// The unique bus name of the NetworkManager owner that asked.
+    owner: String,
+}
+
 /// Requests still waiting for a dialog answer, one per connection and
 /// setting.
 #[derive(Debug, Default)]
 pub struct SecretRequests {
-    pending: HashMap<(String, String), u64>,
+    pending: HashMap<(String, String), PendingRequest>,
 }
 
 impl SecretRequests {
-    /// Record a request. Returns false when one is already open for the same
-    /// connection and setting.
-    pub fn begin(&mut self, connection_path: &str, setting: &str, id: u64) -> bool {
+    /// Record a request from `owner`. Returns false when one is already open
+    /// for the same connection and setting.
+    pub fn begin(&mut self, connection_path: &str, setting: &str, id: u64, owner: &str) -> bool {
         let key = (connection_path.to_owned(), setting.to_owned());
         if self.pending.contains_key(&key) {
             return false;
         }
-        self.pending.insert(key, id);
+        self.pending.insert(
+            key,
+            PendingRequest {
+                id,
+                owner: owner.to_owned(),
+            },
+        );
         true
     }
 
-    /// Forget dialog `id` once it has been answered or closed. A stale id
-    /// (superseded by a newer request) changes nothing.
-    pub fn finish(&mut self, connection_path: &str, setting: &str, id: u64) {
+    /// Forget dialog `id` once it has been answered or closed. Returns false
+    /// when the request is no longer open (it was cancelled, or its owner
+    /// went away), so a late answer must not be returned. A stale id changes
+    /// nothing.
+    pub fn finish(&mut self, connection_path: &str, setting: &str, id: u64) -> bool {
         let key = (connection_path.to_owned(), setting.to_owned());
-        if self.pending.get(&key) == Some(&id) {
+        if self.pending.get(&key).is_some_and(|open| open.id == id) {
             self.pending.remove(&key);
+            true
+        } else {
+            false
         }
     }
 
@@ -243,6 +287,22 @@ impl SecretRequests {
     pub fn cancel(&mut self, connection_path: &str, setting: &str) -> Option<u64> {
         self.pending
             .remove(&(connection_path.to_owned(), setting.to_owned()))
+            .map(|open| open.id)
+    }
+
+    /// Remove every request from `owner` and return their dialog ids to
+    /// close. Used when that NetworkManager owner goes away or is replaced.
+    pub fn cancel_owner(&mut self, owner: &str) -> Vec<u64> {
+        let mut closing = Vec::new();
+        self.pending.retain(|_, open| {
+            if open.owner == owner {
+                closing.push(open.id);
+                false
+            } else {
+                true
+            }
+        });
+        closing
     }
 
     pub fn len(&self) -> usize {
@@ -294,18 +354,26 @@ impl NetworkSecretAgent {
             pending: Arc::new(Mutex::new(SecretRequests::default())),
         }
     }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, SecretRequests> {
+        self.pending
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
 }
 
 #[zbus::interface(name = "org.freedesktop.NetworkManager.SecretAgent")]
 impl NetworkSecretAgent {
     async fn get_secrets(
         &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
         connection: SettingsMap,
         connection_path: OwnedObjectPath,
         setting_name: String,
         hints: Vec<String>,
         flags: u32,
     ) -> Result<SettingsMap, SecretAgentError> {
+        let owner = sender_of(&header);
         let request = SecretRequest::new(
             &connection,
             connection_path.as_str(),
@@ -322,21 +390,25 @@ impl NetworkSecretAgent {
             }
         })?;
         let id = next_prompt_id();
-        let opened = self
-            .pending
+        if !self
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .begin(&request.connection_path, &request.setting, id);
-        if !opened {
+            .begin(&request.connection_path, &request.setting, id, &owner)
+        {
             return Err(SecretAgentError::InternalError(
                 "a request for this connection is already open".into(),
             ));
         }
         let outcome = show(&self.presenter, id, spec).await;
-        self.pending
+        // A request cancelled meanwhile (CancelGetSecrets, or its owner going
+        // away) gets no secret, even if the host answered in time.
+        let still_open = self
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
             .finish(&request.connection_path, &request.setting, id);
+        let outcome = if still_open {
+            outcome
+        } else {
+            PromptOutcome::Cancelled
+        };
         let secret = secret_outcome(kind, outcome)?;
         secrets_reply(kind, &secret)
             .map_err(|error| SecretAgentError::InternalError(error.to_string()))
@@ -347,11 +419,7 @@ impl NetworkSecretAgent {
         connection_path: OwnedObjectPath,
         setting_name: String,
     ) -> Result<(), SecretAgentError> {
-        let closing = self
-            .pending
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .cancel(connection_path.as_str(), &setting_name);
+        let closing = self.lock().cancel(connection_path.as_str(), &setting_name);
         if let Some(id) = closing {
             close(&self.presenter, id).await;
         }
@@ -377,13 +445,35 @@ impl NetworkSecretAgent {
 }
 
 /// Serve the agent on `system` and register it with NetworkManager whenever
-/// NetworkManager has an owner.
+/// NetworkManager has an owner. Open requests are cancelled when that owner
+/// goes away or is replaced.
 pub async fn serve(system: &Connection, presenter: Presenter) -> Result<(), AgentError> {
-    system
-        .object_server()
-        .at(AGENT_PATH, NetworkSecretAgent::new(presenter))
-        .await?;
-    register_while_owned(system, MANAGER_SERVICE, || register(system)).await
+    let agent = NetworkSecretAgent::new(presenter.clone());
+    let pending = agent.pending.clone();
+    if !system.object_server().at(AGENT_PATH, agent).await? {
+        return Err(AgentError::Bus(zbus::Error::Failure(format!(
+            "{AGENT_PATH} is already served"
+        ))));
+    }
+    register_while_owned(
+        system,
+        MANAGER_SERVICE,
+        || register(system),
+        move |owner| {
+            let pending = pending.clone();
+            let presenter = presenter.clone();
+            async move {
+                let closing = pending
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .cancel_owner(&owner);
+                for id in closing {
+                    close(&presenter, id).await;
+                }
+            }
+        },
+    )
+    .await
 }
 
 /// Call `AgentManager.Register` on NetworkManager.

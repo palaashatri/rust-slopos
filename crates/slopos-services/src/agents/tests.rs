@@ -6,11 +6,17 @@ use std::{
     collections::HashMap,
     io::BufRead,
     process::{Child, Command, Stdio},
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     time::Duration,
 };
 
-use tokio::sync::{mpsc, oneshot};
+use tokio::{
+    sync::{mpsc, oneshot},
+    time::timeout,
+};
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 
 use super::PromptOutcome;
@@ -22,7 +28,8 @@ use super::{
         self, NetworkSecretAgent, SecretFailure, SecretFlags, SecretKind, SecretRefusal,
         SecretRequest, SecretRequests, SettingsMap,
     },
-    DialogAnswer, DialogSpec, Presenter, PromptCommand, Secret, AGENT_IDENTIFIER,
+    register_while_owned, serve_session_agents_on, AgentError, DialogAnswer, DialogSpec, FieldKind,
+    FieldSpec, Presenter, PromptCommand, Secret, AGENT_IDENTIFIER,
 };
 
 const WIFI: &str = "802-11-wireless-security";
@@ -46,6 +53,7 @@ fn wifi_request(flags: u32) -> SecretRequest {
         setting: WIFI.into(),
         hints: vec!["psk".into()],
         flags: SecretFlags::from_raw(flags),
+        key_mgmt: Some("wpa-psk".into()),
     }
 }
 
@@ -170,24 +178,127 @@ fn reply_nests_the_secret_under_the_setting_nm_asked_about() {
 #[test]
 fn open_requests_are_unique_per_connection_and_setting() {
     let mut requests = SecretRequests::default();
-    assert!(requests.begin(CONNECTION_PATH, WIFI, 1));
+    assert!(requests.begin(CONNECTION_PATH, WIFI, 1, ":1.10"));
     assert!(
-        !requests.begin(CONNECTION_PATH, WIFI, 2),
+        !requests.begin(CONNECTION_PATH, WIFI, 2, ":1.10"),
         "duplicate refused"
     );
     assert!(
-        requests.begin(CONNECTION_PATH, "vpn", 3),
+        requests.begin(CONNECTION_PATH, "vpn", 3, ":1.10"),
         "other setting allowed"
     );
 
-    // A stale id from a superseded request changes nothing.
-    requests.finish(CONNECTION_PATH, WIFI, 99);
+    // A stale id from a superseded request changes nothing, and is not a
+    // late answer that may be returned.
+    assert!(!requests.finish(CONNECTION_PATH, WIFI, 99));
     assert_eq!(requests.len(), 2);
 
     assert_eq!(requests.cancel(CONNECTION_PATH, WIFI), Some(1));
     assert_eq!(requests.cancel(CONNECTION_PATH, WIFI), None);
-    requests.finish(CONNECTION_PATH, "vpn", 3);
+    assert!(
+        !requests.finish(CONNECTION_PATH, WIFI, 1),
+        "cancelled, so late"
+    );
+    assert!(requests.finish(CONNECTION_PATH, "vpn", 3));
     assert!(requests.is_empty());
+}
+
+#[test]
+fn a_departed_networkmanager_owner_cancels_only_its_own_requests() {
+    let mut requests = SecretRequests::default();
+    assert!(requests.begin(CONNECTION_PATH, WIFI, 1, ":1.10"));
+    assert!(requests.begin(CONNECTION_PATH, "vpn", 2, ":1.11"));
+
+    assert_eq!(requests.cancel_owner(":1.10"), vec![1]);
+    assert!(
+        !requests.finish(CONNECTION_PATH, WIFI, 1),
+        "its answer is late"
+    );
+    assert!(
+        requests.finish(CONNECTION_PATH, "vpn", 2),
+        "other owner keeps its request"
+    );
+    assert!(requests.is_empty());
+}
+
+#[test]
+fn wifi_profiles_are_refused_unless_they_use_a_preshared_key() {
+    let with_mode = |mode: Option<&str>, hints: Vec<&str>| {
+        let mut request = wifi_request(0x1);
+        request.key_mgmt = mode.map(str::to_owned);
+        request.hints = hints.into_iter().map(str::to_owned).collect();
+        network_secret::prompt_for(&request).map(|(kind, _)| kind)
+    };
+    assert_eq!(
+        with_mode(Some("wpa-psk"), vec!["psk"]),
+        Ok(SecretKind::WifiPsk)
+    );
+    assert_eq!(with_mode(Some("sae"), vec![]), Ok(SecretKind::WifiPsk));
+    assert_eq!(
+        with_mode(Some("wpa-psk"), vec![]),
+        Ok(SecretKind::WifiPsk),
+        "empty hints are valid for a PSK profile"
+    );
+    // WEP: key-mgmt "none" with an empty hint list used to open a PSK dialog.
+    assert_eq!(
+        with_mode(Some("none"), vec![]),
+        Err(SecretRefusal::Unsupported)
+    );
+    assert_eq!(
+        with_mode(Some("none"), vec!["wep-key0"]),
+        Err(SecretRefusal::Unsupported)
+    );
+    // Enterprise profiles and profiles without key management are refused.
+    assert_eq!(
+        with_mode(Some("wpa-eap"), vec![]),
+        Err(SecretRefusal::Unsupported)
+    );
+    assert_eq!(
+        with_mode(Some("ieee8021x"), vec![]),
+        Err(SecretRefusal::Unsupported)
+    );
+    assert_eq!(with_mode(None, vec![]), Err(SecretRefusal::Unsupported));
+}
+
+#[test]
+fn the_wifi_connect_check_is_the_same_rule_as_the_answer_check() {
+    let (_, spec) = network_secret::prompt_for(&wifi_request(0x1)).unwrap();
+    let field = spec.field.unwrap();
+    assert_eq!(field.kind, FieldKind::WpaPassphrase);
+    // Sixty-four characters that are not hex: Connect stays disabled, and the
+    // agent refuses the same text.
+    let not_hex = "x".repeat(64);
+    assert!(!field.accepts(&not_hex));
+    assert!(!network_secret::valid_answer(SecretKind::WifiPsk, &not_hex));
+    let hex = "ab".repeat(32);
+    assert!(field.accepts(&hex));
+    assert!(network_secret::valid_answer(SecretKind::WifiPsk, &hex));
+    // Eight to sixty-three bytes: 31 two-byte characters is 62 bytes.
+    let multibyte = "é".repeat(31);
+    assert!(field.accepts(&multibyte));
+    assert!(network_secret::valid_answer(
+        SecretKind::WifiPsk,
+        &multibyte
+    ));
+    // Thirty-two two-byte characters are 64 bytes, not a hex key.
+    let too_long = "é".repeat(32);
+    assert!(!field.accepts(&too_long));
+    assert!(!network_secret::valid_answer(
+        SecretKind::WifiPsk,
+        &too_long
+    ));
+}
+
+#[test]
+fn field_limits_count_bytes() {
+    let pin = FieldSpec {
+        label: "PIN".into(),
+        kind: FieldKind::Secret,
+        min_len: 1,
+        max_len: 16,
+    };
+    assert!(pin.accepts(&"é".repeat(8)));
+    assert!(!pin.accepts(&"é".repeat(9)));
 }
 
 #[test]
@@ -238,6 +349,9 @@ fn pin_and_passkey_validation() {
     assert!(bluez::valid_pin("0000"));
     assert!(!bluez::valid_pin(""));
     assert!(!bluez::valid_pin(&"1".repeat(17)));
+    // Nine copies of "é" are 18 bytes, which BlueZ rejects.
+    assert!(!bluez::valid_pin(&"é".repeat(9)));
+    assert!(bluez::valid_pin(&"é".repeat(8)), "16 bytes is the limit");
     assert_eq!(bluez::parse_passkey("123456"), Some(123_456));
     assert_eq!(bluez::parse_passkey("000000"), Some(0));
     assert_eq!(bluez::parse_passkey("12345"), None);
@@ -378,16 +492,65 @@ fn interactive_answers_map_to_bluez_replies_and_errors() {
 #[test]
 fn only_one_interactive_dialog_is_open_and_displays_are_replaced() {
     let mut dialogs = PairingDialogs::default();
-    assert_eq!(dialogs.begin(1, Interaction::Answer), Ok(None));
-    assert_eq!(dialogs.begin(2, Interaction::Answer), Err(bluez::Busy));
-    dialogs.finish(2);
-    dialogs.finish(1);
+    assert_eq!(dialogs.begin(1, Interaction::Answer, ":1.5"), Ok(None));
+    assert_eq!(
+        dialogs.begin(2, Interaction::Answer, ":1.5"),
+        Err(bluez::Busy)
+    );
+    assert!(!dialogs.finish(2));
+    assert!(dialogs.finish(1));
 
-    assert_eq!(dialogs.begin(3, Interaction::Display), Ok(None));
-    assert_eq!(dialogs.begin(4, Interaction::Display), Ok(Some(3)));
-    assert_eq!(dialogs.begin(5, Interaction::Answer), Ok(Some(4)));
-    dialogs.finish(4); // stale: changes nothing
+    assert_eq!(dialogs.begin(3, Interaction::Display, ":1.5"), Ok(None));
+    assert_eq!(dialogs.begin(4, Interaction::Display, ":1.5"), Ok(Some(3)));
+    assert_eq!(dialogs.begin(5, Interaction::Answer, ":1.5"), Ok(Some(4)));
+    assert!(!dialogs.finish(4)); // stale: changes nothing
     assert_eq!(dialogs.cancel(), Some(5));
+    assert_eq!(dialogs.cancel(), None);
+}
+
+#[test]
+fn an_older_request_cannot_claim_the_slot_after_a_newer_one() {
+    // Lookups finish in any order, so a display update that started first
+    // must not replace the newer one.
+    let mut dialogs = PairingDialogs::default();
+    assert_eq!(dialogs.begin(10, Interaction::Display, ":1.5"), Ok(None));
+    assert_eq!(
+        dialogs.begin(9, Interaction::Display, ":1.5"),
+        Err(bluez::Busy)
+    );
+    assert!(dialogs.owns(10));
+    assert!(!dialogs.owns(9));
+    // The older one is refused even after the newer one has finished.
+    dialogs.cancel();
+    assert_eq!(
+        dialogs.begin(9, Interaction::Answer, ":1.5"),
+        Err(bluez::Busy)
+    );
+}
+
+#[test]
+fn a_request_must_still_own_the_slot_before_it_is_shown() {
+    let mut dialogs = PairingDialogs::default();
+    assert_eq!(dialogs.begin(1, Interaction::Answer, ":1.5"), Ok(None));
+    // Cancel arrives while the label is being looked up.
+    assert_eq!(dialogs.cancel(), Some(1));
+    assert!(!dialogs.owns(1));
+    assert!(
+        !dialogs.finish(1),
+        "a cancelled request gives a late answer no effect"
+    );
+}
+
+#[test]
+fn a_departed_bluez_owner_closes_only_its_own_dialog() {
+    let mut dialogs = PairingDialogs::default();
+    assert_eq!(dialogs.begin(1, Interaction::Display, ":1.20"), Ok(None));
+    assert_eq!(
+        dialogs.cancel_owner(":1.21"),
+        None,
+        "another owner's dialog stays"
+    );
+    assert_eq!(dialogs.cancel_owner(":1.20"), Some(1));
     assert_eq!(dialogs.cancel(), None);
 }
 
@@ -526,10 +689,22 @@ impl FakeNetworkManager {
     }
 }
 
+/// BlueZ's errors, as the fake manager returns them.
+#[derive(Debug, zbus::DBusError)]
+#[zbus(prefix = "org.bluez.Error")]
+enum FakeBluezError {
+    #[zbus(error)]
+    ZBus(zbus::Error),
+    AlreadyExists(String),
+    Failed(String),
+}
+
 #[derive(Clone, Default)]
 struct FakeBluez {
     registrations: Arc<Mutex<Vec<(String, String, String)>>>,
     defaults: Arc<Mutex<Vec<String>>>,
+    /// Makes `RequestDefaultAgent` fail, as BlueZ does while it is busy.
+    fail_default: Arc<AtomicBool>,
 }
 
 #[zbus::interface(name = "org.bluez.AgentManager1")]
@@ -539,24 +714,39 @@ impl FakeBluez {
         #[zbus(header)] header: zbus::message::Header<'_>,
         agent: OwnedObjectPath,
         capability: String,
-    ) {
+    ) -> Result<(), FakeBluezError> {
         let sender = header.sender().map(ToString::to_string).unwrap_or_default();
-        self.registrations
-            .lock()
-            .unwrap()
-            .push((sender, agent.to_string(), capability));
+        let mut registrations = self.registrations.lock().unwrap();
+        if registrations
+            .iter()
+            .any(|(_, path, _)| *path == agent.as_str())
+        {
+            return Err(FakeBluezError::AlreadyExists("already registered".into()));
+        }
+        registrations.push((sender, agent.to_string(), capability));
+        Ok(())
     }
 
-    async fn request_default_agent(&self, agent: OwnedObjectPath) {
+    async fn request_default_agent(&self, agent: OwnedObjectPath) -> Result<(), FakeBluezError> {
+        if self.fail_default.load(Ordering::SeqCst) {
+            return Err(FakeBluezError::Failed("busy".into()));
+        }
         self.defaults.lock().unwrap().push(agent.to_string());
+        Ok(())
     }
 }
 
 fn wifi_connection() -> SettingsMap {
-    HashMap::from([(
-        "connection".to_owned(),
-        HashMap::from([("id".to_owned(), owned("Home"))]),
-    )])
+    HashMap::from([
+        (
+            "connection".to_owned(),
+            HashMap::from([("id".to_owned(), owned("Home"))]),
+        ),
+        (
+            WIFI.to_owned(),
+            HashMap::from([("key-mgmt".to_owned(), owned("wpa-psk"))]),
+        ),
+    ])
 }
 
 /// A fake NetworkManager on the private bus plus an agent connection that
@@ -948,6 +1138,8 @@ async fn bluez_display_requests_return_at_once_and_stay_open_until_cancel() {
         .call("DisplayPasskey", &(&device, 123_456u32, 0u16))
         .await
         .unwrap();
+    // The call returns once the dialog is queued, so wait for the host to record it.
+    wait_until(|| host.shown_count() == 1).await;
     let (dialog_id, spec) = host.last_shown();
     assert!(spec.message.contains("123456"));
     assert_eq!(spec.buttons, ["Close"]);
@@ -968,6 +1160,7 @@ async fn bluez_display_pin_code_is_closed_by_release() {
         .call("DisplayPinCode", &(&device, "4321"))
         .await
         .unwrap();
+    wait_until(|| host.shown_count() == 1).await;
     assert!(host.last_shown().1.message.contains("4321"));
     let (dialog_id, _) = host.last_shown();
     let _: () = proxy.call("Release", &()).await.unwrap();
@@ -1014,4 +1207,156 @@ async fn bluez_pairing_without_a_host_is_rejected_and_release_succeeds() {
     let result: Result<u32, zbus::Error> = proxy.call("RequestPasskey", &(&device,)).await;
     assert_eq!(error_name(&result.unwrap_err()), "org.bluez.Error.Rejected");
     let _: () = proxy.call("Release", &()).await.unwrap();
+}
+
+#[tokio::test]
+async fn bluez_display_pin_code_is_rejected_when_no_host_can_show_it() {
+    let (presenter, receiver) = mpsc::channel::<PromptCommand>(1);
+    drop(receiver);
+    let fixture = bluez_fixture(presenter).await;
+    let (client, agent) = (fixture.client.clone(), fixture.agent.clone());
+    let proxy = bluez_proxy(&client, &agent).await;
+    let device = owned_path(DEVICE_PATH);
+
+    let result: Result<(), zbus::Error> = proxy.call("DisplayPinCode", &(&device, "4321")).await;
+    assert_eq!(error_name(&result.unwrap_err()), "org.bluez.Error.Rejected");
+}
+
+#[tokio::test]
+async fn bluez_register_treats_already_registered_as_success_and_still_requests_default() {
+    let (presenter, _host) = spawn_host(|_| None);
+    let fixture = bluez_fixture(presenter).await;
+    let (agent, fake) = (fixture.agent.clone(), fixture.fake.clone());
+
+    bluez::register(&agent)
+        .await
+        .expect("AlreadyExists is not an error");
+    assert_eq!(
+        fake.registrations.lock().unwrap().len(),
+        1,
+        "not registered twice"
+    );
+    assert_eq!(
+        fake.defaults.lock().unwrap().len(),
+        2,
+        "the default step runs again"
+    );
+}
+
+#[tokio::test]
+async fn bluez_register_reports_a_failed_default_step() {
+    let (presenter, _host) = spawn_host(|_| None);
+    let fixture = bluez_fixture(presenter).await;
+    let (agent, fake) = (fixture.agent.clone(), fixture.fake.clone());
+
+    fake.fail_default.store(true, Ordering::SeqCst);
+    let error = bluez::register(&agent).await.unwrap_err();
+    assert_eq!(error_name(&error), "org.bluez.Error.Failed");
+}
+
+async fn private_connection(address: &str) -> zbus::Connection {
+    zbus::connection::Builder::address(address)
+        .unwrap()
+        .build()
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn register_while_owned_reports_a_departed_owner_by_unique_name() {
+    let (_bus, address) = private_bus();
+    let watcher = private_connection(&address).await;
+    let owner = private_connection(&address).await;
+    owner.request_name("org.slopos.Test.Owner").await.unwrap();
+    let owner_name = owner.unique_name().unwrap().to_string();
+
+    let (registered_tx, mut registered_rx) = mpsc::channel::<()>(4);
+    let (lost_tx, mut lost_rx) = mpsc::channel::<String>(4);
+    let task = tokio::spawn({
+        let watcher = watcher.clone();
+        async move {
+            register_while_owned(
+                &watcher,
+                "org.slopos.Test.Owner",
+                move || {
+                    let tx = registered_tx.clone();
+                    async move {
+                        let _ = tx.send(()).await;
+                        Ok(())
+                    }
+                },
+                move |name: String| {
+                    let tx = lost_tx.clone();
+                    async move {
+                        let _ = tx.send(name).await;
+                    }
+                },
+            )
+            .await
+        }
+    });
+    // The first registration runs after the owner-change subscription, so a
+    // departure from here on is seen.
+    timeout(Duration::from_secs(5), registered_rx.recv())
+        .await
+        .expect("the owner is registered for")
+        .expect("the registration ran");
+    drop(owner);
+    let lost = timeout(Duration::from_secs(5), lost_rx.recv())
+        .await
+        .expect("the owner's departure is reported")
+        .expect("the loop is still running");
+    assert_eq!(lost, owner_name);
+    task.abort();
+}
+
+#[tokio::test]
+async fn register_while_owned_neither_registers_nor_starts_an_absent_service() {
+    let (_bus, address) = private_bus();
+    let watcher = private_connection(&address).await;
+    let calls = Arc::new(Mutex::new(0));
+    let counter = calls.clone();
+    let waited = timeout(
+        Duration::from_millis(300),
+        register_while_owned(
+            &watcher,
+            "org.slopos.Test.Absent",
+            move || {
+                *counter.lock().unwrap() += 1;
+                async { Ok(()) }
+            },
+            |_name: String| async {},
+        ),
+    )
+    .await;
+    assert!(waited.is_err(), "the loop keeps waiting for an owner");
+    assert_eq!(
+        *calls.lock().unwrap(),
+        0,
+        "no registration without an owner"
+    );
+}
+
+#[tokio::test]
+async fn a_failed_agent_is_reported_without_waiting_for_the_other() {
+    let (_bus, address) = private_bus();
+    let system = private_connection(&address).await;
+    let (presenter, _host) = spawn_host(|_| None);
+    // Another object already holds NetworkManager's agent path, so that
+    // agent's serve fails at once while BlueZ's stays healthy.
+    system
+        .object_server()
+        .at(
+            network_secret::AGENT_PATH,
+            NetworkSecretAgent::new(presenter.clone()),
+        )
+        .await
+        .unwrap();
+    let result = timeout(
+        Duration::from_secs(5),
+        serve_session_agents_on(&system, presenter),
+    )
+    .await
+    .expect("the NetworkManager failure is reported, not held back by BlueZ");
+    assert!(matches!(result, Err(AgentError::Bus(_))));
 }

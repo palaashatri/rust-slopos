@@ -3,7 +3,8 @@
 //! BlueZ calls [`BluezAgent`] during pairing. PIN and passkey entry, and
 //! confirmation and authorization, are answered in a dialog. A passkey that
 //! must be typed on the device is shown in a dialog that stays open until
-//! BlueZ calls `Cancel` (or the user closes it).
+//! BlueZ calls `Cancel` (or the user closes it), until a newer request
+//! replaces it, or until the BlueZ owner that opened it goes away.
 
 use std::{
     sync::{Arc, Mutex},
@@ -13,8 +14,8 @@ use std::{
 use zbus::{zvariant::OwnedObjectPath, Connection};
 
 use super::{
-    close, next_prompt_id, register_while_owned, show, show_detached, AgentError, DialogAnswer,
-    DialogSpec, FieldKind, FieldSpec, Presenter, PromptOutcome, Secret,
+    close, next_prompt_id, register_while_owned, sender_of, show, show_detached, AgentError,
+    DialogAnswer, DialogSpec, FieldKind, FieldSpec, Presenter, PromptOutcome, Secret,
 };
 
 pub const AGENT_PATH: &str = "/org/slopos/BluezAgent";
@@ -24,7 +25,10 @@ const SERVICE: &str = "org.bluez";
 const MANAGER_PATH: &str = "/org/bluez";
 const MANAGER_INTERFACE: &str = "org.bluez.AgentManager1";
 const DEVICE_INTERFACE: &str = "org.bluez.Device1";
+/// BlueZ refuses a second `RegisterAgent` for an agent it already has.
+const ALREADY_EXISTS: &str = "org.bluez.Error.AlreadyExists";
 const LABEL_TIMEOUT: Duration = Duration::from_secs(2);
+/// BlueZ rejects PIN replies longer than 16 bytes, so the limit is in bytes.
 const PIN_MAX_LEN: usize = 16;
 const PASSKEY_DIGITS: usize = 6;
 
@@ -101,7 +105,7 @@ pub fn pairing_dialog(request: &PairingRequest, device_label: &str) -> DialogSpe
     match request {
         PairingRequest::PinCode { .. } => DialogSpec {
             title,
-            message: format!("Enter the PIN code for {device_label}."),
+            message: format!("Enter the PIN code for {device_label} (1 to 16 bytes)."),
             buttons: vec!["Cancel".into(), "Pair".into()],
             field: Some(FieldSpec {
                 label: "PIN code".into(),
@@ -180,9 +184,9 @@ pub enum PairingFailure {
     Rejected(&'static str),
 }
 
-/// Validate a typed PIN: 1 to 16 characters.
+/// Validate a typed PIN: 1 to 16 bytes.
 pub fn valid_pin(text: &str) -> bool {
-    (1..=PIN_MAX_LEN).contains(&text.chars().count())
+    (1..=PIN_MAX_LEN).contains(&text.len())
 }
 
 /// Parse a passkey: exactly six ASCII digits, value up to 999999.
@@ -241,42 +245,95 @@ pub fn pairing_reply(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OpenDialog {
+    id: u64,
+    interaction: Interaction,
+    /// The unique bus name of the BlueZ owner that opened the dialog.
+    owner: String,
+}
+
 /// Which dialog is open. BlueZ runs one pairing at a time, so the agent
 /// keeps at most one.
 #[derive(Debug, Default)]
 pub struct PairingDialogs {
-    open: Option<(u64, Interaction)>,
+    open: Option<OpenDialog>,
+    /// The newest id that was accepted. Ids come from one counter, so an id
+    /// below this is a request that a newer one has already superseded.
+    latest: u64,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Busy;
 
 impl PairingDialogs {
-    /// Open dialog `id`. A second interactive dialog while one is open is
-    /// refused. A display dialog replaces whatever is open. Returns the id
-    /// of a dialog to close because it was replaced.
-    pub fn begin(&mut self, id: u64, interaction: Interaction) -> Result<Option<u64>, Busy> {
-        match (self.open, interaction) {
-            (Some((_, Interaction::Answer)), Interaction::Answer) => Err(Busy),
-            (open, _) => {
-                let replaced = open.map(|(previous, _)| previous);
-                self.open = Some((id, interaction));
-                Ok(replaced)
-            }
+    /// Claim the slot for dialog `id`. A second interactive dialog while one
+    /// is open is refused, and so is any request older than the newest
+    /// accepted one. A display dialog or a newer interactive request replaces
+    /// whatever is open. Returns the id of a dialog to close because it was
+    /// replaced.
+    pub fn begin(
+        &mut self,
+        id: u64,
+        interaction: Interaction,
+        owner: &str,
+    ) -> Result<Option<u64>, Busy> {
+        if id < self.latest {
+            return Err(Busy);
         }
+        let answer_open = matches!(
+            self.open,
+            Some(OpenDialog {
+                interaction: Interaction::Answer,
+                ..
+            })
+        );
+        if answer_open && interaction == Interaction::Answer {
+            return Err(Busy);
+        }
+        let replaced = self.open.take().map(|open| open.id);
+        self.open = Some(OpenDialog {
+            id,
+            interaction,
+            owner: owner.to_owned(),
+        });
+        self.latest = id;
+        Ok(replaced)
     }
 
-    /// Forget dialog `id` once it is answered. A stale id changes nothing.
-    pub fn finish(&mut self, id: u64) {
-        if matches!(self.open, Some((open, _)) if open == id) {
+    /// Whether dialog `id` still holds the slot. An agent checks this before
+    /// it shows the dialog, because a lookup may have been overtaken by
+    /// Cancel, Release or a newer request.
+    pub fn owns(&self, id: u64) -> bool {
+        self.open.as_ref().is_some_and(|open| open.id == id)
+    }
+
+    /// Forget dialog `id` once it is answered. Returns false when the dialog
+    /// no longer holds the slot, which means it was cancelled or replaced, so
+    /// a late answer must be refused.
+    pub fn finish(&mut self, id: u64) -> bool {
+        if self.owns(id) {
             self.open = None;
+            true
+        } else {
+            false
         }
     }
 
     /// Take the open dialog's id so it can be closed (BlueZ `Cancel` or
     /// `Release`).
     pub fn cancel(&mut self) -> Option<u64> {
-        self.open.take().map(|(id, _)| id)
+        self.open.take().map(|open| open.id)
+    }
+
+    /// Take the open dialog's id when `owner` opened it, for an owner that
+    /// went away or was replaced.
+    pub fn cancel_owner(&mut self, owner: &str) -> Option<u64> {
+        if self.open.as_ref().is_some_and(|open| open.owner == owner) {
+            self.cancel()
+        } else {
+            None
+        }
     }
 }
 
@@ -338,36 +395,66 @@ impl BluezAgent {
     }
 
     /// Ask an interactive request and map the answer to BlueZ's reply.
-    async fn ask(&self, request: PairingRequest) -> Result<PairingReply, BluezError> {
-        let label = self.device_label(device_of(&request)).await;
-        let spec = pairing_dialog(&request, &label);
+    ///
+    /// The slot is claimed before the label lookup, so Cancel and Release
+    /// that arrive during the lookup find this request and end it.
+    async fn ask(&self, owner: &str, request: PairingRequest) -> Result<PairingReply, BluezError> {
         let id = next_prompt_id();
         let replaced = self
             .lock()
-            .begin(id, Interaction::Answer)
+            .begin(id, Interaction::Answer, owner)
             .map_err(|Busy| BluezError::Canceled("another pairing dialog is open".into()))?;
         if let Some(replaced) = replaced {
             close(&self.presenter, replaced).await;
         }
+        let label = self.device_label(device_of(&request)).await;
+        if !self.lock().owns(id) {
+            return Err(BluezError::Canceled("the pairing was cancelled".into()));
+        }
+        let spec = pairing_dialog(&request, &label);
         let outcome = show(&self.presenter, id, spec).await;
-        self.lock().finish(id);
+        if !self.lock().finish(id) {
+            // Cancelled or replaced while the dialog was open: a late answer
+            // is refused.
+            return Err(BluezError::Canceled("the pairing was cancelled".into()));
+        }
         pairing_reply(&request, outcome).map_err(BluezError::from)
     }
 
-    /// Show a display-only request. Its dialog stays open until `Cancel`.
-    async fn display(&self, request: PairingRequest) -> Result<(), BluezError> {
-        let label = self.device_label(device_of(&request)).await;
-        let spec = pairing_dialog(&request, &label);
+    /// Show a display-only request. Its dialog stays open until `Cancel`, a
+    /// newer request replaces it, or its owner goes away.
+    async fn display(&self, owner: &str, request: PairingRequest) -> Result<(), BluezError> {
         let id = next_prompt_id();
-        let replaced = self
-            .lock()
-            .begin(id, Interaction::Display)
-            .map_err(|Busy| BluezError::Canceled("another pairing dialog is open".into()))?;
+        let replaced = match self.lock().begin(id, Interaction::Display, owner) {
+            Ok(replaced) => replaced,
+            // A newer display update has already started, so this one is
+            // superseded and there is nothing to show.
+            Err(Busy) => return Ok(()),
+        };
         if let Some(replaced) = replaced {
             close(&self.presenter, replaced).await;
         }
-        show_detached(&self.presenter, id, spec).await;
-        Ok(())
+        let label = self.device_label(device_of(&request)).await;
+        if !self.lock().owns(id) {
+            return Ok(());
+        }
+        let spec = pairing_dialog(&request, &label);
+        if show_detached(&self.presenter, id, spec).await {
+            Ok(())
+        } else {
+            // No host can draw the value. Release the slot only if it is
+            // still this request's, and tell BlueZ the display failed.
+            self.lock().finish(id);
+            Err(BluezError::Rejected("no dialog is available".into()))
+        }
+    }
+
+    /// Close the open dialog when its BlueZ owner goes away or is replaced.
+    async fn close_owner(&self, owner: &str) {
+        let closing = self.lock().cancel_owner(owner);
+        if let Some(id) = closing {
+            close(&self.presenter, id).await;
+        }
     }
 }
 
@@ -411,11 +498,19 @@ impl BluezAgent {
         }
     }
 
-    async fn request_pin_code(&self, device: OwnedObjectPath) -> Result<String, BluezError> {
+    async fn request_pin_code(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+        device: OwnedObjectPath,
+    ) -> Result<String, BluezError> {
+        let owner = sender_of(&header);
         match self
-            .ask(PairingRequest::PinCode {
-                device: device.to_string(),
-            })
+            .ask(
+                &owner,
+                PairingRequest::PinCode {
+                    device: device.to_string(),
+                },
+            )
             .await?
         {
             PairingReply::Pin(pin) => Ok(pin.expose().to_owned()),
@@ -425,21 +520,34 @@ impl BluezAgent {
 
     async fn display_pin_code(
         &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
         device: OwnedObjectPath,
         pincode: String,
     ) -> Result<(), BluezError> {
-        self.display(PairingRequest::DisplayPinCode {
-            device: device.to_string(),
-            pin: pincode,
-        })
+        let owner = sender_of(&header);
+        self.display(
+            &owner,
+            PairingRequest::DisplayPinCode {
+                device: device.to_string(),
+                pin: pincode,
+            },
+        )
         .await
     }
 
-    async fn request_passkey(&self, device: OwnedObjectPath) -> Result<u32, BluezError> {
+    async fn request_passkey(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+        device: OwnedObjectPath,
+    ) -> Result<u32, BluezError> {
+        let owner = sender_of(&header);
         match self
-            .ask(PairingRequest::Passkey {
-                device: device.to_string(),
-            })
+            .ask(
+                &owner,
+                PairingRequest::Passkey {
+                    device: device.to_string(),
+                },
+            )
             .await?
         {
             PairingReply::Passkey(passkey) => Ok(passkey),
@@ -449,48 +557,71 @@ impl BluezAgent {
 
     async fn display_passkey(
         &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
         device: OwnedObjectPath,
         passkey: u32,
         entered: u16,
     ) -> Result<(), BluezError> {
-        self.display(PairingRequest::DisplayPasskey {
-            device: device.to_string(),
-            passkey,
-            entered,
-        })
+        let owner = sender_of(&header);
+        self.display(
+            &owner,
+            PairingRequest::DisplayPasskey {
+                device: device.to_string(),
+                passkey,
+                entered,
+            },
+        )
         .await
     }
 
     async fn request_confirmation(
         &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
         device: OwnedObjectPath,
         passkey: u32,
     ) -> Result<(), BluezError> {
-        self.ask(PairingRequest::Confirmation {
-            device: device.to_string(),
-            passkey,
-        })
+        let owner = sender_of(&header);
+        self.ask(
+            &owner,
+            PairingRequest::Confirmation {
+                device: device.to_string(),
+                passkey,
+            },
+        )
         .await
         .map(|_| ())
     }
 
-    async fn request_authorization(&self, device: OwnedObjectPath) -> Result<(), BluezError> {
-        self.ask(PairingRequest::Authorization {
-            device: device.to_string(),
-        })
+    async fn request_authorization(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+        device: OwnedObjectPath,
+    ) -> Result<(), BluezError> {
+        let owner = sender_of(&header);
+        self.ask(
+            &owner,
+            PairingRequest::Authorization {
+                device: device.to_string(),
+            },
+        )
         .await
         .map(|_| ())
     }
 
     async fn authorize_service(
         &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
         device: OwnedObjectPath,
         uuid: String,
     ) -> Result<(), BluezError> {
-        self.ask(PairingRequest::AuthorizeService {
-            device: device.to_string(),
-            uuid,
-        })
+        let owner = sender_of(&header);
+        self.ask(
+            &owner,
+            PairingRequest::AuthorizeService {
+                device: device.to_string(),
+                uuid,
+            },
+        )
         .await
         .map(|_| ())
     }
@@ -504,19 +635,44 @@ impl BluezAgent {
 }
 
 /// Serve the agent on `system` and register it as BlueZ's default agent
-/// whenever BlueZ has an owner.
+/// whenever BlueZ has an owner. An open dialog is closed when that owner goes
+/// away or is replaced.
 pub async fn serve(system: &Connection, presenter: Presenter) -> Result<(), AgentError> {
-    system
-        .object_server()
-        .at(AGENT_PATH, BluezAgent::new(system.clone(), presenter))
-        .await?;
-    register_while_owned(system, SERVICE, || register(system)).await
+    let agent = BluezAgent::new(system.clone(), presenter.clone());
+    let dialogs = agent.dialogs.clone();
+    if !system.object_server().at(AGENT_PATH, agent).await? {
+        return Err(AgentError::Bus(zbus::Error::Failure(format!(
+            "{AGENT_PATH} is already served"
+        ))));
+    }
+    register_while_owned(
+        system,
+        SERVICE,
+        || register(system),
+        move |owner| {
+            let dialogs = dialogs.clone();
+            let presenter = presenter.clone();
+            async move {
+                let closing = dialogs
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .cancel_owner(&owner);
+                if let Some(id) = closing {
+                    close(&presenter, id).await;
+                }
+            }
+        },
+    )
+    .await
 }
 
 /// Call `AgentManager1.RegisterAgent` and `RequestDefaultAgent`.
+///
+/// An agent BlueZ already has is not an error, and the default step still
+/// runs. A failed step is returned, so the caller can retry it.
 pub async fn register(system: &Connection) -> zbus::Result<()> {
     let agent = OwnedObjectPath::try_from(AGENT_PATH)?;
-    system
+    match system
         .call_method(
             Some(SERVICE),
             MANAGER_PATH,
@@ -524,7 +680,12 @@ pub async fn register(system: &Connection) -> zbus::Result<()> {
             "RegisterAgent",
             &(&agent, CAPABILITY),
         )
-        .await?;
+        .await
+    {
+        Ok(_) => {}
+        Err(zbus::Error::MethodError(name, _, _)) if name.as_str() == ALREADY_EXISTS => {}
+        Err(error) => return Err(error),
+    }
     system
         .call_method(
             Some(SERVICE),
