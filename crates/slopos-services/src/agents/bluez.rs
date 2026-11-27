@@ -15,9 +15,9 @@ use tokio::sync::oneshot;
 use zbus::{zvariant::OwnedObjectPath, Connection};
 
 use super::{
-    await_answer, close, get, next_prompt_id, publish_show, publish_show_detached,
-    register_while_owned, reserve, sender_of, AgentError, DialogAnswer, DialogSpec, FieldKind,
-    FieldSpec, Presenter, PromptOutcome, Secret,
+    await_answer, bounded, close, close_bounded, next_prompt_id, publish_show,
+    publish_show_detached, register_while_owned, reserve, sender_of, undo_registration, AgentError,
+    DialogAnswer, DialogSpec, FieldKind, FieldSpec, OwnerSlot, Presenter, PromptOutcome, Secret,
 };
 
 pub const AGENT_PATH: &str = "/org/slopos/BluezAgent";
@@ -454,13 +454,21 @@ impl BluezAgent {
             self.lock().finish(id);
             return Err(BluezError::Rejected("no dialog is available".into()));
         };
-        {
+        let delivered = {
             let dialogs = self.lock();
-            if dialogs.owns(id) {
-                publish_show_detached(permit, id, spec);
+            if !dialogs.owns(id) {
+                // Superseded or cancelled while the label was looked up.
+                return Ok(());
             }
+            publish_show_detached(&self.presenter, permit, id, spec)
+        };
+        if delivered {
+            return Ok(());
         }
-        Ok(())
+        // The host left after the slot was reserved, so nothing is shown. Clear
+        // only this request's slot and report the failure.
+        self.lock().finish(id);
+        Err(BluezError::Rejected("no dialog is available".into()))
     }
 }
 
@@ -659,26 +667,41 @@ pub async fn serve(
             "{AGENT_PATH} is already served"
         ))));
     }
-    let registered = Mutex::new(None);
-    let owner_lost_dialogs = dialogs.clone();
-    let owner_lost_presenter = presenter.clone();
+    // The BlueZ owner the watch registered with. Teardown undoes the
+    // registration there, not at whichever owner the name has by then.
+    let accepted = OwnerSlot::default();
     let result = register_while_owned(
         system,
         SERVICE,
-        |_owner: String| register(system),
-        move |owner: String| {
-            let (dialogs, presenter) = (owner_lost_dialogs.clone(), owner_lost_presenter.clone());
-            async move {
-                let closing = dialogs
-                    .lock()
-                    .unwrap_or_else(|poisoned| poisoned.into_inner())
-                    .cancel_owner(&owner);
-                if let Some(id) = closing {
-                    close(&presenter, id).await;
+        {
+            let accepted = accepted.clone();
+            move |owner: String| {
+                let (system, accepted) = (system.clone(), accepted.clone());
+                async move {
+                    bounded(register_agent_at(&system, &owner)).await?;
+                    // BlueZ accepted the agent. Record it before the default
+                    // step, so teardown undoes it even if that step never works.
+                    accepted.set(&owner);
+                    bounded(request_default_at(&system, &owner)).await
                 }
             }
         },
-        &registered,
+        {
+            let (dialogs, presenter) = (dialogs.clone(), presenter.clone());
+            move |owner: String| {
+                let (dialogs, presenter) = (dialogs.clone(), presenter.clone());
+                async move {
+                    let closing = dialogs
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .cancel_owner(&owner);
+                    if let Some(id) = closing {
+                        close_bounded(&presenter, id).await;
+                    }
+                }
+            }
+        },
+        &accepted,
         &mut stop,
     )
     .await;
@@ -689,26 +712,38 @@ pub async fn serve(
         .unwrap_or_else(|poisoned| poisoned.into_inner())
         .cancel();
     if let Some(id) = closing {
-        close(&presenter, id).await;
+        close_bounded(&presenter, id).await;
     }
-    if get(&registered).is_some() {
-        // Undo the accepted registration. BlueZ may already have gone away,
-        // so a failure here is not reported over the watch's own result.
-        let _ = unregister(system).await;
-    }
+    let cleanup = match accepted.take() {
+        Some(owner) => {
+            undo_registration(system, SERVICE, &owner, || unregister_at(system, &owner)).await
+        }
+        None => Ok(()),
+    };
+    // The object is removed even when the undo failed, so a later call can
+    // serve again.
     let _ = system
         .object_server()
         .remove::<BluezAgent, _>(AGENT_PATH)
         .await;
-    result
+    // An earlier watch failure is kept. A cleanup failure is reported only
+    // when nothing else was.
+    result.and(cleanup)
 }
 
-/// Call `AgentManager1.UnregisterAgent` for this agent.
+/// Call `AgentManager1.UnregisterAgent` for this agent on BlueZ by its
+/// well-known name.
 pub async fn unregister(system: &Connection) -> zbus::Result<()> {
+    unregister_at(system, SERVICE).await
+}
+
+/// Call `AgentManager1.UnregisterAgent` for this agent on the manager at
+/// `destination`.
+pub(crate) async fn unregister_at(system: &Connection, destination: &str) -> zbus::Result<()> {
     let agent = OwnedObjectPath::try_from(AGENT_PATH)?;
     system
         .call_method(
-            Some(SERVICE),
+            Some(destination),
             MANAGER_PATH,
             Some(MANAGER_INTERFACE),
             "UnregisterAgent",
@@ -718,15 +753,23 @@ pub async fn unregister(system: &Connection) -> zbus::Result<()> {
         .map(|_| ())
 }
 
-/// Call `AgentManager1.RegisterAgent` and `RequestDefaultAgent`.
+/// Call `AgentManager1.RegisterAgent` and `RequestDefaultAgent` on BlueZ by
+/// its well-known name.
 ///
 /// An agent BlueZ already has is not an error, and the default step still
 /// runs. A failed step is returned, so the caller can retry it.
 pub async fn register(system: &Connection) -> zbus::Result<()> {
+    register_agent_at(system, SERVICE).await?;
+    request_default_at(system, SERVICE).await
+}
+
+/// Call `AgentManager1.RegisterAgent` on the manager at `destination`. An
+/// agent BlueZ already has is not an error.
+pub(crate) async fn register_agent_at(system: &Connection, destination: &str) -> zbus::Result<()> {
     let agent = OwnedObjectPath::try_from(AGENT_PATH)?;
     match system
         .call_method(
-            Some(SERVICE),
+            Some(destination),
             MANAGER_PATH,
             Some(MANAGER_INTERFACE),
             "RegisterAgent",
@@ -734,13 +777,18 @@ pub async fn register(system: &Connection) -> zbus::Result<()> {
         )
         .await
     {
-        Ok(_) => {}
-        Err(zbus::Error::MethodError(name, _, _)) if name.as_str() == ALREADY_EXISTS => {}
-        Err(error) => return Err(error),
+        Ok(_) => Ok(()),
+        Err(zbus::Error::MethodError(name, _, _)) if name.as_str() == ALREADY_EXISTS => Ok(()),
+        Err(error) => Err(error),
     }
+}
+
+/// Call `AgentManager1.RequestDefaultAgent` on the manager at `destination`.
+pub(crate) async fn request_default_at(system: &Connection, destination: &str) -> zbus::Result<()> {
+    let agent = OwnedObjectPath::try_from(AGENT_PATH)?;
     system
         .call_method(
-            Some(SERVICE),
+            Some(destination),
             MANAGER_PATH,
             Some(MANAGER_INTERFACE),
             "RequestDefaultAgent",

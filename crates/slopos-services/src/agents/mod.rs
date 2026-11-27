@@ -32,7 +32,7 @@ use std::{
     future::Future,
     sync::{
         atomic::{AtomicU64, Ordering},
-        Mutex,
+        Arc, Mutex,
     },
     time::Duration,
 };
@@ -46,6 +46,13 @@ use tokio::{
 use zbus::{fdo::DBusProxy, names::BusName, Connection};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
+/// Longest wait for one D-Bus call the watch makes to a manager. A manager
+/// that accepts a call and never replies must not hold up the watch or a
+/// shutdown.
+const CALL_TIMEOUT: Duration = Duration::from_secs(5);
+/// Longest wait for room in the Show queue when teardown closes a dialog. A
+/// host that has not drained its queue must not hold up a shutdown.
+const CLOSE_TIMEOUT: Duration = Duration::from_secs(1);
 /// How often a registration is tried for one owner, and the wait between
 /// tries. Each owner gets its own budget. A retry is a single timer, not a
 /// polling loop.
@@ -210,17 +217,24 @@ pub(crate) fn publish_show(
     answer
 }
 
-/// Publish a display-only `Show`. The reply receiver is dropped before the
-/// command is sent, so a host that reads the command at once sees a closed
-/// reply channel, as [`PromptCommand::Show`] promises.
+/// Publish a display-only `Show` through a reserved slot, without waiting.
+/// The reply receiver is dropped before the command is sent, so a host that
+/// reads the command at once sees a closed reply channel, as
+/// [`PromptCommand::Show`] promises.
+///
+/// Returns false when the host's receiver was gone, so the command was
+/// discarded and nothing will be shown. The channel gives this receipt, not
+/// the host: a host that leaves after the command is queued is not seen here.
 pub(crate) fn publish_show_detached(
+    presenter: &Presenter,
     permit: mpsc::Permit<'_, PromptCommand>,
     id: u64,
     spec: DialogSpec,
-) {
+) -> bool {
     let (reply, answer) = oneshot::channel();
     drop(answer);
     permit.send(PromptCommand::Show { id, spec, reply });
+    !presenter.is_closed()
 }
 
 /// Turn the answer receiver of a published dialog into the outcome.
@@ -231,10 +245,18 @@ pub(crate) async fn await_answer(answer: oneshot::Receiver<DialogAnswer>) -> Pro
     }
 }
 
-/// Close a dialog that an agent opened. A missing host or an already closed
-/// dialog is not an error.
+/// Close a dialog from a method call. A missing host or an already closed
+/// dialog is not an error. The call waits for room in the Show queue, as
+/// the method cannot otherwise promise the dialog is closed.
 pub(crate) async fn close(presenter: &Presenter, id: u64) {
     let _ = presenter.send(PromptCommand::Close { id }).await;
+}
+
+/// Close a dialog during teardown or an owner change. The wait for room in
+/// the Show queue is bounded by [`CLOSE_TIMEOUT`], so a host that waits for
+/// the shutdown before it drains its queue cannot block the shutdown.
+pub(crate) async fn close_bounded(presenter: &Presenter, id: u64) {
+    let _ = timeout(CLOSE_TIMEOUT, presenter.send(PromptCommand::Close { id })).await;
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -334,19 +356,70 @@ async fn current_owner(dbus: &DBusProxy<'_>, service: &str) -> zbus::Result<Opti
     }
 }
 
+/// A unique bus name the watch serves or has registered with, shared with
+/// the agent and with teardown. Empty when there is none.
+#[derive(Clone, Default)]
+pub(crate) struct OwnerSlot(Arc<Mutex<Option<String>>>);
+
+impl OwnerSlot {
+    fn lock(&self) -> std::sync::MutexGuard<'_, Option<String>> {
+        self.0
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    pub(crate) fn get(&self) -> Option<String> {
+        self.lock().clone()
+    }
+
+    pub(crate) fn set(&self, owner: &str) {
+        *self.lock() = Some(owner.to_owned());
+    }
+
+    /// Clear the slot when it holds `owner`. Another owner's entry is kept.
+    pub(crate) fn clear_if(&self, owner: &str) {
+        let mut slot = self.lock();
+        if slot.as_deref() == Some(owner) {
+            *slot = None;
+        }
+    }
+
+    pub(crate) fn take(&self) -> Option<String> {
+        self.lock().take()
+    }
+}
+
+/// Where one owner's registration ended.
+#[derive(Debug)]
+pub(crate) enum Attempt {
+    /// The registration completed.
+    Registered,
+    /// Every try failed, and the owner went away before the next try.
+    Abandoned,
+    /// Every try failed while the owner was still on the bus.
+    Failed(AgentError),
+    /// The watch stopped first. `in_flight` is true when a call was still
+    /// waiting for its reply, so the registration may yet have taken effect.
+    Stopped { in_flight: bool },
+}
+
 /// Register with one owner, with that owner's own retry budget. Every call
 /// targets the unique name of that owner, so a retry cannot start a stopped
-/// service or reach a newer owner. Returns the owner when the registration
-/// completed, and `None` when it did not.
+/// service or reach a newer owner. The owner is recorded in `accepted` when
+/// the registration stands, and also when a reply was lost or the watch was
+/// stopped during a call, since the registration may then have taken effect
+/// and teardown must undo it.
 async fn register_for_owner<R, Fut>(
     dbus: &DBusProxy<'_>,
     service: &str,
     owner: String,
     register: &mut R,
-) -> Option<String>
+    accepted: &OwnerSlot,
+    stop: &mut oneshot::Receiver<()>,
+) -> Attempt
 where
     R: FnMut(String) -> Fut,
-    Fut: Future<Output = zbus::Result<()>>,
+    Fut: Future<Output = Result<(), AgentError>>,
 {
     let expected = owner.clone();
     let mut still_owned = move || {
@@ -357,23 +430,45 @@ where
         }
     };
     let target = owner.clone();
-    let mut attempt = move || register(target.clone());
-    match register_with_retries(
+    let recorded = accepted.clone();
+    let mut attempt = move || {
+        let (name, recorded) = (target.clone(), recorded.clone());
+        let call = register(target.clone());
+        async move {
+            let result = call.await;
+            // A reply that never came may still have been applied.
+            if matches!(result, Err(AgentError::Timeout)) {
+                recorded.set(&name);
+            }
+            result
+        }
+    };
+    let outcome = register_with_retries(
         REGISTER_ATTEMPTS,
         REGISTER_RETRY_DELAY,
         &mut still_owned,
         &mut attempt,
+        stop,
     )
-    .await
-    {
-        Ok(()) => Some(owner),
-        Err(error) => {
+    .await;
+    match &outcome {
+        Attempt::Registered | Attempt::Stopped { in_flight: true } => accepted.set(&owner),
+        Attempt::Failed(error) => {
             // The owner stays unregistered until its next owner change, but
             // the failure is reported rather than dropped.
             eprintln!("session agent: registering with {service} owner {owner} failed: {error}");
-            None
         }
+        Attempt::Abandoned | Attempt::Stopped { in_flight: false } => {}
     }
+    outcome
+}
+
+/// Whether an owner that just arrived should be registered with: it is not
+/// the owner the watch already tried, and it is still the owner on the bus.
+/// An acquisition can be released before the watch reads its event, and that
+/// owner must not be registered with.
+fn should_register_arrival(tried: Option<&str>, arrived: &str, current: Option<&str>) -> bool {
+    tried != Some(arrived) && current == Some(arrived)
 }
 
 /// Run `register` for each owner of `service`: once for the owner present
@@ -386,18 +481,18 @@ where
 /// The subscription is made before the first check, so no acquisition in
 /// between is missed. A registration that fails for one owner does not stop
 /// the watch: a later owner is still registered. The owner registered when
-/// the watch ends is written into `registered`, so teardown can undo it.
+/// the watch ends is recorded in `accepted`, so teardown can undo it.
 pub(crate) async fn register_while_owned<R, Fut, L, LFut>(
     system: &Connection,
     service: &str,
     mut register: R,
     mut on_owner_lost: L,
-    registered: &Mutex<Option<String>>,
+    accepted: &OwnerSlot,
     stop: &mut oneshot::Receiver<()>,
 ) -> Result<(), AgentError>
 where
     R: FnMut(String) -> Fut,
-    Fut: Future<Output = zbus::Result<()>>,
+    Fut: Future<Output = Result<(), AgentError>>,
     L: FnMut(String) -> LFut,
     LFut: Future<Output = ()>,
 {
@@ -410,8 +505,10 @@ where
     let mut tried: Option<String> = None;
     if let Some(owner) = current_owner(&dbus, service).await? {
         tried = Some(owner.clone());
-        let done = register_for_owner(&dbus, service, owner, &mut register).await;
-        set(registered, done);
+        let attempt = register_for_owner(&dbus, service, owner, &mut register, accepted, stop);
+        if matches!(attempt.await, Attempt::Stopped { .. }) {
+            return Ok(());
+        }
     }
     loop {
         tokio::select! {
@@ -427,16 +524,20 @@ where
                     if tried.as_deref() == Some(lost.as_str()) {
                         tried = None;
                     }
-                    if get(registered).as_deref() == Some(lost.as_str()) {
-                        set(registered, None);
-                    }
+                    accepted.clear_if(&lost);
                     on_owner_lost(lost).await;
                 }
                 if let Some(owner) = arrived {
-                    if tried.as_deref() != Some(owner.as_str()) {
+                    // A failed owner query skips the owner rather than ending the watch.
+                    let current = current_owner(&dbus, service).await.ok().flatten();
+                    if should_register_arrival(tried.as_deref(), &owner, current.as_deref()) {
                         tried = Some(owner.clone());
-                        let done = register_for_owner(&dbus, service, owner, &mut register).await;
-                        set(registered, done);
+                        let attempt = register_for_owner(
+                            &dbus, service, owner, &mut register, accepted, stop,
+                        );
+                        if matches!(attempt.await, Attempt::Stopped { .. }) {
+                            break;
+                        }
                     }
                 }
             }
@@ -445,48 +546,103 @@ where
     Ok(())
 }
 
-fn get(slot: &Mutex<Option<String>>) -> Option<String> {
-    slot.lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .clone()
-}
-
-fn set(slot: &Mutex<Option<String>>, value: Option<String>) {
-    *slot.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = value;
-}
-
 /// Call `register` up to `attempts` times. Between tries it waits `delay`,
-/// then checks that the owner is still there, and stops quietly when it is
-/// not: the next owner change registers again. Returns the last error when
-/// every try failed.
+/// then checks that the owner is still there, and gives up as
+/// [`Attempt::Abandoned`] when it is not: the next owner change registers
+/// again. Stopping `stop` ends the wait or the call at once. Returns
+/// [`Attempt::Failed`] with the last error when every try failed.
 pub(crate) async fn register_with_retries<H, HFut, F, Fut>(
     attempts: u32,
     delay: Duration,
     owner_still_present: &mut H,
     register: &mut F,
-) -> Result<(), AgentError>
+    stop: &mut oneshot::Receiver<()>,
+) -> Attempt
 where
     H: FnMut() -> HFut,
     HFut: Future<Output = zbus::Result<bool>>,
     F: FnMut() -> Fut,
-    Fut: Future<Output = zbus::Result<()>>,
+    Fut: Future<Output = Result<(), AgentError>>,
 {
     let mut last_error = None;
     for attempt in 0..attempts {
         if attempt > 0 {
-            tokio::time::sleep(delay).await;
-            if !owner_still_present().await? {
-                return Ok(());
+            tokio::select! {
+                _ = &mut *stop => return Attempt::Stopped { in_flight: false },
+                _ = tokio::time::sleep(delay) => {}
+            }
+            match owner_still_present().await {
+                Ok(true) => {}
+                Ok(false) => return Attempt::Abandoned,
+                Err(error) => return Attempt::Failed(error.into()),
             }
         }
-        match register().await {
-            Ok(()) => return Ok(()),
-            Err(error) => last_error = Some(error),
+        tokio::select! {
+            _ = &mut *stop => return Attempt::Stopped { in_flight: true },
+            result = register() => match result {
+                Ok(()) => return Attempt::Registered,
+                Err(error) => last_error = Some(error),
+            },
         }
     }
     match last_error {
-        Some(error) => Err(error.into()),
-        None => Ok(()),
+        Some(error) => Attempt::Failed(error),
+        // No try was made, so nothing could have been applied.
+        None => Attempt::Abandoned,
+    }
+}
+
+/// Wait at most `limit` for one D-Bus call. A call that does not return in
+/// time is [`AgentError::Timeout`], and it may still have taken effect.
+pub(crate) async fn bounded_for<T>(
+    limit: Duration,
+    call: impl Future<Output = zbus::Result<T>>,
+) -> Result<T, AgentError> {
+    match timeout(limit, call).await {
+        Ok(result) => Ok(result?),
+        Err(_) => Err(AgentError::Timeout),
+    }
+}
+
+/// Wait at most [`CALL_TIMEOUT`] for one D-Bus registration or unregister call.
+pub(crate) async fn bounded<T>(
+    call: impl Future<Output = zbus::Result<T>>,
+) -> Result<T, AgentError> {
+    bounded_for(CALL_TIMEOUT, call).await
+}
+
+/// Undo a registration at teardown by calling `unregister`, which must target
+/// the owner the registration was made with. A failure is returned only while
+/// that owner is still on the bus: once it has gone, its registration went
+/// with it.
+pub(crate) async fn undo_registration<F, Fut>(
+    system: &Connection,
+    service: &str,
+    owner: &str,
+    unregister: F,
+) -> Result<(), AgentError>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = zbus::Result<()>>,
+{
+    let Err(error) = bounded(unregister()).await else {
+        return Ok(());
+    };
+    let still_present = match DBusProxy::new(system).await {
+        Ok(dbus) => {
+            current_owner(&dbus, service)
+                .await
+                .ok()
+                .flatten()
+                .as_deref()
+                == Some(owner)
+        }
+        Err(_) => true,
+    };
+    if still_present {
+        Err(error)
+    } else {
+        Ok(())
     }
 }
 
@@ -593,7 +749,7 @@ mod mod_tests {
             field: None,
         };
         let permit = reserve(&presenter).await.expect("a host is listening");
-        publish_show_detached(permit, 3, spec);
+        assert!(publish_show_detached(&presenter, permit, 3, spec));
         let Some(PromptCommand::Show { reply, .. }) = receiver.recv().await else {
             panic!("expected a Show command");
         };
@@ -604,7 +760,24 @@ mod mod_tests {
     }
 
     #[tokio::test]
+    async fn display_publish_reports_a_host_that_left_after_the_reservation() {
+        // The host reserves room and then leaves before the command is sent:
+        // the command is discarded, so the caller must learn it was not shown.
+        let (presenter, receiver) = mpsc::channel(4);
+        let permit = reserve(&presenter).await.expect("a host is listening");
+        drop(receiver);
+        let spec = DialogSpec {
+            title: "t".into(),
+            message: "m".into(),
+            buttons: vec!["Close".into()],
+            field: None,
+        };
+        assert!(!publish_show_detached(&presenter, permit, 4, spec));
+    }
+
+    #[tokio::test]
     async fn retries_stop_at_the_first_success_and_report_the_last_failure() {
+        let (_stop_tx, mut stop) = oneshot::channel::<()>();
         let mut calls = 0;
         let mut register = || {
             calls += 1;
@@ -613,39 +786,92 @@ mod mod_tests {
                 if succeed {
                     Ok(())
                 } else {
-                    Err(zbus::Error::Failure("busy".into()))
+                    Err(AgentError::Bus(zbus::Error::Failure("busy".into())))
                 }
             }
         };
         let mut owned = || async { Ok(true) };
-        register_with_retries(3, Duration::ZERO, &mut owned, &mut register)
-            .await
-            .unwrap();
+        let outcome =
+            register_with_retries(3, Duration::ZERO, &mut owned, &mut register, &mut stop).await;
+        assert!(matches!(outcome, Attempt::Registered));
         assert_eq!(calls, 2, "the second try succeeds, so there is no third");
 
         let mut calls = 0;
         let mut always_fails = || {
             calls += 1;
-            async { Err(zbus::Error::Failure("busy".into())) }
+            async { Err(AgentError::Bus(zbus::Error::Failure("busy".into()))) }
         };
-        let error = register_with_retries(3, Duration::ZERO, &mut owned, &mut always_fails)
-            .await
-            .unwrap_err();
-        assert!(matches!(error, AgentError::Bus(_)));
+        let outcome =
+            register_with_retries(3, Duration::ZERO, &mut owned, &mut always_fails, &mut stop)
+                .await;
+        assert!(matches!(outcome, Attempt::Failed(AgentError::Bus(_))));
         assert_eq!(calls, 3);
     }
 
     #[tokio::test]
-    async fn retries_stop_quietly_when_the_owner_has_gone() {
+    async fn retries_are_abandoned_when_the_owner_has_gone() {
+        // Once the owner has gone, a retry would register with nobody, so the
+        // attempt ends as abandoned after its first failure.
+        let (_stop_tx, mut stop) = oneshot::channel::<()>();
         let mut calls = 0;
         let mut register = || {
             calls += 1;
-            async { Err(zbus::Error::Failure("busy".into())) }
+            async { Err(AgentError::Bus(zbus::Error::Failure("busy".into()))) }
         };
         let mut gone = || async { Ok(false) };
-        register_with_retries(3, Duration::ZERO, &mut gone, &mut register)
-            .await
-            .unwrap();
+        let outcome =
+            register_with_retries(3, Duration::ZERO, &mut gone, &mut register, &mut stop).await;
+        assert!(matches!(outcome, Attempt::Abandoned), "{outcome:?}");
         assert_eq!(calls, 1, "no retry once the owner has gone");
+    }
+
+    #[tokio::test]
+    async fn stop_interrupts_a_registration_the_manager_never_answers() {
+        let (stop_tx, mut stop) = oneshot::channel::<()>();
+        let mut register = || async { std::future::pending::<Result<(), AgentError>>().await };
+        let mut owned = || async { Ok(true) };
+        let stopper = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            let _ = stop_tx.send(());
+        });
+        let outcome =
+            register_with_retries(3, Duration::ZERO, &mut owned, &mut register, &mut stop).await;
+        stopper.await.unwrap();
+        assert!(
+            matches!(outcome, Attempt::Stopped { in_flight: true }),
+            "{outcome:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_call_that_never_replies_times_out() {
+        let result: Result<(), AgentError> = bounded_for(
+            Duration::from_millis(10),
+            std::future::pending::<zbus::Result<()>>(),
+        )
+        .await;
+        assert!(matches!(result, Err(AgentError::Timeout)), "{result:?}");
+    }
+
+    #[test]
+    fn an_arrived_owner_is_registered_once_and_only_while_it_is_current() {
+        // Already tried: a queued change for the same name is skipped.
+        assert!(!should_register_arrival(Some(":1.7"), ":1.7", Some(":1.7")));
+        // Released again before the watch read its event: not the owner now.
+        assert!(!should_register_arrival(None, ":1.7", None));
+        assert!(!should_register_arrival(None, ":1.7", Some(":1.8")));
+        // A new owner that is still the owner is registered with.
+        assert!(should_register_arrival(None, ":1.7", Some(":1.7")));
+        assert!(should_register_arrival(Some(":1.6"), ":1.7", Some(":1.7")));
+    }
+
+    #[test]
+    fn owner_slot_clears_only_the_matching_owner() {
+        let slot = OwnerSlot::default();
+        slot.set(":1.20");
+        slot.clear_if(":1.21");
+        assert_eq!(slot.get().as_deref(), Some(":1.20"));
+        slot.clear_if(":1.20");
+        assert_eq!(slot.get(), None);
     }
 }

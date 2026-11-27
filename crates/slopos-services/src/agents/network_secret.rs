@@ -19,9 +19,10 @@ use zbus::{
 };
 
 use super::{
-    await_answer, close, get, next_prompt_id, publish_show, register_while_owned, reserve,
-    sender_of, AgentError, DialogAnswer, DialogSpec, FieldKind, FieldSpec, Presenter,
-    PromptOutcome, Secret, AGENT_IDENTIFIER,
+    await_answer, bounded, close, close_bounded, next_prompt_id, publish_show,
+    register_while_owned, reserve, sender_of, undo_registration, AgentError, DialogAnswer,
+    DialogSpec, FieldKind, FieldSpec, OwnerSlot, Presenter, PromptOutcome, Secret,
+    AGENT_IDENTIFIER,
 };
 
 pub const AGENT_PATH: &str = "/org/freedesktop/NetworkManager/SecretAgent";
@@ -266,18 +267,19 @@ struct PendingRequest {
 }
 
 /// Requests still waiting for a dialog answer, one per connection and
-/// setting.
+/// setting. Once the agent is closed, no new request is admitted.
 #[derive(Debug, Default)]
 pub struct SecretRequests {
     pending: HashMap<(String, String), PendingRequest>,
+    closed: bool,
 }
 
 impl SecretRequests {
     /// Record a request from `owner`. Returns false when one is already open
-    /// for the same connection and setting.
+    /// for the same connection and setting, or when the agent is closed.
     pub fn begin(&mut self, connection_path: &str, setting: &str, id: u64, owner: &str) -> bool {
         let key = (connection_path.to_owned(), setting.to_owned());
-        if self.pending.contains_key(&key) {
+        if self.closed || self.pending.contains_key(&key) {
             return false;
         }
         self.pending.insert(
@@ -304,12 +306,25 @@ impl SecretRequests {
         }
     }
 
-    /// Remove the request for CancelGetSecrets and return its dialog id to
-    /// close, if there was one.
-    pub fn cancel(&mut self, connection_path: &str, setting: &str) -> Option<u64> {
-        self.pending
-            .remove(&(connection_path.to_owned(), setting.to_owned()))
-            .map(|open| open.id)
+    /// Remove the request that `owner` opened, for CancelGetSecrets from
+    /// that sender, and return its dialog id to close. A request opened by
+    /// another sender is left in place.
+    pub fn cancel(&mut self, connection_path: &str, setting: &str, owner: &str) -> Option<u64> {
+        let key = (connection_path.to_owned(), setting.to_owned());
+        let opened_by_sender = self
+            .pending
+            .get(&key)
+            .is_some_and(|open| open.owner == owner);
+        if opened_by_sender {
+            self.pending.remove(&key).map(|open| open.id)
+        } else {
+            None
+        }
+    }
+
+    /// Whether the agent is closed, so no request is admitted.
+    pub fn is_closed(&self) -> bool {
+        self.closed
     }
 
     /// Whether dialog `id` still holds the request for this connection and
@@ -321,9 +336,11 @@ impl SecretRequests {
             .is_some_and(|open| open.id == id)
     }
 
-    /// Remove every request and return their dialog ids to close. Used when
-    /// the agent stops, so no dialog outlives it.
-    pub fn cancel_all(&mut self) -> Vec<u64> {
+    /// Close the agent: admit no request from now on, remove the open ones,
+    /// and return their dialog ids to close. Used when the agent stops, so
+    /// no dialog outlives it.
+    pub fn close_all(&mut self) -> Vec<u64> {
+        self.closed = true;
         self.pending.drain().map(|(_, open)| open.id).collect()
     }
 
@@ -382,6 +399,9 @@ impl From<SecretFailure> for SecretAgentError {
 pub struct NetworkSecretAgent {
     presenter: Presenter,
     pending: Arc<Mutex<SecretRequests>>,
+    /// The NetworkManager owner the watch serves. Calls from any other sender
+    /// are refused, so the agent does not rely on the bus policy alone.
+    manager: OwnerSlot,
 }
 
 impl NetworkSecretAgent {
@@ -389,6 +409,7 @@ impl NetworkSecretAgent {
         Self {
             presenter,
             pending: Arc::new(Mutex::new(SecretRequests::default())),
+            manager: OwnerSlot::default(),
         }
     }
 
@@ -396,6 +417,16 @@ impl NetworkSecretAgent {
         self.pending
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn pending_handle(&self) -> Arc<Mutex<SecretRequests>> {
+        self.pending.clone()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn manager_owner(&self) -> OwnerSlot {
+        self.manager.clone()
     }
 
     /// Publish the dialog for request `id` and wait for its answer. The slot
@@ -429,6 +460,11 @@ impl NetworkSecretAgent {
         flags: u32,
     ) -> Result<SettingsMap, SecretAgentError> {
         let owner = sender_of(&header);
+        if self.manager.get().as_deref() != Some(owner.as_str()) {
+            return Err(SecretAgentError::NoSecrets(
+                "the request is not from NetworkManager".into(),
+            ));
+        }
         let request = SecretRequest::new(
             &connection,
             connection_path.as_str(),
@@ -445,13 +481,20 @@ impl NetworkSecretAgent {
             }
         })?;
         let id = next_prompt_id();
-        if !self
-            .lock()
-            .begin(&request.connection_path, &request.setting, id, &owner)
         {
-            return Err(SecretAgentError::InternalError(
-                "a request for this connection is already open".into(),
-            ));
+            // Admission and the closed check share one lock, so a request is
+            // either admitted before teardown closes the agent or refused.
+            let mut open = self.lock();
+            if open.is_closed() {
+                return Err(SecretAgentError::AgentCanceled(
+                    "the agent is stopping".into(),
+                ));
+            }
+            if !open.begin(&request.connection_path, &request.setting, id, &owner) {
+                return Err(SecretAgentError::InternalError(
+                    "a request for this connection is already open".into(),
+                ));
+            }
         }
         let outcome = self.show_for(&request, id, spec).await;
         // A request cancelled meanwhile (CancelGetSecrets, or its owner going
@@ -472,10 +515,14 @@ impl NetworkSecretAgent {
 
     async fn cancel_get_secrets(
         &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
         connection_path: OwnedObjectPath,
         setting_name: String,
     ) -> Result<(), SecretAgentError> {
-        let closing = self.lock().cancel(connection_path.as_str(), &setting_name);
+        let sender = sender_of(&header);
+        let closing = self
+            .lock()
+            .cancel(connection_path.as_str(), &setting_name, &sender);
         if let Some(id) = closing {
             close(&self.presenter, id).await;
         }
@@ -514,60 +561,93 @@ pub async fn serve(
 ) -> Result<(), AgentError> {
     let agent = NetworkSecretAgent::new(presenter.clone());
     let pending = agent.pending.clone();
+    let manager = agent.manager.clone();
     if !system.object_server().at(AGENT_PATH, agent).await? {
         return Err(AgentError::Bus(zbus::Error::Failure(format!(
             "{AGENT_PATH} is already served"
         ))));
     }
-    let registered = Mutex::new(None);
-    let owner_lost_pending = pending.clone();
-    let owner_lost_presenter = presenter.clone();
+    // The owner the watch registered with. Teardown undoes the registration
+    // there, not at whichever owner the name has by then.
+    let accepted = OwnerSlot::default();
     let result = register_while_owned(
         system,
         MANAGER_SERVICE,
-        |_owner: String| register(system),
-        move |owner: String| {
-            let (pending, presenter) = (owner_lost_pending.clone(), owner_lost_presenter.clone());
-            async move {
-                let closing = pending
-                    .lock()
-                    .unwrap_or_else(|poisoned| poisoned.into_inner())
-                    .cancel_owner(&owner);
-                for id in closing {
-                    close(&presenter, id).await;
+        {
+            let manager = manager.clone();
+            move |owner: String| {
+                // Requests are accepted from this owner from now on. It is set
+                // before the registration is sent, so a request that follows
+                // the reply is not refused.
+                manager.set(&owner);
+                let system = system.clone();
+                async move { bounded(register_at(&system, &owner)).await }
+            }
+        },
+        {
+            let (pending, presenter, manager) =
+                (pending.clone(), presenter.clone(), manager.clone());
+            move |owner: String| {
+                let (pending, presenter, manager) =
+                    (pending.clone(), presenter.clone(), manager.clone());
+                async move {
+                    manager.clear_if(&owner);
+                    let closing = pending
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .cancel_owner(&owner);
+                    for id in closing {
+                        close_bounded(&presenter, id).await;
+                    }
                 }
             }
         },
-        &registered,
+        &accepted,
         &mut stop,
     )
     .await;
 
     // Teardown runs on every exit from the watch, including a failed one.
+    // Once it has closed the agent, no new request is admitted.
     let closing = pending
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .cancel_all();
+        .close_all();
     for id in closing {
-        close(&presenter, id).await;
+        close_bounded(&presenter, id).await;
     }
-    if get(&registered).is_some() {
-        // Undo the accepted registration. NetworkManager may already have
-        // gone away, so a failure here is not reported over the watch's result.
-        let _ = unregister(system).await;
-    }
+    let _ = manager.take();
+    let cleanup = match accepted.take() {
+        Some(owner) => {
+            undo_registration(system, MANAGER_SERVICE, &owner, || {
+                unregister_at(system, &owner)
+            })
+            .await
+        }
+        None => Ok(()),
+    };
+    // The object is removed even when the undo failed, so a later call can
+    // serve again.
     let _ = system
         .object_server()
         .remove::<NetworkSecretAgent, _>(AGENT_PATH)
         .await;
-    result
+    // An earlier watch failure is kept. A cleanup failure is reported only
+    // when nothing else was.
+    result.and(cleanup)
 }
 
-/// Call `AgentManager.Register` on NetworkManager.
+/// Call `AgentManager.Register` on NetworkManager by its well-known name.
 pub async fn register(system: &Connection) -> zbus::Result<()> {
+    register_at(system, MANAGER_SERVICE).await
+}
+
+/// Call `AgentManager.Register` on the manager at `destination`: its well-known
+/// name, or the unique name of the owner the watch registers with.
+pub(crate) async fn register_at(system: &Connection, destination: &str) -> zbus::Result<()> {
     system
         .call_method(
-            Some(MANAGER_SERVICE),
+            Some(destination),
             MANAGER_PATH,
             Some(MANAGER_INTERFACE),
             "Register",
@@ -577,12 +657,17 @@ pub async fn register(system: &Connection) -> zbus::Result<()> {
         .map(|_| ())
 }
 
-/// Call `AgentManager.Unregister` on NetworkManager, which removes the agent
-/// registered by this connection.
+/// Call `AgentManager.Unregister` on NetworkManager by its well-known name,
+/// which removes the agent registered by this connection.
 pub async fn unregister(system: &Connection) -> zbus::Result<()> {
+    unregister_at(system, MANAGER_SERVICE).await
+}
+
+/// Call `AgentManager.Unregister` on the manager at `destination`.
+pub(crate) async fn unregister_at(system: &Connection, destination: &str) -> zbus::Result<()> {
     system
         .call_method(
-            Some(MANAGER_SERVICE),
+            Some(destination),
             MANAGER_PATH,
             Some(MANAGER_INTERFACE),
             "Unregister",

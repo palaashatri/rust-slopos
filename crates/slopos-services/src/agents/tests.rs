@@ -10,7 +10,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use tokio::{
@@ -24,12 +24,13 @@ use super::{
     bluez::{
         self, BluezAgent, Interaction, PairingDialogs, PairingFailure, PairingReply, PairingRequest,
     },
+    close_bounded,
     network_secret::{
         self, NetworkSecretAgent, SecretFailure, SecretFlags, SecretKind, SecretRefusal,
         SecretRequest, SecretRequests, SettingsMap,
     },
     register_while_owned, serve_session_agents_on, AgentError, DialogAnswer, DialogSpec, FieldKind,
-    FieldSpec, Presenter, PromptCommand, Secret, AGENT_IDENTIFIER,
+    FieldSpec, OwnerSlot, Presenter, PromptCommand, Secret, AGENT_IDENTIFIER,
 };
 
 const WIFI: &str = "802-11-wireless-security";
@@ -193,8 +194,8 @@ fn open_requests_are_unique_per_connection_and_setting() {
     assert!(!requests.finish(CONNECTION_PATH, WIFI, 99));
     assert_eq!(requests.len(), 2);
 
-    assert_eq!(requests.cancel(CONNECTION_PATH, WIFI), Some(1));
-    assert_eq!(requests.cancel(CONNECTION_PATH, WIFI), None);
+    assert_eq!(requests.cancel(CONNECTION_PATH, WIFI, ":1.10"), Some(1));
+    assert_eq!(requests.cancel(CONNECTION_PATH, WIFI, ":1.10"), None);
     assert!(
         !requests.finish(CONNECTION_PATH, WIFI, 1),
         "cancelled, so late"
@@ -702,6 +703,12 @@ struct FakeNetworkManager {
     registrations: Arc<Mutex<Vec<(String, String)>>>,
     /// The sender of each `Unregister` call.
     unregistrations: Arc<Mutex<Vec<String>>>,
+    /// Makes `Register` accept the call and never reply.
+    hang_register: Arc<AtomicBool>,
+    /// Set once a `Register` call has arrived while `hang_register` is set.
+    register_entered: Arc<AtomicBool>,
+    /// Makes `Unregister` fail.
+    fail_unregister: Arc<AtomicBool>,
 }
 
 #[zbus::interface(name = "org.freedesktop.NetworkManager.AgentManager")]
@@ -711,6 +718,10 @@ impl FakeNetworkManager {
         #[zbus(header)] header: zbus::message::Header<'_>,
         identifier: String,
     ) {
+        if self.hang_register.load(Ordering::SeqCst) {
+            self.register_entered.store(true, Ordering::SeqCst);
+            std::future::pending::<()>().await;
+        }
         let sender = header.sender().map(ToString::to_string).unwrap_or_default();
         self.registrations
             .lock()
@@ -718,9 +729,16 @@ impl FakeNetworkManager {
             .push((sender, identifier));
     }
 
-    async fn unregister(&self, #[zbus(header)] header: zbus::message::Header<'_>) {
+    async fn unregister(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> zbus::fdo::Result<()> {
+        if self.fail_unregister.load(Ordering::SeqCst) {
+            return Err(zbus::fdo::Error::Failed("unregister refused".into()));
+        }
         let sender = header.sender().map(ToString::to_string).unwrap_or_default();
         self.unregistrations.lock().unwrap().push(sender);
+        Ok(())
     }
 }
 
@@ -835,6 +853,9 @@ struct Fixture<M> {
     client: zbus::Connection,
     agent: zbus::Connection,
     fake: M,
+    address: String,
+    /// The NetworkManager agent's open requests, for the closed-state test.
+    secret_state: Option<Arc<Mutex<network_secret::SecretRequests>>>,
 }
 
 async fn network_fixture(presenter: Presenter) -> Fixture<FakeNetworkManager> {
@@ -852,31 +873,32 @@ async fn network_fixture(presenter: Presenter) -> Fixture<FakeNetworkManager> {
         .build()
         .await
         .unwrap();
-    let client = zbus::connection::Builder::address(address.as_str())
-        .unwrap()
-        .build()
-        .await
-        .unwrap();
     let agent_conn = zbus::connection::Builder::address(address.as_str())
         .unwrap()
         .build()
         .await
         .unwrap();
+    let agent = NetworkSecretAgent::new(presenter);
+    // The fake NetworkManager is the caller of GetSecrets, so the agent serves
+    // that owner, as the watch does once it has seen the owner.
+    agent
+        .manager_owner()
+        .set(&manager_conn.unique_name().unwrap().to_string());
+    let secret_state = agent.pending_handle();
     agent_conn
         .object_server()
-        .at(
-            network_secret::AGENT_PATH,
-            NetworkSecretAgent::new(presenter),
-        )
+        .at(network_secret::AGENT_PATH, agent)
         .await
         .unwrap();
     network_secret::register(&agent_conn).await.unwrap();
     Fixture {
         _bus: bus,
+        client: manager_conn.clone(),
         _manager_conn: manager_conn,
-        client,
         agent: agent_conn,
         fake: manager,
+        address,
+        secret_state: Some(secret_state),
     }
 }
 
@@ -1102,6 +1124,8 @@ async fn bluez_fixture(presenter: Presenter) -> Fixture<FakeBluez> {
         client,
         agent: agent_conn,
         fake,
+        address,
+        secret_state: None,
     }
 }
 
@@ -1355,7 +1379,7 @@ async fn register_while_owned_reports_a_departed_owner_by_unique_name() {
     let task = tokio::spawn({
         let watcher = watcher.clone();
         async move {
-            let registered = Mutex::new(None);
+            let registered = OwnerSlot::default();
             // The sender is kept alive, so the watch runs until it is aborted.
             let (_stop_tx, mut stop) = oneshot::channel::<()>();
             register_while_owned(
@@ -1401,7 +1425,7 @@ async fn register_while_owned_neither_registers_nor_starts_an_absent_service() {
     let watcher = private_connection(&address).await;
     let calls = Arc::new(Mutex::new(0));
     let counter = calls.clone();
-    let registered = Mutex::new(None);
+    let registered = OwnerSlot::default();
     let (_stop_tx, mut stop) = oneshot::channel::<()>();
     let waited = timeout(
         Duration::from_millis(300),
@@ -1497,4 +1521,373 @@ async fn shutdown_undoes_the_registrations_and_frees_the_agent_paths() {
     let again = serve_session_agents_on(&system, presenter);
     wait_until(|| network.registrations.lock().unwrap().len() == 2).await;
     again.shutdown().await.expect("both watchers stop again");
+}
+
+// ----- Sender and owner rules, teardown ordering ----------------------------
+
+#[test]
+fn cancel_removes_only_the_request_its_sender_opened() {
+    let mut requests = SecretRequests::default();
+    assert!(requests.begin(CONNECTION_PATH, WIFI, 1, ":1.10"));
+    // Another sender's CancelGetSecrets leaves the owner's prompt in place.
+    assert_eq!(requests.cancel(CONNECTION_PATH, WIFI, ":1.11"), None);
+    assert!(requests.owns(CONNECTION_PATH, WIFI, 1));
+    assert_eq!(requests.cancel(CONNECTION_PATH, WIFI, ":1.10"), Some(1));
+}
+
+#[test]
+fn a_closed_agent_admits_no_request_and_returns_its_open_dialogs_to_close() {
+    let mut requests = SecretRequests::default();
+    assert!(requests.begin(CONNECTION_PATH, WIFI, 1, ":1.10"));
+    assert_eq!(requests.close_all(), vec![1]);
+    assert!(requests.is_closed());
+    assert!(
+        !requests.begin(CONNECTION_PATH, "vpn", 2, ":1.10"),
+        "no request after the agent closed"
+    );
+    assert!(requests.is_empty());
+}
+
+#[tokio::test]
+async fn closed_agent_refuses_new_requests_without_a_dialog() {
+    let (presenter, host) = spawn_host(|spec| {
+        (spec.title == "Wi-Fi password").then(|| chosen_answer(1, "correct horse"))
+    });
+    let fixture = network_fixture(presenter).await;
+    let (client, agent) = (fixture.client.clone(), fixture.agent.clone());
+    let state = fixture
+        .secret_state
+        .clone()
+        .expect("the NetworkManager fixture");
+    assert!(state.lock().unwrap().close_all().is_empty());
+
+    let proxy = secret_proxy(&client, &agent).await;
+    let refused: Result<SettingsMap, zbus::Error> = proxy
+        .call(
+            "GetSecrets",
+            &(
+                wifi_connection(),
+                owned_path(CONNECTION_PATH),
+                WIFI,
+                vec!["psk".to_owned()],
+                0x1u32,
+            ),
+        )
+        .await;
+    assert_eq!(
+        error_name(&refused.unwrap_err()),
+        format!("{NM_ERROR_PREFIX}AgentCanceled")
+    );
+    assert_eq!(host.shown_count(), 0, "no dialog once the agent is closed");
+}
+
+#[tokio::test]
+async fn a_get_secrets_call_from_another_sender_is_refused_without_a_dialog() {
+    let (presenter, host) = spawn_host(|_| None);
+    let fixture = network_fixture(presenter).await;
+    let (other, agent) = (
+        private_connection(&fixture.address).await,
+        fixture.agent.clone(),
+    );
+    let proxy = secret_proxy(&other, &agent).await;
+    let refused: Result<SettingsMap, zbus::Error> = proxy
+        .call(
+            "GetSecrets",
+            &(
+                wifi_connection(),
+                owned_path(CONNECTION_PATH),
+                WIFI,
+                vec!["psk".to_owned()],
+                0x1u32,
+            ),
+        )
+        .await;
+    assert_eq!(
+        error_name(&refused.unwrap_err()),
+        format!("{NM_ERROR_PREFIX}NoSecrets")
+    );
+    assert_eq!(host.shown_count(), 0, "no dialog for a stranger's request");
+}
+
+#[tokio::test]
+async fn cancel_from_another_sender_leaves_the_owners_prompt_open() {
+    let (presenter, host) = spawn_host(|_| None);
+    let fixture = network_fixture(presenter).await;
+    let (client, agent) = (fixture.client.clone(), fixture.agent.clone());
+    let proxy = secret_proxy(&client, &agent).await;
+    let in_flight = {
+        let proxy = proxy.clone();
+        tokio::spawn(async move {
+            proxy
+                .call::<_, _, SettingsMap>(
+                    "GetSecrets",
+                    &(
+                        wifi_connection(),
+                        owned_path(CONNECTION_PATH),
+                        WIFI,
+                        vec!["psk".to_owned()],
+                        0x1u32,
+                    ),
+                )
+                .await
+        })
+    };
+    wait_until(|| host.shown_count() == 1).await;
+    let (dialog_id, _) = host.last_shown();
+
+    let other = private_connection(&fixture.address).await;
+    let other_proxy = secret_proxy(&other, &agent).await;
+    let _: () = other_proxy
+        .call("CancelGetSecrets", &(owned_path(CONNECTION_PATH), WIFI))
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert!(
+        !host.closed.lock().unwrap().contains(&dialog_id),
+        "a stranger cannot close the prompt"
+    );
+    assert!(
+        !in_flight.is_finished(),
+        "the owner's request is still open"
+    );
+
+    // The owner's own cancel still ends the request.
+    let _: () = proxy
+        .call("CancelGetSecrets", &(owned_path(CONNECTION_PATH), WIFI))
+        .await
+        .unwrap();
+    let result = in_flight.await.unwrap();
+    assert_eq!(
+        error_name(&result.unwrap_err()),
+        format!("{NM_ERROR_PREFIX}AgentCanceled")
+    );
+    wait_until(|| host.closed.lock().unwrap().contains(&dialog_id)).await;
+}
+
+#[tokio::test]
+async fn unregister_is_sent_to_the_owner_it_names_not_the_well_known_name() {
+    let (_bus, address) = private_bus();
+    let well_known = FakeNetworkManager::default();
+    let _named = zbus::connection::Builder::address(address.as_str())
+        .unwrap()
+        .name("org.freedesktop.NetworkManager")
+        .unwrap()
+        .serve_at(
+            "/org/freedesktop/NetworkManager/AgentManager",
+            well_known.clone(),
+        )
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    let recorded = FakeNetworkManager::default();
+    let recorded_conn = zbus::connection::Builder::address(address.as_str())
+        .unwrap()
+        .serve_at(
+            "/org/freedesktop/NetworkManager/AgentManager",
+            recorded.clone(),
+        )
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    let agent = private_connection(&address).await;
+    let owner = recorded_conn.unique_name().unwrap().to_string();
+    network_secret::unregister_at(&agent, &owner)
+        .await
+        .expect("the recorded owner answers");
+    assert_eq!(recorded.unregistrations.lock().unwrap().len(), 1);
+    assert!(well_known.unregistrations.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn bluez_unregister_is_sent_to_the_owner_it_names() {
+    let (_bus, address) = private_bus();
+    let well_known = FakeBluez::default();
+    let _named = zbus::connection::Builder::address(address.as_str())
+        .unwrap()
+        .name("org.bluez")
+        .unwrap()
+        .serve_at("/org/bluez", well_known.clone())
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    let recorded = FakeBluez::default();
+    let recorded_conn = zbus::connection::Builder::address(address.as_str())
+        .unwrap()
+        .serve_at("/org/bluez", recorded.clone())
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    let agent = private_connection(&address).await;
+    let owner = recorded_conn.unique_name().unwrap().to_string();
+    bluez::register_agent_at(&agent, &owner).await.unwrap();
+    bluez::unregister_at(&agent, &owner)
+        .await
+        .expect("the recorded owner answers");
+    assert_eq!(recorded.unregistrations.lock().unwrap().len(), 1);
+    assert!(well_known.unregistrations.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn bluez_teardown_undoes_an_accepted_agent_whose_default_step_failed() {
+    let (_bus, address) = private_bus();
+    let fake = FakeBluez::default();
+    fake.fail_default.store(true, Ordering::SeqCst);
+    let _manager = zbus::connection::Builder::address(address.as_str())
+        .unwrap()
+        .name("org.bluez")
+        .unwrap()
+        .serve_at("/org/bluez", fake.clone())
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    let system = private_connection(&address).await;
+    let (presenter, _host) = spawn_host(|_| None);
+    let (stop_tx, stop) = oneshot::channel();
+    let serving = tokio::spawn({
+        let system = system.clone();
+        async move { bluez::serve(&system, presenter, stop).await }
+    });
+    wait_until(|| fake.registrations.lock().unwrap().len() == 1).await;
+    stop_tx.send(()).unwrap();
+    let result = timeout(Duration::from_secs(10), serving)
+        .await
+        .expect("teardown finishes")
+        .unwrap();
+    result.expect("the watch stopped cleanly");
+    assert_eq!(
+        fake.unregistrations.lock().unwrap().len(),
+        1,
+        "the accepted registration is undone although the default step never succeeded"
+    );
+}
+
+#[tokio::test]
+async fn shutdown_interrupts_a_registration_the_manager_never_answers() {
+    let (_bus, address) = private_bus();
+    let manager = FakeNetworkManager::default();
+    manager.hang_register.store(true, Ordering::SeqCst);
+    let _manager_conn = zbus::connection::Builder::address(address.as_str())
+        .unwrap()
+        .name("org.freedesktop.NetworkManager")
+        .unwrap()
+        .serve_at(
+            "/org/freedesktop/NetworkManager/AgentManager",
+            manager.clone(),
+        )
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    let system = private_connection(&address).await;
+    let (presenter, _host) = spawn_host(|_| None);
+    let (stop_tx, stop) = oneshot::channel();
+    let serving = tokio::spawn({
+        let system = system.clone();
+        async move { network_secret::serve(&system, presenter, stop).await }
+    });
+    wait_until(|| manager.register_entered.load(Ordering::SeqCst)).await;
+    stop_tx.send(()).unwrap();
+    let result = timeout(Duration::from_secs(5), serving)
+        .await
+        .expect("shutdown does not wait for the unanswered Register")
+        .unwrap();
+    result.expect("the watch stopped cleanly");
+    assert_eq!(
+        manager.unregistrations.lock().unwrap().len(),
+        1,
+        "the call may have taken effect, so teardown still asks the owner to undo it"
+    );
+}
+
+#[tokio::test]
+async fn shutdown_reports_a_failed_unregister_while_the_manager_is_still_there() {
+    let (_bus, address) = private_bus();
+    let manager = FakeNetworkManager::default();
+    manager.fail_unregister.store(true, Ordering::SeqCst);
+    let _manager_conn = zbus::connection::Builder::address(address.as_str())
+        .unwrap()
+        .name("org.freedesktop.NetworkManager")
+        .unwrap()
+        .serve_at(
+            "/org/freedesktop/NetworkManager/AgentManager",
+            manager.clone(),
+        )
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    let system = private_connection(&address).await;
+    let (presenter, _host) = spawn_host(|_| None);
+    let (stop_tx, stop) = oneshot::channel();
+    let serving = tokio::spawn({
+        let system = system.clone();
+        async move { network_secret::serve(&system, presenter, stop).await }
+    });
+    wait_until(|| manager.registrations.lock().unwrap().len() == 1).await;
+    stop_tx.send(()).unwrap();
+    let result = timeout(Duration::from_secs(5), serving)
+        .await
+        .expect("teardown finishes")
+        .unwrap();
+    assert!(
+        matches!(result, Err(AgentError::Bus(_))),
+        "the remote cleanup failure is reported: {result:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_failed_registration_is_not_recorded_for_teardown() {
+    let (_bus, address) = private_bus();
+    let watcher = private_connection(&address).await;
+    let owner = private_connection(&address).await;
+    owner.request_name("org.slopos.Test.Refused").await.unwrap();
+    let registered = OwnerSlot::default();
+    let (_stop_tx, mut stop) = oneshot::channel::<()>();
+    let calls = Arc::new(Mutex::new(0));
+    let counter = calls.clone();
+    let watch = tokio::spawn({
+        let watcher = watcher.clone();
+        let registered = registered.clone();
+        async move {
+            register_while_owned(
+                &watcher,
+                "org.slopos.Test.Refused",
+                move |_owner: String| {
+                    *counter.lock().unwrap() += 1;
+                    async { Err(AgentError::Bus(zbus::Error::Failure("refused".into()))) }
+                },
+                |_name: String| async {},
+                &registered,
+                &mut stop,
+            )
+            .await
+        }
+    });
+    // Every try fails, so the watch gives up on this owner after its retries.
+    wait_until(|| *calls.lock().unwrap() == 3).await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert_eq!(registered.get(), None, "nothing to undo");
+    watch.abort();
+}
+
+#[tokio::test]
+async fn teardown_close_gives_up_on_a_host_that_does_not_drain_its_queue() {
+    let (presenter, _receiver) = mpsc::channel::<PromptCommand>(1);
+    presenter
+        .send(PromptCommand::Close { id: 1 })
+        .await
+        .unwrap();
+    // The queue is full and nobody drains it, as with a host that waits for
+    // the shutdown before it reads its queue.
+    let started = Instant::now();
+    close_bounded(&presenter, 2).await;
+    assert!(
+        started.elapsed() < Duration::from_secs(5),
+        "teardown does not wait for the queue indefinitely"
+    );
 }
