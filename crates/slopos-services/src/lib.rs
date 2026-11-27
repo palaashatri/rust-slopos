@@ -5,6 +5,7 @@ pub mod display;
 pub mod input;
 pub mod media;
 pub mod network;
+pub mod polkit;
 pub mod power;
 pub mod storage;
 pub mod timedate;

@@ -13,6 +13,7 @@ thiserror.workspace = true
 tokio.workspace = true
 zbus.workspace = true
 x11rb.workspace = true
+zeroize = "1.9"
 
 [dev-dependencies]
 tempfile.workspace = true

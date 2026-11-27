@@ -97,6 +97,16 @@ impl Dialog {
         self
     }
 
+    /// Add a masked password field (see [`TextField::secret`]): its text is
+    /// drawn as bullets, never copied or cut, and not exposed to assistive
+    /// technology. The field starts empty and takes focus on [`Self::layout`].
+    pub fn with_secret_field(mut self, label: &str) -> Self {
+        let mut field = TextField::new(self.id + 1, label);
+        field.secret = true;
+        self.field = Some(field);
+        self
+    }
+
     pub fn bounds(&self) -> Rect {
         self.bounds
     }
@@ -405,6 +415,32 @@ mod tests {
             key,
             modifiers: Modifiers::default(),
         }
+    }
+
+    #[test]
+    fn secret_field_returns_typed_text_on_enter_and_never_copies() {
+        let mut dialog = Dialog::new(70, "Authenticate", "Install?", &["Cancel", "Authenticate"])
+            .with_secret_field("Password");
+        dialog.layout((640, 480));
+        for character in "hunter2".chars() {
+            dialog.handle(&key(Key::Character(character)));
+        }
+        assert_eq!(dialog.field_text(), Some("hunter2"));
+        let copy = Event::KeyPressed {
+            key: Key::Character('c'),
+            modifiers: Modifiers {
+                control: true,
+                ..Modifiers::default()
+            },
+        };
+        assert_eq!(dialog.handle(&copy), DialogOutcome::Changed);
+        assert_eq!(
+            dialog.handle(&key(Key::Enter)),
+            DialogOutcome::Chosen {
+                index: 1,
+                text: Some("hunter2".to_owned())
+            }
+        );
     }
 
     #[test]

@@ -3616,6 +3616,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-polkit-agent"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "futures",
+ "slopos-services",
+ "slopos-ui",
+ "tokio",
+ "zbus 4.4.0",
+]
+
+[[package]]
 name = "slopos-services"
 version = "0.1.0"
 dependencies = [
@@ -3627,6 +3639,7 @@ dependencies = [
  "tokio",
  "x11rb",
  "zbus 4.4.0",
+ "zeroize",
 ]
 
 [[package]]

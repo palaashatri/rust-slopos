@@ -1,0 +1,14 @@
+[package]
+name = "slopos-polkit-agent"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS polkit authentication agent: a password dialog for administrator actions"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+slopos-services = { path = "../../crates/slopos-services" }
+accesskit = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true }
+zbus = { workspace = true }
