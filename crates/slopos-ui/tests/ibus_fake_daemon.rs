@@ -11,14 +11,14 @@ use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use slopos_ui::controls::text_field::{TextField, TextFieldOutcome};
 use slopos_ui::event::Event;
 use slopos_ui::foundation::geometry::Rect;
 use slopos_ui::input_method::{InputMethodEvent, InputMethodStatus};
 use slopos_ui::platform::ibus::protocol::{encode_text, CONTEXT_INTERFACE, SERVICE};
-use slopos_ui::platform::ibus::{IbusClient, Incoming, InputMethod, Update};
+use slopos_ui::platform::ibus::{IbusClient, Incoming, InputMethod, Update, CONTEXT_CALL_TIMEOUT};
 use zbus::blocking::{connection, MessageIterator};
 use zbus::zvariant::OwnedObjectPath;
 
@@ -63,7 +63,9 @@ type Calls = Arc<Mutex<Vec<String>>>;
 /// Serve `org.freedesktop.IBus` on `address` until the bus goes away.
 /// Keys: `a` and `b` extend a composition (`ab` shown as a preedit); space
 /// commits the composition as `阿`; anything else is not handled.
-fn serve_fake_ibus(address: String, calls: Calls, ready: mpsc::Sender<()>) {
+/// With `hang_keys`, `ProcessKeyEvent` is logged and never answered, the way
+/// a stuck input method behaves.
+fn serve_fake_ibus(address: String, calls: Calls, ready: mpsc::Sender<()>, hang_keys: bool) {
     let connection = connection::Builder::address(address.as_str())
         .and_then(|builder| builder.build())
         .expect("fake IBus connects to the private bus");
@@ -117,6 +119,9 @@ fn serve_fake_ibus(address: String, calls: Calls, ready: mpsc::Sender<()>) {
                     .lock()
                     .unwrap()
                     .push(format!("ProcessKeyEvent({keysym:#x},{keycode},{state})"));
+                if hang_keys {
+                    continue;
+                }
                 let handled = match keysym {
                     0x61 | 0x62 => {
                         let letter = char::from_u32(keysym).unwrap();
@@ -166,11 +171,16 @@ fn serve_fake_ibus(address: String, calls: Calls, ready: mpsc::Sender<()>) {
 
 /// Start the fake and return its call log.
 fn start_fake(bus: &PrivateBus) -> Calls {
+    start_fake_with(bus, false)
+}
+
+/// Start the fake; with `hang_keys` it never answers key presses.
+fn start_fake_with(bus: &PrivateBus, hang_keys: bool) -> Calls {
     let calls: Calls = Arc::new(Mutex::new(Vec::new()));
     let (ready_tx, ready_rx) = mpsc::channel();
     let address = bus.address.clone();
     let log = Arc::clone(&calls);
-    thread::spawn(move || serve_fake_ibus(address, log, ready_tx));
+    thread::spawn(move || serve_fake_ibus(address, log, ready_tx, hang_keys));
     ready_rx
         .recv_timeout(WAIT)
         .expect("fake IBus registers its name");
@@ -383,4 +393,54 @@ fn connecting_to_a_missing_bus_fails_with_a_reason() {
         .err()
         .expect("no daemon at that address");
     assert!(!error.is_empty());
+}
+
+#[test]
+fn a_hung_daemon_is_given_up_within_the_call_timeout() {
+    let bus = PrivateBus::start();
+    let calls = start_fake_with(&bus, true);
+    let (wake_tx, _wake_rx) = mpsc::channel();
+    let mut input = InputMethod::connect(&bus.address, move || {
+        let _ = wake_tx.send(());
+    })
+    .expect("client connects to the fake daemon");
+    input.drain();
+    input.set_text_input(true);
+    input.set_window_focus(true);
+    assert!(input.wants_keys());
+
+    let started = Instant::now();
+    let handled = input.process_key(0x61, 38, 0);
+    let elapsed = started.elapsed();
+
+    // The key is not consumed, so it reaches the application.
+    assert!(!handled);
+    // The call waited for the timeout, then gave up well before zbus's
+    // default 25 s. The bound is loose enough for a loaded CI runner.
+    assert!(
+        elapsed >= CONTEXT_CALL_TIMEOUT,
+        "returned after {elapsed:?}"
+    );
+    assert!(elapsed < Duration::from_secs(1), "blocked for {elapsed:?}");
+
+    assert!(!input.wants_keys());
+    let reason = input
+        .drain()
+        .into_iter()
+        .find_map(|update| match update {
+            Update::Status(InputMethodStatus::Unavailable(reason)) => Some(reason),
+            _ => None,
+        })
+        .expect("the input method reports itself unavailable");
+    assert!(reason.contains("ProcessKeyEvent"), "{reason}");
+    assert!(calls
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|call| call.starts_with("ProcessKeyEvent")));
+
+    // Later keys go straight to the application without waiting again.
+    let again = Instant::now();
+    assert!(!input.process_key(0x61, 38, 0));
+    assert!(again.elapsed() < CONTEXT_CALL_TIMEOUT);
 }

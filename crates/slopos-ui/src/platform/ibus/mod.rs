@@ -18,6 +18,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
+use std::time::Duration;
 
 use zbus::blocking::{connection, fdo::DBusProxy, Connection, MessageIterator, Proxy};
 use zbus::message::Type;
@@ -41,6 +42,12 @@ pub use crate::input_method::Update;
 fn text(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
+
+/// How long one call to the input context may take before it is given up.
+/// Calls come from the UI thread (focus, caret location, key presses), so a
+/// hung input method must not hold the window; the timeout ends the input
+/// method and the key reaches the application.
+pub const CONTEXT_CALL_TIMEOUT: Duration = Duration::from_millis(200);
 
 /// A connection to one IBus input context.
 pub struct IbusClient {
@@ -90,35 +97,52 @@ impl IbusClient {
             connection,
             context,
         };
-        client.context_call("SetCapabilities", &protocol::capabilities())?;
+        client.context_call("SetCapabilities", protocol::capabilities())?;
         Ok(client)
     }
 
-    /// Call `method` on this input context.
-    fn context_call<B>(&self, method: &str, body: &B) -> Result<zbus::Message, String>
+    /// Call `method` on this input context, waiting at most
+    /// [`CONTEXT_CALL_TIMEOUT`]. The call runs on a worker thread so the
+    /// caller is never blocked past that bound. A timed-out call returns an
+    /// error; the worker ends on its own when zbus gives up on it.
+    fn context_call<B>(&self, method: &'static str, body: B) -> Result<zbus::Message, String>
     where
-        B: zbus::zvariant::DynamicType + zbus::export::serde::Serialize,
+        B: zbus::zvariant::DynamicType + zbus::export::serde::Serialize + Send + 'static,
     {
-        let proxy = Proxy::new(
-            &self.connection,
-            SERVICE,
-            self.context.as_str(),
-            CONTEXT_INTERFACE,
-        )
-        .map_err(text)?;
-        proxy
-            .call_method(method, body)
-            .map_err(|error| format!("{method} failed: {error}"))
+        let connection = self.connection.clone();
+        let context = self.context.to_string();
+        let (done, outcome) = mpsc::channel();
+        thread::Builder::new()
+            .name("slopos-ibus-call".into())
+            .spawn(move || {
+                let reply = Proxy::new(&connection, SERVICE, context.as_str(), CONTEXT_INTERFACE)
+                    .map_err(text)
+                    .and_then(|proxy| {
+                        proxy
+                            .call_method(method, &body)
+                            .map_err(|error| format!("{method} failed: {error}"))
+                    });
+                let _ = done.send(reply);
+            })
+            .map_err(text)?;
+        match outcome.recv_timeout(CONTEXT_CALL_TIMEOUT) {
+            Ok(reply) => reply,
+            Err(mpsc::RecvTimeoutError::Timeout) => Err(format!(
+                "{method} did not answer within {} ms",
+                CONTEXT_CALL_TIMEOUT.as_millis()
+            )),
+            Err(mpsc::RecvTimeoutError::Disconnected) => Err(format!("{method} was not sent")),
+        }
     }
 
     /// The text field gained keyboard focus in the input method's view.
     pub fn focus_in(&self) -> Result<(), String> {
-        self.context_call("FocusIn", &()).map(|_| ())
+        self.context_call("FocusIn", ()).map(|_| ())
     }
 
     /// The text field lost focus; the input method ends any composition.
     pub fn focus_out(&self) -> Result<(), String> {
-        self.context_call("FocusOut", &()).map(|_| ())
+        self.context_call("FocusOut", ()).map(|_| ())
     }
 
     /// Where the caret is, in root-window device pixels. Candidate windows
@@ -130,7 +154,7 @@ impl IbusClient {
         width: i32,
         height: i32,
     ) -> Result<(), String> {
-        self.context_call("SetCursorLocation", &(x, y, width, height))
+        self.context_call("SetCursorLocation", (x, y, width, height))
             .map(|_| ())
     }
 
@@ -138,7 +162,7 @@ impl IbusClient {
     /// key (the application must not see it). `keycode` is the evdev code
     /// (X keycode minus 8) and `state` uses X modifier bits, which IBus shares.
     pub fn process_key_event(&self, keysym: u32, keycode: u32, state: u32) -> Result<bool, String> {
-        let reply = self.context_call("ProcessKeyEvent", &(keysym, keycode, state))?;
+        let reply = self.context_call("ProcessKeyEvent", (keysym, keycode, state))?;
         reply.body().deserialize::<bool>().map_err(text)
     }
 }
@@ -344,8 +368,9 @@ impl InputMethod {
         self.send_cursor();
     }
 
-    /// Offer a key press. `true` means IBus consumed it. Any failure ends the
-    /// input method and returns `false`, so the key reaches the application.
+    /// Offer a key press. `true` means IBus consumed it. Any failure, a
+    /// timeout included, ends the input method and returns `false`, so the
+    /// key reaches the application.
     pub fn process_key(&mut self, keysym: u32, keycode: u32, state: u32) -> bool {
         if !self.wants_keys() {
             return false;
