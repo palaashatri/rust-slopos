@@ -43,11 +43,36 @@ fn text(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
 
-/// How long one call to the input context may take before it is given up.
+/// How long one call to the input method may take before it is given up.
 /// Calls come from the UI thread (focus, caret location, key presses), so a
 /// hung input method must not hold the window; the timeout ends the input
 /// method and the key reaches the application.
 pub const CONTEXT_CALL_TIMEOUT: Duration = Duration::from_millis(200);
+
+/// Run `call` on a worker thread and wait at most [`CONTEXT_CALL_TIMEOUT`]
+/// for its result. `what` names the call in the error. A call that does not
+/// finish in time returns an error; the worker ends on its own when zbus
+/// gives up on it.
+fn bounded<T: Send + 'static>(
+    what: &'static str,
+    call: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    let (done, outcome) = mpsc::channel();
+    thread::Builder::new()
+        .name("slopos-ibus-call".into())
+        .spawn(move || {
+            let _ = done.send(call());
+        })
+        .map_err(text)?;
+    match outcome.recv_timeout(CONTEXT_CALL_TIMEOUT) {
+        Ok(reply) => reply,
+        Err(mpsc::RecvTimeoutError::Timeout) => Err(format!(
+            "{what} did not answer within {} ms",
+            CONTEXT_CALL_TIMEOUT.as_millis()
+        )),
+        Err(mpsc::RecvTimeoutError::Disconnected) => Err(format!("{what} was not sent")),
+    }
+}
 
 /// A connection to one IBus input context.
 pub struct IbusClient {
@@ -68,23 +93,34 @@ impl IbusClient {
             .map_err(text)?
             .build()
             .map_err(text)?;
-        let bus = Proxy::new(&connection, SERVICE, BUS_PATH, BUS_INTERFACE).map_err(text)?;
-        let context: OwnedObjectPath = bus
-            .call("CreateInputContext", &"SLOPOS")
-            .map_err(|error| format!("CreateInputContext failed: {error}"))?;
+        // Both calls wait on the daemon, so they get the same bound as the
+        // context calls: a silent daemon fails the connect instead of
+        // holding the window.
+        let bus_connection = connection.clone();
+        let context: OwnedObjectPath = bounded("CreateInputContext", move || {
+            let bus =
+                Proxy::new(&bus_connection, SERVICE, BUS_PATH, BUS_INTERFACE).map_err(text)?;
+            bus.call("CreateInputContext", &"SLOPOS")
+                .map_err(|error| format!("CreateInputContext failed: {error}"))
+        })?;
         // Signals reach a connection only with a match rule (on a bus, the
         // daemon routes by rule). The rule names this context's path.
-        let rule = MatchRule::builder()
-            .msg_type(Type::Signal)
-            .interface(CONTEXT_INTERFACE)
-            .map_err(text)?
-            .path(context.as_str())
-            .map_err(text)?
-            .build();
-        DBusProxy::new(&connection)
-            .map_err(text)?
-            .add_match_rule(rule)
-            .map_err(text)?;
+        let rule_connection = connection.clone();
+        let context_path = context.to_string();
+        bounded("AddMatch", move || -> Result<(), String> {
+            let rule = MatchRule::builder()
+                .msg_type(Type::Signal)
+                .interface(CONTEXT_INTERFACE)
+                .map_err(text)?
+                .path(context_path.as_str())
+                .map_err(text)?
+                .build();
+            DBusProxy::new(&rule_connection)
+                .map_err(text)?
+                .add_match_rule(rule)
+                .map(|_| ())
+                .map_err(text)
+        })?;
 
         let listener = connection.clone();
         let path = context.to_string();
@@ -111,28 +147,15 @@ impl IbusClient {
     {
         let connection = self.connection.clone();
         let context = self.context.to_string();
-        let (done, outcome) = mpsc::channel();
-        thread::Builder::new()
-            .name("slopos-ibus-call".into())
-            .spawn(move || {
-                let reply = Proxy::new(&connection, SERVICE, context.as_str(), CONTEXT_INTERFACE)
-                    .map_err(text)
-                    .and_then(|proxy| {
-                        proxy
-                            .call_method(method, &body)
-                            .map_err(|error| format!("{method} failed: {error}"))
-                    });
-                let _ = done.send(reply);
-            })
-            .map_err(text)?;
-        match outcome.recv_timeout(CONTEXT_CALL_TIMEOUT) {
-            Ok(reply) => reply,
-            Err(mpsc::RecvTimeoutError::Timeout) => Err(format!(
-                "{method} did not answer within {} ms",
-                CONTEXT_CALL_TIMEOUT.as_millis()
-            )),
-            Err(mpsc::RecvTimeoutError::Disconnected) => Err(format!("{method} was not sent")),
-        }
+        bounded(method, move || {
+            Proxy::new(&connection, SERVICE, context.as_str(), CONTEXT_INTERFACE)
+                .map_err(text)
+                .and_then(|proxy| {
+                    proxy
+                        .call_method(method, &body)
+                        .map_err(|error| format!("{method} failed: {error}"))
+                })
+        })
     }
 
     /// The text field gained keyboard focus in the input method's view.
@@ -296,10 +319,16 @@ impl InputMethod {
         let display = env::var("DISPLAY").ok();
         let bus_dir = config_home().join("ibus").join("bus");
         let address = resolve_address(env_address.as_deref(), &bus_dir, display.as_deref());
-        match address.and_then(|address| Self::connect(&address, wake)) {
-            Ok(input) => input,
+        match address {
+            Ok(address) => Self::connect_or_unavailable(&address, wake),
             Err(reason) => Self::unavailable(reason),
         }
+    }
+
+    /// Connect to the IBus bus at `address`, or return an input method that
+    /// reports why it could not connect.
+    pub fn connect_or_unavailable(address: &str, wake: impl Fn() + Send + 'static) -> Self {
+        Self::connect(address, wake).unwrap_or_else(Self::unavailable)
     }
 
     /// Connect to the IBus bus at `address`.
@@ -446,11 +475,22 @@ impl InputMethod {
         }
     }
 
-    /// The input method stopped working: drop the connection and report it.
+    /// The input method stopped working: keep the text it already sent, end
+    /// any composition, drop the connection and report it.
     fn fail(&mut self, reason: String) {
         log::warn!("input method unavailable: {reason}");
+        // Text the listener queued before the failure is the user's input
+        // and is delivered before the status.
+        if let Some(incoming) = self.incoming.take() {
+            for message in incoming.try_iter() {
+                if let Incoming::Input(event) = message {
+                    self.pending.push(Update::Input(event));
+                }
+            }
+        }
+        self.pending
+            .push(Update::Input(InputMethodEvent::PreeditHidden));
         self.client = None;
-        self.incoming = None;
         self.context_focus = false;
         self.sent_cursor = None;
         let status = InputMethodStatus::Unavailable(reason);
@@ -550,5 +590,53 @@ mod tests {
         input.set_window_focus(true);
         assert!(!input.wants_keys());
         assert!(input.drain().is_empty());
+    }
+
+    #[test]
+    fn a_failing_daemon_keeps_queued_text_and_hides_the_preedit() {
+        let (sender, receiver) = mpsc::channel();
+        let mut input = InputMethod {
+            client: None,
+            incoming: Some(receiver),
+            status: InputMethodStatus::Active,
+            pending: Vec::new(),
+            text_input: true,
+            window_focus: true,
+            context_focus: true,
+            cursor: None,
+            sent_cursor: None,
+        };
+        // Queued by the listener before the daemon failed.
+        sender
+            .send(Incoming::Input(InputMethodEvent::Preedit {
+                text: "ni".into(),
+                cursor: 2,
+            }))
+            .unwrap();
+        sender
+            .send(Incoming::Input(InputMethodEvent::Commit("你".into())))
+            .unwrap();
+
+        input.fail("daemon went away".into());
+
+        assert_eq!(
+            input.drain(),
+            vec![
+                Update::Input(InputMethodEvent::Preedit {
+                    text: "ni".into(),
+                    cursor: 2,
+                }),
+                Update::Input(InputMethodEvent::Commit("你".into())),
+                Update::Input(InputMethodEvent::PreeditHidden),
+                Update::Status(InputMethodStatus::Unavailable("daemon went away".into())),
+            ]
+        );
+        assert!(!input.is_active());
+        assert!(!input.wants_keys());
+        assert!(input.drain().is_empty());
+        // The listener's next send finds the receiver gone and stops.
+        assert!(sender
+            .send(Incoming::Input(InputMethodEvent::Commit("x".into())))
+            .is_err());
     }
 }

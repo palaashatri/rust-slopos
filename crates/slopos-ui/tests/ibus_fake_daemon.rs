@@ -60,12 +60,20 @@ impl Drop for PrivateBus {
 /// The fake daemon's log of calls it answered, as `Member(args)` strings.
 type Calls = Arc<Mutex<Vec<String>>>;
 
+/// A call the fake daemon logs but never answers, the way a stuck daemon
+/// behaves.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Hang {
+    Nothing,
+    ProcessKeyEvent,
+    CreateInputContext,
+}
+
 /// Serve `org.freedesktop.IBus` on `address` until the bus goes away.
 /// Keys: `a` and `b` extend a composition (`ab` shown as a preedit); space
 /// commits the composition as `阿`; anything else is not handled.
-/// With `hang_keys`, `ProcessKeyEvent` is logged and never answered, the way
-/// a stuck input method behaves.
-fn serve_fake_ibus(address: String, calls: Calls, ready: mpsc::Sender<()>, hang_keys: bool) {
+/// `hang` names the one call that is logged and never answered.
+fn serve_fake_ibus(address: String, calls: Calls, ready: mpsc::Sender<()>, hang: Hang) {
     let connection = connection::Builder::address(address.as_str())
         .and_then(|builder| builder.build())
         .expect("fake IBus connects to the private bus");
@@ -89,6 +97,9 @@ fn serve_fake_ibus(address: String, calls: Calls, ready: mpsc::Sender<()>, hang_
         match member.as_str() {
             "CreateInputContext" => {
                 calls.lock().unwrap().push("CreateInputContext".into());
+                if hang == Hang::CreateInputContext {
+                    continue;
+                }
                 let path = OwnedObjectPath::try_from(CONTEXT_PATH).unwrap();
                 connection.reply(&message, &path).unwrap();
             }
@@ -119,7 +130,7 @@ fn serve_fake_ibus(address: String, calls: Calls, ready: mpsc::Sender<()>, hang_
                     .lock()
                     .unwrap()
                     .push(format!("ProcessKeyEvent({keysym:#x},{keycode},{state})"));
-                if hang_keys {
+                if hang == Hang::ProcessKeyEvent {
                     continue;
                 }
                 let handled = match keysym {
@@ -171,16 +182,16 @@ fn serve_fake_ibus(address: String, calls: Calls, ready: mpsc::Sender<()>, hang_
 
 /// Start the fake and return its call log.
 fn start_fake(bus: &PrivateBus) -> Calls {
-    start_fake_with(bus, false)
+    start_fake_with(bus, Hang::Nothing)
 }
 
-/// Start the fake; with `hang_keys` it never answers key presses.
-fn start_fake_with(bus: &PrivateBus, hang_keys: bool) -> Calls {
+/// Start the fake; `hang` names the call it logs but never answers.
+fn start_fake_with(bus: &PrivateBus, hang: Hang) -> Calls {
     let calls: Calls = Arc::new(Mutex::new(Vec::new()));
     let (ready_tx, ready_rx) = mpsc::channel();
     let address = bus.address.clone();
     let log = Arc::clone(&calls);
-    thread::spawn(move || serve_fake_ibus(address, log, ready_tx, hang_keys));
+    thread::spawn(move || serve_fake_ibus(address, log, ready_tx, hang));
     ready_rx
         .recv_timeout(WAIT)
         .expect("fake IBus registers its name");
@@ -398,7 +409,7 @@ fn connecting_to_a_missing_bus_fails_with_a_reason() {
 #[test]
 fn a_hung_daemon_is_given_up_within_the_call_timeout() {
     let bus = PrivateBus::start();
-    let calls = start_fake_with(&bus, true);
+    let calls = start_fake_with(&bus, Hang::ProcessKeyEvent);
     let (wake_tx, _wake_rx) = mpsc::channel();
     let mut input = InputMethod::connect(&bus.address, move || {
         let _ = wake_tx.send(());
@@ -443,4 +454,38 @@ fn a_hung_daemon_is_given_up_within_the_call_timeout() {
     let again = Instant::now();
     assert!(!input.process_key(0x61, 38, 0));
     assert!(again.elapsed() < CONTEXT_CALL_TIMEOUT);
+}
+
+#[test]
+fn a_daemon_that_never_creates_a_context_fails_the_connect_quickly() {
+    let bus = PrivateBus::start();
+    let calls = start_fake_with(&bus, Hang::CreateInputContext);
+
+    // The client gives up on the silent daemon within the call bound.
+    let (incoming_tx, _incoming_rx) = mpsc::channel();
+    let started = Instant::now();
+    let error = IbusClient::connect(&bus.address, incoming_tx, || {})
+        .err()
+        .expect("connect fails when CreateInputContext is never answered");
+    let elapsed = started.elapsed();
+    assert!(error.contains("CreateInputContext"), "{error}");
+    assert!(elapsed < Duration::from_secs(1), "blocked for {elapsed:?}");
+
+    // The window starts without an input method, and says why.
+    let started = Instant::now();
+    let input = InputMethod::connect_or_unavailable(&bus.address, || {});
+    assert!(started.elapsed() < Duration::from_secs(1));
+    assert!(!input.is_active());
+    assert!(!input.wants_keys());
+    match input.status() {
+        InputMethodStatus::Unavailable(reason) => {
+            assert!(reason.contains("CreateInputContext"), "{reason}");
+        }
+        other => panic!("expected unavailable, got {other}"),
+    }
+    assert!(calls
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|call| call == "CreateInputContext"));
 }
