@@ -31,9 +31,11 @@ package() {
   cd "$srcdir/rust-slopos"
   export CARGO_TARGET_DIR="$srcdir/.cargo-target"
 
-  for binary in slopos-session slopos-shell slopos-dock slopos-catalogue slopos-settings slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-volume-mixer slopos-software; do
+  for binary in slopos-session slopos-shell slopos-dock slopos-catalogue slopos-settings slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-volume-mixer slopos-software slopos-portal slopos-file-chooser; do
     install -Dm755 "$CARGO_TARGET_DIR/release/$binary" "$pkgdir/usr/bin/$binary"
   done
+  install -Dm644 packaging/slopos-portals.conf "$pkgdir/usr/share/xdg-desktop-portal/slopos-portals.conf"
+  install -Dm644 packaging/org.freedesktop.impl.portal.desktop.slopos.service "$pkgdir/usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.slopos.service"
   install -Dm755 scripts/start-slopos-i "$pkgdir/usr/bin/start-slopos-i"
   install -Dm755 scripts/start-slopos-browser "$pkgdir/usr/bin/start-slopos-browser"
   install -Dm755 scripts/install-browser-theme.sh "$pkgdir/usr/bin/install-browser-theme.sh"
