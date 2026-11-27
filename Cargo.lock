@@ -3713,6 +3713,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-text-editor"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "env_logger",
+ "slopos-ui",
+ "tempfile",
+]
+
+[[package]]
 name = "slopos-topbar"
 version = "0.1.0"
 dependencies = [
