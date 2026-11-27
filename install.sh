@@ -104,7 +104,7 @@ if [[ $NO_BUILD -eq 0 ]]; then
   cargo build --release --workspace --locked
 fi
 
-BINARIES=(slopos-session slopos-topbar slopos-desktop slopos-dock slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-software slopos-volume-mixer slopos-lock slopos-system-monitor slopos-volume-mixer))
+BINARIES=(slopos-session slopos-topbar slopos-desktop slopos-dock slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-software slopos-volume-mixer slopos-lock slopos-system-monitor)
 for name in "${BINARIES[@]}"; do
   src="$CARGO_TARGET_DIR/release/$name"
   if [[ ! -x "$src" ]]; then
