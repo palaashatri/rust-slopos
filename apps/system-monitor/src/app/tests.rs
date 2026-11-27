@@ -360,7 +360,7 @@ fn the_filter_narrows_the_list_and_keeps_the_selection_on_the_same_process() {
     app.filter.set_text("");
     app.refresh_rows();
     assert_eq!(app.visible.len(), 4);
-    assert!(app.end.enabled == false);
+    assert!(!app.end.enabled);
 }
 
 #[test]

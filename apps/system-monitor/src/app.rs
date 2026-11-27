@@ -186,11 +186,13 @@ impl<S: Source> SystemMonitor<S> {
     }
 
     /// The selected tab's index.
+    #[cfg(test)]
     pub fn view_index(&self) -> usize {
         self.tabs.selected
     }
 
     /// The text of the status line, as the window shows it.
+    #[cfg(test)]
     pub fn status(&self) -> &str {
         &self.status
     }

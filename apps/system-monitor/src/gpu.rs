@@ -5,7 +5,12 @@
 /// What the GPU view shows.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GpuInfo {
-    Adapter { name: String, backend: String },
+    // Only the `gpu` build probes an adapter; without it nothing constructs this.
+    #[cfg_attr(not(feature = "gpu"), allow(dead_code))]
+    Adapter {
+        name: String,
+        backend: String,
+    },
     Unavailable(String),
 }
 
