@@ -68,6 +68,8 @@ pub enum PlayerEvent {
     State(PlaybackState),
     /// A new frame is waiting in [`Player::take_frame`].
     Frame,
+    /// The file is not a container or codec SLOPOS can identify.
+    Unreadable(String),
     /// Playback failed; the text says why in user terms.
     Error(String),
     /// A codec is missing; the text names it and how to get it.
@@ -81,7 +83,11 @@ pub struct MediaInfo {
     pub has_audio: bool,
     pub width: u32,
     pub height: u32,
+    /// A sibling subtitle file that was loaded with the media, if any.
     pub subtitles: Option<PathBuf>,
+    /// The text (subtitle) streams, in the order [`Player::set_subtitle_track`]
+    /// selects them: a human-readable label per stream.
+    pub subtitle_tracks: Vec<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -360,19 +366,23 @@ impl Player {
                     .any(|kind| error.error().matches(*kind))
                         || error.debug().is_some_and(|d| d.contains("typefind")) =>
                 {
-                    Some(PlayerEvent::Error(
-                        "this file is not a video or audio format SLOPOS can read".into(),
+                    Some(PlayerEvent::Unreadable(
+                        "This file is not a video or audio format SLOPOS can read.".into(),
                     ))
                 }
                 gst::MessageView::Error(error) => {
                     let text = error.error().to_string();
                     let debug = error.debug().map(|d| d.to_string()).unwrap_or_default();
-                    if debug.contains("missing")
+                    // "codec not found" is GStreamer's report of a stream
+                    // whose decoder is not installed; the debug text names
+                    // the caps, which is what the install hint is based on.
+                    if error.error().matches(gst::StreamError::CodecNotFound)
+                        || debug.contains("missing")
                         || text.contains("No decoder")
                         || text.contains("codec")
                     {
                         Some(PlayerEvent::MissingCodec(format!(
-                            "{text} Install {}.",
+                            "SLOPOS can't decode this file: {text} Install {}.",
                             codec_hint(&format!("{text} {debug}"))
                         )))
                     } else {
@@ -446,6 +456,7 @@ impl Player {
     fn info(playbin: &gst::Element, subtitles: Option<PathBuf>) -> MediaInfo {
         let videos: i32 = playbin.property("n-video");
         let audios: i32 = playbin.property("n-audio");
+        let texts: i32 = playbin.property("n-text");
         let duration = playbin
             .query_duration::<gst::ClockTime>()
             .map(|d| Duration::from_nanos(d.nseconds()));
@@ -458,6 +469,21 @@ impl Player {
                 }
             }
         }
+        // Embedded text streams are selectable by index; a sidecar file is
+        // loaded by playbin itself and is offered as one entry.
+        let subtitle_tracks = if texts > 0 {
+            (0..texts)
+                .map(|index| text_track_label(playbin, index))
+                .collect()
+        } else {
+            subtitles
+                .iter()
+                .map(|path| {
+                    path.file_name()
+                        .map_or_else(|| "Subtitles".into(), |name| name.to_string_lossy().into())
+                })
+                .collect()
+        };
         MediaInfo {
             duration,
             has_video: videos > 0,
@@ -465,6 +491,7 @@ impl Player {
             width,
             height,
             subtitles,
+            subtitle_tracks,
         }
     }
 
@@ -540,6 +567,36 @@ impl Player {
         self.playbin.property("mute")
     }
 
+    /// Show subtitle `track` (an index into [`MediaInfo::subtitle_tracks`])
+    /// or hide subtitles with `None`. A sidecar file has no embedded stream
+    /// to select, so only the visibility flag changes for it.
+    pub fn set_subtitle_track(&self, track: Option<usize>) {
+        match track {
+            Some(index) => {
+                let texts: i32 = self.playbin.property("n-text");
+                if let Ok(index) = i32::try_from(index) {
+                    if index < texts {
+                        self.playbin.set_property("current-text", index);
+                    }
+                }
+                self.set_subtitles_visible(true);
+            }
+            None => self.set_subtitles_visible(false),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn subtitles_flag(&self) -> bool {
+        let flags = self.playbin.property_value("flags");
+        gst::glib::FlagsClass::with_type(flags.type_())
+            .is_some_and(|class| class.is_set_by_nick(&flags, "text"))
+    }
+
+    #[cfg(test)]
+    pub fn current_text(&self) -> i32 {
+        self.playbin.property("current-text")
+    }
+
     /// Show or hide subtitles (when the file has any).
     pub fn set_subtitles_visible(&self, visible: bool) {
         let flags = self.playbin.property_value("flags");
@@ -557,6 +614,29 @@ impl Player {
         if let Some(value) = builder.build() {
             self.playbin.set_property_from_value("flags", &value);
         }
+    }
+}
+
+/// A label for text stream `index`: its title, else its language, else a
+/// number. Reads the stream's tags from playbin; nothing is parsed by hand.
+fn text_track_label(playbin: &gst::Element, index: i32) -> String {
+    let tags: Option<gst::TagList> = playbin.emit_by_name("get-text-tags", &[&index]);
+    let named = tags.and_then(|tags| {
+        tags.get::<gst::tags::Title>()
+            .map(|title| title.get().to_string())
+            .or_else(|| {
+                tags.get::<gst::tags::LanguageName>()
+                    .map(|language| language.get().to_string())
+            })
+            .or_else(|| {
+                tags.get::<gst::tags::LanguageCode>()
+                    .map(|code| code.get().to_string())
+            })
+    });
+    match named.filter(|name| !name.trim().is_empty()) {
+        // The number keeps two tracks with the same name apart.
+        Some(name) => format!("{name} ({})", index + 1),
+        None => format!("Track {}", index + 1),
     }
 }
 
@@ -603,6 +683,21 @@ pub(crate) mod tests {
             "clip.webm",
             "videotestsrc num-buffers=60 ! video/x-raw,width=160,height=120,framerate=30/1 ! vp8enc deadline=1 ! webmmux name=mux ! filesink location=OUT \
              audiotestsrc num-buffers=90 ! audioconvert ! vorbisenc ! mux.",
+        )
+    }
+
+    /// A WebM clip with a Matroska-embedded English-style text track.
+    pub fn subtitled_mkv(dir: &Path) -> PathBuf {
+        let srt = dir.join("embedded.srt");
+        std::fs::write(&srt, "1\n00:00:00,000 --> 00:00:01,500\nHi\n").unwrap();
+        fixture(
+            dir,
+            "subtitled.mkv",
+            &format!(
+                "videotestsrc pattern=black num-buffers=30 ! video/x-raw,width=160,height=120,framerate=30/1 ! vp8enc deadline=1 ! matroskamux name=mux ! filesink location=OUT \
+                 filesrc location={} ! subparse ! mux.",
+                srt.display()
+            ),
         )
     }
 
@@ -654,6 +749,8 @@ pub(crate) mod tests {
         assert_eq!((info.width, info.height), (160, 120));
         assert!(info.duration.unwrap() >= Duration::from_millis(1900));
         assert_eq!(info.subtitles, Some(dir.path().join("clip.srt")));
+        // A sidecar file is offered as one track, named after the file.
+        assert_eq!(info.subtitle_tracks, vec!["clip.srt".to_string()]);
         // Paused preroll still delivers the first frame.
         let start = Instant::now();
         let frame = loop {
@@ -667,6 +764,12 @@ pub(crate) mod tests {
             (frame.width, frame.height, frame.rgba.len()),
             (160, 120, 160 * 120 * 4)
         );
+        // Sidecar-only subtitles have no embedded stream to select; turning
+        // them on and off must still work.
+        player.set_subtitle_track(Some(0));
+        assert!(player.subtitles_flag());
+        player.set_subtitle_track(None);
+        assert!(!player.subtitles_flag());
         player.set_volume(0.25);
         assert!((player.volume() - 0.25).abs() < 1e-9);
         player.set_volume(f64::NAN);
@@ -680,6 +783,88 @@ pub(crate) mod tests {
         });
     }
 
+    /// A Matroska file whose video track is H.264 but whose decoder is not
+    /// installed (the bytes are noise; nothing is ever decoded).
+    pub fn undecodable_mkv(dir: &Path) -> PathBuf {
+        let noise = dir.join("noise.bin");
+        std::fs::write(&noise, vec![0x55u8; 4096]).unwrap();
+        fixture(
+            dir,
+            "no-decoder.mkv",
+            &format!(
+                "filesrc location={} ! video/x-h264,stream-format=avc,alignment=au,width=160,height=120,framerate=30/1 ! matroskamux ! filesink location=OUT",
+                noise.display()
+            ),
+        )
+    }
+
+    #[test]
+    fn a_missing_decoder_names_the_codec_and_the_package() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = undecodable_mkv(dir.path());
+        let player = Player::open(&file, no_wake()).unwrap();
+        let events = wait_for(&player, Duration::from_secs(10), |e| {
+            matches!(
+                e,
+                PlayerEvent::MissingCodec(_) | PlayerEvent::Error(_) | PlayerEvent::Unreadable(_)
+            )
+        });
+        // GStreamer reports a missing decoder as a stream error and as a
+        // missing-plugin message; either may arrive first. Both name the
+        // package.
+        let PlayerEvent::MissingCodec(text) = events.last().unwrap() else {
+            panic!("expected a missing-codec report, got {events:?}");
+        };
+        assert!(text.starts_with("SLOPOS can't"), "{text}");
+        assert!(text.contains("gstreamer1.0-libav"), "{text}");
+    }
+
+    fn next_frame(player: &Player, timeout: Duration) -> Frame {
+        let start = Instant::now();
+        loop {
+            if let Some(frame) = player.take_frame() {
+                return frame;
+            }
+            assert!(start.elapsed() < timeout, "no frame within {timeout:?}");
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    #[test]
+    fn embedded_subtitle_tracks_are_listed_and_selectable() {
+        let dir = tempfile::tempdir().unwrap();
+        let mkv = subtitled_mkv(dir.path());
+        let player = Player::open(&mkv, no_wake()).unwrap();
+        let events = wait_for(&player, Duration::from_secs(10), |e| {
+            matches!(e, PlayerEvent::Opened(_))
+        });
+        let info = events
+            .iter()
+            .find_map(|e| match e {
+                PlayerEvent::Opened(info) => Some(info.clone()),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(info.subtitle_tracks, vec!["Subtitle (1)".to_string()]);
+        assert_eq!(info.subtitles, None);
+        // Subtitles on (track 1) and off must decode differently at 0 s,
+        // where the embedded cue is shown. The pattern is black so that the
+        // only pixels that change are the subtitle's.
+        player.set_subtitle_track(Some(0));
+        assert_eq!(player.current_text(), 0);
+        assert!(player.subtitles_flag());
+        let shown = next_frame(&player, Duration::from_secs(5));
+        player.set_subtitle_track(None);
+        assert!(!player.subtitles_flag());
+        player.seek(Duration::ZERO).unwrap();
+        let hidden = next_frame(&player, Duration::from_secs(5));
+        assert_eq!(shown.rgba.len(), hidden.rgba.len());
+        assert_ne!(shown.rgba, hidden.rgba, "the subtitle changed no pixels");
+        // An index past the last stream is ignored instead of selecting junk.
+        player.set_subtitle_track(Some(7));
+        assert_eq!(player.current_text(), 0);
+    }
+
     #[test]
     fn broken_files_report_errors_instead_of_hanging() {
         let dir = tempfile::tempdir().unwrap();
@@ -689,14 +874,19 @@ pub(crate) mod tests {
             Err(_) => {}
             Ok(player) => {
                 wait_for(&player, Duration::from_secs(10), |e| {
-                    matches!(e, PlayerEvent::Error(_) | PlayerEvent::MissingCodec(_))
+                    matches!(
+                        e,
+                        PlayerEvent::Error(_)
+                            | PlayerEvent::MissingCodec(_)
+                            | PlayerEvent::Unreadable(_)
+                    )
                 });
             }
         }
         // A file that does not exist fails to open or reports an error.
         if let Ok(player) = Player::open(&dir.path().join("missing.ogg"), no_wake()) {
             wait_for(&player, Duration::from_secs(10), |e| {
-                matches!(e, PlayerEvent::Error(_))
+                matches!(e, PlayerEvent::Error(_) | PlayerEvent::Unreadable(_))
             });
         }
     }
