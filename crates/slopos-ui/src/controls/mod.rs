@@ -4,6 +4,7 @@ pub mod file_chooser;
 pub mod focus;
 pub mod list;
 pub mod menu;
+pub mod open_with;
 pub mod popup;
 pub mod range;
 pub mod scroll;

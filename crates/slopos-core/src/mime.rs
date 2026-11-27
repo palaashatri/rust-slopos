@@ -308,24 +308,63 @@ fn candidates(mime: &str, lists: &[String], installed: &[DesktopApp]) -> Vec<Str
     ids
 }
 
+/// One application that can open a type, for an Open With chooser.
+#[derive(Debug, Clone)]
+pub struct Association {
+    pub app: DesktopApp,
+    /// The application the default-application lists select for the type.
+    pub is_default: bool,
+}
+
+/// Applications that can open `mime`, default first, then the others in
+/// the order [`candidates`] gives them. Only installed applications are
+/// returned.
+pub fn applications_for(mime: &str) -> Vec<Association> {
+    let lists: Vec<String> = mimeapps_files()
+        .iter()
+        .filter_map(|path| fs::read_to_string(path).ok())
+        .collect();
+    associations_from(mime, &lists, &scan_desktop_apps())
+}
+
+fn associations_from(mime: &str, lists: &[String], installed: &[DesktopApp]) -> Vec<Association> {
+    let mut seen = std::collections::HashSet::new();
+    candidates(mime, lists, installed)
+        .into_iter()
+        .filter(|id| seen.insert(id.clone()))
+        .filter_map(|id| installed.iter().find(|app| app.id == id).cloned())
+        .enumerate()
+        .map(|(index, app)| Association {
+            app,
+            is_default: index == 0,
+        })
+        .collect()
+}
+
 /// Open `path` in the application set for its type (or `xdg-open` when
 /// none is), detached. Returns the application's name, or `None` when
 /// nothing could open it.
 pub fn open(path: &Path) -> Option<String> {
     use crate::process::{resolve_program, spawn_detached};
     match default_app(&guess(path)) {
-        Some(app) => app.command_for(&[path]).and_then(|argv| {
-            let program = resolve_program(&argv[0])?;
-            spawn_detached(&program, &argv[1..])
-                .ok()
-                .map(|_| app.name.clone())
-        }),
+        Some(app) => launch_with(&app, path),
         None => resolve_program("xdg-open").and_then(|opener| {
             spawn_detached(&opener, [path.as_os_str()])
                 .ok()
                 .map(|_| "the default application".to_owned())
         }),
     }
+}
+
+/// Start `app` on `path`, detached. Returns the application's name when it
+/// started; `None` when its `Exec` line cannot be run.
+pub fn launch_with(app: &DesktopApp, path: &Path) -> Option<String> {
+    use crate::process::{resolve_program, spawn_detached};
+    let argv = app.command_for(&[path])?;
+    let program = resolve_program(argv.first()?)?;
+    spawn_detached(&program, &argv[1..])
+        .ok()
+        .map(|_| app.name.clone())
 }
 
 /// The installed application that should open `mime`, if any. Text
@@ -371,6 +410,23 @@ mod tests {
             mime_types: mime.iter().map(|m| (*m).into()).collect(),
             exec: "true %F".into(),
         }
+    }
+
+    #[test]
+    fn associations_put_the_default_first_and_skip_missing_apps() {
+        let installed = vec![
+            app("viewer", &["image/png"]),
+            app("editor", &["image/png", "text/plain"]),
+        ];
+        let lists =
+            vec!["[Default Applications]\nimage/png=editor.desktop;ghost.desktop;\n".to_owned()];
+        let found = associations_from("image/png", &lists, &installed);
+        let ids: Vec<(&str, bool)> = found
+            .iter()
+            .map(|a| (a.app.id.as_str(), a.is_default))
+            .collect();
+        assert_eq!(ids, [("editor", true), ("viewer", false)]);
+        assert!(associations_from("application/x-none", &[], &installed).is_empty());
     }
 
     #[test]
