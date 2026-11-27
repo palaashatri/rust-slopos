@@ -1,0 +1,17 @@
+# Live session only: installs the proprietary NVIDIA driver at boot when an
+# NVIDIA GPU is present (install-nvidia-driver.sh). It is removed from the
+# installed system by strip-live-system.sh; the installer runs the same helper
+# itself from shellprocess.
+[Unit]
+Description=Install the proprietary NVIDIA driver when an NVIDIA GPU is present
+ConditionPathExists=/usr/libexec/slopos-nvidia/install-nvidia-driver.sh
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/slopos-nvidia/install-nvidia-driver.sh
+TimeoutStartSec=30min
+
+[Install]
+WantedBy=multi-user.target

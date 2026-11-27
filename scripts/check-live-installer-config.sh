@@ -221,7 +221,10 @@ stage_tree() {
              usr/share/applications/slopos-install.desktop \
              etc/skel/Desktop/slopos-install.desktop \
              etc/polkit-1/rules.d/49-slopos-live-installer.rules \
-             usr/libexec/slopos-install/strip-live-system.sh; do
+             usr/libexec/slopos-install/strip-live-system.sh \
+             usr/libexec/slopos-nvidia/install-nvidia-driver.sh \
+             usr/share/slopos/nvidia/driver.conf \
+             usr/lib/systemd/system/slopos-nvidia-driver.service; do
       [[ -e "$tmp/$f" ]] || { echo "  not staged: $f" >&2; rc=1; }
     done
     local m
@@ -315,6 +318,121 @@ check "installer check runs before the ISO build" bash -c "
 
 echo "== static: evidence =="
 check "finding 5: ledger has a dated INSTALLER-CALAMARES row that says the install is NOT_RUN" ledger_row_ok
+
+NVIDIA_DIR="$INSTALLER/nvidia"
+NVIDIA_CONF="$NVIDIA_DIR/driver.conf"
+NVIDIA_HELPER="$NVIDIA_DIR/install-nvidia-driver.sh"
+NVIDIA_UNIT="$NVIDIA_DIR/slopos-nvidia-driver.service"
+NVIDIA_LEDGER_ID="NVIDIA-DRIVER-SUPPORT"
+
+# Data lines of driver.conf: no comments, no blank lines.
+nvidia_conf_data() { grep -Ev '^[[:space:]]*(#|$)' "$NVIDIA_CONF"; }
+
+nvidia_conf_format_ok() {  # every data line is "<ID> <VERSION_CODENAME> <package>"
+  local lines
+  lines="$(nvidia_conf_data)" || return 1
+  [[ -n "$lines" ]] || return 1
+  awk 'NF != 3 { exit 1 }' <<<"$lines"
+}
+
+nvidia_conf_has() {  # ID CODENAME PACKAGE_REGEX: a line names a matching package
+  awk -v id="$1" -v codename="$2" -v re="$3" \
+    '$1 == id && $2 == codename && $3 ~ re { found = 1 } END { exit !found }' \
+    <<<"$(nvidia_conf_data)"
+}
+
+# Runs the helper in --check mode against fixtures: a PCI tree with one device
+# (VENDOR, CLASS), an os-release (ID, CODENAME), and optionally the proprietary
+# marker. Passes when it exits 0 and prints EXPECT.
+helper_check_case() {  # VENDOR CLASS ID CODENAME MARKER(yes|no) EXPECT
+  local tmp rc=0 out
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/pci/0000:01:00.0"
+  printf '%s\n' "$1" >"$tmp/pci/0000:01:00.0/vendor"
+  printf '%s\n' "$2" >"$tmp/pci/0000:01:00.0/class"
+  printf 'ID=%s\nVERSION_CODENAME=%s\n' "$3" "$4" >"$tmp/os-release"
+  if [[ "$5" == yes ]]; then : >"$tmp/proprietary-version"; fi
+  out="$(SLOPOS_PCI_DEVICES="$tmp/pci" SLOPOS_OS_RELEASE="$tmp/os-release" \
+    SLOPOS_NVIDIA_CONFIG="$NVIDIA_CONF" SLOPOS_NVIDIA_PROC="$tmp/proprietary-version" \
+    bash "$NVIDIA_HELPER" --check 2>&1)" || rc=$?
+  rm -rf "$tmp"
+  [[ $rc -eq 0 ]] && grep -qF -- "$6" <<<"$out"
+}
+
+helper_check_missing_pci_tree() {  # the PCI tree cannot be read: nothing installed, exit 0
+  local tmp rc=0 out
+  tmp="$(mktemp -d)"
+  printf 'ID=ubuntu\nVERSION_CODENAME=noble\n' >"$tmp/os-release"
+  out="$(SLOPOS_PCI_DEVICES="$tmp/absent" SLOPOS_OS_RELEASE="$tmp/os-release" \
+    SLOPOS_NVIDIA_CONFIG="$NVIDIA_CONF" SLOPOS_NVIDIA_PROC="$tmp/absent-version" \
+    bash "$NVIDIA_HELPER" --check 2>&1)" || rc=$?
+  rm -rf "$tmp"
+  [[ $rc -eq 0 ]] && grep -qF 'PCI devices are unavailable' <<<"$out"
+}
+
+helper_rejects_unknown_option() {
+  local rc=0
+  bash "$NVIDIA_HELPER" --bogus >/dev/null 2>&1 || rc=$?
+  [[ $rc -eq 2 ]]
+}
+
+ledger_nvidia_row_ok() {
+  grep -qE "^\| [0-9]{4}-[0-9]{2}-[0-9]{2} \| $NVIDIA_LEDGER_ID \|.*NOT_RUN" "$LEDGER"
+}
+
+echo "== static: NVIDIA proprietary driver (packaging/iso/installer/nvidia) =="
+check "driver.conf exists" test -f "$NVIDIA_CONF"
+check "driver.conf has one '<ID> <VERSION_CODENAME> <package>' line per release" nvidia_conf_format_ok
+check "driver.conf names an nvidia-driver-<branch> package for ubuntu noble" \
+  nvidia_conf_has ubuntu noble '^nvidia-driver-[0-9]+$'
+check "the live ISO suite (build-live-iso.sh) is the noble release driver.conf covers" \
+  grep -qxF 'SUITE=noble' "$BUILDER"
+check "driver.conf names nvidia-driver (non-free) for debian trixie" \
+  nvidia_conf_has debian trixie '^nvidia-driver$'
+check "driver.conf names nvidia-driver (non-free) for debian bookworm" \
+  nvidia_conf_has debian bookworm '^nvidia-driver$'
+check "install-nvidia-driver.sh parses" bash -n "$NVIDIA_HELPER"
+check "the helper names no driver package (packages are in driver.conf)" \
+  bash -c "! grep -qE 'nvidia-driver-[0-9]|nvidia-driver([[:space:]]|\$)' '$NVIDIA_HELPER'"
+check "the helper detects NVIDIA by PCI vendor 0x10de and display class 0x03" \
+  bash -c "grep -qF '0x10de' '$NVIDIA_HELPER' && grep -qF '0x03' '$NVIDIA_HELPER'"
+check "the helper reads driver.conf from the installed path" \
+  grep -qF '/usr/share/slopos/nvidia/driver.conf' "$NVIDIA_HELPER"
+check "the helper skips when the proprietary module is loaded (/proc/driver/nvidia/version)" \
+  grep -qF '/proc/driver/nvidia/version' "$NVIDIA_HELPER"
+check "helper: NVIDIA GPU on ubuntu noble would install the configured package" \
+  helper_check_case 0x10de 0x030000 ubuntu noble no "would install nvidia-driver-570"
+check "helper: an NVIDIA 3D controller (class 0x0302) counts as a GPU" \
+  helper_check_case 0x10de 0x030200 ubuntu noble no "would install nvidia-driver-570"
+check "helper: debian trixie would install nvidia-driver" \
+  helper_check_case 0x10de 0x030000 debian trixie no "would install nvidia-driver"
+check "helper: no NVIDIA GPU installs nothing" \
+  helper_check_case 0x8086 0x030000 ubuntu noble no "no NVIDIA GPU detected"
+check "helper: an NVIDIA network card is not a GPU" \
+  helper_check_case 0x10de 0x020000 ubuntu noble no "no NVIDIA GPU detected"
+check "helper: an already loaded proprietary module is left alone" \
+  helper_check_case 0x10de 0x030000 ubuntu noble yes "already loaded"
+check "helper: a release without a line installs nothing" \
+  helper_check_case 0x10de 0x030000 fedora "" no "no proprietary driver package is configured"
+check "helper: an unreadable PCI tree installs nothing and says so" helper_check_missing_pci_tree
+check "helper: an unknown option is refused" helper_rejects_unknown_option
+check "slopos-nvidia-driver.service runs the installed helper" \
+  grep -qxF 'ExecStart=/usr/libexec/slopos-nvidia/install-nvidia-driver.sh' "$NVIDIA_UNIT"
+check "slopos-nvidia-driver.service waits for the network" \
+  grep -qxF 'Wants=network-online.target' "$NVIDIA_UNIT"
+check "shellprocess runs the NVIDIA helper" \
+  grep -qF '/usr/libexec/slopos-nvidia/install-nvidia-driver.sh' "$INSTALLER/modules/shellprocess.conf"
+check "the NVIDIA helper runs after the live cleanup in shellprocess" \
+  bash -c "
+  strip_line=\$(grep -nF 'strip-live-system.sh' '$INSTALLER/modules/shellprocess.conf' | head -1 | cut -d: -f1)
+  nvidia_line=\$(grep -nF 'install-nvidia-driver.sh' '$INSTALLER/modules/shellprocess.conf' | head -1 | cut -d: -f1)
+  [[ -n \"\$strip_line\" && -n \"\$nvidia_line\" && \$strip_line -lt \$nvidia_line ]]"
+check "the cleanup script removes the live-only NVIDIA boot unit and its enable link" \
+  bash -c "grep -qF 'rm -f /usr/lib/systemd/system/slopos-nvidia-driver.service' '$STRIP' && grep -qF 'rm -f /etc/systemd/system/multi-user.target.wants/slopos-nvidia-driver.service' '$STRIP'"
+check "live-installer.sh stages the NVIDIA helper, driver.conf and boot unit" \
+  bash -c "grep -qF 'nvidia/install-nvidia-driver.sh' '$INSTALLER/live-installer.sh' && grep -qF 'nvidia/driver.conf' '$INSTALLER/live-installer.sh' && grep -qF 'nvidia/slopos-nvidia-driver.service' '$INSTALLER/live-installer.sh'"
+check "evidence: ledger has a dated NVIDIA-DRIVER-SUPPORT row that says the RTX 3080 run is NOT_RUN" ledger_nvidia_row_ok
+not_run "the proprietary driver installs and loads on an RTX 3080 (live ISO and installed system)"
 
 echo "== YAML syntax =="
 if python3 -c 'import yaml' 2>/dev/null; then
