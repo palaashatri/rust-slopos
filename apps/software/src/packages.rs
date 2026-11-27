@@ -88,14 +88,39 @@ pub fn install_argv(
     Ok(argv.into_iter().map(str::to_owned).collect())
 }
 
-/// What the install step reports once it has finished.
-pub const FLATPAK_INSTALLED: &str = "Flatpak installed";
+/// A change one Flatpak setup step made to the machine. The setup records one
+/// for each step that succeeds, so a failed or cancelled attempt undoes exactly
+/// what it changed and nothing that was there before it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Change {
+    /// The attempt installed Flatpak with the native manager `family`.
+    FlatpakInstalled(Family),
+    /// The attempt added the Flathub remote.
+    FlathubAdded,
+}
 
-/// One step of the Flatpak setup: its command, and what it has done once it
-/// succeeds, for the report when a later step fails or is cancelled.
+impl Change {
+    /// The report's words once the step has finished.
+    pub fn done(self) -> &'static str {
+        match self {
+            Change::FlatpakInstalled(_) => "Flatpak installed",
+            Change::FlathubAdded => "Flathub added",
+        }
+    }
+
+    /// The report's words once its undo has finished.
+    pub fn undone(self) -> &'static str {
+        match self {
+            Change::FlatpakInstalled(_) => "Flatpak removed",
+            Change::FlathubAdded => "Flathub removed",
+        }
+    }
+}
+
+/// One step of the Flatpak setup: the change it makes and its command.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SetupStep {
-    pub done: &'static str,
+    pub change: Change,
     pub argv: Vec<String>,
 }
 
@@ -117,13 +142,13 @@ pub fn flatpak_setup_steps(
             return Err(format!("unavailable: {} not found", family.install_tool()));
         }
         steps.push(SetupStep {
-            done: FLATPAK_INSTALLED,
+            change: Change::FlatpakInstalled(family),
             argv: install_argv(Source::Native, Some(family), "", "flatpak")?,
         });
     }
     if !status.flathub {
         steps.push(SetupStep {
-            done: "Flathub added",
+            change: Change::FlathubAdded,
             argv: [
                 "pkexec",
                 "flatpak",
@@ -144,6 +169,108 @@ pub fn flatpak_setup_steps(
         }
     }
     Ok(steps)
+}
+
+/// The command that undoes one [`Change`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UndoStep {
+    pub change: Change,
+    pub argv: Vec<String>,
+}
+
+/// The undo commands for the changes an attempt made, last change first, so
+/// the remote goes before the Flatpak it was added to. Only changes in
+/// `completed` are undone: anything that existed before the attempt is never
+/// recorded, so it is never removed.
+pub fn rollback_steps(completed: &[Change]) -> Vec<UndoStep> {
+    completed
+        .iter()
+        .rev()
+        .map(|&change| UndoStep {
+            change,
+            argv: undo_argv(change),
+        })
+        .collect()
+}
+
+fn undo_argv(change: Change) -> Vec<String> {
+    match change {
+        Change::FlatpakInstalled(family) => remove_flatpak_argv(family),
+        Change::FlathubAdded => ["pkexec", "flatpak", "remote-delete", "--system", FLATHUB]
+            .map(str::to_owned)
+            .to_vec(),
+    }
+}
+
+/// The command that removes the Flatpak `family`'s manager installed, through
+/// `pkexec` like the install.
+pub fn remove_flatpak_argv(family: Family) -> Vec<String> {
+    let argv: Vec<&str> = match family {
+        Family::Apt => vec![
+            "pkexec",
+            "env",
+            "DEBIAN_FRONTEND=noninteractive",
+            "apt-get",
+            "remove",
+            "-y",
+            "flatpak",
+        ],
+        Family::Dnf => vec!["pkexec", "dnf", "remove", "-y", "flatpak"],
+        Family::Pacman => vec!["pkexec", "pacman", "-R", "--noconfirm", "flatpak"],
+    };
+    argv.into_iter().map(str::to_owned).collect()
+}
+
+/// How the undo of a failed or cancelled attempt ended.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Rollback {
+    /// Nothing had changed, so nothing was undone.
+    NotNeeded,
+    /// Every change was undone, named in the order they were undone.
+    Undone(Vec<&'static str>),
+    /// An undo step failed and no later one ran. `undone` names the changes
+    /// undone before it; `remains` names every change still in place, the
+    /// failed one first; `error` is the tool's last line.
+    Failed {
+        undone: Vec<&'static str>,
+        remains: Vec<&'static str>,
+        error: String,
+    },
+}
+
+impl Rollback {
+    pub fn failed(&self) -> bool {
+        matches!(self, Rollback::Failed { .. })
+    }
+}
+
+/// Undo the changes in `completed` with `run`, which runs one command and
+/// returns its error. The undo stops at the first step that fails, so the
+/// changes after it are not touched and are reported as remaining.
+pub fn roll_back(
+    completed: &[Change],
+    run: &mut dyn FnMut(&[String]) -> Result<(), String>,
+) -> Rollback {
+    let steps = rollback_steps(completed);
+    if steps.is_empty() {
+        return Rollback::NotNeeded;
+    }
+    let mut undone = Vec::new();
+    for (index, step) in steps.iter().enumerate() {
+        if let Err(error) = run(&step.argv) {
+            let remains = steps[index..]
+                .iter()
+                .map(|step| step.change.done())
+                .collect();
+            return Rollback::Failed {
+                undone,
+                remains,
+                error,
+            };
+        }
+        undone.push(step.change.undone());
+    }
+    Rollback::Undone(undone)
 }
 
 /// The question the Flatpak prompt asks: exactly the steps
@@ -443,8 +570,8 @@ mod flatpak_setup_tests {
         )
         .unwrap();
         assert_eq!(steps.len(), 2);
-        assert_eq!(steps[0].done, "Flatpak installed");
-        assert_eq!(steps[1].done, "Flathub added");
+        assert_eq!(steps[0].change, Change::FlatpakInstalled(Family::Apt));
+        assert_eq!(steps[1].change, Change::FlathubAdded);
         assert_eq!(
             steps[0].argv,
             words(&[
@@ -534,5 +661,132 @@ mod flatpak_setup_tests {
             "Turn on Flatpak support? Nothing else will change."
         );
         assert!(flatpak_prompt(None, &status(false, false)).contains("Nothing will change"));
+    }
+}
+
+#[cfg(test)]
+mod rollback_tests {
+    use super::*;
+
+    fn words(parts: &[&str]) -> Vec<String> {
+        parts.iter().map(|part| (*part).to_owned()).collect()
+    }
+
+    const REMOTE_DELETE: [&str; 5] = ["pkexec", "flatpak", "remote-delete", "--system", "flathub"];
+
+    #[test]
+    fn the_last_change_is_undone_first() {
+        let steps = rollback_steps(&[Change::FlatpakInstalled(Family::Dnf), Change::FlathubAdded]);
+        assert_eq!(
+            steps,
+            vec![
+                UndoStep {
+                    change: Change::FlathubAdded,
+                    argv: words(&REMOTE_DELETE),
+                },
+                UndoStep {
+                    change: Change::FlatpakInstalled(Family::Dnf),
+                    argv: words(&["pkexec", "dnf", "remove", "-y", "flatpak"]),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn flatpak_is_removed_with_the_manager_that_installed_it() {
+        assert_eq!(
+            remove_flatpak_argv(Family::Apt),
+            words(&[
+                "pkexec",
+                "env",
+                "DEBIAN_FRONTEND=noninteractive",
+                "apt-get",
+                "remove",
+                "-y",
+                "flatpak",
+            ])
+        );
+        assert_eq!(
+            remove_flatpak_argv(Family::Pacman),
+            words(&["pkexec", "pacman", "-R", "--noconfirm", "flatpak"])
+        );
+    }
+
+    #[test]
+    fn nothing_recorded_means_nothing_to_undo() {
+        assert!(rollback_steps(&[]).is_empty());
+        let mut calls = 0;
+        let outcome = roll_back(&[], &mut |_: &[String]| {
+            calls += 1;
+            Ok(())
+        });
+        assert_eq!(outcome, Rollback::NotNeeded);
+        assert_eq!(calls, 0);
+    }
+
+    #[test]
+    fn a_full_undo_names_every_change_in_the_order_it_ran() {
+        let mut ran = Vec::new();
+        let outcome = roll_back(
+            &[Change::FlatpakInstalled(Family::Apt), Change::FlathubAdded],
+            &mut |argv: &[String]| {
+                ran.push(argv.to_vec());
+                Ok(())
+            },
+        );
+        assert_eq!(
+            outcome,
+            Rollback::Undone(vec!["Flathub removed", "Flatpak removed"])
+        );
+        assert_eq!(ran.len(), 2);
+        assert_eq!(ran[0][2], "remote-delete");
+        assert_eq!(ran[1].last().map(String::as_str), Some("flatpak"));
+        assert!(!outcome.failed());
+    }
+
+    #[test]
+    fn the_undo_stops_at_a_failed_step_and_names_what_remains() {
+        let mut ran = Vec::new();
+        let outcome = roll_back(
+            &[Change::FlatpakInstalled(Family::Apt), Change::FlathubAdded],
+            &mut |argv: &[String]| {
+                ran.push(argv.to_vec());
+                Err("pkexec exited with status 1: E: refused".to_owned())
+            },
+        );
+        assert_eq!(
+            outcome,
+            Rollback::Failed {
+                undone: Vec::new(),
+                remains: vec!["Flathub added", "Flatpak installed"],
+                error: "pkexec exited with status 1: E: refused".to_owned(),
+            }
+        );
+        assert_eq!(ran.len(), 1, "the Flatpak removal is not attempted");
+        assert!(outcome.failed());
+    }
+
+    #[test]
+    fn a_failed_flatpak_removal_after_the_remote_is_gone_names_only_flatpak() {
+        let mut calls = 0;
+        let outcome = roll_back(
+            &[Change::FlatpakInstalled(Family::Dnf), Change::FlathubAdded],
+            &mut |_: &[String]| {
+                calls += 1;
+                if calls == 1 {
+                    Ok(())
+                } else {
+                    Err("dnf exited with status 1: no match".to_owned())
+                }
+            },
+        );
+        assert_eq!(
+            outcome,
+            Rollback::Failed {
+                undone: vec!["Flathub removed"],
+                remains: vec!["Flatpak installed"],
+                error: "dnf exited with status 1: no match".to_owned(),
+            }
+        );
     }
 }

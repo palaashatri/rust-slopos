@@ -122,11 +122,12 @@ enum Finished {
         name: String,
         result: Result<(), String>,
     },
-    /// The Flatpak setup steps the Sources tab ran: the ones that finished, and
-    /// how the run ended.
+    /// The Flatpak setup the Sources tab ran: the changes its steps made, how
+    /// the run ended, and what the undo of a failed or cancelled run did.
     FlatpakSetup {
-        completed: Vec<&'static str>,
+        completed: Vec<packages::Change>,
         result: Result<(), String>,
+        rollback: packages::Rollback,
     },
 }
 
@@ -154,21 +155,37 @@ struct Running {
     done: Receiver<Finished>,
 }
 
-/// What a Flatpak setup left behind, for its report. Nothing is rolled back:
-/// the steps that finished stay as they are.
-fn setup_left(completed: &[&str]) -> String {
+/// What a Flatpak setup attempt left behind, for its report: the changes its
+/// steps made, what the undo did, and any change still in place.
+fn setup_report(completed: &[packages::Change], rollback: &packages::Rollback) -> String {
+    let mut parts = Vec::new();
     if completed.is_empty() {
-        return "No step finished. Flatpak is not turned on.".to_owned();
-    }
-    let state = if completed.contains(&packages::FLATPAK_INSTALLED) {
-        "Flatpak is installed but not turned on."
+        parts.push("No step finished.".to_owned());
     } else {
-        "Flatpak is not turned on."
-    };
-    format!(
-        "Finished: {}. Nothing was rolled back. {state}",
-        completed.join(", ")
-    )
+        let done: Vec<&str> = completed.iter().map(|change| change.done()).collect();
+        parts.push(format!("Finished: {}.", done.join(", ")));
+    }
+    match rollback {
+        packages::Rollback::NotNeeded => {}
+        packages::Rollback::Undone(undone) => {
+            parts.push(format!("Rolled back: {}.", undone.join(", ")));
+        }
+        packages::Rollback::Failed {
+            undone,
+            remains,
+            error,
+        } => {
+            if !undone.is_empty() {
+                parts.push(format!("Rolled back: {}.", undone.join(", ")));
+            }
+            parts.push(format!(
+                "Rollback failed: {error}. Still changed: {}.",
+                remains.join(", ")
+            ));
+        }
+    }
+    parts.push("Flatpak is not turned on.".to_owned());
+    parts.join(" ")
 }
 
 /// How a transaction reaches the outside world; tests swap in local files.
@@ -1120,16 +1137,24 @@ impl SoftwareApp {
         self.start_flatpak_setup(steps);
     }
 
-    /// Run the Flatpak setup steps on a worker thread, in order. A failed step
-    /// or a cancel ends the run, and the steps that finished are reported.
-    /// When every step succeeds, Flatpak support is turned on. Output lines
-    /// reach the Sources tab as they arrive.
+    /// Run the Flatpak setup on a worker thread: the steps in order, then the
+    /// setting that turns Flatpak support on. A failed step, a failed save or
+    /// a cancel ends the run, and the changes it made are undone in reverse
+    /// order, so the machine is left as it was. The undo has its own cancel
+    /// token: a cancel stops the setup, never the undo of what it finished.
+    /// Output lines reach the Sources tab as they arrive.
     fn start_flatpak_setup(&mut self, steps: Vec<packages::SetupStep>) {
         if self.running.is_some() {
             return;
         }
         if steps.is_empty() {
-            return self.turn_on_flatpak_after_setup();
+            match self.save_option(Source::Flatpak, true) {
+                Ok(()) => self.notice("Flatpak is on. Search its tab to list packages."),
+                Err(error) => self.fail(format!(
+                    "Flatpak is not turned on: the setting could not be saved: {error}."
+                )),
+            }
+            return;
         }
         let stop = Arc::new(Cancel::default());
         let worker_stop = stop.clone();
@@ -1137,6 +1162,11 @@ impl SoftwareApp {
         let (sender, done) = mpsc::channel();
         let runner = self.commands.install.clone();
         let slot = self.wake.clone();
+        // The setting is the run's last step, written by the worker, so a
+        // failed save is undone like a failed package step.
+        let mut candidate = self.config;
+        candidate.flatpak = true;
+        let config_path = self.environment.config_path.clone();
         let spawned = thread::Builder::new()
             .name("software-flatpak".into())
             .spawn(move || {
@@ -1154,14 +1184,40 @@ impl SoftwareApp {
                         wake(&slot);
                     });
                     match outcome {
-                        Ok(()) => completed.push(step.done),
+                        Ok(()) => completed.push(step.change),
                         Err(error) => {
                             result = Err(error);
                             break;
                         }
                     }
                 }
-                let _ = sender.send(Finished::FlatpakSetup { completed, result });
+                if result.is_ok() {
+                    result = if worker_stop.is_cancelled() {
+                        Err(run::CANCELLED.to_owned())
+                    } else {
+                        candidate
+                            .save(&config_path)
+                            .map_err(|error| format!("the setting could not be saved: {error}"))
+                    };
+                }
+                let rollback = if result.is_err() && !completed.is_empty() {
+                    let undo_stop = Cancel::default();
+                    let _ = line_sender.send("Undoing the changes this attempt made.".to_owned());
+                    wake(&slot);
+                    packages::roll_back(&completed, &mut |argv: &[String]| {
+                        runner(argv, &undo_stop, &mut |line: &str| {
+                            let _ = line_sender.send(line.to_owned());
+                            wake(&slot);
+                        })
+                    })
+                } else {
+                    packages::Rollback::NotNeeded
+                };
+                let _ = sender.send(Finished::FlatpakSetup {
+                    completed,
+                    result,
+                    rollback,
+                });
                 wake(&slot);
             });
         match spawned {
@@ -1183,15 +1239,12 @@ impl SoftwareApp {
         }
     }
 
-    /// Flatpak is set up: turn its support on and save that. If the save
-    /// fails, the setting and the tabs stay as they were.
-    fn turn_on_flatpak_after_setup(&mut self) {
-        match self.save_option(Source::Flatpak, true) {
-            Ok(()) => self.notice("Flatpak is on. Search its tab to list packages."),
-            Err(error) => self.fail(format!(
-                "Flatpak was set up, but its setting could not be saved: {error}. Flatpak is not turned on."
-            )),
-        }
+    /// The Flatpak setup finished and its setting was saved by the run: show
+    /// Flatpak support in the window's state and tabs.
+    fn turn_flatpak_on(&mut self) {
+        self.config.flatpak = true;
+        self.retune_tabs();
+        self.notice("Flatpak is on. Search its tab to list packages.");
     }
 
     /// The install command for the selected package on the active source, or
@@ -1466,21 +1519,23 @@ impl SoftwareApp {
                 name,
                 result: Err(error),
             } => self.fail(format!("{name} was not installed: {error}")),
-            Finished::FlatpakSetup { result: Ok(()), .. } => self.turn_on_flatpak_after_setup(),
+            Finished::FlatpakSetup { result: Ok(()), .. } => self.turn_flatpak_on(),
             Finished::FlatpakSetup {
                 completed,
                 result: Err(error),
-            } if error == run::CANCELLED => self.notice(format!(
-                "Flatpak setup was cancelled. {}",
-                setup_left(&completed)
-            )),
-            Finished::FlatpakSetup {
-                completed,
-                result: Err(error),
-            } => self.fail(format!(
-                "Flatpak was not set up: {error}. {}",
-                setup_left(&completed)
-            )),
+                rollback,
+            } => {
+                let report = setup_report(&completed, &rollback);
+                if error == run::CANCELLED && !rollback.failed() {
+                    self.notice(format!("Flatpak setup was cancelled. {report}"));
+                } else if error == run::CANCELLED {
+                    self.fail(format!(
+                        "Flatpak setup was cancelled, and undoing it failed. {report}"
+                    ));
+                } else {
+                    self.fail(format!("Flatpak was not set up: {error}. {report}"));
+                }
+            }
             Finished::Removed {
                 name,
                 result: Ok(()),
@@ -3038,16 +3093,58 @@ mod tests {
         assert!(!app.status_error, "{}", app.status);
     }
 
+    /// A runner that records each command and fails the ones `refuse` names,
+    /// with the error it returns.
+    fn scripted_install(
+        ran: Arc<Mutex<Vec<Vec<String>>>>,
+        refuse: fn(&[String]) -> Option<&'static str>,
+    ) -> PackageRunner {
+        Arc::new(
+            move |argv: &[String], _: &Cancel, on_line: &mut dyn FnMut(&str)| {
+                ran.lock().unwrap().push(argv.to_vec());
+                on_line("step ran");
+                refuse(argv).map_or(Ok(()), |error| Err(error.to_owned()))
+            },
+        )
+    }
+
+    /// Whether the command has `word` as one of its arguments.
+    fn has_word(argv: &[String], word: &str) -> bool {
+        argv.iter().any(|arg| arg == word)
+    }
+
+    fn refuses_nothing(_: &[String]) -> Option<&'static str> {
+        None
+    }
+
+    /// Make the setting impossible to save: a file sits where the config
+    /// directory should be, so the setup's last step fails.
+    fn make_setting_unsavable(app: &mut SoftwareApp, dir: &std::path::Path) {
+        let blocker = dir.join("blocker");
+        std::fs::write(&blocker, "not a directory").unwrap();
+        app.environment.config_path = blocker.join("software.conf");
+    }
+
     #[test]
-    fn a_cancel_stops_the_remaining_steps_and_names_the_finished_ones() {
+    fn a_cancel_between_steps_stops_the_rest_and_undoes_the_finished_install() {
         let dir = tempfile::tempdir().unwrap();
         let ran = Arc::new(Mutex::new(Vec::new()));
         let recorded = ran.clone();
-        // The first step finishes, and the user cancels during it.
+        let calls = Arc::new(Mutex::new(0));
+        let counter = calls.clone();
+        // The first step finishes, and the user cancels during it. The undo
+        // that follows is not cancelled with the setup.
         let install: PackageRunner = Arc::new(
             move |argv: &[String], cancel: &Cancel, _: &mut dyn FnMut(&str)| {
                 recorded.lock().unwrap().push(argv.to_vec());
-                cancel.cancel().unwrap();
+                let call = {
+                    let mut count = counter.lock().unwrap();
+                    *count += 1;
+                    *count
+                };
+                if call == 1 {
+                    cancel.cancel().unwrap();
+                }
                 Ok(())
             },
         );
@@ -3060,7 +3157,13 @@ mod tests {
         open_sources(&mut app, &mut control);
         answer_yes_to_flatpak(&mut app, &mut control);
         wait_for_work(&mut app);
-        assert_eq!(ran.lock().unwrap().len(), 1, "the second step never starts");
+        let ran = ran.lock().unwrap().clone();
+        assert_eq!(ran.len(), 2, "the Flathub step never starts: {ran:?}");
+        assert!(ran.iter().all(|argv| !has_word(argv, "remote-add")));
+        assert!(
+            has_word(&ran[1], "remove"),
+            "the install is undone: {ran:?}"
+        );
         assert!(
             !app.status_error,
             "a cancel is not a failure: {}",
@@ -3076,39 +3179,37 @@ mod tests {
             "{}",
             app.status
         );
+        assert!(
+            app.status.contains("Rolled back: Flatpak removed."),
+            "{}",
+            app.status
+        );
         assert!(!app.config.flatpak);
     }
 
     #[test]
-    fn a_failed_step_after_the_install_says_flatpak_is_installed_but_off() {
+    fn a_refused_remote_add_removes_the_flatpak_it_installed_and_not_flathub() {
         let dir = tempfile::tempdir().unwrap();
-        let calls = Arc::new(Mutex::new(0));
-        let counter = calls.clone();
-        // The install succeeds; adding the remote is refused.
-        let install: PackageRunner = Arc::new(
-            move |_: &[String], _: &Cancel, on_line: &mut dyn FnMut(&str)| {
-                let call = {
-                    let mut count = counter.lock().unwrap();
-                    *count += 1;
-                    *count
-                };
-                on_line("step ran");
-                if call == 1 {
-                    Ok(())
-                } else {
-                    Err("remote add refused".to_owned())
-                }
-            },
-        );
-        let mut app = apt_app(
-            dir.path(),
-            &["apt-cache", "pkexec", "apt-get"],
-            zstd_commands(install),
-        );
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let commands = zstd_commands(scripted_install(ran.clone(), |argv: &[String]| {
+            has_word(argv, "remote-add").then_some("remote add refused")
+        }));
+        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec", "apt-get"], commands);
         let mut control = Control::default();
         open_sources(&mut app, &mut control);
         answer_yes_to_flatpak(&mut app, &mut control);
         wait_for_work(&mut app);
+        let ran = ran.lock().unwrap().clone();
+        assert_eq!(
+            ran.len(),
+            3,
+            "install, refused add, then the removal: {ran:?}"
+        );
+        assert!(has_word(&ran[2], "remove") && has_word(&ran[2], "flatpak"));
+        assert!(
+            ran.iter().all(|argv| !has_word(argv, "remote-delete")),
+            "Flathub was never added, so it is not removed"
+        );
         assert!(app.status_error);
         assert!(
             app.status
@@ -3122,13 +3223,107 @@ mod tests {
             app.status
         );
         assert!(
-            app.status
-                .contains("Flatpak is installed but not turned on."),
+            app.status.contains("Rolled back: Flatpak removed."),
             "{}",
             app.status
         );
         assert!(
-            app.status.contains("Nothing was rolled back."),
+            app.status.ends_with("Flatpak is not turned on."),
+            "{}",
+            app.status
+        );
+        assert!(!app.config.flatpak);
+    }
+
+    #[test]
+    fn a_failed_save_after_both_steps_undoes_the_remote_then_flatpak() {
+        let dir = tempfile::tempdir().unwrap();
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let commands = zstd_commands(scripted_install(ran.clone(), refuses_nothing));
+        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec", "apt-get"], commands);
+        let mut control = Control::default();
+        make_setting_unsavable(&mut app, dir.path());
+        open_sources(&mut app, &mut control);
+        answer_yes_to_flatpak(&mut app, &mut control);
+        wait_for_work(&mut app);
+        let ran = ran.lock().unwrap().clone();
+        assert_eq!(ran.len(), 4, "install, add, then both undone: {ran:?}");
+        assert!(has_word(&ran[2], "remote-delete"), "the remote goes first");
+        assert!(has_word(&ran[3], "remove"), "then Flatpak: {:?}", ran[3]);
+        assert!(app.status_error);
+        assert!(app.status.contains("could not be saved"), "{}", app.status);
+        assert!(
+            app.status
+                .contains("Finished: Flatpak installed, Flathub added."),
+            "{}",
+            app.status
+        );
+        assert!(
+            app.status
+                .contains("Rolled back: Flathub removed, Flatpak removed."),
+            "{}",
+            app.status
+        );
+        assert!(!app.config.flatpak);
+    }
+
+    #[test]
+    fn with_flatpak_already_installed_a_failed_save_removes_only_the_remote() {
+        let dir = tempfile::tempdir().unwrap();
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let commands = zstd_commands(scripted_install(ran.clone(), refuses_nothing));
+        let mut app = apt_app(
+            dir.path(),
+            &["apt-cache", "pkexec", "apt-get", "flatpak"],
+            commands,
+        );
+        let mut control = Control::default();
+        make_setting_unsavable(&mut app, dir.path());
+        open_sources(&mut app, &mut control);
+        answer_yes_to_flatpak(&mut app, &mut control);
+        wait_for_work(&mut app);
+        let ran = ran.lock().unwrap().clone();
+        assert_eq!(ran.len(), 2, "add Flathub, then undo it: {ran:?}");
+        assert!(has_word(&ran[0], "remote-add"));
+        assert!(has_word(&ran[1], "remote-delete"));
+        assert!(
+            ran.iter().all(|argv| !has_word(argv, "remove")),
+            "Flatpak was there before, so it stays"
+        );
+        assert!(
+            app.status.contains("Finished: Flathub added.")
+                && app.status.contains("Rolled back: Flathub removed."),
+            "{}",
+            app.status
+        );
+        assert!(!app.config.flatpak);
+    }
+
+    #[test]
+    fn a_failed_undo_step_is_reported_with_the_change_that_remains() {
+        let dir = tempfile::tempdir().unwrap();
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let commands = zstd_commands(scripted_install(ran.clone(), |argv: &[String]| {
+            has_word(argv, "remote-delete").then_some("pkexec exited with status 1: E: refused")
+        }));
+        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec", "apt-get"], commands);
+        let mut control = Control::default();
+        make_setting_unsavable(&mut app, dir.path());
+        open_sources(&mut app, &mut control);
+        answer_yes_to_flatpak(&mut app, &mut control);
+        wait_for_work(&mut app);
+        let ran = ran.lock().unwrap().clone();
+        assert_eq!(
+            ran.len(),
+            3,
+            "no Flatpak removal after the failed undo: {ran:?}"
+        );
+        assert!(app.status_error);
+        assert!(
+            app.status.contains(
+                "Rollback failed: pkexec exited with status 1: E: refused. \
+                 Still changed: Flathub added, Flatpak installed."
+            ),
             "{}",
             app.status
         );
