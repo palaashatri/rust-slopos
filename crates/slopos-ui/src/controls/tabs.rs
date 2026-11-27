@@ -500,6 +500,42 @@ mod tests {
     }
 
     #[test]
+    fn disabled_label_matches_a_reference_drawn_in_the_disabled_ink() {
+        let font = Font::system(12.0);
+        let mut disabled = strip();
+        disabled.enabled = false;
+        let rect = disabled.tab_rect(0).unwrap();
+        let label = "Processes";
+        let extent = measure(label, &font);
+        let x = rect.x + (rect.width as i32 - extent.width as i32) / 2;
+        let y = rect.y + (rect.height as i32 - extent.height as i32) / 2;
+
+        let painted = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
+        painted.clear(Color::WHITE).unwrap();
+        disabled.paint(&painted, &font).unwrap();
+
+        // The reference draws the same tab with the disabled ink and nothing else.
+        let reference = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
+        reference.clear(Color::WHITE).unwrap();
+        reference.fill_rect(rect, palette().content).unwrap();
+        reference.stroke_rect(rect, palette().bevel_shadow).unwrap();
+        reference
+            .draw_text(label, x, y, &font, palette().ink_disabled)
+            .unwrap();
+
+        // Compare the tab's interior, which holds the label, and skip the border.
+        for py in rect.y + 2..rect.y + rect.height as i32 - 2 {
+            for px in rect.x + 2..rect.x + rect.width as i32 - 2 {
+                assert_eq!(
+                    painted.pixel(px as u32, py as u32),
+                    reference.pixel(px as u32, py as u32),
+                    "pixel ({px}, {py}) differs from the disabled-ink reference"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn clicking_the_selected_tab_clears_a_pending_focus_request() {
         let mut strip = strip();
         strip.focused = true;
