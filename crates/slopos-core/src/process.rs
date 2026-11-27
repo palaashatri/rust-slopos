@@ -10,7 +10,7 @@ use std::ffi::OsStr;
 use std::io;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, ChildStdin, Command, Output, Stdio};
 use std::thread;
 
 /// Resolve `program` to an executable path.
@@ -99,6 +99,79 @@ pub fn launch(program: &str, args: &[&str]) -> Result<u32, String> {
     let path = resolve_program(program).ok_or_else(|| format!("{program} is not installed"))?;
     spawn_detached(&path, args).map_err(|error| format!("could not start {program}: {error}"))
 }
+
+/// A program started with piped stdin and stdout whose reply the caller
+/// needs. Unlike [`spawn_detached`] it stays in the caller's session: it is
+/// the caller's child, and the caller is responsible for its reply.
+///
+/// Reaping is guaranteed either way: [`CapturedChild::wait_with_output`]
+/// waits for the program, and dropping the value without waiting hands the
+/// child to a background thread that waits for it.
+#[derive(Debug)]
+pub struct CapturedChild {
+    child: Option<Child>,
+}
+
+impl CapturedChild {
+    /// The process id of the running program, 0 once it has been waited for.
+    pub fn id(&self) -> u32 {
+        self.child.as_ref().map(Child::id).unwrap_or(0)
+    }
+
+    /// The program's stdin, once. Dropping it closes the pipe.
+    pub fn take_stdin(&mut self) -> Option<ChildStdin> {
+        self.child.as_mut().and_then(|child| child.stdin.take())
+    }
+
+    /// Wait for the program to exit and collect what it wrote to stdout.
+    pub fn wait_with_output(mut self) -> io::Result<Output> {
+        match self.child.take() {
+            Some(child) => child.wait_with_output(),
+            None => Err(io::Error::other("the child was already waited for")),
+        }
+    }
+}
+
+impl Drop for CapturedChild {
+    fn drop(&mut self) {
+        if let Some(mut child) = self.child.take() {
+            // Nobody waits for it any more, so reap it on a thread. If the
+            // thread cannot start, the child is dropped unwaited and stays a
+            // zombie until this process exits.
+            let _ = thread::Builder::new()
+                .name(format!("reap-{}", child.id()))
+                .spawn(move || {
+                    let _ = child.wait();
+                });
+        }
+    }
+}
+
+/// Resolve the first installed program in `candidates` and start it with
+/// piped stdin and stdout, passing its candidate arguments. It uses the same
+/// candidate lists as [`launch`], so callers name programs in preference
+/// order and never hard-code one.
+///
+/// Returns a user-readable error when no candidate is installed or the
+/// program cannot start.
+pub fn launch_captured(candidates: &[(&str, &[&str])]) -> Result<CapturedChild, String> {
+    let (path, args) = first_available(candidates).ok_or_else(|| {
+        let names: Vec<&str> = candidates.iter().map(|(program, _)| *program).collect();
+        format!("none of these is installed: {}", names.join(", "))
+    })?;
+    let child = Command::new(&path)
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("could not start {}: {error}", path.display()))?;
+    Ok(CapturedChild { child: Some(child) })
+}
+
+/// Programs that show a file chooser for the portal, in preference order.
+/// Only the SLOPOS chooser: a donor chooser cannot honour the portal's
+/// request shape, so no fallback is listed.
+pub const FILE_CHOOSERS: &[(&str, &[&str])] = &[("slopos-file-chooser", &[])];
 
 /// Terminal emulators in preference order. `slopos-terminal` is the SLOPOS
 /// terminal, found beside the other SLOPOS programs or on `PATH`, so it comes
@@ -237,5 +310,55 @@ mod tests {
             thread::sleep(std::time::Duration::from_millis(20));
         }
         panic!("child {pid} was not reaped");
+    }
+
+    #[test]
+    fn captured_children_pass_stdin_through_and_return_stdout() {
+        let args: &[&str] = &["-c", "cat"];
+        let candidates: &[(&str, &[&str])] = &[("/bin/sh", args)];
+        let mut child = launch_captured(candidates).expect("sh is installed");
+        assert_ne!(child.id(), 0);
+        let mut stdin = child.take_stdin().expect("piped stdin");
+        std::io::Write::write_all(&mut stdin, b"reply").unwrap();
+        drop(stdin);
+        let output = child.wait_with_output().expect("wait");
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"reply");
+    }
+
+    #[test]
+    fn the_first_installed_candidate_is_used_with_its_arguments() {
+        let missing: &[(&str, &[&str])] = &[("/nonexistent/slopos-test-program", &[])];
+        let args: &[&str] = &["-c", "printf chosen"];
+        let candidates: &[(&str, &[&str])] =
+            &[("/nonexistent/slopos-test-program", &[]), ("/bin/sh", args)];
+        let child = launch_captured(candidates).expect("the second candidate starts");
+        let output = child.wait_with_output().unwrap();
+        assert_eq!(output.stdout, b"chosen");
+        let error = launch_captured(missing).expect_err("nothing is installed");
+        assert!(error.contains("none of these is installed"), "{error}");
+        assert!(error.contains("slopos-test-program"), "{error}");
+    }
+
+    #[test]
+    fn a_dropped_captured_child_is_still_reaped() {
+        let args: &[&str] = &["-c", "exit 0"];
+        let candidates: &[(&str, &[&str])] = &[("/bin/sh", args)];
+        let child = launch_captured(candidates).expect("sh is installed");
+        let pid = child.id();
+        drop(child);
+        for _ in 0..100 {
+            if !Path::new(&format!("/proc/{pid}")).exists() {
+                return;
+            }
+            thread::sleep(std::time::Duration::from_millis(20));
+        }
+        panic!("dropped child {pid} was not reaped");
+    }
+
+    #[test]
+    fn the_file_chooser_is_the_slopos_program_only() {
+        let programs: Vec<&str> = FILE_CHOOSERS.iter().map(|(program, _)| *program).collect();
+        assert_eq!(programs, ["slopos-file-chooser"]);
     }
 }
