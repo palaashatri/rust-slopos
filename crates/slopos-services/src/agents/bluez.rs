@@ -11,11 +11,13 @@ use std::{
     time::Duration,
 };
 
+use tokio::sync::oneshot;
 use zbus::{zvariant::OwnedObjectPath, Connection};
 
 use super::{
-    close, next_prompt_id, register_while_owned, sender_of, show, show_detached, AgentError,
-    DialogAnswer, DialogSpec, FieldKind, FieldSpec, Presenter, PromptOutcome, Secret,
+    await_answer, close, get, next_prompt_id, publish_show, publish_show_detached,
+    register_while_owned, reserve, sender_of, AgentError, DialogAnswer, DialogSpec, FieldKind,
+    FieldSpec, Presenter, PromptOutcome, Secret,
 };
 
 pub const AGENT_PATH: &str = "/org/slopos/BluezAgent";
@@ -397,7 +399,8 @@ impl BluezAgent {
     /// Ask an interactive request and map the answer to BlueZ's reply.
     ///
     /// The slot is claimed before the label lookup, so Cancel and Release
-    /// that arrive during the lookup find this request and end it.
+    /// that arrive during the lookup find this request and end it. The dialog
+    /// is published only while the request still owns the slot.
     async fn ask(&self, owner: &str, request: PairingRequest) -> Result<PairingReply, BluezError> {
         let id = next_prompt_id();
         let replaced = self
@@ -408,11 +411,19 @@ impl BluezAgent {
             close(&self.presenter, replaced).await;
         }
         let label = self.device_label(device_of(&request)).await;
-        if !self.lock().owns(id) {
-            return Err(BluezError::Canceled("the pairing was cancelled".into()));
-        }
         let spec = pairing_dialog(&request, &label);
-        let outcome = show(&self.presenter, id, spec).await;
+        let Some(permit) = reserve(&self.presenter).await else {
+            self.lock().finish(id);
+            return Err(BluezError::Rejected("no dialog is available".into()));
+        };
+        let answer = {
+            let dialogs = self.lock();
+            if !dialogs.owns(id) {
+                return Err(BluezError::Canceled("the pairing was cancelled".into()));
+            }
+            publish_show(permit, id, spec)
+        };
+        let outcome = await_answer(answer).await;
         if !self.lock().finish(id) {
             // Cancelled or replaced while the dialog was open: a late answer
             // is refused.
@@ -422,7 +433,8 @@ impl BluezAgent {
     }
 
     /// Show a display-only request. Its dialog stays open until `Cancel`, a
-    /// newer request replaces it, or its owner goes away.
+    /// newer request replaces it, or its owner goes away. The call returns
+    /// once the dialog is published; it does not wait for the dialog to close.
     async fn display(&self, owner: &str, request: PairingRequest) -> Result<(), BluezError> {
         let id = next_prompt_id();
         let replaced = match self.lock().begin(id, Interaction::Display, owner) {
@@ -435,26 +447,20 @@ impl BluezAgent {
             close(&self.presenter, replaced).await;
         }
         let label = self.device_label(device_of(&request)).await;
-        if !self.lock().owns(id) {
-            return Ok(());
-        }
         let spec = pairing_dialog(&request, &label);
-        if show_detached(&self.presenter, id, spec).await {
-            Ok(())
-        } else {
+        let Some(permit) = reserve(&self.presenter).await else {
             // No host can draw the value. Release the slot only if it is
             // still this request's, and tell BlueZ the display failed.
             self.lock().finish(id);
-            Err(BluezError::Rejected("no dialog is available".into()))
+            return Err(BluezError::Rejected("no dialog is available".into()));
+        };
+        {
+            let dialogs = self.lock();
+            if dialogs.owns(id) {
+                publish_show_detached(permit, id, spec);
+            }
         }
-    }
-
-    /// Close the open dialog when its BlueZ owner goes away or is replaced.
-    async fn close_owner(&self, owner: &str) {
-        let closing = self.lock().cancel_owner(owner);
-        if let Some(id) = closing {
-            close(&self.presenter, id).await;
-        }
+        Ok(())
     }
 }
 
@@ -637,7 +643,15 @@ impl BluezAgent {
 /// Serve the agent on `system` and register it as BlueZ's default agent
 /// whenever BlueZ has an owner. An open dialog is closed when that owner goes
 /// away or is replaced.
-pub async fn serve(system: &Connection, presenter: Presenter) -> Result<(), AgentError> {
+///
+/// The watch ends when `stop` fires or its sender is dropped. Then the open
+/// dialog is closed, an accepted registration is undone, and the agent object
+/// is removed, so a later call can serve again.
+pub async fn serve(
+    system: &Connection,
+    presenter: Presenter,
+    mut stop: oneshot::Receiver<()>,
+) -> Result<(), AgentError> {
     let agent = BluezAgent::new(system.clone(), presenter.clone());
     let dialogs = agent.dialogs.clone();
     if !system.object_server().at(AGENT_PATH, agent).await? {
@@ -645,13 +659,15 @@ pub async fn serve(system: &Connection, presenter: Presenter) -> Result<(), Agen
             "{AGENT_PATH} is already served"
         ))));
     }
-    register_while_owned(
+    let registered = Mutex::new(None);
+    let owner_lost_dialogs = dialogs.clone();
+    let owner_lost_presenter = presenter.clone();
+    let result = register_while_owned(
         system,
         SERVICE,
-        || register(system),
-        move |owner| {
-            let dialogs = dialogs.clone();
-            let presenter = presenter.clone();
+        |_owner: String| register(system),
+        move |owner: String| {
+            let (dialogs, presenter) = (owner_lost_dialogs.clone(), owner_lost_presenter.clone());
             async move {
                 let closing = dialogs
                     .lock()
@@ -662,8 +678,44 @@ pub async fn serve(system: &Connection, presenter: Presenter) -> Result<(), Agen
                 }
             }
         },
+        &registered,
+        &mut stop,
     )
-    .await
+    .await;
+
+    // Teardown runs on every exit from the watch, including a failed one.
+    let closing = dialogs
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .cancel();
+    if let Some(id) = closing {
+        close(&presenter, id).await;
+    }
+    if get(&registered).is_some() {
+        // Undo the accepted registration. BlueZ may already have gone away,
+        // so a failure here is not reported over the watch's own result.
+        let _ = unregister(system).await;
+    }
+    let _ = system
+        .object_server()
+        .remove::<BluezAgent, _>(AGENT_PATH)
+        .await;
+    result
+}
+
+/// Call `AgentManager1.UnregisterAgent` for this agent.
+pub async fn unregister(system: &Connection) -> zbus::Result<()> {
+    let agent = OwnedObjectPath::try_from(AGENT_PATH)?;
+    system
+        .call_method(
+            Some(SERVICE),
+            MANAGER_PATH,
+            Some(MANAGER_INTERFACE),
+            "UnregisterAgent",
+            &(&agent,),
+        )
+        .await
+        .map(|_| ())
 }
 
 /// Call `AgentManager1.RegisterAgent` and `RequestDefaultAgent`.

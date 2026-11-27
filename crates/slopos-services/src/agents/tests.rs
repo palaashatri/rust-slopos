@@ -233,7 +233,7 @@ fn wifi_profiles_are_refused_unless_they_use_a_preshared_key() {
         with_mode(Some("wpa-psk"), vec!["psk"]),
         Ok(SecretKind::WifiPsk)
     );
-    assert_eq!(with_mode(Some("sae"), vec![]), Ok(SecretKind::WifiPsk));
+    assert_eq!(with_mode(Some("sae"), vec![]), Ok(SecretKind::WifiSae));
     assert_eq!(
         with_mode(Some("wpa-psk"), vec![]),
         Ok(SecretKind::WifiPsk),
@@ -258,6 +258,33 @@ fn wifi_profiles_are_refused_unless_they_use_a_preshared_key() {
         Err(SecretRefusal::Unsupported)
     );
     assert_eq!(with_mode(None, vec![]), Err(SecretRefusal::Unsupported));
+}
+
+#[test]
+fn sae_profiles_take_short_passwords_under_their_own_rule() {
+    let mut request = wifi_request(0x1);
+    request.key_mgmt = Some("sae".into());
+    let (kind, spec) = network_secret::prompt_for(&request).unwrap();
+    assert_eq!(kind, SecretKind::WifiSae);
+    let field = spec.field.unwrap();
+    assert_eq!(field.kind, FieldKind::SaePassphrase);
+    assert_eq!((field.min_len, field.max_len), (1, 255));
+    // A one-byte SAE password is valid; the WPA-PSK rule would refuse it.
+    assert!(field.accepts("p"));
+    assert!(network_secret::valid_answer(SecretKind::WifiSae, "p"));
+    assert!(!network_secret::valid_answer(SecretKind::WifiSae, ""));
+    assert!(!network_secret::valid_answer(
+        SecretKind::WifiSae,
+        &"x".repeat(256)
+    ));
+    assert!(
+        !network_secret::valid_answer(SecretKind::WifiPsk, "p"),
+        "WPA-PSK keeps its own rule"
+    );
+    // The password goes under the same psk key as a WPA-PSK passphrase.
+    let secret = network_secret::secret_outcome(SecretKind::WifiSae, chosen(1, Some("p"))).unwrap();
+    let reply = network_secret::secrets_reply(SecretKind::WifiSae, &secret).unwrap();
+    assert_eq!(string_at(&reply, WIFI, "psk"), "p");
 }
 
 #[test]
@@ -671,7 +698,10 @@ fn error_name(error: &zbus::Error) -> String {
 
 #[derive(Clone, Default)]
 struct FakeNetworkManager {
+    /// (sender, identifier) for each `Register` call.
     registrations: Arc<Mutex<Vec<(String, String)>>>,
+    /// The sender of each `Unregister` call.
+    unregistrations: Arc<Mutex<Vec<String>>>,
 }
 
 #[zbus::interface(name = "org.freedesktop.NetworkManager.AgentManager")]
@@ -687,6 +717,11 @@ impl FakeNetworkManager {
             .unwrap()
             .push((sender, identifier));
     }
+
+    async fn unregister(&self, #[zbus(header)] header: zbus::message::Header<'_>) {
+        let sender = header.sender().map(ToString::to_string).unwrap_or_default();
+        self.unregistrations.lock().unwrap().push(sender);
+    }
 }
 
 /// BlueZ's errors, as the fake manager returns them.
@@ -701,10 +736,27 @@ enum FakeBluezError {
 
 #[derive(Clone, Default)]
 struct FakeBluez {
+    /// (sender, agent path, capability) for each agent that is registered.
     registrations: Arc<Mutex<Vec<(String, String, String)>>>,
+    /// The agent path of each successful `RequestDefaultAgent`.
     defaults: Arc<Mutex<Vec<String>>>,
+    /// The agent path of each successful `UnregisterAgent`.
+    unregistrations: Arc<Mutex<Vec<String>>>,
     /// Makes `RequestDefaultAgent` fail, as BlueZ does while it is busy.
     fail_default: Arc<AtomicBool>,
+}
+
+impl FakeBluez {
+    /// Whether `sender` registered `agent`. An agent is identified by its
+    /// sender and its path, so another client registering the same path does
+    /// not count.
+    fn is_registered_by(&self, sender: &str, agent: &str) -> bool {
+        self.registrations
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|(registered_by, path, _)| registered_by.as_str() == sender && path == agent)
+    }
 }
 
 #[zbus::interface(name = "org.bluez.AgentManager1")]
@@ -716,22 +768,47 @@ impl FakeBluez {
         capability: String,
     ) -> Result<(), FakeBluezError> {
         let sender = header.sender().map(ToString::to_string).unwrap_or_default();
-        let mut registrations = self.registrations.lock().unwrap();
-        if registrations
-            .iter()
-            .any(|(_, path, _)| *path == agent.as_str())
-        {
+        if self.is_registered_by(&sender, agent.as_str()) {
             return Err(FakeBluezError::AlreadyExists("already registered".into()));
         }
-        registrations.push((sender, agent.to_string(), capability));
+        self.registrations
+            .lock()
+            .unwrap()
+            .push((sender, agent.to_string(), capability));
         Ok(())
     }
 
-    async fn request_default_agent(&self, agent: OwnedObjectPath) -> Result<(), FakeBluezError> {
+    async fn request_default_agent(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+        agent: OwnedObjectPath,
+    ) -> Result<(), FakeBluezError> {
+        let sender = header.sender().map(ToString::to_string).unwrap_or_default();
+        if !self.is_registered_by(&sender, agent.as_str()) {
+            return Err(FakeBluezError::Failed("the agent is not registered".into()));
+        }
         if self.fail_default.load(Ordering::SeqCst) {
             return Err(FakeBluezError::Failed("busy".into()));
         }
         self.defaults.lock().unwrap().push(agent.to_string());
+        Ok(())
+    }
+
+    async fn unregister_agent(
+        &self,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+        agent: OwnedObjectPath,
+    ) -> Result<(), FakeBluezError> {
+        let sender = header.sender().map(ToString::to_string).unwrap_or_default();
+        let mut registrations = self.registrations.lock().unwrap();
+        let before = registrations.len();
+        registrations.retain(|(registered_by, path, _)| {
+            !(registered_by.as_str() == sender.as_str() && path.as_str() == agent.as_str())
+        });
+        if registrations.len() == before {
+            return Err(FakeBluezError::Failed("the agent is not registered".into()));
+        }
+        self.unregistrations.lock().unwrap().push(agent.to_string());
         Ok(())
     }
 }
@@ -850,6 +927,9 @@ async fn network_agent_registers_and_returns_the_typed_wifi_password() {
         .await
         .unwrap();
     assert_eq!(string_at(&reply, WIFI, "psk"), "correct horse");
+    // The host records the dialog before it answers, but the log is read only
+    // after the D-Bus reply, so wait for the record rather than assume it.
+    wait_until(|| host.shown_count() == 1).await;
     assert!(host.last_shown().1.message.contains("Home"));
 }
 
@@ -1275,10 +1355,13 @@ async fn register_while_owned_reports_a_departed_owner_by_unique_name() {
     let task = tokio::spawn({
         let watcher = watcher.clone();
         async move {
+            let registered = Mutex::new(None);
+            // The sender is kept alive, so the watch runs until it is aborted.
+            let (_stop_tx, mut stop) = oneshot::channel::<()>();
             register_while_owned(
                 &watcher,
                 "org.slopos.Test.Owner",
-                move || {
+                move |_owner: String| {
                     let tx = registered_tx.clone();
                     async move {
                         let _ = tx.send(()).await;
@@ -1291,6 +1374,8 @@ async fn register_while_owned_reports_a_departed_owner_by_unique_name() {
                         let _ = tx.send(name).await;
                     }
                 },
+                &registered,
+                &mut stop,
             )
             .await
         }
@@ -1316,16 +1401,20 @@ async fn register_while_owned_neither_registers_nor_starts_an_absent_service() {
     let watcher = private_connection(&address).await;
     let calls = Arc::new(Mutex::new(0));
     let counter = calls.clone();
+    let registered = Mutex::new(None);
+    let (_stop_tx, mut stop) = oneshot::channel::<()>();
     let waited = timeout(
         Duration::from_millis(300),
         register_while_owned(
             &watcher,
             "org.slopos.Test.Absent",
-            move || {
+            move |_owner: String| {
                 *counter.lock().unwrap() += 1;
                 async { Ok(()) }
             },
             |_name: String| async {},
+            &registered,
+            &mut stop,
         ),
     )
     .await;
@@ -1352,11 +1441,60 @@ async fn a_failed_agent_is_reported_without_waiting_for_the_other() {
         )
         .await
         .unwrap();
-    let result = timeout(
-        Duration::from_secs(5),
-        serve_session_agents_on(&system, presenter),
-    )
-    .await
-    .expect("the NetworkManager failure is reported, not held back by BlueZ");
+    let mut agents = serve_session_agents_on(&system, presenter);
+    let result = timeout(Duration::from_secs(5), agents.wait())
+        .await
+        .expect("the NetworkManager failure is reported, not held back by BlueZ");
     assert!(matches!(result, Err(AgentError::Bus(_))));
+    agents
+        .shutdown()
+        .await
+        .expect("the healthy BlueZ watcher stops cleanly");
+}
+
+#[tokio::test]
+async fn shutdown_undoes_the_registrations_and_frees_the_agent_paths() {
+    let (_bus, address) = private_bus();
+    let network = FakeNetworkManager::default();
+    let bluez = FakeBluez::default();
+    let _network_manager = zbus::connection::Builder::address(address.as_str())
+        .unwrap()
+        .name("org.freedesktop.NetworkManager")
+        .unwrap()
+        .serve_at(
+            "/org/freedesktop/NetworkManager/AgentManager",
+            network.clone(),
+        )
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    let _bluez_manager = zbus::connection::Builder::address(address.as_str())
+        .unwrap()
+        .name("org.bluez")
+        .unwrap()
+        .serve_at("/org/bluez", bluez.clone())
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    let system = private_connection(&address).await;
+
+    let (presenter, _host) = spawn_host(|_| None);
+    let mut agents = serve_session_agents_on(&system, presenter);
+    wait_until(|| {
+        network.registrations.lock().unwrap().len() == 1
+            && bluez.defaults.lock().unwrap().len() == 1
+    })
+    .await;
+    agents.shutdown().await.expect("both watchers stop");
+    assert_eq!(network.unregistrations.lock().unwrap().len(), 1);
+    assert_eq!(bluez.unregistrations.lock().unwrap().len(), 1);
+    assert!(bluez.registrations.lock().unwrap().is_empty());
+
+    // The agent objects were removed, so the paths serve again.
+    let (presenter, _host) = spawn_host(|_| None);
+    let mut again = serve_session_agents_on(&system, presenter);
+    wait_until(|| network.registrations.lock().unwrap().len() == 2).await;
+    again.shutdown().await.expect("both watchers stop again");
 }

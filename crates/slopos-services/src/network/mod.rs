@@ -170,6 +170,13 @@ pub fn valid_wpa_passphrase(password: &str) -> bool {
     (8..=63).contains(&password.len()) || hex_key
 }
 
+/// Whether `password` is a WPA3-SAE password: 1 to 255 bytes of UTF-8. The
+/// SAE rule is separate from the WPA-PSK rule, so a short SAE password is
+/// accepted while a short WPA-PSK passphrase is not.
+pub fn valid_sae_password(password: &str) -> bool {
+    (1..=255).contains(&password.len())
+}
+
 /// NetworkManager settings for a new Wi-Fi profile. WPA passphrases must be
 /// 8 to 63 bytes (or 64 hex digits), checked before anything is sent.
 pub fn wifi_settings(

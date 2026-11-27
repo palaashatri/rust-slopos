@@ -12,14 +12,16 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use tokio::sync::oneshot;
 use zbus::{
     zvariant::{OwnedObjectPath, OwnedValue, Value},
     Connection,
 };
 
 use super::{
-    close, next_prompt_id, register_while_owned, sender_of, show, AgentError, DialogAnswer,
-    DialogSpec, FieldKind, FieldSpec, Presenter, PromptOutcome, Secret, AGENT_IDENTIFIER,
+    await_answer, close, get, next_prompt_id, publish_show, register_while_owned, reserve,
+    sender_of, AgentError, DialogAnswer, DialogSpec, FieldKind, FieldSpec, Presenter,
+    PromptOutcome, Secret, AGENT_IDENTIFIER,
 };
 
 pub const AGENT_PATH: &str = "/org/freedesktop/NetworkManager/SecretAgent";
@@ -32,9 +34,11 @@ pub const VPN: &str = "vpn";
 const PSK_KEY: &str = "psk";
 const KEY_MGMT: &str = "key-mgmt";
 const VPN_PASSWORD_KEY: &str = "password";
-/// Key-management modes that take a pre-shared key: WPA-PSK and WPA3-SAE.
+/// The Wi-Fi key-management modes that take a pre-shared key. WPA-PSK takes a
+/// passphrase under the WPA rule, and SAE takes a password under its own rule.
 /// `none` (WEP) and the 802.1X modes are refused.
-const PSK_KEY_MGMT: [&str; 2] = ["wpa-psk", "sae"];
+const WPA_PSK: &str = "wpa-psk";
+const SAE: &str = "sae";
 
 /// `NMSecretAgentGetSecretsFlags`.
 const FLAG_ALLOW_INTERACTION: u32 = 0x1;
@@ -95,7 +99,10 @@ impl SecretRequest {
 /// The kind of secret a request asks for, when the agent can supply it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SecretKind {
+    /// A WPA-PSK passphrase (`key-mgmt` `wpa-psk`).
     WifiPsk,
+    /// A WPA3-SAE password (`key-mgmt` `sae`).
+    WifiSae,
     VpnPassword,
 }
 
@@ -112,18 +119,15 @@ pub enum SecretRefusal {
 
 /// Map a request to the dialog that asks for its secret.
 pub fn prompt_for(request: &SecretRequest) -> Result<(SecretKind, DialogSpec), SecretRefusal> {
-    let kind = secret_kind(&request.setting, &request.hints).ok_or(SecretRefusal::Unsupported)?;
-    if kind == SecretKind::WifiPsk {
-        // Hints alone cannot tell a WEP profile from a WPA one, so the
-        // connection's key management decides.
-        let psk = request
-            .key_mgmt
-            .as_deref()
-            .is_some_and(|mode| PSK_KEY_MGMT.contains(&mode));
-        if !psk {
-            return Err(SecretRefusal::Unsupported);
-        }
-    }
+    // The connection's key management decides the kind of Wi-Fi secret. Hints
+    // alone cannot tell a WEP profile from a WPA one, so WEP and enterprise
+    // profiles are refused here, before any dialog is opened.
+    let kind = secret_kind(
+        &request.setting,
+        &request.hints,
+        request.key_mgmt.as_deref(),
+    )
+    .ok_or(SecretRefusal::Unsupported)?;
     if !request.flags.allow_interaction() {
         return Err(SecretRefusal::NoInteraction);
     }
@@ -142,6 +146,19 @@ pub fn prompt_for(request: &SecretRequest) -> Result<(SecretKind, DialogSpec), S
                 max_len: 64,
             }),
         },
+        SecretKind::WifiSae => DialogSpec {
+            title: "Wi-Fi password".into(),
+            message: format!(
+                "Enter the password for the Wi-Fi network \"{name}\" (1 to 255 bytes)."
+            ),
+            buttons: vec!["Cancel".into(), "Connect".into()],
+            field: Some(FieldSpec {
+                label: "Password".into(),
+                kind: FieldKind::SaePassphrase,
+                min_len: 1,
+                max_len: 255,
+            }),
+        },
         SecretKind::VpnPassword => DialogSpec {
             title: "VPN password".into(),
             message: format!("Enter the password for the VPN \"{name}\"."),
@@ -157,23 +174,28 @@ pub fn prompt_for(request: &SecretRequest) -> Result<(SecretKind, DialogSpec), S
     Ok((kind, spec))
 }
 
-fn secret_kind(setting: &str, hints: &[String]) -> Option<SecretKind> {
+fn secret_kind(setting: &str, hints: &[String], key_mgmt: Option<&str>) -> Option<SecretKind> {
     // An empty hint list is valid for a PSK profile.
     let hinted = |name: &str| hints.is_empty() || hints.iter().any(|hint| hint == name);
     match setting {
-        WIRELESS_SECURITY if hinted(PSK_KEY) => Some(SecretKind::WifiPsk),
+        WIRELESS_SECURITY if hinted(PSK_KEY) => match key_mgmt {
+            Some(WPA_PSK) => Some(SecretKind::WifiPsk),
+            Some(SAE) => Some(SecretKind::WifiSae),
+            _ => None,
+        },
         VPN if hinted(VPN_PASSWORD_KEY) => Some(SecretKind::VpnPassword),
         _ => None,
     }
 }
 
 /// Whether `text` is an acceptable answer for `kind`: a WPA passphrase
-/// (8 to 63 bytes, or 64 hex digits) or a non-empty VPN password. The Wi-Fi
-/// rule is the field's own rule, so the host's Connect check and this check
-/// cannot disagree.
+/// (8 to 63 bytes, or 64 hex digits), an SAE password (1 to 255 bytes), or a
+/// non-empty VPN password. Each Wi-Fi rule is the field's own rule, so the
+/// host's Connect check and this check cannot disagree.
 pub fn valid_answer(kind: SecretKind, text: &str) -> bool {
     match kind {
         SecretKind::WifiPsk => FieldKind::WpaPassphrase.accepts(text),
+        SecretKind::WifiSae => FieldKind::SaePassphrase.accepts(text),
         SecretKind::VpnPassword => !text.is_empty(),
     }
 }
@@ -211,7 +233,7 @@ pub fn secret_outcome(kind: SecretKind, outcome: PromptOutcome) -> Result<Secret
 pub fn secrets_reply(kind: SecretKind, secret: &Secret) -> zbus::zvariant::Result<SettingsMap> {
     let mut reply = SettingsMap::new();
     match kind {
-        SecretKind::WifiPsk => {
+        SecretKind::WifiPsk | SecretKind::WifiSae => {
             reply.insert(
                 WIRELESS_SECURITY.into(),
                 HashMap::from([(
@@ -290,6 +312,21 @@ impl SecretRequests {
             .map(|open| open.id)
     }
 
+    /// Whether dialog `id` still holds the request for this connection and
+    /// setting. An agent checks this before it shows the dialog, because a
+    /// CancelGetSecrets or an owner change may have overtaken the request.
+    pub fn owns(&self, connection_path: &str, setting: &str, id: u64) -> bool {
+        self.pending
+            .get(&(connection_path.to_owned(), setting.to_owned()))
+            .is_some_and(|open| open.id == id)
+    }
+
+    /// Remove every request and return their dialog ids to close. Used when
+    /// the agent stops, so no dialog outlives it.
+    pub fn cancel_all(&mut self) -> Vec<u64> {
+        self.pending.drain().map(|(_, open)| open.id).collect()
+    }
+
     /// Remove every request from `owner` and return their dialog ids to
     /// close. Used when that NetworkManager owner goes away or is replaced.
     pub fn cancel_owner(&mut self, owner: &str) -> Vec<u64> {
@@ -360,6 +397,24 @@ impl NetworkSecretAgent {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
+
+    /// Publish the dialog for request `id` and wait for its answer. The slot
+    /// is checked and the dialog published under the lock, so a
+    /// CancelGetSecrets that arrives first leaves no dialog behind. A request
+    /// that finds no host reports `Unavailable`.
+    async fn show_for(&self, request: &SecretRequest, id: u64, spec: DialogSpec) -> PromptOutcome {
+        let Some(permit) = reserve(&self.presenter).await else {
+            return PromptOutcome::Unavailable;
+        };
+        let answer = {
+            let open = self.lock();
+            if !open.owns(&request.connection_path, &request.setting, id) {
+                return PromptOutcome::Cancelled;
+            }
+            publish_show(permit, id, spec)
+        };
+        await_answer(answer).await
+    }
 }
 
 #[zbus::interface(name = "org.freedesktop.NetworkManager.SecretAgent")]
@@ -398,9 +453,10 @@ impl NetworkSecretAgent {
                 "a request for this connection is already open".into(),
             ));
         }
-        let outcome = show(&self.presenter, id, spec).await;
+        let outcome = self.show_for(&request, id, spec).await;
         // A request cancelled meanwhile (CancelGetSecrets, or its owner going
-        // away) gets no secret, even if the host answered in time.
+        // away) gets no secret, even if the host answered in time. This also
+        // clears the slot when no host could show the dialog.
         let still_open = self
             .lock()
             .finish(&request.connection_path, &request.setting, id);
@@ -447,7 +503,15 @@ impl NetworkSecretAgent {
 /// Serve the agent on `system` and register it with NetworkManager whenever
 /// NetworkManager has an owner. Open requests are cancelled when that owner
 /// goes away or is replaced.
-pub async fn serve(system: &Connection, presenter: Presenter) -> Result<(), AgentError> {
+///
+/// The watch ends when `stop` fires or its sender is dropped. Then every open
+/// request is cancelled, an accepted registration is undone, and the agent
+/// object is removed, so a later call can serve again.
+pub async fn serve(
+    system: &Connection,
+    presenter: Presenter,
+    mut stop: oneshot::Receiver<()>,
+) -> Result<(), AgentError> {
     let agent = NetworkSecretAgent::new(presenter.clone());
     let pending = agent.pending.clone();
     if !system.object_server().at(AGENT_PATH, agent).await? {
@@ -455,13 +519,15 @@ pub async fn serve(system: &Connection, presenter: Presenter) -> Result<(), Agen
             "{AGENT_PATH} is already served"
         ))));
     }
-    register_while_owned(
+    let registered = Mutex::new(None);
+    let owner_lost_pending = pending.clone();
+    let owner_lost_presenter = presenter.clone();
+    let result = register_while_owned(
         system,
         MANAGER_SERVICE,
-        || register(system),
-        move |owner| {
-            let pending = pending.clone();
-            let presenter = presenter.clone();
+        |_owner: String| register(system),
+        move |owner: String| {
+            let (pending, presenter) = (owner_lost_pending.clone(), owner_lost_presenter.clone());
             async move {
                 let closing = pending
                     .lock()
@@ -472,8 +538,29 @@ pub async fn serve(system: &Connection, presenter: Presenter) -> Result<(), Agen
                 }
             }
         },
+        &registered,
+        &mut stop,
     )
-    .await
+    .await;
+
+    // Teardown runs on every exit from the watch, including a failed one.
+    let closing = pending
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .cancel_all();
+    for id in closing {
+        close(&presenter, id).await;
+    }
+    if get(&registered).is_some() {
+        // Undo the accepted registration. NetworkManager may already have
+        // gone away, so a failure here is not reported over the watch's result.
+        let _ = unregister(system).await;
+    }
+    let _ = system
+        .object_server()
+        .remove::<NetworkSecretAgent, _>(AGENT_PATH)
+        .await;
+    result
 }
 
 /// Call `AgentManager.Register` on NetworkManager.
@@ -485,6 +572,21 @@ pub async fn register(system: &Connection) -> zbus::Result<()> {
             Some(MANAGER_INTERFACE),
             "Register",
             &(AGENT_IDENTIFIER,),
+        )
+        .await
+        .map(|_| ())
+}
+
+/// Call `AgentManager.Unregister` on NetworkManager, which removes the agent
+/// registered by this connection.
+pub async fn unregister(system: &Connection) -> zbus::Result<()> {
+    system
+        .call_method(
+            Some(MANAGER_SERVICE),
+            MANAGER_PATH,
+            Some(MANAGER_INTERFACE),
+            "Unregister",
+            &(),
         )
         .await
         .map(|_| ())
