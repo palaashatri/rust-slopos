@@ -7,17 +7,10 @@
 //! providers, signals) is a thread that blocks and wakes the bar; the only
 //! timer is the clock's, once a minute.
 
-mod dbusmenu;
 mod desktop_files;
 mod launcher;
-// Pure AppMenu model and registrar; phase 2 wires them to D-Bus and X11.
-#[allow(dead_code)]
-mod menu_registrar;
-#[allow(dead_code)]
-mod menu_registrar_layout;
 mod menus;
 mod notifications;
-mod registrar_bus;
 mod session;
 mod status;
 mod windows;
@@ -30,7 +23,6 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use menu_registrar::MenuRef;
 use menus::{Capabilities, Command, MenuSpec};
 use slopos_core::process;
 use slopos_mixer::MixerView;
@@ -298,16 +290,6 @@ pub struct TopBar {
     modifiers: Modifiers,
     /// Holds GLOBAL_MENU_NAME for as long as the bar runs.
     menu_name: Option<zbus::blocking::Connection>,
-    /// Owns `com.canonical.AppMenu.Registrar`, when the name is free.
-    registrar: Option<registrar_bus::Service>,
-    /// Fetches and clicks `com.canonical.dbusmenu` menus.
-    dbusmenu_client: Option<dbusmenu::Client>,
-    /// The menu address the focused window resolves to, if any.
-    appmenu_source: Option<MenuRef>,
-    /// The fetched menu bar of `appmenu_source`, with the id of each title.
-    dbusmenu: Option<(MenuRef, dbusmenu::Bar)>,
-    /// Whether the bar's current specs come from `dbusmenu`.
-    appmenu_specs: bool,
     notifications: Option<notifications::Notifications>,
     /// Toasts, oldest first; the first `notifications::VISIBLE` are shown.
     toasts: Vec<notifications::Toast>,
@@ -346,11 +328,6 @@ impl TopBar {
             background: mpsc::channel(),
             modifiers: Modifiers::default(),
             menu_name: None,
-            registrar: None,
-            dbusmenu_client: None,
-            appmenu_source: None,
-            dbusmenu: None,
-            appmenu_specs: false,
             notifications: None,
             toasts: Vec::new(),
         };
@@ -368,12 +345,6 @@ impl TopBar {
         self.status = Status::start(move || wake(&slot)).ok();
         let slot = self.slot.clone();
         self.notifications = notifications::Notifications::start(move || wake(&slot));
-        // Qt and dbusmenu applications register their windows here, and the
-        // bar fetches their menus through the client.
-        let slot = self.slot.clone();
-        self.registrar = registrar_bus::start(None, move || wake(&slot));
-        let slot = self.slot.clone();
-        self.dbusmenu_client = dbusmenu::Client::start(None, move || wake(&slot));
         // Toolkit apps hand their menus to the bar while this name is owned.
         self.menu_name = zbus::blocking::connection::Builder::session()
             .and_then(|builder| builder.name(GLOBAL_MENU_NAME))
@@ -466,61 +437,14 @@ impl TopBar {
     /// The menus for the current focus: System menu first.
     fn rebuild_specs(&mut self) {
         let mut specs = vec![menus::system_menu(&self.can)];
-        let appmenu = self
-            .dbusmenu
-            .as_ref()
-            .filter(|(_, bar)| !bar.specs.is_empty())
-            .map(|(_, bar)| bar.specs.clone());
-        self.appmenu_specs = false;
         specs.extend(match (&self.active, &self.imported) {
             (None, _) => menus::desktop_menus(&self.can),
             (Some(_), Some((_, imported))) if !imported.is_empty() => {
                 menus::imported_menus(&imported.titles, &imported.menus)
             }
-            (Some(_), _) => match appmenu {
-                Some(bar_specs) => {
-                    self.appmenu_specs = true;
-                    bar_specs
-                }
-                None => menus::window_menus(),
-            },
+            (Some(_), _) => menus::window_menus(),
         });
         self.specs = specs;
-    }
-
-    /// Follow the focused window's menu address (its own property, or the
-    /// registrar's record of it). Returns whether the address changed; a new
-    /// address drops the old menu bar and fetches the new one.
-    fn sync_appmenu(&mut self) -> bool {
-        let wanted = match (&self.active, &self.registrar) {
-            (Some(active), Some(service)) => service.resolve(active.window, active.appmenu.clone()),
-            (Some(active), None) => active.appmenu.clone(),
-            (None, _) => None,
-        };
-        if wanted == self.appmenu_source {
-            return false;
-        }
-        self.appmenu_source = wanted.clone();
-        self.dbusmenu = None;
-        if let (Some(client), Some(menu)) = (&self.dbusmenu_client, wanted) {
-            client.fetch(menu);
-        }
-        true
-    }
-
-    /// Tell the focused application that the menu under title `index` is
-    /// about to open, so it can refresh lazily built items.
-    fn about_to_show(&self, index: usize) {
-        if !self.appmenu_specs {
-            return;
-        }
-        let (Some(client), Some((menu, bar))) = (&self.dbusmenu_client, &self.dbusmenu) else {
-            return;
-        };
-        // Spec 0 is the System menu; the bar's own specs start at 1.
-        if let Some(id) = index.checked_sub(1).and_then(|i| bar.ids.get(i)) {
-            client.about_to_show(menu.clone(), *id);
-        }
     }
 
     // ----- geometry --------------------------------------------------------
@@ -596,7 +520,6 @@ impl TopBar {
         };
         self.menu = Menu::new(MENU_ID, spec.menu_items());
         self.status_commands.clear();
-        self.about_to_show(index);
         self.show_menu(rect.x, keyboard, Open::Bar(index), control);
     }
 
@@ -1004,11 +927,6 @@ impl TopBar {
                     importer.activate(source, imported, menu, item);
                 }
             }
-            Command::DbusMenu(id) => {
-                if let (Some(client), Some((menu, _))) = (&self.dbusmenu_client, &self.dbusmenu) {
-                    client.click(menu.clone(), id);
-                }
-            }
         }
     }
 
@@ -1110,7 +1028,6 @@ impl TopBar {
                 let source = active.as_ref().and_then(|a| a.menus.clone());
                 let same_source = source.as_ref() == self.imported.as_ref().map(|(s, _)| s);
                 self.active = active;
-                self.sync_appmenu();
                 if !same_source {
                     self.imported = None;
                     if let (Some(importer), Some(source)) = (&self.importer, source) {
@@ -1136,44 +1053,6 @@ impl TopBar {
                     }
                     MenuUpdate::Failed(source, error) => {
                         log::info!("menus of {} unavailable: {error}", source.bus_name);
-                    }
-                    _ => {}
-                }
-            }
-            if changed && self.open.is_none() {
-                self.rebuild_specs();
-            }
-        }
-        // Registrar changes can point the focused window at another menu.
-        let registrar_changed = self
-            .registrar
-            .as_ref()
-            .is_some_and(|service| service.effects.try_iter().count() > 0);
-        if registrar_changed && self.sync_appmenu() {
-            self.close_menu(control);
-            self.rebuild_specs();
-            changed = true;
-        }
-        if let Some(client) = &self.dbusmenu_client {
-            for update in client.updates.try_iter() {
-                match update {
-                    dbusmenu::Update::Layout(menu, layout)
-                        if Some(&menu) == self.appmenu_source.as_ref() =>
-                    {
-                        self.dbusmenu = Some((menu, dbusmenu::Bar::from_layout(&layout)));
-                        changed = true;
-                    }
-                    dbusmenu::Update::Changed(name) => {
-                        if let Some(menu) = self
-                            .appmenu_source
-                            .as_ref()
-                            .filter(|menu| menu.service == name)
-                        {
-                            client.fetch(menu.clone());
-                        }
-                    }
-                    dbusmenu::Update::Failed(menu, error) => {
-                        log::info!("menus of {} unavailable: {error}", menu.service);
                     }
                     _ => {}
                 }
@@ -1965,7 +1844,6 @@ mod tests {
             class: "xterm".into(),
             fullscreen: false,
             menus: None,
-            appmenu: None,
         });
         bar.rebuild_specs();
         assert_eq!(bar.specs[1].title, "Window");

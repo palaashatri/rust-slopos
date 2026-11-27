@@ -247,9 +247,10 @@ pub fn run<A: App>(
             device_width,
         )?;
     }
-    let position = options.position.map(|_| (device_x, device_y));
-    let hints = size_hints(options.resizable, device_width, device_height, position);
-    set_size_hints(&conn, window, hints)?;
+    if !options.resizable {
+        let position = options.position.map(|_| (device_x, device_y));
+        set_fixed_size(&conn, window, device_width, device_height, position)?;
+    }
 
     let gc = conn.generate_id()?;
     conn.create_gc(gc, window, &CreateGCAux::new())?;
@@ -340,14 +341,16 @@ pub fn run<A: App>(
         }
         if let Some(rect) = control.geometry.take() {
             let rect: crate::foundation::geometry::Rect = rect;
-            // The WM clamps to the old fixed size unless the hints move too.
-            let hints = size_hints(
-                options.resizable,
-                rect.width * factor,
-                rect.height * factor,
-                Some((rect.x * factor as i32, rect.y * factor as i32)),
-            );
-            set_size_hints(&conn, window, hints)?;
+            if !options.resizable {
+                // The WM clamps to the old fixed size unless the hints move too.
+                set_fixed_size(
+                    &conn,
+                    window,
+                    rect.width * factor,
+                    rect.height * factor,
+                    Some((rect.x * factor as i32, rect.y * factor as i32)),
+                )?;
+            }
             conn.configure_window(
                 window,
                 &ConfigureWindowAux::new()
@@ -1035,18 +1038,15 @@ fn set_title(
     Ok(())
 }
 
-/// The `WM_NORMAL_HINTS` a window needs at this size. A resizable window gets
-/// none, so the window manager may resize it freely. A fixed window pins its
-/// minimum and maximum to its size, and its position when one is given.
-fn size_hints(
-    resizable: bool,
+/// Pin a non-resizable window's size (and, when given, its position) in
+/// `WM_NORMAL_HINTS`.
+fn set_fixed_size(
+    conn: &RustConnection,
+    window: u32,
     width: u32,
     height: u32,
     position: Option<(i32, i32)>,
-) -> Option<WmSizeHints> {
-    if resizable {
-        return None;
-    }
+) -> Result<(), PlatformError> {
     let mut hints = WmSizeHints::new();
     hints.min_size = Some((width as i32, height as i32));
     hints.max_size = Some((width as i32, height as i32));
@@ -1057,19 +1057,7 @@ fn size_hints(
             y,
         )
     });
-    Some(hints)
-}
-
-/// Write `hints` as the window's `WM_NORMAL_HINTS`, or leave the property
-/// alone when there are none.
-fn set_size_hints(
-    conn: &RustConnection,
-    window: u32,
-    hints: Option<WmSizeHints>,
-) -> Result<(), PlatformError> {
-    if let Some(hints) = hints {
-        hints.set_normal_hints(conn, window)?;
-    }
+    hints.set_normal_hints(conn, window)?;
     Ok(())
 }
 
@@ -1661,71 +1649,5 @@ mod tests {
         pipe.proxy.wake();
         assert!(pipe.drain());
         assert!(!pipe.drain());
-    }
-
-    #[test]
-    fn resizable_window_gets_no_size_hints_that_pin_it() {
-        // A minimum equal to the maximum is a fixed size, which the window
-        // manager will not let the user change. A resizable window must not
-        // carry one, with or without a position.
-        for position in [None, Some((10, 20))] {
-            assert!(size_hints(true, 640, 480, position).is_none());
-            assert!(size_hints(true, 1, 1, position).is_none());
-        }
-    }
-
-    #[test]
-    fn fixed_window_pins_min_and_max_to_its_size() {
-        let hints = size_hints(false, 640, 480, Some((10, 20))).expect("fixed hints");
-        assert_eq!(hints.min_size, Some((640, 480)));
-        assert_eq!(hints.max_size, Some((640, 480)));
-        assert_eq!(hints.position.map(|(_, x, y)| (x, y)), Some((10, 20)));
-        let unplaced = size_hints(false, 640, 480, None).expect("fixed hints");
-        assert!(unplaced.position.is_none());
-    }
-
-    #[test]
-    fn openbox_configs_let_the_window_manager_resize_from_edges_and_corners() {
-        // Openbox reads one rc.xml and does not merge in the stock file, so
-        // every shipped config must bind the edge and corner resize itself.
-        // Without these bindings, dragging a border does nothing.
-        let configs = [
-            include_str!("../../../../assets/config/openbox/rc.xml"),
-            include_str!("../../../../assets/config/openbox/rc-classic.xml"),
-            include_str!("../../../../assets/config/openbox/rc-graphite.xml"),
-            include_str!("../../../../assets/config/openbox/rc-oled.xml"),
-        ];
-        for config in configs {
-            for (context, edge) in [
-                ("Top", "top"),
-                ("Left", "left"),
-                ("Right", "right"),
-                ("Bottom", "bottom"),
-            ] {
-                let block = context_block(config, context);
-                assert!(
-                    block.contains(&format!("<edge>{edge}</edge>"))
-                        && block.contains(r#"<action name="Resize">"#),
-                    "{context} context does not resize the window from its {edge} edge"
-                );
-            }
-            let corners = context_block(config, "TRCorner BRCorner TLCorner BLCorner");
-            assert!(
-                corners.contains(r#"<action name="Resize"/>"#),
-                "corner contexts do not resize the window"
-            );
-        }
-    }
-
-    /// The text of the first `<context name="NAME">` block in an Openbox config.
-    fn context_block<'a>(config: &'a str, name: &str) -> &'a str {
-        let start = config
-            .find(&format!(r#"<context name="{name}">"#))
-            .unwrap_or_else(|| panic!("no {name} context"));
-        let end = start
-            + config[start..]
-                .find("</context>")
-                .expect("unclosed context");
-        &config[start..end]
     }
 }

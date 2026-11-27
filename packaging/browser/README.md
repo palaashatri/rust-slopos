@@ -31,27 +31,6 @@ helper is available, preserving the selected upstream executable through
 `SLOPOS_BROWSER`; if the helper is absent, the original desktop command remains
 the fallback.
 
-## Live ISO default browser
-
-The live images ship Firefox and make it the default HTML/HTTP(S) handler
-through `assets/config/mimeapps.list`. Chromium is not bundled.
-
-- Ubuntu (`packaging/iso/build-live-iso.sh`, `build-ubuntu-iso.sh`): Ubuntu's
-  `firefox` package is a snap transitional package, so the build installs
-  Mozilla's `firefox` .deb from `https://packages.mozilla.org/apt`. The
-  sources entry and apt preferences are overlay files under
-  `packaging/iso/overlay`. The signing key is fetched at build time and must
-  match the fingerprint in `packaging/iso/mozilla-apt.sh`, or the build stops.
-  The preferences block Ubuntu's snap-wrapper `firefox*` and
-  `chromium-browser*` packages.
-- Debian (`packaging/iso/build-debian-iso.sh`): `firefox-esr` from Debian's
-  own repository.
-- `start-slopos-browser` runs the first `firefox` on `PATH`, then
-  `firefox-esr`. Mozilla's package provides `/usr/bin/firefox`.
-
-`scripts/check-live-browser-config.sh` checks these files statically. It does
-not start a browser, so a browser running in a live session is still unverified.
-
 ## Scope and limits
 
 Browser pages remain site-controlled. Browser-owned UI differs by engine and

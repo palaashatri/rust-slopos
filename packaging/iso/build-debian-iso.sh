@@ -47,7 +47,6 @@ xorg
 openbox
 lightdm
 lightdm-gtk-greeter
-firefox-esr
 pcmanfm
 xfce4-terminal
 mousepad
@@ -57,7 +56,6 @@ mpv
 galculator
 network-manager
 network-manager-gnome
-systemd-resolved
 pavucontrol
 pipewire
 pipewire-pulse
@@ -88,8 +86,6 @@ install -Dm755 "$ROOT/scripts/slopos-appearance" "config/includes.chroot/usr/bin
 install -Dm755 "$ROOT/scripts/slopos-recovery.sh" "config/includes.chroot/usr/bin/slopos-recovery"
 install -Dm644 "$ROOT/packaging/slopos-i.desktop" "config/includes.chroot/usr/share/xsessions/slopos-i.desktop"
 install -Dm644 "$ROOT/packaging/slopos-browser.desktop" "config/includes.chroot/usr/share/applications/slopos-browser.desktop"
-# Firefox (firefox-esr from Debian's repository) is the default for text/html and http/https.
-install -Dm644 "$ROOT/assets/config/mimeapps.list" "config/includes.chroot/etc/xdg/mimeapps.list"
 # The shipped apps' menu entries, so each app is discoverable from the live session.
 for app in slopos-calculator slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-settings slopos-software slopos-volume-mixer; do
   install -Dm644 "$ROOT/packaging/$app.desktop" "config/includes.chroot/usr/share/applications/$app.desktop"
@@ -113,13 +109,6 @@ install -Dm644 "$ROOT/assets/config/gtk-3.0/gtk-graphite.css" "config/includes.c
 cp -a "$ROOT/themes/platinum" "config/includes.chroot/usr/share/slopos-i/themes/platinum"
 cp -a "$ROOT/themes/graphite" "config/includes.chroot/usr/share/slopos-i/themes/graphite"
 cp -a "$ROOT/themes/platinum/icon-theme" "config/includes.chroot/usr/share/icons/SLOPOS-Platinum"
-
-# Wired networking: NetworkManager manages the NICs and systemd-resolved is the
-# resolver. live-build copies includes.chroot after the package install; its unit
-# files are not present in this directory, so no unit check runs here.
-# shellcheck source=packaging/iso/live-network.sh
-. "$ROOT/packaging/iso/live-network.sh"
-slopos_apply_live_network config/includes.chroot
 
 echo "[5/5] Building live ISO image"
 lb build

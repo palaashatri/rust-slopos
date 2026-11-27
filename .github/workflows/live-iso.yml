@@ -67,12 +67,6 @@ jobs:
       - name: Build release binaries
         run: cargo build --release --workspace --locked
 
-      - name: Check the live network configuration
-        run: scripts/check-live-network-config.sh
-
-      - name: Check the live installer configuration
-        run: scripts/check-live-installer-config.sh
-
       - name: Build the live ISO
         run: |
           sudo --preserve-env=PATH packaging/iso/build-live-iso.sh \
