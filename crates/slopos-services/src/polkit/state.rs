@@ -259,7 +259,10 @@ mod tests {
         state.begin(true).unwrap();
         assert!(state.shows_wrong_password());
         state.submit().unwrap();
-        assert!(!state.shows_wrong_password(), "message is for prompting only");
+        assert!(
+            !state.shows_wrong_password(),
+            "message is for prompting only"
+        );
     }
 
     #[test]

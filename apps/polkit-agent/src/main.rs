@@ -17,9 +17,7 @@ use std::{
 
 use accesskit::TreeUpdate;
 use slopos_services::polkit::{
-    agent::{
-        AgentService, PromptReply, PromptRequest, PromptSink, UiCommand, AGENT_OBJECT_PATH,
-    },
+    agent::{AgentService, PromptReply, PromptRequest, PromptSink, UiCommand, AGENT_OBJECT_PATH},
     helper::{PamHelper, HELPER_CANDIDATES},
 };
 use slopos_ui::event::Event;
@@ -169,8 +167,7 @@ fn main() {
         receiver: Mutex::new(receiver),
         deferred: Mutex::new(VecDeque::new()),
     });
-    let helper = PamHelper::installed()
-        .unwrap_or_else(|| PamHelper::new(HELPER_CANDIDATES[0]));
+    let helper = PamHelper::installed().unwrap_or_else(|| PamHelper::new(HELPER_CANDIDATES[0]));
     let connection = match futures::executor::block_on(zbus::Connection::system()) {
         Ok(connection) => connection,
         Err(error) => {
@@ -210,7 +207,13 @@ fn main() {
                 show(view, Some(reply), cookie, &inbox, &sink);
             }
             UiCommand::Error(message) => {
-                show(PromptView::error(&message), None, String::new(), &inbox, &sink);
+                show(
+                    PromptView::error(&message),
+                    None,
+                    String::new(),
+                    &inbox,
+                    &sink,
+                );
             }
         }
     }

@@ -90,7 +90,9 @@ pub enum UiCommand {
     Prompt(PromptRequest),
     /// The request with this cookie was cancelled; close its dialog and drop
     /// its reply.
-    Cancel { cookie: String },
+    Cancel {
+        cookie: String,
+    },
     /// Show a failure message (dialog with one OK button).
     Error(String),
 }
@@ -114,7 +116,7 @@ pub fn identity_from_wire(kind: &str, details: &HashMap<String, OwnedValue>) -> 
     if kind == "unix-user" {
         if let Some(uid) = details
             .get("uid")
-            .and_then(|value| u32::try_from(value.clone()).ok())
+            .and_then(|value| u32::try_from(value).ok())
         {
             return Identity::UnixUser { uid };
         }
@@ -152,10 +154,7 @@ fn unix_process_subject() -> Result<Wire, PolkitError> {
 
 fn unix_user_wire(uid: u32) -> Result<Wire, PolkitError> {
     let mut details = HashMap::new();
-    details.insert(
-        "uid".to_owned(),
-        OwnedValue::try_from(Value::from(uid))?,
-    );
+    details.insert("uid".to_owned(), OwnedValue::try_from(Value::from(uid))?);
     Ok(("unix-user".to_owned(), details))
 }
 
@@ -205,7 +204,9 @@ fn begin(
     let uid = match &identity {
         Identity::UnixUser { uid } => *uid,
         Identity::Other { .. } => {
-            return Err(zbus::fdo::Error::Failed(PolkitError::NoIdentity.to_string()))
+            return Err(zbus::fdo::Error::Failed(
+                PolkitError::NoIdentity.to_string(),
+            ))
         }
     };
     let username = username_for_uid(uid)
@@ -247,12 +248,17 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 
 /// One request thread: run the helper, then settle the request.
 fn run(shared: &Arc<Shared>, active: &Arc<ActiveRequest>, cookie: &str, username: &str, uid: u32) {
+    // Read each field in its own statement: a guard taken inside one struct
+    // literal lives until the literal is finished, and a second lock of the
+    // same mutex in that literal would deadlock this thread.
+    let action_id = lock(&active.request).action_id.clone();
+    let message = lock(&active.request).message.clone();
     let mut conversation = UiConversation {
         shared,
         active,
         cookie,
-        action_id: lock(&active.request).action_id.clone(),
-        message: lock(&active.request).message.clone(),
+        action_id,
+        message,
         username,
     };
     let outcome = shared
@@ -278,18 +284,24 @@ fn run(shared: &Arc<Shared>, active: &Arc<ActiveRequest>, cookie: &str, username
         let mut request = lock(&active.request);
         // A request the helper never settled (for example it authenticated
         // without asking) must not stay live.
-        if matches!(request.phase(), Phase::Idle | Phase::Prompting | Phase::Verifying) {
+        if matches!(
+            request.phase(),
+            Phase::Idle | Phase::Prompting | Phase::Verifying
+        ) {
             let _ = request.fail(Failure::Helper, "fail");
         }
         request.phase()
     };
-    shared
-        .last_wrong_password
-        .store(phase == Phase::Failed(Failure::WrongPassword), Ordering::SeqCst);
+    shared.last_wrong_password.store(
+        phase == Phase::Failed(Failure::WrongPassword),
+        Ordering::SeqCst,
+    );
     match phase {
         Phase::Failed(Failure::WrongPassword) | Phase::Answered | Phase::Cancelled => {}
         Phase::Failed(failure) => {
-            shared.sink.send(UiCommand::Error(failure.message().to_owned()));
+            shared
+                .sink
+                .send(UiCommand::Error(failure.message().to_owned()));
         }
         Phase::Idle | Phase::Prompting | Phase::Verifying => {}
     }
@@ -302,7 +314,8 @@ fn respond_authorized(shared: &Arc<Shared>, active: &Arc<ActiveRequest>, cookie:
     if lock(&active.request).phase() != Phase::Verifying {
         return;
     }
-    let result = futures::executor::block_on(respond(&shared.connection, shared.agent_uid, cookie, uid));
+    let result =
+        futures::executor::block_on(respond(&shared.connection, shared.agent_uid, cookie, uid));
     let mut request = lock(&active.request);
     match result {
         Ok(()) => {
@@ -480,7 +493,13 @@ mod tests {
     #[test]
     fn start_time_is_field_22_even_when_the_command_has_parentheses() {
         let mut fields = vec!["S".to_owned()];
-        fields.extend((1..=19).map(|n| if n == 19 { "4242".to_owned() } else { n.to_string() }));
+        fields.extend((1..=19).map(|n| {
+            if n == 19 {
+                "4242".to_owned()
+            } else {
+                n.to_string()
+            }
+        }));
         let stat = format!("123 (slopos (agent) x) {}", fields.join(" "));
         assert_eq!(parse_start_time(&stat), Some(4242));
         assert_eq!(parse_start_time("garbage"), None);
@@ -489,7 +508,10 @@ mod tests {
     #[test]
     fn unix_user_identity_needs_a_uid() {
         let mut details = HashMap::new();
-        details.insert("uid".to_owned(), OwnedValue::try_from(Value::from(0u32)).unwrap());
+        details.insert(
+            "uid".to_owned(),
+            OwnedValue::try_from(Value::from(0u32)).unwrap(),
+        );
         assert_eq!(
             identity_from_wire("unix-user", &details),
             Identity::UnixUser { uid: 0 }
@@ -559,7 +581,12 @@ mod bus_tests {
 
     #[zbus::interface(name = "org.freedesktop.PolicyKit1.Authority")]
     impl FakeAuthority {
-        fn register_authentication_agent(&self, subject: Wire, locale: String, object_path: String) {
+        fn register_authentication_agent(
+            &self,
+            subject: Wire,
+            locale: String,
+            object_path: String,
+        ) {
             let _ = locale;
             let _ = self.registered.send((subject, object_path));
         }
@@ -710,7 +737,7 @@ mod bus_tests {
         assert_eq!(subject.0, "unix-process");
         assert_eq!(path, AGENT_OBJECT_PATH);
         assert_eq!(
-            u32::try_from(subject.1["pid"].clone()).unwrap(),
+            u32::try_from(&subject.1["pid"]).unwrap(),
             std::process::id()
         );
     }
@@ -728,7 +755,9 @@ mod bus_tests {
         assert!(!request.wrong_password);
         let PromptRequest { reply, .. } = request;
         reply
-            .send(PromptReply::Password(Zeroizing::new("correct horse".to_owned())))
+            .send(PromptReply::Password(Zeroizing::new(
+                "correct horse".to_owned(),
+            )))
             .unwrap();
 
         let (uid, cookie, identity) = harness.responses.recv_timeout(WAIT).unwrap();
@@ -736,7 +765,7 @@ mod bus_tests {
         assert_eq!(cookie, "cookie-ok");
         assert_eq!(identity.0, "unix-user");
         assert_eq!(
-            u32::try_from(identity.1["uid"].clone()).unwrap(),
+            u32::try_from(&identity.1["uid"]).unwrap(),
             current_uid(),
             "the agent's own user is the identity chosen"
         );
@@ -749,7 +778,10 @@ mod bus_tests {
         harness.begin("cookie-user-cancel").await.unwrap();
         let PromptRequest { reply, .. } = harness.next_prompt();
         reply.send(PromptReply::Cancel).unwrap();
-        assert!(harness.responses.recv_timeout(Duration::from_millis(500)).is_err());
+        assert!(harness
+            .responses
+            .recv_timeout(Duration::from_millis(500))
+            .is_err());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -767,7 +799,10 @@ mod bus_tests {
         }
         // The UI drops its reply when it closes the dialog.
         drop(request);
-        assert!(harness.responses.recv_timeout(Duration::from_millis(500)).is_err());
+        assert!(harness
+            .responses
+            .recv_timeout(Duration::from_millis(500))
+            .is_err());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -793,6 +828,9 @@ mod bus_tests {
             )
             .await;
         assert!(result.is_err());
-        assert!(harness.commands.recv_timeout(Duration::from_millis(300)).is_err());
+        assert!(harness
+            .commands
+            .recv_timeout(Duration::from_millis(300))
+            .is_err());
     }
 }

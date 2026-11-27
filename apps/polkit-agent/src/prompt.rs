@@ -50,7 +50,9 @@ impl PromptView {
             text.push_str("Wrong password. ");
         }
         text.push_str(message);
-        text.push_str(&format!(" Action: {action_id}. Authenticate as {username}."));
+        text.push_str(&format!(
+            " Action: {action_id}. Authenticate as {username}."
+        ));
         let dialog = Dialog::new(
             DIALOG_ID,
             "Authentication Required",
@@ -74,6 +76,7 @@ impl PromptView {
         }
     }
 
+    #[cfg(test)]
     pub fn message(&self) -> &str {
         &self.dialog.message
     }
@@ -147,7 +150,8 @@ mod tests {
 
     #[test]
     fn enter_submits_the_typed_password_once() {
-        let mut view = PromptView::password("Install software.", "org.example.install", "root", false);
+        let mut view =
+            PromptView::password("Install software.", "org.example.install", "root", false);
         view.layout();
         typed(&mut view, "hunter2");
         match view.handle(&key(Key::Enter)) {
@@ -158,7 +162,8 @@ mod tests {
 
     #[test]
     fn escape_cancels_a_password_prompt() {
-        let mut view = PromptView::password("Install software.", "org.example.install", "root", false);
+        let mut view =
+            PromptView::password("Install software.", "org.example.install", "root", false);
         view.layout();
         typed(&mut view, "abc");
         assert_eq!(view.handle(&key(Key::Escape)), Outcome::Cancel);

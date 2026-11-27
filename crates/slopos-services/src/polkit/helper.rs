@@ -10,6 +10,7 @@
 //! - stdout lines: `PAM_PROMPT_ECHO_OFF <text>` / `PAM_PROMPT_ECHO_ON <text>`
 //!   (answer with one line on stdin), `PAM_ERROR_MSG <text>`,
 //!   `PAM_TEXT_INFO <text>`, then `SUCCESS` or `FAILURE`.
+//!
 //! On `SUCCESS` the helper has already answered the Authority; the agent
 //! then calls `AuthenticationAgentResponse2` itself (see `agent.rs`).
 
@@ -212,7 +213,10 @@ fn drive(
     cookie: &str,
     conversation: &mut dyn Conversation,
 ) -> HelperOutcome {
-    if writeln!(stdin, "{cookie}").and_then(|()| stdin.flush()).is_err() {
+    if writeln!(stdin, "{cookie}")
+        .and_then(|()| stdin.flush())
+        .is_err()
+    {
         return HelperOutcome::Failed("the helper did not accept the cookie".into());
     }
     let mut asked_for_secret = false;
@@ -295,10 +299,7 @@ mod tests {
     impl Conversation for Script {
         fn secret(&mut self, prompt: &str) -> Option<Zeroizing<String>> {
             self.prompts.push(prompt.to_owned());
-            self.answers
-                .pop_front()
-                .flatten()
-                .map(Zeroizing::new)
+            self.answers.pop_front().flatten().map(Zeroizing::new)
         }
         fn error(&mut self, text: &str) {
             self.errors.push(text.to_owned());
@@ -340,7 +341,10 @@ exit 1
             parse_line("PAM_ERROR_MSG Sorry, try again."),
             HelperLine::Error("Sorry, try again.".into())
         );
-        assert_eq!(parse_line("PAM_TEXT_INFO hi"), HelperLine::Info("hi".into()));
+        assert_eq!(
+            parse_line("PAM_TEXT_INFO hi"),
+            HelperLine::Info("hi".into())
+        );
         assert_eq!(parse_line("SUCCESS"), HelperLine::Success);
         assert_eq!(parse_line("FAILURE"), HelperLine::Failure);
         assert_eq!(parse_line("SOMETHING_NEW 1 2"), HelperLine::Unknown);
@@ -362,7 +366,12 @@ exit 1
             answers: VecDeque::from([Some("correct horse".to_owned())]),
             ..Script::default()
         };
-        let outcome = helper.authenticate("alice", "cookie", &mut conversation, &CancelToken::default());
+        let outcome = helper.authenticate(
+            "alice",
+            "cookie",
+            &mut conversation,
+            &CancelToken::default(),
+        );
         assert_eq!(outcome, HelperOutcome::Authenticated);
         assert_eq!(conversation.prompts, ["Password: "]);
     }
@@ -375,7 +384,12 @@ exit 1
             answers: VecDeque::from([Some("guess".to_owned())]),
             ..Script::default()
         };
-        let outcome = helper.authenticate("alice", "cookie", &mut conversation, &CancelToken::default());
+        let outcome = helper.authenticate(
+            "alice",
+            "cookie",
+            &mut conversation,
+            &CancelToken::default(),
+        );
         assert_eq!(outcome, HelperOutcome::WrongPassword);
         assert_eq!(conversation.errors, ["Sorry, try again."]);
     }
@@ -385,7 +399,12 @@ exit 1
         let dir = tempfile::tempdir().unwrap();
         let helper = fake_helper(dir.path(), "read cookie\necho FAILURE\nexit 1");
         let mut conversation = Script::default();
-        let outcome = helper.authenticate("alice", "cookie", &mut conversation, &CancelToken::default());
+        let outcome = helper.authenticate(
+            "alice",
+            "cookie",
+            &mut conversation,
+            &CancelToken::default(),
+        );
         assert!(matches!(outcome, HelperOutcome::Failed(_)), "{outcome:?}");
     }
 
@@ -397,7 +416,12 @@ exit 1
             answers: VecDeque::from([None]),
             ..Script::default()
         };
-        let outcome = helper.authenticate("alice", "cookie", &mut conversation, &CancelToken::default());
+        let outcome = helper.authenticate(
+            "alice",
+            "cookie",
+            &mut conversation,
+            &CancelToken::default(),
+        );
         assert_eq!(outcome, HelperOutcome::Cancelled);
     }
 
@@ -432,7 +456,12 @@ exit 1
     fn missing_helper_is_unavailable_not_a_panic() {
         let helper = PamHelper::new("/nonexistent/polkit-agent-helper-1");
         let mut conversation = Script::default();
-        let outcome = helper.authenticate("alice", "cookie", &mut conversation, &CancelToken::default());
+        let outcome = helper.authenticate(
+            "alice",
+            "cookie",
+            &mut conversation,
+            &CancelToken::default(),
+        );
         assert!(matches!(outcome, HelperOutcome::Unavailable(_)));
     }
 
