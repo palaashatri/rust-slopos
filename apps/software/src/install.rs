@@ -28,10 +28,18 @@ use sha2::{Digest, Sha256};
 
 use crate::trust::{valid_id, CatalogueEntry};
 
+/// The message an installer returns when the user cancelled it. The window
+/// matches on it to say "cancelled" rather than "not installed".
+pub const CANCELLED: &str = "installation was cancelled";
+
 #[derive(Debug, thiserror::Error)]
 pub enum InstallError {
     #[error("installation was cancelled")]
     Cancelled,
+    /// The entry failed the checks the installer relies on, so nothing was
+    /// downloaded.
+    #[error("the entry is not safe to download: {0}")]
+    Unsafe(String),
     #[error("“{0}” is not a valid application id")]
     InvalidId(String),
     #[error("the download failed: {0}")]
@@ -288,6 +296,11 @@ pub fn install(
     layout: &Layout,
     progress: &Progress,
 ) -> Result<PathBuf, InstallError> {
+    // Refuse an unsafe entry (plain HTTP, a bad id or hash, no size) before
+    // any connection is made.
+    entry
+        .validate()
+        .map_err(|error| InstallError::Unsafe(error.to_string()))?;
     let client = reqwest::blocking::Client::builder()
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
             if attempt.previous().len() >= 5 || attempt.url().scheme() != "https" {
@@ -443,6 +456,16 @@ mod tests {
         let installed = layout.appimage("example");
         let mut corrupt = good.clone();
         corrupt[500] ^= 1;
+        // Same size and ELF header, different bytes: the signed SHA-256 refuses it.
+        assert!(matches!(
+            install_from(
+                &entry,
+                &mut Cursor::new(&corrupt),
+                &layout,
+                &Progress::default()
+            ),
+            Err(InstallError::Checksum)
+        ));
         let cases: Vec<(Vec<u8>, &str)> = vec![
             (corrupt, "checksum"),
             (payload(999), "short"),
@@ -493,6 +516,43 @@ mod tests {
         ));
         assert!(fs::read_dir(&layout.apps).unwrap().next().is_none());
         assert!(!layout.desktop_entry("example").exists());
+    }
+
+    #[test]
+    fn an_unsafe_entry_is_refused_before_any_connection() {
+        // A listener that is never asked to accept: if `install` reached the
+        // network, the accept below would find a connection.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (_home, layout) = layout();
+        let progress = Progress::default();
+
+        let mut plain = entry("example");
+        plain.url = format!("http://127.0.0.1:{port}/example.AppImage");
+        match install(&plain, &layout, &progress) {
+            Err(InstallError::Unsafe(reason)) => assert!(reason.contains("HTTPS"), "{reason}"),
+            other => panic!("plain HTTP was not refused: {other:?}"),
+        }
+
+        let mut option_like = entry("--rm");
+        option_like.url = format!("https://127.0.0.1:{port}/example.AppImage");
+        assert!(matches!(
+            install(&option_like, &layout, &progress),
+            Err(InstallError::Unsafe(_))
+        ));
+
+        assert_eq!(
+            listener.accept().unwrap_err().kind(),
+            io::ErrorKind::WouldBlock,
+            "an unsafe entry reached the network"
+        );
+        assert!(!layout.apps.exists() || fs::read_dir(&layout.apps).unwrap().next().is_none());
+    }
+
+    #[test]
+    fn the_cancel_message_is_the_one_the_window_matches() {
+        assert_eq!(InstallError::Cancelled.to_string(), CANCELLED);
     }
 
     #[test]

@@ -477,6 +477,27 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_correctly_signed_unsafe_entry_is_still_refused() {
+        // Signing does not make an entry safe: the publisher's signature over
+        // an option-like id or a plain-HTTP URL must not get it installed.
+        let (mut catalogue, trust) = signed(7);
+        catalogue.entries[0].id = "--remove-all".into();
+        sign_catalogue(&mut catalogue, &key(7));
+        assert!(matches!(
+            catalogue.verify(&trust),
+            Err(TrustError::InvalidCatalogue(_))
+        ));
+
+        let (mut catalogue, trust) = signed(7);
+        catalogue.entries[1].url = "http://example.org/other.AppImage".into();
+        sign_catalogue(&mut catalogue, &key(7));
+        assert!(matches!(
+            catalogue.verify(&trust),
+            Err(TrustError::InvalidCatalogue(message)) if message.contains("HTTPS")
+        ));
+    }
+
+    #[test]
     fn trust_store_files_must_be_protected_and_well_formed() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("trust.json");
