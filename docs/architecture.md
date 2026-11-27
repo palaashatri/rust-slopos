@@ -52,6 +52,8 @@ apps launched from the top bar, desktop or Dock: detached (setsid), reaped, not 
 
 `scripts/check-architecture.py` stops anything under `apps/` from depending on GTK, GDK or Pango. The three legacy GTK crates are no longer installed or started; they stay in the workspace until their remaining tests and helpers are moved or retired.
 
+Each application (`apps/<name>/`) and component (`crates/<name>/`) has its own `README.md` with its features, how it works, how to run it and its limits. Screenshots are in each folder's `screenshots/` directory; the application and session shots were captured on 2026-11-27 with `scripts/capture-p1-screenshots.sh` under Xvfb, and the Volume Mixer shots with `scripts/qa/volume-mixer.sh`.
+
 ## The SLOPOS toolkit (`crates/slopos-ui`)
 
 | Module | Contents |
