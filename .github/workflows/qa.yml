@@ -39,7 +39,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
-            libssl-dev libdbus-1-dev libpam0g-dev xvfb openbox xdotool wmctrl \
+            libssl-dev libdbus-1-dev libpam0g-dev libclang-dev xvfb openbox xdotool wmctrl \
             adwaita-icon-theme dbus-x11 x11-utils x11-xserver-utils scrot \
             librsvg2-common fonts-liberation fonts-dejavu-core
       - uses: dtolnay/rust-toolchain@stable
@@ -229,7 +229,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
-            libssl-dev libdbus-1-dev libpam0g-dev xvfb openbox pcmanfm xfce4-terminal \
+            libssl-dev libdbus-1-dev libpam0g-dev libclang-dev xvfb openbox pcmanfm xfce4-terminal \
             mousepad ristretto zathura mpv galculator xdotool wmctrl scrot \
             imagemagick x11-utils x11-xserver-utils dbus-x11 librsvg2-common \
             curl ca-certificates adwaita-icon-theme fonts-liberation \
@@ -288,7 +288,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
-            libssl-dev libdbus-1-dev libpam0g-dev
+            libssl-dev libdbus-1-dev libpam0g-dev libclang-dev
       - name: Build exact release workspace
         run: cargo build --workspace --release --locked
       - name: Run Arch application/browser/game gate in disposable container
@@ -494,7 +494,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
-            libssl-dev libdbus-1-dev libpam0g-dev xvfb openbox xdotool x11-utils dbus-x11 \
+            libssl-dev libdbus-1-dev libpam0g-dev libclang-dev xvfb openbox xdotool x11-utils dbus-x11 \
             fonts-liberation adwaita-icon-theme
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -533,7 +533,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libx11-dev libxrandr-dev \
-            libssl-dev libdbus-1-dev libpam0g-dev xvfb openbox xdotool scrot imagemagick \
+            libssl-dev libdbus-1-dev libpam0g-dev libclang-dev xvfb openbox xdotool scrot imagemagick \
             dbus-x11 x11-utils x11-xserver-utils librsvg2-common \
             fonts-liberation fonts-dejavu-core adwaita-icon-theme
       - uses: dtolnay/rust-toolchain@stable

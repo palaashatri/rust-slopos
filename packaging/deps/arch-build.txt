@@ -10,3 +10,4 @@ libxrandr
 openssl
 dbus
 pam
+clang
