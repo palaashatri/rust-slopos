@@ -13,6 +13,7 @@ resvg.workspace = true
 x11rb.workspace = true
 log.workspace = true
 libc.workspace = true
+zeroize.workspace = true
 accesskit.workspace = true
 accesskit_unix = { workspace = true, optional = true }
 zbus = { workspace = true, optional = true }

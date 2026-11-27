@@ -12,6 +12,8 @@
 //! does not blink: a steady caret needs no timer, which keeps idle windows at
 //! zero wakeups and respects reduced motion.
 
+use zeroize::Zeroize;
+
 use crate::event::{Event, Key, Modifiers, PointerButton};
 use crate::foundation::geometry::Rect;
 use crate::render::{RasterSurface, RenderError};
@@ -107,11 +109,28 @@ impl TextField {
 
     /// Replace the whole text (not undoable); the caret moves to the end.
     pub fn set_text(&mut self, text: &str) {
+        self.wipe_history();
         self.text = sanitize(text, self.max_chars);
         self.caret = self.text.len();
         self.anchor = None;
-        self.undo.clear();
         self.scroll = 0.0;
+    }
+
+    /// Empty the field and overwrite the old text and undo copies in memory
+    /// before they are dropped. Use it for secrets once they are checked.
+    pub fn clear(&mut self) {
+        self.wipe_history();
+        self.text.zeroize();
+        self.caret = 0;
+        self.anchor = None;
+        self.scroll = 0.0;
+    }
+
+    fn wipe_history(&mut self) {
+        for (text, _) in &mut self.undo {
+            text.zeroize();
+        }
+        self.undo.clear();
     }
 
     pub fn caret(&self) -> usize {
@@ -287,6 +306,11 @@ impl TextField {
     }
 
     fn remember(&mut self) {
+        // A secret keeps no history: an undo copy of a password would outlive
+        // the edit that replaced it.
+        if self.secret {
+            return;
+        }
         if self.undo.len() == UNDO_DEPTH {
             self.undo.remove(0);
         }
@@ -507,6 +531,14 @@ impl TextField {
     }
 }
 
+impl Drop for TextField {
+    fn drop(&mut self) {
+        // Typed secrets must not outlive the field in freed heap memory.
+        self.wipe_history();
+        self.text.zeroize();
+    }
+}
+
 fn inset(rect: Rect, by: u32) -> Rect {
     Rect {
         x: rect.x + by as i32,
@@ -724,6 +756,39 @@ mod tests {
         assert_eq!(node.role(), accesskit::Role::TextInput);
         assert_eq!(node.value(), Some("report.txt"));
         assert!(node.supports_action(accesskit::Action::SetValue));
+    }
+
+    #[test]
+    fn secret_fields_keep_no_undo_history_and_clear_in_place() {
+        let mut field = TextField::new(10, "Password");
+        field.secret = true;
+        field.focused = true;
+        field.insert("abc");
+        field.insert("def");
+        // Ctrl+Z has nothing to restore: no edit of a secret is remembered.
+        let ctrl_z = Event::KeyPressed {
+            key: Key::Character('z'),
+            modifiers: Modifiers {
+                control: true,
+                ..Default::default()
+            },
+        };
+        field.handle(&ctrl_z);
+        assert_eq!(field.text(), "abcdef");
+        field.clear();
+        assert_eq!(field.text(), "");
+        assert_eq!(field.caret(), 0);
+        field.handle(&ctrl_z);
+        assert_eq!(field.text(), "");
+    }
+
+    #[test]
+    fn clear_empties_a_plain_field_too() {
+        let mut field = TextField::new(11, "Name");
+        field.set_text("hello");
+        field.clear();
+        assert_eq!(field.text(), "");
+        assert_eq!(field.selection(), None);
     }
 
     #[test]

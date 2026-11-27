@@ -29,6 +29,11 @@ pub enum WindowKind {
     Dock { edge: Edge, strut: u32 },
     /// The desktop itself: below every window, undecorated, full screen.
     Desktop,
+    /// The screen lock: an override-redirect window that covers the whole
+    /// screen. Once mapped it holds the keyboard and pointer; if the server
+    /// refuses either grab, [`run`] fails instead of showing an unlocked
+    /// window. Pass the screen size as the window size.
+    Lock,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

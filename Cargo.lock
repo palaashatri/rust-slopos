@@ -3633,11 +3633,15 @@ dependencies = [
 name = "slopos-session"
 version = "0.1.0"
 dependencies = [
+ "accesskit",
  "env_logger",
  "libc",
  "log",
  "slopos-core",
  "slopos-ui",
+ "x11rb",
+ "zbus 4.4.0",
+ "zeroize",
 ]
 
 [[package]]
@@ -3745,6 +3749,7 @@ dependencies = [
  "wgpu",
  "x11rb",
  "zbus 4.4.0",
+ "zeroize",
 ]
 
 [[package]]
