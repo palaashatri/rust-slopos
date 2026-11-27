@@ -15,9 +15,10 @@ use tokio::sync::oneshot;
 use zbus::{zvariant::OwnedObjectPath, Connection};
 
 use super::{
-    await_answer, bounded, close, close_bounded, next_prompt_id, publish_show,
+    await_answer, bounded, close, close_bounded, next_prompt_id, owner_connected, publish_show,
     publish_show_detached, register_while_owned, reserve, sender_of, undo_registration, AgentError,
-    DialogAnswer, DialogSpec, FieldKind, FieldSpec, OwnerSlot, Presenter, PromptOutcome, Secret,
+    DialogAnswer, DialogSpec, FieldKind, FieldSpec, Presenter, PromptOutcome, RegistrationCall,
+    Registrations, Secret,
 };
 
 pub const AGENT_PATH: &str = "/org/slopos/BluezAgent";
@@ -263,25 +264,36 @@ pub struct PairingDialogs {
     /// The newest id that was accepted. Ids come from one counter, so an id
     /// below this is a request that a newer one has already superseded.
     latest: u64,
+    /// Set by teardown. A closed slot admits no request of either kind.
+    closed: bool,
 }
 
+/// Why a dialog was not admitted.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Busy;
+pub enum Refused {
+    /// An interactive dialog is open, or a newer request has the slot.
+    Busy,
+    /// The agent is stopping and admits no request.
+    Closed,
+}
 
 impl PairingDialogs {
     /// Claim the slot for dialog `id`. A second interactive dialog while one
     /// is open is refused, and so is any request older than the newest
     /// accepted one. A display dialog or a newer interactive request replaces
     /// whatever is open. Returns the id of a dialog to close because it was
-    /// replaced.
+    /// replaced. Once the slot is closed, every request is refused.
     pub fn begin(
         &mut self,
         id: u64,
         interaction: Interaction,
         owner: &str,
-    ) -> Result<Option<u64>, Busy> {
+    ) -> Result<Option<u64>, Refused> {
+        if self.closed {
+            return Err(Refused::Closed);
+        }
         if id < self.latest {
-            return Err(Busy);
+            return Err(Refused::Busy);
         }
         let answer_open = matches!(
             self.open,
@@ -291,7 +303,7 @@ impl PairingDialogs {
             })
         );
         if answer_open && interaction == Interaction::Answer {
-            return Err(Busy);
+            return Err(Refused::Busy);
         }
         let replaced = self.open.take().map(|open| open.id);
         self.open = Some(OpenDialog {
@@ -326,6 +338,17 @@ impl PairingDialogs {
     /// `Release`).
     pub fn cancel(&mut self) -> Option<u64> {
         self.open.take().map(|open| open.id)
+    }
+
+    /// Close the slot for teardown: admit nothing from now on, and take the
+    /// open dialog's id so the caller can close it. Unlike [`cancel`], the slot
+    /// stays closed, so a request that arrives while the agent is still served
+    /// cannot open a dialog that nothing will close.
+    ///
+    /// [`cancel`]: Self::cancel
+    pub fn close(&mut self) -> Option<u64> {
+        self.closed = true;
+        self.cancel()
     }
 
     /// Take the open dialog's id when `owner` opened it, for an owner that
@@ -406,7 +429,10 @@ impl BluezAgent {
         let replaced = self
             .lock()
             .begin(id, Interaction::Answer, owner)
-            .map_err(|Busy| BluezError::Canceled("another pairing dialog is open".into()))?;
+            .map_err(|refused| match refused {
+                Refused::Busy => BluezError::Canceled("another pairing dialog is open".into()),
+                Refused::Closed => BluezError::Canceled("the agent is stopping".into()),
+            })?;
         if let Some(replaced) = replaced {
             close(&self.presenter, replaced).await;
         }
@@ -441,7 +467,11 @@ impl BluezAgent {
             Ok(replaced) => replaced,
             // A newer display update has already started, so this one is
             // superseded and there is nothing to show.
-            Err(Busy) => return Ok(()),
+            Err(Refused::Busy) => return Ok(()),
+            // The agent is stopping, so nothing will be shown. Say so.
+            Err(Refused::Closed) => {
+                return Err(BluezError::Rejected("the agent is stopping".into()));
+            }
         };
         if let Some(replaced) = replaced {
             close(&self.presenter, replaced).await;
@@ -667,21 +697,37 @@ pub async fn serve(
             "{AGENT_PATH} is already served"
         ))));
     }
-    // The BlueZ owner the watch registered with. Teardown undoes the
-    // registration there, not at whichever owner the name has by then.
-    let accepted = OwnerSlot::default();
+    // Every BlueZ owner the watch registered with and has not undone. Teardown
+    // undoes each one at its own unique name, not at whichever owner the name
+    // has by then.
+    let registrations = Registrations::default();
     let result = register_while_owned(
         system,
         SERVICE,
         {
-            let accepted = accepted.clone();
+            let registrations = registrations.clone();
             move |owner: String| {
-                let (system, accepted) = (system.clone(), accepted.clone());
+                let (system, registrations) = (system.clone(), registrations.clone());
                 async move {
-                    bounded(register_agent_at(&system, &owner)).await?;
-                    // BlueZ accepted the agent. Record it before the default
-                    // step, so teardown undoes it even if that step never works.
-                    accepted.set(&owner);
+                    let call = RegistrationCall::begin(&registrations, &owner);
+                    match bounded(register_agent_at(&system, &owner)).await {
+                        Ok(Registration::Fresh) => call.keep(),
+                        // BlueZ already had an agent on this connection, at
+                        // this path or another. That is not a registration
+                        // this watch made, so teardown must not undo it.
+                        Ok(Registration::AlreadyRegistered) => call.withdraw(),
+                        // No reply came, so the agent may be registered.
+                        Err(error @ AgentError::Timeout) => {
+                            call.keep();
+                            return Err(error);
+                        }
+                        Err(error) => {
+                            call.withdraw();
+                            return Err(error);
+                        }
+                    }
+                    // Recorded before the default step, so teardown undoes the
+                    // registration even if that step never works.
                     bounded(request_default_at(&system, &owner)).await
                 }
             }
@@ -701,25 +747,29 @@ pub async fn serve(
                 }
             }
         },
-        &accepted,
         &mut stop,
     )
     .await;
 
-    // Teardown runs on every exit from the watch, including a failed one.
+    // Teardown runs on every exit from the watch, including a failed one. The
+    // slot is closed before the first await, so a request that arrives while
+    // the registrations are undone cannot open a dialog that nothing closes.
     let closing = dialogs
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .cancel();
+        .close();
     if let Some(id) = closing {
         close_bounded(&presenter, id).await;
     }
-    let cleanup = match accepted.take() {
-        Some(owner) => {
-            undo_registration(system, SERVICE, &owner, || unregister_at(system, &owner)).await
-        }
-        None => Ok(()),
-    };
+    let mut cleanup: Result<(), AgentError> = Ok(());
+    for owner in registrations.take_all() {
+        let undone = undo_registration(
+            || unregister_at(system, &owner),
+            || owner_connected(system, &owner),
+        )
+        .await;
+        cleanup = cleanup.and(undone);
+    }
     // The object is removed even when the undo failed, so a later call can
     // serve again.
     let _ = system
@@ -763,9 +813,20 @@ pub async fn register(system: &Connection) -> zbus::Result<()> {
     request_default_at(system, SERVICE).await
 }
 
-/// Call `AgentManager1.RegisterAgent` on the manager at `destination`. An
-/// agent BlueZ already has is not an error.
-pub(crate) async fn register_agent_at(system: &Connection, destination: &str) -> zbus::Result<()> {
+/// What a `RegisterAgent` reply established. BlueZ answers `AlreadyExists` when
+/// the connection already has an agent, at this path or another, so that reply
+/// does not confirm a registration this watch made.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Registration {
+    Fresh,
+    AlreadyRegistered,
+}
+
+/// Call `AgentManager1.RegisterAgent` on the manager at `destination`.
+pub(crate) async fn register_agent_at(
+    system: &Connection,
+    destination: &str,
+) -> zbus::Result<Registration> {
     let agent = OwnedObjectPath::try_from(AGENT_PATH)?;
     match system
         .call_method(
@@ -777,8 +838,10 @@ pub(crate) async fn register_agent_at(system: &Connection, destination: &str) ->
         )
         .await
     {
-        Ok(_) => Ok(()),
-        Err(zbus::Error::MethodError(name, _, _)) if name.as_str() == ALREADY_EXISTS => Ok(()),
+        Ok(_) => Ok(Registration::Fresh),
+        Err(zbus::Error::MethodError(name, _, _)) if name.as_str() == ALREADY_EXISTS => {
+            Ok(Registration::AlreadyRegistered)
+        }
         Err(error) => Err(error),
     }
 }

@@ -389,6 +389,76 @@ impl OwnerSlot {
     }
 }
 
+/// The unique bus names of the managers this watch registered with and has not
+/// undone. An entry stays after its owner loses the well-known name: the owner
+/// may still be connected and still hold the agent, so only an unregister call
+/// or the owner going away ends the registration. Teardown undoes each entry.
+#[derive(Clone, Default)]
+pub(crate) struct Registrations(Arc<Mutex<Vec<String>>>);
+
+impl Registrations {
+    fn lock(&self) -> std::sync::MutexGuard<'_, Vec<String>> {
+        self.0
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    fn contains(&self, owner: &str) -> bool {
+        self.lock().iter().any(|recorded| recorded == owner)
+    }
+
+    fn record(&self, owner: &str) {
+        let mut recorded = self.lock();
+        if !recorded.iter().any(|name| name == owner) {
+            recorded.push(owner.to_owned());
+        }
+    }
+
+    fn forget(&self, owner: &str) {
+        self.lock().retain(|recorded| recorded != owner);
+    }
+
+    /// Take every recorded owner, for teardown.
+    pub(crate) fn take_all(&self) -> Vec<String> {
+        std::mem::take(&mut *self.lock())
+    }
+}
+
+/// One registration call to `owner`. The owner is recorded when the call
+/// starts, because the call may take effect even if the watch stops and the
+/// call is dropped, or if its reply never arrives. A reply settles it: a
+/// registration that stands is kept with [`keep`](Self::keep), and one that
+/// was refused or is not this watch's is undone with
+/// [`withdraw`](Self::withdraw), which removes only the record this call made.
+pub(crate) struct RegistrationCall {
+    registrations: Registrations,
+    owner: String,
+    recorded_here: bool,
+}
+
+impl RegistrationCall {
+    pub(crate) fn begin(registrations: &Registrations, owner: &str) -> Self {
+        let recorded_here = !registrations.contains(owner);
+        registrations.record(owner);
+        Self {
+            registrations: registrations.clone(),
+            owner: owner.to_owned(),
+            recorded_here,
+        }
+    }
+
+    /// The registration stands, or may: teardown must undo it.
+    pub(crate) fn keep(self) {}
+
+    /// Not registered by this call: forget the record it made. A record left
+    /// by an earlier uncertain call is not this call's to forget.
+    pub(crate) fn withdraw(self) {
+        if self.recorded_here {
+            self.registrations.forget(&self.owner);
+        }
+    }
+}
+
 /// Where one owner's registration ended.
 #[derive(Debug)]
 pub(crate) enum Attempt {
@@ -398,23 +468,21 @@ pub(crate) enum Attempt {
     Abandoned,
     /// Every try failed while the owner was still on the bus.
     Failed(AgentError),
-    /// The watch stopped first. `in_flight` is true when a call was still
-    /// waiting for its reply, so the registration may yet have taken effect.
-    Stopped { in_flight: bool },
+    /// The watch stopped first. A call that was still waiting for its reply
+    /// was dropped, and its [`RegistrationCall`] has recorded it.
+    Stopped,
 }
 
 /// Register with one owner, with that owner's own retry budget. Every call
 /// targets the unique name of that owner, so a retry cannot start a stopped
-/// service or reach a newer owner. The owner is recorded in `accepted` when
-/// the registration stands, and also when a reply was lost or the watch was
-/// stopped during a call, since the registration may then have taken effect
-/// and teardown must undo it.
+/// service or reach a newer owner. Whether a registration stands, and so needs
+/// undoing at teardown, is recorded by `register` itself through a
+/// [`RegistrationCall`], because only the call knows what its reply said.
 async fn register_for_owner<R, Fut>(
     dbus: &DBusProxy<'_>,
     service: &str,
     owner: String,
     register: &mut R,
-    accepted: &OwnerSlot,
     stop: &mut oneshot::Receiver<()>,
 ) -> Attempt
 where
@@ -430,19 +498,7 @@ where
         }
     };
     let target = owner.clone();
-    let recorded = accepted.clone();
-    let mut attempt = move || {
-        let (name, recorded) = (target.clone(), recorded.clone());
-        let call = register(target.clone());
-        async move {
-            let result = call.await;
-            // A reply that never came may still have been applied.
-            if matches!(result, Err(AgentError::Timeout)) {
-                recorded.set(&name);
-            }
-            result
-        }
-    };
+    let mut attempt = move || register(target.clone());
     let outcome = register_with_retries(
         REGISTER_ATTEMPTS,
         REGISTER_RETRY_DELAY,
@@ -451,14 +507,10 @@ where
         stop,
     )
     .await;
-    match &outcome {
-        Attempt::Registered | Attempt::Stopped { in_flight: true } => accepted.set(&owner),
-        Attempt::Failed(error) => {
-            // The owner stays unregistered until its next owner change, but
-            // the failure is reported rather than dropped.
-            eprintln!("session agent: registering with {service} owner {owner} failed: {error}");
-        }
-        Attempt::Abandoned | Attempt::Stopped { in_flight: false } => {}
+    if let Attempt::Failed(error) = &outcome {
+        // The owner stays unregistered until its next owner change, but
+        // the failure is reported rather than dropped.
+        eprintln!("session agent: registering with {service} owner {owner} failed: {error}");
     }
     outcome
 }
@@ -480,14 +532,15 @@ fn should_register_arrival(tried: Option<&str>, arrived: &str, current: Option<&
 ///
 /// The subscription is made before the first check, so no acquisition in
 /// between is missed. A registration that fails for one owner does not stop
-/// the watch: a later owner is still registered. The owner registered when
-/// the watch ends is recorded in `accepted`, so teardown can undo it.
+/// the watch: a later owner is still registered. `register` records each
+/// registration that stands or may stand (see [`RegistrationCall`]). A lost
+/// owner's record is kept, because that owner may still be connected and hold
+/// the agent, so teardown still undoes it.
 pub(crate) async fn register_while_owned<R, Fut, L, LFut>(
     system: &Connection,
     service: &str,
     mut register: R,
     mut on_owner_lost: L,
-    accepted: &OwnerSlot,
     stop: &mut oneshot::Receiver<()>,
 ) -> Result<(), AgentError>
 where
@@ -505,8 +558,8 @@ where
     let mut tried: Option<String> = None;
     if let Some(owner) = current_owner(&dbus, service).await? {
         tried = Some(owner.clone());
-        let attempt = register_for_owner(&dbus, service, owner, &mut register, accepted, stop);
-        if matches!(attempt.await, Attempt::Stopped { .. }) {
+        let attempt = register_for_owner(&dbus, service, owner, &mut register, stop);
+        if matches!(attempt.await, Attempt::Stopped) {
             return Ok(());
         }
     }
@@ -524,7 +577,6 @@ where
                     if tried.as_deref() == Some(lost.as_str()) {
                         tried = None;
                     }
-                    accepted.clear_if(&lost);
                     on_owner_lost(lost).await;
                 }
                 if let Some(owner) = arrived {
@@ -533,9 +585,9 @@ where
                     if should_register_arrival(tried.as_deref(), &owner, current.as_deref()) {
                         tried = Some(owner.clone());
                         let attempt = register_for_owner(
-                            &dbus, service, owner, &mut register, accepted, stop,
+                            &dbus, service, owner, &mut register, stop,
                         );
-                        if matches!(attempt.await, Attempt::Stopped { .. }) {
+                        if matches!(attempt.await, Attempt::Stopped) {
                             break;
                         }
                     }
@@ -568,7 +620,7 @@ where
     for attempt in 0..attempts {
         if attempt > 0 {
             tokio::select! {
-                _ = &mut *stop => return Attempt::Stopped { in_flight: false },
+                _ = &mut *stop => return Attempt::Stopped,
                 _ = tokio::time::sleep(delay) => {}
             }
             match owner_still_present().await {
@@ -578,7 +630,7 @@ where
             }
         }
         tokio::select! {
-            _ = &mut *stop => return Attempt::Stopped { in_flight: true },
+            _ = &mut *stop => return Attempt::Stopped,
             result = register() => match result {
                 Ok(()) => return Attempt::Registered,
                 Err(error) => last_error = Some(error),
@@ -611,38 +663,34 @@ pub(crate) async fn bounded<T>(
     bounded_for(CALL_TIMEOUT, call).await
 }
 
-/// Undo a registration at teardown by calling `unregister`, which must target
-/// the owner the registration was made with. A failure is returned only while
-/// that owner is still on the bus: once it has gone, its registration went
-/// with it.
-pub(crate) async fn undo_registration<F, Fut>(
-    system: &Connection,
-    service: &str,
-    owner: &str,
-    unregister: F,
+/// Whether the bus still has the connection `unique`, a unique bus name. The
+/// well-known name is not consulted: it may have passed to another owner.
+pub(crate) async fn owner_connected(system: &Connection, unique: &str) -> zbus::Result<bool> {
+    let dbus = DBusProxy::new(system).await?;
+    Ok(current_owner(&dbus, unique).await?.is_some())
+}
+
+/// Undo one registration at teardown by calling `unregister`, which must
+/// target the owner the registration was made with. A failed unregister is
+/// suppressed only when `still_connected` confirms that owner's connection is
+/// gone, since then its registration went with it. A failed or timed-out
+/// check keeps the unregister error. Both calls are bounded.
+pub(crate) async fn undo_registration<U, UFut, P, PFut>(
+    unregister: U,
+    still_connected: P,
 ) -> Result<(), AgentError>
 where
-    F: FnOnce() -> Fut,
-    Fut: Future<Output = zbus::Result<()>>,
+    U: FnOnce() -> UFut,
+    UFut: Future<Output = zbus::Result<()>>,
+    P: FnOnce() -> PFut,
+    PFut: Future<Output = zbus::Result<bool>>,
 {
     let Err(error) = bounded(unregister()).await else {
         return Ok(());
     };
-    let still_present = match DBusProxy::new(system).await {
-        Ok(dbus) => {
-            current_owner(&dbus, service)
-                .await
-                .ok()
-                .flatten()
-                .as_deref()
-                == Some(owner)
-        }
-        Err(_) => true,
-    };
-    if still_present {
-        Err(error)
-    } else {
-        Ok(())
+    match bounded(still_connected()).await {
+        Ok(false) => Ok(()),
+        _ => Err(error),
     }
 }
 
@@ -837,10 +885,7 @@ mod mod_tests {
         let outcome =
             register_with_retries(3, Duration::ZERO, &mut owned, &mut register, &mut stop).await;
         stopper.await.unwrap();
-        assert!(
-            matches!(outcome, Attempt::Stopped { in_flight: true }),
-            "{outcome:?}"
-        );
+        assert!(matches!(outcome, Attempt::Stopped), "{outcome:?}");
     }
 
     #[tokio::test]
@@ -873,5 +918,39 @@ mod mod_tests {
         assert_eq!(slot.get().as_deref(), Some(":1.20"));
         slot.clear_if(":1.20");
         assert_eq!(slot.get(), None);
+    }
+
+    #[test]
+    fn a_registration_call_records_its_owner_only_until_a_refusal_undoes_it() {
+        let registrations = Registrations::default();
+        // Refused: the record this call made is removed.
+        RegistrationCall::begin(&registrations, ":1.20").withdraw();
+        assert!(registrations.take_all().is_empty());
+
+        // Confirmed: the record stands.
+        RegistrationCall::begin(&registrations, ":1.20").keep();
+        assert_eq!(registrations.take_all(), vec![":1.20".to_owned()]);
+    }
+
+    #[test]
+    fn a_refusal_does_not_undo_a_record_an_uncertain_call_left() {
+        let registrations = Registrations::default();
+        // The first call may have applied: its reply never came.
+        RegistrationCall::begin(&registrations, ":1.20").keep();
+        // A later call finds the agent already there and is refused as ours.
+        RegistrationCall::begin(&registrations, ":1.20").withdraw();
+        assert_eq!(registrations.take_all(), vec![":1.20".to_owned()]);
+    }
+
+    #[test]
+    fn a_lost_owner_keeps_its_record_beside_its_replacement() {
+        let registrations = Registrations::default();
+        RegistrationCall::begin(&registrations, ":1.20").keep();
+        RegistrationCall::begin(&registrations, ":1.21").keep();
+        assert_eq!(
+            registrations.take_all(),
+            vec![":1.20".to_owned(), ":1.21".to_owned()],
+            "both owners are undone at teardown, once each"
+        );
     }
 }
