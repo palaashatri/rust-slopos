@@ -332,6 +332,28 @@ fn field_limits_count_bytes() {
 }
 
 #[test]
+fn the_vpn_password_limit_is_the_same_in_the_dialog_and_the_answer_check() {
+    let mut request = wifi_request(0x1);
+    request.setting = network_secret::VPN.into();
+    request.hints = vec!["password".into()];
+    let (kind, spec) = network_secret::prompt_for(&request).unwrap();
+    let field = spec.field.expect("a VPN password has a field");
+    let limit = network_secret::VPN_PASSWORD_MAX_LEN;
+    assert_eq!(field.max_len, limit, "the dialog states the shared limit");
+    for length in [0, 1, limit, limit + 1] {
+        let text = "x".repeat(length);
+        assert_eq!(
+            field.accepts(&text),
+            network_secret::valid_answer(kind, &text),
+            "the dialog and the answer check agree at {length} bytes"
+        );
+    }
+    assert!(network_secret::valid_answer(kind, &"x".repeat(limit)));
+    assert!(!network_secret::valid_answer(kind, &"x".repeat(limit + 1)));
+    assert!(!network_secret::valid_answer(kind, ""));
+}
+
+#[test]
 fn connection_id_comes_from_the_settings_and_falls_back_to_the_path() {
     let mut settings = SettingsMap::new();
     settings.insert(
@@ -652,14 +674,32 @@ impl HostLog {
 fn spawn_host(
     answer: impl Fn(&DialogSpec) -> Option<DialogAnswer> + Send + 'static,
 ) -> (Presenter, HostLog) {
-    let (presenter, mut commands) = mpsc::channel::<PromptCommand>(16);
+    let (presenter, commands) = mpsc::channel::<PromptCommand>(16);
+    (presenter, spawn_host_on(commands, answer))
+}
+
+/// Run the host loop on `commands`. A withdrawn Show is not shown, as the
+/// protocol requires.
+fn spawn_host_on(
+    mut commands: mpsc::Receiver<PromptCommand>,
+    answer: impl Fn(&DialogSpec) -> Option<DialogAnswer> + Send + 'static,
+) -> HostLog {
     let log = HostLog::default();
     let host_log = log.clone();
     tokio::spawn(async move {
         let held: Held = Arc::new(Mutex::new(HashMap::new()));
         while let Some(command) = commands.recv().await {
             match command {
-                PromptCommand::Show { id, spec, reply } => {
+                PromptCommand::Show {
+                    withdrawn, reply, ..
+                } if *withdrawn.borrow() => {
+                    // The request has already ended, so dropping the reply is
+                    // the answer the agent gets.
+                    drop(reply);
+                }
+                PromptCommand::Show {
+                    id, spec, reply, ..
+                } => {
                     host_log.shown.lock().unwrap().push((id, spec.clone()));
                     match answer(&spec) {
                         Some(answer) => {
@@ -678,7 +718,7 @@ fn spawn_host(
             }
         }
     });
-    (presenter, log)
+    log
 }
 
 async fn wait_until(mut condition: impl FnMut() -> bool) {
@@ -1041,7 +1081,9 @@ fn chosen_answer(index: usize, text: &str) -> DialogAnswer {
 
 #[tokio::test]
 async fn network_agent_refuses_without_interaction_and_reports_user_cancel() {
-    let (presenter, host) = spawn_host(|_| Some(DialogAnswer::Dismissed));
+    // The command queue is not drained by a host yet, so a Show that the
+    // refusal should not have sent stays in it until the test looks.
+    let (presenter, mut commands) = mpsc::channel::<PromptCommand>(16);
     let fixture = network_fixture(presenter).await;
     let (client, agent) = (fixture.client.clone(), fixture.agent.clone());
     let proxy = secret_proxy(&client, &agent).await;
@@ -1062,8 +1104,14 @@ async fn network_agent_refuses_without_interaction_and_reports_user_cancel() {
         error_name(&refused.unwrap_err()),
         format!("{NM_ERROR_PREFIX}NoSecrets")
     );
-    assert_eq!(host.shown_count(), 0, "no dialog without interaction");
+    // The agent has replied, so any dialog it was going to show is queued now.
+    assert!(
+        matches!(commands.try_recv(), Err(mpsc::error::TryRecvError::Empty)),
+        "no dialog without interaction"
+    );
 
+    // A host now answers the next request with the user's cancellation.
+    let _host = spawn_host_on(commands, |_| Some(DialogAnswer::Dismissed));
     let cancelled: Result<SettingsMap, zbus::Error> = proxy
         .call(
             "GetSecrets",
@@ -1435,6 +1483,144 @@ async fn bluez_register_reports_a_failed_default_step() {
     assert_eq!(error_name(&error), "org.bluez.Error.Failed");
 }
 
+/// A BlueZ device object: the properties the pairing label reads.
+struct FakeDevice {
+    alias: String,
+}
+
+#[zbus::interface(name = "org.bluez.Device1")]
+impl FakeDevice {
+    #[zbus(property)]
+    fn alias(&self) -> String {
+        self.alias.clone()
+    }
+
+    #[zbus(property)]
+    fn address(&self) -> String {
+        "00:11:22:33:44:55".into()
+    }
+}
+
+#[tokio::test]
+async fn device_label_comes_from_the_owner_that_sent_the_request() {
+    let (presenter, host) = spawn_host(|_| None);
+    let fixture = bluez_fixture(presenter).await;
+    let (client, agent) = (fixture.client.clone(), fixture.agent.clone());
+    // The owner that sends the request serves the device under its own alias.
+    client
+        .object_server()
+        .at(
+            DEVICE_PATH,
+            FakeDevice {
+                alias: "Keyboard".into(),
+            },
+        )
+        .await
+        .unwrap();
+    // The current org.bluez owner serves another device at the same path.
+    fixture
+        ._manager_conn
+        .object_server()
+        .at(
+            DEVICE_PATH,
+            FakeDevice {
+                alias: "Impostor".into(),
+            },
+        )
+        .await
+        .unwrap();
+    let proxy = bluez_proxy(&client, &agent).await;
+    let call = tokio::spawn(async move {
+        let device = owned_path(DEVICE_PATH);
+        proxy.call::<_, _, u32>("RequestPasskey", &(&device,)).await
+    });
+    wait_until(|| host.shown_count() == 1).await;
+    let (_, spec) = host.last_shown();
+    assert!(spec.message.contains("Keyboard"), "{}", spec.message);
+    assert!(!spec.message.contains("Impostor"), "{}", spec.message);
+    call.abort();
+}
+
+#[tokio::test]
+async fn device_label_falls_back_to_the_path_and_never_uses_a_replacement_owner() {
+    let (presenter, host) = spawn_host(|_| None);
+    let fixture = bluez_fixture(presenter).await;
+    let (client, agent) = (fixture.client.clone(), fixture.agent.clone());
+    // The requesting owner serves no such device, so its label lookup fails.
+    // The current org.bluez owner has one, and must not supply the label.
+    fixture
+        ._manager_conn
+        .object_server()
+        .at(
+            DEVICE_PATH,
+            FakeDevice {
+                alias: "Impostor".into(),
+            },
+        )
+        .await
+        .unwrap();
+    let proxy = bluez_proxy(&client, &agent).await;
+    let call = tokio::spawn(async move {
+        let device = owned_path(DEVICE_PATH);
+        proxy.call::<_, _, u32>("RequestPasskey", &(&device,)).await
+    });
+    wait_until(|| host.shown_count() == 1).await;
+    let (_, spec) = host.last_shown();
+    assert!(
+        spec.message.contains("dev_00_11_22_33_44_55"),
+        "the object path's last segment is the fallback: {}",
+        spec.message
+    );
+    assert!(!spec.message.contains("Impostor"), "{}", spec.message);
+    call.abort();
+}
+
+#[tokio::test]
+async fn a_cancelled_pairing_ends_even_when_its_close_cannot_be_queued() {
+    // A queue of one: the Show fills it and no host drains it, so the Close
+    // that Cancel sends cannot be queued until the test drains the queue.
+    let (presenter, mut commands) = mpsc::channel::<PromptCommand>(1);
+    let fixture = bluez_fixture(presenter).await;
+    let (client, agent) = (fixture.client.clone(), fixture.agent.clone());
+    let proxy = bluez_proxy(&client, &agent).await;
+
+    let pending = {
+        let proxy = proxy.clone();
+        tokio::spawn(async move {
+            let device = owned_path(DEVICE_PATH);
+            proxy.call::<_, _, u32>("RequestPasskey", &(&device,)).await
+        })
+    };
+    wait_until_within(Duration::from_secs(5), || !commands.is_empty()).await;
+
+    let cancel = {
+        let proxy = proxy.clone();
+        tokio::spawn(async move { proxy.call::<_, _, ()>("Cancel", &()).await })
+    };
+    // The withdrawal alone ends the request, so it fails without a Close.
+    let result = timeout(Duration::from_secs(2), pending)
+        .await
+        .expect("the withdrawal ends the request without a Close reaching the host")
+        .unwrap();
+    assert_eq!(error_name(&result.unwrap_err()), "org.bluez.Error.Canceled");
+
+    // Draining the queue shows the Show as withdrawn, then the Close that was
+    // blocked behind it.
+    let Some(PromptCommand::Show { withdrawn, .. }) = commands.recv().await else {
+        panic!("the queued Show comes first");
+    };
+    assert!(*withdrawn.borrow(), "a host must not show it");
+    assert!(
+        matches!(commands.recv().await, Some(PromptCommand::Close { .. })),
+        "the Close follows once there is room"
+    );
+    timeout(Duration::from_secs(5), cancel)
+        .await
+        .expect("Cancel returns once its Close is queued")
+        .unwrap()
+        .unwrap();
+}
+
 async fn private_connection(address: &str) -> zbus::Connection {
     zbus::connection::Builder::address(address)
         .unwrap()
@@ -1521,6 +1707,35 @@ async fn register_while_owned_neither_registers_nor_starts_an_absent_service() {
         0,
         "no registration without an owner"
     );
+}
+
+#[tokio::test]
+async fn a_watch_stopped_before_the_bus_answers_returns_so_teardown_can_run() {
+    let (_bus, address) = private_bus();
+    let watcher = private_connection(&address).await;
+    let calls = Arc::new(Mutex::new(0));
+    let counter = calls.clone();
+    // The stop is already sent, so the subscription and the owner lookup are
+    // both still waiting on the bus when the watch is asked to stop.
+    let (stop_tx, mut stop) = oneshot::channel::<()>();
+    stop_tx.send(()).unwrap();
+    let outcome = timeout(
+        Duration::from_secs(5),
+        register_while_owned(
+            &watcher,
+            "org.slopos.Test.Absent",
+            move |_owner: String| {
+                *counter.lock().unwrap() += 1;
+                async { Ok(()) }
+            },
+            |_name: String| async {},
+            &mut stop,
+        ),
+    )
+    .await
+    .expect("the stop ends the watch without waiting for the bus");
+    assert!(outcome.is_ok(), "{outcome:?}");
+    assert_eq!(*calls.lock().unwrap(), 0, "nothing is registered");
 }
 
 #[tokio::test]
@@ -2272,17 +2487,23 @@ async fn an_inconclusive_check_keeps_the_unregister_error() {
 
 #[tokio::test]
 async fn a_check_that_never_answers_keeps_the_unregister_error_at_its_deadline() {
-    let started = Instant::now();
-    let result = undo_registration(
-        || async { Err(zbus::Error::Failure("refused".into())) },
-        std::future::pending::<zbus::Result<bool>>,
+    // The check's own bound is CALL_TIMEOUT (5 seconds). This outer deadline is
+    // longer, so a return inside it shows the bound, not the test, ended the wait.
+    let result = timeout(
+        Duration::from_secs(15),
+        undo_registration(
+            || async { Err(zbus::Error::Failure("refused".into())) },
+            std::future::pending::<zbus::Result<bool>>,
+        ),
     )
-    .await;
-    assert!(matches!(result, Err(AgentError::Bus(_))), "{result:?}");
-    assert!(
-        started.elapsed() < Duration::from_secs(15),
-        "the wait is bounded"
-    );
+    .await
+    .expect("the presence check gives up before the outer deadline");
+    match result {
+        Err(AgentError::Bus(zbus::Error::Failure(message))) => {
+            assert_eq!(message, "refused", "the original unregister error is kept");
+        }
+        other => panic!("expected the unregister error, got {other:?}"),
+    }
 }
 
 #[tokio::test]

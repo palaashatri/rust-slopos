@@ -22,7 +22,7 @@ use super::{
     await_answer, bounded, close, close_bounded, next_prompt_id, owner_connected, publish_show,
     register_while_owned, reserve, sender_of, undo_registration, AgentError, DialogAnswer,
     DialogSpec, FieldKind, FieldSpec, OwnerSlot, Presenter, PromptOutcome, RegistrationCall,
-    Registrations, Secret, AGENT_IDENTIFIER,
+    Registrations, Secret, Withdrawal, AGENT_IDENTIFIER,
 };
 
 pub const AGENT_PATH: &str = "/org/freedesktop/NetworkManager/SecretAgent";
@@ -40,6 +40,10 @@ const VPN_PASSWORD_KEY: &str = "password";
 /// `none` (WEP) and the 802.1X modes are refused.
 const WPA_PSK: &str = "wpa-psk";
 const SAE: &str = "sae";
+/// The longest VPN password, in UTF-8 bytes. The dialog's field and the answer
+/// check both use this one limit, so a password the dialog accepts is also one
+/// the agent returns.
+pub const VPN_PASSWORD_MAX_LEN: usize = 256;
 
 /// `NMSecretAgentGetSecretsFlags`.
 const FLAG_ALLOW_INTERACTION: u32 = 0x1;
@@ -168,7 +172,7 @@ pub fn prompt_for(request: &SecretRequest) -> Result<(SecretKind, DialogSpec), S
                 label: "Password".into(),
                 kind: FieldKind::Secret,
                 min_len: 1,
-                max_len: 256,
+                max_len: VPN_PASSWORD_MAX_LEN,
             }),
         },
     };
@@ -191,13 +195,13 @@ fn secret_kind(setting: &str, hints: &[String], key_mgmt: Option<&str>) -> Optio
 
 /// Whether `text` is an acceptable answer for `kind`: a WPA passphrase
 /// (8 to 63 bytes, or 64 hex digits), an SAE password (1 to 255 bytes), or a
-/// non-empty VPN password. Each Wi-Fi rule is the field's own rule, so the
-/// host's Connect check and this check cannot disagree.
+/// VPN password of 1 to [`VPN_PASSWORD_MAX_LEN`] bytes. Each rule is the
+/// field's own rule, so the host's Connect check and this check cannot disagree.
 pub fn valid_answer(kind: SecretKind, text: &str) -> bool {
     match kind {
         SecretKind::WifiPsk => FieldKind::WpaPassphrase.accepts(text),
         SecretKind::WifiSae => FieldKind::SaePassphrase.accepts(text),
-        SecretKind::VpnPassword => !text.is_empty(),
+        SecretKind::VpnPassword => (1..=VPN_PASSWORD_MAX_LEN).contains(&text.len()),
     }
 }
 
@@ -264,6 +268,8 @@ struct PendingRequest {
     id: u64,
     /// The unique bus name of the NetworkManager owner that asked.
     owner: String,
+    /// Withdrawn when the request ends without an answer that is used.
+    withdrawal: Withdrawal,
 }
 
 /// Requests still waiting for a dialog answer, one per connection and
@@ -287,6 +293,7 @@ impl SecretRequests {
             PendingRequest {
                 id,
                 owner: owner.to_owned(),
+                withdrawal: Withdrawal::new(),
             },
         );
         true
@@ -295,11 +302,14 @@ impl SecretRequests {
     /// Forget dialog `id` once it has been answered or closed. Returns false
     /// when the request is no longer open (it was cancelled, or its owner
     /// went away), so a late answer must not be returned. A stale id changes
-    /// nothing.
+    /// nothing. The request is withdrawn, so a host that still has its command
+    /// does not show it.
     pub fn finish(&mut self, connection_path: &str, setting: &str, id: u64) -> bool {
         let key = (connection_path.to_owned(), setting.to_owned());
         if self.pending.get(&key).is_some_and(|open| open.id == id) {
-            self.pending.remove(&key);
+            if let Some(open) = self.pending.remove(&key) {
+                open.withdrawal.withdraw();
+            }
             true
         } else {
             false
@@ -308,7 +318,8 @@ impl SecretRequests {
 
     /// Remove the request that `owner` opened, for CancelGetSecrets from
     /// that sender, and return its dialog id to close. A request opened by
-    /// another sender is left in place.
+    /// another sender is left in place. The request is withdrawn here, so a
+    /// waiting request ends even if the `Close` never reaches the host.
     pub fn cancel(&mut self, connection_path: &str, setting: &str, owner: &str) -> Option<u64> {
         let key = (connection_path.to_owned(), setting.to_owned());
         let opened_by_sender = self
@@ -316,10 +327,27 @@ impl SecretRequests {
             .get(&key)
             .is_some_and(|open| open.owner == owner);
         if opened_by_sender {
-            self.pending.remove(&key).map(|open| open.id)
+            self.pending.remove(&key).map(|open| {
+                open.withdrawal.withdraw();
+                open.id
+            })
         } else {
             None
         }
+    }
+
+    /// The withdrawal signal of dialog `id` for this connection and setting,
+    /// while the request is open.
+    pub(crate) fn withdrawal(
+        &self,
+        connection_path: &str,
+        setting: &str,
+        id: u64,
+    ) -> Option<Withdrawal> {
+        self.pending
+            .get(&(connection_path.to_owned(), setting.to_owned()))
+            .filter(|open| open.id == id)
+            .map(|open| open.withdrawal.clone())
     }
 
     /// Whether the agent is closed, so no request is admitted.
@@ -328,28 +356,33 @@ impl SecretRequests {
     }
 
     /// Whether dialog `id` still holds the request for this connection and
-    /// setting. An agent checks this before it shows the dialog, because a
-    /// CancelGetSecrets or an owner change may have overtaken the request.
+    /// setting.
     pub fn owns(&self, connection_path: &str, setting: &str, id: u64) -> bool {
-        self.pending
-            .get(&(connection_path.to_owned(), setting.to_owned()))
-            .is_some_and(|open| open.id == id)
+        self.withdrawal(connection_path, setting, id).is_some()
     }
 
     /// Close the agent: admit no request from now on, remove the open ones,
-    /// and return their dialog ids to close. Used when the agent stops, so
-    /// no dialog outlives it.
+    /// withdraw them, and return their dialog ids to close. Used when the agent
+    /// stops, so no dialog outlives it.
     pub fn close_all(&mut self) -> Vec<u64> {
         self.closed = true;
-        self.pending.drain().map(|(_, open)| open.id).collect()
+        self.pending
+            .drain()
+            .map(|(_, open)| {
+                open.withdrawal.withdraw();
+                open.id
+            })
+            .collect()
     }
 
-    /// Remove every request from `owner` and return their dialog ids to
-    /// close. Used when that NetworkManager owner goes away or is replaced.
+    /// Remove every request from `owner`, withdraw them, and return their
+    /// dialog ids to close. Used when that NetworkManager owner goes away or is
+    /// replaced.
     pub fn cancel_owner(&mut self, owner: &str) -> Vec<u64> {
         let mut closing = Vec::new();
         self.pending.retain(|_, open| {
             if open.owner == owner {
+                open.withdrawal.withdraw();
                 closing.push(open.id);
                 false
             } else {
@@ -471,14 +504,15 @@ impl NetworkSecretAgent {
         let Some(permit) = reserve(&self.presenter).await else {
             return PromptOutcome::Unavailable;
         };
-        let answer = {
+        let (answer, withdrawal) = {
             let open = self.lock();
-            if !open.owns(&request.connection_path, &request.setting, id) {
+            let Some(withdrawal) = open.withdrawal(&request.connection_path, &request.setting, id)
+            else {
                 return PromptOutcome::Cancelled;
-            }
-            publish_show(permit, id, spec)
+            };
+            (publish_show(permit, id, spec, &withdrawal), withdrawal)
         };
-        await_answer(answer).await
+        await_answer(answer, &withdrawal).await
     }
 }
 

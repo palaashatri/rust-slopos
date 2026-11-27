@@ -39,7 +39,7 @@ use std::{
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use tokio::{
-    sync::{mpsc, oneshot},
+    sync::{mpsc, oneshot, watch},
     task::JoinHandle,
     time::timeout,
 };
@@ -58,6 +58,10 @@ const CLOSE_TIMEOUT: Duration = Duration::from_secs(1);
 /// polling loop.
 const REGISTER_ATTEMPTS: u32 = 3;
 const REGISTER_RETRY_DELAY: Duration = Duration::from_millis(500);
+/// How often the owner of a service is looked up when a lookup fails, and the
+/// wait between tries. An answer, including "no owner", is final.
+const LOOKUP_ATTEMPTS: u32 = 3;
+const LOOKUP_RETRY_DELAY: Duration = Duration::from_millis(500);
 
 /// Identifier NetworkManager and BlueZ show in their logs for this agent.
 pub const AGENT_IDENTIFIER: &str = "org.slopos.SessionAgent";
@@ -72,10 +76,16 @@ pub enum PromptCommand {
     /// closes the dialog without an answer (see [`PromptCommand::Close`]) it
     /// drops `reply`. A dialog whose answer nobody waits for is sent with a
     /// reply receiver that is already dropped.
+    ///
+    /// `withdrawn` turns true when the agent withdraws the dialog. A host must
+    /// not show a dialog that is already withdrawn when it reads the command,
+    /// and must close an open one once it turns true. Withdrawal does not
+    /// depend on a [`PromptCommand::Close`] reaching the host.
     Show {
         id: u64,
         spec: DialogSpec,
         reply: oneshot::Sender<DialogAnswer>,
+        withdrawn: watch::Receiver<bool>,
     },
     /// Close dialog `id` if it is still open. Its reply is dropped.
     Close { id: u64 },
@@ -185,6 +195,43 @@ pub enum PromptOutcome {
     Unavailable,
 }
 
+/// The agent's half of a dialog's withdrawal signal. An agent withdraws a dialog
+/// when it no longer wants it: after a cancel, a replacement, the loss of the
+/// owner that asked, teardown, or a `Show` the host did not accept. Withdrawing
+/// writes shared state, so it never waits for room in the Show queue. The host
+/// reads the same state through the receiver carried by `Show`.
+#[derive(Clone, Debug)]
+pub(crate) struct Withdrawal(Arc<watch::Sender<bool>>);
+
+impl Withdrawal {
+    pub(crate) fn new() -> Self {
+        Self(Arc::new(watch::channel(false).0))
+    }
+
+    /// A receiver for the host, to send in a `Show`.
+    pub(crate) fn subscribe(&self) -> watch::Receiver<bool> {
+        self.0.subscribe()
+    }
+
+    pub(crate) fn withdraw(&self) {
+        self.0.send_replace(true);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_withdrawn(&self) -> bool {
+        *self.0.borrow()
+    }
+}
+
+impl PartialEq for Withdrawal {
+    /// Two withdrawals are equal when they signal the same dialog.
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for Withdrawal {}
+
 static NEXT_PROMPT_ID: AtomicU64 = AtomicU64::new(1);
 
 pub(crate) fn next_prompt_id() -> u64 {
@@ -205,15 +252,21 @@ pub(crate) async fn reserve(presenter: &Presenter) -> Option<mpsc::Permit<'_, Pr
 
 /// Publish `Show` through a reserved slot, without waiting. Call it while
 /// holding the agent's lock, after checking that the request still owns its
-/// dialog, so a `Close` queued by a cancellation can only follow it. Returns
-/// the receiver for the answer.
+/// dialog, so a withdrawal can only follow it. Returns the receiver for the
+/// answer.
 pub(crate) fn publish_show(
     permit: mpsc::Permit<'_, PromptCommand>,
     id: u64,
     spec: DialogSpec,
+    withdrawal: &Withdrawal,
 ) -> oneshot::Receiver<DialogAnswer> {
     let (reply, answer) = oneshot::channel();
-    permit.send(PromptCommand::Show { id, spec, reply });
+    permit.send(PromptCommand::Show {
+        id,
+        spec,
+        reply,
+        withdrawn: withdrawal.subscribe(),
+    });
     answer
 }
 
@@ -222,26 +275,47 @@ pub(crate) fn publish_show(
 /// reads the command at once sees a closed reply channel, as
 /// [`PromptCommand::Show`] promises.
 ///
-/// Returns false when the host's receiver was gone, so the command was
-/// discarded and nothing will be shown. The channel gives this receipt, not
-/// the host: a host that leaves after the command is queued is not seen here.
+/// Returns false when the host's receiver is closed. The command may still be
+/// in the queue, and a host that closed its receiver can still drain it, so
+/// the command is withdrawn: a drained copy is not shown. The channel gives
+/// this receipt, not the host. A host that closes its receiver after this
+/// check is not seen here, which needs a host acknowledgement to close.
 pub(crate) fn publish_show_detached(
     presenter: &Presenter,
     permit: mpsc::Permit<'_, PromptCommand>,
     id: u64,
     spec: DialogSpec,
+    withdrawal: &Withdrawal,
 ) -> bool {
     let (reply, answer) = oneshot::channel();
     drop(answer);
-    permit.send(PromptCommand::Show { id, spec, reply });
-    !presenter.is_closed()
+    permit.send(PromptCommand::Show {
+        id,
+        spec,
+        reply,
+        withdrawn: withdrawal.subscribe(),
+    });
+    if presenter.is_closed() {
+        withdrawal.withdraw();
+        return false;
+    }
+    true
 }
 
-/// Turn the answer receiver of a published dialog into the outcome.
-pub(crate) async fn await_answer(answer: oneshot::Receiver<DialogAnswer>) -> PromptOutcome {
-    match answer.await {
-        Ok(answer) => PromptOutcome::Answered(answer),
-        Err(_) => PromptOutcome::Cancelled,
+/// Turn the answer receiver of a published dialog into the outcome. The wait
+/// also ends when the dialog is withdrawn, so a withdrawal does not depend on
+/// the host answering or on a `Close` reaching it.
+pub(crate) async fn await_answer(
+    answer: oneshot::Receiver<DialogAnswer>,
+    withdrawal: &Withdrawal,
+) -> PromptOutcome {
+    let mut withdrawn = withdrawal.subscribe();
+    tokio::select! {
+        result = answer => match result {
+            Ok(answer) => PromptOutcome::Answered(answer),
+            Err(_) => PromptOutcome::Cancelled,
+        },
+        _ = withdrawn.wait_for(|value| *value) => PromptOutcome::Cancelled,
     }
 }
 
@@ -549,18 +623,35 @@ where
     L: FnMut(String) -> LFut,
     LFut: Future<Output = ()>,
 {
-    let dbus = DBusProxy::new(system).await?;
-    let mut owners = dbus
-        .receive_name_owner_changed_with_args(&[(0, service)])
-        .await?;
+    // Each step of the start is bounded and races `stop`, so a bus that does not
+    // answer cannot hold up teardown. The subscription comes before the first
+    // lookup, so no acquisition in between is missed.
+    let Some(dbus) = bounded_until_stop_for(CALL_TIMEOUT, stop, DBusProxy::new(system)).await?
+    else {
+        return Ok(());
+    };
+    let Some(mut owners) = bounded_until_stop_for(
+        CALL_TIMEOUT,
+        stop,
+        dbus.receive_name_owner_changed_with_args(&[(0, service)]),
+    )
+    .await?
+    else {
+        return Ok(());
+    };
     // The unique name this loop last tried to register with. An owner change
     // queued for that same name is not a new owner, so it is skipped.
     let mut tried: Option<String> = None;
-    if let Some(owner) = current_owner(&dbus, service).await? {
-        tried = Some(owner.clone());
-        let attempt = register_for_owner(&dbus, service, owner, &mut register, stop);
-        if matches!(attempt.await, Attempt::Stopped) {
-            return Ok(());
+    let mut lookup = || current_owner(&dbus, service);
+    match lookup_owner_with_retries(LOOKUP_ATTEMPTS, LOOKUP_RETRY_DELAY, &mut lookup, stop).await? {
+        OwnerLookup::Stopped => return Ok(()),
+        OwnerLookup::Answered(None) => {}
+        OwnerLookup::Answered(Some(owner)) => {
+            tried = Some(owner.clone());
+            let attempt = register_for_owner(&dbus, service, owner, &mut register, stop);
+            if matches!(attempt.await, Attempt::Stopped) {
+                return Ok(());
+            }
         }
     }
     loop {
@@ -580,8 +671,27 @@ where
                     on_owner_lost(lost).await;
                 }
                 if let Some(owner) = arrived {
-                    // A failed owner query skips the owner rather than ending the watch.
-                    let current = current_owner(&dbus, service).await.ok().flatten();
+                    // A failed lookup is retried within its budget. If it still
+                    // fails, the failure is reported and this owner is skipped,
+                    // so only a stop ends the watch here.
+                    let current = match lookup_owner_with_retries(
+                        LOOKUP_ATTEMPTS,
+                        LOOKUP_RETRY_DELAY,
+                        &mut lookup,
+                        stop,
+                    )
+                    .await
+                    {
+                        Ok(OwnerLookup::Stopped) => break,
+                        Ok(OwnerLookup::Answered(current)) => current,
+                        Err(error) => {
+                            eprintln!(
+                                "session agent: looking up the {service} owner failed, \
+                                 owner {owner} skipped: {error}"
+                            );
+                            None
+                        }
+                    };
                     if should_register_arrival(tried.as_deref(), &owner, current.as_deref()) {
                         tried = Some(owner.clone());
                         let attempt = register_for_owner(
@@ -661,6 +771,63 @@ pub(crate) async fn bounded<T>(
     call: impl Future<Output = zbus::Result<T>>,
 ) -> Result<T, AgentError> {
     bounded_for(CALL_TIMEOUT, call).await
+}
+
+/// Wait at most `limit` for one D-Bus call, unless `stop` fires first. `None`
+/// means the watch was stopped, and the call was dropped.
+pub(crate) async fn bounded_until_stop_for<T>(
+    limit: Duration,
+    stop: &mut oneshot::Receiver<()>,
+    call: impl Future<Output = zbus::Result<T>>,
+) -> Result<Option<T>, AgentError> {
+    tokio::select! {
+        _ = &mut *stop => Ok(None),
+        result = bounded_for(limit, call) => result.map(Some),
+    }
+}
+
+/// Where a lookup of a service's owner ended.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum OwnerLookup {
+    /// The bus answered. `None` is a confirmed absence: the service has no owner.
+    Answered(Option<String>),
+    /// The watch stopped first, and the lookup was dropped.
+    Stopped,
+}
+
+/// Look up the owner of a service. A failed or timed-out lookup is tried again,
+/// up to `attempts` times with `delay` between tries, and every wait ends at
+/// `stop`. An answer, including "no owner", is final. When every try fails, the
+/// last error is returned, so a failed lookup is never read as a confirmed
+/// absence.
+pub(crate) async fn lookup_owner_with_retries<L, Fut>(
+    attempts: u32,
+    delay: Duration,
+    lookup: &mut L,
+    stop: &mut oneshot::Receiver<()>,
+) -> Result<OwnerLookup, AgentError>
+where
+    L: FnMut() -> Fut,
+    Fut: Future<Output = zbus::Result<Option<String>>>,
+{
+    let mut last_error = None;
+    for attempt in 0..attempts {
+        if attempt > 0 {
+            tokio::select! {
+                _ = &mut *stop => return Ok(OwnerLookup::Stopped),
+                _ = tokio::time::sleep(delay) => {}
+            }
+        }
+        let answered = tokio::select! {
+            _ = &mut *stop => return Ok(OwnerLookup::Stopped),
+            result = bounded(lookup()) => result,
+        };
+        match answered {
+            Ok(owner) => return Ok(OwnerLookup::Answered(owner)),
+            Err(error) => last_error = Some(error),
+        }
+    }
+    Err(last_error.unwrap_or_else(|| AgentError::Task("no owner lookup was tried".into())))
 }
 
 /// Whether the bus still has the connection `unique`, a unique bus name. The
@@ -778,13 +945,181 @@ mod mod_tests {
             buttons: vec!["Cancel".into()],
             field: None,
         };
+        let withdrawal = Withdrawal::new();
         let permit = reserve(&presenter).await.expect("a host is listening");
-        let answer = publish_show(permit, 2, spec);
+        let answer = publish_show(permit, 2, spec, &withdrawal);
         assert!(matches!(
-            await_answer(answer).await,
+            await_answer(answer, &withdrawal).await,
             PromptOutcome::Cancelled
         ));
         host.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_withdrawn_request_stops_waiting_without_an_answer_or_a_close() {
+        // The host holds its reply and never answers, and no Close is sent.
+        let withdrawal = Withdrawal::new();
+        let (_held, answer) = oneshot::channel::<DialogAnswer>();
+        let waiting = tokio::spawn({
+            let withdrawal = withdrawal.clone();
+            async move { await_answer(answer, &withdrawal).await }
+        });
+        withdrawal.withdraw();
+        let outcome = timeout(Duration::from_secs(1), waiting)
+            .await
+            .expect("the withdrawal ends the wait")
+            .unwrap();
+        assert!(matches!(outcome, PromptOutcome::Cancelled), "{outcome:?}");
+    }
+
+    #[tokio::test]
+    async fn a_show_the_host_stopped_accepting_is_withdrawn_for_a_draining_host() {
+        // The host closes its receiver but still drains the command it has, so
+        // the Show is found withdrawn and not shown.
+        let (presenter, mut receiver) = mpsc::channel(4);
+        let withdrawal = Withdrawal::new();
+        let permit = reserve(&presenter).await.expect("a host is listening");
+        receiver.close();
+        let spec = DialogSpec {
+            title: "t".into(),
+            message: "m".into(),
+            buttons: vec!["Close".into()],
+            field: None,
+        };
+        assert!(!publish_show_detached(
+            &presenter,
+            permit,
+            5,
+            spec,
+            &withdrawal
+        ));
+        let Some(PromptCommand::Show { withdrawn, .. }) = receiver.recv().await else {
+            panic!("the queued Show is still drained");
+        };
+        assert!(*withdrawn.borrow(), "a draining host must not show it");
+        assert!(withdrawal.is_withdrawn());
+    }
+
+    #[tokio::test]
+    async fn a_display_that_was_delivered_is_not_withdrawn() {
+        let (presenter, mut receiver) = mpsc::channel(4);
+        let withdrawal = Withdrawal::new();
+        let permit = reserve(&presenter).await.expect("a host is listening");
+        let spec = DialogSpec {
+            title: "t".into(),
+            message: "m".into(),
+            buttons: vec!["Close".into()],
+            field: None,
+        };
+        assert!(publish_show_detached(
+            &presenter,
+            permit,
+            6,
+            spec,
+            &withdrawal
+        ));
+        let Some(PromptCommand::Show { withdrawn, .. }) = receiver.recv().await else {
+            panic!("expected a Show command");
+        };
+        assert!(!*withdrawn.borrow(), "a delivered dialog stays shown");
+        assert!(!withdrawal.is_withdrawn());
+    }
+
+    #[tokio::test]
+    async fn a_lookup_that_fails_is_retried_and_a_confirmed_answer_is_final() {
+        let (_stop_tx, mut stop) = oneshot::channel::<()>();
+        let mut calls = 0;
+        let mut lookup = || {
+            calls += 1;
+            let fail = calls < 3;
+            async move {
+                if fail {
+                    Err(zbus::Error::Failure("busy".into()))
+                } else {
+                    Ok(Some(":1.7".to_owned()))
+                }
+            }
+        };
+        let outcome = lookup_owner_with_retries(3, Duration::ZERO, &mut lookup, &mut stop).await;
+        assert!(
+            matches!(&outcome, Ok(OwnerLookup::Answered(Some(owner))) if owner == ":1.7"),
+            "{outcome:?}"
+        );
+        assert_eq!(calls, 3, "the third try answers");
+
+        let mut calls = 0;
+        let mut absent = || {
+            calls += 1;
+            async { Ok::<Option<String>, zbus::Error>(None) }
+        };
+        let outcome = lookup_owner_with_retries(3, Duration::ZERO, &mut absent, &mut stop).await;
+        assert!(
+            matches!(outcome, Ok(OwnerLookup::Answered(None))),
+            "a confirmed absence is an answer: {outcome:?}"
+        );
+        assert_eq!(calls, 1, "an absence is not retried");
+    }
+
+    #[tokio::test]
+    async fn a_lookup_that_keeps_failing_is_reported_as_a_failure_not_an_absence() {
+        let (_stop_tx, mut stop) = oneshot::channel::<()>();
+        let mut calls = 0;
+        let mut lookup = || {
+            calls += 1;
+            async { Err::<Option<String>, _>(zbus::Error::Failure("busy".into())) }
+        };
+        let outcome = lookup_owner_with_retries(3, Duration::ZERO, &mut lookup, &mut stop).await;
+        assert!(matches!(outcome, Err(AgentError::Bus(_))), "{outcome:?}");
+        assert_eq!(
+            calls, 3,
+            "the budget is spent before the failure is reported"
+        );
+    }
+
+    #[tokio::test]
+    async fn stop_interrupts_an_owner_lookup_the_bus_never_answers() {
+        let (stop_tx, mut stop) = oneshot::channel::<()>();
+        let mut lookup = || std::future::pending::<zbus::Result<Option<String>>>();
+        let stopper = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            let _ = stop_tx.send(());
+        });
+        let outcome = lookup_owner_with_retries(3, Duration::ZERO, &mut lookup, &mut stop).await;
+        stopper.await.unwrap();
+        assert!(matches!(outcome, Ok(OwnerLookup::Stopped)), "{outcome:?}");
+    }
+
+    #[tokio::test]
+    async fn stop_interrupts_the_wait_between_owner_lookup_tries() {
+        let (stop_tx, mut stop) = oneshot::channel::<()>();
+        let mut calls = 0;
+        let mut lookup = || {
+            calls += 1;
+            async { Err::<Option<String>, _>(zbus::Error::Failure("busy".into())) }
+        };
+        let stopper = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            let _ = stop_tx.send(());
+        });
+        let started = std::time::Instant::now();
+        let outcome =
+            lookup_owner_with_retries(3, Duration::from_secs(3600), &mut lookup, &mut stop).await;
+        stopper.await.unwrap();
+        assert!(matches!(outcome, Ok(OwnerLookup::Stopped)), "{outcome:?}");
+        assert_eq!(calls, 1, "no retry is started after the stop");
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    #[tokio::test]
+    async fn a_bus_call_times_out_at_its_limit_when_no_stop_comes() {
+        let (_stop_tx, mut stop) = oneshot::channel::<()>();
+        let outcome: Result<Option<()>, AgentError> = bounded_until_stop_for(
+            Duration::from_millis(10),
+            &mut stop,
+            std::future::pending::<zbus::Result<()>>(),
+        )
+        .await;
+        assert!(matches!(outcome, Err(AgentError::Timeout)), "{outcome:?}");
     }
 
     #[tokio::test]
@@ -796,8 +1131,15 @@ mod mod_tests {
             buttons: vec!["Close".into()],
             field: None,
         };
+        let withdrawal = Withdrawal::new();
         let permit = reserve(&presenter).await.expect("a host is listening");
-        assert!(publish_show_detached(&presenter, permit, 3, spec));
+        assert!(publish_show_detached(
+            &presenter,
+            permit,
+            3,
+            spec,
+            &withdrawal
+        ));
         let Some(PromptCommand::Show { reply, .. }) = receiver.recv().await else {
             panic!("expected a Show command");
         };
@@ -820,7 +1162,14 @@ mod mod_tests {
             buttons: vec!["Close".into()],
             field: None,
         };
-        assert!(!publish_show_detached(&presenter, permit, 4, spec));
+        let withdrawal = Withdrawal::new();
+        assert!(!publish_show_detached(
+            &presenter,
+            permit,
+            4,
+            spec,
+            &withdrawal
+        ));
     }
 
     #[tokio::test]

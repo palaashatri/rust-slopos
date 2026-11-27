@@ -18,7 +18,7 @@ use super::{
     await_answer, bounded, close, close_bounded, next_prompt_id, owner_connected, publish_show,
     publish_show_detached, register_while_owned, reserve, sender_of, undo_registration, AgentError,
     DialogAnswer, DialogSpec, FieldKind, FieldSpec, Presenter, PromptOutcome, RegistrationCall,
-    Registrations, Secret,
+    Registrations, Secret, Withdrawal,
 };
 
 pub const AGENT_PATH: &str = "/org/slopos/BluezAgent";
@@ -254,6 +254,9 @@ struct OpenDialog {
     interaction: Interaction,
     /// The unique bus name of the BlueZ owner that opened the dialog.
     owner: String,
+    /// Withdrawn when the dialog stops being wanted, whatever the host does
+    /// with its queued `Close`.
+    withdrawal: Withdrawal,
 }
 
 /// Which dialog is open. BlueZ runs one pairing at a time, so the agent
@@ -305,11 +308,15 @@ impl PairingDialogs {
         if answer_open && interaction == Interaction::Answer {
             return Err(Refused::Busy);
         }
-        let replaced = self.open.take().map(|open| open.id);
+        let replaced = self.open.take().map(|open| {
+            open.withdrawal.withdraw();
+            open.id
+        });
         self.open = Some(OpenDialog {
             id,
             interaction,
             owner: owner.to_owned(),
+            withdrawal: Withdrawal::new(),
         });
         self.latest = id;
         Ok(replaced)
@@ -322,12 +329,23 @@ impl PairingDialogs {
         self.open.as_ref().is_some_and(|open| open.id == id)
     }
 
-    /// Forget dialog `id` once it is answered. Returns false when the dialog
-    /// no longer holds the slot, which means it was cancelled or replaced, so
-    /// a late answer must be refused.
+    /// The withdrawal signal of dialog `id`, while it holds the slot.
+    pub(crate) fn withdrawal(&self, id: u64) -> Option<Withdrawal> {
+        self.open
+            .as_ref()
+            .filter(|open| open.id == id)
+            .map(|open| open.withdrawal.clone())
+    }
+
+    /// Forget dialog `id` once it is answered, or once it could not be shown.
+    /// Returns false when the dialog no longer holds the slot, which means it
+    /// was cancelled or replaced, so a late answer must be refused. The dialog
+    /// is withdrawn, so a host that still has its command does not show it.
     pub fn finish(&mut self, id: u64) -> bool {
         if self.owns(id) {
-            self.open = None;
+            if let Some(open) = self.open.take() {
+                open.withdrawal.withdraw();
+            }
             true
         } else {
             false
@@ -335,9 +353,14 @@ impl PairingDialogs {
     }
 
     /// Take the open dialog's id so it can be closed (BlueZ `Cancel` or
-    /// `Release`).
+    /// `Release`). The dialog is withdrawn here, before the caller queues its
+    /// `Close`, so a waiting request ends even if that `Close` never reaches
+    /// the host.
     pub fn cancel(&mut self) -> Option<u64> {
-        self.open.take().map(|open| open.id)
+        self.open.take().map(|open| {
+            open.withdrawal.withdraw();
+            open.id
+        })
     }
 
     /// Close the slot for teardown: admit nothing from now on, and take the
@@ -362,21 +385,31 @@ impl PairingDialogs {
     }
 }
 
-/// Read the device's alias and address. The lookup runs as a tokio task:
-/// agent methods run on zbus's executor, which has no tokio timer, so the
-/// timeout must be armed inside the runtime.
+/// Read the device's alias and address from `owner`, the unique name that sent
+/// the pairing request. The current owner of `org.bluez` is not asked: after an
+/// owner change it may serve a different device at the same path. An empty
+/// `owner` yields no names. The lookup runs as a tokio task: agent methods run
+/// on zbus's executor, which has no tokio timer, so the timeout must be armed
+/// inside the runtime.
 async fn lookup_device_names(
     runtime: &tokio::runtime::Handle,
     connection: &Connection,
+    owner: &str,
     device: &str,
 ) -> (Option<String>, Option<String>) {
     let connection = connection.clone();
+    let owner = owner.to_owned();
     let device = device.to_owned();
     let lookup = runtime.spawn(async move {
         tokio::time::timeout(LABEL_TIMEOUT, async {
-            let proxy = zbus::Proxy::new(&connection, SERVICE, device.as_str(), DEVICE_INTERFACE)
-                .await
-                .ok()?;
+            let proxy = zbus::Proxy::new(
+                &connection,
+                owner.as_str(),
+                device.as_str(),
+                DEVICE_INTERFACE,
+            )
+            .await
+            .ok()?;
             let alias: Option<String> = proxy.get_property("Alias").await.ok();
             let address: Option<String> = proxy.get_property("Address").await.ok();
             Some((alias, address))
@@ -408,8 +441,11 @@ impl BluezAgent {
         }
     }
 
-    async fn device_label(&self, device: &str) -> String {
-        let (alias, address) = lookup_device_names(&self.runtime, &self.connection, device).await;
+    /// The label for `device`, read from `owner`. When `owner` no longer
+    /// answers, the object path's last segment is used.
+    async fn device_label(&self, owner: &str, device: &str) -> String {
+        let (alias, address) =
+            lookup_device_names(&self.runtime, &self.connection, owner, device).await;
         label_from(alias.as_deref(), address.as_deref(), device)
     }
 
@@ -436,20 +472,20 @@ impl BluezAgent {
         if let Some(replaced) = replaced {
             close(&self.presenter, replaced).await;
         }
-        let label = self.device_label(device_of(&request)).await;
+        let label = self.device_label(owner, device_of(&request)).await;
         let spec = pairing_dialog(&request, &label);
         let Some(permit) = reserve(&self.presenter).await else {
             self.lock().finish(id);
             return Err(BluezError::Rejected("no dialog is available".into()));
         };
-        let answer = {
+        let (answer, withdrawal) = {
             let dialogs = self.lock();
-            if !dialogs.owns(id) {
+            let Some(withdrawal) = dialogs.withdrawal(id) else {
                 return Err(BluezError::Canceled("the pairing was cancelled".into()));
-            }
-            publish_show(permit, id, spec)
+            };
+            (publish_show(permit, id, spec, &withdrawal), withdrawal)
         };
-        let outcome = await_answer(answer).await;
+        let outcome = await_answer(answer, &withdrawal).await;
         if !self.lock().finish(id) {
             // Cancelled or replaced while the dialog was open: a late answer
             // is refused.
@@ -476,7 +512,7 @@ impl BluezAgent {
         if let Some(replaced) = replaced {
             close(&self.presenter, replaced).await;
         }
-        let label = self.device_label(device_of(&request)).await;
+        let label = self.device_label(owner, device_of(&request)).await;
         let spec = pairing_dialog(&request, &label);
         let Some(permit) = reserve(&self.presenter).await else {
             // No host can draw the value. Release the slot only if it is
@@ -486,16 +522,17 @@ impl BluezAgent {
         };
         let delivered = {
             let dialogs = self.lock();
-            if !dialogs.owns(id) {
+            let Some(withdrawal) = dialogs.withdrawal(id) else {
                 // Superseded or cancelled while the label was looked up.
                 return Ok(());
-            }
-            publish_show_detached(&self.presenter, permit, id, spec)
+            };
+            publish_show_detached(&self.presenter, permit, id, spec, &withdrawal)
         };
         if delivered {
             return Ok(());
         }
-        // The host left after the slot was reserved, so nothing is shown. Clear
+        // The host stopped accepting after the slot was reserved. The command
+        // is withdrawn, so a host that still drains it shows nothing. Clear
         // only this request's slot and report the failure.
         self.lock().finish(id);
         Err(BluezError::Rejected("no dialog is available".into()))
