@@ -163,6 +163,13 @@ pub struct NetworkSnapshot {
 
 type SettingsMap = HashMap<String, HashMap<String, zbus::zvariant::OwnedValue>>;
 
+/// Whether `password` is a WPA passphrase (8 to 63 characters) or a 64-digit
+/// hex key.
+pub fn valid_wpa_passphrase(password: &str) -> bool {
+    let hex_key = password.len() == 64 && password.bytes().all(|b| b.is_ascii_hexdigit());
+    (8..=63).contains(&password.chars().count()) || hex_key
+}
+
 /// NetworkManager settings for a new Wi-Fi profile. WPA passphrases must be
 /// 8–63 characters (or 64 hex digits), checked before anything is sent.
 pub fn wifi_settings(
@@ -195,8 +202,7 @@ pub fn wifi_settings(
         ]),
     );
     if let Some(password) = password {
-        let hex_key = password.len() == 64 && password.bytes().all(|b| b.is_ascii_hexdigit());
-        if !(8..=63).contains(&password.chars().count()) && !hex_key {
+        if !valid_wpa_passphrase(password) {
             return Err(NetworkError::InvalidProperty(
                 "a Wi-Fi password has 8 to 63 characters".into(),
             ));
