@@ -443,6 +443,12 @@ fn battery_status(status: BatteryStatus) -> &'static str {
     }
 }
 
+/// Where the zone timedated reports is in the list it offers, so the list
+/// can show it selected. `None` when the zone is not in the list.
+pub fn timezone_index(zones: &[String], current: &str) -> Option<usize> {
+    zones.iter().position(|zone| zone == current)
+}
+
 /// The battery, the power source and whether suspend can be used, as UPower
 /// and logind report them. Without UPower the battery is not guessed at.
 pub fn power_lines(snapshot: &PowerSnapshot) -> Vec<String> {
@@ -829,6 +835,14 @@ mod tests {
         assert_eq!(lines[0], "Battery: 100%, full");
         assert_eq!(lines[1], "Connected to external power.");
         assert_eq!(lines[2], "Suspend is available.");
+    }
+
+    #[test]
+    fn timezone_index_finds_only_zones_the_provider_offers() {
+        let zones = vec!["Europe/London".to_owned(), "Europe/Paris".to_owned()];
+        assert_eq!(timezone_index(&zones, "Europe/Paris"), Some(1));
+        assert_eq!(timezone_index(&zones, "Europe/paris"), None);
+        assert_eq!(timezone_index(&zones, ""), None);
     }
 
     #[test]

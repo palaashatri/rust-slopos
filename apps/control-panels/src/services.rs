@@ -25,6 +25,10 @@ pub enum Update {
     Brightness(State<BrightnessSnapshot>),
     Bluetooth(State<BluetoothSnapshot>),
     Time(State<TimedateSnapshot>),
+    /// The zones timedated offers, read once at start.
+    TimeZones(State<Vec<String>>),
+    /// The time zone was set (the new reading comes as `Time`).
+    TimezoneSet(String),
     Power(State<PowerSnapshot>),
     Displays(State<DisplaySnapshot>),
     Input(State<InputSnapshot>),
@@ -72,6 +76,8 @@ pub enum Command {
     /// Forget (adapter, device).
     ForgetBluetooth(String, String),
     SetNtp(bool),
+    /// Set the time zone; the provider checks it is one it offers.
+    SetTimezone(String),
     /// Read the power state again (the panel was opened).
     RefreshPower,
     /// Suspend, then read the power state back.
@@ -214,6 +220,12 @@ async fn run(
             timedate_events = Some(client.watch());
         }
         Err(error) => send(Update::Time(Err(unavailable!(error)))),
+    }
+    match &timedate {
+        Ok(client) => send(Update::TimeZones(
+            client.list_timezones().await.map_err(|e| unavailable!(e)),
+        )),
+        Err(error) => send(Update::TimeZones(Err(unavailable!(error)))),
     }
     // Power is read when the panel opens, not watched: the power client's
     // watcher polls, and this loop must not.
@@ -374,6 +386,16 @@ async fn run(
                                 send(Update::Input(client.snapshot().map_err(|e| unavailable!(e))));
                                 Err(error.to_string())
                             }
+                        },
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::SetTimezone(zone) => match &timedate {
+                        Ok(client) => match client.set_timezone(&zone).await {
+                            Ok(snapshot) => {
+                                send(Update::Time(Ok(snapshot)));
+                                Ok(Some(Update::TimezoneSet(zone)))
+                            }
+                            Err(e) => Err(e.to_string()),
                         },
                         Err(e) => Err(e.to_string()),
                     },

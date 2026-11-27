@@ -107,6 +107,8 @@ const BT_FORGET_ID: u64 = 55;
 const POWER_SUSPEND_ID: u64 = 110;
 const SUSPEND_DIALOG_ID: u64 = 620;
 const NTP_ID: u64 = 60;
+const TZ_LIST_ID: u64 = 61;
+const TZ_SET_ID: u64 = 62;
 const LAYOUT_ID: u64 = 90;
 const REPEAT_DELAY_ID: u64 = 91;
 const REPEAT_RATE_ID: u64 = 92;
@@ -279,6 +281,13 @@ pub struct ControlPanels {
     suspend: Button,
     /// "Suspend this computer?", shown before the provider is asked.
     suspend_confirm: Option<Dialog>,
+    /// The zones timedated offers.
+    timezones: State<Vec<String>>,
+    tz_list: ListView,
+    tz_set: Button,
+    /// The provider zone the list last showed as selected, so browsing the
+    /// list is not reset by every update.
+    tz_shown: Option<String>,
     ntp: Checkbox,
     appearance_list: ListView,
     apply: Button,
@@ -460,6 +469,10 @@ impl ControlPanels {
             power: model::loading(),
             suspend: Button::new(POWER_SUSPEND_ID, "Suspend…", ButtonPlateVariant::Regular),
             suspend_confirm: None,
+            timezones: model::loading(),
+            tz_list: ListView::new(TZ_LIST_ID, "Time zones", 20),
+            tz_set: Button::new(TZ_SET_ID, "Set Time Zone", ButtonPlateVariant::Regular),
+            tz_shown: None,
             ntp: Checkbox::new(NTP_ID, "Set time automatically", false),
             appearance_list,
             apply: Button::new(APPLY_ID, "Apply", ButtonPlateVariant::Default),
@@ -663,6 +676,18 @@ impl ControlPanels {
             dialog.layout(self.window);
         }
         self.ntp = self.ntp.clone().at(x, top);
+        self.tz_list.set_bounds(Rect {
+            x: x + 1,
+            y: top + 32,
+            width: c.width.saturating_sub(2),
+            height: list_height,
+        });
+        self.tz_set.bounds = Rect {
+            x: x + c.width as i32 - 126,
+            y: buttons_y,
+            width: 126,
+            height: 20,
+        };
         self.appearance_list.set_bounds(Rect {
             x: x + 1,
             y: c.y + 60,
@@ -744,7 +769,7 @@ impl ControlPanels {
                 BT_FORGET_ID,
             ],
             Panel::Power => vec![POWER_SUSPEND_ID],
-            Panel::DateTime => vec![NTP_ID],
+            Panel::DateTime => vec![NTP_ID, TZ_LIST_ID, TZ_SET_ID],
             Panel::Desktop => vec![WALLPAPER_LIST_ID, SET_PICTURE_ID, CHOOSE_PICTURE_ID],
             Panel::Appearance => vec![APPEARANCE_LIST_ID, APPLY_ID],
             Panel::Input => vec![
@@ -827,6 +852,8 @@ impl ControlPanels {
         self.bt_forget.focused = f == Some(BT_FORGET_ID);
         self.suspend.focused = f == Some(POWER_SUSPEND_ID);
         self.ntp.focused = f == Some(NTP_ID);
+        self.tz_list.focused = f == Some(TZ_LIST_ID);
+        self.tz_set.focused = f == Some(TZ_SET_ID);
         self.appearance_list.focused = f == Some(APPEARANCE_LIST_ID);
         self.apply.focused = f == Some(APPLY_ID);
         self.wallpaper_list.focused = f == Some(WALLPAPER_LIST_ID);
@@ -954,12 +981,49 @@ impl ControlPanels {
             }
             Err(_) => self.ntp.enabled = false,
         }
+        self.sync_time_zones();
         self.apply.enabled = self.appearance_list.cursor().is_some();
         self.set_picture.enabled = self.wallpaper_list.cursor().is_some();
         let current = self.panel();
         for (item, (panel, _)) in self.menu.menus[1].items.iter_mut().zip(PANELS) {
             item.checked = panel == current;
         }
+    }
+
+    /// Show the provider's zone as selected in the list, once per change;
+    /// Set changes the zone only when a different, reachable zone is chosen.
+    fn sync_time_zones(&mut self) {
+        let current = self.time.as_ref().ok().map(|s| s.timezone.clone());
+        match &self.timezones {
+            Ok(zones) => {
+                if self.tz_list.len() != zones.len() {
+                    self.tz_list.reset(zones.len());
+                    self.tz_shown = None;
+                }
+                if let Some(current) = &current {
+                    if self.tz_shown.as_deref() != Some(current.as_str()) {
+                        if let Some(index) = model::timezone_index(zones, current) {
+                            self.tz_list.select_only(index);
+                        }
+                        self.tz_shown = Some(current.clone());
+                    }
+                }
+                let chosen = self.tz_list.cursor().and_then(|index| zones.get(index));
+                self.tz_set.enabled = self.time.is_ok()
+                    && chosen.is_some_and(|zone| current.as_deref() != Some(zone.as_str()));
+            }
+            Err(_) => {
+                self.tz_list.reset(0);
+                self.tz_shown = None;
+                self.tz_set.enabled = false;
+            }
+        }
+    }
+
+    /// The zone the list has chosen, if the zones are known.
+    fn chosen_timezone(&self) -> Option<String> {
+        let zones = self.timezones.as_ref().ok()?;
+        zones.get(self.tz_list.cursor()?).cloned()
     }
 
     fn apply_update(&mut self, update: Update) {
@@ -969,6 +1033,8 @@ impl ControlPanels {
             Update::Brightness(state) => self.brightness = state,
             Update::Bluetooth(state) => self.bluetooth = state,
             Update::Time(state) => self.time = state,
+            Update::TimeZones(state) => self.timezones = state,
+            Update::TimezoneSet(zone) => self.notice(format!("Time zone set to {zone}.")),
             Update::Power(state) => self.power = state,
             Update::SavedWifi(names) => self.saved_wifi = names,
             Update::Displays(state) => self.displays = state,
@@ -1900,6 +1966,29 @@ impl ControlPanels {
                 if let ToggleOutcome::Toggled(on) = self.ntp.handle(event) {
                     self.send(Command::SetNtp(on));
                 }
+                let names = |i: usize| {
+                    self.timezones
+                        .as_ref()
+                        .ok()
+                        .and_then(|zones| zones.get(i))
+                        .cloned()
+                        .unwrap_or_default()
+                };
+                if self.tz_list.handle(event, control.modifiers(), &names)
+                    == ListOutcome::FocusRequested
+                {
+                    self.focus.focus(TZ_LIST_ID);
+                    self.sync_focus();
+                }
+                if (self.tz_set.handle(event) == ButtonOutcome::Activated
+                    || (clicked(TZ_SET_ID) && self.tz_set.enabled))
+                    && self.tz_set.enabled
+                {
+                    if let Some(zone) = self.chosen_timezone() {
+                        self.send(Command::SetTimezone(zone.clone()));
+                        self.notice(format!("Setting the time zone to {zone}…"));
+                    }
+                }
             }
             Panel::Desktop => {
                 let pictures = bundled_pictures();
@@ -2462,7 +2551,28 @@ impl ControlPanels {
                 self.bt_forget.paint(surface, font)?;
             }
             Panel::Power => self.suspend.paint(surface, font)?,
-            Panel::DateTime => self.ntp.paint(surface)?,
+            Panel::DateTime => {
+                self.ntp.paint(surface)?;
+                let list = self.tz_list.bounds();
+                match &self.timezones {
+                    Ok(zones) => self.tz_list.paint(surface, |surface, i, rect, selected| {
+                        let ink = if selected {
+                            colors.selection_ink
+                        } else {
+                            colors.ink
+                        };
+                        surface.draw_text(&zones[i], rect.x + 8, rect.y + 2, font, ink)
+                    })?,
+                    Err(error) => surface.draw_text(
+                        &error.message("systemd-timedated"),
+                        list.x + 8,
+                        list.y + 6,
+                        font,
+                        colors.ink_secondary,
+                    )?,
+                }
+                self.tz_set.paint(surface, font)?;
+            }
             Panel::Desktop => {
                 let pictures = bundled_pictures();
                 let thumbnails = self.thumbnails.as_deref().unwrap_or(&[]);
@@ -2741,7 +2851,18 @@ impl App for ControlPanels {
                 nodes.extend(self.bt_list.accessibility_nodes(&label))
             }
             Panel::Power => nodes.push((POWER_SUSPEND_ID, self.suspend.accessibility_node())),
-            Panel::DateTime => nodes.push((NTP_ID, self.ntp.accessibility_node())),
+            Panel::DateTime => {
+                nodes.push((NTP_ID, self.ntp.accessibility_node()));
+                let zones = self.timezones.as_ref().ok();
+                let label = |i: usize| {
+                    zones
+                        .and_then(|zones| zones.get(i))
+                        .cloned()
+                        .unwrap_or_default()
+                };
+                nodes.extend(self.tz_list.accessibility_nodes(&label));
+                nodes.push((TZ_SET_ID, self.tz_set.accessibility_node()));
+            }
             Panel::Input => {
                 nodes.extend(self.layout.accessibility_nodes());
                 nodes.push((REPEAT_DELAY_ID, self.repeat_delay.accessibility_node()));
@@ -3442,6 +3563,138 @@ mod tests {
         assert!(app.status_error && app.status.contains("Interactive authentication"));
         assert!(app.suspend.enabled);
         assert_eq!(app.lines().1[0], "Battery: 80%, discharging");
+    }
+
+    fn timedate_snapshot(zone: &str) -> slopos_services::timedate::TimedateSnapshot {
+        slopos_services::timedate::TimedateSnapshot {
+            revision: 1,
+            timezone: zone.into(),
+            ntp_available: true,
+            ntp_enabled: true,
+            ntp_synchronized: true,
+            time_unix_usec: 0,
+        }
+    }
+
+    #[test]
+    fn time_zone_is_selected_from_the_provider_and_set_through_it() {
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        let mut control = Control::default();
+        app.event(&Event::MenuChosen { menu: 1, item: 4 }, &mut control);
+        assert_eq!(app.panel(), Panel::DateTime);
+        app.apply_update(Update::TimeZones(Ok(vec![
+            "Africa/Cairo".into(),
+            "Europe/London".into(),
+            "Europe/Paris".into(),
+            "UTC".into(),
+        ])));
+        app.apply_update(Update::Time(Ok(timedate_snapshot("Europe/London"))));
+        app.sync_from_state();
+        // The provider's zone is selected, and Set has nothing to change.
+        assert_eq!(app.tz_list.cursor(), Some(1));
+        assert!(!app.tz_set.enabled);
+        assert_eq!(app.lines().1[0], "Time zone: Europe/London");
+
+        // Tab: NTP, then the list. Down chooses Paris; Set becomes available.
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.tz_list.focused);
+        app.event(&key(Key::Down), &mut control);
+        app.sync_from_state();
+        assert_eq!(app.chosen_timezone().as_deref(), Some("Europe/Paris"));
+        assert!(app.tz_set.enabled);
+        assert_eq!(app.tz_list.cursor(), Some(2));
+
+        // Set Time Zone sends the zone; nothing changes until the provider
+        // reads it back.
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.tz_set.focused);
+        app.event(&key(Key::Space), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::SetTimezone("Europe/Paris".into())
+        );
+        assert_eq!(app.status, "Setting the time zone to Europe/Paris…");
+        assert_eq!(app.lines().1[0], "Time zone: Europe/London");
+
+        app.apply_update(Update::Time(Ok(timedate_snapshot("Europe/Paris"))));
+        app.apply_update(Update::TimezoneSet("Europe/Paris".into()));
+        app.sync_from_state();
+        assert_eq!(app.status, "Time zone set to Europe/Paris.");
+        assert!(!app.status_error);
+        assert_eq!(app.lines().1[0], "Time zone: Europe/Paris");
+        assert_eq!(app.tz_list.cursor(), Some(2));
+        assert!(!app.tz_set.enabled);
+        let tree = app.accessibility().unwrap();
+        assert!(tree
+            .nodes
+            .iter()
+            .any(|(_, n)| n.label() == Some("Europe/Paris")));
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
+    }
+
+    #[test]
+    fn time_zone_unavailable_and_refused_changes_are_shown() {
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        let mut control = Control::default();
+        app.event(&Event::MenuChosen { menu: 1, item: 4 }, &mut control);
+        let down = || model::Unavailable::new(Availability::MissingService, "");
+
+        // timedated is not running: no zones, no time, nothing to set.
+        app.apply_update(Update::TimeZones(Err(down())));
+        app.apply_update(Update::Time(Err(down())));
+        app.sync_from_state();
+        assert_eq!(
+            app.lines().1,
+            vec!["Unavailable: systemd-timedated is not running on this computer.".to_owned()]
+        );
+        assert!(app.tz_list.is_empty() && !app.tz_set.enabled);
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
+
+        // The zones are known but the time service is not: a zone can be
+        // looked at, not set.
+        app.apply_update(Update::TimeZones(Ok(vec![
+            "UTC".into(),
+            "Europe/Paris".into(),
+        ])));
+        app.apply_update(Update::Time(Err(down())));
+        app.sync_from_state();
+        app.tz_list.select_only(1);
+        app.sync_from_state();
+        assert_eq!(app.chosen_timezone().as_deref(), Some("Europe/Paris"));
+        assert!(!app.tz_set.enabled);
+
+        // Time comes back in UTC: the list follows the provider. Choose
+        // Paris again, then Set; the provider refuses.
+        app.apply_update(Update::Time(Ok(timedate_snapshot("UTC"))));
+        app.sync_from_state();
+        assert_eq!(app.tz_list.cursor(), Some(0));
+        app.tz_list.select_only(1);
+        app.sync_from_state();
+        assert!(app.tz_set.enabled);
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Space), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::SetTimezone("Europe/Paris".into())
+        );
+        app.apply_update(Update::Failed("Interactive authentication required".into()));
+        app.sync_from_state();
+        assert!(app.status_error && app.status.contains("Interactive authentication"));
+        assert_eq!(app.lines().1[0], "Time zone: UTC");
+        assert!(app.tz_set.enabled, "the change can be tried again");
     }
 
     #[test]
