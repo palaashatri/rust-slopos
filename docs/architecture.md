@@ -32,7 +32,7 @@ apps launched from the top bar, desktop or Dock: detached (setsid), reaped, not 
 |---|---|---|---|
 | `slopos-core` | library | — | Shared primitives: XDG paths, `.desktop` discovery and parsing, process launch/resolve/reap, capability and IPC types. |
 | `slopos-ui` | library | **own** | The SLOPOS toolkit (below). No GTK. |
-| `slopos-services` | library | — | System providers with typed snapshots, "unavailable" when a service is missing: NetworkManager (incl. Wi-Fi join/forget), audio (PipeWire/Pulse devices and per-application streams), brightness, UPower, timedate, BlueZ (incl. pairing and forgetting devices), MPRIS, UDisks, display outputs (XRandR) and keyboard/mouse settings (XKB, XInput 2 libinput properties). |
+| `slopos-services` | library | — | System providers with typed snapshots, "unavailable" when a service is missing: NetworkManager (incl. Wi-Fi join/forget), audio (PipeWire/Pulse devices and per-application streams), brightness, UPower, timedate, BlueZ (incl. pairing and forgetting devices), MPRIS, UDisks, display outputs (XRandR) and keyboard/mouse settings (XKB, XInput 2 libinput properties). `agents` holds the NetworkManager secret agent and the BlueZ pairing agent as library code: they turn each request into a dialog spec for a host and are not registered on the system bus until a host calls `serve_session_agents`. |
 | `slopos-session` | binary | — | Session supervisor (above). |
 | `slopos-topbar` | binary | **own** | The top bar (below): System menu, global menus, status items, launcher, notification server, window actions. |
 | `slopos-desktop` | binary | **own** | The desktop window (below): desktop picture and icons. |
@@ -128,7 +128,7 @@ The live ISO includes Calamares 3.3 (`calamares`, Ubuntu noble universe) as its 
 The [ledger](contract/ledger.md) has the dated evidence; its section G.2 is the prioritized register of remaining work (GAP-* IDs). In short:
 
 - Native Files has no drag and drop, icon view, thumbnails, properties window, removable-volume mount/eject or network mounts yet, and has not passed installed-package VM acceptance. Text editor and System Monitor are not native yet (Mousepad is still used). The native terminal (`apps/terminal`, PTY, VT parser, grid, CPU drawing) is preferred when installed; the GPU terminal path is not built, and a shell-only check of its escape handling has not been run on a live X server.
-- No OSDs, and no status popovers besides the Volume Mixer; workspaces UI, lock screen, polkit agent, network-secret agent (Wi-Fi passwords are asked by Control Panels only) or BlueZ pairing agent (devices that need a PIN or passkey confirmation fail with BlueZ's error).
+- No OSDs, and no status popovers besides the Volume Mixer; workspaces UI, lock screen or polkit agent. The NetworkManager secret agent and the BlueZ pairing agent are library code in `slopos-services::agents` (D-Bus objects, state machines, dialog mapping, tests on a private bus) with no dialog host and no running session wiring yet, so Wi-Fi passwords are still asked by Control Panels only and devices that need a PIN or passkey still fail with BlueZ's error.
 - No production software catalogue or publisher key exists yet, so Software shows "No software catalogue is installed" on a fresh system.
 - The legacy GTK crates (`slopos-shell`, `slopos-settings`, `slopos-catalogue`) are still built in the workspace but no longer shipped or started.
 - X11 only. GNOME and KDE are leaving X11, so distribution support for X11 logins has to be checked per release (§21.10).
@@ -172,7 +172,7 @@ It proposes strict JSON actions via loopback-only Ollama (`lfm3:1.7b`) using ins
   - Date & Time (automatic time), Desktop (bundled patterns with thumbnails, Choose Picture…; saved to `~/.config/slopos-i/wallpaper` and repainted at once), Appearance (Platinum, Classic, Graphite, OLED through `slopos-appearance`).
   - Keyboard & Mouse: keyboard layout (from the XKB rules list, applied with `setxkbmap`), repeat delay and rate (XKB controls), pointer speed and natural scrolling (libinput properties, only when a device takes them), left-handed buttons. Saved to `input.conf` and re-applied at login.
 - **UI:** sidebar with theme icons, File/View menus (global when the top bar runs), Ctrl+1…8 to switch panels, `--network`/`--sound`/`--desktop`/`--keyboard`… flags to open a panel, `--restore` (also `--apply-displays`, `--apply-input`) for the session; pop-ups with nothing to choose are skipped by Tab; status text is red only for failures.
-- Not built: a network-secret agent for other apps, enterprise/hidden Wi-Fi, VPN; a BlueZ pairing agent (PIN/passkey); time zone selection; Dock settings; per-monitor scale.
+- Not built: a running network-secret agent for other apps (the code is in `slopos-services::agents`; the toolkit dialog host is not), VPN password prompts in a running agent, a running BlueZ pairing agent (PIN/passkey), enterprise/hidden Wi-Fi; time zone selection; Dock settings; per-monitor scale.
 
 ## Native Software (`apps/software`)
 
