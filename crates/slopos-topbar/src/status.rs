@@ -8,8 +8,10 @@ use std::sync::mpsc;
 use std::thread;
 
 use slopos_services::audio::{AudioClient, AudioDevice, AudioSnapshot};
+use slopos_services::bluetooth::{BluetoothClient, BluetoothSnapshot};
 use slopos_services::network::{NetworkDeviceType, NetworkManagerClient, NetworkSnapshot};
 use slopos_services::power::{BatteryStatus, PowerClient, PowerEvent, PowerSnapshot};
+use slopos_services::timedate::{TimedateClient, TimedateSnapshot};
 use tokio::sync::mpsc as async_mpsc;
 
 /// A provider's latest answer: a snapshot, or why there is none.
@@ -33,6 +35,10 @@ pub enum Update {
     Audio(State<AudioSnapshot>),
     Network(State<NetworkSnapshot>),
     Power(State<PowerSnapshot>),
+    /// Answer to `Command::RefreshBluetooth`.
+    Bluetooth(State<BluetoothSnapshot>),
+    /// Answer to `Command::RefreshTimedate`.
+    Timedate(State<TimedateSnapshot>),
     /// A Volume Mixer change failed on the sound server.
     AudioFailed(String),
     Failed(String),
@@ -48,6 +54,11 @@ pub enum Command {
     /// The Volume Mixer was opened: connect to the sound server again, if it was
     /// unavailable. Sent by the user's action, not on a timer.
     ReconnectAudio,
+    /// The Bluetooth popover was opened: read the adapter and devices now. Sent by
+    /// the user's action, not on a timer (the service's own watch polls).
+    RefreshBluetooth,
+    /// The clock popover was opened: read the time zone and network time now.
+    RefreshTimedate,
     Suspend,
 }
 
@@ -105,6 +116,9 @@ async fn run(
     let mut audio = AudioClient::connect().await;
     let network = NetworkManagerClient::connect().await;
     let power = PowerClient::connect().await;
+    // Read on demand: connected by the first request, and again after a failed one.
+    let mut bluetooth_client: Option<BluetoothClient> = None;
+    let mut timedate_client: Option<TimedateClient> = None;
 
     // Whether the last answer about the sound server was an error. A watcher that
     // reports one keeps its client while it retries, so `audio` alone cannot say so.
@@ -212,6 +226,12 @@ async fn run(
                         }
                         Ok(None)
                     }
+                    Command::RefreshBluetooth => {
+                        Ok(Some(Update::Bluetooth(read_bluetooth(&mut bluetooth_client).await)))
+                    }
+                    Command::RefreshTimedate => {
+                        Ok(Some(Update::Timedate(read_timedate(&mut timedate_client).await)))
+                    }
                     Command::Suspend => match &power {
                         Ok(client) => client.request_suspend().await.map(|()| None).map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
@@ -231,6 +251,42 @@ async fn run(
             }
         }
     }
+}
+
+/// Bluetooth as it is now. A failed read drops the connection, so the next
+/// request connects again.
+async fn read_bluetooth(client: &mut Option<BluetoothClient>) -> State<BluetoothSnapshot> {
+    if client.is_none() {
+        *client = Some(
+            BluetoothClient::connect()
+                .await
+                .map_err(|e| e.to_string())?,
+        );
+    }
+    let answer = match client.as_ref() {
+        Some(connected) => connected.snapshot().await.map_err(|e| e.to_string()),
+        None => Err("Bluetooth is not connected".into()),
+    };
+    if answer.is_err() {
+        *client = None;
+    }
+    answer
+}
+
+/// Time zone and network time as they are now; reconnects after a failure as
+/// `read_bluetooth` does.
+async fn read_timedate(client: &mut Option<TimedateClient>) -> State<TimedateSnapshot> {
+    if client.is_none() {
+        *client = Some(TimedateClient::connect().await.map_err(|e| e.to_string())?);
+    }
+    let answer = match client.as_ref() {
+        Some(connected) => connected.snapshot().await.map_err(|e| e.to_string()),
+        None => Err("timedate is not connected".into()),
+    };
+    if answer.is_err() {
+        *client = None;
+    }
+    answer
 }
 
 /// The default output device, if the sound server reported one.

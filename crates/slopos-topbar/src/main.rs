@@ -17,6 +17,8 @@ mod menu_registrar;
 mod menu_registrar_layout;
 mod menus;
 mod notifications;
+mod osd;
+mod popovers;
 mod registrar_bus;
 mod session;
 mod status;
@@ -54,16 +56,22 @@ const POPUP_MENU: u64 = 1;
 const POPUP_LAUNCHER: u64 = 2;
 const POPUP_DIALOG: u64 = 3;
 const POPUP_MIXER: u64 = 4;
+/// The volume OSD, a passive overlay.
+const POPUP_OSD: u64 = 5;
 const CLOCK_TIMER: u64 = 1;
 /// Toast popups and expiry timers use these plus the notification id.
 const TOAST_POPUP: u64 = 1_000;
 const TOAST_TIMER: u64 = 10_000;
 const TOAST_SIZE: (u32, u32) = (340, 74);
+/// The OSD overlay's size; it is centred on the screen.
+const OSD_SIZE: (u32, u32) = (320, 64);
 /// The bus name toolkit apps watch to move their menus into this bar.
 const GLOBAL_MENU_NAME: &str = "org.slopos.GlobalMenu";
 const BAR_ID: u64 = 10;
 const MENU_ID: u64 = 100;
 const DIALOG_ID: u64 = 400;
+/// Accessibility node of the OSD (between the bar's items and the menus' ids).
+const OSD_NODE: u64 = BAR_ID + 40;
 const CONTROL_PANELS: &str = "slopos-control-panels";
 const SOFTWARE: &str = "slopos-software";
 const FILES: &str = "slopos-files";
@@ -85,6 +93,7 @@ enum Open {
 enum StatusMenu {
     Sound,
     Network,
+    Bluetooth,
     Battery,
     Clock,
 }
@@ -287,6 +296,13 @@ pub struct TopBar {
     /// The Volume Mixer popover while it is open, with its anchor x.
     mixer: Option<(MixerView, i32)>,
     network: status::State<slopos_services::network::NetworkSnapshot>,
+    /// None until the first read, which happens when the popover opens.
+    bluetooth: Option<status::State<slopos_services::bluetooth::BluetoothSnapshot>>,
+    /// None until the clock popover is first opened.
+    timedate: Option<status::State<slopos_services::timedate::TimedateSnapshot>>,
+    /// The lines of the status popover open now, to tell when they change.
+    popover: Option<Vec<popovers::Line>>,
+    osd: osd::Osd,
     power: status::State<slopos_services::power::PowerSnapshot>,
     clock: String,
     date: String,
@@ -336,6 +352,10 @@ impl TopBar {
             audio: Err("loading".into()),
             mixer: None,
             network: Err("loading".into()),
+            bluetooth: None,
+            timedate: None,
+            popover: None,
+            osd: osd::Osd::new(),
             power: Err("loading".into()),
             clock,
             date,
@@ -366,6 +386,11 @@ impl TopBar {
         self.importer = Importer::start(move || wake(&slot));
         let slot = self.slot.clone();
         self.status = Status::start(move || wake(&slot)).ok();
+        // The Bluetooth item shows the adapter's state from the start; it is read
+        // again when its popover opens.
+        if let Some(status) = &self.status {
+            status.send(status::Command::RefreshBluetooth);
+        }
         let slot = self.slot.clone();
         self.notifications = notifications::Notifications::start(move || wake(&slot));
         // Qt and dbusmenu applications register their windows here, and the
@@ -559,6 +584,10 @@ impl TopBar {
         let mut items = vec![
             (StatusMenu::Clock, self.clock.clone()),
             (StatusMenu::Network, status::network_text(&self.network)),
+            (
+                StatusMenu::Bluetooth,
+                popovers::bluetooth_text(self.bluetooth.as_ref()),
+            ),
             (StatusMenu::Sound, status::sound_text(&self.audio)),
         ];
         if let Some(battery) = status::battery_text(&self.power) {
@@ -609,10 +638,65 @@ impl TopBar {
         else {
             return;
         };
+        // The Bluetooth and clock popovers read their provider when they open; the
+        // answer rebuilds the popover (see `refresh_popover`).
+        if let Some(status) = &self.status {
+            match kind {
+                StatusMenu::Bluetooth => status.send(status::Command::RefreshBluetooth),
+                StatusMenu::Clock => status.send(status::Command::RefreshTimedate),
+                _ => {}
+            }
+        }
         let (items, commands) = self.status_menu(kind);
         self.menu = Menu::new(MENU_ID, items);
         self.status_commands = commands;
         self.show_menu(rect.x, keyboard, Open::Status(kind), control);
+        self.popover = self.popover_lines(kind);
+    }
+
+    /// The lines of a status popover (Wi-Fi, Bluetooth, clock), or `None` for a
+    /// status item whose menu is not a popover.
+    fn popover_lines(&self, kind: StatusMenu) -> Option<Vec<popovers::Line>> {
+        let panels = self.can.control_panels;
+        match kind {
+            StatusMenu::Network => Some(popovers::wifi_lines(&self.network, panels)),
+            StatusMenu::Bluetooth => {
+                Some(popovers::bluetooth_lines(self.bluetooth.as_ref(), panels))
+            }
+            StatusMenu::Clock => Some(popovers::clock_lines(
+                &self.date,
+                self.timedate.as_ref(),
+                panels,
+            )),
+            StatusMenu::Sound | StatusMenu::Battery => None,
+        }
+    }
+
+    /// Rebuilds the open status popover when its lines have changed, keeping it
+    /// under its item. Nothing happens when the content is the same.
+    fn refresh_popover(&mut self, control: &mut Control) {
+        let Some(Open::Status(kind)) = self.open else {
+            return;
+        };
+        let Some(lines) = self.popover_lines(kind) else {
+            return;
+        };
+        if self.popover.as_ref() == Some(&lines) {
+            return;
+        }
+        let Some(rect) = self
+            .status_rects()
+            .into_iter()
+            .find(|(k, _, _)| *k == kind)
+            .map(|(_, rect, _)| rect)
+        else {
+            return;
+        };
+        let (items, commands) = popover_items(&lines);
+        self.menu = Menu::new(MENU_ID, items);
+        self.status_commands = commands;
+        self.show_menu(rect.x, false, Open::Status(kind), control);
+        self.popover = Some(lines);
     }
 
     fn show_menu(&mut self, x: i32, keyboard: bool, open: Open, control: &mut Control) {
@@ -729,9 +813,95 @@ impl TopBar {
         }
     }
 
+    /// A sound-server answer. A change of the default output's level shows the
+    /// OSD, unless the mixer is open (it shows the level already).
+    fn audio_answer(
+        &mut self,
+        state: status::State<slopos_services::audio::AudioSnapshot>,
+        control: &mut Control,
+    ) {
+        let previous = std::mem::replace(&mut self.audio, state);
+        if let Some(level) = osd::volume_change(&previous, &self.audio) {
+            if self.mixer.is_none() {
+                self.show_volume_osd(level, control);
+            }
+        }
+        // The popover follows the answer and resizes with the channels.
+        if let Some((view, _)) = &mut self.mixer {
+            view.set_state(&self.audio);
+        }
+        self.show_mixer_popup(control);
+    }
+
+    // ----- volume OSD ------------------------------------------------------
+
+    /// Shows the OSD at the new level and arms its hide timer; the timer is
+    /// the only thing that hides it again.
+    fn show_volume_osd(&mut self, level: osd::Level, control: &mut Control) {
+        let timer = self.osd.show(level);
+        control.start_timer(osd::VISIBLE_FOR, timer);
+        let (width, height) = OSD_SIZE;
+        control.open_popup(
+            POPUP_OSD,
+            Rect {
+                x: (self.screen.0 as i32 - width as i32) / 2,
+                y: (self.screen.1 as i32 - height as i32) / 2,
+                width,
+                height,
+            },
+            false,
+        );
+    }
+
+    fn paint_osd(&self, surface: &RasterSurface) -> Result<(), RenderError> {
+        let Some(level) = self.osd.shown() else {
+            return Ok(());
+        };
+        let colors = palette();
+        let bounds = Rect {
+            x: 0,
+            y: 0,
+            width: surface.logical_width(),
+            height: surface.logical_height(),
+        };
+        surface.fill_rect(bounds, colors.surface)?;
+        surface.stroke_rect(bounds, colors.border)?;
+        let line = measure("Ag", &self.font).height as i32;
+        let inner = bounds.width.saturating_sub(24);
+        let text = osd::text(level);
+        for (index, row) in slopos_ui::controls::dialog::wrap(&text, &self.font, inner)
+            .iter()
+            .take(2)
+            .enumerate()
+        {
+            surface.draw_text(row, 12, 8 + line * index as i32, &self.font, colors.ink)?;
+        }
+        if let Some(fraction) = osd::fraction(level) {
+            let track = Rect {
+                x: 12,
+                y: bounds.height as i32 - 16,
+                width: bounds.width.saturating_sub(24),
+                height: 6,
+            };
+            surface.fill_rect(track, colors.border)?;
+            let filled = (track.width as f32 * fraction) as u32;
+            if filled > 0 {
+                surface.fill_rect(
+                    Rect {
+                        width: filled,
+                        ..track
+                    },
+                    colors.ink,
+                )?;
+            }
+        }
+        Ok(())
+    }
+
     fn close_menu(&mut self, control: &mut Control) {
         if self.open.take().is_some() {
             self.menu.close();
+            self.popover = None;
             control.close_popup(POPUP_MENU);
         }
     }
@@ -755,6 +925,9 @@ impl TopBar {
             items.push(MenuItem::separator());
             commands.push(None);
         };
+        if let Some(lines) = self.popover_lines(kind) {
+            return popover_items(&lines);
+        }
         let panels = self.can.control_panels;
         match kind {
             StatusMenu::Sound => {
@@ -826,40 +999,8 @@ impl TopBar {
                     &mut commands,
                 );
             }
-            StatusMenu::Network => {
-                match &self.network {
-                    Ok(snapshot) => {
-                        if snapshot.active_connections.is_empty() {
-                            info("Not connected".into(), &mut items, &mut commands);
-                        }
-                        for connection in &snapshot.active_connections {
-                            let address = connection
-                                .ipv4
-                                .as_ref()
-                                .and_then(|ip| ip.addresses.first().map(|a| a.address.clone()))
-                                .unwrap_or_default();
-                            let line = if address.is_empty() {
-                                connection.id.clone()
-                            } else {
-                                format!("{} — {address}", connection.id)
-                            };
-                            info(line, &mut items, &mut commands);
-                        }
-                    }
-                    Err(why) => info(
-                        format!("Network unavailable: {why}"),
-                        &mut items,
-                        &mut commands,
-                    ),
-                }
-                separator(&mut items, &mut commands);
-                action(
-                    MenuItem::new("Network Preferences…").enabled(panels),
-                    StatusCommand::OpenPanel("--network"),
-                    &mut items,
-                    &mut commands,
-                );
-            }
+            // Popovers: built above.
+            StatusMenu::Network | StatusMenu::Bluetooth | StatusMenu::Clock => {}
             StatusMenu::Battery => {
                 if let Some(text) = status::battery_text(&self.power) {
                     info(format!("Battery: {text}"), &mut items, &mut commands);
@@ -868,16 +1009,6 @@ impl TopBar {
                 action(
                     MenuItem::new("Display Preferences…").enabled(panels),
                     StatusCommand::OpenPanel("--display"),
-                    &mut items,
-                    &mut commands,
-                );
-            }
-            StatusMenu::Clock => {
-                info(self.date.clone(), &mut items, &mut commands);
-                separator(&mut items, &mut commands);
-                action(
-                    MenuItem::new("Date & Time Preferences…").enabled(panels),
-                    StatusCommand::OpenPanel("--datetime"),
                     &mut items,
                     &mut commands,
                 );
@@ -1182,34 +1313,42 @@ impl TopBar {
                 self.rebuild_specs();
             }
         }
-        if let Some(status) = &self.status {
-            for update in status.updates.try_iter() {
-                changed = true;
-                match update {
-                    StatusUpdate::Audio(state) => {
-                        self.audio = state;
-                        // The popover follows the answer and resizes with the channels.
-                        if let Some((view, _)) = &mut self.mixer {
-                            view.set_state(&self.audio);
-                        }
-                        self.show_mixer_popup(control);
-                    }
-                    StatusUpdate::Network(state) => self.network = state,
-                    StatusUpdate::Power(state) => {
-                        self.can.sleep = state.as_ref().is_ok_and(|p| {
-                            p.suspend == slopos_services::power::SuspendCapability::Available
-                        });
-                        self.power = state;
-                    }
-                    StatusUpdate::AudioFailed(error) => {
-                        log::warn!("sound change failed: {error}");
-                        if let Some((view, _)) = &mut self.mixer {
-                            view.set_failure(&format!("Could not change the sound: {error}"));
-                            control.request_redraw();
-                        }
-                    }
-                    StatusUpdate::Failed(error) => log::warn!("status change failed: {error}"),
+        // Drained first: the handlers below need `self` mutably.
+        let status_updates: Vec<StatusUpdate> = self
+            .status
+            .as_ref()
+            .map(|status| status.updates.try_iter().collect())
+            .unwrap_or_default();
+        for update in status_updates {
+            changed = true;
+            match update {
+                StatusUpdate::Audio(state) => self.audio_answer(state, control),
+                StatusUpdate::Network(state) => {
+                    self.network = state;
+                    self.refresh_popover(control);
                 }
+                StatusUpdate::Bluetooth(state) => {
+                    self.bluetooth = Some(state);
+                    self.refresh_popover(control);
+                }
+                StatusUpdate::Timedate(state) => {
+                    self.timedate = Some(state);
+                    self.refresh_popover(control);
+                }
+                StatusUpdate::Power(state) => {
+                    self.can.sleep = state.as_ref().is_ok_and(|p| {
+                        p.suspend == slopos_services::power::SuspendCapability::Available
+                    });
+                    self.power = state;
+                }
+                StatusUpdate::AudioFailed(error) => {
+                    log::warn!("sound change failed: {error}");
+                    if let Some((view, _)) = &mut self.mixer {
+                        view.set_failure(&format!("Could not change the sound: {error}"));
+                        control.request_redraw();
+                    }
+                }
+                StatusUpdate::Failed(error) => log::warn!("status change failed: {error}"),
             }
         }
         let messages: Vec<notifications::Message> = self
@@ -1504,6 +1643,34 @@ impl TopBar {
     }
 }
 
+/// Menu items for a popover's lines: information cannot be chosen, panel
+/// entries open their Control Panel.
+fn popover_items(lines: &[popovers::Line]) -> (Vec<MenuItem>, Vec<Option<StatusCommand>>) {
+    let mut items = Vec::new();
+    let mut commands = Vec::new();
+    for line in lines {
+        match line {
+            popovers::Line::Info(text) => {
+                items.push(MenuItem::new(text).enabled(false));
+                commands.push(None);
+            }
+            popovers::Line::Separator => {
+                items.push(MenuItem::separator());
+                commands.push(None);
+            }
+            popovers::Line::Panel {
+                label,
+                argument,
+                enabled,
+            } => {
+                items.push(MenuItem::new(label).enabled(*enabled));
+                commands.push(Some(StatusCommand::OpenPanel(argument)));
+            }
+        }
+    }
+    (items, commands)
+}
+
 fn launch(program: &str, args: &[&str]) {
     if let Err(error) = process::launch(program, args) {
         log::warn!("{error}");
@@ -1532,6 +1699,11 @@ impl App for TopBar {
             Event::Wake => {
                 if !self.receive(control) {
                     return;
+                }
+            }
+            Event::Timer(timer) if osd::owns_timer(*timer) => {
+                if self.osd.timer_fired(*timer) {
+                    control.close_popup(POPUP_OSD);
                 }
             }
             Event::Timer(timer) if *timer >= TOAST_TIMER => {
@@ -1563,6 +1735,8 @@ impl App for TopBar {
                     POPUP_MIXER => self.handle_mixer(event, control),
                     POPUP_DIALOG => self.handle_dialog(event, control),
                     POPUP_LAUNCHER => self.handle_launcher(event, control),
+                    // The OSD is a passive overlay: it takes no input.
+                    POPUP_OSD => {}
                     toast if toast >= TOAST_POPUP => {
                         // A click opens the notification's default action
                         // (when it has one) and dismisses it.
@@ -1619,6 +1793,7 @@ impl App for TopBar {
                     .and_then(|()| view.paint(surface)),
                 None => Ok(()),
             },
+            POPUP_OSD => self.paint_osd(surface),
             POPUP_LAUNCHER => {
                 let mut launcher = self.launcher.take();
                 let result = match &mut launcher {
@@ -1663,6 +1838,7 @@ impl App for TopBar {
             let what = match kind {
                 StatusMenu::Sound => "Sound",
                 StatusMenu::Network => "Network",
+                StatusMenu::Bluetooth => "Bluetooth",
                 StatusMenu::Battery => "Battery",
                 StatusMenu::Clock => "Clock",
             };
@@ -1678,6 +1854,11 @@ impl App for TopBar {
             if let Some(node) = view.focused_node() {
                 focus = Some(node);
             }
+        }
+        if let Some(level) = self.osd.shown() {
+            let mut node = accesskit::Node::new(accesskit::Role::Status);
+            node.set_label(osd::text(level));
+            nodes.push((OSD_NODE, node));
         }
         if self.open.is_some() {
             nodes.extend(self.menu.accessibility_nodes());
@@ -1979,11 +2160,130 @@ mod tests {
         let bar = bar();
         let items: Vec<String> = bar.status_rects().into_iter().map(|(_, _, t)| t).collect();
         assert_eq!(items[1], "Network unavailable");
-        assert_eq!(items[2], "—");
-        assert_eq!(items.len(), 3, "no battery item without a battery");
+        assert_eq!(items[2], "…", "Bluetooth is read when its popover opens");
+        assert_eq!(items[3], "—");
+        assert_eq!(items.len(), 4, "no battery item without a battery");
         let (lines, _) = bar.status_menu(StatusMenu::Sound);
         assert!(lines[0].label.starts_with("Sound unavailable"));
         assert!(!lines[0].enabled);
+    }
+
+    fn sound_at(volume: u32, muted: bool) -> status::State<slopos_services::audio::AudioSnapshot> {
+        use slopos_services::audio::{AudioDevice, AudioDirection, AudioSnapshot};
+        Ok(AudioSnapshot {
+            revision: 1,
+            availability: slopos_core::capability::Availability::Available,
+            default_output: Some("speakers".into()),
+            default_input: None,
+            outputs: vec![AudioDevice {
+                index: 0,
+                name: "speakers".into(),
+                description: None,
+                direction: AudioDirection::Output,
+                muted,
+                volume_millipercent: vec![volume * 1000, volume * 1000],
+                is_default: true,
+            }],
+            inputs: Vec::new(),
+            streams: Vec::new(),
+        })
+    }
+
+    #[test]
+    fn a_volume_change_shows_the_osd_and_only_its_timer_hides_it() {
+        let mut bar = bar();
+        let mut control = Control::default();
+        // The first answer is not a change: nothing shown, no timer armed.
+        bar.audio_answer(sound_at(40, false), &mut control);
+        assert!(bar.osd.shown().is_none());
+        assert!(control.timer_requests().is_empty());
+        bar.audio_answer(sound_at(45, false), &mut control);
+        assert_eq!(bar.osd.shown(), Some(&osd::Level::Percent(45)));
+        let (delay, timer) = *control
+            .timer_requests()
+            .last()
+            .expect("the OSD arms its hide timer");
+        assert_eq!(delay, osd::VISIBLE_FOR);
+        assert!(control.popup_requests().iter().any(|request| matches!(
+            request,
+            platform::PopupRequest::Open { id, .. } if *id == POPUP_OSD
+        )));
+        // The overlay is a text node for screen readers while it shows.
+        let tree = bar.accessibility().expect("the bar has a tree");
+        assert!(tree
+            .nodes
+            .iter()
+            .any(|(_, node)| node.label() == Some("Volume 45%")));
+        bar.event(&Event::Timer(timer), &mut control);
+        assert!(bar.osd.shown().is_none());
+        assert!(control
+            .popup_requests()
+            .contains(&platform::PopupRequest::Close { id: POPUP_OSD }));
+    }
+
+    #[test]
+    fn the_osd_says_when_the_sound_server_is_lost_and_stays_quiet_while_the_mixer_is_open() {
+        let mut bar = bar();
+        let mut control = Control::default();
+        bar.audio_answer(sound_at(40, false), &mut control);
+        bar.audio_answer(Err("connection closed".into()), &mut control);
+        assert_eq!(
+            bar.osd.shown(),
+            Some(&osd::Level::Unavailable("connection closed".into()))
+        );
+        let mut quiet = self::bar();
+        quiet.audio_answer(sound_at(40, false), &mut control);
+        quiet.open_mixer(&mut control);
+        quiet.audio_answer(sound_at(50, false), &mut control);
+        assert!(
+            quiet.osd.shown().is_none(),
+            "the mixer shows the level already"
+        );
+    }
+
+    #[test]
+    fn the_bluetooth_popover_opens_under_its_item_follows_its_answer_and_closes_on_escape() {
+        let mut bar = bar();
+        let mut control = Control::default();
+        let rect = bar
+            .status_rects()
+            .into_iter()
+            .find(|(kind, _, _)| *kind == StatusMenu::Bluetooth)
+            .map(|(_, rect, _)| rect)
+            .expect("the Bluetooth item is laid out");
+        bar.event(&press(rect.x + 4, 12), &mut control);
+        assert_eq!(bar.open, Some(Open::Status(StatusMenu::Bluetooth)));
+        assert_eq!(
+            bar.popover,
+            Some(vec![
+                popovers::Line::Info("Reading Bluetooth…".into()),
+                popovers::Line::Separator,
+                popovers::Line::Panel {
+                    label: "Bluetooth Preferences…",
+                    argument: "--bluetooth",
+                    enabled: bar.can.control_panels,
+                },
+            ])
+        );
+        // The provider's answer rebuilds the open popover in place.
+        bar.bluetooth = Some(Err("no BlueZ".into()));
+        bar.refresh_popover(&mut control);
+        assert!(bar
+            .popover
+            .as_ref()
+            .is_some_and(|lines| lines.contains(&popovers::Line::Info(
+                "Bluetooth unavailable: no BlueZ".into()
+            ))));
+        assert_eq!(bar.open, Some(Open::Status(StatusMenu::Bluetooth)));
+        bar.event(
+            &Event::Popup {
+                id: POPUP_MENU,
+                event: Box::new(key(Key::Escape)),
+            },
+            &mut control,
+        );
+        assert!(bar.open.is_none());
+        assert!(bar.popover.is_none());
     }
 
     #[test]
