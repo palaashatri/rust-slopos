@@ -977,7 +977,10 @@ root=${0%/*}
     printf '%s\n' "${3%%%}" > "$root/output_volume"
     ;;
   set-source-volume) printf '%s\n' "${3%%%}" > "$root/input_volume" ;;
-  set-sink-mute) printf '%s\n' "$3" > "$root/output_mute" ;;
+  set-sink-mute)
+    [ "$2" = sink.denied ] && { printf 'Failure: Access denied\n' >&2; exit 1; }
+    [ "$2" = sink.failed ] && { printf 'Failure: device failure\n' >&2; exit 1; }
+    printf '%s\n' "$3" > "$root/output_mute" ;;
   set-source-mute) printf '%s\n' "$3" > "$root/input_mute" ;;
   set-default-sink) printf '%s\n' "$2" > "$root/default_output" ;;
   set-sink-input-volume) [ "$2" = 42 ] || exit 1; printf '%s\n' "${3%%%}" > "$root/stream_volume" ;;
@@ -1057,6 +1060,25 @@ esac
         assert_eq!(
             AudioError::PermissionDenied("denied".into()).availability(),
             Availability::PermissionDenied
+        );
+    }
+
+    #[tokio::test]
+    async fn refused_mute_changes_are_reported_and_leave_the_mute_state_unchanged() {
+        let (client, directory) = fixture_client();
+        assert!(matches!(
+            client.set_output_muted("sink.denied", true).await,
+            Err(AudioError::PermissionDenied(_))
+        ));
+        assert!(matches!(
+            client.set_output_muted("sink.failed", true).await,
+            Err(AudioError::CommandFailed(_))
+        ));
+        assert_eq!(
+            std::fs::read_to_string(directory.path().join("output_mute"))
+                .unwrap()
+                .trim(),
+            "0"
         );
     }
 
