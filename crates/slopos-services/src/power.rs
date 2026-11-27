@@ -680,6 +680,36 @@ mod tests {
         assert!(warning_events(&Some(critical.clone()), &critical).is_empty());
     }
 
+    #[test]
+    fn low_battery_is_emitted_once_per_crossing_and_again_after_it_clears() {
+        let snapshot = |warning: Option<BatteryWarning>| PowerSnapshot {
+            revision: 1,
+            availability: Availability::Available,
+            battery: warning.map(|warning| Battery {
+                percentage: 15.0,
+                status: BatteryStatus::Discharging,
+                warning,
+                energy_rate_watts: None,
+            }),
+            source: PowerSource::Battery,
+            suspend: SuspendCapability::Available,
+            lid_present: false,
+            lid_closed: None,
+        };
+        let clear = snapshot(Some(BatteryWarning::None));
+        let low = snapshot(Some(BatteryWarning::Low));
+        let expected = vec![PowerEvent::LowBattery { percentage: 15.0 }];
+        // Crossing into the low level is reported once.
+        assert_eq!(warning_events(&Some(clear.clone()), &low), expected);
+        // Staying low is not reported again.
+        assert!(warning_events(&Some(low.clone()), &low).is_empty());
+        // Leaving the low level (a charger, a battery that went away) re-arms it.
+        assert!(warning_events(&Some(low.clone()), &clear).is_empty());
+        assert_eq!(warning_events(&Some(clear), &low), expected);
+        // A first answer that is already low is a crossing too.
+        assert_eq!(warning_events(&None, &low), expected);
+    }
+
     #[tokio::test]
     async fn fixture_reads_battery_lid_power_source_and_suspend() {
         let (_daemon, _upower, _logind, client, _, _) = fixture(true, 63.5, 1, "yes").await;
