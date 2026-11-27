@@ -69,9 +69,7 @@ impl BackgroundMode {
 /// A premultiplied RGBA image.
 #[derive(Clone)]
 pub struct Image {
-    /// Shared, so that recording a paint (which holds a copy of each image it
-    /// draws) costs a reference count, not a pixel copy.
-    pixmap: std::sync::Arc<Pixmap>,
+    pixmap: Pixmap,
 }
 
 impl std::fmt::Debug for Image {
@@ -94,12 +92,12 @@ impl Image {
         }
         let size = int_size(width, height).ok_or(ImageError::Dimensions)?;
         let pixmap = Pixmap::from_vec(data, size).ok_or(ImageError::Dimensions)?;
-        Ok(Self::from_pixmap(pixmap))
+        Ok(Self { pixmap })
     }
 
     pub fn from_png(bytes: &[u8]) -> Result<Self, ImageError> {
         Pixmap::decode_png(bytes)
-            .map(Self::from_pixmap)
+            .map(|pixmap| Self { pixmap })
             .map_err(|error| ImageError::Png(error.to_string()))
     }
 
@@ -123,7 +121,7 @@ impl Image {
             Transform::from_row(fit, 0.0, 0.0, fit, dx, dy),
             &mut pixmap.as_mut(),
         );
-        Ok(Self::from_pixmap(pixmap))
+        Ok(Self { pixmap })
     }
 
     /// Load a PNG or SVG file. SVGs are rasterised at `svg_size` pixels.
@@ -172,18 +170,12 @@ impl Image {
             width as f32 / self.width() as f32,
             height as f32 / self.height() as f32,
         );
-        pixmap.draw_pixmap(0, 0, (*self.pixmap).as_ref(), &paint, transform, None);
-        Ok(Self::from_pixmap(pixmap))
-    }
-
-    fn from_pixmap(pixmap: Pixmap) -> Self {
-        Self {
-            pixmap: std::sync::Arc::new(pixmap),
-        }
+        pixmap.draw_pixmap(0, 0, self.pixmap.as_ref(), &paint, transform, None);
+        Ok(Self { pixmap })
     }
 
     pub(crate) fn pixmap(&self) -> Option<&Pixmap> {
-        Some(&*self.pixmap)
+        Some(&self.pixmap)
     }
 
     /// The part of the image inside `x, y, width × height`, clipped to the
@@ -197,7 +189,7 @@ impl Image {
             .ok_or(ImageError::Dimensions)?;
         self.pixmap
             .clone_rect(rect)
-            .map(Self::from_pixmap)
+            .map(|pixmap| Self { pixmap })
             .ok_or(ImageError::Dimensions)
     }
 
@@ -235,7 +227,7 @@ impl Image {
                 pixmap.draw_pixmap(
                     0,
                     0,
-                    (*self.pixmap).as_ref(),
+                    self.pixmap.as_ref(),
                     &paint,
                     Transform::from_row(scale, 0.0, 0.0, scale, dx, dy),
                     None,
@@ -247,7 +239,7 @@ impl Image {
                 pixmap.draw_pixmap(
                     x as i32,
                     y as i32,
-                    (*self.pixmap).as_ref(),
+                    self.pixmap.as_ref(),
                     &paint,
                     Transform::identity(),
                     None,
@@ -255,7 +247,7 @@ impl Image {
             }
             BackgroundMode::Tile => {
                 let shader = tiny_skia::Pattern::new(
-                    (*self.pixmap).as_ref(),
+                    self.pixmap.as_ref(),
                     tiny_skia::SpreadMode::Repeat,
                     tiny_skia::FilterQuality::Nearest,
                     1.0,
@@ -270,7 +262,7 @@ impl Image {
                 pixmap.fill_rect(rect, &paint, Transform::identity(), None);
             }
         }
-        Ok(Self::from_pixmap(pixmap))
+        Ok(Self { pixmap })
     }
 
     /// Premultiplied pixel, for tests.

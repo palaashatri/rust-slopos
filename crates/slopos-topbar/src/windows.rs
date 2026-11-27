@@ -11,8 +11,6 @@ use std::sync::mpsc::{self, Receiver};
 use std::thread;
 
 use slopos_ui::platform::menu_import::MenuSource;
-
-use crate::menu_registrar::{is_name, is_object_path, MenuRef};
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{
     AtomEnum, ChangeWindowAttributesAux, ClientMessageEvent, ConnectionExt, EventMask, Window,
@@ -39,8 +37,6 @@ x11rb::atom_manager! {
         _GTK_APP_MENU_OBJECT_PATH,
         _GTK_APPLICATION_OBJECT_PATH,
         _GTK_WINDOW_OBJECT_PATH,
-        _KDE_NET_WM_APPMENU_SERVICE_NAME,
-        _KDE_NET_WM_APPMENU_OBJECT_PATH,
     }
 }
 
@@ -53,8 +49,6 @@ pub struct Active {
     pub class: String,
     pub fullscreen: bool,
     pub menus: Option<MenuSource>,
-    /// The `_KDE_NET_WM_APPMENU_*` pair a Qt or dbusmenu application sets.
-    pub appmenu: Option<MenuRef>,
 }
 
 /// Watch the focused window; `None` means the desktop (no application
@@ -111,8 +105,6 @@ pub fn watch(wake: impl Fn() + Send + 'static) -> Option<Receiver<Option<Active>
                                     atoms._NET_WM_STATE,
                                     atoms._GTK_MENUBAR_OBJECT_PATH,
                                     atoms._GTK_UNIQUE_BUS_NAME,
-                                    atoms._KDE_NET_WM_APPMENU_SERVICE_NAME,
-                                    atoms._KDE_NET_WM_APPMENU_OBJECT_PATH,
                                     u32::from(AtomEnum::WM_CLASS),
                                 ]
                                 .contains(&notify.atom));
@@ -188,28 +180,13 @@ fn active(conn: &RustConnection, root: Window, atoms: &Atoms) -> Option<Active> 
             window_path: property_string(conn, window, atoms._GTK_WINDOW_OBJECT_PATH),
         })
     });
-    let appmenu = appmenu_source(
-        property_string(conn, window, atoms._KDE_NET_WM_APPMENU_SERVICE_NAME),
-        property_string(conn, window, atoms._KDE_NET_WM_APPMENU_OBJECT_PATH),
-    );
     Some(Active {
         window,
         title,
         class,
         fullscreen,
         menus,
-        appmenu,
     })
-}
-
-/// The window's own menu address: both properties must be set and valid,
-/// otherwise the window has none of its own.
-pub fn appmenu_source(service: Option<String>, path: Option<String>) -> Option<MenuRef> {
-    let menu = MenuRef {
-        service: service?,
-        path: path?,
-    };
-    (is_name(&menu.service) && is_object_path(&menu.path)).then_some(menu)
 }
 
 /// Reject malformed bus names and object paths a window could advertise.
@@ -292,19 +269,6 @@ mod tests {
             app_path: Some("/org/slopos/files".into()),
             window_path: None,
         }
-    }
-
-    #[test]
-    fn kde_appmenu_properties_need_both_halves_and_valid_values() {
-        let good = appmenu_source(Some(":1.42".into()), Some("/com/canonical/menu/1".into()))
-            .expect("both halves present and valid");
-        assert_eq!(good.service, ":1.42");
-        assert_eq!(good.path, "/com/canonical/menu/1");
-        assert!(appmenu_source(None, Some("/x".into())).is_none());
-        assert!(appmenu_source(Some(":1.42".into()), None).is_none());
-        assert!(appmenu_source(Some("not a name".into()), Some("/x".into())).is_none());
-        assert!(appmenu_source(Some(":1.42".into()), Some("relative".into())).is_none());
-        assert!(appmenu_source(Some(":1.42".into()), Some("/bad-dash".into())).is_none());
     }
 
     #[test]
