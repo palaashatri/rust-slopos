@@ -14,6 +14,9 @@
 #   etc/skel/Desktop/slopos-install.desktop         (copied to the live user's desktop)
 #   etc/polkit-1/rules.d/49-slopos-live-installer.rules (passwordless pkexec for calamares)
 #   usr/libexec/slopos-install/strip-live-system.sh (run in the installed system)
+#   usr/libexec/slopos-nvidia/install-nvidia-driver.sh (installed system and live session)
+#   usr/share/slopos/nvidia/driver.conf            (package per release, see nvidia/)
+#   usr/lib/systemd/system/slopos-nvidia-driver.service   (live session only, enabled at boot)
 #
 # Call it after the packages are installed, so package postinst scripts cannot
 # overwrite the result. It does not install calamares itself: that comes from
@@ -45,4 +48,16 @@ slopos_apply_live_installer() {
 
   install -Dm755 "$src/strip-live-system.sh" \
     "$rootfs/usr/libexec/slopos-install/strip-live-system.sh"
+
+  # The proprietary NVIDIA driver is installed only when an NVIDIA GPU is
+  # detected. The helper is run by shellprocess in the installed system and by
+  # the live session's boot unit. Only the unit is live-only; strip removes it.
+  install -Dm755 "$src/nvidia/install-nvidia-driver.sh" \
+    "$rootfs/usr/libexec/slopos-nvidia/install-nvidia-driver.sh"
+  install -Dm644 "$src/nvidia/driver.conf" "$rootfs/usr/share/slopos/nvidia/driver.conf"
+  install -Dm644 "$src/nvidia/slopos-nvidia-driver.service" \
+    "$rootfs/usr/lib/systemd/system/slopos-nvidia-driver.service"
+  install -d "$rootfs/etc/systemd/system/multi-user.target.wants"
+  ln -sfn /usr/lib/systemd/system/slopos-nvidia-driver.service \
+    "$rootfs/etc/systemd/system/multi-user.target.wants/slopos-nvidia-driver.service"
 }

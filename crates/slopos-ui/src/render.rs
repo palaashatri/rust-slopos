@@ -19,6 +19,7 @@ use crate::image::Image;
 use crate::render::list::{DrawCommand, DrawList, ImageHandle};
 use crate::text::{self, Font};
 
+pub mod adapter;
 #[cfg(feature = "gpu")]
 pub mod gpu;
 /// Backend-neutral draw lists, executed onto this surface as the CPU reference.

@@ -98,6 +98,7 @@ use std::sync::mpsc;
 use futures::executor::block_on;
 use tiny_skia::Pixmap;
 
+use super::adapter::{select_nvidia_vulkan, Backend, Candidate, Kind};
 use super::list::{
     rounded_spans, stroke_edge_rects, DrawCommand, DrawExecutor, DrawList, ImageHandle, ListError,
 };
@@ -648,15 +649,12 @@ pub struct WgpuExecutor {
 
 impl WgpuExecutor {
     /// Request an adapter and device with no window or display handle.
+    ///
+    /// An NVIDIA Vulkan adapter is preferred when one exists (see
+    /// [`choose_adapter`]). Otherwise the generic request is used, as before.
     pub fn new_headless() -> Result<Self, GpuError> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
-        let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            force_fallback_adapter: false,
-            compatible_surface: None,
-            apply_limit_buckets: false,
-        }))
-        .map_err(|error| GpuError::NoAdapter(error.to_string()))?;
+        let adapter = choose_adapter(&instance)?;
         let info = adapter.get_info();
         let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("slopos-ui headless"),
@@ -1062,6 +1060,55 @@ impl DrawExecutor for WgpuExecutor {
             None => Ok(()),
             Some(error) => Err(GpuError::List(error)),
         }
+    }
+}
+
+/// The adapter to draw on.
+///
+/// The Vulkan adapters are listed first. When one is from NVIDIA (the
+/// proprietary driver or NVK), it is chosen by [`select_nvidia_vulkan`]. The
+/// proprietary driver is still an ordinary Vulkan device here: the same
+/// pipelines and readback run on it. Without such an adapter, the request is
+/// the one SLOPOS has always made, so machines without NVIDIA are unchanged.
+fn choose_adapter(instance: &wgpu::Instance) -> Result<wgpu::Adapter, GpuError> {
+    let mut adapters = block_on(instance.enumerate_adapters(wgpu::Backends::VULKAN));
+    let candidates: Vec<Candidate> = adapters
+        .iter()
+        .map(|adapter| candidate(&adapter.get_info()))
+        .collect();
+    if let Some(index) = select_nvidia_vulkan(&candidates) {
+        let adapter = adapters.swap_remove(index);
+        log::info!(
+            "wgpu: using the NVIDIA Vulkan adapter {}",
+            adapter.get_info().name
+        );
+        return Ok(adapter);
+    }
+    block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::HighPerformance,
+        force_fallback_adapter: false,
+        compatible_surface: None,
+        apply_limit_buckets: false,
+    }))
+    .map_err(|error| GpuError::NoAdapter(error.to_string()))
+}
+
+/// The fields of an adapter that the selection policy reads.
+fn candidate(info: &wgpu::AdapterInfo) -> Candidate {
+    Candidate {
+        vendor: info.vendor,
+        kind: match info.device_type {
+            wgpu::DeviceType::DiscreteGpu => Kind::Discrete,
+            wgpu::DeviceType::IntegratedGpu => Kind::Integrated,
+            wgpu::DeviceType::VirtualGpu => Kind::Virtual,
+            wgpu::DeviceType::Cpu => Kind::Cpu,
+            wgpu::DeviceType::Other => Kind::Other,
+        },
+        backend: match info.backend {
+            wgpu::Backend::Vulkan => Backend::Vulkan,
+            wgpu::Backend::Gl => Backend::Gl,
+            _ => Backend::Other,
+        },
     }
 }
 
