@@ -13,7 +13,10 @@
 //!   sudo themselves.
 
 use crate::run::{self, Cancel, Stream};
-use crate::sources::{Family, Source};
+use crate::sources::{Family, Source, Status, FLATHUB};
+
+/// Where the Flathub remote is downloaded from.
+pub const FLATHUB_URL: &str = "https://dl.flathub.org/repo/flathub.flatpakrepo";
 
 /// Longest package name accepted.
 const MAX_NAME: usize = 255;
@@ -41,7 +44,7 @@ pub fn validate_name(name: &str) -> Result<&str, String> {
 pub fn extra_tools(source: Source) -> &'static [&'static str] {
     match source {
         Source::Native | Source::Snap => &["pkexec"],
-        Source::Flatpak | Source::Aur | Source::Slopos => &[],
+        Source::Flatpak | Source::Aur | Source::Slopos | Source::Sources => &[],
     }
 }
 
@@ -80,8 +83,72 @@ pub fn install_argv(
             other => return Err(format!("unavailable: {other} is not an AUR helper")),
         },
         Source::Slopos => return Err("the SLOPOS catalogue installs its own signed entries".into()),
+        Source::Sources => return Err("the Sources tab has nothing to install".into()),
     };
     Ok(argv.into_iter().map(str::to_owned).collect())
+}
+
+/// The commands that make Flatpak ready: install it when it is missing, then
+/// add the Flathub remote when it is not configured. Empty when both are in
+/// place. Installing needs a native manager; every step asks for authority
+/// through `pkexec`, so the command fails cleanly when that is missing.
+pub fn flatpak_setup_steps(
+    family: Option<Family>,
+    status: &Status,
+    tool_present: &dyn Fn(&str) -> bool,
+) -> Result<Vec<Vec<String>>, String> {
+    let mut steps = Vec::new();
+    if !status.flatpak_installed {
+        let family =
+            family.ok_or("unavailable: no apt, dnf or pacman found to install Flatpak with")?;
+        steps.push(install_argv(Source::Native, Some(family), "", "flatpak")?);
+    }
+    if !status.flathub {
+        steps.push(
+            [
+                "pkexec",
+                "flatpak",
+                "remote-add",
+                "--if-not-exists",
+                FLATHUB,
+                FLATHUB_URL,
+            ]
+            .map(str::to_owned)
+            .to_vec(),
+        );
+    }
+    if !steps.is_empty() {
+        for tool in extra_tools(Source::Native) {
+            if !tool_present(tool) {
+                return Err(format!("unavailable: {tool} not found"));
+            }
+        }
+    }
+    Ok(steps)
+}
+
+/// The question the Flatpak prompt asks: exactly the steps
+/// [`flatpak_setup_steps`] would run, in plain words.
+pub fn flatpak_prompt(family: Option<Family>, status: &Status) -> String {
+    let install = !status.flatpak_installed;
+    let remote = !status.flathub;
+    let ask = "The system will ask for your password. Choose No to change nothing.";
+    match (install, remote, family) {
+        (true, _, None) => {
+            "Flatpak is not installed, and no apt, dnf or pacman was found to install it with. Nothing will change."
+                .to_owned()
+        }
+        (true, true, Some(family)) => format!(
+            "Install Flatpak with {} and add the Flathub remote? {ask}",
+            family.label()
+        ),
+        (true, false, Some(family)) => format!(
+            "Install Flatpak with {}? {ask}",
+            family.label()
+        ),
+        (false, true, _) => format!("Add the Flathub remote to Flatpak? {ask}"),
+        (false, false, _) => "Turn on Flatpak support? Nothing else will change.".to_owned(),
+    }
 }
 
 /// Run an install command, passing each non-empty output line to `on_line`.
@@ -311,5 +378,113 @@ mod tests {
             run_install(&words(&["true"]), &cancel, &mut |_| {}),
             Err(run::CANCELLED.to_owned())
         );
+    }
+}
+
+#[cfg(test)]
+mod flatpak_setup_tests {
+    use super::*;
+
+    fn present(names: &'static [&'static str]) -> impl Fn(&str) -> bool {
+        move |name: &str| names.contains(&name)
+    }
+
+    fn status(flatpak_installed: bool, flathub: bool) -> Status {
+        Status {
+            flatpak_installed,
+            flathub,
+            ..Status::default()
+        }
+    }
+
+    fn words(parts: &[&str]) -> Vec<String> {
+        parts.iter().map(|part| (*part).to_owned()).collect()
+    }
+
+    const REMOTE_ADD: [&str; 6] = [
+        "pkexec",
+        "flatpak",
+        "remote-add",
+        "--if-not-exists",
+        "flathub",
+        "https://dl.flathub.org/repo/flathub.flatpakrepo",
+    ];
+
+    #[test]
+    fn a_missing_flatpak_is_installed_then_flathub_is_added() {
+        let steps = flatpak_setup_steps(
+            Some(Family::Apt),
+            &status(false, false),
+            &present(&["pkexec"]),
+        )
+        .unwrap();
+        assert_eq!(steps.len(), 2);
+        assert_eq!(
+            steps[0],
+            words(&[
+                "pkexec",
+                "env",
+                "DEBIAN_FRONTEND=noninteractive",
+                "apt-get",
+                "install",
+                "-y",
+                "flatpak",
+            ])
+        );
+        assert_eq!(steps[1], words(&REMOTE_ADD));
+    }
+
+    #[test]
+    fn only_the_missing_steps_run() {
+        let steps = flatpak_setup_steps(
+            Some(Family::Dnf),
+            &status(true, false),
+            &present(&["pkexec"]),
+        )
+        .unwrap();
+        assert_eq!(steps, vec![words(&REMOTE_ADD)]);
+        let steps = flatpak_setup_steps(
+            Some(Family::Dnf),
+            &status(false, true),
+            &present(&["pkexec"]),
+        )
+        .unwrap();
+        assert_eq!(
+            steps,
+            vec![words(&["pkexec", "dnf", "install", "-y", "flatpak"])]
+        );
+        let steps =
+            flatpak_setup_steps(Some(Family::Dnf), &status(true, true), &present(&[])).unwrap();
+        assert!(steps.is_empty(), "nothing to do, so no authority is needed");
+    }
+
+    #[test]
+    fn no_manager_or_no_pkexec_is_named_and_runs_nothing() {
+        assert_eq!(
+            flatpak_setup_steps(None, &status(false, false), &present(&["pkexec"])).unwrap_err(),
+            "unavailable: no apt, dnf or pacman found to install Flatpak with"
+        );
+        assert_eq!(
+            flatpak_setup_steps(Some(Family::Pacman), &status(true, false), &present(&[]))
+                .unwrap_err(),
+            "unavailable: pkexec not found"
+        );
+    }
+
+    #[test]
+    fn the_prompt_describes_the_steps() {
+        assert_eq!(
+            flatpak_prompt(Some(Family::Apt), &status(false, false)),
+            "Install Flatpak with apt and add the Flathub remote? The system will ask for your password. Choose No to change nothing."
+        );
+        assert!(flatpak_prompt(Some(Family::Dnf), &status(true, false))
+            .starts_with("Add the Flathub remote to Flatpak?"));
+        assert!(flatpak_prompt(Some(Family::Dnf), &status(false, true))
+            .starts_with("Install Flatpak with dnf?"));
+        assert_eq!(
+            flatpak_prompt(Some(Family::Dnf), &status(true, true)),
+            "Turn on Flatpak support? Nothing else will change."
+        );
+        assert!(flatpak_prompt(None, &status(false, false)).contains("Nothing will change"));
     }
 }
