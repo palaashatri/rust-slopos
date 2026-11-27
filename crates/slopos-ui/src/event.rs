@@ -79,6 +79,10 @@ pub enum Event {
     CloseRequested,
     /// A timer started with [`crate::platform::Control::start_timer`] fired.
     Timer(u64),
+    /// The window was mapped (`true`) or unmapped (`false`): shown, hidden,
+    /// minimised or moved off the current workspace. An app that samples
+    /// something periodically stops while it is `false`.
+    Visibility(bool),
     /// Another thread called [`crate::platform::Proxy::wake`].
     Wake,
     /// An assistive technology asked for an action on a node.
