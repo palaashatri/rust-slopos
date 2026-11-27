@@ -137,6 +137,19 @@ impl ListView {
         self.reveal(index);
     }
 
+    /// Like [`Self::select_only`], but the scroll position stays where it is.
+    /// For a list that its app refreshes while the user reads it (a live
+    /// table whose rows move), so the view does not jump back each refresh.
+    pub fn select_without_scrolling(&mut self, index: usize) {
+        if index >= self.len {
+            return;
+        }
+        self.selected.clear();
+        self.selected.insert(index);
+        self.cursor = Some(index);
+        self.anchor = Some(index);
+    }
+
     /// Select exactly `indices` (out-of-range ones are dropped); the cursor
     /// moves to the first and is scrolled into view.
     pub fn set_selection(&mut self, indices: &[usize]) {
@@ -622,5 +635,19 @@ mod tests {
         assert_eq!(list.row_for_node(list.row_node_id(2)), Some(2));
         assert_eq!(list.row_for_node(list.id), None);
         assert_eq!(list.row_for_node(list.row_node_id(5000)), None);
+    }
+
+    #[test]
+    fn select_without_scrolling_keeps_the_view_where_it_is() {
+        let mut list = list(100);
+        list.select_only(0);
+        let before = list.scroll().offset();
+        list.select_without_scrolling(60);
+        assert_eq!(list.scroll().offset(), before);
+        assert_eq!(list.selection(), vec![60]);
+        assert_eq!(list.cursor(), Some(60));
+        // Out of range is ignored, like select_only.
+        list.select_without_scrolling(500);
+        assert_eq!(list.selection(), vec![60]);
     }
 }
