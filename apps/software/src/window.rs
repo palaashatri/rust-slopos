@@ -647,7 +647,7 @@ impl SoftwareApp {
         };
         // The tab strip sits under the header.
         let tabs_y = top + HEADER_HEIGHT + 4;
-        self.tab_strip.layout(14, tabs_y, &self.font);
+        self.tab_strip.layout(14, tabs_y, self.window.0.saturating_sub(28), &self.font);
         let list_top = self.body_top();
         self.list.set_bounds(Rect {
             x: 0,

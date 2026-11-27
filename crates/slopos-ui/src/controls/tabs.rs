@@ -7,9 +7,16 @@
 //! as the selection moves; the strip reports the change as
 //! [`TabsOutcome::Selected`].
 //!
+//! When the tabs are wider than the space given to [`Tabs::layout`], the
+//! strip shows a run of them that always includes the selected tab, with a
+//! previous and a next arrow at its ends. The arrows select the neighbouring
+//! tab, wrapping like the keys do, so every tab stays reachable by pointer,
+//! keyboard and accessibility.
+//!
 //! Accessibility: the strip is a `TabList` node (id `id`) whose children are
 //! one `Tab` node per tab (ids `id + 1 + index`). Each tab node carries its
-//! selected state; clicking or focusing a tab node selects it.
+//! selected state; clicking or focusing a tab node selects it. A tab that is
+//! scrolled out of the run has no bounds but is still a node.
 
 use crate::event::{AccessibilityRequest, Event, Key, PointerButton};
 use crate::foundation::geometry::Rect;
@@ -26,6 +33,8 @@ const HEIGHT: u32 = 22;
 const MIN_WIDTH: u32 = 70;
 const PADDING: u32 = 28;
 const GAP: i32 = 6;
+/// Width of the previous and next arrows shown when the tabs overflow.
+const ARROW_WIDTH: u32 = 22;
 
 /// What a [`Tabs`] event did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,7 +61,17 @@ pub struct Tabs {
     pub bounds: Rect,
     labels: Vec<String>,
     selected: usize,
-    tab_rects: Vec<Rect>,
+    /// Each tab's width from the last layout; empty until one happens.
+    widths: Vec<u32>,
+    /// Where the strip was placed and how much width it may use.
+    origin: (i32, i32),
+    available: u32,
+    /// The first tab in the run when the tabs overflow.
+    first: usize,
+    /// Each tab's bounds, or `None` for a tab outside the run.
+    tab_rects: Vec<Option<Rect>>,
+    /// The previous and next arrows, present only when the tabs overflow.
+    arrows: Option<(Rect, Rect)>,
 }
 
 impl Tabs {
@@ -65,7 +84,12 @@ impl Tabs {
             bounds: Rect::default(),
             labels: labels.iter().map(|text| (*text).to_owned()).collect(),
             selected: 0,
+            widths: Vec::new(),
+            origin: (0, 0),
+            available: 0,
+            first: 0,
             tab_rects: Vec::new(),
+            arrows: None,
         };
         tabs.selected = tabs.clamp(selected);
         tabs
@@ -92,10 +116,13 @@ impl Tabs {
     }
 
     /// Replace the labels. The selection stays on the same index, clamped to
-    /// the new last tab.
+    /// the new last tab. The strip has no tab positions until the next
+    /// [`Tabs::layout`], because the new labels have no widths yet.
     pub fn set_labels(&mut self, labels: &[String]) {
         self.labels = labels.to_vec();
         self.selected = self.clamp(self.selected);
+        self.widths.clear();
+        self.fit();
     }
 
     /// Select `index` without an event. Returns whether the selection moved.
@@ -104,6 +131,7 @@ impl Tabs {
             return false;
         }
         self.selected = index;
+        self.fit();
         true
     }
 
@@ -118,49 +146,126 @@ impl Tabs {
             .then(|| (id - self.id - 1) as usize)
     }
 
-    /// The node focus should land on: the selected tab.
+    /// The node focus should land on: the selected tab, or the strip when
+    /// there are no tabs (so the focus target is always a node).
     pub fn focus_node(&self) -> u64 {
+        if self.labels.is_empty() {
+            return self.id;
+        }
         self.tab_id(self.selected)
     }
 
-    /// Place the strip with its top-left corner at `(x, y)`, sizing each tab
-    /// to its label. Call again when the labels or font change.
-    pub fn layout(&mut self, x: i32, y: i32, font: &Font) {
-        let mut cursor = x;
-        self.tab_rects = self
+    /// Place the strip with its top-left corner at `(x, y)` in `available`
+    /// width, sizing each tab to its label. Call again when the labels, the
+    /// font or the width change.
+    pub fn layout(&mut self, x: i32, y: i32, available: u32, font: &Font) {
+        self.origin = (x, y);
+        self.available = available;
+        self.widths = self
             .labels
             .iter()
-            .map(|label| {
-                let width = (measure(label, font).width as u32 + PADDING).max(MIN_WIDTH);
-                let rect = Rect {
-                    x: cursor,
-                    y,
-                    width,
-                    height: HEIGHT,
-                };
-                cursor += width as i32 + GAP;
-                rect
-            })
+            .map(|label| (measure(label, font).width as u32 + PADDING).max(MIN_WIDTH))
             .collect();
-        let right = self
-            .tab_rects
-            .last()
-            .map_or(x, |rect| rect.x + rect.width as i32);
+        self.fit();
+    }
+
+    /// Work out where each tab is drawn from the widths, the origin, the
+    /// available width and the selection. Tabs that fit are all shown.
+    /// Otherwise the run is the first tab that keeps the selected tab in view,
+    /// extended to the right as far as it fits, between the two arrows.
+    fn fit(&mut self) {
+        let (x, y) = self.origin;
+        let count = self.labels.len();
+        self.tab_rects = vec![None; count];
+        self.arrows = None;
         self.bounds = Rect {
             x,
             y,
-            width: (right - x).max(0) as u32,
+            width: 0,
+            height: HEIGHT,
+        };
+        if count == 0 || self.widths.len() != count {
+            return;
+        }
+        let full = run_width(&self.widths, 0, count);
+        let (first, end, start) = if full <= self.available {
+            self.first = 0;
+            (0, count, x)
+        } else {
+            let arrow_space = ARROW_WIDTH + GAP as u32;
+            let room = self.available.saturating_sub(2 * arrow_space);
+            self.first = self.first.min(self.selected);
+            while self.first < self.selected
+                && run_width(&self.widths, self.first, self.selected + 1) > room
+            {
+                self.first += 1;
+            }
+            let mut end = self.first + 1;
+            while end < count && run_width(&self.widths, self.first, end + 1) <= room {
+                end += 1;
+            }
+            let right = x + self.available.saturating_sub(ARROW_WIDTH) as i32;
+            self.arrows = Some((
+                Rect {
+                    x,
+                    y,
+                    width: ARROW_WIDTH,
+                    height: HEIGHT,
+                },
+                Rect {
+                    x: right,
+                    y,
+                    width: ARROW_WIDTH,
+                    height: HEIGHT,
+                },
+            ));
+            (self.first, end, x + arrow_space as i32)
+        };
+        let mut cursor = start;
+        for (index, rect) in self.tab_rects.iter_mut().enumerate().take(end).skip(first) {
+            let width = self.widths[index];
+            *rect = Some(Rect {
+                x: cursor,
+                y,
+                width,
+                height: HEIGHT,
+            });
+            cursor += width as i32 + GAP;
+        }
+        self.bounds = Rect {
+            x,
+            y,
+            width: if self.arrows.is_some() {
+                self.available
+            } else {
+                full
+            },
             height: HEIGHT,
         };
     }
 
-    /// The bounds of tab `index` after the last [`Tabs::layout`].
+    /// The bounds of tab `index` after the last [`Tabs::layout`], or `None`
+    /// when the tab is outside the run.
     pub fn tab_bounds(&self, index: usize) -> Option<Rect> {
-        self.tab_rects.get(index).copied()
+        self.tab_rects.get(index).copied().flatten()
     }
 
+    /// The index of the visible tab under `(x, y)`.
     fn index_at(&self, x: i32, y: i32) -> Option<usize> {
-        self.tab_rects.iter().position(|rect| rect.contains(x, y))
+        self.tab_rects
+            .iter()
+            .position(|rect| rect.is_some_and(|rect| rect.contains(x, y)))
+    }
+
+    /// The tab `step` away from the selection, wrapping at either end.
+    fn neighbour(&self, forward: bool) -> usize {
+        let last = self.labels.len() - 1;
+        match (forward, self.selected) {
+            (true, selected) if selected == last => 0,
+            (true, selected) => selected + 1,
+            (false, 0) => last,
+            (false, selected) => selected - 1,
+        }
     }
 
     /// Feed the strip an event from the window.
@@ -173,9 +278,13 @@ impl Tabs {
                 x,
                 y,
                 button: PointerButton::Primary,
-            } => match self.index_at(*x, *y) {
-                Some(index) => index,
-                None => return TabsOutcome::Ignored,
+            } => match self.arrows {
+                Some((back, _)) if back.contains(*x, *y) => self.neighbour(false),
+                Some((_, forward)) if forward.contains(*x, *y) => self.neighbour(true),
+                _ => match self.index_at(*x, *y) {
+                    Some(index) => index,
+                    None => return TabsOutcome::Ignored,
+                },
             },
             Event::Accessibility(AccessibilityRequest::Click(id))
             | Event::Accessibility(AccessibilityRequest::Focus(id)) => {
@@ -185,24 +294,11 @@ impl Tabs {
                 }
             }
             Event::KeyPressed { key, .. } if self.focused => {
-                let last = self.labels.len() - 1;
                 let next = match key {
-                    Key::Left => {
-                        if self.selected == 0 {
-                            last
-                        } else {
-                            self.selected - 1
-                        }
-                    }
-                    Key::Right => {
-                        if self.selected == last {
-                            0
-                        } else {
-                            self.selected + 1
-                        }
-                    }
+                    Key::Left => self.neighbour(false),
+                    Key::Right => self.neighbour(true),
                     Key::Home => 0,
-                    Key::End => last,
+                    Key::End => self.labels.len() - 1,
                     _ => return TabsOutcome::Ignored,
                 };
                 return if self.select(next) {
@@ -222,7 +318,22 @@ impl Tabs {
 
     pub fn paint(&self, surface: &RasterSurface, font: &Font) -> Result<(), RenderError> {
         let colors = palette();
+        if let Some((back, forward)) = self.arrows {
+            for (rect, glyph) in [(back, "<"), (forward, ">")] {
+                paint_button_plate_in(
+                    surface,
+                    rect,
+                    ButtonPlateVariant::Regular,
+                    ButtonPlateState::Rest,
+                )?;
+                let extent = measure(glyph, font);
+                let x = rect.x + (rect.width as i32 - extent.width as i32) / 2;
+                let y = rect.y + (rect.height as i32 - extent.height as i32) / 2;
+                surface.draw_text(glyph, x, y, font, colors.ink)?;
+            }
+        }
         for (index, (label, rect)) in self.labels.iter().zip(&self.tab_rects).enumerate() {
+            let Some(rect) = rect else { continue };
             let selected = index == self.selected;
             let variant = if selected {
                 ButtonPlateVariant::Default
@@ -274,6 +385,12 @@ impl Tabs {
     }
 }
 
+/// The width of tabs `first..end` placed side by side with their gaps.
+fn run_width(widths: &[u32], first: usize, end: usize) -> u32 {
+    let tabs = &widths[first..end];
+    tabs.iter().sum::<u32>() + GAP as u32 * tabs.len().saturating_sub(1) as u32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -282,7 +399,7 @@ mod tests {
 
     fn strip() -> Tabs {
         let mut tabs = Tabs::new(40, "Software sources", &["Native", "SLOPOS", "Sources"], 0);
-        tabs.layout(14, 30, &Font::system(12.0));
+        tabs.layout(14, 30, 600, &Font::system(12.0));
         tabs
     }
 
@@ -345,7 +462,7 @@ mod tests {
     #[test]
     fn a_single_tab_stays_put_and_reports_no_change() {
         let mut tabs = Tabs::new(40, "One", &["Only"], 0);
-        tabs.layout(0, 0, &Font::system(12.0));
+        tabs.layout(0, 0, 600, &Font::system(12.0));
         tabs.focused = true;
         assert_eq!(tabs.handle(&key(Key::Right)), TabsOutcome::Changed);
         assert_eq!(tabs.handle(&key(Key::Left)), TabsOutcome::Changed);
@@ -445,5 +562,127 @@ mod tests {
             tabs.focused = true;
             tabs.paint(&surface, &Font::system(12.0)).unwrap();
         }
+    }
+
+    const SIX: [&str; 6] = [
+        "Native (apt)",
+        "SLOPOS",
+        "Flatpak",
+        "Snap",
+        "AUR",
+        "Sources",
+    ];
+
+    /// A strip of six tabs laid out `available` wide, with `selected` chosen.
+    fn narrow(available: u32, selected: usize) -> Tabs {
+        let mut tabs = Tabs::new(40, "Software sources", &SIX, 0);
+        tabs.layout(14, 30, available, &Font::system(12.0));
+        tabs.select(selected);
+        tabs
+    }
+
+    /// The indices of the tabs that have bounds.
+    fn visible(tabs: &Tabs) -> Vec<usize> {
+        (0..tabs.len())
+            .filter(|index| tabs.tab_bounds(*index).is_some())
+            .collect()
+    }
+
+    #[test]
+    fn tabs_that_fit_have_no_arrows() {
+        let tabs = narrow(2000, 2);
+        assert!(tabs.arrows.is_none());
+        assert_eq!(visible(&tabs), [0, 1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn overflowing_tabs_keep_the_selected_tab_in_the_strip() {
+        let wide = narrow(2000, 0);
+        let full = wide.bounds.width;
+        let available = full / 3;
+        for selected in 0..SIX.len() {
+            let tabs = narrow(available, selected);
+            let shown = visible(&tabs);
+            assert!(
+                shown.contains(&selected),
+                "tab {selected} is in view: {shown:?}"
+            );
+            assert!(shown.len() < SIX.len(), "some tabs are out of the run");
+            assert!(
+                shown.windows(2).all(|pair| pair[1] == pair[0] + 1),
+                "the run is contiguous: {shown:?}"
+            );
+            let right_edge = 14 + available as i32;
+            for index in &shown {
+                let rect = tabs.tab_bounds(*index).unwrap();
+                assert!(
+                    rect.x >= 14 && rect.x + rect.width as i32 <= right_edge,
+                    "tab {index} fits the strip: {rect:?}"
+                );
+            }
+            assert!(tabs.arrows.is_some());
+        }
+    }
+
+    #[test]
+    fn the_arrows_select_the_neighbouring_tab_and_wrap() {
+        let mut tabs = narrow(200, 0);
+        let (back, forward) = tabs.arrows.expect("the tabs overflow");
+        let press = |rect: Rect| Event::PointerPressed {
+            x: rect.x + 2,
+            y: rect.y + 2,
+            button: PointerButton::Primary,
+        };
+        assert_eq!(tabs.handle(&press(forward)), TabsOutcome::Selected(1));
+        assert_eq!(tabs.handle(&press(back)), TabsOutcome::Selected(0));
+        assert_eq!(
+            tabs.handle(&press(back)),
+            TabsOutcome::Selected(5),
+            "the previous arrow wraps to the last tab"
+        );
+        assert!(tabs.tab_bounds(5).is_some(), "the selection is in view");
+    }
+
+    #[test]
+    fn keyboard_and_accessibility_reach_every_hidden_tab() {
+        let mut tabs = narrow(200, 0);
+        tabs.focused = true;
+        for step in 1..SIX.len() {
+            assert_eq!(tabs.handle(&key(Key::Right)), TabsOutcome::Selected(step));
+            assert!(
+                tabs.tab_bounds(step).is_some(),
+                "tab {step} is in view once selected"
+            );
+        }
+        let first_again = tabs.tab_id(0);
+        assert_eq!(
+            tabs.handle(&Event::Accessibility(AccessibilityRequest::Focus(
+                first_again
+            ))),
+            TabsOutcome::Selected(0)
+        );
+        assert!(tabs.tab_bounds(0).is_some());
+        // Every tab stays a node, even the ones outside the run.
+        assert_eq!(tabs.accessibility_nodes().len(), 1 + SIX.len());
+    }
+
+    #[test]
+    fn overflowing_tabs_paint_at_one_and_two_times_scale() {
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(200, 40, Scale::new(factor).unwrap()).unwrap();
+            let tabs = narrow(200, 4);
+            tabs.paint(&surface, &Font::system(12.0)).unwrap();
+        }
+    }
+
+    #[test]
+    fn focus_lands_on_the_strip_when_there_are_no_tabs() {
+        let mut tabs = Tabs::new(40, "Empty", &[], 0);
+        tabs.layout(0, 0, 100, &Font::system(12.0));
+        assert_eq!(tabs.focus_node(), 40);
+        assert!(tabs
+            .accessibility_nodes()
+            .iter()
+            .any(|(id, _)| *id == tabs.focus_node()));
     }
 }
