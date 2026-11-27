@@ -3126,6 +3126,96 @@ mod tests {
     }
 
     #[test]
+    fn bluetooth_unsupported_and_failed_actions_are_shown_truthfully() {
+        use slopos_services::bluetooth::{BluetoothAdapter, BluetoothDevice};
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        let mut control = Control::default();
+        app.event(&Event::MenuChosen { menu: 1, item: 3 }, &mut control);
+        assert_eq!(app.panel(), Panel::Bluetooth);
+
+        // BlueZ is not running: say so, and offer no control.
+        app.apply_update(Update::Bluetooth(Err(model::Unavailable::new(
+            Availability::MissingService,
+            "",
+        ))));
+        app.sync_from_state();
+        assert_eq!(
+            app.lines().1,
+            vec!["Unavailable: BlueZ is not running on this computer.".to_owned()]
+        );
+        assert!(!app.bluetooth_power.enabled && !app.bt_search.enabled);
+        assert!(!app.bt_pair.enabled && !app.bt_connect.enabled && !app.bt_forget.enabled);
+        assert!(app.bt_list.is_empty());
+
+        // The service is back, but there is no adapter to use.
+        app.apply_update(Update::Bluetooth(Ok(BluetoothSnapshot {
+            revision: 2,
+            availability: Availability::UnsupportedHardware,
+            adapters: Vec::new(),
+            devices: Vec::new(),
+        })));
+        app.sync_from_state();
+        assert_eq!(app.lines().1, vec!["No Bluetooth adapter was found.".to_owned()]);
+        assert!(!app.bluetooth_power.enabled && !app.bt_search.enabled);
+
+        // An adapter that is switched off: power can be turned on, but
+        // nothing can be searched for or paired while it is off.
+        let speaker = BluetoothDevice {
+            path: "/hci0/dev_1".into(),
+            name: "Speaker".into(),
+            address: "11".into(),
+            adapter_path: "/hci0".into(),
+            paired: false,
+            trusted: false,
+            connected: false,
+        };
+        app.apply_update(Update::Bluetooth(Ok(BluetoothSnapshot {
+            revision: 3,
+            availability: Availability::Available,
+            adapters: vec![BluetoothAdapter {
+                path: "/hci0".into(),
+                name: "slopos".into(),
+                address: "AA".into(),
+                powered: false,
+                discovering: false,
+            }],
+            devices: vec![speaker],
+        })));
+        app.sync_from_state();
+        assert_eq!(
+            app.lines().1,
+            vec![
+                "slopos (AA) — off".to_owned(),
+                "1 device, 0 paired".to_owned()
+            ]
+        );
+        assert!(app.bluetooth_power.enabled && !app.bluetooth_power.checked);
+        assert!(!app.bt_search.enabled && !app.bt_pair.enabled);
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.bluetooth_power.focused);
+        app.event(&key(Key::Space), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::SetBluetoothPowered("/hci0".into(), true)
+        );
+
+        // BlueZ refuses the change: an error, and the power control goes
+        // back to what the provider last reported.
+        app.apply_update(Update::Failed(
+            "Bluetooth operation denied: Operation not permitted".into(),
+        ));
+        app.sync_from_state();
+        assert!(app.status_error && app.status.contains("Operation not permitted"));
+        assert!(!app.bluetooth_power.checked);
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
+    }
+
+    #[test]
     fn display_changes_are_confirmed_or_reverted() {
         use slopos_services::display::{DisplayMode, DisplayOutput, Rotation};
         let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
