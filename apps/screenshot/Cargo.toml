@@ -1,0 +1,18 @@
+[package]
+name = "slopos-screenshot"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Screenshot: whole screen, window and region captures saved as PNG"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+accesskit = { workspace = true }
+env_logger = { workspace = true }
+thiserror = { workspace = true }
+x11rb = { workspace = true }
+# PNG encoding only; the same decoder set and lockfile entry as the Image Viewer.
+image = { workspace = true, features = ["png"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }

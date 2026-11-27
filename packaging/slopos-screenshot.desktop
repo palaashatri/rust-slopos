@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Screenshot
+Comment=Capture the whole screen, a window or a region as PNG
+Exec=slopos-screenshot
+TryExec=slopos-screenshot
+Icon=applets-screenshooter
+Terminal=false
+Type=Application
+Categories=Utility;Graphics;
+StartupNotify=false

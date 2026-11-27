@@ -3616,6 +3616,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-screenshot"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "env_logger",
+ "image",
+ "slopos-ui",
+ "tempfile",
+ "thiserror 1.0.69",
+ "x11rb",
+]
+
+[[package]]
 name = "slopos-services"
 version = "0.1.0"
 dependencies = [

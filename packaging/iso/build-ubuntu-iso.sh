@@ -104,7 +104,7 @@ mkdir -p chroot/usr/bin \
          chroot/usr/share/themes \
          chroot/usr/share/icons
 
-for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-volume-mixer slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-software; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-volume-mixer slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-software slopos-screenshot; do
   install -Dm755 "$ROOT/target/release/$binary" "chroot/usr/bin/$binary"
 done
 install -Dm755 "$ROOT/scripts/start-slopos-i" "chroot/usr/bin/start-slopos-i"
@@ -116,7 +116,7 @@ install -Dm644 "$ROOT/packaging/slopos-browser.desktop" "chroot/usr/share/applic
 # Default applications: slopos-browser.desktop (Firefox) for text/html and http/https.
 install -Dm644 "$ROOT/assets/config/mimeapps.list" "chroot/etc/xdg/mimeapps.list"
 # The shipped apps' menu entries, so each app is discoverable from the live session.
-for app in slopos-calculator slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-settings slopos-software slopos-volume-mixer; do
+for app in slopos-calculator slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-settings slopos-software slopos-volume-mixer slopos-screenshot; do
   install -Dm644 "$ROOT/packaging/$app.desktop" "chroot/usr/share/applications/$app.desktop"
 done
 
