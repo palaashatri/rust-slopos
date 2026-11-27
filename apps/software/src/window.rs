@@ -55,6 +55,8 @@ const LIST_WIDTH: u32 = 300;
 const HEADER_HEIGHT: i32 = 50;
 const TABS_ROW: i32 = 30;
 const STATUS_HEIGHT: u32 = 24;
+/// Height of a Sources tab switch button.
+const SWITCH_HEIGHT: i32 = 22;
 const ROW_HEIGHT: u32 = 44;
 const SEARCH_WIDTH: u32 = 260;
 /// The text shown where an install button would be on a source whose install
@@ -120,8 +122,12 @@ enum Finished {
         name: String,
         result: Result<(), String>,
     },
-    /// The Flatpak setup steps the Sources tab ran.
-    FlatpakSetup { result: Result<(), String> },
+    /// The Flatpak setup steps the Sources tab ran: the ones that finished, and
+    /// how the run ended.
+    FlatpakSetup {
+        completed: Vec<&'static str>,
+        result: Result<(), String>,
+    },
 }
 
 /// What the open dialog is asking.
@@ -129,13 +135,16 @@ enum Finished {
 enum Prompt {
     /// Remove the app with this id.
     Remove(String),
-    /// Install Flatpak and add Flathub, then turn Flatpak support on.
-    EnableFlatpak,
+    /// Install Flatpak and add Flathub, then turn Flatpak support on. The
+    /// steps are the plan the question described.
+    EnableFlatpak(Vec<packages::SetupStep>),
 }
 
 struct Running {
     id: String,
     verb: &'static str,
+    /// What the operation is called on screen, such as "Setting up Flatpak".
+    title: String,
     progress: Arc<Progress>,
     /// Stops a package install's tool. Set for every transaction; only
     /// package installs use it.
@@ -143,6 +152,23 @@ struct Running {
     /// Output lines of a package install; `None` for an AppImage transaction.
     lines: Option<Receiver<String>>,
     done: Receiver<Finished>,
+}
+
+/// What a Flatpak setup left behind, for its report. Nothing is rolled back:
+/// the steps that finished stay as they are.
+fn setup_left(completed: &[&str]) -> String {
+    if completed.is_empty() {
+        return "No step finished. Flatpak is not turned on.".to_owned();
+    }
+    let state = if completed.contains(&packages::FLATPAK_INSTALLED) {
+        "Flatpak is installed but not turned on."
+    } else {
+        "Flatpak is not turned on."
+    };
+    format!(
+        "Finished: {}. Nothing was rolled back. {state}",
+        completed.join(", ")
+    )
 }
 
 /// How a transaction reaches the outside world; tests swap in local files.
@@ -275,6 +301,8 @@ pub struct SoftwareApp {
     sections: Vec<Section>,
     /// The switch button of each Sources block that has one.
     switches: Vec<(Source, Button)>,
+    /// How far the Sources content is scrolled down, in pixels.
+    panel_scroll: i32,
     search: TextField,
     search_cancel: Button,
     listing: Listing,
@@ -359,6 +387,7 @@ impl SoftwareApp {
             probe: Status::default(),
             sections: Vec::new(),
             switches: Vec::new(),
+            panel_scroll: 0,
             search: TextField::new(SEARCH_ID, "Search packages"),
             search_cancel: Button::new(
                 SEARCH_CANCEL_ID,
@@ -476,7 +505,9 @@ impl SoftwareApp {
     /// dropped. Returns the query that was running.
     fn stop_search(&mut self) -> Option<String> {
         let job = self.search_job.take()?;
-        job.cancel.cancel();
+        // The result is dropped either way, so a failed kill only leaves the
+        // tool to finish unseen.
+        let _ = job.cancel.cancel();
         Some(job.query)
     }
 
@@ -647,7 +678,8 @@ impl SoftwareApp {
         };
         // The tab strip sits under the header.
         let tabs_y = top + HEADER_HEIGHT + 4;
-        self.tab_strip.layout(14, tabs_y, self.window.0.saturating_sub(28), &self.font);
+        let strip_width = self.window.0.saturating_sub(28);
+        self.tab_strip.layout(14, tabs_y, strip_width, &self.font);
         let list_top = self.body_top();
         self.list.set_bounds(Rect {
             x: 0,
@@ -688,10 +720,19 @@ impl SoftwareApp {
         }
     }
 
-    /// Where the Sources tab draws each block, from the top of the body down.
-    fn panel_geometry(&self) -> Vec<PanelBlock> {
+    /// The part of the window the Sources content scrolls in: from below the
+    /// running line down to the status bar. Returns its top and bottom.
+    fn panel_view(&self) -> (i32, i32) {
+        let top = self.body_top() + 12 + if self.running.is_some() { 30 } else { 0 };
+        let bottom = self.window.1 as i32 - STATUS_HEIGHT as i32;
+        (top, bottom)
+    }
+
+    /// Where the Sources tab draws each block, before scrolling, and the y
+    /// just below the last block.
+    fn panel_geometry(&self) -> (Vec<PanelBlock>, i32) {
         let line = measure("Ag", &self.font).height as i32;
-        let mut y = self.body_top() + 12 + if self.running.is_some() { 30 } else { 0 };
+        let mut y = self.panel_view().0;
         let mut blocks = Vec::with_capacity(self.sections.len());
         for section in &self.sections {
             let heading = y;
@@ -713,12 +754,37 @@ impl SoftwareApp {
                 button,
             });
         }
-        blocks
+        (blocks, y)
     }
 
-    /// Place the Sources tab's switch buttons and its Cancel button.
+    /// Scroll the Sources content so the focused switch is in view, then
+    /// place the switch buttons and the Cancel button. A switch that is not
+    /// wholly in view gets no bounds, so it cannot be pressed from outside
+    /// the view.
     fn layout_panel(&mut self) {
-        let blocks = self.panel_geometry();
+        let (blocks, content_end) = self.panel_geometry();
+        let (top, bottom) = self.panel_view();
+        let max_scroll = (content_end - bottom).max(0);
+        let mut scroll = self.panel_scroll.clamp(0, max_scroll);
+        let focused = self.focus.focused();
+        let focused_switch = self
+            .sections
+            .iter()
+            .zip(&blocks)
+            .find_map(|(section, block)| {
+                let at = block.button?;
+                (focused == Some(switch_id(section.source))).then_some(at)
+            });
+        if let Some(at) = focused_switch {
+            if at - scroll < top {
+                scroll = at - top;
+            }
+            if at + SWITCH_HEIGHT - scroll > bottom {
+                scroll = at + SWITCH_HEIGHT - bottom;
+            }
+        }
+        self.panel_scroll = scroll.clamp(0, max_scroll);
+        let scroll = self.panel_scroll;
         let x = 14;
         for (section, block) in self.sections.iter().zip(&blocks) {
             let Some(y) = block.button else { continue };
@@ -730,11 +796,16 @@ impl SoftwareApp {
                 continue;
             };
             let width = (measure(&button.label, &self.font).width as u32 + 28).max(120);
-            button.bounds = Rect {
-                x,
-                y,
-                width,
-                height: 22,
+            let at = y - scroll;
+            button.bounds = if at >= top && at + SWITCH_HEIGHT <= bottom {
+                Rect {
+                    x,
+                    y: at,
+                    width,
+                    height: SWITCH_HEIGHT as u32,
+                }
+            } else {
+                Rect::default()
             };
         }
         if self.running.is_some() {
@@ -950,29 +1021,37 @@ impl SoftwareApp {
     /// the tabs.
     fn set_option(&mut self, source: Source, value: bool) {
         let label = match source {
-            Source::Flatpak => {
-                self.config.flatpak = value;
-                "Flatpak"
-            }
-            Source::Snap => {
-                self.config.snap = value;
-                "Snap"
-            }
-            Source::Aur => {
-                self.config.aur = value;
-                "AUR"
-            }
+            Source::Flatpak => "Flatpak",
+            Source::Snap => "Snap",
+            Source::Aur => "AUR",
             Source::Native | Source::Slopos | Source::Sources => return,
         };
-        let saved = self.config.save(&self.environment.config_path);
-        self.retune_tabs();
-        match saved {
+        match self.save_option(source, value) {
             Ok(()) if value => {
                 self.notice(format!("{label} is on. Search its tab to list packages."))
             }
             Ok(()) => self.notice(format!("{label} is off.")),
             Err(error) => self.fail(format!("Can't save software settings: {error}")),
         }
+    }
+
+    /// Save the setting for `source`, then make it the live setting and
+    /// rebuild the tabs. A failed save leaves the settings and the tabs as
+    /// they were.
+    fn save_option(&mut self, source: Source, value: bool) -> Result<(), String> {
+        let mut candidate = self.config;
+        match source {
+            Source::Flatpak => candidate.flatpak = value,
+            Source::Snap => candidate.snap = value,
+            Source::Aur => candidate.aur = value,
+            Source::Native | Source::Slopos | Source::Sources => return Ok(()),
+        }
+        candidate
+            .save(&self.environment.config_path)
+            .map_err(|error| error.to_string())?;
+        self.config = candidate;
+        self.retune_tabs();
+        Ok(())
     }
 
     /// The Sources tab's switch for `source` was pressed. Turning a source
@@ -996,31 +1075,61 @@ impl SoftwareApp {
         self.set_option(source, true);
     }
 
-    /// Ask whether to set up Flatpak. No, the default, changes nothing.
+    /// Take a fresh look at the machine and ask whether to set up Flatpak.
+    /// No, the default, changes nothing.
     fn confirm_flatpak(&mut self) {
+        self.probe = self.environment.probe();
+        // A plan that cannot be built is reported when Yes is chosen; the
+        // question is asked either way.
+        let steps = self.flatpak_plan(&self.probe).unwrap_or_default();
+        self.ask_flatpak(steps);
+    }
+
+    /// The Flatpak setup the machine needs, as `status` describes it.
+    fn flatpak_plan(&self, status: &Status) -> Result<Vec<packages::SetupStep>, String> {
+        let tool_present: &dyn Fn(&str) -> bool = &*self.environment.tool_present;
+        packages::flatpak_setup_steps(status.manager, status, tool_present)
+    }
+
+    /// Open the Flatpak question for `steps`, the plan it describes.
+    fn ask_flatpak(&mut self, steps: Vec<packages::SetupStep>) {
         let message = packages::flatpak_prompt(self.probe.manager, &self.probe);
         let mut dialog = Dialog::new(DIALOG_ID, "Turn on Flatpak?", &message, &["No", "Yes"]);
         dialog.set_default(0);
         dialog.layout(self.window);
-        self.dialog = Some((dialog, Prompt::EnableFlatpak));
+        self.dialog = Some((dialog, Prompt::EnableFlatpak(steps)));
     }
 
-    /// Run the Flatpak setup steps on a worker thread; when they all succeed,
-    /// Flatpak support is turned on. Output lines reach the Sources tab as
-    /// they arrive.
-    fn start_flatpak_setup(&mut self) {
+    /// The user chose Yes. The machine is looked at again first, and the plan
+    /// is built from that fresh look. Steps run only when every step of the
+    /// fresh plan was shown in the question. A step that was not shown means
+    /// the machine changed, so the updated plan is shown and the user is asked
+    /// again.
+    fn flatpak_confirmed(&mut self, shown: Vec<packages::SetupStep>) {
         if self.running.is_some() {
             return;
         }
-        let steps = {
-            let tool_present: &dyn Fn(&str) -> bool = &*self.environment.tool_present;
-            match packages::flatpak_setup_steps(self.probe.manager, &self.probe, tool_present) {
-                Ok(steps) => steps,
-                Err(reason) => return self.fail(reason),
-            }
+        self.probe = self.environment.probe();
+        let steps = match self.flatpak_plan(&self.probe) {
+            Ok(steps) => steps,
+            Err(reason) => return self.fail(reason),
         };
+        if steps.iter().any(|step| !shown.contains(step)) {
+            return self.ask_flatpak(steps);
+        }
+        self.start_flatpak_setup(steps);
+    }
+
+    /// Run the Flatpak setup steps on a worker thread, in order. A failed step
+    /// or a cancel ends the run, and the steps that finished are reported.
+    /// When every step succeeds, Flatpak support is turned on. Output lines
+    /// reach the Sources tab as they arrive.
+    fn start_flatpak_setup(&mut self, steps: Vec<packages::SetupStep>) {
+        if self.running.is_some() {
+            return;
+        }
         if steps.is_empty() {
-            return self.set_option(Source::Flatpak, true);
+            return self.turn_on_flatpak_after_setup();
         }
         let stop = Arc::new(Cancel::default());
         let worker_stop = stop.clone();
@@ -1031,13 +1140,28 @@ impl SoftwareApp {
         let spawned = thread::Builder::new()
             .name("software-flatpak".into())
             .spawn(move || {
-                let result = steps.iter().try_for_each(|argv| {
-                    runner(argv.as_slice(), &worker_stop, &mut |line: &str| {
+                let mut completed = Vec::new();
+                let mut result = Ok(());
+                for step in &steps {
+                    // A cancel that arrived during an earlier step stops the
+                    // rest before they start.
+                    if worker_stop.is_cancelled() {
+                        result = Err(run::CANCELLED.to_owned());
+                        break;
+                    }
+                    let outcome = runner(step.argv.as_slice(), &worker_stop, &mut |line: &str| {
                         let _ = line_sender.send(line.to_owned());
                         wake(&slot);
-                    })
-                });
-                let _ = sender.send(Finished::FlatpakSetup { result });
+                    });
+                    match outcome {
+                        Ok(()) => completed.push(step.done),
+                        Err(error) => {
+                            result = Err(error);
+                            break;
+                        }
+                    }
+                }
+                let _ = sender.send(Finished::FlatpakSetup { completed, result });
                 wake(&slot);
             });
         match spawned {
@@ -1048,6 +1172,7 @@ impl SoftwareApp {
                 self.running = Some(Running {
                     id: "flatpak".into(),
                     verb: "Setting up",
+                    title: "Setting up Flatpak".into(),
                     progress: Arc::new(Progress::default()),
                     stop,
                     lines: Some(lines),
@@ -1055,6 +1180,17 @@ impl SoftwareApp {
                 });
             }
             Err(error) => self.fail(format!("Can't start the Flatpak setup: {error}")),
+        }
+    }
+
+    /// Flatpak is set up: turn its support on and save that. If the save
+    /// fails, the setting and the tabs stay as they were.
+    fn turn_on_flatpak_after_setup(&mut self) {
+        match self.save_option(Source::Flatpak, true) {
+            Ok(()) => self.notice("Flatpak is on. Search its tab to list packages."),
+            Err(error) => self.fail(format!(
+                "Flatpak was set up, but its setting could not be saved: {error}. Flatpak is not turned on."
+            )),
         }
     }
 
@@ -1126,6 +1262,7 @@ impl SoftwareApp {
                 self.running = Some(Running {
                     id: row.id,
                     verb: "Installing",
+                    title: format!("Installing {} from {label}", row.name),
                     progress: Arc::new(Progress::default()),
                     stop,
                     lines: Some(lines),
@@ -1188,6 +1325,7 @@ impl SoftwareApp {
                 self.running = Some(Running {
                     id: row.id,
                     verb,
+                    title: format!("{verb} {}", row.name),
                     progress,
                     stop: Arc::new(Cancel::default()),
                     lines: None,
@@ -1240,6 +1378,7 @@ impl SoftwareApp {
                 self.running = Some(Running {
                     id: row.id,
                     verb: "Removing",
+                    title: format!("Removing {}", row.name),
                     progress: Arc::new(Progress::default()),
                     stop: Arc::new(Cancel::default()),
                     lines: None,
@@ -1327,12 +1466,20 @@ impl SoftwareApp {
                 name,
                 result: Err(error),
             } => self.fail(format!("{name} was not installed: {error}")),
-            Finished::FlatpakSetup { result: Ok(()) } => self.set_option(Source::Flatpak, true),
-            Finished::FlatpakSetup { result: Err(error) } if error == run::CANCELLED => {
-                self.notice("Flatpak setup was cancelled. Nothing was turned on.")
-            }
-            Finished::FlatpakSetup { result: Err(error) } => self.fail(format!(
-                "Flatpak was not set up: {error}. Nothing was turned on."
+            Finished::FlatpakSetup { result: Ok(()), .. } => self.turn_on_flatpak_after_setup(),
+            Finished::FlatpakSetup {
+                completed,
+                result: Err(error),
+            } if error == run::CANCELLED => self.notice(format!(
+                "Flatpak setup was cancelled. {}",
+                setup_left(&completed)
+            )),
+            Finished::FlatpakSetup {
+                completed,
+                result: Err(error),
+            } => self.fail(format!(
+                "Flatpak was not set up: {error}. {}",
+                setup_left(&completed)
             )),
             Finished::Removed {
                 name,
@@ -1348,10 +1495,14 @@ impl SoftwareApp {
     }
 
     fn cancel_running(&mut self) {
-        if let Some(running) = &self.running {
+        let outcome = self.running.as_ref().map(|running| {
             running.progress.cancel();
-            running.stop.cancel();
-            self.notice("Cancelling…");
+            running.stop.cancel()
+        });
+        match outcome {
+            Some(Ok(())) => self.notice("Cancelling…"),
+            Some(Err(error)) => self.fail(format!("{error}. It may still be running.")),
+            None => {}
         }
     }
 
@@ -1363,7 +1514,7 @@ impl SoftwareApp {
                     if index == 1 {
                         match prompt {
                             Prompt::Remove(id) => self.start_remove(id),
-                            Prompt::EnableFlatpak => self.start_flatpak_setup(),
+                            Prompt::EnableFlatpak(shown) => self.flatpak_confirmed(shown),
                         }
                     }
                 }
@@ -1532,7 +1683,7 @@ impl SoftwareApp {
                 .last()
                 .cloned()
                 .unwrap_or_else(|| "starting…".into());
-            let text = format!("{} Flatpak — {latest}", running.verb);
+            let text = format!("{} — {latest}", running.title);
             let text = wrap(&text, font, width.saturating_sub(110))
                 .into_iter()
                 .next()
@@ -1540,14 +1691,25 @@ impl SoftwareApp {
             surface.draw_text(&text, x, self.body_top() + 12, font, colors.ink)?;
             self.cancel.paint(surface, font)?;
         }
-        for (section, block) in self.sections.iter().zip(self.panel_geometry()) {
-            surface.draw_text(&section.title, x, block.heading, bold, colors.ink)?;
+        let (top, bottom) = self.panel_view();
+        let scroll = self.panel_scroll;
+        let line = measure("Ag", font).height as i32;
+        // Only text wholly inside the scrolled view is drawn.
+        let shown = |y: i32| y - scroll >= top && y - scroll + line <= bottom;
+        let (blocks, _) = self.panel_geometry();
+        for (section, block) in self.sections.iter().zip(blocks) {
+            if shown(block.heading) {
+                surface.draw_text(&section.title, x, block.heading - scroll, bold, colors.ink)?;
+            }
             for (text, y) in section.lines.iter().zip(&block.lines) {
+                if !shown(*y) {
+                    continue;
+                }
                 let text = wrap(text, font, width)
                     .into_iter()
                     .next()
                     .unwrap_or_default();
-                surface.draw_text(&text, x, *y, font, colors.ink_secondary)?;
+                surface.draw_text(&text, x, *y - scroll, font, colors.ink_secondary)?;
             }
             if block.button.is_some() {
                 if let Some((_, button)) = self
@@ -1555,7 +1717,10 @@ impl SoftwareApp {
                     .iter()
                     .find(|(source, _)| *source == section.source)
                 {
-                    button.paint(surface, font)?;
+                    // A switch outside the view has no bounds.
+                    if button.bounds.width > 0 {
+                        button.paint(surface, font)?;
+                    }
                 }
             }
         }
@@ -2056,7 +2221,8 @@ mod tests {
             },
             config_path: dir.join("software.conf"),
             tool_present: Arc::new(|_: &str| false),
-            flatpak_configs: Vec::new(),
+            flatpak_repos: Vec::new(),
+            flatpak_remotes_d: Vec::new(),
         };
         (environment, unused_commands())
     }
@@ -2100,7 +2266,8 @@ mod tests {
             },
             config_path: dir.join("software.conf"),
             tool_present: Arc::new(move |name: &str| tools.contains(&name)),
-            flatpak_configs: Vec::new(),
+            flatpak_repos: Vec::new(),
+            flatpak_remotes_d: Vec::new(),
         };
         SoftwareApp::new(
             sources,
@@ -2630,7 +2797,8 @@ mod tests {
             },
             config_path: dir.path().join("software.conf"),
             tool_present: Arc::new(|name: &str| name == "pacman"),
-            flatpak_configs: Vec::new(),
+            flatpak_repos: Vec::new(),
+            flatpak_remotes_d: Vec::new(),
         };
         let mut app = SoftwareApp::new(
             sources,
@@ -2681,7 +2849,7 @@ mod tests {
             (dialog.title.clone(), prompt.clone())
         };
         assert_eq!(title, "Turn on Flatpak?");
-        assert_eq!(prompt, Prompt::EnableFlatpak);
+        assert!(matches!(prompt, Prompt::EnableFlatpak(_)));
         app.event(&key_event(Key::Enter), &mut control); // the default is No
         assert!(app.dialog.is_none());
         assert!(!app.config.flatpak);
@@ -2695,7 +2863,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let ran = Arc::new(Mutex::new(Vec::new()));
         let commands = zstd_commands(recording_install(ran.clone(), false));
-        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec"], commands);
+        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec", "apt-get"], commands);
         let mut control = Control::default();
         open_sources(&mut app, &mut control);
         app.event(&click(FLATPAK_SWITCH_ID), &mut control);
@@ -2722,7 +2890,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let ran = Arc::new(Mutex::new(Vec::new()));
         let commands = zstd_commands(recording_install(ran.clone(), true));
-        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec"], commands);
+        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec", "apt-get"], commands);
         let mut control = Control::default();
         open_sources(&mut app, &mut control);
         app.event(&click(FLATPAK_SWITCH_ID), &mut control);
@@ -2759,5 +2927,289 @@ mod tests {
         );
         assert!(!app.config.flatpak);
         assert!(ran.lock().unwrap().is_empty());
+    }
+
+    /// A tool check that finds exactly `names`.
+    fn present_tools(names: &'static [&'static str]) -> sources::ToolCheck {
+        Arc::new(move |name: &str| names.contains(&name))
+    }
+
+    /// The steps the open Flatpak question describes.
+    fn asked_steps(app: &SoftwareApp) -> Vec<packages::SetupStep> {
+        match &app.dialog.as_ref().expect("a question is open").1 {
+            Prompt::EnableFlatpak(steps) => steps.clone(),
+            other => panic!("not the Flatpak question: {other:?}"),
+        }
+    }
+
+    /// Open the Flatpak question from the Sources tab and answer Yes.
+    fn answer_yes_to_flatpak(app: &mut SoftwareApp, control: &mut Control) {
+        app.event(&click(FLATPAK_SWITCH_ID), control);
+        app.event(&key_event(Key::Tab), control);
+        app.event(&key_event(Key::Enter), control);
+    }
+
+    #[test]
+    fn yes_asks_again_when_the_machine_now_needs_a_step_that_was_not_shown() {
+        let dir = tempfile::tempdir().unwrap();
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let commands = zstd_commands(recording_install(ran.clone(), false));
+        // Flatpak is installed, so the question asks only about Flathub.
+        let mut app = apt_app(
+            dir.path(),
+            &["apt-cache", "pkexec", "apt-get", "flatpak"],
+            commands,
+        );
+        let mut control = Control::default();
+        open_sources(&mut app, &mut control);
+        app.event(&click(FLATPAK_SWITCH_ID), &mut control);
+        assert_eq!(asked_steps(&app).len(), 1);
+        // Flatpak goes missing before Yes, so the fresh plan installs it too.
+        app.environment.tool_present = present_tools(&["apt-cache", "pkexec", "apt-get"]);
+        app.event(&key_event(Key::Tab), &mut control);
+        app.event(&key_event(Key::Enter), &mut control);
+        assert!(ran.lock().unwrap().is_empty(), "nothing runs on this Yes");
+        assert_eq!(asked_steps(&app).len(), 2, "the updated plan is asked");
+        app.event(&key_event(Key::Tab), &mut control);
+        app.event(&key_event(Key::Enter), &mut control);
+        wait_for_work(&mut app);
+        assert!(!app.status_error, "{}", app.status);
+        assert_eq!(
+            ran.lock().unwrap().len(),
+            2,
+            "both steps run once confirmed"
+        );
+        assert!(app.config.flatpak);
+    }
+
+    #[test]
+    fn yes_runs_only_steps_the_question_showed_when_the_plan_shrank() {
+        let dir = tempfile::tempdir().unwrap();
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let commands = zstd_commands(recording_install(ran.clone(), false));
+        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec", "apt-get"], commands);
+        let mut control = Control::default();
+        open_sources(&mut app, &mut control);
+        app.event(&click(FLATPAK_SWITCH_ID), &mut control);
+        assert_eq!(
+            asked_steps(&app).len(),
+            2,
+            "install Flatpak, then add Flathub"
+        );
+        // Flatpak appears before Yes, so only the Flathub step is still needed.
+        app.environment.tool_present =
+            present_tools(&["apt-cache", "pkexec", "apt-get", "flatpak"]);
+        app.event(&key_event(Key::Tab), &mut control);
+        app.event(&key_event(Key::Enter), &mut control);
+        wait_for_work(&mut app);
+        assert!(!app.status_error, "{}", app.status);
+        let steps = ran.lock().unwrap().clone();
+        assert_eq!(steps.len(), 1, "only the remaining step runs");
+        assert_eq!(steps[0][..3], ["pkexec", "flatpak", "remote-add"]);
+        assert!(app.config.flatpak);
+    }
+
+    #[test]
+    fn the_flatpak_setup_is_titled_while_it_runs() {
+        let dir = tempfile::tempdir().unwrap();
+        let (release, gate) = mpsc::channel::<()>();
+        let gate = Arc::new(Mutex::new(gate));
+        // Each step waits until the test lets it finish.
+        let install: PackageRunner =
+            Arc::new(move |_: &[String], _: &Cancel, _: &mut dyn FnMut(&str)| {
+                gate.lock()
+                    .unwrap()
+                    .recv()
+                    .map_err(|error| error.to_string())
+            });
+        let mut app = apt_app(
+            dir.path(),
+            &["apt-cache", "pkexec", "apt-get"],
+            zstd_commands(install),
+        );
+        let mut control = Control::default();
+        open_sources(&mut app, &mut control);
+        answer_yes_to_flatpak(&mut app, &mut control);
+        let title = app.running.as_ref().map(|running| running.title.clone());
+        assert_eq!(title.as_deref(), Some("Setting up Flatpak"));
+        release.send(()).unwrap();
+        release.send(()).unwrap();
+        wait_for_work(&mut app);
+        assert!(!app.status_error, "{}", app.status);
+    }
+
+    #[test]
+    fn a_cancel_stops_the_remaining_steps_and_names_the_finished_ones() {
+        let dir = tempfile::tempdir().unwrap();
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let recorded = ran.clone();
+        // The first step finishes, and the user cancels during it.
+        let install: PackageRunner = Arc::new(
+            move |argv: &[String], cancel: &Cancel, _: &mut dyn FnMut(&str)| {
+                recorded.lock().unwrap().push(argv.to_vec());
+                cancel.cancel().unwrap();
+                Ok(())
+            },
+        );
+        let mut app = apt_app(
+            dir.path(),
+            &["apt-cache", "pkexec", "apt-get"],
+            zstd_commands(install),
+        );
+        let mut control = Control::default();
+        open_sources(&mut app, &mut control);
+        answer_yes_to_flatpak(&mut app, &mut control);
+        wait_for_work(&mut app);
+        assert_eq!(ran.lock().unwrap().len(), 1, "the second step never starts");
+        assert!(
+            !app.status_error,
+            "a cancel is not a failure: {}",
+            app.status
+        );
+        assert!(
+            app.status.starts_with("Flatpak setup was cancelled."),
+            "{}",
+            app.status
+        );
+        assert!(
+            app.status.contains("Finished: Flatpak installed."),
+            "{}",
+            app.status
+        );
+        assert!(!app.config.flatpak);
+    }
+
+    #[test]
+    fn a_failed_step_after_the_install_says_flatpak_is_installed_but_off() {
+        let dir = tempfile::tempdir().unwrap();
+        let calls = Arc::new(Mutex::new(0));
+        let counter = calls.clone();
+        // The install succeeds; adding the remote is refused.
+        let install: PackageRunner = Arc::new(
+            move |_: &[String], _: &Cancel, on_line: &mut dyn FnMut(&str)| {
+                let call = {
+                    let mut count = counter.lock().unwrap();
+                    *count += 1;
+                    *count
+                };
+                on_line("step ran");
+                if call == 1 {
+                    Ok(())
+                } else {
+                    Err("remote add refused".to_owned())
+                }
+            },
+        );
+        let mut app = apt_app(
+            dir.path(),
+            &["apt-cache", "pkexec", "apt-get"],
+            zstd_commands(install),
+        );
+        let mut control = Control::default();
+        open_sources(&mut app, &mut control);
+        answer_yes_to_flatpak(&mut app, &mut control);
+        wait_for_work(&mut app);
+        assert!(app.status_error);
+        assert!(
+            app.status
+                .starts_with("Flatpak was not set up: remote add refused."),
+            "{}",
+            app.status
+        );
+        assert!(
+            app.status.contains("Finished: Flatpak installed."),
+            "{}",
+            app.status
+        );
+        assert!(
+            app.status
+                .contains("Flatpak is installed but not turned on."),
+            "{}",
+            app.status
+        );
+        assert!(
+            app.status.contains("Nothing was rolled back."),
+            "{}",
+            app.status
+        );
+        assert!(!app.config.flatpak);
+    }
+
+    #[test]
+    fn a_failed_save_keeps_the_settings_and_the_tabs() {
+        let dir = tempfile::tempdir().unwrap();
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let commands = zstd_commands(recording_install(ran.clone(), false));
+        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec", "apt-get"], commands);
+        let mut control = Control::default();
+        // A file where the config directory should be makes every save fail.
+        let blocker = dir.path().join("blocker");
+        std::fs::write(&blocker, "not a directory").unwrap();
+        app.environment.config_path = blocker.join("software.conf");
+        let tabs_before: Vec<Source> = app.tabs.iter().map(|tab| tab.source).collect();
+        app.set_option(Source::Snap, true);
+        assert!(app.status_error, "{}", app.status);
+        assert!(!app.config.snap);
+        open_sources(&mut app, &mut control);
+        answer_yes_to_flatpak(&mut app, &mut control);
+        wait_for_work(&mut app);
+        assert!(app.status_error, "{}", app.status);
+        assert!(
+            app.status.contains("could not be saved")
+                && app.status.contains("Flatpak is not turned on."),
+            "{}",
+            app.status
+        );
+        assert!(!app.config.flatpak);
+        let tabs_after: Vec<Source> = app.tabs.iter().map(|tab| tab.source).collect();
+        assert_eq!(tabs_after, tabs_before, "no tab was added");
+    }
+
+    #[test]
+    fn tabs_that_do_not_fit_a_narrow_window_keep_sources_reachable() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec"], unused_commands());
+        let mut control = Control::default();
+        app.window = (220, HEIGHT);
+        app.layout();
+        open_sources(&mut app, &mut control);
+        let index = app
+            .tabs
+            .iter()
+            .position(|tab| tab.source == Source::Sources)
+            .unwrap();
+        assert!(
+            app.tab_strip.tab_bounds(index).is_some(),
+            "the selected Sources tab is in the strip"
+        );
+        assert!(app.tab_strip.bounds.width <= 220 - 28, "the strip fits");
+        paint_everything(&mut app);
+    }
+
+    #[test]
+    fn a_switch_outside_the_view_scrolls_into_view_when_it_takes_focus() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec"], unused_commands());
+        let mut control = Control::default();
+        open_sources(&mut app, &mut control);
+        // Too short for all the switches at once.
+        app.window = (WIDTH, 170);
+        app.layout();
+        app.focus.focus(SNAP_SWITCH_ID);
+        app.sync();
+        let (top, bottom) = app.panel_view();
+        assert!(app.panel_scroll > 0, "the content scrolled");
+        let snap = app
+            .switches
+            .iter()
+            .find(|(source, _)| *source == Source::Snap)
+            .map(|(_, button)| button.bounds)
+            .unwrap();
+        assert!(
+            snap.width > 0 && snap.y >= top && snap.y + SWITCH_HEIGHT <= bottom,
+            "the focused switch is in view: {snap:?} within {top}..{bottom}"
+        );
+        let surface = RasterSurface::new(WIDTH, 170, Scale::new(1).unwrap()).unwrap();
+        app.paint(&surface);
     }
 }

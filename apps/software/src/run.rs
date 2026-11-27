@@ -3,7 +3,8 @@
 //! The child's stdout and stderr are read on two scoped threads that hand
 //! each line to the caller as it arrives, so nothing polls. [`Cancel::cancel`]
 //! kills the child; the readers then reach end of file and the run reports
-//! [`CANCELLED`] instead of an exit status.
+//! [`CANCELLED`] instead of an exit status. A child that finished on its own,
+//! or whose kill failed, reports its real exit status.
 
 use std::io::{BufRead, BufReader, Read};
 use std::process::{Child, Command, ExitStatus, Stdio};
@@ -19,17 +20,30 @@ pub const CANCELLED: &str = "cancelled";
 #[derive(Default)]
 pub struct Cancel {
     cancelled: AtomicBool,
+    /// Set once a kill was delivered to the child.
+    killed: AtomicBool,
     child: Mutex<Option<Child>>,
 }
 
 impl Cancel {
     /// Mark the run cancelled and kill its child if it has started. A cancel
     /// that arrives before the spawn is honoured as soon as the child exists.
-    pub fn cancel(&self) {
+    /// An error means the child could not be killed: it may still be running,
+    /// and the run reports its real outcome when it ends.
+    pub fn cancel(&self) -> Result<(), String> {
         self.cancelled.store(true, Ordering::SeqCst);
-        if let Some(child) = self.slot().as_mut() {
-            let _ = child.kill();
+        match self.slot().as_mut() {
+            Some(child) => self.kill(child),
+            None => Ok(()),
         }
+    }
+
+    fn kill(&self, child: &mut Child) -> Result<(), String> {
+        child
+            .kill()
+            .map_err(|error| format!("Could not stop the running command: {error}"))?;
+        self.killed.store(true, Ordering::SeqCst);
+        Ok(())
     }
 
     pub fn is_cancelled(&self) -> bool {
@@ -78,10 +92,11 @@ pub fn run(
     let stderr = child.stderr.take();
     {
         // Register the child under the lock and check the flag there, so a
-        // cancel that raced the spawn still kills it.
+        // cancel that raced the spawn still kills it. If that kill fails the
+        // child runs to its own end, and its real status is returned below.
         let mut slot = cancel.slot();
         if cancel.is_cancelled() {
-            let _ = child.kill();
+            let _ = cancel.kill(&mut child);
         }
         *slot = Some(child);
     }
@@ -109,7 +124,10 @@ pub fn run(
     let status = child
         .wait()
         .map_err(|error| format!("{program}: {error}"))?;
-    if cancel.is_cancelled() {
+    // Only a child that our kill ended is reported as cancelled. One that
+    // finished on its own keeps its real status, even when a cancel came too
+    // late to stop it.
+    if cancel.killed.load(Ordering::SeqCst) && status.code().is_none() {
         return Err(CANCELLED.into());
     }
     Ok(status)
@@ -192,7 +210,7 @@ mod tests {
         let started = Instant::now();
         let canceller = thread::spawn(move || {
             thread::sleep(Duration::from_millis(100));
-            stopper.cancel();
+            stopper.cancel().unwrap();
         });
         let result = run(&argv(&["sleep", "30"]), &[], &cancel, &mut |_, _| {});
         canceller.join().unwrap();
@@ -204,9 +222,23 @@ mod tests {
     }
 
     #[test]
+    fn a_child_that_dies_on_its_own_is_not_reported_as_cancelled() {
+        let cancel = Cancel::default();
+        let status = run(
+            &argv(&["sh", "-c", "kill -KILL $$"]),
+            &[],
+            &cancel,
+            &mut |_, _| {},
+        )
+        .unwrap();
+        assert_eq!(status.code(), None, "it was stopped by a signal");
+        assert!(cancel.cancel().is_ok(), "an idle cancel is fine");
+    }
+
+    #[test]
     fn a_cancel_before_the_run_starts_nothing() {
         let cancel = Cancel::default();
-        cancel.cancel();
+        cancel.cancel().unwrap();
         assert_eq!(
             run(&argv(&["sleep", "30"]), &[], &cancel, &mut |_, _| {}),
             Err(CANCELLED.to_owned())

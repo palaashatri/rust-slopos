@@ -88,24 +88,43 @@ pub fn install_argv(
     Ok(argv.into_iter().map(str::to_owned).collect())
 }
 
+/// What the install step reports once it has finished.
+pub const FLATPAK_INSTALLED: &str = "Flatpak installed";
+
+/// One step of the Flatpak setup: its command, and what it has done once it
+/// succeeds, for the report when a later step fails or is cancelled.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SetupStep {
+    pub done: &'static str,
+    pub argv: Vec<String>,
+}
+
 /// The commands that make Flatpak ready: install it when it is missing, then
 /// add the Flathub remote when it is not configured. Empty when both are in
-/// place. Installing needs a native manager; every step asks for authority
-/// through `pkexec`, so the command fails cleanly when that is missing.
+/// place. Installing needs a native manager and its install program; every
+/// step asks for authority through `pkexec`, so the command fails cleanly
+/// when that is missing.
 pub fn flatpak_setup_steps(
     family: Option<Family>,
     status: &Status,
     tool_present: &dyn Fn(&str) -> bool,
-) -> Result<Vec<Vec<String>>, String> {
+) -> Result<Vec<SetupStep>, String> {
     let mut steps = Vec::new();
     if !status.flatpak_installed {
         let family =
             family.ok_or("unavailable: no apt, dnf or pacman found to install Flatpak with")?;
-        steps.push(install_argv(Source::Native, Some(family), "", "flatpak")?);
+        if !tool_present(family.install_tool()) {
+            return Err(format!("unavailable: {} not found", family.install_tool()));
+        }
+        steps.push(SetupStep {
+            done: FLATPAK_INSTALLED,
+            argv: install_argv(Source::Native, Some(family), "", "flatpak")?,
+        });
     }
     if !status.flathub {
-        steps.push(
-            [
+        steps.push(SetupStep {
+            done: "Flathub added",
+            argv: [
                 "pkexec",
                 "flatpak",
                 "remote-add",
@@ -115,7 +134,7 @@ pub fn flatpak_setup_steps(
             ]
             .map(str::to_owned)
             .to_vec(),
-        );
+        });
     }
     if !steps.is_empty() {
         for tool in extra_tools(Source::Native) {
@@ -373,7 +392,7 @@ mod tests {
             ["true exited with status 0"],
             "success shows the status too"
         );
-        cancel.cancel();
+        cancel.cancel().unwrap();
         assert_eq!(
             run_install(&words(&["true"]), &cancel, &mut |_| {}),
             Err(run::CANCELLED.to_owned())
@@ -401,6 +420,11 @@ mod flatpak_setup_tests {
         parts.iter().map(|part| (*part).to_owned()).collect()
     }
 
+    /// The commands of a plan, without their labels.
+    fn commands(steps: &[SetupStep]) -> Vec<Vec<String>> {
+        steps.iter().map(|step| step.argv.clone()).collect()
+    }
+
     const REMOTE_ADD: [&str; 6] = [
         "pkexec",
         "flatpak",
@@ -419,8 +443,10 @@ mod flatpak_setup_tests {
         )
         .unwrap();
         assert_eq!(steps.len(), 2);
+        assert_eq!(steps[0].done, "Flatpak installed");
+        assert_eq!(steps[1].done, "Flathub added");
         assert_eq!(
-            steps[0],
+            steps[0].argv,
             words(&[
                 "pkexec",
                 "env",
@@ -431,7 +457,7 @@ mod flatpak_setup_tests {
                 "flatpak",
             ])
         );
-        assert_eq!(steps[1], words(&REMOTE_ADD));
+        assert_eq!(steps[1].argv, words(&REMOTE_ADD));
     }
 
     #[test]
@@ -442,7 +468,7 @@ mod flatpak_setup_tests {
             &present(&["pkexec"]),
         )
         .unwrap();
-        assert_eq!(steps, vec![words(&REMOTE_ADD)]);
+        assert_eq!(commands(&steps), vec![words(&REMOTE_ADD)]);
         let steps = flatpak_setup_steps(
             Some(Family::Dnf),
             &status(false, true),
@@ -450,7 +476,7 @@ mod flatpak_setup_tests {
         )
         .unwrap();
         assert_eq!(
-            steps,
+            commands(&steps),
             vec![words(&["pkexec", "dnf", "install", "-y", "flatpak"])]
         );
         let steps =
@@ -469,6 +495,28 @@ mod flatpak_setup_tests {
                 .unwrap_err(),
             "unavailable: pkexec not found"
         );
+    }
+
+    #[test]
+    fn the_install_program_must_exist_before_the_install_step_is_planned() {
+        // apt-cache alone can search, but installing needs apt-get.
+        assert_eq!(
+            flatpak_setup_steps(
+                Some(Family::Apt),
+                &status(false, false),
+                &present(&["pkexec", "apt-cache"]),
+            )
+            .unwrap_err(),
+            "unavailable: apt-get not found"
+        );
+        // Once Flatpak is there, no install is planned and apt-get is not needed.
+        let steps = flatpak_setup_steps(
+            Some(Family::Apt),
+            &status(true, false),
+            &present(&["pkexec"]),
+        )
+        .unwrap();
+        assert_eq!(commands(&steps), vec![words(&REMOTE_ADD)]);
     }
 
     #[test]

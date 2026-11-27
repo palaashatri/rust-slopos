@@ -63,6 +63,15 @@ impl Family {
         }
     }
 
+    /// The program that installs packages with this family's manager.
+    pub fn install_tool(self) -> &'static str {
+        match self {
+            Family::Apt => "apt-get",
+            Family::Dnf => "dnf",
+            Family::Pacman => "pacman",
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Family::Apt => "apt",
@@ -101,11 +110,25 @@ fn os_release_ids(text: &str) -> Vec<String> {
             .strip_prefix("ID=")
             .or_else(|| line.strip_prefix("ID_LIKE="))
         {
-            let value = value.trim().trim_matches('"');
+            let value = unquote(value.trim());
             ids.extend(value.split_whitespace().map(str::to_ascii_lowercase));
         }
     }
     ids
+}
+
+/// The value without one matching pair of surrounding quotes, single or
+/// double. An unmatched quote is part of the value.
+fn unquote(value: &str) -> &str {
+    for quote in ['"', '\''] {
+        if let Some(inner) = value
+            .strip_prefix(quote)
+            .and_then(|rest| rest.strip_suffix(quote))
+        {
+            return inner;
+        }
+    }
+    value
 }
 
 fn family_from_ids(ids: &[String]) -> Option<Family> {
@@ -231,19 +254,28 @@ pub struct Status {
     pub aur_helper: Option<String>,
 }
 
-/// Work out the [`Status`] from its inputs. `flathub_configs` holds the text
-/// of each Flatpak repository config file that could be read.
+/// What the Flatpak files on disk say about the Flathub remote, as text.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct FlatpakFiles<'a> {
+    /// The text of each repository `config` file that could be read.
+    pub repo_configs: &'a [&'a str],
+    /// The text of each `xa.applied-remotes` file that could be read: one
+    /// remote name per line, for the remotes Flatpak has already applied.
+    pub applied_remotes: &'a [&'a str],
+    /// Whether a remotes.d directory ships `flathub.flatpakrepo`.
+    pub remotes_d_has_flathub: bool,
+}
+
+/// Work out the [`Status`] from its inputs.
 pub fn status(
     machine: &Machine,
     tool_present: &dyn Fn(&str) -> bool,
-    flathub_configs: &[&str],
+    flatpak: &FlatpakFiles,
 ) -> Status {
     Status {
         manager: machine.family.filter(|family| tool_present(family.tool())),
         flatpak_installed: tool_present("flatpak"),
-        flathub: flathub_configs
-            .iter()
-            .any(|text| remote_defined(text, FLATHUB)),
+        flathub: flathub_configured(flatpak),
         snap_installed: tool_present("snap"),
         aur_helper: ["yay", "paru"]
             .into_iter()
@@ -252,11 +284,35 @@ pub fn status(
     }
 }
 
+/// Whether Flathub is configured. A repository config that defines it says
+/// so. Otherwise a remotes.d definition counts, unless Flatpak has already
+/// applied it: an applied remote that is no longer defined was removed, and
+/// stays removed.
+fn flathub_configured(files: &FlatpakFiles) -> bool {
+    if files
+        .repo_configs
+        .iter()
+        .any(|text| remote_defined(text, FLATHUB))
+    {
+        return true;
+    }
+    files.remotes_d_has_flathub
+        && !files
+            .applied_remotes
+            .iter()
+            .any(|text| lists_remote(text, FLATHUB))
+}
+
 /// Whether a Flatpak repository config (an OSTree `config` file) has a
 /// `[remote "name"]` section.
 pub fn remote_defined(config_text: &str, name: &str) -> bool {
     let header = format!("[remote \"{name}\"]");
     config_text.lines().any(|line| line.trim() == header)
+}
+
+/// Whether an `xa.applied-remotes` text names `name` on one of its lines.
+fn lists_remote(applied_text: &str, name: &str) -> bool {
+    applied_text.lines().any(|line| line.trim() == name)
 }
 
 /// One block of the Sources tab: a source, what it reports, and its switch.
@@ -333,21 +389,24 @@ pub struct Environment {
     pub machine: Machine,
     pub config_path: PathBuf,
     pub tool_present: ToolCheck,
-    /// Flatpak repository configs to read for the Flathub remote.
-    pub flatpak_configs: Vec<PathBuf>,
+    /// Flatpak repository directories. Each may hold a `config` and an
+    /// `xa.applied-remotes` file.
+    pub flatpak_repos: Vec<PathBuf>,
+    /// Directories that ship `*.flatpakrepo` remote definitions.
+    pub flatpak_remotes_d: Vec<PathBuf>,
 }
 
 impl Environment {
     /// Read the real system: os-release, the config file location, the
-    /// Flatpak repository configs and `PATH` for tool lookups.
+    /// Flatpak directories and `PATH` for tool lookups.
     pub fn from_system() -> Self {
         let os_release = std::fs::read_to_string("/etc/os-release").unwrap_or_default();
         let machine = Machine::detect(&os_release);
         let config_path = software_config::default_path()
             .unwrap_or_else(|_| PathBuf::from("slopos-i/software.conf"));
-        let mut flatpak_configs = vec![PathBuf::from("/var/lib/flatpak/repo/config")];
+        let mut flatpak_repos = vec![PathBuf::from("/var/lib/flatpak/repo")];
         if let Ok(paths) = slopos_core::xdg::XdgPaths::from_environment() {
-            flatpak_configs.push(paths.data.join("flatpak/repo/config"));
+            flatpak_repos.push(paths.data.join("flatpak/repo"));
         }
         Self {
             machine,
@@ -355,20 +414,36 @@ impl Environment {
             tool_present: Arc::new(|name: &str| {
                 slopos_core::process::resolve_program(name).is_some()
             }),
-            flatpak_configs,
+            flatpak_repos,
+            flatpak_remotes_d: vec![
+                PathBuf::from("/etc/flatpak/remotes.d"),
+                PathBuf::from("/usr/share/flatpak/remotes.d"),
+            ],
         }
     }
 
-    /// The live status: the configs are read now, and each tool is looked up
-    /// now. Nothing is cached.
+    /// The live status: the files are read now, and each tool is looked up
+    /// now. The result is a snapshot; the window takes a new one whenever it
+    /// rebuilds its tabs, and before it acts on a Flatpak confirmation.
     pub fn probe(&self) -> Status {
-        let texts: Vec<String> = self
-            .flatpak_configs
-            .iter()
-            .filter_map(|path| std::fs::read_to_string(path).ok())
-            .collect();
-        let refs: Vec<&str> = texts.iter().map(String::as_str).collect();
-        status(&self.machine, &*self.tool_present, &refs)
+        let read_all = |dirs: &[PathBuf], file: &str| -> Vec<String> {
+            dirs.iter()
+                .filter_map(|dir| std::fs::read_to_string(dir.join(file)).ok())
+                .collect()
+        };
+        let configs = read_all(&self.flatpak_repos, "config");
+        let applied = read_all(&self.flatpak_repos, "xa.applied-remotes");
+        let config_refs: Vec<&str> = configs.iter().map(String::as_str).collect();
+        let applied_refs: Vec<&str> = applied.iter().map(String::as_str).collect();
+        let files = FlatpakFiles {
+            repo_configs: &config_refs,
+            applied_remotes: &applied_refs,
+            remotes_d_has_flathub: self
+                .flatpak_remotes_d
+                .iter()
+                .any(|dir| dir.join("flathub.flatpakrepo").is_file()),
+        };
+        status(&self.machine, &*self.tool_present, &files)
     }
 }
 
@@ -384,6 +459,19 @@ mod tests {
     const FLATHUB_CONFIG: &str =
         "[core]\nrepo_version=1\n\n[remote \"flathub\"]\nurl=https://dl.flathub.org/repo/\n";
     const OTHER_REMOTE: &str = "[remote \"fedora\"]\nurl=oci+https://registry.fedoraproject.org\n";
+    const NONE: FlatpakFiles<'static> = FlatpakFiles {
+        repo_configs: &[],
+        applied_remotes: &[],
+        remotes_d_has_flathub: false,
+    };
+
+    /// Files with only repository configs.
+    fn repo(configs: &'static [&'static str]) -> FlatpakFiles<'static> {
+        FlatpakFiles {
+            repo_configs: configs,
+            ..NONE
+        }
+    }
 
     fn present(names: &'static [&'static str]) -> impl Fn(&str) -> bool {
         move |name: &str| names.contains(&name)
@@ -413,14 +501,14 @@ mod tests {
     fn the_manager_needs_its_tool_on_the_path() {
         let apt = Machine::detect(UBUNTU);
         assert_eq!(
-            status(&apt, &present(&["apt-cache"]), &[]).manager,
+            status(&apt, &present(&["apt-cache"]), &NONE).manager,
             Some(Family::Apt)
         );
-        assert_eq!(status(&apt, &present(&[]), &[]).manager, None);
+        assert_eq!(status(&apt, &present(&[]), &NONE).manager, None);
         // A binary for another family does not stand in for the OS's own.
-        assert_eq!(status(&apt, &present(&["dnf"]), &[]).manager, None);
+        assert_eq!(status(&apt, &present(&["dnf"]), &NONE).manager, None);
         let none = Machine::detect(ALPINE);
-        assert_eq!(status(&none, &present(&["apt-cache"]), &[]).manager, None);
+        assert_eq!(status(&none, &present(&["apt-cache"]), &NONE).manager, None);
     }
 
     #[test]
@@ -432,12 +520,12 @@ mod tests {
         let configured = status(
             &machine,
             &present(&["flatpak"]),
-            &[OTHER_REMOTE, FLATHUB_CONFIG],
+            &repo(&[OTHER_REMOTE, FLATHUB_CONFIG]),
         );
         assert!(configured.flathub && configured.flatpak_installed);
-        let missing = status(&machine, &present(&["flatpak"]), &[OTHER_REMOTE]);
+        let missing = status(&machine, &present(&["flatpak"]), &repo(&[OTHER_REMOTE]));
         assert!(!missing.flathub && missing.flatpak_installed);
-        let no_flatpak = status(&machine, &present(&[]), &[]);
+        let no_flatpak = status(&machine, &present(&[]), &NONE);
         assert!(!no_flatpak.flatpak_installed && !no_flatpak.flathub);
     }
 
@@ -445,18 +533,18 @@ mod tests {
     fn aur_helper_prefers_yay_then_paru() {
         let arch = Machine::detect(ARCH);
         assert_eq!(
-            status(&arch, &present(&["yay", "paru"]), &[])
+            status(&arch, &present(&["yay", "paru"]), &NONE)
                 .aur_helper
                 .as_deref(),
             Some("yay")
         );
         assert_eq!(
-            status(&arch, &present(&["paru"]), &[])
+            status(&arch, &present(&["paru"]), &NONE)
                 .aur_helper
                 .as_deref(),
             Some("paru")
         );
-        assert_eq!(status(&arch, &present(&[]), &[]).aur_helper, None);
+        assert_eq!(status(&arch, &present(&[]), &NONE).aur_helper, None);
     }
 
     #[test]
@@ -572,7 +660,7 @@ mod tests {
         let found = status(
             &debian,
             &present(&["apt-cache", "flatpak"]),
-            &[FLATHUB_CONFIG],
+            &repo(&[FLATHUB_CONFIG]),
         );
         let config = SoftwareConfig {
             flatpak: true,
@@ -599,7 +687,7 @@ mod tests {
     #[test]
     fn missing_providers_read_as_unavailable_in_the_sources_tab() {
         let fedora = Machine::detect(FEDORA);
-        let none = status(&fedora, &present(&[]), &[]);
+        let none = status(&fedora, &present(&[]), &NONE);
         let rows = sections(&fedora, &SoftwareConfig::default(), &none);
         assert_eq!(
             rows[0].lines,
@@ -611,7 +699,7 @@ mod tests {
         );
         // Arch shows the AUR section and says when no helper is there.
         let arch = Machine::detect(ARCH);
-        let arch_status = status(&arch, &present(&[]), &[]);
+        let arch_status = status(&arch, &present(&[]), &NONE);
         let rows = sections(&arch, &SoftwareConfig::default(), &arch_status);
         let aur = rows.iter().find(|s| s.source == Source::Aur).unwrap();
         assert_eq!(
@@ -619,5 +707,102 @@ mod tests {
             ["AUR helper: unavailable (yay or paru not found)"]
         );
         assert_eq!(aur.switch, Some(false));
+    }
+
+    #[test]
+    fn quoted_os_release_values_are_read() {
+        let single = Machine::detect("ID='arch'\n");
+        assert_eq!(single.family, Some(Family::Pacman));
+        assert!(single.arch_linux, "a single-quoted ID is read");
+        assert!(Machine::detect("ID=manjaro\nID_LIKE='arch'\n").arch_linux);
+        assert_eq!(
+            Machine::detect("ID_LIKE='debian'\n").family,
+            Some(Family::Apt)
+        );
+        assert_eq!(
+            Machine::detect("ID=\"ubuntu\"\nID_LIKE=\"debian\"\n").family,
+            Some(Family::Apt)
+        );
+        assert_eq!(Machine::detect("ID=''\n").family, None);
+        // Only one matching pair is removed, and an unmatched quote stays.
+        assert!(!Machine::detect("ID=\"'arch'\"\n").arch_linux);
+        assert!(!Machine::detect("ID='arch\"\n").arch_linux);
+        assert!(!Machine::detect("ID=arch'\n").arch_linux);
+    }
+
+    #[test]
+    fn flathub_counts_a_shipped_remote_unless_it_was_applied() {
+        let machine = Machine::detect(UBUNTU);
+        let tools = present(&["flatpak"]);
+        let shipped = FlatpakFiles {
+            remotes_d_has_flathub: true,
+            ..NONE
+        };
+        assert!(
+            status(&machine, &tools, &shipped).flathub,
+            "a remotes.d file that is not applied yet counts"
+        );
+        let removed = FlatpakFiles {
+            remotes_d_has_flathub: true,
+            applied_remotes: &["fedora\nflathub\n"],
+            ..NONE
+        };
+        assert!(
+            !status(&machine, &tools, &removed).flathub,
+            "an applied remote with no definition was removed"
+        );
+        let applied_only = FlatpakFiles {
+            applied_remotes: &["flathub\n"],
+            ..NONE
+        };
+        assert!(!status(&machine, &tools, &applied_only).flathub);
+        let other_applied = FlatpakFiles {
+            remotes_d_has_flathub: true,
+            applied_remotes: &["flathub-beta\nfedora\n"],
+            ..NONE
+        };
+        assert!(
+            status(&machine, &tools, &other_applied).flathub,
+            "only an exact name counts as applied"
+        );
+        let defined = FlatpakFiles {
+            repo_configs: &[FLATHUB_CONFIG],
+            applied_remotes: &["flathub\n"],
+            remotes_d_has_flathub: true,
+        };
+        assert!(
+            status(&machine, &tools, &defined).flathub,
+            "a repo definition counts even when it was applied"
+        );
+        assert!(!status(&machine, &tools, &NONE).flathub);
+    }
+
+    #[test]
+    fn probe_reads_the_flatpak_files_on_disk() {
+        let dir = std::env::temp_dir().join(format!("slopos-sources-test-{}", std::process::id()));
+        let repo = dir.join("repo");
+        let remotes = dir.join("remotes.d");
+        std::fs::create_dir_all(&repo).unwrap();
+        std::fs::create_dir_all(&remotes).unwrap();
+        std::fs::write(remotes.join("flathub.flatpakrepo"), "[Flatpak Repo]\n").unwrap();
+        let environment = Environment {
+            machine: Machine::detect(UBUNTU),
+            config_path: dir.join("software.conf"),
+            tool_present: Arc::new(|name: &str| name == "flatpak"),
+            flatpak_repos: vec![repo.clone()],
+            flatpak_remotes_d: vec![remotes.clone()],
+        };
+        assert!(
+            environment.probe().flathub,
+            "a shipped remote that is not applied yet counts"
+        );
+        std::fs::write(repo.join("xa.applied-remotes"), "flathub\n").unwrap();
+        assert!(
+            !environment.probe().flathub,
+            "an applied remote with no definition was removed"
+        );
+        std::fs::write(repo.join("config"), FLATHUB_CONFIG).unwrap();
+        assert!(environment.probe().flathub, "a repo definition counts");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }
