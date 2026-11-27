@@ -8,12 +8,18 @@ use slopos_services::network::{NetworkDeviceType, NetworkSnapshot};
 use slopos_services::power::{BatteryStatus, BatteryWarning, PowerSnapshot, PowerSource};
 use slopos_services::timedate::TimedateSnapshot;
 
+use crate::history::History;
+use crate::notifications::Toast;
 use crate::status::State;
 
 /// The most nearby networks the Wi-Fi popover lists.
 const NEARBY: usize = 5;
 /// Longest name shown in a popover line, in characters.
 const NAME_CHARS: usize = 32;
+/// Longest notification line in the history popover, in characters.
+const HISTORY_CHARS: usize = 72;
+/// The most notifications the history popover lists before "N earlier".
+const HISTORY_SHOWN: usize = 8;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Line {
@@ -25,6 +31,10 @@ pub enum Line {
     Panel {
         label: &'static str,
         argument: &'static str,
+        enabled: bool,
+    },
+    /// Clears the notification history. Disabled when there is nothing to clear.
+    Clear {
         enabled: bool,
     },
 }
@@ -43,10 +53,15 @@ fn panel(label: &'static str, argument: &'static str, enabled: bool) -> Line {
 
 /// A name cut to `NAME_CHARS` characters, with an ellipsis when it was cut.
 fn short(name: &str) -> String {
-    if name.chars().count() <= NAME_CHARS {
-        name.to_owned()
+    cut(name, NAME_CHARS)
+}
+
+/// `text` cut to `chars` characters, with an ellipsis when it was cut.
+fn cut(text: &str, chars: usize) -> String {
+    if text.chars().count() <= chars {
+        text.to_owned()
     } else {
-        let head: String = name.chars().take(NAME_CHARS - 1).collect();
+        let head: String = text.chars().take(chars - 1).collect();
         format!("{head}…")
     }
 }
@@ -278,6 +293,45 @@ fn energy_rate_text(status: BatteryStatus, watts: Option<f64>) -> Option<String>
         BatteryStatus::Charging => Some(format!("Charging at {watts:.1} W")),
         BatteryStatus::Discharging => Some(format!("Using {watts:.1} W")),
         _ => None,
+    }
+}
+
+/// The notification history popover: the newest notices, a count of the older
+/// ones, and Clear All, which is disabled when there is nothing to clear.
+pub fn notification_lines(history: &History) -> Vec<Line> {
+    let mut lines = Vec::new();
+    if history.is_empty() {
+        lines.push(info("No notifications"));
+    } else {
+        for toast in history.iter().take(HISTORY_SHOWN) {
+            lines.push(info(cut(&notice_text(toast), HISTORY_CHARS)));
+        }
+        let earlier = history.len().saturating_sub(HISTORY_SHOWN);
+        if earlier > 0 {
+            lines.push(info(format!("{earlier} earlier")));
+        }
+    }
+    lines.push(Line::Separator);
+    lines.push(Line::Clear {
+        enabled: !history.is_empty(),
+    });
+    lines
+}
+
+/// "App: summary", or whichever of the two is there; a notice with no text at all
+/// is still listed.
+fn notice_text(toast: &Toast) -> String {
+    let (app, summary) = (toast.app.trim(), toast.summary.trim());
+    let text = match (app.is_empty(), summary.is_empty()) {
+        (false, false) => format!("{app}: {summary}"),
+        (true, false) => summary.to_owned(),
+        (false, true) => app.to_owned(),
+        (true, true) => toast.body.trim().to_owned(),
+    };
+    if text.is_empty() {
+        "Notification without text".into()
+    } else {
+        text
     }
 }
 
@@ -628,5 +682,64 @@ mod tests {
                 enabled: true,
             })
         );
+    }
+
+    fn notice(id: u32, summary: &str) -> Toast {
+        Toast {
+            id,
+            app: "Mail".into(),
+            summary: summary.into(),
+            body: String::new(),
+            actions: Vec::new(),
+            timeout_ms: Some(1000),
+        }
+    }
+
+    #[test]
+    fn an_empty_history_says_so_and_has_nothing_to_clear() {
+        let lines = notification_lines(&History::new());
+        assert_eq!(
+            lines,
+            [
+                Line::Info("No notifications".into()),
+                Line::Separator,
+                Line::Clear { enabled: false },
+            ]
+        );
+    }
+
+    #[test]
+    fn the_history_lists_the_newest_notices_counts_the_rest_and_clears_all() {
+        let mut history = History::with_limit(20);
+        for id in 1..=10 {
+            history.record(notice(id, &format!("message {id}")));
+        }
+        let lines = notification_lines(&history);
+        // Newest first: message 10 is the first line, eight are listed.
+        assert_eq!(lines[0], Line::Info("Mail: message 10".into()));
+        assert_eq!(lines[7], Line::Info("Mail: message 3".into()));
+        assert_eq!(lines[8], Line::Info("2 earlier".into()));
+        assert_eq!(lines[9], Line::Separator);
+        assert_eq!(lines[10], Line::Clear { enabled: true });
+        assert_eq!(lines.len(), 11);
+    }
+
+    #[test]
+    fn a_notice_without_an_app_or_summary_is_still_listed_and_long_text_is_cut() {
+        let mut history = History::with_limit(5);
+        history.record(Toast {
+            app: String::new(),
+            summary: String::new(),
+            body: "only the body".into(),
+            ..notice(1, "")
+        });
+        history.record(notice(2, &"x".repeat(300)));
+        let shown = texts(&notification_lines(&history));
+        // Newest first: the long notice, then the one that has only its body.
+        assert_eq!(shown.len(), 2);
+        assert!(shown[0].starts_with("Mail: xxx"));
+        assert_eq!(shown[0].chars().count(), HISTORY_CHARS);
+        assert!(shown[0].ends_with('…'));
+        assert_eq!(shown[1], "only the body");
     }
 }

@@ -9,6 +9,7 @@
 
 mod dbusmenu;
 mod desktop_files;
+mod history;
 mod launcher;
 // Pure AppMenu model and registrar; phase 2 wires them to D-Bus and X11.
 #[allow(dead_code)]
@@ -96,6 +97,8 @@ enum StatusMenu {
     Bluetooth,
     Battery,
     Clock,
+    /// The notification history: a bell with the count of notices kept.
+    Notifications,
 }
 
 /// What a status-menu item does.
@@ -108,6 +111,8 @@ enum StatusCommand {
     OpenPanel(&'static str),
     /// The Volume Mixer as a popover under the sound status.
     OpenMixer,
+    /// Empties the notification history.
+    ClearNotifications,
 }
 
 /// A dialog's purpose.
@@ -329,6 +334,10 @@ pub struct TopBar {
     notifications: Option<notifications::Notifications>,
     /// Toasts, oldest first; the first `notifications::VISIBLE` are shown.
     toasts: Vec<notifications::Toast>,
+    /// The id the next notice the bar makes itself gets (see `LOCAL_ID_BASE`).
+    local_notice_id: u32,
+    /// Every notice received, newest first, for the history popover.
+    history: history::History,
 }
 
 impl TopBar {
@@ -376,6 +385,8 @@ impl TopBar {
             appmenu_specs: false,
             notifications: None,
             toasts: Vec::new(),
+            local_notice_id: notifications::LOCAL_ID_BASE,
+            history: history::History::new(),
         };
         bar.rebuild_specs();
         bar
@@ -434,6 +445,14 @@ impl TopBar {
         }
     }
 
+    /// A notice to show as a toast and to keep in the history. An open
+    /// notifications popover lists it at once.
+    fn record_and_show(&mut self, toast: notifications::Toast, control: &mut Control) {
+        self.history.record(toast.clone());
+        self.show_toast(toast, control);
+        self.refresh_popover(control);
+    }
+
     fn show_toast(&mut self, toast: notifications::Toast, control: &mut Control) {
         if let Some(existing) = self.toasts.iter_mut().find(|t| t.id == toast.id) {
             *existing = toast.clone();
@@ -449,12 +468,31 @@ impl TopBar {
         self.layout_toasts(control);
     }
 
+    /// A low or critical battery from the power provider, shown as a notice. The
+    /// provider reports each crossing of the threshold once, so the bar makes one
+    /// notice per report.
+    fn battery_warning(
+        &mut self,
+        event: &slopos_services::power::PowerEvent,
+        control: &mut Control,
+    ) {
+        let Some(toast) = notifications::battery_notice(event, self.local_notice_id) else {
+            return;
+        };
+        self.local_notice_id = self
+            .local_notice_id
+            .wrapping_add(1)
+            .max(notifications::LOCAL_ID_BASE);
+        self.record_and_show(toast, control);
+    }
+
     fn remove_toast(&mut self, id: u32, reason: notifications::Reason, control: &mut Control) {
         let before = self.toasts.len();
         self.toasts.retain(|toast| toast.id != id);
         if self.toasts.len() != before {
             control.close_popup(TOAST_POPUP + u64::from(id));
-            if let Some(server) = &self.notifications {
+            // The server never heard of a notice the bar made itself.
+            if let (Some(server), false) = (&self.notifications, notifications::is_local(id)) {
                 server.closed(id, reason);
             }
             self.layout_toasts(control);
@@ -582,10 +620,15 @@ impl TopBar {
             .collect()
     }
 
-    /// Status items from the right edge: clock, network, sound, battery.
+    /// Status items from the right edge: clock, notifications, network, Bluetooth,
+    /// sound, battery.
     fn status_rects(&self) -> Vec<(StatusMenu, Rect, String)> {
         let mut items = vec![
             (StatusMenu::Clock, self.clock.clone()),
+            (
+                StatusMenu::Notifications,
+                notification_count_text(&self.history),
+            ),
             (StatusMenu::Network, status::network_text(&self.network)),
             (
                 StatusMenu::Bluetooth,
@@ -672,6 +715,7 @@ impl TopBar {
                 panels,
             )),
             StatusMenu::Battery => Some(popovers::battery_lines(self.power.as_ref(), panels)),
+            StatusMenu::Notifications => Some(popovers::notification_lines(&self.history)),
             StatusMenu::Sound => None,
         }
     }
@@ -1020,9 +1064,20 @@ impl TopBar {
             StatusMenu::Network
             | StatusMenu::Bluetooth
             | StatusMenu::Clock
-            | StatusMenu::Battery => {}
+            | StatusMenu::Battery
+            | StatusMenu::Notifications => {}
         }
         (items, commands)
+    }
+
+    /// A chosen status-menu entry. The Volume Mixer opens its popover and Clear All
+    /// empties the history; the rest act on the providers.
+    fn run_status_menu_command(&mut self, command: StatusCommand, control: &mut Control) {
+        match command {
+            StatusCommand::OpenMixer => self.open_mixer(control),
+            StatusCommand::ClearNotifications => self.history.clear(),
+            command => self.run_status(command),
+        }
     }
 
     fn run_status(&mut self, command: StatusCommand) {
@@ -1332,6 +1387,7 @@ impl TopBar {
             match update {
                 StatusUpdate::Audio(state) => self.audio_answer(state, control),
                 StatusUpdate::Brightness(state) => self.brightness_answer(state, control),
+                StatusUpdate::BatteryWarning(event) => self.battery_warning(&event, control),
                 StatusUpdate::Network(state) => {
                     self.network = state;
                     self.refresh_popover(control);
@@ -1369,7 +1425,7 @@ impl TopBar {
         for message in messages {
             changed = true;
             match message {
-                notifications::Message::Show(toast) => self.show_toast(toast, control),
+                notifications::Message::Show(toast) => self.record_and_show(toast, control),
                 notifications::Message::Close(id) => {
                     self.remove_toast(id, notifications::Reason::Closed, control)
                 }
@@ -1493,11 +1549,7 @@ impl TopBar {
                     }
                     Open::Status(_) => {
                         if let Some(Some(command)) = self.status_commands.get(item).cloned() {
-                            if command == StatusCommand::OpenMixer {
-                                self.open_mixer(control);
-                            } else {
-                                self.run_status(command);
-                            }
+                            self.run_status_menu_command(command, control);
                         }
                     }
                 }
@@ -1635,6 +1687,7 @@ impl TopBar {
                     }
                     StatusMenu::Network if self.network.is_ok() => "network-wired-symbolic",
                     StatusMenu::Network => "network-offline-symbolic",
+                    StatusMenu::Notifications => "preferences-system-notifications-symbolic",
                     _ => "battery-good-symbolic",
                 };
                 if let Some(icon) = self.icon(name, 16) {
@@ -1676,9 +1729,23 @@ fn popover_items(lines: &[popovers::Line]) -> (Vec<MenuItem>, Vec<Option<StatusC
                 items.push(MenuItem::new(label).enabled(*enabled));
                 commands.push(Some(StatusCommand::OpenPanel(argument)));
             }
+            popovers::Line::Clear { enabled } => {
+                items.push(MenuItem::new("Clear All").enabled(*enabled));
+                commands.push(Some(StatusCommand::ClearNotifications));
+            }
         }
     }
     (items, commands)
+}
+
+/// The bell's text: how many notices the history keeps, or nothing when it keeps
+/// none.
+fn notification_count_text(history: &history::History) -> String {
+    if history.is_empty() {
+        String::new()
+    } else {
+        history.len().to_string()
+    }
 }
 
 fn launch(program: &str, args: &[&str]) {
@@ -1851,8 +1918,13 @@ impl App for TopBar {
                 StatusMenu::Bluetooth => "Bluetooth",
                 StatusMenu::Battery => "Battery",
                 StatusMenu::Clock => "Clock",
+                StatusMenu::Notifications => "Notifications",
             };
-            node.set_label(format!("{what}: {text}"));
+            node.set_label(if text.is_empty() {
+                what.to_owned()
+            } else {
+                format!("{what}: {text}")
+            });
             children.push(accesskit::NodeId(id));
             nodes.push((id, node));
         }
@@ -2169,10 +2241,11 @@ mod tests {
     fn status_items_show_unavailable_state_truthfully() {
         let bar = bar();
         let items: Vec<String> = bar.status_rects().into_iter().map(|(_, _, t)| t).collect();
-        assert_eq!(items[1], "Network unavailable");
-        assert_eq!(items[2], "…", "Bluetooth is read when its popover opens");
-        assert_eq!(items[3], "—");
-        assert_eq!(items.len(), 4, "no battery item without a battery");
+        assert_eq!(items[1], "", "the bell shows no count without notices");
+        assert_eq!(items[2], "Network unavailable");
+        assert_eq!(items[3], "…", "Bluetooth is read when its popover opens");
+        assert_eq!(items[4], "—");
+        assert_eq!(items.len(), 5, "no battery item without a battery");
         let (lines, _) = bar.status_menu(StatusMenu::Sound);
         assert!(lines[0].label.starts_with("Sound unavailable"));
         assert!(!lines[0].enabled);
@@ -2307,6 +2380,86 @@ mod tests {
             .any(|(_, node)| node.label() == Some("Brightness 45%")));
         bar.event(&Event::Timer(timer), &mut control);
         assert!(bar.osd.shown().is_none());
+    }
+
+    #[test]
+    fn a_low_battery_warning_is_a_notice_that_times_out_and_a_critical_one_waits() {
+        use slopos_services::power::PowerEvent;
+        let mut bar = bar();
+        let mut control = Control::default();
+        bar.battery_warning(&PowerEvent::LowBattery { percentage: 12.0 }, &mut control);
+        let low = bar
+            .toasts
+            .last()
+            .cloned()
+            .expect("the low battery notice is shown");
+        assert_eq!(low.summary, "Battery low");
+        assert!(notifications::is_local(low.id), "the bar made this notice");
+        assert!(control.timer_requests().contains(&(
+            Duration::from_millis(u64::from(notifications::DEFAULT_TIMEOUT_MS)),
+            TOAST_TIMER + u64::from(low.id),
+        )));
+        bar.battery_warning(
+            &PowerEvent::CriticalBattery { percentage: 4.0 },
+            &mut control,
+        );
+        let critical = bar
+            .toasts
+            .last()
+            .cloned()
+            .expect("the critical battery notice is shown");
+        assert_eq!(critical.summary, "Battery critically low");
+        assert_ne!(critical.id, low.id, "each notice has its own id");
+        assert!(
+            !control
+                .timer_requests()
+                .iter()
+                .any(|(_, timer)| *timer == TOAST_TIMER + u64::from(critical.id)),
+            "a critical notice has no timer and stays until it is dismissed"
+        );
+        // Dismissing a notice the bar made removes it without a server call.
+        bar.remove_toast(critical.id, notifications::Reason::Dismissed, &mut control);
+        assert!(bar.toasts.iter().all(|toast| toast.id != critical.id));
+    }
+
+    #[test]
+    fn notices_stay_in_the_history_until_clear_all_and_the_bell_counts_them() {
+        let mut bar = bar();
+        let mut control = Control::default();
+        let bell = |bar: &TopBar| {
+            bar.status_rects()
+                .into_iter()
+                .find(|(kind, _, _)| *kind == StatusMenu::Notifications)
+                .expect("the bell is laid out")
+        };
+        assert_eq!(bell(&bar).2, "");
+        bar.record_and_show(
+            notifications::toast(1, "Mail", "Hello", "", &[], false, 5000),
+            &mut control,
+        );
+        bar.record_and_show(
+            notifications::toast(2, "Chat", "Ping", "", &[], false, 5000),
+            &mut control,
+        );
+        assert_eq!(bell(&bar).2, "2");
+        // A notice that times out leaves the toasts but stays in the history.
+        bar.remove_toast(1, notifications::Reason::Expired, &mut control);
+        assert_eq!(bar.history.len(), 2);
+        // The bell opens the history, newest first, with Clear All.
+        let rect = bell(&bar).1;
+        bar.event(&press(rect.x + 4, 12), &mut control);
+        assert_eq!(bar.open, Some(Open::Status(StatusMenu::Notifications)));
+        let lines = bar.popover.clone().expect("the history is a popover");
+        assert_eq!(lines[0], popovers::Line::Info("Chat: Ping".into()));
+        assert_eq!(lines[1], popovers::Line::Info("Mail: Hello".into()));
+        assert!(lines.contains(&popovers::Line::Clear { enabled: true }));
+        assert!(bar
+            .status_commands
+            .contains(&Some(StatusCommand::ClearNotifications)));
+        // Choosing Clear All empties the history and the count goes with it.
+        bar.run_status_menu_command(StatusCommand::ClearNotifications, &mut control);
+        assert!(bar.history.is_empty());
+        assert_eq!(bell(&bar).2, "");
     }
 
     #[test]

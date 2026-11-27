@@ -39,6 +39,9 @@ pub enum Update {
     /// The backlight, as the brightness service reports a change to it. The
     /// service's watch is the source of the brightness OSD.
     Brightness(State<BrightnessSnapshot>),
+    /// The power provider's low or critical battery event: one per crossing of
+    /// the threshold, decided by the provider.
+    BatteryWarning(PowerEvent),
     /// Answer to `Command::RefreshBluetooth`.
     Bluetooth(State<BluetoothSnapshot>),
     /// Answer to `Command::RefreshTimedate`.
@@ -175,7 +178,7 @@ async fn run(
             Some(result) = next_or_pending!(brightness_events) => send(Update::Brightness(result.map_err(|e| e.to_string()))),
             Some(result) = next_or_pending!(power_events) => match result {
                 Ok(PowerEvent::Changed(snapshot)) => send(Update::Power(Ok(snapshot))),
-                Ok(_) => {}
+                Ok(warning) => send(Update::BatteryWarning(warning)),
                 Err(error) => send(Update::Power(Err(error.to_string()))),
             },
             command = commands.recv() => {
