@@ -439,7 +439,7 @@ mod flatpak_setup_tests {
         let steps = flatpak_setup_steps(
             Some(Family::Apt),
             &status(false, false),
-            &present(&["pkexec"]),
+            &present(&["pkexec", "apt-get"]),
         )
         .unwrap();
         assert_eq!(steps.len(), 2);
@@ -472,7 +472,7 @@ mod flatpak_setup_tests {
         let steps = flatpak_setup_steps(
             Some(Family::Dnf),
             &status(false, true),
-            &present(&["pkexec"]),
+            &present(&["pkexec", "dnf"]),
         )
         .unwrap();
         assert_eq!(
