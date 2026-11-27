@@ -733,10 +733,13 @@ where
                 _ = &mut *stop => return Attempt::Stopped,
                 _ = tokio::time::sleep(delay) => {}
             }
-            match owner_still_present().await {
-                Ok(true) => {}
-                Ok(false) => return Attempt::Abandoned,
-                Err(error) => return Attempt::Failed(error.into()),
+            // Bounded and stop-aware: a bus that stops answering GetNameOwner must
+            // not hold the watcher past shutdown.
+            match bounded_until_stop_for(CALL_TIMEOUT, stop, owner_still_present()).await {
+                Ok(Some(true)) => {}
+                Ok(Some(false)) => return Attempt::Abandoned,
+                Ok(None) => return Attempt::Stopped,
+                Err(error) => return Attempt::Failed(error),
             }
         }
         tokio::select! {
