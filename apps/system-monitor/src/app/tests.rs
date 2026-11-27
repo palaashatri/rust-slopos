@@ -800,7 +800,18 @@ fn a_focus_request_for_a_tab_reports_that_tab_in_the_tree() {
 
 #[test]
 fn a_hidden_window_reads_back_the_process_but_takes_no_full_sample() {
-    let mut app = app_with(FakeSource::new(snapshot(1000, 500, base_processes())));
+    let mut source = FakeSource::new(snapshot(1000, 500, base_processes()));
+    // The process is still there with the same identity, so the readback
+    // must report it as running. That result proves the identity was read.
+    source.identities.insert(
+        4000,
+        Identity {
+            start_ticks: 77,
+            uid: Some(USER),
+            state: 'S',
+        },
+    );
+    let mut app = app_with(source);
     let mut control = show(&mut app);
     app.event(&Event::Visibility(false), &mut control);
     let before = app.source.samples;
@@ -812,6 +823,11 @@ fn a_hidden_window_reads_back_the_process_but_takes_no_full_sample() {
     });
     app.event(&Event::Timer(READBACK_TIMER), &mut control);
     assert!(app.pending_readback.is_none(), "the readback ran");
+    assert_eq!(
+        app.status(),
+        "PID 4000 is still running after SIGTERM.",
+        "the identity was read while hidden"
+    );
     assert_eq!(app.source.samples, before, "no full sample while hidden");
     app.event(&Event::Visibility(true), &mut control);
     assert_eq!(
