@@ -176,9 +176,28 @@ pub fn desktop_menus(can: &Capabilities) -> Vec<MenuSpec> {
     ]
 }
 
-/// For a window that exports no menus: window-manager actions only.
-pub fn window_menus() -> Vec<MenuSpec> {
-    vec![MenuSpec::new("Window")
+/// The longest window title the bar shows in its application slot. Longer
+/// titles are cut with an ellipsis so they cannot push the status items off.
+pub const WINDOW_TITLE_MAX_CHARS: usize = 32;
+
+/// The bar's application slot for a window that exports no menus: the
+/// window's own title, or "Window" when the window has none.
+pub fn window_menu_title(title: &str) -> String {
+    let title = title.trim();
+    if title.is_empty() {
+        return "Window".to_owned();
+    }
+    if title.chars().count() <= WINDOW_TITLE_MAX_CHARS {
+        return title.to_owned();
+    }
+    let kept: String = title.chars().take(WINDOW_TITLE_MAX_CHARS - 1).collect();
+    format!("{}…", kept.trim_end())
+}
+
+/// For a window that exports no menus: window-manager actions only, under
+/// the window's own title.
+pub fn window_menus(title: &str) -> Vec<MenuSpec> {
+    vec![MenuSpec::new(&window_menu_title(title))
         .item("Minimize", Command::Minimize, true)
         .shortcut("Super+M")
         .item("Zoom", Command::Zoom, true)
@@ -267,8 +286,8 @@ mod tests {
             .map(|menu| menu.title)
             .collect();
         assert_eq!(titles, ["File", "View", "Special", "Help"]);
-        let window = window_menus();
-        assert_eq!(window[0].title, "Window");
+        let window = window_menus("Calculator");
+        assert_eq!(window[0].title, "Calculator");
         assert_eq!(window[0].commands()[3], Some(Command::CloseWindow));
         let imported = imported_menus(
             &["File".into()],
@@ -286,6 +305,32 @@ mod tests {
                 Some(Command::Imported(0, 2))
             ]
         );
+    }
+
+    #[test]
+    fn window_menu_title_comes_from_the_focused_window() {
+        // The bar's first application slot is named after the window, not a
+        // constant: two different windows must give two different titles.
+        assert_eq!(window_menus("Calculator")[0].title, "Calculator");
+        assert_eq!(window_menus("Notes")[0].title, "Notes");
+        assert_eq!(window_menu_title("  Calculator  "), "Calculator");
+    }
+
+    #[test]
+    fn window_menu_title_falls_back_only_when_the_window_has_no_title() {
+        assert_eq!(window_menu_title(""), "Window");
+        assert_eq!(window_menu_title("   "), "Window");
+    }
+
+    #[test]
+    fn window_menu_title_is_capped_so_the_bar_keeps_its_status_items() {
+        let long = "x".repeat(200);
+        let title = window_menu_title(&long);
+        assert!(title.chars().count() <= WINDOW_TITLE_MAX_CHARS, "{title}");
+        assert!(title.ends_with('…'), "{title}");
+        // A title at the limit is shown whole.
+        let exact = "y".repeat(WINDOW_TITLE_MAX_CHARS);
+        assert_eq!(window_menu_title(&exact), exact);
     }
 
     #[test]

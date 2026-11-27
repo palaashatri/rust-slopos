@@ -477,12 +477,12 @@ impl TopBar {
             (Some(_), Some((_, imported))) if !imported.is_empty() => {
                 menus::imported_menus(&imported.titles, &imported.menus)
             }
-            (Some(_), _) => match appmenu {
+            (Some(active), _) => match appmenu {
                 Some(bar_specs) => {
                     self.appmenu_specs = true;
                     bar_specs
                 }
-                None => menus::window_menus(),
+                None => menus::window_menus(&active.title),
             },
         });
         self.specs = specs;
@@ -1968,10 +1968,34 @@ mod tests {
             appmenu: None,
         });
         bar.rebuild_specs();
-        assert_eq!(bar.specs[1].title, "Window");
+        assert_eq!(bar.specs[1].title, "Notes");
         bar.active = None;
         bar.rebuild_specs();
         assert_eq!(bar.specs[1].title, "File");
+    }
+
+    #[test]
+    fn application_slot_follows_the_focused_windows_title() {
+        let mut bar = bar();
+        let focus = |title: &str| Active {
+            window: 9,
+            title: title.into(),
+            class: "slopos-calculator".into(),
+            fullscreen: false,
+            menus: None,
+            appmenu: None,
+        };
+        bar.active = Some(focus("Calculator"));
+        bar.rebuild_specs();
+        assert_eq!(bar.specs[1].title, "Calculator");
+        // A different window gives a different name: the title is not a constant.
+        bar.active = Some(focus("Notes"));
+        bar.rebuild_specs();
+        assert_eq!(bar.specs[1].title, "Notes");
+        // A window with no title still gets a usable slot.
+        bar.active = Some(focus(""));
+        bar.rebuild_specs();
+        assert_eq!(bar.specs[1].title, "Window");
     }
 
     #[test]
