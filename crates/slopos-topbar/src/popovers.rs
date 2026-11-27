@@ -5,6 +5,7 @@
 
 use slopos_services::bluetooth::BluetoothSnapshot;
 use slopos_services::network::{NetworkDeviceType, NetworkSnapshot};
+use slopos_services::power::{BatteryStatus, BatteryWarning, PowerSnapshot, PowerSource};
 use slopos_services::timedate::TimedateSnapshot;
 
 use crate::status::State;
@@ -217,6 +218,66 @@ fn ntp_text(snapshot: &TimedateSnapshot) -> String {
         "Network time: synchronized".into()
     } else {
         "Network time: not synchronized".into()
+    }
+}
+
+/// The battery popover: the charge, what the battery is doing, its energy rate,
+/// its warning level and the power source. A power provider that cannot answer is
+/// said to be unavailable; a machine without a battery says so.
+pub fn battery_lines(state: Option<&State<PowerSnapshot>>, panels: bool) -> Vec<Line> {
+    let mut lines = Vec::new();
+    match state {
+        None => lines.push(info("Reading power…")),
+        Some(Err(why)) => lines.push(info(format!("Battery unavailable: {why}"))),
+        Some(Ok(snapshot)) => match &snapshot.battery {
+            None => lines.push(info("No battery")),
+            Some(battery) => {
+                lines.push(info(format!(
+                    "Charge {:.0}%",
+                    battery.percentage.clamp(0.0, 100.0)
+                )));
+                lines.push(info(battery_state_text(battery.status)));
+                if let Some(text) = energy_rate_text(battery.status, battery.energy_rate_watts) {
+                    lines.push(info(text));
+                }
+                match battery.warning {
+                    BatteryWarning::Low => lines.push(info("Low battery")),
+                    BatteryWarning::Critical => lines.push(info("Critically low battery")),
+                    BatteryWarning::None | BatteryWarning::Unknown => {}
+                }
+                match snapshot.source {
+                    PowerSource::Battery => lines.push(info("Running on battery power")),
+                    PowerSource::External => lines.push(info("Plugged in")),
+                    PowerSource::Unknown => {}
+                }
+            }
+        },
+    }
+    lines.push(Line::Separator);
+    lines.push(panel("Display Preferences…", "--display", panels));
+    lines
+}
+
+fn battery_state_text(status: BatteryStatus) -> &'static str {
+    match status {
+        BatteryStatus::Unknown => "Battery state unknown",
+        BatteryStatus::Charging => "Charging",
+        BatteryStatus::Discharging => "Discharging",
+        BatteryStatus::Empty => "Empty",
+        BatteryStatus::Full => "Fully charged",
+        BatteryStatus::PendingCharge => "Waiting to charge",
+        BatteryStatus::PendingDischarge => "Waiting to discharge",
+    }
+}
+
+/// The energy rate, when the provider gives a non-zero one while charging or
+/// discharging.
+fn energy_rate_text(status: BatteryStatus, watts: Option<f64>) -> Option<String> {
+    let watts = watts.filter(|watts| *watts > 0.0)?;
+    match status {
+        BatteryStatus::Charging => Some(format!("Charging at {watts:.1} W")),
+        BatteryStatus::Discharging => Some(format!("Using {watts:.1} W")),
+        _ => None,
     }
 }
 
@@ -469,6 +530,103 @@ mod tests {
         assert_eq!(
             texts(&clock_lines("Mon", None, false)),
             ["Mon", "Reading time settings…"]
+        );
+    }
+
+    fn battery_snapshot(
+        percentage: f64,
+        status: BatteryStatus,
+        warning: BatteryWarning,
+        watts: Option<f64>,
+    ) -> PowerSnapshot {
+        PowerSnapshot {
+            revision: 1,
+            availability: Availability::Available,
+            battery: Some(slopos_services::power::Battery {
+                percentage,
+                status,
+                warning,
+                energy_rate_watts: watts,
+            }),
+            source: PowerSource::Battery,
+            suspend: slopos_services::power::SuspendCapability::Available,
+            lid_present: false,
+            lid_closed: None,
+        }
+    }
+
+    #[test]
+    fn the_battery_popover_shows_the_provider_state_and_nothing_more() {
+        let discharging = battery_snapshot(
+            42.4,
+            BatteryStatus::Discharging,
+            BatteryWarning::None,
+            Some(8.4),
+        );
+        assert_eq!(
+            texts(&battery_lines(Some(&Ok(discharging)), false)),
+            [
+                "Charge 42%",
+                "Discharging",
+                "Using 8.4 W",
+                "Running on battery power"
+            ]
+        );
+        let charging = PowerSnapshot {
+            source: PowerSource::External,
+            ..battery_snapshot(100.0, BatteryStatus::Full, BatteryWarning::None, Some(0.0))
+        };
+        // A zero or missing rate is not shown, and "Full" has no rate line.
+        assert_eq!(
+            texts(&battery_lines(Some(&Ok(charging)), false)),
+            ["Charge 100%", "Fully charged", "Plugged in"]
+        );
+        let low = battery_snapshot(
+            9.0,
+            BatteryStatus::Charging,
+            BatteryWarning::Critical,
+            Some(15.0),
+        );
+        let lines = texts(&battery_lines(Some(&Ok(low)), false));
+        assert!(lines.contains(&"Charging at 15.0 W".to_string()));
+        assert!(lines.contains(&"Critically low battery".to_string()));
+    }
+
+    #[test]
+    fn a_missing_power_provider_is_unavailable_and_a_machine_without_a_battery_says_so() {
+        assert_eq!(
+            texts(&battery_lines(
+                Some(&Err("UPower is not running".into())),
+                false
+            )),
+            ["Battery unavailable: UPower is not running"]
+        );
+        assert_eq!(texts(&battery_lines(None, false)), ["Reading power…"]);
+        let no_battery = PowerSnapshot {
+            revision: 1,
+            availability: Availability::Available,
+            battery: None,
+            source: PowerSource::External,
+            suspend: slopos_services::power::SuspendCapability::Available,
+            lid_present: false,
+            lid_closed: None,
+        };
+        assert_eq!(
+            texts(&battery_lines(Some(&Ok(no_battery)), false)),
+            ["No battery"]
+        );
+    }
+
+    #[test]
+    fn the_battery_popover_ends_with_the_display_panel_entry() {
+        let lines = battery_lines(Some(&Err("gone".into())), true);
+        assert_eq!(
+            lines.last(),
+            Some(&Line::Panel {
+                label: "Display Preferences…",
+                argument: "--display",
+                enabled: true,
+            })
         );
     }
 }

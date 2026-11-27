@@ -303,7 +303,8 @@ pub struct TopBar {
     /// The lines of the status popover open now, to tell when they change.
     popover: Option<Vec<popovers::Line>>,
     osd: osd::Osd,
-    power: status::State<slopos_services::power::PowerSnapshot>,
+    /// None until the power provider's first answer.
+    power: Option<status::State<slopos_services::power::PowerSnapshot>>,
     clock: String,
     date: String,
     launcher: Option<launcher::Launcher>,
@@ -356,7 +357,7 @@ impl TopBar {
             timedate: None,
             popover: None,
             osd: osd::Osd::new(),
-            power: Err("loading".into()),
+            power: None,
             clock,
             date,
             launcher: None,
@@ -590,7 +591,7 @@ impl TopBar {
             ),
             (StatusMenu::Sound, status::sound_text(&self.audio)),
         ];
-        if let Some(battery) = status::battery_text(&self.power) {
+        if let Some(battery) = status::battery_item(self.power.as_ref()) {
             items.push((StatusMenu::Battery, battery));
         }
         let mut right = self.width as i32 - 6;
@@ -668,7 +669,8 @@ impl TopBar {
                 self.timedate.as_ref(),
                 panels,
             )),
-            StatusMenu::Sound | StatusMenu::Battery => None,
+            StatusMenu::Battery => Some(popovers::battery_lines(self.power.as_ref(), panels)),
+            StatusMenu::Sound => None,
         }
     }
 
@@ -1000,19 +1002,10 @@ impl TopBar {
                 );
             }
             // Popovers: built above.
-            StatusMenu::Network | StatusMenu::Bluetooth | StatusMenu::Clock => {}
-            StatusMenu::Battery => {
-                if let Some(text) = status::battery_text(&self.power) {
-                    info(format!("Battery: {text}"), &mut items, &mut commands);
-                }
-                separator(&mut items, &mut commands);
-                action(
-                    MenuItem::new("Display Preferences…").enabled(panels),
-                    StatusCommand::OpenPanel("--display"),
-                    &mut items,
-                    &mut commands,
-                );
-            }
+            StatusMenu::Network
+            | StatusMenu::Bluetooth
+            | StatusMenu::Clock
+            | StatusMenu::Battery => {}
         }
         (items, commands)
     }
@@ -1339,7 +1332,8 @@ impl TopBar {
                     self.can.sleep = state.as_ref().is_ok_and(|p| {
                         p.suspend == slopos_services::power::SuspendCapability::Available
                     });
-                    self.power = state;
+                    self.power = Some(state);
+                    self.refresh_popover(control);
                 }
                 StatusUpdate::AudioFailed(error) => {
                     log::warn!("sound change failed: {error}");
@@ -2284,6 +2278,86 @@ mod tests {
         );
         assert!(bar.open.is_none());
         assert!(bar.popover.is_none());
+    }
+
+    #[test]
+    fn the_battery_item_opens_a_popover_that_says_when_the_power_provider_is_missing() {
+        let mut bar = bar();
+        let mut control = Control::default();
+        bar.power = Some(Err("UPower is not running".into()));
+        let (rect, text) = bar
+            .status_rects()
+            .into_iter()
+            .find(|(kind, _, _)| *kind == StatusMenu::Battery)
+            .map(|(_, rect, text)| (rect, text))
+            .expect("the battery item is laid out while the provider is missing");
+        assert_eq!(text, "Battery unavailable");
+        bar.event(&press(rect.x + 4, 12), &mut control);
+        assert_eq!(bar.open, Some(Open::Status(StatusMenu::Battery)));
+        assert!(bar
+            .popover
+            .as_ref()
+            .is_some_and(|lines| lines.contains(&popovers::Line::Info(
+                "Battery unavailable: UPower is not running".into()
+            ))));
+        bar.event(
+            &Event::Popup {
+                id: POPUP_MENU,
+                event: Box::new(key(Key::Escape)),
+            },
+            &mut control,
+        );
+        assert!(bar.open.is_none());
+    }
+
+    #[test]
+    fn the_battery_item_follows_the_provider_charge_and_the_popover_follows_its_answer() {
+        use slopos_core::capability::Availability;
+        use slopos_services::power::{
+            Battery, BatteryStatus, BatteryWarning, PowerSnapshot, PowerSource, SuspendCapability,
+        };
+        let mut bar = bar();
+        let mut control = Control::default();
+        let snapshot = |percentage| PowerSnapshot {
+            revision: 1,
+            availability: Availability::Available,
+            battery: Some(Battery {
+                percentage,
+                status: BatteryStatus::Discharging,
+                warning: BatteryWarning::None,
+                energy_rate_watts: None,
+            }),
+            source: PowerSource::Battery,
+            suspend: SuspendCapability::Available,
+            lid_present: false,
+            lid_closed: None,
+        };
+        bar.power = Some(Ok(snapshot(42.0)));
+        let text = |bar: &TopBar| {
+            bar.status_rects()
+                .into_iter()
+                .find(|(kind, _, _)| *kind == StatusMenu::Battery)
+                .map(|(_, _, text)| text)
+        };
+        assert_eq!(text(&bar).as_deref(), Some("42%"));
+        let rect = bar
+            .status_rects()
+            .into_iter()
+            .find(|(kind, _, _)| *kind == StatusMenu::Battery)
+            .map(|(_, rect, _)| rect)
+            .expect("the battery item is laid out");
+        bar.event(&press(rect.x + 4, 12), &mut control);
+        assert!(bar
+            .popover
+            .as_ref()
+            .is_some_and(|lines| lines.contains(&popovers::Line::Info("Charge 42%".into()))));
+        // A new answer rebuilds the open popover.
+        bar.power = Some(Ok(snapshot(41.0)));
+        bar.refresh_popover(&mut control);
+        assert!(bar
+            .popover
+            .as_ref()
+            .is_some_and(|lines| lines.contains(&popovers::Line::Info("Charge 41%".into()))));
     }
 
     #[test]
