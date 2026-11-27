@@ -186,6 +186,7 @@ What is left before SLOPOS X11 is a daily-use desktop comparable to KDE Plasma o
 | GAP-APP-04 | P1 | Screenshot & Recorder (with Print Screen key) | §16.8 | |
 | GAP-APP-05 | P1 | Documents (PDF) viewer | §17.7 | zathura donor. |
 | GAP-APP-06 | P2 | Disks, Fonts, Help, System Information, Archive Utility window | §16.9, §17.2–17.5 | |
+| GAP-APP-07 | P2 | Event Viewer: a read-only view of the session event log | §16.10 | Added 2026-11-27; not a P1 gate. |
 | GAP-FILES-01 | P1 | Drag and drop, icon view, thumbnails, properties | §16.1 | |
 | GAP-FILES-02 | P1 | Mount/eject removable media, auto-mount handler | §16.1, §18.7, §22.10 | |
 | GAP-FILES-03 | P2 | Network locations (SMB/SFTP), >8192-entry folders | §16.1 | |

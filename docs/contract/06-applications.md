@@ -359,6 +359,30 @@ Every displayed value must be real.
 
 This app also provides the canonical compact About composition required for visual QA.
 
+## 16.10 SLOPOS Event Viewer (P2)
+
+Target path:
+
+```text
+apps/event-viewer
+```
+
+Priority: P2 (GAP-APP-07). It is not part of the P1 release gates.
+
+Purpose: a read-only record of what happened in the session, for diagnosis, in the style of the Windows Event Viewer.
+
+Required:
+
+- one structured, append-only event log that SLOPOS owns, in the XDG state directory, with a bounded size and rotation;
+- events from the session supervisor, the `slopos-services` providers, software installs and removals, and application crashes;
+- each event carries time, severity (information, warning, error), source, a short message, and optional details;
+- filter by severity, source and time range, and search by text;
+- inspect an event to see its details;
+- clearing the log asks for confirmation and is itself recorded as an event;
+- the viewer shows only events that were recorded. Nothing is created or summarised after the fact to fill a gap.
+
+Not required for P2: remote or networked logs, journald as a source, and forwarding.
+
 # 17. Extended first-party daily-use applications
 
 These are part of the target SLOPOS application suite. They may be implemented after the release-critical core is stable, but they must follow the same architecture.
