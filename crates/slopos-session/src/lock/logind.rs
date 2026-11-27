@@ -25,6 +25,20 @@ pub enum LogindEvent {
     /// Someone asked to lock this session (`loginctl lock-session`).
     Lock,
     /// Someone asked to unlock this session (`loginctl unlock-session`).
+    ///
+    /// Authorization is logind's, not the lock's. logind emits this signal
+    /// only after its polkit check for the `org.freedesktop.login1.lock-sessions`
+    /// action passes. The lock cannot see that check, so it trusts the signal
+    /// (see [`watch_session`], which accepts it only from the login1 sender).
+    /// On the systemd 255 policy shipped by Ubuntu 24.04, that action is
+    /// `auth_admin_keep` for every caller, including the session's own user:
+    /// the caller must authenticate as an administrator (root, or a user in
+    /// the admin group). Ownership alone does not authorize it. Whether a
+    /// given install matches this is NOT verified here; check it with
+    /// `pkaction --verbose --action-id org.freedesktop.login1.lock-sessions`
+    /// on the target system. Because the signal is trusted, an admin who
+    /// unlocks the session through logind also unlocks the screen without the
+    /// password. This is a deliberate decision, not an oversight.
     Unlock,
 }
 

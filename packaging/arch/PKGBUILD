@@ -13,7 +13,7 @@ depends=(
   blueman upower xfce4-power-manager xfce4-settings lxappearance arandr xorg-xrandr xorg-xsetroot
   xdotool wmctrl adwaita-icon-theme librsvg ttf-liberation ttf-dejavu feh
 )
-makedepends=(cargo pkgconf rust git openssl gstreamer gst-plugins-base-libs)
+makedepends=(cargo pkgconf rust git openssl gstreamer gst-plugins-base-libs pam)
 optdepends=('firefox: web browser' 'lightdm: graphical display manager')
 provides=('slopos-i')
 conflicts=('slopos-i-git')
@@ -27,11 +27,15 @@ build() {
   cargo build --release --workspace --locked
 }
 
+backup=(etc/pam.d/slopos-lock)
+
 package() {
   cd "$srcdir/rust-slopos"
   export CARGO_TARGET_DIR="$srcdir/.cargo-target"
 
-  for binary in slopos-session slopos-shell slopos-dock slopos-catalogue slopos-settings slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-volume-mixer slopos-software; do
+  install -Dm644 packaging/pam/slopos-lock.arch "$pkgdir/etc/pam.d/slopos-lock"
+
+  for binary in slopos-session slopos-shell slopos-dock slopos-catalogue slopos-settings slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-volume-mixer slopos-software slopos-lock; do
     install -Dm755 "$CARGO_TARGET_DIR/release/$binary" "$pkgdir/usr/bin/$binary"
   done
   install -Dm755 scripts/start-slopos-i "$pkgdir/usr/bin/start-slopos-i"

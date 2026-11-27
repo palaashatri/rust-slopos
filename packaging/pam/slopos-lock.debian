@@ -1,0 +1,5 @@
+#%PAM-1.0
+# PAM service for the SLOPOS-I screen lock (slopos-lock). Debian and Ubuntu.
+# The lock checks the password of the logged-in user only.
+@include common-auth
+@include common-account

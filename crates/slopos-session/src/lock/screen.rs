@@ -20,7 +20,7 @@ use slopos_ui::text::{measure, Font};
 use slopos_ui::theme::palette;
 use zeroize::Zeroizing;
 
-use super::auth::{run_checks, CheckRequest, NoAuthentication, PamCheck, PasswordCheck};
+use super::auth::{run_checks, CheckRequest, PamCheck, PasswordCheck};
 use super::clock::{Clock, SystemClock};
 use super::logind::{self, EventSink, LogindEvent};
 use super::state::{Effect, Input, LockMachine, Notice, Verdict};
@@ -304,13 +304,7 @@ pub fn run(ready_fd: Option<i32>) -> Result<(), String> {
         return Ok(());
     };
     let user = super::current_user().ok_or("cannot find the name of the user")?;
-    let checker: Box<dyn PasswordCheck> = match PamCheck::open() {
-        Ok(checker) => Box::new(checker),
-        Err(error) => {
-            log::error!("{error}; no password can unlock the screen");
-            Box::new(NoAuthentication)
-        }
-    };
+    let checker: Box<dyn PasswordCheck> = Box::new(PamCheck::new());
     let (screen_width, screen_height) =
         slopos_ui::platform::x11::screen_size().map_err(|error| error.to_string())?;
     let factor = platform::scale_from_environment().factor();

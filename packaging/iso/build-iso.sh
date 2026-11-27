@@ -33,7 +33,7 @@ cd "$ROOT"
 echo "[1/6] Building current SLOPOS-I release binaries"
 cargo build --release --workspace --locked
 
-for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-volume-mixer slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-software; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-volume-mixer slopos-lock slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-software; do
   test -x "target/release/$binary" || {
     echo "ERROR: target/release/$binary is missing" >&2
     exit 1
@@ -63,10 +63,11 @@ mv "$PROFILE/packages.x86_64.tmp" "$PROFILE/packages.x86_64"
 ROOTFS="$PROFILE/airootfs"
 
 echo "[3/6] Staging SLOPOS-I X11 session into the live root filesystem"
-for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-volume-mixer slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-software; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-volume-mixer slopos-lock slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-software; do
   install -Dm755 "target/release/$binary" "$ROOTFS/usr/local/bin/$binary"
 done
 install -Dm755 scripts/start-slopos-i "$ROOTFS/usr/local/bin/start-slopos-i"
+install -Dm644 packaging/pam/slopos-lock.debian "$ROOTFS/etc/pam.d/slopos-lock"
 install -Dm755 scripts/start-slopos-browser "$ROOTFS/usr/local/bin/start-slopos-browser"
 install -Dm755 scripts/install-browser-theme.sh "$ROOTFS/usr/local/bin/install-browser-theme.sh"
 install -Dm755 scripts/slopos-appearance "$ROOTFS/usr/local/bin/slopos-appearance"
@@ -149,6 +150,7 @@ file_permissions["/usr/local/bin/slopos-appearance"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-wallpaper"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-recovery"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-dock"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-lock"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-calculator"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-volume-mixer"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-control-panels"]="0:0:755"

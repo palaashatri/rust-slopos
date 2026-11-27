@@ -7,6 +7,7 @@ CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/slopos-i/c
 export CARGO_TARGET_DIR
 
 PREFIX="${PREFIX:-/usr/local}"
+SYSCONFDIR="${SYSCONFDIR:-/etc}"
 XSESSION_DIR="${XSESSION_DIR:-/usr/share/xsessions}"
 NO_DEPS=0
 NO_BUILD=0
@@ -16,13 +17,14 @@ DISTRO="auto"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --prefix) PREFIX="$2"; shift 2 ;;
+    --sysconfdir) SYSCONFDIR="$2"; shift 2 ;;
     --no-deps) NO_DEPS=1; shift ;;
     --no-build) NO_BUILD=1; shift ;;
     --with-greeter) WITH_GREETER=1; shift ;;
     --distro) DISTRO="$2"; shift 2 ;;
     -h|--help)
       cat <<EOF
-Usage: sudo ./install.sh [--prefix /usr/local] [--no-deps] [--no-build]
+Usage: sudo ./install.sh [--prefix /usr/local] [--sysconfdir /etc] [--no-deps] [--no-build]
                          [--with-greeter] [--distro auto|arch|ubuntu]
 
 Installs the X11-only SLOPOS-I desktop.
@@ -57,7 +59,7 @@ if [[ "$DISTRO" != "arch" && "$DISTRO" != "ubuntu" ]]; then
   exit 2
 fi
 
-for install_path_name in PREFIX XSESSION_DIR; do
+for install_path_name in PREFIX XSESSION_DIR SYSCONFDIR; do
   install_path_value="${!install_path_name}"
   case "$install_path_value" in
     /*) ;;
@@ -102,7 +104,7 @@ if [[ $NO_BUILD -eq 0 ]]; then
   cargo build --release --workspace --locked
 fi
 
-BINARIES=(slopos-session slopos-topbar slopos-desktop slopos-dock slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-software slopos-volume-mixer)
+BINARIES=(slopos-session slopos-topbar slopos-desktop slopos-dock slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-software slopos-volume-mixer slopos-lock)
 for name in "${BINARIES[@]}"; do
   src="$CARGO_TARGET_DIR/release/$name"
   if [[ ! -x "$src" ]]; then
@@ -112,6 +114,13 @@ for name in "${BINARIES[@]}"; do
   install -Dm755 "$src" "$PREFIX/bin/$name"
 done
 install -Dm755 scripts/start-slopos-i "$PREFIX/bin/start-slopos-i"
+# The lock checks passwords through PAM service slopos-lock; without this file
+# slopos-lock refuses to cover the screen.
+if [[ "$DISTRO" == "arch" ]]; then
+  install -Dm644 packaging/pam/slopos-lock.arch "$SYSCONFDIR/pam.d/slopos-lock"
+else
+  install -Dm644 packaging/pam/slopos-lock.debian "$SYSCONFDIR/pam.d/slopos-lock"
+fi
 install -Dm755 scripts/start-slopos-browser "$PREFIX/bin/start-slopos-browser"
 install -Dm755 scripts/install-browser-theme.sh "$PREFIX/bin/install-browser-theme.sh"
 install -Dm755 scripts/slopos-appearance "$PREFIX/bin/slopos-appearance"
@@ -234,7 +243,9 @@ Binaries:
   $PREFIX/bin/slopos-control-panels
   $PREFIX/bin/slopos-software
   $PREFIX/bin/slopos-volume-mixer
+  $PREFIX/bin/slopos-lock
   $PREFIX/bin/start-slopos-i
+  $SYSCONFDIR/pam.d/slopos-lock
   $PREFIX/bin/slopos-appearance
   $PREFIX/bin/slopos-recovery
 

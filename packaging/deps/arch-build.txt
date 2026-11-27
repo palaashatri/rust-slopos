@@ -9,3 +9,4 @@ libx11
 libxrandr
 openssl
 dbus
+pam

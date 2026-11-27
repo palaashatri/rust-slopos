@@ -1,0 +1,4 @@
+#%PAM-1.0
+# PAM service for the SLOPOS-I screen lock (slopos-lock). Arch Linux.
+# The lock checks the password of the logged-in user only.
+@include system-auth

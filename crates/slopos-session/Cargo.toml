@@ -26,4 +26,5 @@ libc = { workspace = true }
 x11rb = { workspace = true }
 zbus = { workspace = true }
 zeroize = { workspace = true }
+pam = { workspace = true }
 accesskit = { workspace = true }
