@@ -16,10 +16,10 @@ use slopos_ui::controls::button::{Button, ButtonOutcome};
 use slopos_ui::controls::dialog::{self, Dialog, DialogOutcome};
 use slopos_ui::controls::focus::FocusChain;
 use slopos_ui::controls::list::{ListOutcome, ListView};
-use slopos_ui::controls::scroll::{ScrollOutcome, ScrollState};
+use slopos_ui::controls::scroll::{ScrollOutcome, ScrollState, WHEEL_STEP};
 use slopos_ui::controls::tabs::{TabOutcome, TabStrip};
 use slopos_ui::controls::text_field::{TextField, TextFieldOutcome};
-use slopos_ui::event::{AccessibilityRequest, Event};
+use slopos_ui::event::{AccessibilityRequest, Event, Key};
 use slopos_ui::foundation::geometry::Rect;
 use slopos_ui::platform::{App, Control};
 use slopos_ui::primitives::button_plate::ButtonPlateVariant;
@@ -732,6 +732,11 @@ impl<S: Source> SystemMonitor<S> {
                     Focus::End => self.end.enabled,
                 };
                 if reachable {
+                    if target == Focus::Tabs {
+                        // The strip records which tab the request asked for, so
+                        // the accessibility tree reports that tab as focused.
+                        self.tabs.handle(&Event::Accessibility(request.clone()));
+                    }
                     self.focus_on(target);
                 }
                 true
@@ -1255,9 +1260,29 @@ impl<S: Source> App for SystemMonitor<S> {
             control.request_redraw();
             return;
         }
-        if self.tabs.selected == CPU && self.cpu_scroll.handle(event) == ScrollOutcome::Scrolled {
-            control.request_redraw();
-            return;
+        if self.tabs.selected == CPU {
+            // Keyboard scrolling of the CPU page. The strip uses Left, Right,
+            // Home and End, so the page takes the vertical and page keys.
+            if let Event::KeyPressed { key, .. } = event {
+                let page = self.cpu_scroll.viewport() as i64;
+                let step = match key {
+                    Key::Up => Some(-(WHEEL_STEP)),
+                    Key::Down => Some(WHEEL_STEP),
+                    Key::PageUp => Some(-page),
+                    Key::PageDown => Some(page),
+                    _ => None,
+                };
+                if let Some(delta) = step {
+                    if self.cpu_scroll.scroll_by(delta) {
+                        control.request_redraw();
+                    }
+                    return;
+                }
+            }
+            if self.cpu_scroll.handle(event) == ScrollOutcome::Scrolled {
+                control.request_redraw();
+                return;
+            }
         }
         if self.route(event, control) {
             control.request_redraw();

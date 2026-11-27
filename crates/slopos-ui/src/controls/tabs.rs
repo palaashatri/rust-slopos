@@ -163,7 +163,10 @@ impl TabStrip {
             Event::Accessibility(AccessibilityRequest::Click(node)) => {
                 match self.tab_for_node(*node) {
                     Some(index) if self.select(index) => TabOutcome::Selected(index),
-                    Some(_) => TabOutcome::FocusRequested,
+                    Some(_) => {
+                        self.focus_target = None;
+                        TabOutcome::FocusRequested
+                    }
                     None => TabOutcome::Ignored,
                 }
             }
@@ -443,6 +446,71 @@ mod tests {
         strip.enabled = false;
         strip.paint(&surface, &Font::system(12.0)).unwrap();
         assert_eq!(surface.pixel(12, 12), Some(opaque(palette().content)));
+    }
+
+    #[test]
+    fn focus_ring_has_a_reference_pixel_only_while_focused() {
+        let surface = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
+        let mut strip = strip();
+        strip.focused = false;
+        surface.clear(Color::WHITE).unwrap();
+        strip.paint(&surface, &Font::system(12.0)).unwrap();
+        assert_ne!(surface.pixel(13, 13), Some(opaque(Color::BLACK)));
+
+        strip.focused = true;
+        surface.clear(Color::WHITE).unwrap();
+        strip.paint(&surface, &Font::system(12.0)).unwrap();
+        // The ring's top-left dot sits three logical pixels inside the tab's corner.
+        assert_eq!(surface.pixel(13, 13), Some(opaque(Color::BLACK)));
+    }
+
+    #[test]
+    fn disabled_strip_uses_disabled_ink_and_never_shows_a_focus_ring() {
+        let font = Font::system(12.0);
+        let enabled = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
+        let disabled = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
+        enabled.clear(Color::WHITE).unwrap();
+        disabled.clear(Color::WHITE).unwrap();
+        let mut on = strip();
+        on.focused = true;
+        on.paint(&enabled, &font).unwrap();
+        let mut off = strip();
+        off.enabled = false;
+        off.focused = true;
+        off.paint(&disabled, &font).unwrap();
+
+        let region = |surface: &RasterSurface| -> Vec<Option<u32>> {
+            (10..310)
+                .flat_map(|x| (10..34).map(move |y| (x, y)))
+                .map(|(x, y)| surface.pixel(x, y))
+                .collect()
+        };
+        // The label pixels change when the ink changes to the disabled colour.
+        assert_ne!(region(&enabled), region(&disabled));
+        // A disabled strip paints no focus ring, so the corner keeps the fill.
+        assert_eq!(disabled.pixel(13, 13), Some(opaque(palette().content)));
+    }
+
+    #[test]
+    fn clicking_the_selected_tab_clears_a_pending_focus_request() {
+        let mut strip = strip();
+        strip.focused = true;
+        assert_eq!(
+            strip.handle(&Event::Accessibility(AccessibilityRequest::Focus(
+                strip.tab_node_id(2)
+            ))),
+            TabOutcome::FocusRequested
+        );
+        assert_eq!(strip.focus_node(), strip.tab_node_id(2));
+
+        assert_eq!(
+            strip.handle(&Event::Accessibility(AccessibilityRequest::Click(
+                strip.tab_node_id(0)
+            ))),
+            TabOutcome::FocusRequested
+        );
+        assert_eq!(strip.selected, 0);
+        assert_eq!(strip.focus_node(), strip.tab_node_id(0));
     }
 
     #[test]

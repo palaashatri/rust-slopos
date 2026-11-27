@@ -26,6 +26,8 @@ struct FakeSource {
     sent: RefCell<Vec<u32>>,
     send_error: Option<io::ErrorKind>,
     gpu: GpuInfo,
+    /// Full samples taken so far.
+    samples: u32,
 }
 
 impl FakeSource {
@@ -36,12 +38,14 @@ impl FakeSource {
             sent: RefCell::new(Vec::new()),
             send_error: None,
             gpu: GpuInfo::Unavailable("no adapter in the test".into()),
+            samples: 0,
         }
     }
 }
 
 impl Source for FakeSource {
     fn sample(&mut self, at: Instant) -> Snapshot {
+        self.samples += 1;
         Snapshot {
             at,
             ..self.snapshot.clone()
@@ -722,4 +726,97 @@ fn cpu_tab_scrolls_to_reach_every_logical_cpu() {
     assert!(label_texts(&app)
         .iter()
         .any(|text| text.starts_with("CPU 39:")));
+}
+
+fn press(app: &mut SystemMonitor<FakeSource>, key: Key, control: &mut Control) {
+    app.event(
+        &Event::KeyPressed {
+            key,
+            modifiers: Modifiers::default(),
+        },
+        control,
+    );
+}
+
+fn source_with_40_cpus() -> FakeSource {
+    let mut source = FakeSource::new(snapshot(1000, 500, base_processes()));
+    source.snapshot.cpu = Some((
+        CpuTicks {
+            total: 1000,
+            idle: 500,
+        },
+        (0..40)
+            .map(|number| {
+                (
+                    number,
+                    CpuTicks {
+                        total: 25,
+                        idle: 12,
+                    },
+                )
+            })
+            .collect(),
+    ));
+    source
+}
+
+#[test]
+fn cpu_tab_scrolls_from_the_keyboard() {
+    let mut app = app_with(source_with_40_cpus());
+    let mut control = show(&mut app);
+    app.tabs.select(CPU);
+    assert_eq!(app.cpu_scroll.offset(), 0);
+    press(&mut app, Key::Down, &mut control);
+    assert_eq!(app.cpu_scroll.offset(), WHEEL_STEP as u64);
+    press(&mut app, Key::PageDown, &mut control);
+    assert!(app.cpu_scroll.offset() > WHEEL_STEP as u64);
+    // A page is larger than one step, so PageUp returns to the top.
+    press(&mut app, Key::PageUp, &mut control);
+    assert_eq!(app.cpu_scroll.offset(), 0);
+    press(&mut app, Key::Down, &mut control);
+    assert_eq!(app.cpu_scroll.offset(), WHEEL_STEP as u64);
+    press(&mut app, Key::Up, &mut control);
+    assert_eq!(app.cpu_scroll.offset(), 0);
+}
+
+#[test]
+fn a_focus_request_for_a_tab_reports_that_tab_in_the_tree() {
+    let mut app = app_with(FakeSource::new(snapshot(1000, 500, base_processes())));
+    let mut control = show(&mut app);
+    let selected = app.view_index();
+    let node = app.tabs.tab_node_id(CPU);
+    app.event(
+        &Event::Accessibility(AccessibilityRequest::Focus(node)),
+        &mut control,
+    );
+    assert_eq!(app.view_index(), selected, "a focus request keeps the tab");
+    let tree = app.accessibility().expect("the window has a tree");
+    assert_eq!(
+        tree.focus,
+        NodeId(node),
+        "the tree reports the requested tab"
+    );
+}
+
+#[test]
+fn a_hidden_window_reads_back_the_process_but_takes_no_full_sample() {
+    let mut app = app_with(FakeSource::new(snapshot(1000, 500, base_processes())));
+    let mut control = show(&mut app);
+    app.event(&Event::Visibility(false), &mut control);
+    let before = app.source.samples;
+    app.pending_readback = Some(Target {
+        pid: 4000,
+        start_ticks: 77,
+        uid: Some(USER),
+        name: "runaway".to_owned(),
+    });
+    app.event(&Event::Timer(READBACK_TIMER), &mut control);
+    assert!(app.pending_readback.is_none(), "the readback ran");
+    assert_eq!(app.source.samples, before, "no full sample while hidden");
+    app.event(&Event::Visibility(true), &mut control);
+    assert_eq!(
+        app.source.samples,
+        before + 1,
+        "the next visible event refreshes the snapshot"
+    );
 }
