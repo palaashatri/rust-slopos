@@ -20,6 +20,7 @@ use slopos_services::bluetooth::BluetoothSnapshot;
 use slopos_services::brightness::BrightnessSnapshot;
 use slopos_services::display::{self, DisplaySnapshot, OutputConfig, Placement};
 use slopos_services::network::{NetworkDeviceType, NetworkSnapshot};
+use slopos_services::power::{PowerSnapshot, SuspendCapability};
 use slopos_services::timedate::TimedateSnapshot;
 use slopos_ui::accessibility::window_tree;
 use slopos_ui::controls::button::{Button, ButtonOutcome};
@@ -103,6 +104,8 @@ const BT_LIST_ID: u64 = 52;
 const BT_PAIR_ID: u64 = 53;
 const BT_CONNECT_ID: u64 = 54;
 const BT_FORGET_ID: u64 = 55;
+const POWER_SUSPEND_ID: u64 = 110;
+const SUSPEND_DIALOG_ID: u64 = 620;
 const NTP_ID: u64 = 60;
 const LAYOUT_ID: u64 = 90;
 const REPEAT_DELAY_ID: u64 = 91;
@@ -130,10 +133,11 @@ enum Panel {
     Desktop,
     Appearance,
     Input,
+    Power,
 }
 
 /// Theme icon candidates per panel (Adwaita ships mostly symbolic ones).
-const PANEL_ICONS: [&[&str]; 8] = [
+const PANEL_ICONS: [&[&str]; 9] = [
     &[
         "network-workgroup",
         "network-wireless-symbolic",
@@ -162,9 +166,14 @@ const PANEL_ICONS: [&[&str]; 8] = [
         "input-keyboard-symbolic",
         "input-mouse-symbolic",
     ],
+    &[
+        "battery-good",
+        "battery-good-symbolic",
+        "preferences-system-power",
+    ],
 ];
 
-const PANELS: [(Panel, &str); 8] = [
+const PANELS: [(Panel, &str); 9] = [
     (Panel::Network, "Network"),
     (Panel::Sound, "Sound"),
     (Panel::Display, "Display"),
@@ -173,6 +182,7 @@ const PANELS: [(Panel, &str); 8] = [
     (Panel::Desktop, "Desktop"),
     (Panel::Appearance, "Appearance"),
     (Panel::Input, "Keyboard & Mouse"),
+    (Panel::Power, "Power"),
 ];
 
 type WakeSlot = Arc<Mutex<Option<Proxy>>>;
@@ -186,6 +196,7 @@ fn panel_for_argument(argument: &str) -> Option<usize> {
         "network" | "wifi" => Panel::Network,
         "display" | "displays" | "brightness" => Panel::Display,
         "bluetooth" => Panel::Bluetooth,
+        "power" | "battery" => Panel::Power,
         "appearance" | "theme" => Panel::Appearance,
         "desktop" | "wallpaper" | "background" => Panel::Desktop,
         "keyboard" | "mouse" | "input" | "touchpad" => Panel::Input,
@@ -264,6 +275,10 @@ pub struct ControlPanels {
     bt_forget: Button,
     /// The device being paired, until BlueZ answers.
     pairing: Option<String>,
+    power: State<PowerSnapshot>,
+    suspend: Button,
+    /// "Suspend this computer?", shown before the provider is asked.
+    suspend_confirm: Option<Dialog>,
     ntp: Checkbox,
     appearance_list: ListView,
     apply: Button,
@@ -442,6 +457,9 @@ impl ControlPanels {
             bt_connect: Button::new(BT_CONNECT_ID, "Connect", ButtonPlateVariant::Regular),
             bt_forget: Button::new(BT_FORGET_ID, "Forget", ButtonPlateVariant::Regular),
             pairing: None,
+            power: model::loading(),
+            suspend: Button::new(POWER_SUSPEND_ID, "Suspend…", ButtonPlateVariant::Regular),
+            suspend_confirm: None,
             ntp: Checkbox::new(NTP_ID, "Set time automatically", false),
             appearance_list,
             apply: Button::new(APPLY_ID, "Apply", ButtonPlateVariant::Default),
@@ -635,6 +653,15 @@ impl ControlPanels {
                 height: 20,
             };
         }
+        self.suspend.bounds = Rect {
+            x,
+            y: top - 1,
+            width: 150,
+            height: 20,
+        };
+        if let Some(dialog) = &mut self.suspend_confirm {
+            dialog.layout(self.window);
+        }
         self.ntp = self.ntp.clone().at(x, top);
         self.appearance_list.set_bounds(Rect {
             x: x + 1,
@@ -716,6 +743,7 @@ impl ControlPanels {
                 BT_CONNECT_ID,
                 BT_FORGET_ID,
             ],
+            Panel::Power => vec![POWER_SUSPEND_ID],
             Panel::DateTime => vec![NTP_ID],
             Panel::Desktop => vec![WALLPAPER_LIST_ID, SET_PICTURE_ID, CHOOSE_PICTURE_ID],
             Panel::Appearance => vec![APPEARANCE_LIST_ID, APPLY_ID],
@@ -797,6 +825,7 @@ impl ControlPanels {
         self.bt_pair.focused = f == Some(BT_PAIR_ID);
         self.bt_connect.focused = f == Some(BT_CONNECT_ID);
         self.bt_forget.focused = f == Some(BT_FORGET_ID);
+        self.suspend.focused = f == Some(POWER_SUSPEND_ID);
         self.ntp.focused = f == Some(NTP_ID);
         self.appearance_list.focused = f == Some(APPEARANCE_LIST_ID);
         self.apply.focused = f == Some(APPLY_ID);
@@ -911,6 +940,13 @@ impl ControlPanels {
         };
         self.bt_connect.enabled = !busy && powered && selected.is_some_and(|d| d.paired);
         self.bt_forget.enabled = !busy && selected.is_some_and(|d| d.paired);
+        // Only a suspend that needs no authorization is offered: SLOPOS has
+        // no polkit agent to answer a challenge.
+        self.suspend.enabled = self.suspend_confirm.is_none()
+            && self
+                .power
+                .as_ref()
+                .is_ok_and(|s| s.suspend == SuspendCapability::Available);
         match &self.time {
             Ok(snapshot) => {
                 self.ntp.enabled = snapshot.ntp_available;
@@ -933,6 +969,7 @@ impl ControlPanels {
             Update::Brightness(state) => self.brightness = state,
             Update::Bluetooth(state) => self.bluetooth = state,
             Update::Time(state) => self.time = state,
+            Update::Power(state) => self.power = state,
             Update::SavedWifi(names) => self.saved_wifi = names,
             Update::Displays(state) => self.displays = state,
             Update::Input(state) => {
@@ -1497,6 +1534,18 @@ impl ControlPanels {
             }
             return;
         }
+        if let Some(dialog) = &mut self.suspend_confirm {
+            match dialog.handle(event) {
+                DialogOutcome::Chosen { index: 1, .. } => {
+                    self.suspend_confirm = None;
+                    self.send(Command::Suspend);
+                    self.notice("Suspending…");
+                }
+                DialogOutcome::Chosen { .. } => self.suspend_confirm = None,
+                _ => {}
+            }
+            return;
+        }
         if let Some((dialog, _)) = &mut self.password {
             match dialog.handle(event) {
                 DialogOutcome::Chosen { index, text } => {
@@ -1839,6 +1888,14 @@ impl ControlPanels {
                     }
                 }
             }
+            Panel::Power => {
+                if (self.suspend.handle(event) == ButtonOutcome::Activated
+                    || (clicked(POWER_SUSPEND_ID) && self.suspend.enabled))
+                    && self.suspend.enabled
+                {
+                    self.open_suspend_confirm();
+                }
+            }
             Panel::DateTime => {
                 if let ToggleOutcome::Toggled(on) = self.ntp.handle(event) {
                     self.send(Command::SetNtp(on));
@@ -1927,6 +1984,30 @@ impl ControlPanels {
             self.status.clear();
             self.sync_focus();
         }
+    }
+
+    /// Panels that read their provider when they open, not by watching it:
+    /// the power state is read again so the page is not stale.
+    fn on_panel_opened(&self) {
+        if self.panel() == Panel::Power {
+            if let Some(services) = &self.services {
+                services.send(Command::RefreshPower);
+            }
+        }
+    }
+
+    fn open_suspend_confirm(&mut self) {
+        // The first button is Cancel (Escape chooses it); Cancel is also the
+        // default, so Enter never suspends by accident.
+        let mut dialog = Dialog::new(
+            SUSPEND_DIALOG_ID,
+            "Suspend this computer?",
+            "The computer will go to sleep now.",
+            &["Cancel", "Suspend"],
+        );
+        dialog.set_default(0);
+        dialog.layout(self.window);
+        self.suspend_confirm = Some(dialog);
     }
 
     fn open_chooser(&mut self) {
@@ -2079,6 +2160,13 @@ impl ControlPanels {
                 match &self.bluetooth {
                     Ok(snapshot) => model::bluetooth_lines(snapshot),
                     Err(error) => unavailable(error, "BlueZ"),
+                },
+            ),
+            Panel::Power => (
+                "Power".into(),
+                match &self.power {
+                    Ok(snapshot) => model::power_lines(snapshot),
+                    Err(error) => unavailable(error, "the power service"),
                 },
             ),
             Panel::DateTime => (
@@ -2373,6 +2461,7 @@ impl ControlPanels {
                 self.bt_connect.paint(surface, font)?;
                 self.bt_forget.paint(surface, font)?;
             }
+            Panel::Power => self.suspend.paint(surface, font)?,
             Panel::DateTime => self.ntp.paint(surface)?,
             Panel::Desktop => {
                 let pictures = bundled_pictures();
@@ -2507,6 +2596,9 @@ impl ControlPanels {
         if let Some(pending) = self.keep.as_mut().filter(|p| p.applied) {
             pending.dialog.paint(surface)?;
         }
+        if let Some(dialog) = &mut self.suspend_confirm {
+            dialog.paint(surface)?;
+        }
         Ok(())
     }
 }
@@ -2536,12 +2628,21 @@ impl App for ControlPanels {
                     self.apply_update(update);
                 }
             }
-            _ => self.handle(event, control),
+            _ => {
+                let before = self.panel();
+                self.handle(event, control);
+                if self.panel() != before {
+                    self.on_panel_opened();
+                }
+            }
         }
         self.sync_from_state();
         // Controls enable and disable with the providers' state (not under
         // a dialog, which disables them only while it is up).
-        let modal = self.keep.is_some() || self.password.is_some() || self.chooser.is_some();
+        let modal = self.keep.is_some()
+            || self.password.is_some()
+            || self.chooser.is_some()
+            || self.suspend_confirm.is_some();
         if !modal && self.focus.ids() != self.focus_ids().as_slice() {
             self.sync_focus();
         }
@@ -2639,6 +2740,7 @@ impl App for ControlPanels {
                 };
                 nodes.extend(self.bt_list.accessibility_nodes(&label))
             }
+            Panel::Power => nodes.push((POWER_SUSPEND_ID, self.suspend.accessibility_node())),
             Panel::DateTime => nodes.push((NTP_ID, self.ntp.accessibility_node())),
             Panel::Input => {
                 nodes.extend(self.layout.accessibility_nodes());
@@ -2674,6 +2776,11 @@ impl App for ControlPanels {
             return Some(window_tree("Control Panels", nodes, focus));
         }
         if let Some((dialog, _)) = &self.password {
+            nodes.extend(dialog.accessibility_nodes());
+            let focus = Some(dialog.focus_node());
+            return Some(window_tree("Control Panels", nodes, focus));
+        }
+        if let Some(dialog) = &self.suspend_confirm {
             nodes.extend(dialog.accessibility_nodes());
             let focus = Some(dialog.focus_node());
             return Some(window_tree("Control Panels", nodes, focus));
@@ -3157,7 +3264,10 @@ mod tests {
             devices: Vec::new(),
         })));
         app.sync_from_state();
-        assert_eq!(app.lines().1, vec!["No Bluetooth adapter was found.".to_owned()]);
+        assert_eq!(
+            app.lines().1,
+            vec!["No Bluetooth adapter was found.".to_owned()]
+        );
         assert!(!app.bluetooth_power.enabled && !app.bt_search.enabled);
 
         // An adapter that is switched off: power can be turned on, but
@@ -3213,6 +3323,125 @@ mod tests {
             let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
             app.paint(&surface);
         }
+    }
+
+    fn power_snapshot(suspend: SuspendCapability) -> PowerSnapshot {
+        use slopos_services::power::{Battery, BatteryStatus, BatteryWarning, PowerSource};
+        PowerSnapshot {
+            revision: 1,
+            availability: Availability::Available,
+            battery: Some(Battery {
+                percentage: 80.0,
+                status: BatteryStatus::Discharging,
+                warning: BatteryWarning::None,
+                energy_rate_watts: None,
+            }),
+            source: PowerSource::Battery,
+            suspend,
+            lid_present: false,
+            lid_closed: None,
+        }
+    }
+
+    #[test]
+    fn power_is_read_on_open_and_suspend_is_confirmed_before_it_is_sent() {
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        let mut control = Control::default();
+        // Opening the Power panel asks the provider for a fresh reading.
+        app.event(&Event::MenuChosen { menu: 1, item: 8 }, &mut control);
+        assert_eq!(app.panel(), Panel::Power);
+        assert_eq!(receiver.try_recv().unwrap(), Command::RefreshPower);
+
+        app.apply_update(Update::Power(Ok(power_snapshot(
+            SuspendCapability::Available,
+        ))));
+        app.sync_from_state();
+        assert_eq!(
+            app.lines().1,
+            vec![
+                "Battery: 80%, discharging".to_owned(),
+                "Running on battery power.".to_owned(),
+                "Suspend is available.".to_owned(),
+            ]
+        );
+        assert!(app.suspend.enabled && !app.suspend.focused);
+
+        // Tab from the sidebar reaches Suspend; Space asks first.
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.suspend.focused);
+        app.event(&key(Key::Space), &mut control);
+        assert!(app.suspend_confirm.is_some());
+        assert!(!app.suspend.enabled, "no second suspend while asking");
+        assert!(receiver.try_recv().is_err());
+
+        // Cancel (the default) and Escape send nothing.
+        app.event(&key(Key::Escape), &mut control);
+        assert!(app.suspend_confirm.is_none());
+        assert!(receiver.try_recv().is_err());
+
+        // Ask again and choose Suspend: the provider gets the command.
+        app.event(&key(Key::Space), &mut control);
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Enter), &mut control);
+        assert!(app.suspend_confirm.is_none());
+        assert_eq!(receiver.try_recv().unwrap(), Command::Suspend);
+        assert_eq!(app.status, "Suspending…");
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
+    }
+
+    #[test]
+    fn power_unavailable_and_failed_suspend_are_shown() {
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        let mut control = Control::default();
+        app.event(&Event::MenuChosen { menu: 1, item: 8 }, &mut control);
+        assert_eq!(receiver.try_recv().unwrap(), Command::RefreshPower);
+
+        // No power service: the text says so and nothing can be suspended.
+        app.apply_update(Update::Power(Err(model::Unavailable::new(
+            Availability::MissingService,
+            "",
+        ))));
+        app.sync_from_state();
+        assert_eq!(
+            app.lines().1,
+            vec!["Unavailable: the power service is not running on this computer.".to_owned()]
+        );
+        assert!(!app.suspend.enabled);
+
+        // logind wants an authorization this session cannot give: the
+        // button stays off and the reason is shown.
+        app.apply_update(Update::Power(Ok(power_snapshot(
+            SuspendCapability::RequiresAuthorization,
+        ))));
+        app.sync_from_state();
+        assert!(app.lines().1[2].starts_with("Suspend needs authorization"));
+        assert!(!app.suspend.enabled);
+
+        // A suspend the provider refuses is an error, not a success, and
+        // the page keeps the reading it had.
+        app.apply_update(Update::Power(Ok(power_snapshot(
+            SuspendCapability::Available,
+        ))));
+        app.sync_from_state();
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Space), &mut control);
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Enter), &mut control);
+        assert_eq!(receiver.try_recv().unwrap(), Command::Suspend);
+        app.apply_update(Update::Failed(
+            "power service access denied: Interactive authentication required".into(),
+        ));
+        app.sync_from_state();
+        assert!(app.status_error && app.status.contains("Interactive authentication"));
+        assert!(app.suspend.enabled);
+        assert_eq!(app.lines().1[0], "Battery: 80%, discharging");
     }
 
     #[test]
