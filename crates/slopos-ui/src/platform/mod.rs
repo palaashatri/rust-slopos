@@ -2,6 +2,10 @@
 //! [`RasterSurface`]; the platform host owns the native window.
 
 pub mod global_menu;
+#[cfg(feature = "ibus")]
+pub mod ibus;
+/// The input method the X11 host drives: IBus, or a stub without the feature.
+mod input;
 mod keys;
 #[cfg(feature = "global-menu")]
 pub mod menu_import;
@@ -117,6 +121,8 @@ pub struct Control {
     pub(crate) press_time: Option<u32>,
     pub(crate) popups: Vec<PopupRequest>,
     pub(crate) strut: Option<u32>,
+    pub(crate) text_input: Option<bool>,
+    pub(crate) input_cursor: Option<Rect>,
 }
 
 /// A popup change asked for during one event, applied by the host in order.
@@ -144,6 +150,20 @@ impl Control {
 
     pub fn quit(&mut self) {
         self.quit = true;
+    }
+
+    /// Ask the desktop's input method to compose text for this window while
+    /// `wanted` is true: a text field has focus. Keys reach the input method
+    /// only while the window is focused and this was asked for. With no
+    /// input method running, keys go to the app as before.
+    pub fn set_text_input(&mut self, wanted: bool) {
+        self.text_input = Some(wanted);
+    }
+
+    /// Where the caret is, in logical pixels relative to the window, so the
+    /// input method can place its candidate window next to it.
+    pub fn set_input_cursor(&mut self, rect: Rect) {
+        self.input_cursor = Some(rect);
     }
 
     /// Fire [`Event::Timer`]`(id)` once after `delay`.

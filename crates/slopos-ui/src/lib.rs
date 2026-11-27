@@ -18,6 +18,7 @@ pub mod foundation;
 pub mod icons;
 pub mod image;
 pub mod image_viewport;
+pub mod input_method;
 pub mod layout;
 pub mod platform;
 pub mod primitives;
