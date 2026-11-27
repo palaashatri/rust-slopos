@@ -28,7 +28,7 @@ use slopos_ui::controls::focus::FocusChain;
 use slopos_ui::controls::list::{ListOutcome, ListView};
 use slopos_ui::controls::menu::{MenuBar, MenuBarOutcome, MenuItem};
 use slopos_ui::controls::range::ProgressBar;
-use slopos_ui::controls::tabs::{Tabs, TabsOutcome};
+use slopos_ui::controls::tab_bar::{Tabs, TabsOutcome};
 use slopos_ui::controls::text_field::{TextField, TextFieldOutcome};
 use slopos_ui::event::{AccessibilityRequest, Event, Key};
 use slopos_ui::foundation::geometry::Rect;

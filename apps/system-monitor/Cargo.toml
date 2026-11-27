@@ -1,0 +1,20 @@
+[package]
+name = "slopos-system-monitor"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS System Monitor: processes, CPU, memory, disk and GPU"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+accesskit = { workspace = true }
+libc = { workspace = true }
+log = { workspace = true }
+
+[features]
+# Probe the GPU through the wgpu adapter of slopos-ui (needs its `gpu` feature
+# to be compiled in). Without it the GPU view says so instead of guessing.
+gpu = ["slopos-ui/gpu"]
+
+[dev-dependencies]
+tempfile = { workspace = true }
