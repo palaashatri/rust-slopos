@@ -64,6 +64,10 @@ pub enum DecodeError {
     TooManyPixels { width: u32, height: u32 },
     #[error("the image is damaged: {0}")]
     Damaged(String),
+    #[error("the file ends before the image does, so it may be incomplete")]
+    Truncated,
+    #[error("the open was cancelled")]
+    Cancelled,
 }
 
 /// A decoded image ready for display.
@@ -93,15 +97,27 @@ fn format_name(format: ImageFormat) -> Option<&'static str> {
     })
 }
 
-/// Map a decoder error, reporting limit violations as "too large".
-fn damaged(error: image::ImageError) -> DecodeError {
+/// Map a decoder error: limit violations are "too large", running out of data
+/// is "truncated", and anything else is damage.
+fn classify(error: image::ImageError, width: u32, height: u32) -> DecodeError {
     match error {
-        image::ImageError::Limits(_) => DecodeError::TooManyPixels {
-            width: 0,
-            height: 0,
-        },
+        image::ImageError::Limits(_) => DecodeError::TooManyPixels { width, height },
+        image::ImageError::IoError(io) if io.kind() == std::io::ErrorKind::UnexpectedEof => {
+            DecodeError::Truncated
+        }
         other => DecodeError::Damaged(other.to_string()),
     }
+}
+
+/// Whether a JPEG reaches its end-of-image marker (FF D9) after its last scan.
+/// Entropy-coded data never holds FF D9 (a 0xFF byte there is always followed
+/// by 00 or a restart marker), so any FF D9 after the last start-of-scan header
+/// closes the image. The decoder alone would show a cut-off file as grey.
+fn jpeg_is_complete(data: &[u8]) -> bool {
+    let Some(scan) = data.windows(2).rposition(|pair| pair == [0xFF, 0xDA]) else {
+        return false;
+    };
+    data[scan + 2..].windows(2).any(|pair| pair == [0xFF, 0xD9])
 }
 
 fn limits() -> Limits {
@@ -139,13 +155,29 @@ pub fn read_bounded(path: &Path) -> Result<Vec<u8>, DecodeError> {
     Ok(data)
 }
 
-/// Decode in-memory bytes with every limit applied.
+/// Decode in-memory bytes with every limit applied. The app uses the
+/// cancellable [`decode_bytes_checked`]; this form is for tests.
+#[cfg(test)]
 pub fn decode_bytes(data: &[u8]) -> Result<Decoded, DecodeError> {
+    decode_bytes_checked(data, &|| false)
+}
+
+/// Like [`decode_bytes`], but gives up with [`DecodeError::Cancelled`] when
+/// `cancelled` reports true. It is asked before reading, before rasterising or
+/// decoding, and after the header is read. The pixel decode itself is one call
+/// in the `image` crate and cannot be interrupted part way through.
+pub fn decode_bytes_checked(
+    data: &[u8],
+    cancelled: &dyn Fn() -> bool,
+) -> Result<Decoded, DecodeError> {
     if data.len() as u64 > MAX_ENCODED_BYTES {
         return Err(DecodeError::TooLarge(data.len() as u64));
     }
     if data.is_empty() {
         return Err(DecodeError::Empty);
+    }
+    if cancelled() {
+        return Err(DecodeError::Cancelled);
     }
     if looks_like_svg(data) {
         let image = Image::from_svg(data, SVG_RASTER_SIZE)
@@ -167,25 +199,34 @@ pub fn decode_bytes(data: &[u8]) -> Result<Decoded, DecodeError> {
         reader.limits(limits());
         Ok::<_, DecodeError>(reader)
     };
-    let format = reader()?
-        .format()
-        .and_then(format_name)
-        .ok_or(DecodeError::Unsupported)?;
-    let (width, height) = reader()?.into_dimensions().map_err(damaged)?;
+    let guessed = reader()?.format().ok_or(DecodeError::Unsupported)?;
+    let format = format_name(guessed).ok_or(DecodeError::Unsupported)?;
+    if guessed == ImageFormat::Jpeg && !jpeg_is_complete(data) {
+        return Err(DecodeError::Truncated);
+    }
+    let (width, height) = reader()?
+        .into_dimensions()
+        .map_err(|error| classify(error, 0, 0))?;
     if width == 0 || height == 0 {
         return Err(DecodeError::Empty);
     }
     if u64::from(width) * u64::from(height) > MAX_SOURCE_PIXELS {
         return Err(DecodeError::TooManyPixels { width, height });
     }
-    let mut decoder = reader()?.into_decoder().map_err(damaged)?;
+    if cancelled() {
+        return Err(DecodeError::Cancelled);
+    }
+    let mut decoder = reader()?
+        .into_decoder()
+        .map_err(|error| classify(error, width, height))?;
     let orientation = decoder
         .orientation()
         .unwrap_or(image::metadata::Orientation::NoTransforms);
-    let mut image = DynamicImage::from_decoder(decoder).map_err(|error| match error {
-        image::ImageError::Limits(_) => DecodeError::TooManyPixels { width, height },
-        other => DecodeError::Damaged(other.to_string()),
-    })?;
+    if cancelled() {
+        return Err(DecodeError::Cancelled);
+    }
+    let mut image =
+        DynamicImage::from_decoder(decoder).map_err(|error| classify(error, width, height))?;
     let reoriented = orientation != image::metadata::Orientation::NoTransforms;
     image.apply_orientation(orientation);
     let rgba = image.into_rgba8();
@@ -202,9 +243,22 @@ pub fn decode_bytes(data: &[u8]) -> Result<Decoded, DecodeError> {
     })
 }
 
-/// Read and decode `path` with every limit applied.
+/// Read and decode `path` with every limit applied. The app uses
+/// [`decode_path_checked`]; this form is for tests.
+#[cfg(test)]
 pub fn decode_path(path: &Path) -> Result<Decoded, DecodeError> {
-    decode_bytes(&read_bounded(path)?)
+    decode_path_checked(path, &|| false)
+}
+
+/// Read and decode `path`, stopping early as [`decode_bytes_checked`] does.
+pub fn decode_path_checked(
+    path: &Path,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<Decoded, DecodeError> {
+    if cancelled() {
+        return Err(DecodeError::Cancelled);
+    }
+    decode_bytes_checked(&read_bounded(path)?, cancelled)
 }
 
 /// Whether `path` has an image extension the viewer browses.
@@ -214,12 +268,9 @@ pub fn is_image_name(path: &Path) -> bool {
         .is_some_and(|ext| EXTENSIONS.contains(&ext.as_str()))
 }
 
-/// Images in the same folder as `path`, sorted case-insensitively, and the
-/// index of `path` among them. Unreadable folders give just `path`.
-pub fn siblings(path: &Path) -> (Vec<PathBuf>, usize) {
-    let Some(dir) = path.parent() else {
-        return (vec![path.to_path_buf()], 0);
-    };
+/// The image files directly inside `dir`, sorted case-insensitively. An
+/// unreadable folder gives an empty list.
+pub fn images_in(dir: &Path) -> Vec<PathBuf> {
     let mut images: Vec<PathBuf> = fs::read_dir(dir)
         .map(|entries| {
             entries
@@ -236,6 +287,16 @@ pub fn siblings(path: &Path) -> (Vec<PathBuf>, usize) {
             .map(|name| name.to_string_lossy().to_lowercase())
             .unwrap_or_default()
     });
+    images
+}
+
+/// Images in the same folder as `path`, sorted case-insensitively, and the
+/// index of `path` among them. Unreadable folders give just `path`.
+pub fn siblings(path: &Path) -> (Vec<PathBuf>, usize) {
+    let Some(dir) = path.parent() else {
+        return (vec![path.to_path_buf()], 0);
+    };
+    let images = images_in(dir);
     match images.iter().position(|candidate| candidate == path) {
         Some(index) => (images, index),
         None => (vec![path.to_path_buf()], 0),
@@ -302,6 +363,7 @@ impl DecodeCache {
 pub(crate) mod tests {
     use super::*;
     use image::{ImageEncoder, RgbaImage};
+    use std::cell::Cell;
 
     pub fn png(width: u32, height: u32) -> Vec<u8> {
         let mut image = RgbaImage::new(width, height);
@@ -320,7 +382,7 @@ pub(crate) mod tests {
         out
     }
 
-    fn encode(format: ImageFormat) -> Vec<u8> {
+    pub fn encode(format: ImageFormat) -> Vec<u8> {
         let image = DynamicImage::ImageRgb8(image::RgbImage::from_fn(6, 4, |x, _| {
             image::Rgb([x as u8 * 40, 10, 10])
         }));
@@ -537,5 +599,87 @@ pub(crate) mod tests {
         cache.insert(PathBuf::from("huge"), huge);
         assert!(cache.get(Path::new("huge")).is_none());
         assert!(cache.used() <= budget);
+    }
+
+    #[test]
+    fn cancelled_decodes_stop_with_their_own_error() {
+        let data = png(6, 4);
+        assert_eq!(
+            decode_bytes_checked(&data, &|| true).unwrap_err(),
+            DecodeError::Cancelled
+        );
+        // Cancelled at a later checkpoint, after the header has been read.
+        let checks = Cell::new(0);
+        let late = || {
+            checks.set(checks.get() + 1);
+            checks.get() > 1
+        };
+        assert_eq!(
+            decode_bytes_checked(&data, &late).unwrap_err(),
+            DecodeError::Cancelled
+        );
+        assert!(
+            checks.get() > 1,
+            "decoding must have more than one checkpoint"
+        );
+        assert!(decode_bytes_checked(&data, &|| false).is_ok());
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("a.png");
+        fs::write(&file, &data).unwrap();
+        assert_eq!(
+            decode_path_checked(&file, &|| true).unwrap_err(),
+            DecodeError::Cancelled
+        );
+    }
+
+    #[test]
+    fn truncated_files_are_reported_as_truncated() {
+        let jpeg = encode(ImageFormat::Jpeg);
+        // The end-of-image marker is missing, so the file was cut short.
+        assert_eq!(
+            decode_bytes(&jpeg[..jpeg.len() - 10]).unwrap_err(),
+            DecodeError::Truncated
+        );
+        assert_eq!(
+            decode_bytes(&jpeg[..jpeg.len() / 2]).unwrap_err(),
+            DecodeError::Truncated
+        );
+        // Bytes after the end-of-image marker, as camera files carry, are fine.
+        let mut trailed = jpeg.clone();
+        trailed.extend_from_slice(b"\x00trailer bytes");
+        assert!(decode_bytes(&trailed).is_ok());
+        let png = png(64, 48);
+        assert_eq!(
+            decode_bytes(&png[..png.len() / 2]).unwrap_err(),
+            DecodeError::Truncated
+        );
+    }
+
+    #[test]
+    fn decoded_size_is_refused_from_a_tiny_file() {
+        // 6401 × 6401 is just over the 40 MP budget, in a file under 100 bytes.
+        let data = bomb(6_401, 6_401);
+        assert!(data.len() < 100);
+        assert_eq!(
+            decode_bytes(&data).unwrap_err(),
+            DecodeError::TooManyPixels {
+                width: 6_401,
+                height: 6_401
+            }
+        );
+    }
+
+    #[test]
+    fn folder_listing_keeps_only_images_in_order() {
+        let dir = tempfile::tempdir().unwrap();
+        for name in ["B.png", "a.JPG", "notes.txt"] {
+            fs::write(dir.path().join(name), b"x").unwrap();
+        }
+        let names: Vec<String> = images_in(dir.path())
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, ["a.JPG", "B.png"]);
+        assert!(images_in(&dir.path().join("missing")).is_empty());
     }
 }

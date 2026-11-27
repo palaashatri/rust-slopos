@@ -102,8 +102,15 @@ type WakeSlot = Arc<Mutex<Option<Proxy>>>;
 type Job = (u64, PathBuf);
 type JobResult = (u64, PathBuf, Result<Decoded, DecodeError>);
 
-/// One decoding thread fed by an unbounded queue of small requests; it
-/// skips requests that are already stale when it reaches them.
+/// A request is stale once a newer one (or a cancel) has been issued. Prefetches
+/// carry sequence 0 and are never stale.
+fn is_stale(seq: u64, latest: u64) -> bool {
+    seq != 0 && seq < latest
+}
+
+/// One decoding thread fed by an unbounded queue of small requests. It skips
+/// requests that are already stale when it reaches them, and stops a decode
+/// that becomes stale while it runs.
 struct Decoder {
     requests: mpsc::Sender<Job>,
     results: mpsc::Receiver<JobResult>,
@@ -120,13 +127,12 @@ impl Decoder {
             .name("image-decode".into())
             .spawn(move || {
                 while let Ok((seq, path)) = jobs.recv() {
-                    // Skip anything older than the newest request (rapid
-                    // next/next/next), except prefetches marked with seq 0.
-                    let newest = worker_latest.load(std::sync::atomic::Ordering::Relaxed);
-                    if seq != 0 && seq < newest {
+                    let load = || worker_latest.load(std::sync::atomic::Ordering::Relaxed);
+                    if is_stale(seq, load()) {
                         continue;
                     }
-                    let result = decode::decode_path(&path);
+                    let cancelled = || is_stale(seq, load());
+                    let result = decode::decode_path_checked(&path, &cancelled);
                     if done.send((seq, path, result)).is_err() {
                         break;
                     }
@@ -156,6 +162,9 @@ pub struct ImageViewerApp {
     chooser: Option<FileChooser>,
     viewport: ImageViewport,
     image: Option<Arc<Decoded>>,
+    /// The file `image` was decoded from. It is what is on screen, which can
+    /// differ from `path` while an open is pending.
+    shown: Option<PathBuf>,
     path: Option<PathBuf>,
     folder: Vec<PathBuf>,
     index: usize,
@@ -196,6 +205,7 @@ impl ImageViewerApp {
             chooser: None,
             viewport: ImageViewport::new(0, 0, Rect::default()),
             image: None,
+            shown: None,
             path: None,
             folder: Vec::new(),
             index: 0,
@@ -298,20 +308,43 @@ impl ImageViewerApp {
         }
     }
 
-    /// Open `path`, listing its folder for next/previous.
+    /// Open `path`, listing its folder for next/previous. A folder opens its
+    /// first image, so a folder can be handed to the viewer.
     fn open(&mut self, path: &Path) {
         let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        if path.is_dir() {
+            return self.open_folder(&path);
+        }
         let (folder, index) = decode::siblings(&path);
         self.folder = folder;
         self.index = index;
         self.show(path);
     }
 
+    fn open_folder(&mut self, dir: &Path) {
+        let folder = decode::images_in(dir);
+        let Some(first) = folder.first().cloned() else {
+            self.abandon_pending();
+            self.folder.clear();
+            self.index = 0;
+            self.path = None;
+            self.image = None;
+            self.shown = None;
+            self.status = format!("No images in “{}”.", file_name(dir));
+            self.refresh_controls();
+            return;
+        };
+        self.folder = folder;
+        self.index = 0;
+        self.show(first);
+    }
+
     fn show(&mut self, path: PathBuf) {
         self.path = Some(path.clone());
+        // A new target supersedes any open still in flight.
+        self.abandon_pending();
         if let Some(decoded) = self.cache.get(&path) {
-            self.pending = None;
-            self.set_image(decoded);
+            self.set_image(decoded, path);
             self.prefetch();
             return;
         }
@@ -324,9 +357,41 @@ impl ImageViewerApp {
         let _ = self.decoder.requests.send((self.serial, path));
     }
 
-    fn set_image(&mut self, decoded: Arc<Decoded>) {
+    /// Stop waiting for the pending open. A decode already running sees the newer
+    /// serial and stops at its next checkpoint. Any result it still produces only
+    /// fills the cache.
+    fn abandon_pending(&mut self) {
+        if self.pending.take().is_some() {
+            self.serial += 1;
+            self.decoder
+                .latest
+                .store(self.serial, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    /// Escape: cancel the open in progress and go back to the image on screen.
+    fn cancel_open(&mut self) {
+        let Some((_, path)) = self.pending.clone() else {
+            return;
+        };
+        self.abandon_pending();
+        match self.shown.clone() {
+            Some(shown) => {
+                if let Some(index) = self.folder.iter().position(|p| *p == shown) {
+                    self.index = index;
+                }
+                self.path = Some(shown);
+            }
+            None => self.path = None,
+        }
+        self.status = format!("Cancelled opening “{}”.", file_name(&path));
+        self.refresh_controls();
+    }
+
+    fn set_image(&mut self, decoded: Arc<Decoded>, path: PathBuf) {
         self.viewport.set_image(decoded.width, decoded.height);
         self.image = Some(decoded);
+        self.shown = Some(path);
         self.update_status();
         self.refresh_controls();
     }
@@ -379,14 +444,16 @@ impl ImageViewerApp {
                     self.cache.insert(path.clone(), decoded.clone());
                     if current {
                         self.pending = None;
-                        self.set_image(decoded);
+                        self.set_image(decoded, path);
                         self.prefetch();
                         changed = true;
                     }
                 }
+                Err(DecodeError::Cancelled) => {}
                 Err(error) if current => {
                     self.pending = None;
                     self.image = None;
+                    self.shown = None;
                     self.status = format!("Can't open “{}”: {error}", file_name(&path));
                     self.refresh_controls();
                     changed = true;
@@ -493,6 +560,9 @@ impl ImageViewerApp {
             return;
         }
         match event {
+            Event::KeyPressed {
+                key: Key::Escape, ..
+            } if self.pending.is_some() => return self.cancel_open(),
             Event::KeyPressed { key, modifiers } => {
                 // Space and Enter belong to a focused toolbar button.
                 let button_focused = self.toolbar.iter().any(|(b, _)| b.focused);
@@ -759,18 +829,22 @@ fn main() {
         };
     let mut app = ImageViewerApp::new(path.as_deref());
     if let Some(output) = snapshot {
-        // Wait for the first decode so the snapshot shows the image.
-        if let Ok(result) = app
-            .decoder
-            .results
-            .recv_timeout(std::time::Duration::from_secs(10))
-        {
-            let (seq, path, decoded) = result;
-            let _ = seq;
+        // Wait for the first decode so the snapshot shows the image. A folder or
+        // an empty start has nothing pending to wait for.
+        let waited = app
+            .pending
+            .is_some()
+            .then(|| {
+                app.decoder
+                    .results
+                    .recv_timeout(std::time::Duration::from_secs(10))
+            })
+            .and_then(Result::ok);
+        if let Some((_, path, decoded)) = waited {
             match decoded {
                 Ok(decoded) => {
                     app.pending = None;
-                    app.set_image(Arc::new(decoded));
+                    app.set_image(Arc::new(decoded), path);
                 }
                 Err(error) => app.status = format!("Can't open “{}”: {error}", file_name(&path)),
             }
@@ -939,5 +1013,87 @@ mod tests {
         app.paint(&surface);
         // Next is disabled with no folder.
         assert!(!app.toolbar[2].0.enabled);
+    }
+
+    #[test]
+    fn opening_a_folder_opens_its_first_image() {
+        let dir = folder();
+        let mut app = ImageViewerApp::new(Some(dir.path()));
+        settle(&mut app);
+        assert_eq!(app.folder.len(), 3);
+        assert_eq!(app.image.as_ref().unwrap().width, 8);
+        assert!(app.status.contains("1 of 3"));
+    }
+
+    #[test]
+    fn a_folder_without_images_says_so() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("notes.txt"), b"x").unwrap();
+        let app = ImageViewerApp::new(Some(dir.path()));
+        assert!(app.image.is_none());
+        assert!(app.pending.is_none());
+        assert!(app.status.starts_with("No images in"));
+    }
+
+    #[test]
+    fn escape_cancels_a_pending_open_and_keeps_the_shown_image() {
+        let dir = folder();
+        let mut app = ImageViewerApp::new(Some(&dir.path().join("a.png")));
+        settle(&mut app);
+        let mut control = Control::default();
+        // Escape with nothing pending changes nothing.
+        app.event(&key(Key::Escape), &mut control);
+        assert_eq!(app.image.as_ref().unwrap().width, 8);
+        // End goes to c.png, which is not prefetched, so its decode is pending.
+        app.event(&key(Key::End), &mut control);
+        assert!(app.pending.is_some());
+        app.event(&key(Key::Escape), &mut control);
+        assert!(app.pending.is_none());
+        assert_eq!(app.index, 0);
+        assert_eq!(app.path.as_deref().map(file_name), Some("a.png".into()));
+        assert!(app.status.starts_with("Cancelled opening “c.png”"));
+        // Whatever the worker finishes now must not replace the image.
+        for _ in 0..20 {
+            app.event(&Event::Wake, &mut control);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(app.image.as_ref().unwrap().width, 8);
+        assert_eq!(app.index, 0);
+    }
+
+    #[test]
+    fn returning_to_a_cached_image_supersedes_the_older_request() {
+        use std::sync::atomic::Ordering;
+        let dir = folder();
+        let mut app = ImageViewerApp::new(Some(&dir.path().join("a.png")));
+        settle(&mut app);
+        let mut control = Control::default();
+        app.event(&key(Key::End), &mut control);
+        assert!(app.pending.is_some());
+        // a.png is cached, so Home shows it at once and drops the c.png request.
+        app.event(&key(Key::Home), &mut control);
+        assert!(app.pending.is_none());
+        assert_eq!(app.decoder.latest.load(Ordering::Relaxed), app.serial);
+        for _ in 0..20 {
+            app.event(&Event::Wake, &mut control);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(app.image.as_ref().unwrap().width, 8);
+        assert_eq!(app.index, 0);
+    }
+
+    #[test]
+    fn truncated_files_report_a_clear_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let jpeg = decode::tests::encode(image::ImageFormat::Jpeg);
+        let cut = dir.path().join("cut.jpg");
+        std::fs::write(&cut, &jpeg[..jpeg.len() - 10]).unwrap();
+        let mut app = ImageViewerApp::new(Some(&cut));
+        settle(&mut app);
+        assert!(app.image.is_none());
+        assert_eq!(
+            app.status,
+            "Can't open “cut.jpg”: the file ends before the image does, so it may be incomplete"
+        );
     }
 }
