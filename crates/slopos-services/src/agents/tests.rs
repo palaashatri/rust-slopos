@@ -1481,7 +1481,7 @@ async fn shutdown_undoes_the_registrations_and_frees_the_agent_paths() {
     let system = private_connection(&address).await;
 
     let (presenter, _host) = spawn_host(|_| None);
-    let mut agents = serve_session_agents_on(&system, presenter);
+    let agents = serve_session_agents_on(&system, presenter);
     wait_until(|| {
         network.registrations.lock().unwrap().len() == 1
             && bluez.defaults.lock().unwrap().len() == 1
@@ -1494,7 +1494,7 @@ async fn shutdown_undoes_the_registrations_and_frees_the_agent_paths() {
 
     // The agent objects were removed, so the paths serve again.
     let (presenter, _host) = spawn_host(|_| None);
-    let mut again = serve_session_agents_on(&system, presenter);
+    let again = serve_session_agents_on(&system, presenter);
     wait_until(|| network.registrations.lock().unwrap().len() == 2).await;
     again.shutdown().await.expect("both watchers stop again");
 }
