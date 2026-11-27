@@ -9,6 +9,7 @@ use std::thread;
 
 use slopos_services::audio::{AudioClient, AudioDevice, AudioSnapshot};
 use slopos_services::bluetooth::{BluetoothClient, BluetoothSnapshot};
+use slopos_services::brightness::{BrightnessClient, BrightnessSnapshot};
 use slopos_services::network::{NetworkDeviceType, NetworkManagerClient, NetworkSnapshot};
 use slopos_services::power::{BatteryStatus, PowerClient, PowerEvent, PowerSnapshot};
 use slopos_services::timedate::{TimedateClient, TimedateSnapshot};
@@ -35,6 +36,9 @@ pub enum Update {
     Audio(State<AudioSnapshot>),
     Network(State<NetworkSnapshot>),
     Power(State<PowerSnapshot>),
+    /// The backlight, as the brightness service reports a change to it. The
+    /// service's watch is the source of the brightness OSD.
+    Brightness(State<BrightnessSnapshot>),
     /// Answer to `Command::RefreshBluetooth`.
     Bluetooth(State<BluetoothSnapshot>),
     /// Answer to `Command::RefreshTimedate`.
@@ -153,6 +157,12 @@ async fn run(
         }
         Err(error) => send(Update::Power(Err(error.to_string()))),
     }
+    // The backlight is read now; its service's watch reports later changes.
+    let brightness = BrightnessClient::new();
+    send(Update::Brightness(
+        brightness.snapshot().map_err(|e| e.to_string()),
+    ));
+    let mut brightness_events = Some(brightness.watch());
 
     loop {
         tokio::select! {
@@ -162,6 +172,7 @@ async fn run(
                 send(Update::Audio(state));
             }
             Some(result) = next_or_pending!(network_events) => send(Update::Network(result.map_err(|e| e.to_string()))),
+            Some(result) = next_or_pending!(brightness_events) => send(Update::Brightness(result.map_err(|e| e.to_string()))),
             Some(result) = next_or_pending!(power_events) => match result {
                 Ok(PowerEvent::Changed(snapshot)) => send(Update::Power(Ok(snapshot))),
                 Ok(_) => {}

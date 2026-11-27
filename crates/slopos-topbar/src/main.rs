@@ -305,6 +305,7 @@ pub struct TopBar {
     osd: osd::Osd,
     /// None until the power provider's first answer.
     power: Option<status::State<slopos_services::power::PowerSnapshot>>,
+    brightness: status::State<slopos_services::brightness::BrightnessSnapshot>,
     clock: String,
     date: String,
     launcher: Option<launcher::Launcher>,
@@ -358,6 +359,7 @@ impl TopBar {
             popover: None,
             osd: osd::Osd::new(),
             power: None,
+            brightness: Err("loading".into()),
             clock,
             date,
             launcher: None,
@@ -825,7 +827,7 @@ impl TopBar {
         let previous = std::mem::replace(&mut self.audio, state);
         if let Some(level) = osd::volume_change(&previous, &self.audio) {
             if self.mixer.is_none() {
-                self.show_volume_osd(level, control);
+                self.show_osd(osd::Indicator::Volume, level, control);
             }
         }
         // The popover follows the answer and resizes with the channels.
@@ -835,12 +837,25 @@ impl TopBar {
         self.show_mixer_popup(control);
     }
 
-    // ----- volume OSD ------------------------------------------------------
+    /// A brightness answer from the backlight service. A changed level shows the
+    /// brightness OSD; the first answer and a machine without a backlight do not.
+    fn brightness_answer(
+        &mut self,
+        state: status::State<slopos_services::brightness::BrightnessSnapshot>,
+        control: &mut Control,
+    ) {
+        let previous = std::mem::replace(&mut self.brightness, state);
+        if let Some(level) = osd::brightness_change(&previous, &self.brightness) {
+            self.show_osd(osd::Indicator::Brightness, level, control);
+        }
+    }
+
+    // ----- volume and brightness OSD ---------------------------------------
 
     /// Shows the OSD at the new level and arms its hide timer; the timer is
     /// the only thing that hides it again.
-    fn show_volume_osd(&mut self, level: osd::Level, control: &mut Control) {
-        let timer = self.osd.show(level);
+    fn show_osd(&mut self, what: osd::Indicator, level: osd::Level, control: &mut Control) {
+        let timer = self.osd.show(what, level);
         control.start_timer(osd::VISIBLE_FOR, timer);
         let (width, height) = OSD_SIZE;
         control.open_popup(
@@ -856,7 +871,7 @@ impl TopBar {
     }
 
     fn paint_osd(&self, surface: &RasterSurface) -> Result<(), RenderError> {
-        let Some(level) = self.osd.shown() else {
+        let Some((what, level)) = self.osd.shown() else {
             return Ok(());
         };
         let colors = palette();
@@ -870,7 +885,7 @@ impl TopBar {
         surface.stroke_rect(bounds, colors.border)?;
         let line = measure("Ag", &self.font).height as i32;
         let inner = bounds.width.saturating_sub(24);
-        let text = osd::text(level);
+        let text = osd::text(what, level);
         for (index, row) in slopos_ui::controls::dialog::wrap(&text, &self.font, inner)
             .iter()
             .take(2)
@@ -1316,6 +1331,7 @@ impl TopBar {
             changed = true;
             match update {
                 StatusUpdate::Audio(state) => self.audio_answer(state, control),
+                StatusUpdate::Brightness(state) => self.brightness_answer(state, control),
                 StatusUpdate::Network(state) => {
                     self.network = state;
                     self.refresh_popover(control);
@@ -1849,9 +1865,9 @@ impl App for TopBar {
                 focus = Some(node);
             }
         }
-        if let Some(level) = self.osd.shown() {
+        if let Some((what, level)) = self.osd.shown() {
             let mut node = accesskit::Node::new(accesskit::Role::Status);
-            node.set_label(osd::text(level));
+            node.set_label(osd::text(what, level));
             nodes.push((OSD_NODE, node));
         }
         if self.open.is_some() {
@@ -2192,7 +2208,10 @@ mod tests {
         assert!(bar.osd.shown().is_none());
         assert!(control.timer_requests().is_empty());
         bar.audio_answer(sound_at(45, false), &mut control);
-        assert_eq!(bar.osd.shown(), Some(&osd::Level::Percent(45)));
+        assert_eq!(
+            bar.osd.shown(),
+            Some((osd::Indicator::Volume, &osd::Level::Percent(45)))
+        );
         let (delay, timer) = *control
             .timer_requests()
             .last()
@@ -2223,7 +2242,10 @@ mod tests {
         bar.audio_answer(Err("connection closed".into()), &mut control);
         assert_eq!(
             bar.osd.shown(),
-            Some(&osd::Level::Unavailable("connection closed".into()))
+            Some((
+                osd::Indicator::Volume,
+                &osd::Level::Unavailable("connection closed".into())
+            ))
         );
         let mut quiet = self::bar();
         quiet.audio_answer(sound_at(40, false), &mut control);
@@ -2233,6 +2255,58 @@ mod tests {
             quiet.osd.shown().is_none(),
             "the mixer shows the level already"
         );
+    }
+
+    #[test]
+    fn a_backlight_change_shows_the_brightness_osd_and_a_machine_without_one_shows_nothing() {
+        use slopos_services::brightness::{BrightnessDevice, BrightnessSnapshot};
+        let backlight = |current| BrightnessSnapshot {
+            revision: 1,
+            availability: slopos_core::capability::Availability::Available,
+            devices: vec![BrightnessDevice {
+                name: "intel_backlight".into(),
+                current,
+                minimum: 0,
+                maximum: 1000,
+            }],
+        };
+        let mut bar = bar();
+        let mut control = Control::default();
+        // Without a backlight there is no level to show, at start or after.
+        bar.brightness_answer(
+            Ok(BrightnessSnapshot {
+                revision: 1,
+                availability: slopos_core::capability::Availability::UnsupportedHardware,
+                devices: Vec::new(),
+            }),
+            &mut control,
+        );
+        assert!(bar.osd.shown().is_none());
+        assert!(control.timer_requests().is_empty());
+        // The first answer with a backlight is not a change either.
+        bar.brightness_answer(Ok(backlight(400)), &mut control);
+        assert!(bar.osd.shown().is_none());
+        bar.brightness_answer(Ok(backlight(450)), &mut control);
+        assert_eq!(
+            bar.osd.shown(),
+            Some((osd::Indicator::Brightness, &osd::Level::Percent(45)))
+        );
+        let (delay, timer) = *control
+            .timer_requests()
+            .last()
+            .expect("the brightness OSD arms its hide timer");
+        assert_eq!(delay, osd::VISIBLE_FOR);
+        assert!(control.popup_requests().iter().any(|request| matches!(
+            request,
+            platform::PopupRequest::Open { id, .. } if *id == POPUP_OSD
+        )));
+        let tree = bar.accessibility().expect("the bar has a tree");
+        assert!(tree
+            .nodes
+            .iter()
+            .any(|(_, node)| node.label() == Some("Brightness 45%")));
+        bar.event(&Event::Timer(timer), &mut control);
+        assert!(bar.osd.shown().is_none());
     }
 
     #[test]
