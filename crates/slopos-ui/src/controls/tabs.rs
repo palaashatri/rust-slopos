@@ -35,6 +35,10 @@ pub struct TabStrip {
     pub selected: usize,
     pub focused: bool,
     pub enabled: bool,
+    /// The tab an assistive-technology focus request asked for. It only moves
+    /// the screen reader's focus, not the selection, and it is cleared as soon
+    /// as the selection changes or the strip itself is focused.
+    focus_target: Option<usize>,
     bounds: Rect,
 }
 
@@ -47,6 +51,7 @@ impl TabStrip {
             selected: 0,
             focused: false,
             enabled: true,
+            focus_target: None,
             bounds: Rect::default(),
         }
     }
@@ -66,6 +71,7 @@ impl TabStrip {
             return false;
         }
         self.selected = index;
+        self.focus_target = None;
         true
     }
 
@@ -104,10 +110,12 @@ impl TabStrip {
 
     /// The node the screen reader should focus while the strip has focus.
     pub fn focus_node(&self) -> u64 {
-        if self.focused && self.selected < self.labels.len() {
-            self.tab_node_id(self.selected)
-        } else {
-            self.id
+        if !self.focused {
+            return self.id;
+        }
+        match self.focus_target.unwrap_or(self.selected) {
+            index if index < self.labels.len() => self.tab_node_id(index),
+            _ => self.id,
         }
     }
 
@@ -131,7 +139,10 @@ impl TabStrip {
                 button: PointerButton::Primary,
             } => match self.tab_at(*x, *y) {
                 Some(index) if self.select(index) => TabOutcome::Selected(index),
-                Some(_) => TabOutcome::FocusRequested,
+                Some(_) => {
+                    self.focus_target = None;
+                    TabOutcome::FocusRequested
+                }
                 None => TabOutcome::Ignored,
             },
             Event::KeyPressed { key, .. } if self.focused => {
@@ -156,10 +167,18 @@ impl TabStrip {
                     None => TabOutcome::Ignored,
                 }
             }
-            Event::Accessibility(AccessibilityRequest::Focus(node))
-                if *node == self.id || self.tab_for_node(*node).is_some() =>
-            {
+            Event::Accessibility(AccessibilityRequest::Focus(node)) if *node == self.id => {
+                self.focus_target = None;
                 TabOutcome::FocusRequested
+            }
+            Event::Accessibility(AccessibilityRequest::Focus(node)) => {
+                match self.tab_for_node(*node) {
+                    Some(index) => {
+                        self.focus_target = Some(index);
+                        TabOutcome::FocusRequested
+                    }
+                    None => TabOutcome::Ignored,
+                }
             }
             _ => TabOutcome::Ignored,
         }
@@ -235,6 +254,7 @@ impl TabStrip {
 mod tests {
     use super::*;
     use crate::event::Modifiers;
+    use crate::foundation::{color::Color, geometry::Scale};
 
     fn strip() -> TabStrip {
         let mut strip = TabStrip::new(7, &["Processes", "CPU", "Memory"]);
@@ -333,5 +353,106 @@ mod tests {
         strip.enabled = false;
         assert_eq!(strip.handle(&press(150, 15)), TabOutcome::Ignored);
         assert_eq!(strip.selected, 0);
+    }
+
+    #[test]
+    fn a_focus_request_on_another_tab_moves_the_focus_node_but_not_the_selection() {
+        let mut strip = strip();
+        let node = strip.tab_node_id(2);
+        assert_eq!(
+            strip.handle(&Event::Accessibility(AccessibilityRequest::Focus(node))),
+            TabOutcome::FocusRequested
+        );
+        assert_eq!(strip.selected, 0);
+        strip.focused = true;
+        assert_eq!(strip.focus_node(), node);
+        // Arrow keys select the next tab and bring the focus along with it.
+        assert_eq!(strip.handle(&key(Key::Right)), TabOutcome::Selected(1));
+        assert_eq!(strip.focus_node(), strip.tab_node_id(1));
+    }
+
+    #[test]
+    fn focusing_the_strip_itself_returns_the_focus_to_the_selected_tab() {
+        let mut strip = strip();
+        strip.focused = true;
+        strip.handle(&Event::Accessibility(AccessibilityRequest::Focus(
+            strip.tab_node_id(2),
+        )));
+        assert_eq!(strip.focus_node(), strip.tab_node_id(2));
+        strip.handle(&Event::Accessibility(AccessibilityRequest::Focus(7)));
+        assert_eq!(strip.focus_node(), strip.tab_node_id(0));
+    }
+
+    fn opaque(color: Color) -> u32 {
+        0xff00_0000
+            | (u32::from(color.red) << 16)
+            | (u32::from(color.green) << 8)
+            | u32::from(color.blue)
+    }
+
+    #[test]
+    fn painting_fills_the_selected_tab_differently_from_the_others() {
+        let surface = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
+        surface.clear(Color::WHITE).unwrap();
+        let mut strip = strip();
+        strip.paint(&surface, &Font::system(12.0)).unwrap();
+        // Probe inside each tab's top-left corner, clear of the border and the label.
+        assert_eq!(surface.pixel(12, 12), Some(opaque(palette().content)));
+        assert_eq!(surface.pixel(122, 12), Some(opaque(palette().surface)));
+    }
+
+    #[test]
+    fn a_focused_selected_tab_paints_a_focus_ring_inside_its_border() {
+        let surface = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
+        surface.clear(Color::WHITE).unwrap();
+        let mut strip = strip();
+        strip.focused = false;
+        strip.paint(&surface, &Font::system(12.0)).unwrap();
+        let unfocused: Vec<Option<u32>> = (13..17).map(|x| surface.pixel(x, 22)).collect();
+
+        surface.clear(Color::WHITE).unwrap();
+        strip.focused = true;
+        strip.paint(&surface, &Font::system(12.0)).unwrap();
+        let focused: Vec<Option<u32>> = (13..17).map(|x| surface.pixel(x, 22)).collect();
+        assert_ne!(unfocused, focused);
+    }
+
+    #[test]
+    fn painting_at_two_scales_puts_the_selected_fill_at_the_scaled_position() {
+        let surface = RasterSurface::new(340, 48, Scale::new(2).unwrap()).unwrap();
+        surface.clear(Color::WHITE).unwrap();
+        let mut strip = strip();
+        strip.paint(&surface, &Font::system(12.0)).unwrap();
+        // The logical probe (12, 12) is device (24, 24) at scale 2.
+        assert_eq!(surface.pixel(24, 24), Some(opaque(palette().content)));
+    }
+
+    #[test]
+    fn disabled_strip_still_paints_its_selected_fill() {
+        let surface = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
+        surface.clear(Color::WHITE).unwrap();
+        let mut strip = strip();
+        strip.enabled = false;
+        strip.paint(&surface, &Font::system(12.0)).unwrap();
+        assert_eq!(surface.pixel(12, 12), Some(opaque(palette().content)));
+    }
+
+    #[test]
+    fn malformed_geometry_paints_nothing_and_does_not_fail() {
+        let surface = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
+        surface.clear(Color::WHITE).unwrap();
+        let mut strip = strip();
+        strip.set_bounds(Rect {
+            x: 10,
+            y: 10,
+            width: 0,
+            height: 24,
+        });
+        strip.paint(&surface, &Font::system(12.0)).unwrap();
+        assert_eq!(surface.pixel(12, 12), Some(0xffff_ffff));
+
+        let empty = TabStrip::new(9, &[]);
+        empty.paint(&surface, &Font::system(12.0)).unwrap();
+        assert_eq!(empty.focus_node(), 9);
     }
 }

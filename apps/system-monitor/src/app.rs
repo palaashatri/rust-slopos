@@ -16,6 +16,7 @@ use slopos_ui::controls::button::{Button, ButtonOutcome};
 use slopos_ui::controls::dialog::{self, Dialog, DialogOutcome};
 use slopos_ui::controls::focus::FocusChain;
 use slopos_ui::controls::list::{ListOutcome, ListView};
+use slopos_ui::controls::scroll::{ScrollOutcome, ScrollState};
 use slopos_ui::controls::tabs::{TabOutcome, TabStrip};
 use slopos_ui::controls::text_field::{TextField, TextFieldOutcome};
 use slopos_ui::event::{AccessibilityRequest, Event};
@@ -140,6 +141,11 @@ pub struct SystemMonitor<S: Source> {
     visible: Vec<usize>,
     visible_names: Vec<String>,
     selected_pid: Option<u32>,
+    /// The start time of the selected process. A PID can be reused by a new
+    /// process, so the selection is only kept while both values still match.
+    selected_start: Option<u64>,
+    /// The CPU tab's scroll position; the CPU list can be taller than the window.
+    cpu_scroll: ScrollState,
     inspected_pid: Option<u32>,
     visible_window: bool,
     timer_armed: bool,
@@ -170,6 +176,8 @@ impl<S: Source> SystemMonitor<S> {
             visible: Vec::new(),
             visible_names: Vec::new(),
             selected_pid: None,
+            selected_start: None,
+            cpu_scroll: ScrollState::default(),
             inspected_pid: None,
             visible_window: false,
             timer_armed: false,
@@ -254,6 +262,7 @@ impl<S: Source> SystemMonitor<S> {
             width: inner,
             height: (panel_y - MARGIN - list_y).max(ROW_HEIGHT as i32) as u32,
         });
+        self.cpu_scroll.set_area(content);
         self.layout = Layout {
             content,
             header: Rect {
@@ -270,6 +279,7 @@ impl<S: Source> SystemMonitor<S> {
             },
             status,
         };
+        self.update_cpu_scroll();
         if let Some(dialog) = &mut self.dialog {
             dialog.layout((width, height));
         }
@@ -293,19 +303,39 @@ impl<S: Source> SystemMonitor<S> {
             .map(|&index| rows[index].name.clone())
             .collect();
         self.list.set_len(self.visible.len());
+        let selected_start = self.selected_start;
         let position = self.selected_pid.and_then(|pid| {
-            self.visible
-                .iter()
-                .position(|&index| rows[index].pid == pid)
+            self.visible.iter().position(|&index| {
+                rows[index].pid == pid && Some(rows[index].start_ticks) == selected_start
+            })
         });
         match position {
             Some(row) => self.list.select_without_scrolling(row),
             None => {
                 self.list.clear_selection();
                 self.selected_pid = None;
+                self.selected_start = None;
             }
         }
+        self.update_cpu_scroll();
         self.sync_controls();
+    }
+
+    /// The CPU tab's entries are laid out in columns, so the content height is
+    /// the number of rows they fill.
+    fn update_cpu_scroll(&mut self) {
+        let count = match &self.view().cpu {
+            None => 1,
+            Some(cpu) => 2 + cpu.per_cpu_percent.len(),
+        };
+        let rows = count.div_ceil(self.cpu_columns());
+        self.cpu_scroll
+            .set_content((rows as i32 * ENTRY_HEIGHT) as u64);
+    }
+
+    /// How many CPU entries fit side by side in the scrolling area.
+    fn cpu_columns(&self) -> usize {
+        (self.cpu_scroll.content_area().width / CPU_COLUMN_WIDTH).max(1) as usize
     }
 
     /// Enable the buttons that apply and set which control holds focus.
@@ -394,7 +424,11 @@ impl<S: Source> SystemMonitor<S> {
 
     fn selected_row(&self) -> Option<&ProcessRow> {
         let pid = self.selected_pid?;
-        self.view().processes.iter().find(|row| row.pid == pid)
+        let start = self.selected_start?;
+        self.view()
+            .processes
+            .iter()
+            .find(|row| row.pid == pid && row.start_ticks == start)
     }
 
     fn target_of(row: &ProcessRow) -> Target {
@@ -416,6 +450,12 @@ impl<S: Source> SystemMonitor<S> {
 
     /// The first check, when "End process" is chosen: opens the confirmation.
     fn request_end(&mut self) {
+        // Only one readback can be pending, because the readback timer carries no
+        // target. A second End waits until the first has been read back.
+        if self.pending_readback.is_some() {
+            self.status = String::from("Wait for the last End check to finish.");
+            return;
+        }
         let Some(row) = self.selected_row() else {
             self.status = String::from("Select a process first.");
             return;
@@ -489,7 +529,10 @@ impl<S: Source> SystemMonitor<S> {
                 self.log_end(&target, "read-back: still running");
             }
         }
-        self.sample(control);
+        // A hidden window takes its next full sample when it is shown again.
+        if self.visible_window {
+            self.sample(control);
+        }
     }
 
     /// Route a pointer event to the tab strip, the filter, the list and the
@@ -577,12 +620,17 @@ impl<S: Source> SystemMonitor<S> {
     }
 
     fn sync_selection(&mut self) {
-        self.selected_pid = self
+        let selected = self
             .list
             .selection()
             .first()
             .and_then(|&row| self.visible.get(row))
-            .map(|&index| self.view().processes[index].pid);
+            .map(|&index| {
+                let row = &self.view().processes[index];
+                (row.pid, row.start_ticks)
+            });
+        self.selected_pid = selected.map(|(pid, _)| pid);
+        self.selected_start = selected.map(|(_, start)| start);
         self.sync_controls();
     }
 
@@ -763,17 +811,27 @@ impl<S: Source> SystemMonitor<S> {
             }
         } else {
             let entries = self.entries();
-            let columns = if self.tabs.selected == CPU {
-                (self.layout.content.width / CPU_COLUMN_WIDTH).max(1) as usize
+            let cpu = self.tabs.selected == CPU;
+            let (area, columns, scroll) = if cpu {
+                (
+                    self.cpu_scroll.content_area(),
+                    self.cpu_columns(),
+                    self.cpu_scroll.offset() as i32,
+                )
             } else {
-                1
+                (self.layout.content, 1, 0)
             };
-            let column_width = self.layout.content.width as usize / columns;
+            let column_width = area.width as usize / columns;
             for (index, entry) in entries.into_iter().enumerate() {
                 let column = index % columns;
                 let row = index / columns;
-                let x = self.layout.content.x + (column * column_width) as i32;
-                let y = self.layout.content.y + row as i32 * ENTRY_HEIGHT;
+                let x = area.x + (column * column_width) as i32;
+                let y = area.y + row as i32 * ENTRY_HEIGHT - scroll;
+                // Rows scrolled out of the area are left out; the scroll position
+                // that shows them brings them back.
+                if cpu && (y < area.y || y + LINE_HEIGHT > area.y + area.height as i32) {
+                    continue;
+                }
                 labels.push(Label {
                     text: entry.text,
                     rect: Rect {
@@ -870,8 +928,8 @@ impl<S: Source> SystemMonitor<S> {
                     let mut entries =
                         vec![Entry::text(format!("Logical CPUs: {}", cpu.logical_cpus))];
                     entries.push(percent_entry("Total usage", cpu.total_percent));
-                    for (index, percent) in cpu.per_cpu_percent.iter().enumerate() {
-                        entries.push(percent_entry(&format!("CPU {index}"), *percent));
+                    for (number, percent) in &cpu.per_cpu_percent {
+                        entries.push(percent_entry(&format!("CPU {number}"), *percent));
                     }
                     entries
                 }
@@ -1197,6 +1255,10 @@ impl<S: Source> App for SystemMonitor<S> {
             control.request_redraw();
             return;
         }
+        if self.tabs.selected == CPU && self.cpu_scroll.handle(event) == ScrollOutcome::Scrolled {
+            control.request_redraw();
+            return;
+        }
         if self.route(event, control) {
             control.request_redraw();
         }
@@ -1290,6 +1352,9 @@ impl<S: Source> SystemMonitor<S> {
         }
         let labels = self.labels();
         self.paint_labels(surface, &labels)?;
+        if self.tabs.selected == CPU {
+            self.cpu_scroll.paint(surface)?;
+        }
         if let Some(dialog) = &mut self.dialog {
             dialog.paint(surface)?;
         }

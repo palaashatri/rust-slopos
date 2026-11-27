@@ -89,14 +89,20 @@ fn snapshot(total: u64, idle: u64, processes: Vec<ProcSample>) -> Snapshot {
         cpu: Some((
             CpuTicks { total, idle },
             vec![
-                CpuTicks {
-                    total: total / 2,
-                    idle: idle / 2,
-                },
-                CpuTicks {
-                    total: total / 2,
-                    idle: idle / 2,
-                },
+                (
+                    0,
+                    CpuTicks {
+                        total: total / 2,
+                        idle: idle / 2,
+                    },
+                ),
+                (
+                    1,
+                    CpuTicks {
+                        total: total / 2,
+                        idle: idle / 2,
+                    },
+                ),
             ],
         )),
         memory: Some(MemInfo {
@@ -638,4 +644,82 @@ fn long_text_is_shortened_with_an_ellipsis() {
     let shortened = fit("a very long process name that will not fit", &font, 60);
     assert!(shortened.ends_with('…'));
     assert_eq!(fit("ok", &font, 200), "ok");
+}
+
+#[test]
+fn a_reused_pid_does_not_inherit_the_selection() {
+    let mut app = app_with(FakeSource::new(snapshot(1000, 500, base_processes())));
+    show(&mut app);
+    // The selected process exited and a new one took its PID, with a later start time.
+    app.selected_pid = Some(4000);
+    app.selected_start = Some(77);
+    second_sample(&mut app, vec![process(4000, "runaway", USER, 500, 100)]);
+    assert_eq!((app.selected_pid, app.selected_start), (None, None));
+}
+
+#[test]
+fn the_selection_is_kept_while_pid_and_start_time_still_match() {
+    let mut app = app_with(FakeSource::new(snapshot(1000, 500, base_processes())));
+    show(&mut app);
+    app.selected_pid = Some(4000);
+    app.selected_start = Some(77);
+    second_sample(&mut app, vec![process(4000, "runaway", USER, 77, 100)]);
+    assert_eq!(
+        (app.selected_pid, app.selected_start),
+        (Some(4000), Some(77))
+    );
+}
+
+#[test]
+fn a_second_end_waits_while_the_first_readback_is_pending() {
+    let mut app = app_with(FakeSource::new(snapshot(1000, 500, base_processes())));
+    show(&mut app);
+    app.pending_readback = Some(Target {
+        pid: 4000,
+        start_ticks: 77,
+        uid: Some(USER),
+        name: "runaway".to_owned(),
+    });
+    app.request_end();
+    assert!(
+        app.dialog.is_none(),
+        "no confirmation opens while a readback is pending"
+    );
+    assert_eq!(app.status, "Wait for the last End check to finish.");
+}
+
+#[test]
+fn cpu_tab_scrolls_to_reach_every_logical_cpu() {
+    let mut source = FakeSource::new(snapshot(1000, 500, base_processes()));
+    source.snapshot.cpu = Some((
+        CpuTicks {
+            total: 1000,
+            idle: 500,
+        },
+        (0..40)
+            .map(|number| {
+                (
+                    number,
+                    CpuTicks {
+                        total: 25,
+                        idle: 12,
+                    },
+                )
+            })
+            .collect(),
+    ));
+    let mut app = app_with(source);
+    show(&mut app);
+    app.tabs.select(CPU);
+    assert!(
+        app.cpu_scroll.scrollable(),
+        "40 CPUs overflow a 760x540 window"
+    );
+    assert!(!label_texts(&app)
+        .iter()
+        .any(|text| text.starts_with("CPU 39:")));
+    app.cpu_scroll.scroll_to(u64::MAX);
+    assert!(label_texts(&app)
+        .iter()
+        .any(|text| text.starts_with("CPU 39:")));
 }

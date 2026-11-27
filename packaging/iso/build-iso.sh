@@ -156,6 +156,7 @@ file_permissions["/usr/local/bin/slopos-files"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-image-viewer"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-media"]="0:0:755"
 file_permissions["/usr/local/bin/slopos-software"]="0:0:755"
+file_permissions["/usr/local/bin/slopos-system-monitor"]="0:0:755"
 EOF
 
 # Materialize the live account during image construction as well as at boot.

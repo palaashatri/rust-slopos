@@ -121,7 +121,8 @@ pub struct ProcessRow {
 pub struct CpuView {
     pub logical_cpus: usize,
     pub total_percent: Option<f64>,
-    pub per_cpu_percent: Vec<Option<f64>>,
+    /// `(CPU number, busy share)` for each CPU that is online in this sample.
+    pub per_cpu_percent: Vec<(usize, Option<f64>)>,
 }
 
 /// Values for the Disk view.
@@ -182,13 +183,19 @@ impl Monitor {
         let (total_delta, cpu) = match &self.previous_cpu {
             Some((previous_total, previous_cores)) => {
                 let total_delta = total.total.checked_sub(previous_total.total);
+                // Match each CPU with its own earlier reading by number, so an
+                // offline CPU does not shift the others onto the wrong history.
                 let per_cpu = cores
                     .iter()
-                    .enumerate()
-                    .map(|(index, now)| {
-                        previous_cores
-                            .get(index)
-                            .and_then(|before| cpu_busy_percent(*before, *now))
+                    .map(|(id, now)| {
+                        let before = previous_cores
+                            .iter()
+                            .find(|(previous_id, _)| previous_id == id)
+                            .map(|(_, ticks)| *ticks);
+                        (
+                            *id,
+                            before.and_then(|before| cpu_busy_percent(before, *now)),
+                        )
                     })
                     .collect();
                 (
@@ -205,7 +212,7 @@ impl Monitor {
                 CpuView {
                     logical_cpus: cores.len(),
                     total_percent: None,
-                    per_cpu_percent: vec![None; cores.len()],
+                    per_cpu_percent: cores.iter().map(|(id, _)| (*id, None)).collect(),
                 },
             ),
         };
@@ -373,7 +380,10 @@ mod tests {
             at,
             cpu: Some((
                 ticks(total, idle),
-                vec![ticks(total / 2, idle / 2), ticks(total / 2, idle / 2)],
+                vec![
+                    (0, ticks(total / 2, idle / 2)),
+                    (1, ticks(total / 2, idle / 2)),
+                ],
             )),
             memory: None,
             disks: None,
@@ -469,5 +479,30 @@ mod tests {
         });
         assert!(!monitor.view.processes_readable);
         assert!(monitor.view.processes.is_empty());
+    }
+
+    #[test]
+    fn a_cpu_that_goes_offline_keeps_its_own_history() {
+        let mut monitor = Monitor::new(HashMap::new());
+        let at = Instant::now();
+        let reading = |cores: Vec<(usize, CpuTicks)>| Snapshot {
+            at,
+            cpu: Some((ticks(1000, 500), cores)),
+            memory: None,
+            disks: None,
+            filesystem: None,
+            processes: Some(Vec::new()),
+        };
+        monitor.ingest(reading(vec![
+            (0, ticks(100, 50)),
+            (1, ticks(100, 10)),
+            (2, ticks(1000, 500)),
+        ]));
+        // CPU 1 goes offline. CPU 2 must still be compared with its own earlier
+        // counters, not with the counters that used to sit at its position.
+        monitor.ingest(reading(vec![(0, ticks(200, 100)), (2, ticks(1100, 500))]));
+        let cpu = monitor.view.cpu.clone().expect("the CPU view is present");
+        assert_eq!(cpu.per_cpu_percent.len(), 2);
+        assert_eq!(cpu.per_cpu_percent[1], (2, Some(100.0)));
     }
 }

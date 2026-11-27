@@ -15,8 +15,9 @@ pub struct CpuTicks {
     pub idle: u64,
 }
 
-/// `(all CPUs, one entry per logical CPU)` from `/proc/stat`.
-pub type CpuStat = (CpuTicks, Vec<CpuTicks>);
+/// `(all CPUs, one entry per logical CPU)` from `/proc/stat`. Each logical
+/// CPU is keyed by its number, because Linux omits the lines of offline CPUs.
+pub type CpuStat = (CpuTicks, Vec<(usize, CpuTicks)>);
 
 fn parse_ticks(fields: &str) -> Option<CpuTicks> {
     // user nice system idle iowait irq softirq steal [guest guest_nice]:
@@ -52,8 +53,8 @@ pub fn parse_cpu_stat(text: &str) -> Option<CpuStat> {
         if label.is_empty() {
             total = parse_ticks(fields);
         } else if label.bytes().all(|byte| byte.is_ascii_digit()) {
-            if let Some(ticks) = parse_ticks(fields) {
-                cores.push(ticks);
+            if let (Ok(id), Some(ticks)) = (label.parse::<usize>(), parse_ticks(fields)) {
+                cores.push((id, ticks));
             }
         }
     }
@@ -293,7 +294,8 @@ intr 123\n";
         assert_eq!(total.total, 4705 + 150 + 1120 + 16250 + 830 + 25);
         assert_eq!(total.idle, 16250 + 830);
         assert_eq!(cores.len(), 2);
-        assert_eq!(cores[1].idle, 4050 + 210);
+        assert_eq!(cores[1].0, 1);
+        assert_eq!(cores[1].1.idle, 4050 + 210);
     }
 
     #[test]
