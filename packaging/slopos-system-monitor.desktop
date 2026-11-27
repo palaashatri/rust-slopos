@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=System Monitor
+Comment=See processes, CPU, memory, disk and GPU use, and end a process of your own
+Exec=slopos-system-monitor
+TryExec=slopos-system-monitor
+Icon=utilities-system-monitor
+Terminal=false
+StartupNotify=true
+Categories=System;Monitor;

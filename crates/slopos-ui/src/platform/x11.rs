@@ -695,6 +695,12 @@ pub fn run<A: App>(
                         app.event(&Event::Paste(text), &mut control);
                     }
                 }
+                XEvent::MapNotify(map) if map.window == window => {
+                    app.event(&Event::Visibility(true), &mut control);
+                }
+                XEvent::UnmapNotify(unmap) if unmap.window == window => {
+                    app.event(&Event::Visibility(false), &mut control);
+                }
                 XEvent::FocusIn(_) => {
                     accessibility.focus(true);
                     ime.set_window_focus(true);
