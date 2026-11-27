@@ -467,28 +467,36 @@ mod tests {
     #[test]
     fn disabled_strip_uses_disabled_ink_and_never_shows_a_focus_ring() {
         let font = Font::system(12.0);
-        let enabled = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
-        let disabled = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
-        enabled.clear(Color::WHITE).unwrap();
-        disabled.clear(Color::WHITE).unwrap();
-        let mut on = strip();
-        on.focused = true;
-        on.paint(&enabled, &font).unwrap();
-        let mut off = strip();
-        off.enabled = false;
-        off.focused = true;
-        off.paint(&disabled, &font).unwrap();
-
         let region = |surface: &RasterSurface| -> Vec<Option<u32>> {
             (10..310)
                 .flat_map(|x| (10..34).map(move |y| (x, y)))
                 .map(|(x, y)| surface.pixel(x, y))
                 .collect()
         };
-        // The label pixels change when the ink changes to the disabled colour.
-        assert_ne!(region(&enabled), region(&disabled));
-        // A disabled strip paints no focus ring, so the corner keeps the fill.
-        assert_eq!(disabled.pixel(13, 13), Some(opaque(palette().content)));
+        let paint = |strip: &TabStrip| {
+            let surface = RasterSurface::new(340, 48, Scale::new(1).unwrap()).unwrap();
+            surface.clear(Color::WHITE).unwrap();
+            strip.paint(&surface, &font).unwrap();
+            surface
+        };
+
+        // Both strips are unfocused, so the only difference is the ink.
+        let enabled = paint(&strip());
+        let mut off = strip();
+        off.enabled = false;
+        let disabled = paint(&off);
+        assert_ne!(
+            region(&enabled),
+            region(&disabled),
+            "the label uses the disabled ink"
+        );
+
+        // A disabled strip paints no focus ring even when it has focus.
+        let mut off_focused = strip();
+        off_focused.enabled = false;
+        off_focused.focused = true;
+        let focused = paint(&off_focused);
+        assert_eq!(focused.pixel(13, 13), Some(opaque(palette().content)));
     }
 
     #[test]
