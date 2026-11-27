@@ -620,15 +620,11 @@ impl TopBar {
             .collect()
     }
 
-    /// Status items from the right edge: clock, notifications, network, Bluetooth,
-    /// sound, battery.
+    /// Status items from the right edge: clock, network, Bluetooth, sound,
+    /// battery, then the notification bell at the left end.
     fn status_rects(&self) -> Vec<(StatusMenu, Rect, String)> {
         let mut items = vec![
             (StatusMenu::Clock, self.clock.clone()),
-            (
-                StatusMenu::Notifications,
-                notification_count_text(&self.history),
-            ),
             (StatusMenu::Network, status::network_text(&self.network)),
             (
                 StatusMenu::Bluetooth,
@@ -639,6 +635,12 @@ impl TopBar {
         if let Some(battery) = status::battery_item(self.power.as_ref()) {
             items.push((StatusMenu::Battery, battery));
         }
+        // The bell goes last, at the left end, so the items already there keep
+        // their positions: the smoke test clicks the sound item at a fixed x.
+        items.push((
+            StatusMenu::Notifications,
+            notification_count_text(&self.history),
+        ));
         let mut right = self.width as i32 - 6;
         items
             .into_iter()
@@ -2241,10 +2243,10 @@ mod tests {
     fn status_items_show_unavailable_state_truthfully() {
         let bar = bar();
         let items: Vec<String> = bar.status_rects().into_iter().map(|(_, _, t)| t).collect();
-        assert_eq!(items[1], "", "the bell shows no count without notices");
-        assert_eq!(items[2], "Network unavailable");
-        assert_eq!(items[3], "…", "Bluetooth is read when its popover opens");
-        assert_eq!(items[4], "—");
+        assert_eq!(items[1], "Network unavailable");
+        assert_eq!(items[2], "…", "Bluetooth is read when its popover opens");
+        assert_eq!(items[3], "—");
+        assert_eq!(items[4], "", "the bell shows no count without notices");
         assert_eq!(items.len(), 5, "no battery item without a battery");
         let (lines, _) = bar.status_menu(StatusMenu::Sound);
         assert!(lines[0].label.starts_with("Sound unavailable"));
