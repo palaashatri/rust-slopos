@@ -14,6 +14,7 @@ members = [
     "crates/slopos-topbar",
     "crates/slopos-desktop",
     "crates/slopos-mixer",
+    "crates/slopos-portal",
     "apps/calculator",
     "apps/image-viewer",
     "apps/software",

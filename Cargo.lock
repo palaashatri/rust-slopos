@@ -3616,6 +3616,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-portal"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "env_logger",
+ "futures",
+ "libc",
+ "log",
+ "serde",
+ "serde_json",
+ "slopos-core",
+ "slopos-ui",
+ "tempfile",
+ "zbus 4.4.0",
+]
+
+[[package]]
 name = "slopos-services"
 version = "0.1.0"
 dependencies = [
