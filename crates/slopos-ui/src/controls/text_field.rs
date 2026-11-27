@@ -162,6 +162,10 @@ impl TextField {
             at -= 1;
         }
         let clean = sanitize(text, self.max_chars);
+        if clean.is_empty() {
+            // Nothing visible is left to compose: keep the keys with the field.
+            return self.cancel_preedit();
+        }
         let cursor = sanitize(&text[..at], self.max_chars).len().min(clean.len());
         self.preedit = Some(Preedit {
             text: clean,
@@ -286,6 +290,11 @@ impl TextField {
             }
             Event::InputMethod(InputMethodEvent::Commit(text)) if self.focused => self.commit(text),
             Event::InputMethod(InputMethodEvent::PreeditHidden) if self.focused => {
+                self.cancel_preedit()
+            }
+            // The input method is gone, so an unfinished composition can no
+            // longer be committed: drop it and let keys reach the field.
+            Event::InputMethodStatus(crate::input_method::InputMethodStatus::Unavailable(_)) => {
                 self.cancel_preedit()
             }
             _ => TextFieldOutcome::Ignored,
@@ -1012,6 +1021,56 @@ mod tests {
         let mut field = focused();
         field.handle(&preedit_event("a\u{7}b", 2));
         assert_eq!(field.preedit(), Some(("ab", 1)));
+    }
+
+    #[test]
+    fn a_preedit_of_only_dropped_characters_leaves_no_composition() {
+        let mut field = focused();
+        // From no composition: nothing starts, so nothing changes.
+        assert_eq!(
+            field.handle(&preedit_event("\u{7}", 1)),
+            TextFieldOutcome::Ignored
+        );
+        assert_eq!(field.preedit(), None);
+        // Over a live composition: it ends, as an empty preedit would.
+        field.handle(&preedit_event("ni", 2));
+        assert_eq!(
+            field.handle(&preedit_event("\u{7}", 1)),
+            TextFieldOutcome::Changed
+        );
+        assert_eq!(field.preedit(), None);
+        // Ordinary keys are not swallowed by a phantom composition.
+        assert_eq!(
+            field.handle(&key(Key::Character('x'))),
+            TextFieldOutcome::Edited
+        );
+        assert_eq!(field.text(), "x");
+    }
+
+    #[test]
+    fn an_unavailable_input_method_drops_the_composition() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        assert_eq!(
+            field.handle(&Event::InputMethodStatus(
+                crate::input_method::InputMethodStatus::Unavailable("daemon gone".into())
+            )),
+            TextFieldOutcome::Changed
+        );
+        assert_eq!(field.preedit(), None);
+        assert_eq!(field.text(), "");
+        // Keys reach the field again.
+        typed(&mut field, "ab");
+        assert_eq!(field.text(), "ab");
+        // An active status alone does not end a composition.
+        field.handle(&preedit_event("ni", 2));
+        assert_eq!(
+            field.handle(&Event::InputMethodStatus(
+                crate::input_method::InputMethodStatus::Active
+            )),
+            TextFieldOutcome::Ignored
+        );
+        assert_eq!(field.preedit(), Some(("ni", 2)));
     }
 
     #[test]
