@@ -6,10 +6,16 @@
 # Return) and check that the choice is saved. Exits nonzero on any mismatch.
 # Needs Xvfb, openbox, xdotool, xwininfo, xprop, wmctrl and ImageMagick's import,
 # convert and display. Build the workspace first.
+# SLOPOS_BIN_DIR names the directory with the built binaries (default: target/debug),
+# as in scripts/smoke-session.sh.
 set -u
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT="$ROOT/.work/qa-runtime/dock-autohide"
-BIN="$ROOT/target/debug"
+BIN_DIR="$(cd "${SLOPOS_BIN_DIR:-$ROOT/target/debug}" 2>/dev/null && pwd)" || {
+  echo "FAIL: no binary directory at ${SLOPOS_BIN_DIR:-$ROOT/target/debug}" >&2
+  exit 2
+}
+test -x "$BIN_DIR/slopos-dock" || { echo "FAIL: build $BIN_DIR/slopos-dock first" >&2; exit 2; }
 DISPLAY_NUMBER=:61
 DOCK= OPENBOX= XVFB= COVER=
 # However the script ends, including a signal, reap what it started so the
@@ -41,9 +47,9 @@ wait_until 10 x_ready || { echo "FAIL: the X display did not start"; exit 1; }
 openbox >"$OUT/openbox.log" 2>&1 &
 OPENBOX=$!
 wait_until 10 wm_ready || { echo "FAIL: Openbox did not start"; exit 1; }
-"$BIN/slopos-dock" --autohide on || { kill $XVFB $OPENBOX; exit 1; }
+"$BIN_DIR/slopos-dock" --autohide on || { kill $XVFB $OPENBOX; exit 1; }
 echo "config: $(tr '\n' ' ' < "$XDG_CONFIG_HOME/slopos-i/dock.conf")"
-RUST_LOG=debug "$BIN/slopos-dock" >"$OUT/dock.log" 2>&1 &
+RUST_LOG=debug "$BIN_DIR/slopos-dock" >"$OUT/dock.log" 2>&1 &
 DOCK=$!
 wait_until 10 dock_window || WID=
 if [ -z "$WID" ]; then
