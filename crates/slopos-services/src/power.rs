@@ -892,7 +892,7 @@ mod tests {
         change: impl FnOnce(&mut BatteryFixture),
         property: &str,
     ) {
-        change(&mut *battery.lock().unwrap());
+        change(&mut battery.lock().unwrap());
         let changed = HashMap::<&str, zbus::zvariant::Value>::new();
         upower
             .emit_signal(
