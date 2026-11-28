@@ -333,24 +333,31 @@ impl Importer {
                 }
             })
             .ok()?;
-        // One watcher for every exporter's Changed signals.
+        // One watcher for every exporter's Changed signals. The match rules
+        // are added here, before `start` returns: a rule added on the watcher
+        // thread could race a signal sent right after `start`, and the bus
+        // drops a signal that matches no rule.
+        let rules = ["org.gtk.Menus", "org.gtk.Actions"].map(|interface| {
+            zbus::MatchRule::builder()
+                .msg_type(zbus::message::Type::Signal)
+                .interface(interface)
+                .and_then(|rule| rule.member("Changed"))
+                .map(|rule| rule.build())
+        });
+        match zbus::blocking::fdo::DBusProxy::new(&connection) {
+            Ok(dbus) => {
+                for rule in rules.iter().flatten() {
+                    if let Err(error) = dbus.add_match_rule(rule.clone()) {
+                        log::warn!("menu import cannot watch Changed signals: {error}");
+                    }
+                }
+            }
+            Err(error) => log::warn!("menu import cannot watch Changed signals: {error}"),
+        }
         let watch_wake = wake;
         thread::Builder::new()
             .name("slopos-menu-watch".into())
             .spawn(move || {
-                let rules = ["org.gtk.Menus", "org.gtk.Actions"].map(|interface| {
-                    zbus::MatchRule::builder()
-                        .msg_type(zbus::message::Type::Signal)
-                        .interface(interface)
-                        .and_then(|rule| rule.member("Changed"))
-                        .map(|rule| rule.build())
-                });
-                let dbus = zbus::blocking::fdo::DBusProxy::new(&connection).ok();
-                for rule in rules.iter().flatten() {
-                    if let Some(dbus) = &dbus {
-                        let _ = dbus.add_match_rule(rule.clone());
-                    }
-                }
                 for message in zbus::blocking::MessageIterator::from(&connection).flatten() {
                     let header = message.header();
                     if header.message_type() != zbus::message::Type::Signal
