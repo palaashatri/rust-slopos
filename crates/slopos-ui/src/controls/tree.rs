@@ -119,7 +119,7 @@ fn paint_disclosure(
     let ink = palette().ink_secondary;
     surface.stroke_rect(bounds, ink)?;
     let half = (DISCLOSURE / 2) as i32;
-    let arm = (DISCLOSURE / 2 + 1) as u32;
+    let arm = DISCLOSURE / 2 + 1;
     surface.fill_rect(
         Rect {
             x: bounds.x + 2,
