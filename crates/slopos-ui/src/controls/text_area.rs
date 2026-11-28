@@ -1273,7 +1273,10 @@ mod tests {
 
     /// The ARGB value of an opaque palette colour, as `RasterSurface::pixel` reports it.
     fn argb(color: crate::foundation::color::Color) -> u32 {
-        0xff00_0000 | u32::from(color.red) << 16 | u32::from(color.green) << 8 | u32::from(color.blue)
+        0xff00_0000
+            | u32::from(color.red) << 16
+            | u32::from(color.green) << 8
+            | u32::from(color.blue)
     }
 
     #[test]
@@ -1293,7 +1296,11 @@ mod tests {
             area.paint(&surface, "").unwrap();
             let f = factor;
             // The outer border is the shadow colour, the inner ring is focus black.
-            assert_eq!(surface.pixel(0, 0), Some(argb(colors.bevel_shadow)), "{f}x border");
+            assert_eq!(
+                surface.pixel(0, 0),
+                Some(argb(colors.bevel_shadow)),
+                "{f}x border"
+            );
             assert_eq!(
                 surface.pixel(f, f),
                 Some(argb(colors.focus)),
