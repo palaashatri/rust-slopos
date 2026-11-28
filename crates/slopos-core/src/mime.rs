@@ -474,13 +474,20 @@ mod tests {
             .collect();
         assert_eq!(native, [("slopos-image-viewer".to_owned(), false)]);
 
-        // With no default list, the first native candidate is the default.
+        // With no default list, the default is the first SLOPOS candidate in
+        // install order: here the browser wrapper, which is not native. So no
+        // native entry is marked, and the viewer is offered unmarked.
+        let all: Vec<(String, bool)> = associations_from("image/png", &[], &installed)
+            .into_iter()
+            .map(|association| (association.app.id.clone(), association.is_default))
+            .collect();
+        assert_eq!(all[0], ("slopos-browser".to_owned(), true));
         let native: Vec<(String, bool)> = associations_from("image/png", &[], &installed)
             .into_iter()
             .filter(|association| is_native_app(&association.app))
             .map(|association| (association.app.id.clone(), association.is_default))
             .collect();
-        assert_eq!(native, [("slopos-image-viewer".to_owned(), true)]);
+        assert_eq!(native, [("slopos-image-viewer".to_owned(), false)]);
     }
 
     #[test]
