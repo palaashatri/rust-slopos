@@ -187,6 +187,8 @@ pub enum StorageError {
     RevisionExhausted,
     #[error("UDisks2 D-Bus error: {0}")]
     Bus(#[source] zbus::Error),
+    #[error("cannot start the UDisks2 worker: {0}")]
+    Worker(String),
 }
 
 impl StorageError {
@@ -207,7 +209,8 @@ impl StorageError {
             | Self::InvalidObjectPath(_)
             | Self::InvalidProperty(_)
             | Self::RevisionExhausted
-            | Self::Bus(_) => Availability::Failed,
+            | Self::Bus(_)
+            | Self::Worker(_) => Availability::Failed,
         }
     }
 }
@@ -270,6 +273,22 @@ fn io_error_availability(error: &zbus::Error) -> Option<Availability> {
         },
         _ => None,
     }
+}
+
+/// One authoritative snapshot of the drives and block devices.
+///
+/// This blocks the calling thread until UDisks2 answers or the call times
+/// out, so call it from a worker thread, never from a UI thread. It starts a
+/// private current-thread runtime for the call.
+pub fn snapshot_blocking() -> Result<StorageSnapshot, StorageError> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|error| StorageError::Worker(error.to_string()))?;
+    runtime.block_on(async {
+        let client = StorageClient::connect().await?;
+        client.snapshot().await
+    })
 }
 
 #[derive(Clone)]
@@ -2508,5 +2527,22 @@ mod tests {
         )));
         assert!(matches!(&error, StorageError::Disconnected(_)));
         assert_eq!(error.availability(), Availability::Disconnected);
+    }
+
+    #[test]
+    fn a_worker_error_is_a_failed_availability_with_its_reason() {
+        let error = StorageError::Worker("no threads".to_owned());
+        assert_eq!(error.availability(), Availability::Failed);
+        assert!(error.to_string().contains("no threads"));
+    }
+
+    #[test]
+    fn the_blocking_snapshot_returns_a_result_on_the_calling_thread() {
+        // Without a system bus this fails at once with a typed error. With one
+        // it returns a snapshot. Either way it must return, never hang.
+        match snapshot_blocking() {
+            Ok(snapshot) => assert_eq!(snapshot.availability, Availability::Available),
+            Err(error) => assert_ne!(error.availability(), Availability::Loading),
+        }
     }
 }
