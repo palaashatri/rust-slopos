@@ -5,7 +5,13 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-pub const MAX_ENTRIES: usize = 8192;
+/// Rows shown per page. The visible rows and their accessible nodes stay at
+/// this size however large the folder is.
+pub const PAGE_ROWS: usize = 8192;
+
+/// Largest folder listed at all. Memory per listing stays bounded (roughly
+/// 15 MB at this size); a folder beyond it fails with an explicit error.
+pub const MAX_ENTRIES: usize = 65_536;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
@@ -48,6 +54,22 @@ impl Entry {
 /// following symlinks. Exactly-once directory entry validation prevents a
 /// partial listing from pretending to be a complete directory.
 pub fn read_directory(path: &Path) -> io::Result<Vec<Entry>> {
+    read_directory_capped(path, MAX_ENTRIES)
+}
+
+/// Number of pages for `total` rows; an empty folder still has one page.
+pub fn page_count(total: usize) -> usize {
+    total.div_ceil(PAGE_ROWS).max(1)
+}
+
+/// Rows of `page` (clamped to the last page) within `total` rows.
+pub fn page_range(total: usize, page: usize) -> std::ops::Range<usize> {
+    let page = page.min(page_count(total) - 1);
+    let start = page * PAGE_ROWS;
+    start..(start + PAGE_ROWS).min(total)
+}
+
+fn read_directory_capped(path: &Path, cap: usize) -> io::Result<Vec<Entry>> {
     let metadata = fs::symlink_metadata(path)?;
     if !metadata.file_type().is_dir() {
         return Err(io::Error::new(
@@ -58,10 +80,10 @@ pub fn read_directory(path: &Path) -> io::Result<Vec<Entry>> {
     let mut entries = Vec::new();
     for item in fs::read_dir(path)? {
         let item = item?;
-        if entries.len() >= MAX_ENTRIES {
+        if entries.len() >= cap {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                "directory exceeds 8192 entries; pagination is required",
+                format!("folder has more than {cap} entries and can't be listed"),
             ));
         }
         let meta = fs::symlink_metadata(item.path())?;
@@ -244,6 +266,48 @@ mod tests {
     fn no_partial_data_is_returned_on_unreadable_target() {
         let root = fixture();
         assert!(read_directory(&root.join("missing")).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn listing_beyond_the_cap_fails_explicitly() {
+        let root = fixture();
+        for name in ["a", "b", "c", "d"] {
+            fs::write(root.join(name), b"").unwrap();
+        }
+        assert_eq!(read_directory_capped(&root, 4).unwrap().len(), 4);
+        let error = read_directory_capped(&root, 3).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("more than 3 entries"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn pages_cover_every_row_exactly_once() {
+        assert_eq!(page_count(0), 1);
+        assert_eq!(page_count(PAGE_ROWS), 1);
+        assert_eq!(page_count(PAGE_ROWS + 1), 2);
+        assert_eq!(page_range(0, 0), 0..0);
+        assert_eq!(page_range(PAGE_ROWS + 1, 0), 0..PAGE_ROWS);
+        assert_eq!(page_range(PAGE_ROWS + 1, 1), PAGE_ROWS..PAGE_ROWS + 1);
+        // A page past the end clamps to the last one.
+        assert_eq!(page_range(PAGE_ROWS + 1, 9), PAGE_ROWS..PAGE_ROWS + 1);
+        let total = 3 * PAGE_ROWS + 7;
+        let covered: usize = (0..page_count(total))
+            .map(|page| page_range(total, page).len())
+            .sum();
+        assert_eq!(covered, total);
+    }
+
+    #[test]
+    fn a_folder_past_one_page_lists_every_row() {
+        let root = fixture();
+        for index in 0..(PAGE_ROWS + 1) {
+            fs::write(root.join(format!("f{index:05}")), b"").unwrap();
+        }
+        let listing = read_directory(&root).unwrap();
+        assert_eq!(listing.len(), PAGE_ROWS + 1);
+        assert_eq!(page_count(listing.len()), 2);
         fs::remove_dir_all(root).unwrap();
     }
 }

@@ -7,6 +7,7 @@
 
 mod archive;
 mod model;
+mod network;
 mod ops;
 mod trash;
 mod worker;
@@ -18,6 +19,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
 use model::{DirectoryState, Entry, Kind, Navigation};
+use network::Location;
 use ops::{Conflict, Job, OpError};
 use slopos_core::mime;
 use slopos_ui::accessibility::window_tree;
@@ -87,6 +89,8 @@ enum Command {
     Compress,
     CompressTarGz,
     Extract,
+    NextPage,
+    PreviousPage,
 }
 
 /// (label, shortcut text, command); no command is a separator.
@@ -124,6 +128,13 @@ const VIEW_MENU: MenuSpec = &[
         Some(Command::ToggleHidden),
     ),
     ("Refresh", Some("F5"), Some(Command::Refresh)),
+    ("", None, None),
+    ("Next Page", Some("Alt+PageDown"), Some(Command::NextPage)),
+    (
+        "Previous Page",
+        Some("Alt+PageUp"),
+        Some(Command::PreviousPage),
+    ),
 ];
 const GO_MENU: MenuSpec = &[
     ("Back", Some("Alt+Left"), Some(Command::Back)),
@@ -238,6 +249,34 @@ fn file_icons(mime: &str) -> Vec<String> {
     icons
 }
 
+/// A network location's listing, shown read-only.
+struct RemoteView {
+    location: Location,
+    names: Vec<String>,
+}
+
+/// The slice of `items` on `page`, with `page` clamped to what exists.
+fn paged<T>(items: &[T], page: &mut usize) -> &[T] {
+    let range = model::page_range(items.len(), *page);
+    *page = range.start / model::PAGE_ROWS;
+    &items[range]
+}
+
+/// Row for a network listing name. The provider does not say whether it is
+/// a folder, so these rows are read-only and never opened.
+fn remote_row(name: &str) -> Row {
+    Row {
+        name: name.to_owned(),
+        path: PathBuf::new(),
+        kind: Kind::Other,
+        size: "—".into(),
+        modified: "—".into(),
+        kind_text: "Network item".into(),
+        icons: vec!["folder".into()],
+        trash: None,
+    }
+}
+
 /// What an open dialog is asking about.
 #[derive(Debug, Clone)]
 enum Pending {
@@ -282,6 +321,14 @@ pub struct FilesApp {
     scanner: Scanner,
     watcher: Option<Arc<Watcher>>,
     pending_scan: Option<(u64, PathBuf, Navigation)>,
+    /// Page of the current listing shown (0 is the first).
+    page: usize,
+    /// Rows in the whole listing, before paging.
+    total_rows: usize,
+    /// Set while a network location is shown instead of a local folder.
+    remote: Option<RemoteView>,
+    lister: network::Lister,
+    pending_remote: Option<(u64, Location)>,
     serial: u64,
     running: Option<Running>,
     clipboard: Option<(Vec<PathBuf>, bool)>,
@@ -371,6 +418,7 @@ impl FilesApp {
         let slot: WakeSlot = Arc::new(Mutex::new(None));
         let scanner = Scanner::new(slot.clone())?;
         let watcher = Watcher::new(slot.clone()).ok();
+        let lister = network::Lister::new(slot.clone(), network::Provider::gio())?;
         let menu = MenuBar::new(
             MENU_ID,
             vec![
@@ -432,6 +480,11 @@ impl FilesApp {
             scanner,
             watcher,
             pending_scan: None,
+            page: 0,
+            total_rows: 0,
+            remote: None,
+            lister,
+            pending_remote: None,
             serial: 0,
             running: None,
             clipboard: None,
@@ -556,7 +609,30 @@ impl FilesApp {
     fn enabled(&self, command: Command) -> bool {
         let selected = !self.list.selection().is_empty();
         let busy = self.running.is_some();
+        if self.remote.is_some()
+            && !matches!(
+                command,
+                Command::Close
+                    | Command::SelectAll
+                    | Command::Refresh
+                    | Command::ToggleHidden
+                    | Command::Back
+                    | Command::Forward
+                    | Command::Up
+                    | Command::Home
+                    | Command::GoTrash
+                    | Command::NextPage
+                    | Command::PreviousPage
+            )
+        {
+            // A network listing is read-only: no file operations.
+            return false;
+        }
         match command {
+            Command::NextPage => {
+                !self.in_trash && self.page + 1 < model::page_count(self.total_rows)
+            }
+            Command::PreviousPage => !self.in_trash && self.page > 0,
             Command::NewFolder | Command::Paste => {
                 !self.in_trash
                     && !busy
@@ -636,8 +712,12 @@ impl FilesApp {
         if keep.is_empty() {
             keep = self.selected_paths();
         }
+        // Only the rows of the current page become rows (and accessible nodes).
+        keep.retain(|path| !path.as_os_str().is_empty());
         self.rows = if self.in_trash {
-            trash::list()
+            // The Trash is not paged: it holds only what was trashed.
+            self.page = 0;
+            let all: Vec<Row> = trash::list()
                 .into_iter()
                 .map(|item| Row {
                     name: item.original.file_name().map_or_else(
@@ -666,13 +746,26 @@ impl FilesApp {
                     },
                     trash: Some(item),
                 })
+                .collect();
+            self.total_rows = all.len();
+            all
+        } else if let Some(remote) = &self.remote {
+            self.total_rows = remote.names.len();
+            paged(&remote.names, &mut self.page)
+                .iter()
+                .map(|name| remote_row(name))
                 .collect()
         } else {
-            self.state
+            let visible: Vec<&Entry> = self
+                .state
                 .entries
                 .iter()
                 .filter(|entry| self.show_hidden || !entry.is_hidden())
-                .map(row_for)
+                .collect();
+            self.total_rows = visible.len();
+            paged(&visible, &mut self.page)
+                .iter()
+                .map(|entry| row_for(entry))
                 .collect()
         };
         self.list.set_len(self.rows.len());
@@ -693,13 +786,30 @@ impl FilesApp {
 
     fn item_count_status(&mut self) {
         let count = self.rows.len();
+        let total = self.total_rows;
         let selected = self.list.selection().len();
-        let place = if self.in_trash { "in the Trash" } else { "" };
-        self.status = match (count, selected) {
+        let place = if self.in_trash {
+            "in the Trash"
+        } else if self.remote.is_some() {
+            "on the server"
+        } else {
+            ""
+        };
+        let pages = model::page_count(total);
+        self.status = match (total, selected) {
             (0, _) if self.in_trash => "The Trash is empty".into(),
+            (0, _) if self.remote.is_some() => "This location has no items".into(),
             (0, _) => "This folder is empty".into(),
-            (_, 0) => format!("{count} item{} {place}", if count == 1 { "" } else { "s" }),
-            (_, n) => format!("{n} of {count} selected"),
+            (_, 0) if pages > 1 => {
+                let first = self.page * model::PAGE_ROWS + 1;
+                format!(
+                    "Items {first}–{} of {total} · page {} of {pages}",
+                    first + count - 1,
+                    self.page + 1
+                )
+            }
+            (_, 0) => format!("{total} item{} {place}", if total == 1 { "" } else { "s" }),
+            (_, n) => format!("{n} of {total} selected"),
         };
     }
 
@@ -711,10 +821,86 @@ impl FilesApp {
             Ok(()) => {
                 self.serial = seq;
                 self.pending_scan = Some((seq, path, mode));
+                self.pending_remote = None;
+                if self.remote.take().is_some() {
+                    // Leaving a network listing: the local rows return until the scan lands.
+                    self.page = 0;
+                    self.rebuild_rows();
+                }
                 self.set_status("Reading folder…");
             }
             Err(message) => self.set_status(message),
         }
+    }
+
+    /// The location bar named a network address: list it on the network worker.
+    fn request_network(&mut self, text: &str) {
+        match Location::parse(text) {
+            Ok(location) => self.list_network(location),
+            Err(error) => self.set_status(error.to_string()),
+        }
+    }
+
+    /// Start listing `location`. Local scans still in flight are dropped so
+    /// they cannot replace this view when they finish.
+    fn list_network(&mut self, location: Location) {
+        let seq = self.serial.wrapping_add(1);
+        match self.lister.request(seq, location.clone()) {
+            Ok(()) => {
+                self.serial = seq;
+                self.pending_scan = None;
+                let shown = location.display();
+                self.pending_remote = Some((seq, location));
+                self.location.set_text(&shown);
+                self.set_status(format!("Connecting to {shown}…"));
+            }
+            Err(message) => self.set_status(message),
+        }
+    }
+
+    /// A network listing finished. Failures are shown as text and in a
+    /// dialog; the folder on screen stays as it was.
+    fn apply_network(&mut self, (seq, location, result): network::Answer) {
+        if self.pending_remote.as_ref().map(|(pending, _)| *pending) != Some(seq) {
+            return; // Stale: the user has already moved on.
+        }
+        self.pending_remote = None;
+        match result {
+            Ok(names) => {
+                let shown = location.display();
+                self.in_trash = false;
+                self.remote = Some(RemoteView { location, names });
+                self.page = 0;
+                self.list.reset(0);
+                self.location.set_text(&shown);
+                self.rebuild_rows();
+                if !self.rows.is_empty() {
+                    self.list.select_only(0);
+                }
+                self.item_count_status();
+            }
+            Err(error) => {
+                let text = error.to_string();
+                self.set_status(text.clone());
+                self.message("Can't open this location", &text);
+            }
+        }
+        self.refresh_controls();
+    }
+
+    /// Show page `page` of the current listing.
+    fn change_page(&mut self, page: usize) {
+        let page = page.min(model::page_count(self.total_rows) - 1);
+        if page == self.page {
+            return;
+        }
+        self.page = page;
+        self.list.reset(0);
+        self.rebuild_rows();
+        if !self.rows.is_empty() {
+            self.list.select_only(0);
+        }
+        self.item_count_status();
     }
 
     fn apply_scan(&mut self, (seq, path, listing): worker::ScanResult) {
@@ -734,6 +920,7 @@ impl FilesApp {
                 }
                 if changed_folder {
                     self.in_trash = false;
+                    self.page = 0;
                     self.list.reset(0);
                     if let Some(watcher) = &self.watcher {
                         watcher.watch(&path);
@@ -768,6 +955,9 @@ impl FilesApp {
 
     fn go_trash(&mut self) {
         self.in_trash = true;
+        self.remote = None;
+        self.pending_remote = None;
+        self.page = 0;
         self.list.reset(0);
         self.location.set_text("Trash");
         self.rebuild_rows();
@@ -890,7 +1080,10 @@ impl FilesApp {
     }
 
     fn refresh_listing(&mut self) {
-        if self.in_trash {
+        if let Some(remote) = &self.remote {
+            let location = remote.location.clone();
+            self.list_network(location);
+        } else if self.in_trash {
             self.rebuild_rows();
             self.item_count_status();
         } else if self.pending_scan.is_none() {
@@ -906,9 +1099,16 @@ impl FilesApp {
 
     fn run(&mut self, command: Command, control: &mut Control) {
         if !self.enabled(command) {
+            if self.remote.is_some() && command == Command::Open {
+                self.set_status(
+                    "Network folders can't be opened yet. Type a deeper address in the location bar.",
+                );
+            }
             return;
         }
         match command {
+            Command::NextPage => self.change_page(self.page + 1),
+            Command::PreviousPage => self.change_page(self.page.saturating_sub(1)),
             Command::NewFolder => match ops::new_folder(&self.state.current) {
                 Ok(path) => {
                     self.select_after = vec![path.clone()];
@@ -1187,6 +1387,8 @@ impl FilesApp {
             Key::Right if alt => Command::Forward,
             Key::Up if alt => Command::Up,
             Key::Home if alt => Command::Home,
+            Key::PageDown if alt => Command::NextPage,
+            Key::PageUp if alt => Command::PreviousPage,
             Key::Backspace if !control && !alt => Command::Up,
             _ => return None,
         })
@@ -1196,6 +1398,10 @@ impl FilesApp {
         let mut changed = false;
         while let Ok(result) = self.scanner.results.try_recv() {
             self.apply_scan(result);
+            changed = true;
+        }
+        while let Ok(answer) = self.lister.results.try_recv() {
+            self.apply_network(answer);
             changed = true;
         }
         if let Some(running) = &self.running {
@@ -1216,6 +1422,7 @@ impl FilesApp {
         if let Some(watcher) = &self.watcher {
             if watcher.changed.swap(false, Ordering::Relaxed)
                 && !self.in_trash
+                && self.remote.is_none()
                 && self.running.is_none()
             {
                 self.refresh_listing();
@@ -1289,10 +1496,14 @@ impl FilesApp {
             match self.location.handle(event) {
                 TextFieldOutcome::Ignored => {}
                 TextFieldOutcome::Submitted => {
-                    let typed = PathBuf::from(self.location.text().trim());
+                    let typed = self.location.text().trim().to_owned();
                     self.focus.focus(LIST_ID);
                     self.sync_focus();
-                    self.request(typed, Navigation::New);
+                    if network::is_network_address(&typed) {
+                        self.request_network(&typed);
+                    } else {
+                        self.request(PathBuf::from(typed), Navigation::New);
+                    }
                     return;
                 }
                 TextFieldOutcome::Cancelled => {
@@ -2123,6 +2334,83 @@ mod tests {
         assert!(!dir.path().join("a.txt").exists());
     }
 
+    #[test]
+    fn folders_beyond_one_page_are_paged() {
+        let dir = tempfile::tempdir().unwrap();
+        let count = model::PAGE_ROWS + 5;
+        for index in 0..count {
+            std::fs::write(dir.path().join(format!("f{index:05}")), b"").unwrap();
+        }
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        assert_eq!(app.total_rows, count);
+        assert_eq!(app.rows.len(), model::PAGE_ROWS);
+        assert!(app.enabled(Command::NextPage) && !app.enabled(Command::PreviousPage));
+        let mut control = Control::default();
+        app.run(Command::NextPage, &mut control);
+        assert_eq!(app.page, 1);
+        assert_eq!(app.rows.len(), 5);
+        assert_eq!(app.rows[0].name, format!("f{:05}", model::PAGE_ROWS));
+        assert_eq!(app.rows[4].name, format!("f{:05}", count - 1));
+        assert!(!app.enabled(Command::NextPage) && app.enabled(Command::PreviousPage));
+        app.run(Command::PreviousPage, &mut control);
+        assert_eq!(app.page, 0);
+        assert_eq!(app.rows.len(), model::PAGE_ROWS);
+    }
+
+    #[test]
+    fn network_listing_is_read_only_paged_and_failures_are_text() {
+        let dir = fixture();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        let mut control = Control::default();
+        // A malformed address fails in the status bar; nothing is requested.
+        app.request_network("smb://bad_host/share");
+        assert!(app.status.contains("server name contains"));
+        assert!(app.pending_remote.is_none());
+
+        let location = Location::parse("smb://nas.example/share").unwrap();
+        app.pending_remote = Some((7, location.clone()));
+        let names: Vec<String> = (0..model::PAGE_ROWS + 2)
+            .map(|index| format!("n{index:05}"))
+            .collect();
+        app.apply_network((7, location.clone(), Ok(names)));
+        assert_eq!(app.rows.len(), model::PAGE_ROWS);
+        assert_eq!(app.total_rows, model::PAGE_ROWS + 2);
+        assert!(app.rows.iter().all(|row| row.path.as_os_str().is_empty()));
+        assert_eq!(app.location.text(), "smb://nas.example/share");
+        // Read-only: no file operations and no opening.
+        app.list.select_only(0);
+        for command in [
+            Command::NewFolder,
+            Command::Open,
+            Command::Copy,
+            Command::Trash,
+            Command::Paste,
+        ] {
+            assert!(!app.enabled(command), "{command:?} must be unavailable");
+        }
+        assert!(app.enabled(Command::NextPage));
+        app.run(Command::Open, &mut control);
+        assert!(app.status.contains("can't be opened yet"));
+        // An answer for a request that was superseded is ignored.
+        app.apply_network((3, location.clone(), Ok(Vec::new())));
+        assert_eq!(app.total_rows, model::PAGE_ROWS + 2);
+        // A sign-in failure keeps the listing and says why.
+        app.pending_remote = Some((8, location.clone()));
+        app.apply_network((8, location, Err(network::NetError::SignInRequired)));
+        assert!(app.status.contains("Sign-in is required"));
+        assert!(app.dialog.is_some());
+        assert_eq!(app.total_rows, model::PAGE_ROWS + 2);
+        // Going to a local folder leaves the network view.
+        app.dialog = None;
+        app.request(dir.path().to_path_buf(), Navigation::New);
+        settle(&mut app);
+        assert!(app.remote.is_none());
+        assert!(app.rows.iter().any(|row| row.name == "a.txt"));
+    }
+
+    #[test]
     #[test]
     fn formats_are_readable() {
         assert_eq!(format_size(1), "1 byte");
