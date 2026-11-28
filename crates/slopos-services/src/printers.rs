@@ -366,9 +366,13 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
     use std::os::unix::net::UnixListener;
 
-    /// An IPP reply: `status`, then each group as (delimiter, attributes),
-    /// where an attribute is (tag, name, value).
-    fn reply(status: u16, groups: &[(u8, Vec<(u8, &str, Vec<u8>)>)]) -> Vec<u8> {
+    /// One attribute in a test reply: (tag, name, value).
+    type TestAttr<'a> = (u8, &'a str, Vec<u8>);
+    /// One attribute group in a test reply: (delimiter, attributes).
+    type TestGroup<'a> = (u8, Vec<TestAttr<'a>>);
+
+    /// An IPP reply: `status`, then each group.
+    fn reply(status: u16, groups: &[TestGroup]) -> Vec<u8> {
         let mut body = vec![0x02, 0x00];
         body.extend_from_slice(&status.to_be_bytes());
         body.extend_from_slice(&7u32.to_be_bytes());
@@ -382,11 +386,7 @@ mod tests {
         body
     }
 
-    fn printer_group(
-        name: &str,
-        state: u32,
-        accepting: bool,
-    ) -> (u8, Vec<(u8, &'static str, Vec<u8>)>) {
+    fn printer_group(name: &str, state: u32, accepting: bool) -> TestGroup<'static> {
         (
             TAG_PRINTER_GROUP,
             vec![
