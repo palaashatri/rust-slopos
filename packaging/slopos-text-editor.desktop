@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Text Editor
+Comment=Edit plain text files
+Exec=slopos-text-editor %f
+TryExec=slopos-text-editor
+Icon=accessories-text-editor
+Terminal=false
+StartupNotify=true
+Categories=Utility;TextEditor;
+MimeType=text/plain;

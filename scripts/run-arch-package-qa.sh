@@ -61,6 +61,7 @@ required=(
   'usr/bin/slopos-settings'
   'usr/bin/slopos-dock'
   'usr/bin/slopos-calculator'
+  'usr/bin/slopos-text-editor'
   'usr/bin/start-slopos-i'
   'usr/bin/start-slopos-browser'
   'usr/bin/slopos-appearance'
@@ -68,6 +69,7 @@ required=(
   'usr/share/xsessions/slopos-i.desktop'
   'usr/share/applications/slopos-browser.desktop'
   'usr/share/applications/slopos-calculator.desktop'
+  'usr/share/applications/slopos-text-editor.desktop'
   'usr/share/applications/slopos-settings.desktop'
   'usr/bin/slopos-software'
   'usr/bin/slopos-volume-mixer'
@@ -104,7 +106,7 @@ cleanup() { rm -rf "$root"; }
 trap cleanup EXIT
 
 bsdtar -xf artifacts/arch-package/slopos-i.pkg.tar.zst -C "$root"
-for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-software slopos-volume-mixer start-slopos-i start-slopos-browser slopos-appearance slopos-recovery; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-text-editor slopos-catalogue slopos-settings slopos-software slopos-volume-mixer start-slopos-i start-slopos-browser slopos-appearance slopos-recovery; do
   test -x "$root/usr/bin/$binary"
 done
 grep -Fqx platinum "$root/usr/share/slopos-i/recovery/appearance"

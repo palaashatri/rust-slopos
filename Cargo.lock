@@ -3724,6 +3724,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-text-editor"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "env_logger",
+ "slopos-ui",
+ "tempfile",
+]
+
+[[package]]
 name = "slopos-topbar"
 version = "0.1.0"
 dependencies = [
@@ -3753,6 +3763,7 @@ dependencies = [
  "resvg",
  "thiserror 1.0.69",
  "tiny-skia",
+ "unicode-segmentation",
  "wgpu",
  "x11rb",
  "zbus 4.4.0",
