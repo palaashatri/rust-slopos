@@ -220,9 +220,15 @@ pub fn remove_flatpak_argv(family: Family) -> Vec<String> {
     let script = match family {
         // dpkg exits 1 only when the package is not installed. Any other status (a
         // locked database, say) stops the undo, and its diagnostic stays on stderr.
-        Family::Apt => r#"dpkg -s flatpak >/dev/null; s=$?; [ $s -eq 1 ] && exit 0; [ $s -eq 0 ] || exit $s; exec env DEBIAN_FRONTEND=noninteractive apt-get remove -y flatpak"#,
-        Family::Dnf => "rpm -q flatpak >/dev/null 2>&1 || exit 0; exec dnf remove -y --noautoremove flatpak",
-        Family::Pacman => "pacman -Q flatpak >/dev/null 2>&1 || exit 0; exec pacman -R --noconfirm flatpak",
+        Family::Apt => {
+            r#"dpkg -s flatpak >/dev/null; s=$?; [ $s -eq 1 ] && exit 0; [ $s -eq 0 ] || exit $s; exec env DEBIAN_FRONTEND=noninteractive apt-get remove -y flatpak"#
+        }
+        Family::Dnf => {
+            "rpm -q flatpak >/dev/null 2>&1 || exit 0; exec dnf remove -y --noautoremove flatpak"
+        }
+        Family::Pacman => {
+            "pacman -Q flatpak >/dev/null 2>&1 || exit 0; exec pacman -R --noconfirm flatpak"
+        }
     };
     ["pkexec", "sh", "-c", script, "flatpak-undo"]
         .map(str::to_owned)
