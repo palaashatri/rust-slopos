@@ -498,4 +498,87 @@ mod tests {
             Some(0xff000000)
         );
     }
+
+    fn key_event(key: Key) -> Event {
+        Event::KeyPressed {
+            key,
+            modifiers: Default::default(),
+        }
+    }
+
+    /// The text the screen reader reads from the display node.
+    fn display_value(app: &CalculatorApp) -> String {
+        let tree = app.accessibility().unwrap();
+        let (_, display) = tree
+            .nodes
+            .iter()
+            .find(|(id, _)| *id == accesskit::NodeId(DISPLAY_NODE))
+            .expect("result node");
+        display.value().unwrap().to_owned()
+    }
+
+    fn at_click(app: &mut CalculatorApp, accessible_name: &str) {
+        let id = app
+            .keys
+            .iter()
+            .find(|key| key.accessible_name == accessible_name)
+            .unwrap()
+            .button
+            .id;
+        app.event(
+            &Event::Accessibility(AccessibilityRequest::Click(id)),
+            &mut Control::default(),
+        );
+    }
+
+    #[test]
+    fn division_by_zero_from_the_keyboard_shows_error_and_escape_recovers() {
+        let mut app = CalculatorApp::new();
+        let mut control = Control::default();
+        for c in ['8', '/', '0', '='] {
+            app.event(&key_event(Key::Character(c)), &mut control);
+        }
+        assert_eq!(app.calculator().display(), "Error");
+        assert_eq!(display_value(&app), "Result Error");
+        // While the error stands, operators and Change Sign do nothing.
+        app.event(&key_event(Key::Character('+')), &mut control);
+        app.event(&key_event(Key::Function(9)), &mut control);
+        assert_eq!(app.calculator().display(), "Error");
+        app.event(&key_event(Key::Escape), &mut control);
+        assert_eq!(display_value(&app), "Result 0");
+    }
+
+    #[test]
+    fn division_by_zero_from_screen_reader_clicks_shows_error() {
+        let mut app = CalculatorApp::new();
+        for name in ["8", "Divide", "0", "Equals"] {
+            at_click(&mut app, name);
+        }
+        assert_eq!(display_value(&app), "Result Error");
+        assert!(app.calculator().is_error());
+        // Typing a digit starts a new calculation, as on a pocket calculator.
+        at_click(&mut app, "5");
+        assert_eq!(display_value(&app), "Result 5");
+    }
+
+    #[test]
+    fn overflow_from_the_keyboard_shows_error() {
+        let mut app = CalculatorApp::new();
+        let mut control = Control::default();
+        let nines = ['9'; 12];
+        for c in nines.clone() {
+            app.event(&key_event(Key::Character(c)), &mut control);
+        }
+        app.event(&key_event(Key::Character('*')), &mut control);
+        for c in nines {
+            app.event(&key_event(Key::Character(c)), &mut control);
+        }
+        app.event(&key_event(Key::Enter), &mut control);
+        assert!(!app.calculator().is_error());
+        for _ in 0..30 {
+            app.event(&key_event(Key::Enter), &mut control);
+        }
+        assert!(app.calculator().is_error());
+        assert_eq!(display_value(&app), "Result Error");
+    }
 }

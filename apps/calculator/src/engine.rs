@@ -415,4 +415,38 @@ mod tests {
         assert_eq!(format_number(-0.0), "0");
         assert_eq!(format_number(123456.0), "123456");
     }
+
+    #[test]
+    fn overflow_is_an_error_until_cleared() {
+        // 999999999999 × 999999999999 ≈ 1e24; each repeated `=` multiplies by
+        // another 1e12, so about 25 more presses pass f64::MAX (≈1.8e308).
+        let mut inputs = vec![Digit(9); 12];
+        inputs.push(Operator(Multiply));
+        inputs.extend(vec![Digit(9); 12]);
+        inputs.push(Equals);
+        let mut calculator = run(&inputs);
+        assert!(!calculator.is_error());
+        for _ in 0..30 {
+            calculator.press(Equals);
+        }
+        assert!(calculator.is_error());
+        assert_eq!(calculator.display(), "Error");
+        calculator.press(Negate);
+        assert_eq!(calculator.display(), "Error");
+        calculator.press(Clear);
+        assert!(!calculator.is_error());
+        assert_eq!(calculator.display(), "0");
+    }
+
+    #[test]
+    fn a_result_of_infinity_is_an_error() {
+        assert_eq!(apply(f64::MAX, Multiply, 2.0), Some(f64::INFINITY));
+        assert_eq!(show_result(f64::INFINITY), "Error");
+    }
+
+    fn show_result(value: f64) -> String {
+        let mut calculator = Calculator::default();
+        calculator.show(Some(value));
+        calculator.display().to_owned()
+    }
 }
