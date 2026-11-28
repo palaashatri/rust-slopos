@@ -21,6 +21,7 @@ use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
 
 use super::global_menu::Message as MenuMessage;
+use super::input::{InputMethod, Update as InputUpdate};
 use super::keys::{grab_masks, key_for, keycodes_for, keysym_for, modifier_mask, modifiers};
 #[cfg(feature = "gpu")]
 use super::paint_path::{GpuPaint, RECORD_COMMAND_LIMIT};
@@ -338,6 +339,9 @@ pub fn run<A: App>(
         scale: Some(scale),
         ..Control::default()
     };
+    // The input method is looked up once; its status reaches the app below.
+    let input_proxy = wake.proxy.clone();
+    let mut ime = InputMethod::start(move || input_proxy.wake());
     if menus.shell_present() {
         app.event(&Event::GlobalMenu(true), &mut control);
     }
@@ -348,11 +352,40 @@ pub fn run<A: App>(
         },
         &mut control,
     );
+    deliver_input(&mut app, ime.drain(), &mut control);
 
     loop {
         // Apply what the app asked for during the last batch of events.
         if control.quit {
             break;
+        }
+        // A dropped composition is ended before focus changes, so the daemon
+        // does not keep a preedit for a field that no longer has it.
+        if std::mem::take(&mut control.input_reset) {
+            ime.reset();
+        }
+        if let Some(wanted) = control.text_input.take() {
+            ime.set_text_input(wanted);
+        }
+        if let Some(rect) = control.input_cursor.take() {
+            // The input method wants root-window device pixels. The location is
+            // kept even while no text is composing, so focus can send it later.
+            if ime.is_active() {
+                let origin = conn
+                    .translate_coordinates(
+                        window,
+                        screen.root,
+                        (rect.x * factor as i32) as i16,
+                        (rect.y * factor as i32) as i16,
+                    )?
+                    .reply()?;
+                ime.set_cursor_location(
+                    i32::from(origin.dst_x),
+                    i32::from(origin.dst_y),
+                    (rect.width * factor) as i32,
+                    (rect.height * factor) as i32,
+                );
+            }
         }
         if let Some(title) = control.title.take() {
             set_title(&conn, window, &atoms, &title)?;
@@ -673,8 +706,14 @@ pub fn run<A: App>(
                 XEvent::UnmapNotify(unmap) if unmap.window == window => {
                     app.event(&Event::Visibility(false), &mut control);
                 }
-                XEvent::FocusIn(_) => accessibility.focus(true),
-                XEvent::FocusOut(_) => accessibility.focus(false),
+                XEvent::FocusIn(_) => {
+                    accessibility.focus(true);
+                    ime.set_window_focus(true);
+                }
+                XEvent::FocusOut(_) => {
+                    accessibility.focus(false);
+                    ime.set_window_focus(false);
+                }
                 // Destroyed from outside (xkill, a crashed WM's cleanup): there
                 // is nothing left to show, so give the app its close and stop.
                 XEvent::DestroyNotify(destroy) if destroy.window == window => {
@@ -682,6 +721,24 @@ pub fn run<A: App>(
                     return Ok(());
                 }
                 _ => {}
+            }
+            // A key the input method consumes never reaches the application;
+            // its text arrives as InputMethod events instead.
+            if let XEvent::KeyPress(press) = &event {
+                if press.event == window && ime.wants_keys() {
+                    let index =
+                        usize::from(press.detail.saturating_sub(min_keycode)) * keymap.per_keycode;
+                    let row = keymap
+                        .keysyms
+                        .get(index..index + keymap.per_keycode)
+                        .unwrap_or(&[]);
+                    let state = u16::from(press.state);
+                    let keysym = keysym_for(row, state, keymap.num_lock);
+                    let keycode = u32::from(press.detail.saturating_sub(8));
+                    if ime.process_key(keysym, keycode, u32::from(state)) {
+                        continue;
+                    }
+                }
             }
             if let Some(event) = translated {
                 app.event(&event, &mut control);
@@ -710,6 +767,7 @@ pub fn run<A: App>(
             app.event(&Event::Timer(id), &mut control);
         }
         let drained = wake.drain();
+        deliver_input(&mut app, ime.drain(), &mut control);
         for message in menu_messages.try_iter() {
             let event = match message {
                 MenuMessage::Activate { menu, item } => Event::MenuChosen { menu, item },
@@ -739,6 +797,17 @@ pub fn run<A: App>(
     conn.destroy_window(window)?;
     conn.flush()?;
     Ok(())
+}
+
+/// Hand the input method's updates to the app as events.
+fn deliver_input<A: App>(app: &mut A, updates: Vec<InputUpdate>, control: &mut Control) {
+    for update in updates {
+        let event = match update {
+            InputUpdate::Input(event) => Event::InputMethod(event),
+            InputUpdate::Status(status) => Event::InputMethodStatus(status),
+        };
+        app.event(&event, control);
+    }
 }
 
 /// Grab each global shortcut on the root window under every lock state.

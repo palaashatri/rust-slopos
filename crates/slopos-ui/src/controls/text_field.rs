@@ -14,6 +14,8 @@
 
 use crate::event::{Event, Key, Modifiers, PointerButton};
 use crate::foundation::geometry::Rect;
+use crate::input_method::InputMethodEvent;
+use crate::platform::Control;
 use crate::render::{RasterSurface, RenderError};
 use crate::text::{caret_stops, hit_test, measure, Font};
 
@@ -46,6 +48,25 @@ pub enum TextFieldOutcome {
     PasteRequested,
 }
 
+/// An input method's composition: text that is shown at the caret,
+/// underlined, but is not part of [`TextField::text`] until it is committed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Preedit {
+    text: String,
+    /// Byte offset of the insertion point inside `text`, on a char boundary.
+    cursor: usize,
+}
+
+/// What is drawn for a field: its text with the composition inserted at the
+/// caret, the stop of every caret position, the caret index inside the drawn
+/// text, and the byte range of the composition when there is one.
+struct Shaped {
+    shown: String,
+    stops: Vec<(usize, f32)>,
+    caret: usize,
+    composition: Option<(usize, usize)>,
+}
+
 #[derive(Debug, Clone)]
 pub struct TextField {
     pub id: u64,
@@ -68,6 +89,15 @@ pub struct TextField {
     scroll: f32,
     dragging: bool,
     undo: Vec<(String, usize)>,
+    preedit: Option<Preedit>,
+    /// The input method may hold a composition for this field: set when it
+    /// sent a preedit, cleared when it committed or hid one. A composition
+    /// that ends here (click, focus loss, cancel) leaves this set, so the
+    /// next [`TextField::sync_input_method`] tells the daemon to reset.
+    ime_composing: bool,
+    /// This field last asked the desktop for text input, so it must say when
+    /// it stops needing it.
+    ime_requested: bool,
 }
 
 impl TextField {
@@ -93,6 +123,9 @@ impl TextField {
             scroll: 0.0,
             dragging: false,
             undo: Vec::new(),
+            preedit: None,
+            ime_composing: false,
+            ime_requested: false,
         }
     }
 
@@ -106,12 +139,76 @@ impl TextField {
     }
 
     /// Replace the whole text (not undoable); the caret moves to the end.
+    /// Any composition in progress is dropped.
     pub fn set_text(&mut self, text: &str) {
+        self.preedit = None;
         self.text = sanitize(text, self.max_chars);
         self.caret = self.text.len();
         self.anchor = None;
         self.undo.clear();
         self.scroll = 0.0;
+    }
+
+    /// The composition in progress and the byte offset of the insertion point
+    /// inside it, if an input method is composing.
+    pub fn preedit(&self) -> Option<(&str, usize)> {
+        self.preedit
+            .as_ref()
+            .map(|preedit| (preedit.text.as_str(), preedit.cursor))
+    }
+
+    /// Show `text` as the composition at the caret, with the insertion point
+    /// at byte `cursor` inside it. Replaces the previous composition; empty
+    /// text ends the composition without committing. Secret fields and
+    /// disabled fields show no composition.
+    pub fn set_preedit(&mut self, text: &str, cursor: usize) -> TextFieldOutcome {
+        if !self.enabled || self.secret {
+            return TextFieldOutcome::Ignored;
+        }
+        if text.is_empty() {
+            return self.cancel_preedit();
+        }
+        let mut at = cursor.min(text.len());
+        while !text.is_char_boundary(at) {
+            at -= 1;
+        }
+        let clean = sanitize(text, self.max_chars);
+        if clean.is_empty() {
+            // Nothing visible is left to compose: keep the keys with the field.
+            return self.cancel_preedit();
+        }
+        let cursor = sanitize(&text[..at], self.max_chars).len().min(clean.len());
+        self.preedit = Some(Preedit {
+            text: clean,
+            cursor,
+        });
+        TextFieldOutcome::Changed
+    }
+
+    /// End the composition without committing it. Ignored when nothing is
+    /// composing.
+    pub fn cancel_preedit(&mut self) -> TextFieldOutcome {
+        match self.preedit.take() {
+            Some(_) => TextFieldOutcome::Changed,
+            None => TextFieldOutcome::Ignored,
+        }
+    }
+
+    /// The input method committed `text`: the composition ends and the text
+    /// is inserted at the caret, replacing any selection (undoable).
+    pub fn commit(&mut self, text: &str) -> TextFieldOutcome {
+        if !self.enabled {
+            return TextFieldOutcome::Ignored;
+        }
+        let composing = self.preedit.take().is_some();
+        if text.is_empty() {
+            return if composing {
+                TextFieldOutcome::Changed
+            } else {
+                TextFieldOutcome::Ignored
+            };
+        }
+        self.insert(text)
     }
 
     pub fn caret(&self) -> usize {
@@ -145,6 +242,7 @@ impl TextField {
         if !self.enabled {
             return TextFieldOutcome::Ignored;
         }
+        self.preedit = None;
         self.remember();
         self.delete_selection();
         let room = self.max_chars.saturating_sub(self.text.chars().count());
@@ -156,7 +254,12 @@ impl TextField {
 
     pub fn handle(&mut self, event: &Event) -> TextFieldOutcome {
         if !self.enabled {
+            self.preedit = None;
             return TextFieldOutcome::Ignored;
+        }
+        // A composition belongs to the focused field only.
+        if !self.focused {
+            self.preedit = None;
         }
         match event {
             Event::PointerPressed {
@@ -164,6 +267,8 @@ impl TextField {
                 y,
                 button: PointerButton::Primary,
             } if self.bounds.contains(*x, *y) => {
+                // A click moves the caret, which ends any composition.
+                self.preedit = None;
                 let index = self.index_at(*x);
                 self.caret = index;
                 self.anchor = Some(index);
@@ -191,11 +296,83 @@ impl TextField {
             }
             Event::KeyPressed { key, modifiers } if self.focused => self.key(key, *modifiers),
             Event::Paste(text) if self.focused => self.insert(text),
+            Event::InputMethod(InputMethodEvent::Preedit { text, cursor }) if self.focused => {
+                let outcome = self.set_preedit(text, *cursor);
+                self.ime_composing = self.preedit.is_some();
+                outcome
+            }
+            Event::InputMethod(InputMethodEvent::Commit(text)) if self.focused => {
+                // The daemon ends its composition with the commit.
+                self.ime_composing = false;
+                self.commit(text)
+            }
+            Event::InputMethod(InputMethodEvent::PreeditHidden) if self.focused => {
+                self.ime_composing = false;
+                self.cancel_preedit()
+            }
+            // The input method is gone, so an unfinished composition can no
+            // longer be committed: drop it and let keys reach the field.
+            Event::InputMethodStatus(crate::input_method::InputMethodStatus::Unavailable(_)) => {
+                self.ime_composing = false;
+                self.cancel_preedit()
+            }
             _ => TextFieldOutcome::Ignored,
         }
     }
 
+    /// Whether this field needs the desktop's input method: it is enabled,
+    /// focused and not a secret. Password fields stay out of composition, as
+    /// an input method would otherwise see the secret text.
+    pub fn wants_text_input(&self) -> bool {
+        self.enabled && self.focused && !self.secret
+    }
+
+    /// Tell the window's input method what this field needs, as requests on
+    /// `control` for the host to apply after the event. A focused field asks
+    /// for text input and reports its caret. A field that stops needing text
+    /// input says so once, and if a composition ended here without the input
+    /// method, the daemon is reset first.
+    ///
+    /// Call it for the field that has keyboard focus, after the event that
+    /// may have changed it. Apps with several fields call it on the focused
+    /// one last, so an unfocused field does not cancel the focused field's
+    /// request.
+    pub fn sync_input_method(&mut self, control: &mut Control) {
+        // A field that cannot take text input drops its composition, as
+        // [`Self::handle`] does for an unfocused field.
+        if !self.wants_text_input() {
+            self.preedit = None;
+        }
+        if self.ime_composing && self.preedit.is_none() {
+            self.ime_composing = false;
+            control.reset_input_method();
+        }
+        if self.wants_text_input() {
+            control.set_text_input(true);
+            control.set_input_cursor(self.caret_bounds());
+            self.ime_requested = true;
+        } else if self.ime_requested {
+            control.set_text_input(false);
+            self.ime_requested = false;
+        }
+    }
+
+    /// [`Self::handle`], then [`Self::sync_input_method`] on `control`.
+    pub fn handle_with_input(&mut self, event: &Event, control: &mut Control) -> TextFieldOutcome {
+        let outcome = self.handle(event);
+        self.sync_input_method(control);
+        outcome
+    }
+
     fn key(&mut self, key: &Key, modifiers: Modifiers) -> TextFieldOutcome {
+        // While composing, the input method owns the keys. Escape is the one
+        // the field handles itself: it cancels the composition.
+        if self.preedit.is_some() {
+            return match key {
+                Key::Escape => self.cancel_preedit(),
+                _ => TextFieldOutcome::Ignored,
+            };
+        }
         let shift = modifiers.shift;
         let word = modifiers.control;
         match key {
@@ -388,12 +565,72 @@ impl TextField {
         }
     }
 
+    /// What is drawn, with any composition inserted at the caret.
+    fn shaped(&self) -> Shaped {
+        if self.secret {
+            return Shaped {
+                shown: self.shown(),
+                stops: self.stops(),
+                caret: self.caret,
+                composition: None,
+            };
+        }
+        match &self.preedit {
+            None => Shaped {
+                shown: self.text.clone(),
+                stops: caret_stops(&self.text, &self.font),
+                caret: self.caret,
+                composition: None,
+            },
+            Some(preedit) => {
+                let mut shown = String::with_capacity(self.text.len() + preedit.text.len());
+                shown.push_str(&self.text[..self.caret]);
+                shown.push_str(&preedit.text);
+                shown.push_str(&self.text[self.caret..]);
+                Shaped {
+                    stops: caret_stops(&shown, &self.font),
+                    shown,
+                    caret: self.caret + preedit.cursor,
+                    composition: Some((self.caret, self.caret + preedit.text.len())),
+                }
+            }
+        }
+    }
+
+    /// Map a byte index of `text` to the drawn text (a composition shifts the
+    /// indexes after the caret).
+    fn drawn_index(&self, index: usize, shaped: &Shaped) -> usize {
+        match shaped.composition {
+            Some((_, end)) if index > self.caret => index + (end - self.caret),
+            _ => index,
+        }
+    }
+
+    /// The caret as a 1-pixel-wide rectangle in logical pixels, for the input
+    /// method's candidate window. Scroll position from the last paint applies.
+    pub fn caret_bounds(&self) -> Rect {
+        let shaped = self.shaped();
+        let line_height = measure("Ag", &self.font).height as i32;
+        let text_y = self.bounds.y + (self.bounds.height as i32 - line_height) / 2;
+        let caret_x = shaped
+            .stops
+            .iter()
+            .find(|stop| stop.0 == shaped.caret)
+            .map_or(0.0, |stop| stop.1);
+        Rect {
+            x: (self.text_left() + caret_x).round() as i32,
+            y: text_y,
+            width: 1,
+            height: line_height as u32,
+        }
+    }
+
     /// Keep the caret visible by scrolling the text horizontally.
-    fn scroll_to_caret(&mut self, stops: &[(usize, f32)]) {
+    fn scroll_to_caret(&mut self, stops: &[(usize, f32)], caret: usize) {
         let inner = (self.bounds.width as f32 - 2.0 * PADDING as f32).max(1.0);
         let caret_x = stops
             .iter()
-            .find(|stop| stop.0 == self.caret)
+            .find(|stop| stop.0 == caret)
             .map_or(0.0, |stop| stop.1);
         if caret_x - self.scroll > inner {
             self.scroll = caret_x - inner;
@@ -422,19 +659,23 @@ impl TextField {
             // Classic keyboard focus: a second, darker inner border.
             surface.stroke_rect(inset(bounds, 1), colors.focus)?;
         }
-        let stops = self.stops();
-        self.scroll_to_caret(&stops);
+        let shaped = self.shaped();
+        self.scroll_to_caret(&shaped.stops, shaped.caret);
         let line_height = measure("Ag", &self.font).height as i32;
         let text_y = bounds.y + (bounds.height as i32 - line_height) / 2;
         let left = self.text_left();
         let x_of = |index: usize| {
-            stops
+            shaped
+                .stops
                 .iter()
                 .find(|stop| stop.0 == index)
                 .map_or(0.0, |stop| stop.1)
         };
+        let composing = shaped.composition.is_some();
         surface.with_clip(inset(bounds, 2), || {
             if let Some((start, end)) = self.selection() {
+                let start = self.drawn_index(start, &shaped);
+                let end = self.drawn_index(end, &shaped);
                 let x0 = (left + x_of(start)).floor() as i32;
                 let x1 = (left + x_of(end)).ceil() as i32;
                 surface.fill_rect(
@@ -451,7 +692,7 @@ impl TextField {
                     },
                 )?;
             }
-            if self.text.is_empty() && !self.placeholder.is_empty() {
+            if self.text.is_empty() && self.preedit.is_none() && !self.placeholder.is_empty() {
                 surface.draw_text(
                     &self.placeholder,
                     left as i32,
@@ -465,10 +706,24 @@ impl TextField {
                 } else {
                     colors.ink_disabled
                 };
-                surface.draw_text(&self.shown(), left.round() as i32, text_y, &self.font, ink)?;
+                surface.draw_text(&shaped.shown, left.round() as i32, text_y, &self.font, ink)?;
             }
-            if self.focused && self.enabled && self.selection().is_none() {
-                let x = (left + x_of(self.caret)).round() as i32;
+            if let Some((start, end)) = shaped.composition {
+                // The composition is underlined on the line's last pixel row.
+                let x0 = (left + x_of(start)).floor() as i32;
+                let x1 = (left + x_of(end)).ceil() as i32;
+                surface.fill_rect(
+                    Rect {
+                        x: x0,
+                        y: text_y + line_height - 1,
+                        width: (x1 - x0).max(1) as u32,
+                        height: 1,
+                    },
+                    colors.ink,
+                )?;
+            }
+            if self.focused && self.enabled && (self.selection().is_none() || composing) {
+                let x = (left + x_of(shaped.caret)).round() as i32;
                 surface.fill_rect(
                     Rect {
                         x,
@@ -757,5 +1012,476 @@ mod tests {
             height: 22,
         };
         field.paint(&surface).unwrap();
+    }
+
+    fn preedit_event(text: &str, cursor: usize) -> Event {
+        Event::InputMethod(InputMethodEvent::Preedit {
+            text: text.into(),
+            cursor,
+        })
+    }
+
+    fn commit_event(text: &str) -> Event {
+        Event::InputMethod(InputMethodEvent::Commit(text.into()))
+    }
+
+    fn click_in(field: &TextField) -> Event {
+        Event::PointerPressed {
+            x: field.bounds.x + 20,
+            y: field.bounds.y + 5,
+            button: PointerButton::Primary,
+        }
+    }
+
+    #[test]
+    fn only_an_enabled_focused_plain_field_wants_text_input() {
+        let mut field = focused();
+        assert!(field.wants_text_input());
+        field.focused = false;
+        assert!(!field.wants_text_input());
+        field.focused = true;
+        field.enabled = false;
+        assert!(!field.wants_text_input());
+        field.enabled = true;
+        field.secret = true;
+        assert!(
+            !field.wants_text_input(),
+            "passwords stay out of composition"
+        );
+    }
+
+    #[test]
+    fn a_focused_field_asks_for_text_input_and_reports_its_caret() {
+        let mut field = focused();
+        let mut control = Control::default();
+        field.sync_input_method(&mut control);
+        assert_eq!(control.text_input_request(), Some(true));
+        assert_eq!(control.input_cursor_request(), Some(field.caret_bounds()));
+        assert!(!control.input_reset_requested());
+    }
+
+    #[test]
+    fn a_field_that_never_wanted_input_sends_nothing() {
+        let mut field = TextField::new(9, "Unfocused");
+        let mut control = Control::default();
+        field.sync_input_method(&mut control);
+        assert_eq!(control.text_input_request(), None);
+        assert_eq!(control.input_cursor_request(), None);
+        assert!(!control.input_reset_requested());
+    }
+
+    #[test]
+    fn losing_focus_stops_text_input_once() {
+        let mut field = focused();
+        field.sync_input_method(&mut Control::default());
+        field.focused = false;
+        let mut control = Control::default();
+        field.sync_input_method(&mut control);
+        assert_eq!(control.text_input_request(), Some(false));
+        let mut again = Control::default();
+        field.sync_input_method(&mut again);
+        assert_eq!(
+            again.text_input_request(),
+            None,
+            "said once, not every event"
+        );
+    }
+
+    #[test]
+    fn a_composition_dropped_by_a_click_resets_the_input_method() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        let mut control = Control::default();
+        field.handle_with_input(&click_in(&field), &mut control);
+        assert_eq!(field.preedit(), None);
+        assert!(control.input_reset_requested());
+        // The reset is asked for once, when the composition ends.
+        let mut later = Control::default();
+        field.sync_input_method(&mut later);
+        assert!(!later.input_reset_requested());
+    }
+
+    #[test]
+    fn losing_focus_during_a_composition_resets_before_stopping() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        field.sync_input_method(&mut Control::default());
+        field.focused = false;
+        let mut control = Control::default();
+        field.sync_input_method(&mut control);
+        assert!(control.input_reset_requested());
+        assert_eq!(control.text_input_request(), Some(false));
+        assert_eq!(field.preedit(), None);
+    }
+
+    #[test]
+    fn escape_cancels_the_composition_and_resets_the_input_method() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        let mut control = Control::default();
+        let escape = Event::KeyPressed {
+            key: Key::Escape,
+            modifiers: Modifiers::default(),
+        };
+        assert_eq!(
+            field.handle_with_input(&escape, &mut control),
+            TextFieldOutcome::Changed
+        );
+        assert_eq!(field.preedit(), None);
+        assert!(control.input_reset_requested());
+    }
+
+    #[test]
+    fn a_commit_or_hide_from_the_input_method_needs_no_reset() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        let mut control = Control::default();
+        field.handle_with_input(&commit_event("你"), &mut control);
+        assert_eq!(field.text(), "你");
+        assert!(!control.input_reset_requested());
+
+        field.handle(&preedit_event("h", 1));
+        let mut hidden = Control::default();
+        field.handle_with_input(
+            &Event::InputMethod(InputMethodEvent::PreeditHidden),
+            &mut hidden,
+        );
+        assert!(!hidden.input_reset_requested());
+    }
+
+    #[test]
+    fn the_input_method_going_away_needs_no_reset_it_cannot_receive() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        let mut control = Control::default();
+        field.handle_with_input(
+            &Event::InputMethodStatus(crate::input_method::InputMethodStatus::Unavailable(
+                "gone".into(),
+            )),
+            &mut control,
+        );
+        assert_eq!(field.preedit(), None);
+        assert!(!control.input_reset_requested());
+    }
+
+    #[test]
+    fn composition_shows_without_changing_the_value() {
+        let mut field = focused();
+        typed(&mut field, "ab");
+        assert_eq!(field.preedit(), None);
+        assert_eq!(
+            field.handle(&preedit_event("ni", 2)),
+            TextFieldOutcome::Changed
+        );
+        assert_eq!(field.preedit(), Some(("ni", 2)));
+        assert_eq!(field.text(), "ab");
+        assert_eq!(field.caret(), 2);
+        // The accessibility value is the committed text only.
+        assert_eq!(field.accessibility_node().value(), Some("ab"));
+    }
+
+    #[test]
+    fn a_new_preedit_replaces_the_old_one() {
+        let mut field = focused();
+        field.handle(&preedit_event("n", 1));
+        assert_eq!(
+            field.handle(&preedit_event("ni hao", 3)),
+            TextFieldOutcome::Changed
+        );
+        assert_eq!(field.preedit(), Some(("ni hao", 3)));
+        assert_eq!(field.text(), "");
+    }
+
+    #[test]
+    fn an_empty_preedit_ends_the_composition_without_committing() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        assert_eq!(
+            field.handle(&preedit_event("", 0)),
+            TextFieldOutcome::Changed
+        );
+        assert_eq!(field.preedit(), None);
+        assert_eq!(field.text(), "");
+        assert_eq!(
+            field.handle(&preedit_event("", 0)),
+            TextFieldOutcome::Ignored
+        );
+    }
+
+    #[test]
+    fn preedit_cursor_is_clamped_to_a_char_boundary() {
+        let mut field = focused();
+        // Byte 1 is inside the two-byte "你".
+        field.handle(&preedit_event("你好", 1));
+        assert_eq!(field.preedit(), Some(("你好", 0)));
+        field.handle(&preedit_event("你好", 99));
+        assert_eq!(field.preedit(), Some(("你好", 6)));
+    }
+
+    #[test]
+    fn preedit_drops_control_characters_and_keeps_cursor_in_step() {
+        let mut field = focused();
+        field.handle(&preedit_event("a\u{7}b", 2));
+        assert_eq!(field.preedit(), Some(("ab", 1)));
+    }
+
+    #[test]
+    fn a_preedit_of_only_dropped_characters_leaves_no_composition() {
+        let mut field = focused();
+        // From no composition: nothing starts, so nothing changes.
+        assert_eq!(
+            field.handle(&preedit_event("\u{7}", 1)),
+            TextFieldOutcome::Ignored
+        );
+        assert_eq!(field.preedit(), None);
+        // Over a live composition: it ends, as an empty preedit would.
+        field.handle(&preedit_event("ni", 2));
+        assert_eq!(
+            field.handle(&preedit_event("\u{7}", 1)),
+            TextFieldOutcome::Changed
+        );
+        assert_eq!(field.preedit(), None);
+        // Ordinary keys are not swallowed by a phantom composition.
+        assert_eq!(
+            field.handle(&key(Key::Character('x'))),
+            TextFieldOutcome::Edited
+        );
+        assert_eq!(field.text(), "x");
+    }
+
+    #[test]
+    fn an_unavailable_input_method_drops_the_composition() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        assert_eq!(
+            field.handle(&Event::InputMethodStatus(
+                crate::input_method::InputMethodStatus::Unavailable("daemon gone".into())
+            )),
+            TextFieldOutcome::Changed
+        );
+        assert_eq!(field.preedit(), None);
+        assert_eq!(field.text(), "");
+        // Keys reach the field again.
+        typed(&mut field, "ab");
+        assert_eq!(field.text(), "ab");
+        // An active status alone does not end a composition.
+        field.handle(&preedit_event("ni", 2));
+        assert_eq!(
+            field.handle(&Event::InputMethodStatus(
+                crate::input_method::InputMethodStatus::Active
+            )),
+            TextFieldOutcome::Ignored
+        );
+        assert_eq!(field.preedit(), Some(("ni", 2)));
+    }
+
+    #[test]
+    fn commit_ends_the_composition_and_inserts_at_the_caret() {
+        let mut field = focused();
+        typed(&mut field, "ab");
+        field.handle(&key(Key::Left));
+        field.handle(&preedit_event("ni", 2));
+        assert_eq!(field.handle(&commit_event("你")), TextFieldOutcome::Edited);
+        assert_eq!(field.preedit(), None);
+        assert_eq!(field.text(), "a你b");
+        assert_eq!(field.caret(), "a你".len());
+        // Undo removes the committed text, as it does for typed text.
+        field.handle(&with(Key::Character('z'), false, true));
+        assert_eq!(field.text(), "ab");
+    }
+
+    #[test]
+    fn commit_replaces_the_selection() {
+        let mut field = focused();
+        typed(&mut field, "one two");
+        field.handle(&with(Key::Left, true, true));
+        assert_eq!(field.selected_text(), Some("two"));
+        field.handle(&preedit_event("tw", 2));
+        field.handle(&commit_event("2"));
+        assert_eq!(field.text(), "one 2");
+    }
+
+    #[test]
+    fn commit_without_a_composition_just_inserts() {
+        let mut field = focused();
+        assert_eq!(field.handle(&commit_event("é")), TextFieldOutcome::Edited);
+        assert_eq!(field.text(), "é");
+        assert_eq!(field.handle(&commit_event("")), TextFieldOutcome::Ignored);
+    }
+
+    #[test]
+    fn empty_commit_still_ends_a_composition() {
+        let mut field = focused();
+        field.handle(&preedit_event("x", 1));
+        assert_eq!(field.handle(&commit_event("")), TextFieldOutcome::Changed);
+        assert_eq!(field.preedit(), None);
+        assert_eq!(field.text(), "");
+    }
+
+    #[test]
+    fn commit_respects_max_chars() {
+        let mut field = focused();
+        field.max_chars = 3;
+        typed(&mut field, "ab");
+        field.handle(&commit_event("cdef"));
+        assert_eq!(field.text(), "abc");
+    }
+
+    #[test]
+    fn escape_cancels_and_other_keys_wait_for_the_input_method() {
+        let mut field = focused();
+        typed(&mut field, "ab");
+        field.handle(&preedit_event("ni", 2));
+        assert_eq!(field.handle(&key(Key::Left)), TextFieldOutcome::Ignored);
+        assert_eq!(
+            field.handle(&key(Key::Backspace)),
+            TextFieldOutcome::Ignored
+        );
+        assert_eq!(field.handle(&key(Key::Enter)), TextFieldOutcome::Ignored);
+        assert_eq!(field.preedit(), Some(("ni", 2)));
+        assert_eq!(field.text(), "ab");
+        assert_eq!(field.handle(&key(Key::Escape)), TextFieldOutcome::Changed);
+        assert_eq!(field.preedit(), None);
+        assert_eq!(field.text(), "ab");
+        // With nothing composing, Escape is the field's own cancel again.
+        assert_eq!(field.handle(&key(Key::Escape)), TextFieldOutcome::Cancelled);
+    }
+
+    #[test]
+    fn explicit_hide_and_cancel_end_the_composition() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        assert_eq!(
+            field.handle(&Event::InputMethod(InputMethodEvent::PreeditHidden)),
+            TextFieldOutcome::Changed
+        );
+        assert_eq!(field.preedit(), None);
+        assert_eq!(field.cancel_preedit(), TextFieldOutcome::Ignored);
+        field.handle(&preedit_event("ni", 2));
+        assert_eq!(field.cancel_preedit(), TextFieldOutcome::Changed);
+        assert_eq!(field.preedit(), None);
+    }
+
+    #[test]
+    fn a_click_ends_the_composition() {
+        let mut field = focused();
+        field.set_text("hello");
+        field.handle(&preedit_event("ni", 2));
+        let press = Event::PointerPressed {
+            x: 12,
+            y: 15,
+            button: PointerButton::Primary,
+        };
+        field.handle(&press);
+        assert_eq!(field.preedit(), None);
+        assert_eq!(field.text(), "hello");
+    }
+
+    #[test]
+    fn losing_focus_or_being_disabled_drops_the_composition() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        field.focused = false;
+        assert_eq!(
+            field.handle(&Event::Paste("x".into())),
+            TextFieldOutcome::Ignored
+        );
+        assert_eq!(field.preedit(), None);
+        // Input method events for an unfocused field are ignored.
+        assert_eq!(
+            field.handle(&preedit_event("ni", 2)),
+            TextFieldOutcome::Ignored
+        );
+        assert_eq!(field.preedit(), None);
+        field.focused = true;
+        field.handle(&preedit_event("ni", 2));
+        field.enabled = false;
+        field.handle(&Event::Wake);
+        assert_eq!(field.preedit(), None);
+        assert_eq!(field.set_preedit("x", 1), TextFieldOutcome::Ignored);
+        assert_eq!(field.commit("x"), TextFieldOutcome::Ignored);
+    }
+
+    #[test]
+    fn set_text_and_paste_drop_a_composition() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        field.set_text("new");
+        assert_eq!(field.preedit(), None);
+        field.handle(&preedit_event("ni", 2));
+        field.handle(&Event::Paste("p".into()));
+        assert_eq!(field.preedit(), None);
+        assert_eq!(field.text(), "newp");
+    }
+
+    #[test]
+    fn secret_fields_show_no_composition() {
+        let mut field = TextField::new(3, "PIN");
+        field.secret = true;
+        field.focused = true;
+        assert_eq!(
+            field.handle(&preedit_event("ni", 2)),
+            TextFieldOutcome::Ignored
+        );
+        assert_eq!(field.preedit(), None);
+    }
+
+    #[test]
+    fn caret_stays_inside_the_composition_and_is_reported() {
+        let mut field = focused();
+        typed(&mut field, "ab");
+        field.handle(&preedit_event("你好", "你".len()));
+        let shaped = field.shaped();
+        assert_eq!(shaped.shown, "ab你好");
+        assert_eq!(shaped.caret, 2 + "你".len());
+        assert_eq!(shaped.composition, Some((2, 2 + "你好".len())));
+        // The caret rectangle moves with the insertion point.
+        let before = field.caret_bounds().x;
+        field.handle(&preedit_event("你好", 0));
+        assert!(field.caret_bounds().x < before);
+    }
+
+    #[test]
+    fn composition_paints_an_underline_under_the_preedit_at_both_scales() {
+        use crate::foundation::geometry::Scale;
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(240, 40, Scale::new(factor).unwrap()).unwrap();
+            surface.clear(palette().surface).unwrap();
+            let mut field = focused();
+            field.bounds = Rect {
+                x: 10,
+                y: 10,
+                width: 200,
+                height: 22,
+            };
+            field.handle(&preedit_event("nihao", 5));
+            field.paint(&surface).unwrap();
+            let shaped = field.shaped();
+            let (start, end) = shaped.composition.unwrap();
+            let x_of = |index: usize| {
+                shaped
+                    .stops
+                    .iter()
+                    .find(|stop| stop.0 == index)
+                    .map_or(0.0, |stop| stop.1)
+            };
+            let line_height = measure("Ag", &field.font).height as i32;
+            let text_y = field.bounds.y + (field.bounds.height as i32 - line_height) / 2;
+            let underline_row = ((text_y + line_height - 1) * factor as i32) as u32;
+            // The field's text starts 4 px into the border; its underline runs
+            // under the composition at the line's last pixel row.
+            let mid = (field.text_left() + (x_of(start) + x_of(end)) / 2.0) as i32;
+            assert_eq!(
+                surface.pixel((mid * factor as i32) as u32, underline_row),
+                Some(0xff000000),
+                "underline at scale {factor}"
+            );
+            // Nothing is underlined past the composition.
+            let after = (field.text_left() + x_of(end)).ceil() as i32 + 3;
+            assert_ne!(
+                surface.pixel((after * factor as i32) as u32, underline_row),
+                Some(0xff000000)
+            );
+        }
     }
 }

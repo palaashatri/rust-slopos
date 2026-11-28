@@ -114,6 +114,12 @@ pub enum Event {
         keysym: u32,
         modifiers: Modifiers,
     },
+    /// Composition or committed text from the input method (IBus). Text
+    /// fields apply it through [`crate::controls::text_field::TextField::handle`].
+    InputMethod(crate::input_method::InputMethodEvent),
+    /// Whether the input method is in use for this window. Sent once at
+    /// start-up, and again when the input method daemon disconnects.
+    InputMethodStatus(crate::input_method::InputMethodStatus),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

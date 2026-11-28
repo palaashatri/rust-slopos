@@ -23,11 +23,14 @@ wgpu = { version = "=30.0.2", optional = true, default-features = false, feature
 futures = { workspace = true, optional = true }
 
 [features]
-default = ["atspi", "global-menu"]
+default = ["atspi", "global-menu", "ibus"]
 # Expose widgets to screen readers over AT-SPI.
 atspi = ["dep:accesskit_unix"]
 # Export app menus to the desktop's global menu bar over D-Bus.
 global-menu = ["dep:zbus"]
+# Compose text through the IBus input method over D-Bus (platform::ibus).
+# Without it the window reports the input method as unavailable.
+ibus = ["dep:zbus"]
 # wgpu executor for draw lists (crates/slopos-ui/src/render/gpu.rs). Off by
 # default: the default build does not compile or link wgpu.
 gpu = ["dep:wgpu", "dep:futures"]
