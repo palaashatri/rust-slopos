@@ -13,6 +13,10 @@
   then `~/Pictures`. Files are named `Screenshot-YYYY-MM-DD-HHMMSS.png` in UTC.
 - Keyboard: Tab and Shift+Tab move focus; Space or Enter presses the focused
   control. In the region picker, Enter saves the selection and Escape cancels.
+- While a countdown runs, the Take button reads *Cancel*; it and Escape stop
+  the countdown without capturing anything.
+- Files are never overwritten. A name that is already taken gets a counter
+  (`Screenshot-...-2.png`). The command line refuses an existing file.
 
 *Screen* and *Region* hide the Screenshot window while the screen is read, so
 the app does not appear in its own capture. *Window* captures whichever window
@@ -26,6 +30,7 @@ Recording is not available in this build. The window says so.
     slopos-screenshot --capture-screen /path/to/file.png
 
 Writes the whole screen to the file as PNG and exits, without opening a window.
+If the file already exists, the command fails and leaves the file unchanged.
 
 ## Limits
 

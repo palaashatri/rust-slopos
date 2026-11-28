@@ -41,7 +41,9 @@ const PICKER_MAX: (u32, u32) = (1024, 720);
 /// Height of the picker's button row under the preview.
 const TOOLBAR: u32 = 44;
 
-const COUNTDOWN_TIMER: u64 = 1;
+/// Countdown ticks use ids from this base up: the id is the base plus the
+/// countdown's generation, so a tick from a cancelled countdown is ignored.
+const COUNTDOWN_TIMER_BASE: u64 = 100;
 const SETTLE_TIMER: u64 = 2;
 const SECOND: Duration = Duration::from_secs(1);
 /// Lets the window manager unmap this app's windows before the screen is read.
@@ -144,6 +146,8 @@ pub struct ScreenshotApp {
     status: String,
     focused: Option<usize>,
     font: Font,
+    /// Counts countdowns started, so each one has its own timer id.
+    countdown_generation: u64,
 }
 
 impl ScreenshotApp {
@@ -207,9 +211,15 @@ impl ScreenshotApp {
             status: String::new(),
             focused: None,
             font: Font::system(13.0),
+            countdown_generation: 0,
         };
         app.sync();
         app
+    }
+
+    /// The timer id of the countdown that is running now.
+    fn countdown_timer(&self) -> u64 {
+        COUNTDOWN_TIMER_BASE.wrapping_add(self.countdown_generation)
     }
 
     fn items(&self) -> &[Item] {
@@ -233,6 +243,7 @@ impl ScreenshotApp {
     /// Shows the selected mode and delay, and enables what the state allows.
     fn sync(&mut self) {
         let (mode, delay) = (self.mode, self.delay);
+        let counting = self.counting();
         let selection = self.picker.as_ref().and_then(Picker::selection).is_some();
         for item in self.items_mut() {
             match item.action {
@@ -251,9 +262,23 @@ impl ScreenshotApp {
                     };
                 }
                 Action::SaveSelection => item.button.enabled = selection,
-                Action::Take | Action::CancelRegion => {}
+                // While counting down, the same button cancels the countdown.
+                Action::Take => {
+                    let (label, name) = if counting {
+                        ("Cancel", "Cancel the countdown")
+                    } else {
+                        ("Take Screenshot", "Take screenshot")
+                    };
+                    item.button.label = label.into();
+                    item.accessible_name = name;
+                }
+                Action::CancelRegion => {}
             }
         }
+    }
+
+    fn counting(&self) -> bool {
+        matches!(self.phase, Phase::Countdown { .. })
     }
 
     fn move_focus(&mut self, forward: bool) {
@@ -303,6 +328,7 @@ impl ScreenshotApp {
                     self.delay = delay;
                 }
             }
+            Action::Take if self.counting() => self.cancel_countdown(control),
             Action::Take => self.take(control),
             Action::SaveSelection => self.save_selection(control),
             Action::CancelRegion => self.cancel_region(control),
@@ -323,25 +349,43 @@ impl ScreenshotApp {
         if seconds == 0 {
             self.begin_capture(control);
         } else {
+            self.countdown_generation = self.countdown_generation.wrapping_add(1);
             self.phase = Phase::Countdown { remaining: seconds };
             self.status = countdown_text(seconds);
-            control.start_timer(SECOND, COUNTDOWN_TIMER);
+            control.start_timer(SECOND, self.countdown_timer());
         }
+        self.sync();
     }
 
-    fn tick(&mut self, control: &mut Control) {
+    /// One countdown tick. A tick from an earlier, cancelled countdown is ignored.
+    fn tick(&mut self, id: u64, control: &mut Control) {
         let Phase::Countdown { remaining } = self.phase else {
             return;
         };
+        if id != self.countdown_timer() {
+            return;
+        }
         if remaining > 1 {
             self.phase = Phase::Countdown {
                 remaining: remaining - 1,
             };
             self.status = countdown_text(remaining - 1);
-            control.start_timer(SECOND, COUNTDOWN_TIMER);
+            control.start_timer(SECOND, self.countdown_timer());
         } else {
             self.begin_capture(control);
         }
+        self.sync();
+        control.request_redraw();
+    }
+
+    /// Stops a running countdown. Nothing is captured or saved.
+    fn cancel_countdown(&mut self, control: &mut Control) {
+        if !self.counting() {
+            return;
+        }
+        self.phase = Phase::Idle;
+        self.status = "Screenshot cancelled".into();
+        self.sync();
         control.request_redraw();
     }
 
@@ -362,6 +406,7 @@ impl ScreenshotApp {
                 control.start_timer(SETTLE, SETTLE_TIMER);
             }
         }
+        self.sync();
         control.request_redraw();
     }
 
@@ -627,8 +672,11 @@ impl App for ScreenshotApp {
                 self.restore_windows();
                 control.quit();
             }
-            Event::Timer(COUNTDOWN_TIMER) => self.tick(control),
+            Event::Timer(id) if *id >= COUNTDOWN_TIMER_BASE => self.tick(*id, control),
             Event::Timer(SETTLE_TIMER) => self.settled(control),
+            Event::KeyPressed {
+                key: Key::Escape, ..
+            } if self.counting() => self.cancel_countdown(control),
             Event::KeyPressed {
                 key: Key::Escape, ..
             } if self.picker.is_some() => self.cancel_region(control),
@@ -762,19 +810,30 @@ fn pictures_folder() -> Option<PathBuf> {
 
 /// `--capture-screen FILE`: write the whole screen to FILE as PNG and exit.
 /// For scripts and QA; it does not show a window.
-fn capture_screen_to(path: &Path) -> Result<(), String> {
-    let image = X11Backend
-        .grab_screen()
-        .map_err(|error| error.to_string())?;
-    image
-        .save_with_format(path, image::ImageFormat::Png)
-        .map_err(|error| error.to_string())
+/// An existing file is refused, never overwritten: there is no prompt on
+/// the command line, so the only safe answer is no.
+fn capture_screen_to(backend: &mut dyn Backend, path: &Path) -> Result<(), String> {
+    if path.exists() {
+        return Err(format!(
+            "{} already exists and will not be overwritten",
+            path.display()
+        ));
+    }
+    let image = backend.grab_screen().map_err(|error| error.to_string())?;
+    let bytes = paths::encode_png(&image)?;
+    paths::write_new_file(path, &bytes).map_err(|error| match error.kind() {
+        std::io::ErrorKind::AlreadyExists => format!(
+            "{} already exists and will not be overwritten",
+            path.display()
+        ),
+        _ => error.to_string(),
+    })
 }
 
 fn main() {
     env_logger_init();
     if let Some(path) = argument("--capture-screen") {
-        if let Err(error) = capture_screen_to(Path::new(&path)) {
+        if let Err(error) = capture_screen_to(&mut X11Backend::default(), Path::new(&path)) {
             eprintln!("slopos-screenshot: {error}");
             std::process::exit(1);
         }
@@ -782,7 +841,7 @@ fn main() {
     }
     let mut options = WindowOptions::new("Screenshot", capture::APP_ID, WIDTH, HEIGHT);
     options.resizable = false;
-    let app = ScreenshotApp::new(Box::new(X11Backend), pictures_folder());
+    let app = ScreenshotApp::new(Box::new(X11Backend::default()), pictures_folder());
     if let Err(error) = platform::run(options, app, |_| {}) {
         eprintln!("slopos-screenshot: {error}");
         std::process::exit(1);
@@ -810,6 +869,7 @@ mod tests {
     use super::*;
     use image::GenericImageView;
     use slopos_ui::event::{Modifiers, PointerButton};
+    use slopos_ui::foundation::geometry::Scale;
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -950,11 +1010,11 @@ mod tests {
         press(&mut app, &mut control, "3 seconds");
         press(&mut app, &mut control, "Take Screenshot");
         assert_eq!(app.phase, Phase::Countdown { remaining: 3 });
-        timer(&mut app, COUNTDOWN_TIMER);
+        countdown_tick(&mut app);
         assert_eq!(app.phase, Phase::Countdown { remaining: 2 });
-        timer(&mut app, COUNTDOWN_TIMER);
+        countdown_tick(&mut app);
         assert_eq!(app.phase, Phase::Countdown { remaining: 1 });
-        timer(&mut app, COUNTDOWN_TIMER);
+        countdown_tick(&mut app);
         assert_eq!(app.phase, Phase::Settling { mode: Mode::Screen });
         assert_eq!(
             app.hidden,
@@ -1141,5 +1201,400 @@ mod tests {
         assert_eq!(app.phase, Phase::Settling { mode: Mode::Screen });
         app.event(&Event::CloseRequested, &mut control);
         assert_eq!(*shown.borrow(), vec![7]);
+    }
+
+    fn countdown_tick(app: &mut ScreenshotApp) {
+        let id = app.countdown_timer();
+        app.event(&Event::Timer(id), &mut Control::default());
+    }
+
+    fn key(app: &mut ScreenshotApp, control: &mut Control, key: Key, shift: bool) {
+        let modifiers = Modifiers {
+            shift,
+            ..Modifiers::default()
+        };
+        app.event(&Event::KeyPressed { key, modifiers }, control);
+    }
+
+    fn bounds_of(app: &ScreenshotApp, label: &str) -> Rect {
+        app.items()
+            .iter()
+            .find(|item| item.button.label == label)
+            .map(|item| item.button.bounds)
+            .unwrap_or_else(|| panic!("no control labelled {label}"))
+    }
+
+    /// The region picker over a 200 x 100 screen of solid red, with a 420 x 144 window.
+    fn picker_app() -> (ScreenshotApp, tempfile::TempDir) {
+        let (mut app, dir) = app_with(FakeBackend::new(200, 100));
+        let mut control = Control::default();
+        press(&mut app, &mut control, "Region");
+        press(&mut app, &mut control, "Take Screenshot");
+        timer(&mut app, SETTLE_TIMER);
+        assert_eq!(app.phase, Phase::Picking);
+        (app, dir)
+    }
+
+    fn drag(app: &mut ScreenshotApp, from: (i32, i32), to: (i32, i32)) {
+        let mut control = Control::default();
+        app.event(
+            &Event::PointerPressed {
+                x: from.0,
+                y: from.1,
+                button: PointerButton::Primary,
+            },
+            &mut control,
+        );
+        app.event(&Event::PointerMoved { x: to.0, y: to.1 }, &mut control);
+        app.event(
+            &Event::PointerReleased {
+                x: to.0,
+                y: to.1,
+                button: PointerButton::Primary,
+            },
+            &mut control,
+        );
+    }
+
+    fn node_labelled<'a>(
+        tree: &'a accesskit::TreeUpdate,
+        label: &str,
+    ) -> Option<&'a accesskit::Node> {
+        tree.nodes
+            .iter()
+            .map(|(_, node)| node)
+            .find(|node| node.label() == Some(label))
+    }
+
+    const BACKGROUND: u32 = 0xffdd_dddd;
+    const RED: u32 = 0xffc8_1e1e;
+    const BLACK: u32 = 0xff00_0000;
+    const WHITE: u32 = 0xffff_ffff;
+
+    /// Paints the app onto a fresh surface at `scale` (1x or 2x).
+    fn render(app: &mut ScreenshotApp, scale: u32, width: u32, height: u32) -> RasterSurface {
+        let surface = RasterSurface::new(width, height, Scale::new(scale).unwrap()).unwrap();
+        app.paint(&surface);
+        surface
+    }
+
+    fn point(x: i32, y: i32) -> Rect {
+        Rect {
+            x,
+            y,
+            width: 1,
+            height: 1,
+        }
+    }
+
+    fn inside(rect: Rect, x: i32, y: i32) -> bool {
+        (rect.x..rect.x + rect.width as i32).contains(&x)
+            && (rect.y..rect.y + rect.height as i32).contains(&y)
+    }
+
+    /// Every device pixel under a logical rectangle must hold `expected`.
+    fn assert_filled(surface: &RasterSurface, scale: u32, rect: Rect, expected: u32) {
+        for dy in 0..rect.height * scale {
+            for dx in 0..rect.width * scale {
+                let x = rect.x as u32 * scale + dx;
+                let y = rect.y as u32 * scale + dy;
+                assert_eq!(
+                    surface.pixel(x, y),
+                    Some(expected),
+                    "{scale}x: device pixel ({x}, {y}) inside {rect:?}"
+                );
+            }
+        }
+    }
+
+    /// Logical pixels whose colour differs between two renders at `scale`. Each
+    /// changed logical pixel must be a whole `scale x scale` block in both renders.
+    fn changed_pixels(
+        before: &RasterSurface,
+        after: &RasterSurface,
+        scale: u32,
+        width: u32,
+        height: u32,
+    ) -> Vec<(i32, i32)> {
+        let mut changed = Vec::new();
+        for y in 0..height as i32 {
+            for x in 0..width as i32 {
+                let origin = (x as u32 * scale, y as u32 * scale);
+                let (old, new) = (
+                    before.pixel(origin.0, origin.1).unwrap(),
+                    after.pixel(origin.0, origin.1).unwrap(),
+                );
+                if old != new {
+                    assert_filled(before, scale, point(x, y), old);
+                    assert_filled(after, scale, point(x, y), new);
+                    changed.push((x, y));
+                }
+            }
+        }
+        changed
+    }
+
+    #[test]
+    fn the_background_and_plates_are_whole_blocks_at_1x_and_2x() {
+        let (mut app, _dir) = app_with(FakeBackend::new(200, 100));
+        let plates = [bounds_of(&app, "Screen"), bounds_of(&app, "Window")];
+        let one = render(&mut app, 1, WIDTH, HEIGHT);
+        let two = render(&mut app, 2, WIDTH, HEIGHT);
+        // An empty patch of window background, clear of every control and label.
+        let patch = Rect {
+            x: 390,
+            y: 140,
+            width: 20,
+            height: 20,
+        };
+        assert_filled(&one, 1, patch, BACKGROUND);
+        assert_filled(&two, 2, patch, BACKGROUND);
+        // The inset corner of each mode plate is one colour at 1x and fills its
+        // whole 2x block with that colour.
+        for plate in plates {
+            let (x, y) = (plate.x + 2, plate.y + 2);
+            let value = one.pixel(x as u32, y as u32).unwrap();
+            assert_filled(&two, 2, point(x, y), value);
+        }
+    }
+
+    #[test]
+    fn choosing_a_mode_changes_only_the_two_plates_at_1x_and_2x() {
+        let (mut app, _dir) = app_with(FakeBackend::new(200, 100));
+        let screen = bounds_of(&app, "Screen");
+        let window = bounds_of(&app, "Window");
+        let before = [
+            render(&mut app, 1, WIDTH, HEIGHT),
+            render(&mut app, 2, WIDTH, HEIGHT),
+        ];
+        press(&mut app, &mut Control::default(), "Window");
+        for (index, scale) in [1u32, 2].into_iter().enumerate() {
+            let after = render(&mut app, scale, WIDTH, HEIGHT);
+            let changed = changed_pixels_loose(&before[index], &after, scale);
+            assert!(
+                changed.iter().any(|&(x, y)| inside(screen, x, y)),
+                "{scale}x: the Screen plate changes when it is deselected"
+            );
+            assert!(
+                changed.iter().any(|&(x, y)| inside(window, x, y)),
+                "{scale}x: the Window plate changes when it is selected"
+            );
+            for (x, y) in changed {
+                assert!(
+                    inside(screen, x, y) || inside(window, x, y),
+                    "{scale}x: ({x}, {y}) changed outside the two plates"
+                );
+            }
+        }
+    }
+
+    /// Like [`changed_pixels`] but without the block check, for text areas
+    /// whose anti-aliasing legitimately follows the plate colour.
+    fn changed_pixels_loose(
+        before: &RasterSurface,
+        after: &RasterSurface,
+        scale: u32,
+    ) -> Vec<(i32, i32)> {
+        let mut changed = Vec::new();
+        for y in 0..HEIGHT as i32 {
+            for x in 0..WIDTH as i32 {
+                let (dx, dy) = (x as u32 * scale, y as u32 * scale);
+                if before.pixel(dx, dy) != after.pixel(dx, dy) {
+                    changed.push((x, y));
+                }
+            }
+        }
+        changed
+    }
+
+    #[test]
+    fn the_focus_ring_is_drawn_just_outside_the_focused_plate_at_1x_and_2x() {
+        let (mut plain, _plain_dir) = app_with(FakeBackend::new(200, 100));
+        let (mut focused, _focused_dir) = app_with(FakeBackend::new(200, 100));
+        key(&mut focused, &mut Control::default(), Key::Tab, false);
+        assert_eq!(focused.focused, Some(0));
+        let screen = bounds_of(&plain, "Screen");
+        let ring = Rect {
+            x: screen.x - 2,
+            y: screen.y - 2,
+            width: screen.width + 4,
+            height: screen.height + 4,
+        };
+        for scale in [1, 2] {
+            let before = render(&mut plain, scale, WIDTH, HEIGHT);
+            let after = render(&mut focused, scale, WIDTH, HEIGHT);
+            let changed = changed_pixels(&before, &after, scale, WIDTH, HEIGHT);
+            assert!(!changed.is_empty(), "{scale}x: the focus ring is drawn");
+            for (x, y) in changed {
+                assert!(
+                    inside(ring, x, y) && !inside(screen, x, y),
+                    "{scale}x: ({x}, {y}) changed outside the focus ring"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_picker_outline_is_one_logical_pixel_wide_at_1x_and_2x() {
+        let (mut app, _dir) = picker_app();
+        drag(&mut app, (10, 10), (60, 40));
+        for scale in [1, 2] {
+            let surface = render(&mut app, scale, WIDTH, 144);
+            // The selection is (10, 10) to (60, 40): its outer edges are black,
+            // the inner edges white, and the red screen shows outside them.
+            assert_filled(&surface, scale, point(10, 20), BLACK);
+            assert_filled(&surface, scale, point(11, 20), WHITE);
+            assert_filled(&surface, scale, point(12, 20), RED);
+            assert_filled(&surface, scale, point(59, 20), BLACK);
+            assert_filled(&surface, scale, point(60, 20), RED);
+            assert_filled(&surface, scale, point(30, 10), BLACK);
+            assert_filled(&surface, scale, point(30, 39), BLACK);
+            assert_filled(&surface, scale, point(30, 40), RED);
+        }
+    }
+
+    #[test]
+    fn enter_saves_the_picker_selection_when_no_control_has_focus() {
+        let (mut app, dir) = picker_app();
+        drag(&mut app, (10, 10), (60, 40));
+        key(&mut app, &mut Control::default(), Key::Enter, false);
+        let files = saved_files(&dir);
+        assert_eq!(files.len(), 1);
+        assert_eq!(image::open(&files[0]).unwrap().dimensions(), (50, 30));
+        assert!(app.picker.is_none());
+    }
+
+    #[test]
+    fn the_region_picker_exposes_its_preview_and_names_its_controls() {
+        let (mut app, _dir) = picker_app();
+        let tree = app.accessibility().expect("tree");
+        let preview = tree
+            .nodes
+            .iter()
+            .find(|(id, _)| *id == accesskit::NodeId(PREVIEW_NODE))
+            .map(|(_, node)| node)
+            .expect("preview node");
+        assert_eq!(preview.role(), accesskit::Role::Image);
+        assert_eq!(
+            preview.label(),
+            Some("Captured screen. Drag over it to select a region")
+        );
+        assert!(node_labelled(&tree, "Save selection").is_some());
+        assert!(node_labelled(&tree, "Cancel region selection").is_some());
+        assert_eq!(tree.focus, accesskit::NodeId(ROOT_NODE));
+        key(&mut app, &mut Control::default(), Key::Tab, false);
+        let tree = app.accessibility().expect("tree");
+        assert_eq!(tree.focus, accesskit::NodeId(FIRST_CONTROL_ID));
+    }
+
+    #[test]
+    fn shift_tab_moves_focus_back_and_enter_presses_the_focused_control() {
+        let (mut app, _dir) = app_with(FakeBackend::new(200, 100));
+        let mut control = Control::default();
+        key(&mut app, &mut control, Key::Tab, false);
+        key(&mut app, &mut control, Key::Tab, false);
+        key(&mut app, &mut control, Key::Tab, true);
+        assert_eq!(app.focused, Some(0));
+        key(&mut app, &mut control, Key::Tab, true);
+        assert_eq!(app.focused, Some(6), "Shift+Tab wraps to the last control");
+        // Take Screenshot with no delay starts the capture: the windows hide.
+        key(&mut app, &mut control, Key::Enter, false);
+        assert_eq!(app.phase, Phase::Settling { mode: Mode::Screen });
+    }
+
+    #[test]
+    fn escape_cancels_a_countdown_and_its_late_tick_does_nothing() {
+        let (mut app, dir) = app_with(FakeBackend::new(200, 100));
+        let mut control = Control::default();
+        press(&mut app, &mut control, "3 seconds");
+        press(&mut app, &mut control, "Take Screenshot");
+        assert_eq!(app.phase, Phase::Countdown { remaining: 3 });
+        let late = app.countdown_timer();
+        key(&mut app, &mut control, Key::Escape, false);
+        assert_eq!(app.phase, Phase::Idle);
+        assert_eq!(app.status, "Screenshot cancelled");
+        app.event(&Event::Timer(late), &mut control);
+        assert_eq!(app.phase, Phase::Idle);
+        assert!(app.hidden.is_empty());
+        assert!(saved_files(&dir).is_empty());
+    }
+
+    #[test]
+    fn the_take_button_cancels_a_running_countdown_and_is_named_so() {
+        let (mut app, dir) = app_with(FakeBackend::new(200, 100));
+        let mut control = Control::default();
+        press(&mut app, &mut control, "3 seconds");
+        press(&mut app, &mut control, "Take Screenshot");
+        assert_eq!(app.phase, Phase::Countdown { remaining: 3 });
+        let tree = app.accessibility().expect("tree");
+        assert!(node_labelled(&tree, "Cancel the countdown").is_some());
+        press(&mut app, &mut control, "Cancel");
+        assert_eq!(app.phase, Phase::Idle);
+        assert_eq!(app.status, "Screenshot cancelled");
+        assert!(saved_files(&dir).is_empty());
+    }
+
+    #[test]
+    fn a_late_tick_from_a_cancelled_countdown_cannot_advance_the_next_one() {
+        let (mut app, _dir) = app_with(FakeBackend::new(200, 100));
+        let mut control = Control::default();
+        press(&mut app, &mut control, "3 seconds");
+        press(&mut app, &mut control, "Take Screenshot");
+        let first = app.countdown_timer();
+        key(&mut app, &mut control, Key::Escape, false);
+        press(&mut app, &mut control, "Take Screenshot");
+        assert_ne!(app.countdown_timer(), first);
+        app.event(&Event::Timer(first), &mut control);
+        assert_eq!(app.phase, Phase::Countdown { remaining: 3 });
+        countdown_tick(&mut app);
+        assert_eq!(app.phase, Phase::Countdown { remaining: 2 });
+    }
+
+    #[test]
+    fn a_pictures_folder_that_is_a_file_reports_the_save_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let blocker = dir.path().join("Pictures");
+        std::fs::write(&blocker, b"not a folder").unwrap();
+        let mut app =
+            ScreenshotApp::new(Box::new(FakeBackend::new(200, 100)), Some(blocker.clone()));
+        let mut control = Control::default();
+        press(&mut app, &mut control, "Window");
+        press(&mut app, &mut control, "Take Screenshot");
+        assert!(
+            app.status.starts_with("Could not save the screenshot:"),
+            "{}",
+            app.status
+        );
+        assert_eq!(std::fs::read(&blocker).unwrap(), b"not a folder");
+    }
+
+    #[test]
+    fn a_window_capture_with_no_active_window_says_so() {
+        let mut backend = FakeBackend::new(200, 100);
+        backend.window = Err(CaptureError::NoActiveWindow);
+        let (mut app, dir) = app_with(backend);
+        press(&mut app, &mut Control::default(), "Window");
+        press(&mut app, &mut Control::default(), "Take Screenshot");
+        assert_eq!(app.status, "No window is active");
+        assert!(saved_files(&dir).is_empty());
+    }
+
+    #[test]
+    fn the_command_line_capture_refuses_to_overwrite_an_existing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("screen.png");
+        std::fs::write(&path, b"keep me").unwrap();
+        let mut backend = FakeBackend::new(20, 10);
+        let error = capture_screen_to(&mut backend, &path).unwrap_err();
+        assert!(error.contains("will not be overwritten"), "{error}");
+        assert_eq!(std::fs::read(&path).unwrap(), b"keep me");
+    }
+
+    #[test]
+    fn the_command_line_capture_writes_a_new_png() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("screen.png");
+        capture_screen_to(&mut FakeBackend::new(20, 10), &path).unwrap();
+        assert_eq!(image::open(&path).unwrap().dimensions(), (20, 10));
     }
 }

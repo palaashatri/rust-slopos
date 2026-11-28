@@ -59,17 +59,31 @@ fn protocol(error: impl std::fmt::Display) -> CaptureError {
 }
 
 /// The real backend. Each call opens a short connection, because captures
-/// are rare and a long-lived connection would only sit idle.
-pub struct X11Backend;
+/// are rare and a long-lived connection would only sit idle. `display` is
+/// `None` for `$DISPLAY`; tests name another display to check the failure path.
+#[derive(Default)]
+pub struct X11Backend {
+    display: Option<String>,
+}
+
+#[cfg(test)]
+impl X11Backend {
+    /// A backend that connects to `display` (such as `:1`) instead of `$DISPLAY`.
+    pub fn on_display(display: &str) -> Self {
+        Self {
+            display: Some(display.to_owned()),
+        }
+    }
+}
 
 impl Backend for X11Backend {
     fn grab_screen(&mut self) -> Result<RgbaImage, CaptureError> {
-        let session = Session::open()?;
+        let session = Session::open(self.display.as_deref())?;
         session.image(session.root, 0, 0, session.width, session.height)
     }
 
     fn grab_active_window(&mut self) -> Result<RgbaImage, CaptureError> {
-        let session = Session::open()?;
+        let session = Session::open(self.display.as_deref())?;
         let client = session
             .active_client()?
             .ok_or(CaptureError::NoActiveWindow)?;
@@ -87,7 +101,7 @@ impl Backend for X11Backend {
     }
 
     fn hide_own_windows(&mut self) -> Vec<u32> {
-        let Ok(session) = Session::open() else {
+        let Ok(session) = Session::open(self.display.as_deref()) else {
             return Vec::new();
         };
         let windows = session.app_windows();
@@ -99,7 +113,7 @@ impl Backend for X11Backend {
     }
 
     fn show_windows(&mut self, windows: &[u32]) {
-        let Ok(session) = Session::open() else {
+        let Ok(session) = Session::open(self.display.as_deref()) else {
             return;
         };
         for &window in windows {
@@ -118,9 +132,9 @@ struct Session {
 }
 
 impl Session {
-    fn open() -> Result<Self, CaptureError> {
+    fn open(display: Option<&str>) -> Result<Self, CaptureError> {
         let (conn, screen_number) =
-            x11rb::connect(None).map_err(|error| CaptureError::Display(error.to_string()))?;
+            x11rb::connect(display).map_err(|error| CaptureError::Display(error.to_string()))?;
         let (root, width, height) = {
             let screen = &conn.setup().roots[screen_number];
             (screen.root, screen.width_in_pixels, screen.height_in_pixels)
@@ -293,6 +307,103 @@ mod tests {
         assert!(matches!(
             to_rgba(2, 2, &[0; 8]),
             Err(CaptureError::Protocol(_))
+        ));
+    }
+
+    #[test]
+    fn a_display_that_does_not_exist_is_a_display_error() {
+        let mut backend = X11Backend::on_display(":65000");
+        assert!(matches!(
+            backend.grab_screen(),
+            Err(CaptureError::Display(_))
+        ));
+        assert!(matches!(
+            backend.grab_active_window(),
+            Err(CaptureError::Display(_))
+        ));
+    }
+
+    /// Needs a real X server. CI runs it under `xvfb-run -a` with `--ignored`;
+    /// anywhere else it is reported as ignored, never as passed. One test covers
+    /// every live case, so the cases do not race over the root window's
+    /// `_NET_ACTIVE_WINDOW` property.
+    #[test]
+    #[ignore = "needs an X server: run under xvfb-run -a with --ignored"]
+    fn live_capture_reads_the_screen_and_the_active_window() {
+        use x11rb::protocol::xproto::{CreateWindowAux, PropMode, WindowClass};
+        use x11rb::protocol::Event;
+        use x11rb::{COPY_DEPTH_FROM_PARENT, COPY_FROM_PARENT};
+
+        let (conn, screen_number) = x11rb::connect(None).expect("an X server (xvfb-run -a)");
+        let (root, root_width, root_height) = {
+            let screen = &conn.setup().roots[screen_number];
+            (screen.root, screen.width_in_pixels, screen.height_in_pixels)
+        };
+        let active = conn
+            .intern_atom(false, b"_NET_ACTIVE_WINDOW")
+            .unwrap()
+            .reply()
+            .unwrap()
+            .atom;
+        let mut backend = X11Backend::default();
+
+        // The whole screen is the size of the root window.
+        let screen = backend.grab_screen().expect("screen capture");
+        assert_eq!(
+            screen.dimensions(),
+            (u32::from(root_width), u32::from(root_height))
+        );
+
+        // Without _NET_ACTIVE_WINDOW there is no window to capture.
+        conn.delete_property(root, active).unwrap();
+        conn.flush().unwrap();
+        assert!(matches!(
+            backend.grab_active_window(),
+            Err(CaptureError::NoActiveWindow)
+        ));
+
+        // A 64x48 green window that is made active is captured at its own size.
+        let window = conn.generate_id().unwrap();
+        conn.create_window(
+            COPY_DEPTH_FROM_PARENT,
+            window,
+            root,
+            10,
+            10,
+            64,
+            48,
+            0,
+            WindowClass::INPUT_OUTPUT,
+            COPY_FROM_PARENT,
+            &CreateWindowAux::new()
+                .background_pixel(0x00ff00)
+                .event_mask(EventMask::EXPOSURE),
+        )
+        .unwrap();
+        conn.map_window(window).unwrap();
+        conn.flush().unwrap();
+        // Wait for the server to paint the window before reading it.
+        while !matches!(conn.wait_for_event().unwrap(), Event::Expose(_)) {}
+        conn.change_property32(PropMode::REPLACE, root, active, AtomEnum::WINDOW, &[window])
+            .unwrap();
+        conn.flush().unwrap();
+        let captured = backend.grab_active_window().expect("window capture");
+        assert_eq!(captured.dimensions(), (64, 48));
+        assert_eq!(captured.get_pixel(0, 0).0, [0, 255, 0, 255]);
+
+        // A window whose class is this app is refused, not captured.
+        conn.change_property8(
+            PropMode::REPLACE,
+            window,
+            AtomEnum::WM_CLASS,
+            AtomEnum::STRING,
+            b"slopos-screenshot\0Screenshot\0",
+        )
+        .unwrap();
+        conn.flush().unwrap();
+        assert!(matches!(
+            backend.grab_active_window(),
+            Err(CaptureError::OwnWindowActive)
         ));
     }
 }

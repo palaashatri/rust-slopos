@@ -68,21 +68,59 @@ fn civil_from_days(days: i64) -> (i64, u32, u32) {
     (if month <= 2 { year + 1 } else { year }, month, day)
 }
 
-/// `name` in `dir`, or the first `name-2.png`, `name-3.png`, ... that is free.
-pub fn unique_path(dir: &Path, name: &str) -> PathBuf {
-    let first = dir.join(name);
-    if !first.exists() {
-        return first;
+/// How many numbered names are tried before a save gives up.
+const MAX_NAME_ATTEMPTS: u32 = 1_000;
+
+/// `name` for the first attempt, then `stem-2.png`, `stem-3.png`, ...
+pub fn candidate_name(name: &str, attempt: u32) -> String {
+    if attempt <= 1 {
+        return name.to_owned();
     }
     let stem = name.strip_suffix(".png").unwrap_or(name);
-    let mut number = 2u32;
-    loop {
-        let candidate = dir.join(format!("{stem}-{number}.png"));
-        if !candidate.exists() {
-            return candidate;
-        }
-        number += 1;
+    format!("{stem}-{attempt}.png")
+}
+
+/// Encodes `image` as PNG bytes. Every saved screenshot goes through this.
+pub fn encode_png(image: &image::RgbaImage) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::new();
+    image
+        .write_to(
+            &mut std::io::Cursor::new(&mut bytes),
+            image::ImageFormat::Png,
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(bytes)
+}
+
+/// Creates `path` and writes `bytes` into it. The create is exclusive, so an
+/// existing file is never truncated or replaced. If the write fails after the
+/// file was created, the partial file is removed.
+pub fn write_new_file(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?;
+    if let Err(error) = file.write_all(bytes) {
+        drop(file);
+        let _ = std::fs::remove_file(path);
+        return Err(error);
     }
+    Ok(())
+}
+
+/// Writes `bytes` into `dir` as `name`, or as the first free numbered name.
+/// Never overwrites: a name that exists is skipped.
+pub fn create_unique_file(dir: &Path, name: &str, bytes: &[u8]) -> Result<PathBuf, String> {
+    for attempt in 1..=MAX_NAME_ATTEMPTS {
+        let path = dir.join(candidate_name(name, attempt));
+        match write_new_file(&path, bytes) {
+            Ok(()) => return Ok(path),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+    Err(format!("no free file name for {name}"))
 }
 
 /// Writes `image` as a PNG into `dir`, creating the folder when needed.
@@ -92,11 +130,8 @@ pub fn save_png(
     unix_seconds: u64,
 ) -> Result<PathBuf, String> {
     std::fs::create_dir_all(dir).map_err(|error| error.to_string())?;
-    let path = unique_path(dir, &file_name(unix_seconds));
-    image
-        .save_with_format(&path, image::ImageFormat::Png)
-        .map_err(|error| error.to_string())?;
-    Ok(path)
+    let bytes = encode_png(image)?;
+    create_unique_file(dir, &file_name(unix_seconds), &bytes)
 }
 
 /// Shortens `text` to `max_chars` characters, keeping both ends of a path.
@@ -175,15 +210,51 @@ mod tests {
     }
 
     #[test]
-    fn unique_path_adds_a_counter_when_the_name_is_taken() {
+    fn candidate_names_add_a_counter_after_the_first_attempt() {
+        let name = "Screenshot-2026-11-27-123456.png";
+        assert_eq!(candidate_name(name, 1), name);
+        assert_eq!(
+            candidate_name(name, 2),
+            "Screenshot-2026-11-27-123456-2.png"
+        );
+        assert_eq!(
+            candidate_name(name, 3),
+            "Screenshot-2026-11-27-123456-3.png"
+        );
+    }
+
+    #[test]
+    fn an_existing_file_is_never_overwritten() {
         let dir = tempfile::tempdir().unwrap();
         let name = "Screenshot-2026-11-27-123456.png";
-        assert_eq!(unique_path(dir.path(), name), dir.path().join(name));
-        std::fs::write(dir.path().join(name), b"x").unwrap();
+        std::fs::write(dir.path().join(name), b"keep me").unwrap();
+        let written = create_unique_file(dir.path(), name, b"new").unwrap();
         assert_eq!(
-            unique_path(dir.path(), name),
+            written,
             dir.path().join("Screenshot-2026-11-27-123456-2.png")
         );
+        assert_eq!(std::fs::read(dir.path().join(name)).unwrap(), b"keep me");
+        assert_eq!(std::fs::read(&written).unwrap(), b"new");
+    }
+
+    #[test]
+    fn write_new_file_refuses_an_existing_path_and_keeps_its_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("shot.png");
+        std::fs::write(&path, b"original").unwrap();
+        let error = write_new_file(&path, b"replacement").unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(std::fs::read(&path).unwrap(), b"original");
+    }
+
+    #[test]
+    fn a_save_into_a_path_that_is_a_file_reports_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let blocker = dir.path().join("not-a-folder");
+        std::fs::write(&blocker, b"file").unwrap();
+        let image = image::RgbaImage::from_pixel(1, 1, image::Rgba([0, 0, 0, 255]));
+        assert!(save_png(&image, &blocker, 0).is_err());
+        assert_eq!(std::fs::read(&blocker).unwrap(), b"file");
     }
 
     #[test]
