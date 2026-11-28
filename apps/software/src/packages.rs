@@ -218,9 +218,9 @@ pub fn remove_flatpak_argv(family: Family) -> Vec<String> {
     // removal succeeds when the package is absent. --noautoremove keeps dependencies
     // that were already installed.
     let script = match family {
-        // Only dpkg's own "not installed" answer counts as absent. Any other failure
-        // of the query (a locked database, say) stops the undo and is shown.
-        Family::Apt => r#"out=$(dpkg -s flatpak 2>&1) || { case "$out" in *"is not installed"*) exit 0 ;; esac; printf '%s\n' "$out" >&2; exit 1; }; exec env DEBIAN_FRONTEND=noninteractive apt-get remove -y flatpak"#,
+        // dpkg exits 1 only when the package is not installed. Any other status (a
+        // locked database, say) stops the undo, and its diagnostic stays on stderr.
+        Family::Apt => r#"dpkg -s flatpak >/dev/null; s=$?; [ $s -eq 1 ] && exit 0; [ $s -eq 0 ] || exit $s; exec env DEBIAN_FRONTEND=noninteractive apt-get remove -y flatpak"#,
         Family::Dnf => "rpm -q flatpak >/dev/null 2>&1 || exit 0; exec dnf remove -y --noautoremove flatpak",
         Family::Pacman => "pacman -Q flatpak >/dev/null 2>&1 || exit 0; exec pacman -R --noconfirm flatpak",
     };
@@ -706,8 +706,8 @@ mod rollback_tests {
         assert!(apt.last().map(String::as_str) == Some("flatpak-undo"));
         assert!(apt[3].contains("apt-get remove -y flatpak"), "{}", apt[3]);
         assert!(
-            apt[3].contains(r#"*"is not installed"*"#),
-            "only dpkg's absence message counts as nothing to do: {}",
+            apt[3].contains("[ $s -eq 1 ] && exit 0"),
+            "only dpkg's not-installed status counts as nothing to do: {}",
             apt[3]
         );
         let pacman = remove_flatpak_argv(Family::Pacman);
