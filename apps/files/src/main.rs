@@ -256,7 +256,7 @@ struct RemoteView {
 }
 
 /// The slice of `items` on `page`, with `page` clamped to what exists.
-fn paged<T>(items: &[T], page: &mut usize) -> &[T] {
+fn paged<'a, T>(items: &'a [T], page: &mut usize) -> &'a [T] {
     let range = model::page_range(items.len(), *page);
     *page = range.start / model::PAGE_ROWS;
     &items[range]
@@ -2410,7 +2410,6 @@ mod tests {
         assert!(app.rows.iter().any(|row| row.name == "a.txt"));
     }
 
-    #[test]
     #[test]
     fn formats_are_readable() {
         assert_eq!(format_size(1), "1 byte");
