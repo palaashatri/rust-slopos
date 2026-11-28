@@ -110,6 +110,9 @@ impl BrightnessError {
 #[derive(Clone)]
 pub struct BrightnessClient {
     root: PathBuf,
+    /// Bus that carries logind for writes. `None` means the system bus; tests
+    /// point it at a private bus.
+    bus_address: Option<String>,
     revision: Arc<AtomicU64>,
     mutation_lock: Arc<Mutex<()>>,
 }
@@ -128,8 +131,20 @@ impl BrightnessClient {
     fn with_root(root: impl Into<PathBuf>) -> Self {
         Self {
             root: root.into(),
+            bus_address: None,
             revision: Arc::new(AtomicU64::new(0)),
             mutation_lock: Arc::new(Mutex::new(())),
+        }
+    }
+
+    async fn logind_connection(&self) -> zbus::Result<Connection> {
+        match &self.bus_address {
+            Some(address) => {
+                zbus::connection::Builder::address(address.as_str())?
+                    .build()
+                    .await
+            }
+            None => Connection::system().await,
         }
     }
 
@@ -189,7 +204,8 @@ impl BrightnessClient {
         }
 
         timeout(OPERATION_TIMEOUT, async {
-            let connection = Connection::system()
+            let connection = self
+                .logind_connection()
                 .await
                 .map_err(|error| BrightnessError::Service(error.to_string()))?;
             let manager = Proxy::new(&connection, LOGIN1, LOGIN1_PATH, LOGIN1_MANAGER)
@@ -297,8 +313,289 @@ fn map_dbus_error(error: String) -> BrightnessError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+    use std::{
+        fs,
+        io::BufRead,
+        process::{Child, Command, Stdio},
+        sync::atomic::AtomicBool,
+    };
     use tempfile::tempdir;
+
+    const SESSION_PATH: &str = "/org/freedesktop/login1/session/_31";
+
+    struct BusDaemon(Child);
+
+    impl Drop for BusDaemon {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+
+    fn start_bus() -> (BusDaemon, String) {
+        let mut daemon = BusDaemon(
+            Command::new("dbus-daemon")
+                .args(["--session", "--nofork", "--print-address=1"])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap(),
+        );
+        let mut address = String::new();
+        std::io::BufReader::new(daemon.0.stdout.as_mut().unwrap())
+            .read_line(&mut address)
+            .unwrap();
+        (daemon, address.trim().to_owned())
+    }
+
+    struct ManagerFixture;
+
+    #[zbus::interface(name = "org.freedesktop.login1.Manager")]
+    impl ManagerFixture {
+        #[zbus(name = "GetSessionByPID")]
+        fn get_session_by_pid(&self, _pid: u32) -> zbus::zvariant::OwnedObjectPath {
+            zbus::zvariant::OwnedObjectPath::try_from(SESSION_PATH).unwrap()
+        }
+    }
+
+    /// Stands in for the logind session that accepts brightness changes. A
+    /// refused change is answered with AccessDenied; an ignored change is
+    /// accepted but never reaches the backlight.
+    struct SessionFixture {
+        root: PathBuf,
+        refuse: Arc<AtomicBool>,
+        ignore_writes: Arc<AtomicBool>,
+    }
+
+    #[zbus::interface(name = "org.freedesktop.login1.Session")]
+    impl SessionFixture {
+        fn set_brightness(&self, subsystem: &str, name: &str, value: u32) -> zbus::fdo::Result<()> {
+            if subsystem != "backlight" {
+                return Err(zbus::fdo::Error::InvalidArgs(subsystem.to_owned()));
+            }
+            if self.refuse.load(Ordering::Relaxed) {
+                return Err(zbus::fdo::Error::AccessDenied(
+                    "fixture refuses brightness changes".into(),
+                ));
+            }
+            if self.ignore_writes.load(Ordering::Relaxed) {
+                return Ok(());
+            }
+            fs::write(
+                self.root.join(name).join("brightness"),
+                format!("{value}\n"),
+            )
+            .map_err(|error| zbus::fdo::Error::Failed(error.to_string()))
+        }
+    }
+
+    /// Serves logind's manager and one session on the private bus.
+    async fn serve_logind(
+        address: &str,
+        root: &Path,
+        refuse: Arc<AtomicBool>,
+        ignore_writes: Arc<AtomicBool>,
+    ) -> zbus::Connection {
+        zbus::connection::Builder::address(address)
+            .unwrap()
+            .name("org.freedesktop.login1")
+            .unwrap()
+            .serve_at("/org/freedesktop/login1", ManagerFixture)
+            .unwrap()
+            .serve_at(
+                SESSION_PATH,
+                SessionFixture {
+                    root: root.to_path_buf(),
+                    refuse,
+                    ignore_writes,
+                },
+            )
+            .unwrap()
+            .build()
+            .await
+            .unwrap()
+    }
+
+    fn client_with_logind(root: &Path, address: &str) -> BrightnessClient {
+        let mut client = BrightnessClient::with_root(root);
+        client.bus_address = Some(address.to_owned());
+        client
+    }
+
+    fn panel(root: &Path, current: &str) -> PathBuf {
+        let device = root.join("panel0");
+        fs::create_dir_all(&device).unwrap();
+        fs::write(device.join("brightness"), format!("{current}\n")).unwrap();
+        fs::write(device.join("max_brightness"), "80\n").unwrap();
+        device
+    }
+
+    #[tokio::test]
+    async fn set_writes_through_logind_and_reports_the_value_read_back() {
+        let root = tempdir().unwrap();
+        let device = panel(root.path(), "40");
+        let (_daemon, address) = start_bus();
+        let _logind = serve_logind(
+            &address,
+            root.path(),
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .await;
+        let client = client_with_logind(root.path(), &address);
+        let snapshot = client.set("panel0", 60).await.unwrap();
+        assert_eq!(snapshot.devices[0].current, 60);
+        assert_eq!(
+            fs::read_to_string(device.join("brightness"))
+                .unwrap()
+                .trim(),
+            "60"
+        );
+    }
+
+    #[tokio::test]
+    async fn logind_refusal_is_permission_denied_and_leaves_the_backlight_unchanged() {
+        let root = tempdir().unwrap();
+        let device = panel(root.path(), "40");
+        let (_daemon, address) = start_bus();
+        let _logind = serve_logind(
+            &address,
+            root.path(),
+            Arc::new(AtomicBool::new(true)),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .await;
+        let client = client_with_logind(root.path(), &address);
+        let error = client.set("panel0", 60).await.unwrap_err();
+        assert!(
+            matches!(error, BrightnessError::PermissionDenied(_)),
+            "{error:?}"
+        );
+        assert_eq!(error.availability(), Availability::PermissionDenied);
+        assert_eq!(
+            fs::read_to_string(device.join("brightness"))
+                .unwrap()
+                .trim(),
+            "40"
+        );
+        // Reads keep working while writes are refused.
+        assert_eq!(client.snapshot().unwrap().devices[0].current, 40);
+    }
+
+    #[tokio::test]
+    async fn accepted_write_that_the_hardware_ignores_is_reported_as_failed() {
+        let root = tempdir().unwrap();
+        let device = panel(root.path(), "40");
+        let (_daemon, address) = start_bus();
+        let _logind = serve_logind(
+            &address,
+            root.path(),
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(true)),
+        )
+        .await;
+        let client = client_with_logind(root.path(), &address);
+        let error = client.set("panel0", 60).await.unwrap_err();
+        assert!(
+            matches!(error, BrightnessError::InvalidDevice(_)),
+            "{error:?}"
+        );
+        assert_eq!(error.availability(), Availability::Failed);
+        assert_eq!(
+            fs::read_to_string(device.join("brightness"))
+                .unwrap()
+                .trim(),
+            "40"
+        );
+    }
+
+    #[tokio::test]
+    async fn absent_logind_is_missing_service_for_backlight_writes() {
+        let root = tempdir().unwrap();
+        let device = panel(root.path(), "40");
+        let (_daemon, address) = start_bus();
+        let client = client_with_logind(root.path(), &address);
+        let error = client.set("panel0", 60).await.unwrap_err();
+        assert_eq!(error.availability(), Availability::MissingService);
+        assert_eq!(
+            fs::read_to_string(device.join("brightness"))
+                .unwrap()
+                .trim(),
+            "40"
+        );
+    }
+
+    #[tokio::test]
+    async fn set_on_a_missing_backlight_reports_unsupported_hardware() {
+        let root = tempdir().unwrap();
+        let client = BrightnessClient::with_root(root.path());
+        let error = client.set("panel0", 60).await.unwrap_err();
+        assert!(
+            matches!(&error, BrightnessError::DeviceUnavailable(name) if name == "panel0"),
+            "{error:?}"
+        );
+        assert_eq!(error.availability(), Availability::UnsupportedHardware);
+    }
+
+    #[tokio::test]
+    async fn out_of_range_values_are_rejected_before_logind_is_called() {
+        let root = tempdir().unwrap();
+        let device = panel(root.path(), "40");
+        // No bus is configured: reaching logind would fail with MissingService.
+        let client = BrightnessClient::with_root(root.path());
+        let error = client.set("panel0", 90).await.unwrap_err();
+        assert!(matches!(error, BrightnessError::OutOfRange), "{error:?}");
+        assert_eq!(error.availability(), Availability::Failed);
+        assert_eq!(
+            fs::read_to_string(device.join("brightness"))
+                .unwrap()
+                .trim(),
+            "40"
+        );
+    }
+
+    #[tokio::test]
+    async fn watch_reports_an_invalid_backlight_then_the_recovered_value() {
+        let root = tempdir().unwrap();
+        let device = panel(root.path(), "40");
+        let mut events = BrightnessClient::with_root(root.path()).watch();
+        let first = timeout(Duration::from_secs(3), events.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(first.devices[0].current, 40);
+
+        // 90 is above the device maximum of 80.
+        fs::write(device.join("brightness"), "90\n").unwrap();
+        let error = timeout(Duration::from_secs(6), async {
+            loop {
+                match events.next().await {
+                    Some(Err(error)) => break error,
+                    Some(Ok(_)) => continue,
+                    None => panic!("watch stream ended without reporting the fault"),
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert!(
+            matches!(error, BrightnessError::InvalidDevice(_)),
+            "{error:?}"
+        );
+        assert_eq!(error.availability(), Availability::Failed);
+
+        fs::write(device.join("brightness"), "50\n").unwrap();
+        // Nothing is sent while the reading is invalid, so the next event is
+        // the recovered state.
+        let recovered = timeout(Duration::from_secs(6), events.next())
+            .await
+            .unwrap()
+            .expect("watch stream ended before recovery")
+            .expect("watch still failing after recovery");
+        assert_eq!(recovered.devices[0].current, 50);
+        events.close().await;
+    }
 
     #[test]
     fn detects_no_backlight_without_fabricating_a_device() {

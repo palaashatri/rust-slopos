@@ -1224,6 +1224,76 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn bluetooth_watch_reports_bluez_loss_instead_of_the_last_snapshot() {
+        let mut daemon = BusDaemon(
+            Command::new("dbus-daemon")
+                .args(["--session", "--nofork", "--print-address=1"])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap(),
+        );
+        let mut address = String::new();
+        std::io::BufReader::new(daemon.0.stdout.as_mut().unwrap())
+            .read_line(&mut address)
+            .unwrap();
+        let flag = |value| Arc::new(std::sync::atomic::AtomicBool::new(value));
+        let bluez = zbus::connection::Builder::address(address.trim())
+            .unwrap()
+            .name(SERVICE)
+            .unwrap()
+            .serve_at(
+                ROOT,
+                BluezFixture {
+                    removed: flag(true),
+                    powered: flag(true),
+                    discovering: flag(false),
+                    paired: flag(false),
+                    trusted: flag(false),
+                    connected: flag(false),
+                },
+            )
+            .unwrap()
+            .build()
+            .await
+            .unwrap();
+        let client = BluetoothClient {
+            connection: zbus::connection::Builder::address(address.trim())
+                .unwrap()
+                .build()
+                .await
+                .unwrap(),
+            revision: Arc::new(AtomicU64::new(0)),
+            pairings: Arc::new(std::sync::Mutex::new(HashMap::new())),
+        };
+        let mut updates = client.watch();
+        let first = timeout(Duration::from_secs(3), updates.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(first.adapters.len(), 1);
+
+        drop(bluez);
+        let error = timeout(Duration::from_secs(6), async {
+            loop {
+                match updates.next().await {
+                    Some(Err(error)) => break error,
+                    Some(Ok(_)) => continue,
+                    None => panic!("watch stream ended without reporting the loss"),
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            error.availability(),
+            Availability::MissingService,
+            "{error:?}"
+        );
+    }
+
+    #[tokio::test]
     #[ignore = "reads the guest system bus and live BlueZ service state"]
     async fn bluetooth_provider_reads_live_service_or_reports_unavailable() {
         match BluetoothClient::connect().await {

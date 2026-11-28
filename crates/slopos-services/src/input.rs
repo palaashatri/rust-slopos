@@ -204,8 +204,13 @@ pub struct InputClient {
 
 impl InputClient {
     pub fn connect() -> Result<Self, InputError> {
+        Self::connect_to(None)
+    }
+
+    /// Connects to `display`, or to `$DISPLAY` when it is `None`.
+    fn connect_to(display: Option<&str>) -> Result<Self, InputError> {
         let (conn, screen) =
-            x11rb::connect(None).map_err(|error| InputError::NoDisplay(error.to_string()))?;
+            x11rb::connect(display).map_err(|error| InputError::NoDisplay(error.to_string()))?;
         let root = conn.setup().roots[screen].root;
         let xkb = conn
             .xkb_use_extension(1, 0)
@@ -473,6 +478,33 @@ fn set_layout(layout: &str, variant: &str) -> Result<(), InputError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn input_errors_map_to_truthful_availability() {
+        assert_eq!(
+            InputError::NoDisplay("no socket".into()).availability(),
+            Availability::MissingService
+        );
+        assert_eq!(
+            InputError::Invalid("no such layout".into()).availability(),
+            Availability::Failed
+        );
+        assert_eq!(
+            InputError::Failed("setxkbmap did not finish".into()).availability(),
+            Availability::Failed
+        );
+    }
+
+    #[test]
+    fn a_missing_x_display_is_reported_as_no_display() {
+        // The unix: prefix keeps x11rb on the local socket only. Display 65000
+        // has no socket, so nothing is fabricated for it.
+        let Err(error) = InputClient::connect_to(Some("unix:65000")) else {
+            panic!("connected to a display that does not exist");
+        };
+        assert!(matches!(error, InputError::NoDisplay(_)), "{error:?}");
+        assert_eq!(error.availability(), Availability::MissingService);
+    }
 
     #[test]
     fn layouts_and_rules_names_are_read() {

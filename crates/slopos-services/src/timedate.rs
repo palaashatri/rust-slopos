@@ -225,6 +225,7 @@ impl TimedateClient {
 }
 
 #[cfg(test)]
+#[derive(Clone)]
 struct TimedateFixture {
     timezone: Arc<RwLock<String>>,
     ntp_available: Arc<std::sync::atomic::AtomicBool>,
@@ -232,6 +233,8 @@ struct TimedateFixture {
     ntp_synchronized: Arc<std::sync::atomic::AtomicBool>,
     time_usec: Arc<AtomicU64>,
     denied: Arc<std::sync::atomic::AtomicBool>,
+    /// Makes the Timezone property never answer, to exercise the client timeout.
+    hang: Arc<std::sync::atomic::AtomicBool>,
 }
 
 #[zbus::interface(name = "org.freedesktop.timedate1")]
@@ -239,6 +242,9 @@ struct TimedateFixture {
 impl TimedateFixture {
     #[zbus(property)]
     async fn timezone(&self) -> String {
+        if self.hang.load(Ordering::Relaxed) {
+            std::future::pending::<()>().await;
+        }
         self.timezone.read().await.clone()
     }
 
@@ -302,6 +308,18 @@ impl TimedateFixture {
 
 #[cfg(test)]
 impl TimedateFixture {
+    fn new() -> Self {
+        Self {
+            timezone: Arc::new(RwLock::new("Etc/UTC".to_owned())),
+            ntp_available: Arc::new(std::sync::atomic::AtomicBool::new(true)),
+            ntp_enabled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            ntp_synchronized: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            time_usec: Arc::new(AtomicU64::new(1_700_000_000_000_000)),
+            denied: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            hang: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        }
+    }
+
     fn ensure_allowed(&self) -> zbus::fdo::Result<()> {
         if self.denied.load(Ordering::Relaxed) {
             Err(zbus::fdo::Error::AccessDenied("fixture denied".into()))
@@ -367,6 +385,7 @@ mod tests {
                     ntp_synchronized: ntp_synchronized.clone(),
                     time_usec: time_usec.clone(),
                     denied: denied.clone(),
+                    hang: Arc::new(AtomicBool::new(false)),
                 },
             )
             .unwrap()
@@ -460,6 +479,7 @@ mod tests {
                     ntp_synchronized,
                     time_usec,
                     denied,
+                    hang: Arc::new(AtomicBool::new(false)),
                 },
             )
             .unwrap()
@@ -470,6 +490,116 @@ mod tests {
         assert_eq!(restored.timezone, "Europe/Berlin");
         drop(client);
         drop(replacement);
+    }
+
+    fn start_bus() -> (BusDaemon, String) {
+        let mut daemon = BusDaemon(
+            Command::new("dbus-daemon")
+                .args(["--session", "--nofork", "--print-address=1"])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap(),
+        );
+        let mut address = String::new();
+        std::io::BufReader::new(daemon.0.stdout.as_mut().unwrap())
+            .read_line(&mut address)
+            .unwrap();
+        (daemon, address.trim().to_owned())
+    }
+
+    async fn serve(address: &str, fixture: TimedateFixture) -> Connection {
+        zbus::connection::Builder::address(address)
+            .unwrap()
+            .name(SERVICE)
+            .unwrap()
+            .serve_at(PATH, fixture)
+            .unwrap()
+            .build()
+            .await
+            .unwrap()
+    }
+
+    async fn client_for(address: &str) -> TimedateClient {
+        TimedateClient {
+            connection: zbus::connection::Builder::address(address)
+                .unwrap()
+                .build()
+                .await
+                .unwrap(),
+            revision: Arc::new(AtomicU64::new(0)),
+        }
+    }
+
+    #[tokio::test]
+    async fn timedate_denied_writes_leave_the_clock_configuration_unchanged() {
+        let (_daemon, address) = start_bus();
+        let fixture = TimedateFixture::new();
+        let _service = serve(&address, fixture.clone()).await;
+        let client = client_for(&address).await;
+        let before = client.snapshot().await.unwrap();
+        fixture.denied.store(true, Ordering::Relaxed);
+
+        assert!(matches!(
+            client.set_timezone("Europe/Berlin").await,
+            Err(TimedateError::PermissionDenied(_))
+        ));
+        assert!(matches!(
+            client.set_ntp(true).await,
+            Err(TimedateError::PermissionDenied(_))
+        ));
+        assert!(matches!(
+            client.set_time_usec(1_800_000_000_000_000).await,
+            Err(TimedateError::PermissionDenied(_))
+        ));
+
+        // Reads keep answering and report the configuration that was not changed.
+        let after = client.snapshot().await.unwrap();
+        assert_eq!(after.timezone, before.timezone);
+        assert_eq!(after.ntp_enabled, before.ntp_enabled);
+        assert_eq!(after.time_unix_usec, before.time_unix_usec);
+    }
+
+    #[tokio::test]
+    async fn timedate_query_timeout_is_reported_instead_of_the_last_clock_value() {
+        let (_daemon, address) = start_bus();
+        let fixture = TimedateFixture::new();
+        let _service = serve(&address, fixture.clone()).await;
+        let client = client_for(&address).await;
+        assert_eq!(client.snapshot().await.unwrap().timezone, "Etc/UTC");
+
+        fixture.hang.store(true, Ordering::Relaxed);
+        let error = client.snapshot().await.unwrap_err();
+        assert!(matches!(error, TimedateError::Timeout), "{error:?}");
+        assert_eq!(error.availability(), Availability::Failed);
+    }
+
+    #[tokio::test]
+    async fn timedate_watch_reports_service_loss_instead_of_the_last_clock_value() {
+        let (_daemon, address) = start_bus();
+        let service = serve(&address, TimedateFixture::new()).await;
+        let client = client_for(&address).await;
+        let mut updates = client.watch();
+        let first = tokio::time::timeout(Duration::from_secs(3), updates.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(first.timezone, "Etc/UTC");
+
+        drop(service);
+        let error = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                match updates.next().await {
+                    Some(Err(error)) => break error,
+                    Some(Ok(_)) => continue,
+                    None => panic!("watch stream ended without reporting the loss"),
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(error.availability(), Availability::MissingService);
     }
 
     #[tokio::test]

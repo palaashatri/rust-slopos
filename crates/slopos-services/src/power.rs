@@ -539,15 +539,27 @@ mod tests {
         requested_interactive: Arc<AtomicBool>,
     }
 
+    /// `"denied"` advertises suspend but refuses the request, `"hang"` never
+    /// answers `CanSuspend`; any other value is reported as-is.
     #[zbus::interface(name = "org.freedesktop.login1.Manager")]
     impl LogindFixture {
-        fn can_suspend(&self) -> String {
-            self.capability.to_owned()
+        async fn can_suspend(&self) -> String {
+            match self.capability {
+                "hang" => std::future::pending::<String>().await,
+                "denied" => "yes".to_owned(),
+                capability => capability.to_owned(),
+            }
         }
 
-        fn suspend(&self, interactive: bool) {
+        fn suspend(&self, interactive: bool) -> zbus::fdo::Result<()> {
             self.requested_interactive
                 .store(interactive, Ordering::SeqCst);
+            if self.capability == "denied" {
+                return Err(zbus::fdo::Error::AccessDenied(
+                    "suspend refused by fixture".into(),
+                ));
+            }
+            Ok(())
         }
     }
 
@@ -787,6 +799,91 @@ mod tests {
                 .unwrap(),
             PowerEvent::LowBattery { percentage: 20.0 }
         );
+        events.close().await;
+    }
+
+    #[tokio::test]
+    async fn suspend_refused_by_logind_is_reported_as_permission_denied() {
+        let (_daemon, _upower, _logind, client, _, requested_interactive) =
+            fixture(false, 0.0, 0, "denied").await;
+        let error = client.request_suspend().await.unwrap_err();
+        assert!(
+            matches!(error, PowerError::PermissionDenied(_)),
+            "{error:?}"
+        );
+        assert_eq!(error.availability(), Availability::PermissionDenied);
+        assert!(requested_interactive.load(Ordering::SeqCst));
+        // Reads still work and keep reporting that suspend is offered.
+        assert_eq!(
+            client.snapshot().await.unwrap().suspend,
+            SuspendCapability::Available
+        );
+    }
+
+    #[tokio::test]
+    async fn absent_logind_is_missing_service_for_reads_and_suspend() {
+        let (_daemon, _upower, logind, client, _, requested_interactive) =
+            fixture(true, 50.0, 0, "yes").await;
+        drop(logind);
+        let snapshot_error = client.snapshot().await.unwrap_err();
+        assert!(
+            matches!(snapshot_error, PowerError::MissingService(_)),
+            "{snapshot_error:?}"
+        );
+        assert_eq!(snapshot_error.availability(), Availability::MissingService);
+        let suspend_error = client.request_suspend().await.unwrap_err();
+        assert_eq!(suspend_error.availability(), Availability::MissingService);
+        assert!(!requested_interactive.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn hung_power_query_is_reported_as_timeout_not_a_stale_snapshot() {
+        let (_daemon, _upower, _logind, client, _, _) = fixture(true, 50.0, 0, "hang").await;
+        let error = client.snapshot().await.unwrap_err();
+        assert!(matches!(error, PowerError::Timeout), "{error:?}");
+        assert_eq!(error.availability(), Availability::Failed);
+    }
+
+    #[tokio::test]
+    async fn watch_reports_invalid_reading_then_recovers_with_the_new_value() {
+        let (_daemon, _upower, _logind, client, battery, _) = fixture(true, 20.0, 0, "yes").await;
+        let mut events = client.watch();
+        let first = tokio::time::timeout(Duration::from_secs(3), events.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(matches!(first, PowerEvent::Changed(_)));
+
+        battery.lock().unwrap().percentage = 110.0;
+        let error = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                match events.next().await {
+                    Some(Err(error)) => break error,
+                    Some(Ok(_)) => continue,
+                    None => panic!("watch stream ended without reporting the failure"),
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert!(matches!(error, PowerError::InvalidProperty(_)), "{error:?}");
+
+        // The reading that comes back is reported, not the last good 20%.
+        battery.lock().unwrap().percentage = 30.0;
+        let recovered = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                match events.next().await {
+                    Some(Ok(PowerEvent::Changed(snapshot))) => break snapshot,
+                    Some(Ok(_)) => continue,
+                    Some(Err(error)) => panic!("watch still failing after recovery: {error:?}"),
+                    None => panic!("watch stream ended before recovery"),
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(recovered.battery.unwrap().percentage, 30.0);
         events.close().await;
     }
 }

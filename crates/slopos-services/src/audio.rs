@@ -1,6 +1,6 @@
 use std::{
     io,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Stdio,
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -13,7 +13,7 @@ use slopos_core::capability::Availability;
 use thiserror::Error;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
-    process::{Child, Command},
+    process::{Child, ChildStdout, Command},
     sync::{mpsc, Mutex},
     task::JoinHandle,
     time::timeout,
@@ -301,13 +301,14 @@ impl AudioClient {
         }
         let _guard = self.mutation_lock.lock().await;
         self.ensure_stream(stream).await?;
+        let events = ChangeEvents::open(&self.executable)?;
         self.run(&[
             "set-sink-input-volume",
             &stream.to_string(),
             &format!("{percent}%"),
         ])
         .await?;
-        self.wait_for_stream(stream, |item| {
+        self.wait_for_stream(events, stream, |item| {
             item.volume_millipercent
                 .iter()
                 .all(|volume| volume.abs_diff(percent * 1000) <= 1000)
@@ -322,13 +323,14 @@ impl AudioClient {
     ) -> Result<AudioSnapshot, AudioError> {
         let _guard = self.mutation_lock.lock().await;
         self.ensure_stream(stream).await?;
+        let events = ChangeEvents::open(&self.executable)?;
         self.run(&[
             "set-sink-input-mute",
             &stream.to_string(),
             if muted { "1" } else { "0" },
         ])
         .await?;
-        self.wait_for_stream(stream, |item| item.muted == muted)
+        self.wait_for_stream(events, stream, |item| item.muted == muted)
             .await
     }
 
@@ -347,9 +349,10 @@ impl AudioClient {
             .find(|output| output.name == device)
             .map(|output| output.index)
             .ok_or_else(|| AudioError::DeviceUnavailable(device.to_owned()))?;
+        let events = ChangeEvents::open(&self.executable)?;
         self.run(&["move-sink-input", &stream.to_string(), device])
             .await?;
-        self.wait_for_stream(stream, |item| item.output == target)
+        self.wait_for_stream(events, stream, |item| item.output == target)
             .await
     }
 
@@ -362,8 +365,11 @@ impl AudioClient {
         }
     }
 
+    /// Read back a stream after a write. Between reads it blocks on the
+    /// server's change events, so a slow server is waited for, not polled.
     async fn wait_for_stream(
         &self,
+        mut events: ChangeEvents,
         stream: u32,
         matches: impl Fn(&AudioStream) -> bool,
     ) -> Result<AudioSnapshot, AudioError> {
@@ -373,7 +379,7 @@ impl AudioClient {
                 match snapshot.streams.iter().find(|item| item.index == stream) {
                     None => return Err(AudioError::DeviceUnavailable(format!("stream {stream}"))),
                     Some(item) if matches(item) => return Ok(snapshot),
-                    Some(_) => tokio::time::sleep(Duration::from_millis(100)).await,
+                    Some(_) => events.next_change().await?,
                 }
             }
         })
@@ -406,8 +412,9 @@ impl AudioClient {
             AudioDirection::Output => "set-sink-volume",
             AudioDirection::Input => "set-source-volume",
         };
+        let events = ChangeEvents::open(&self.executable)?;
         self.run(&[verb, device, &format!("{percent}%")]).await?;
-        self.wait_for(direction, device, |snapshot| {
+        self.wait_for(events, direction, device, |snapshot| {
             let devices = match direction {
                 AudioDirection::Output => &snapshot.outputs,
                 AudioDirection::Input => &snapshot.inputs,
@@ -445,9 +452,10 @@ impl AudioClient {
             AudioDirection::Output => "set-sink-mute",
             AudioDirection::Input => "set-source-mute",
         };
+        let events = ChangeEvents::open(&self.executable)?;
         self.run(&[verb, device, if muted { "1" } else { "0" }])
             .await?;
-        self.wait_for(direction, device, |snapshot| {
+        self.wait_for(events, direction, device, |snapshot| {
             let devices = match direction {
                 AudioDirection::Output => &snapshot.outputs,
                 AudioDirection::Input => &snapshot.inputs,
@@ -470,8 +478,9 @@ impl AudioClient {
             AudioDirection::Output => "set-default-sink",
             AudioDirection::Input => "set-default-source",
         };
+        let events = ChangeEvents::open(&self.executable)?;
         self.run(&[verb, device]).await?;
-        self.wait_for(direction, device, |snapshot| match direction {
+        self.wait_for(events, direction, device, |snapshot| match direction {
             AudioDirection::Output => snapshot.default_output.as_deref() == Some(device),
             AudioDirection::Input => snapshot.default_input.as_deref() == Some(device),
         })
@@ -495,8 +504,12 @@ impl AudioClient {
         }
     }
 
+    /// Read a device back after a write. Between reads it blocks on the
+    /// server's change events (opened before the write), with the mutation
+    /// deadline; a subscription that ends is reported as Disconnected.
     async fn wait_for(
         &self,
+        mut events: ChangeEvents,
         direction: AudioDirection,
         device: &str,
         mut matches: impl FnMut(&AudioSnapshot) -> bool,
@@ -514,7 +527,7 @@ impl AudioClient {
                 if matches(&snapshot) {
                     return Ok(snapshot);
                 }
-                tokio::time::sleep(Duration::from_millis(100)).await;
+                events.next_change().await?;
             }
         })
         .await
@@ -613,6 +626,45 @@ impl AudioClient {
 impl Default for AudioClient {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// The server's change events for one write, from `pactl subscribe`.
+///
+/// Opened before the write is sent, so the write's own change is queued
+/// rather than missed. The client name tells the test fixture apart from the
+/// long-lived watcher; `pactl` treats it as an ordinary client name.
+struct ChangeEvents {
+    _child: Child,
+    lines: tokio::io::Lines<BufReader<ChildStdout>>,
+}
+
+impl ChangeEvents {
+    fn open(executable: &Path) -> Result<Self, AudioError> {
+        let mut child = Command::new(executable)
+            .arg("--client-name=slopos-audio-wait")
+            .arg("subscribe")
+            .env("LC_ALL", "C")
+            .kill_on_drop(true)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(map_io_error)?;
+        let stdout = child.stdout.take().ok_or(AudioError::Disconnected)?;
+        Ok(Self {
+            _child: child,
+            lines: BufReader::new(stdout).lines(),
+        })
+    }
+
+    /// Block until the server reports a change. A subscription that ends,
+    /// or whose output cannot be read, is a lost server.
+    async fn next_change(&mut self) -> Result<(), AudioError> {
+        match self.lines.next_line().await {
+            Ok(Some(_)) => Ok(()),
+            Ok(None) | Err(_) => Err(AudioError::Disconnected),
+        }
     }
 }
 
@@ -933,12 +985,21 @@ mod tests {
         std::fs::write(directory.path().join("stream_volume"), "100").unwrap();
         std::fs::write(directory.path().join("stream_mute"), "no").unwrap();
         std::fs::write(directory.path().join("stream_sink"), "1").unwrap();
+        std::fs::write(directory.path().join("event_log"), "").unwrap();
         let executable = directory.path().join("pactl");
         write_script(
             &executable,
             r##"#!/bin/sh
 set -eu
 root=${0%/*}
+if [ -f "$root/server_down" ]; then printf 'Connection refused\n' >&2; exit 1; fi
+waiter=0
+if [ "${1:-}" = --client-name=slopos-audio-wait ]; then shift; waiter=1; fi
+case "$1" in
+  set-*|move-*)
+    [ ! -f "$root/writes_fail" ] || { printf 'Failure: Access denied\n' >&2; exit 1; }
+    [ ! -f "$root/writes_ignored" ] || exit 0 ;;
+esac
         case "$1" in
   info)
     printf 'Server Name: PulseAudio (on PipeWire)\nDefault Sink: %s\nDefault Source: %s\n' "$(cat "$root/default_output")" "$(cat "$root/default_input")"
@@ -977,7 +1038,10 @@ root=${0%/*}
     printf '%s\n' "${3%%%}" > "$root/output_volume"
     ;;
   set-source-volume) printf '%s\n' "${3%%%}" > "$root/input_volume" ;;
-  set-sink-mute) printf '%s\n' "$3" > "$root/output_mute" ;;
+  set-sink-mute)
+    [ "$2" = sink.denied ] && { printf 'Failure: Access denied\n' >&2; exit 1; }
+    [ "$2" = sink.failed ] && { printf 'Failure: device failure\n' >&2; exit 1; }
+    printf '%s\n' "$3" > "$root/output_mute" ;;
   set-source-mute) printf '%s\n' "$3" > "$root/input_mute" ;;
   set-default-sink) printf '%s\n' "$2" > "$root/default_output" ;;
   set-sink-input-volume) [ "$2" = 42 ] || exit 1; printf '%s\n' "${3%%%}" > "$root/stream_volume" ;;
@@ -985,15 +1049,25 @@ root=${0%/*}
   move-sink-input) [ "$2" = 42 ] || exit 1; [ "$3" = sink.two ] && printf 2 > "$root/stream_sink" ;;
   set-default-source) printf '%s\n' "$2" > "$root/default_input" ;;
   subscribe)
+    # The mutation waiter sees the events of its own write, from the log.
+    [ "$waiter" = 0 ] || exec tail -n 0 -F "$root/event_log"
     attempts=$(cat "$root/subscription_attempts")
     printf '%s\n' "$((attempts + 1))" > "$root/subscription_attempts"
     [ "$attempts" != 0 ] || exit 0
+    if [ -f "$root/hold_subscription" ]; then
+      read -r volume < "$root/events"
+      printf '%s\n' "$volume" > "$root/output_volume"
+      printf "Event 'change' on sink #1\n"
+      exit 0
+    fi
     printf '90\n' > "$root/output_volume.$$.tmp"
     mv "$root/output_volume.$$.tmp" "$root/output_volume"
     printf "Event 'change' on sink #1\n"
     ;;
   *) printf 'unexpected command: %s\n' "$*" >&2; exit 2 ;;
 esac
+# A write that reached this line succeeded: tell the server's subscribers.
+case "$1" in set-*|move-*) printf "Event 'change' on sink #1\n" >> "$root/event_log" ;; esac
 "##,
         );
         (
@@ -1057,6 +1131,25 @@ esac
         assert_eq!(
             AudioError::PermissionDenied("denied".into()).availability(),
             Availability::PermissionDenied
+        );
+    }
+
+    #[tokio::test]
+    async fn refused_mute_changes_are_reported_and_leave_the_mute_state_unchanged() {
+        let (client, directory) = fixture_client();
+        assert!(matches!(
+            client.set_output_muted("sink.denied", true).await,
+            Err(AudioError::PermissionDenied(_))
+        ));
+        assert!(matches!(
+            client.set_output_muted("sink.failed", true).await,
+            Err(AudioError::CommandFailed(_))
+        ));
+        assert_eq!(
+            std::fs::read_to_string(directory.path().join("output_mute"))
+                .unwrap()
+                .trim(),
+            "0"
         );
     }
 
@@ -1129,6 +1222,151 @@ esac
             reconnected.expect("watcher must reconnect and publish current audio state");
         assert!(reconnected.revision > first.revision);
         events.close().await;
+    }
+
+    async fn next_event(events: &mut AudioEventStream) -> Result<AudioSnapshot, AudioError> {
+        timeout(Duration::from_secs(5), events.next())
+            .await
+            .expect("audio watcher went silent")
+            .expect("audio watcher stopped")
+    }
+
+    #[tokio::test]
+    async fn server_that_answers_reads_but_fails_every_write_leaves_state_unchanged() {
+        let (client, directory) = fixture_client();
+        let before = client.snapshot().await.unwrap();
+        std::fs::write(directory.path().join("writes_fail"), "1").unwrap();
+
+        let failures = [
+            client.set_output_volume("sink.two", 42).await,
+            client.set_output_muted("sink.two", true).await,
+            client.set_input_volume("source.two", 33).await,
+            client.set_input_muted("source.two", true).await,
+            client.set_default_output("sink.two").await,
+            client.set_default_input("source.two").await,
+            client.adjust_default_output_volume(5).await,
+            client.toggle_default_output_mute().await,
+            client.set_stream_volume(42, 40).await,
+            client.set_stream_muted(42, true).await,
+            client.move_stream(42, "sink.two").await,
+        ];
+        for result in failures {
+            let error = result.expect_err("a refused write must not report success");
+            assert_eq!(
+                error.availability(),
+                Availability::PermissionDenied,
+                "unexpected write failure: {error}"
+            );
+        }
+
+        let after = client.snapshot().await.unwrap();
+        assert_eq!(after.availability, Availability::Available);
+        assert_eq!(after.default_output, before.default_output);
+        assert_eq!(after.default_input, before.default_input);
+        assert_eq!(after.outputs, before.outputs);
+        assert_eq!(after.inputs, before.inputs);
+        assert_eq!(after.streams, before.streams);
+        assert!(after.revision > before.revision);
+    }
+
+    #[tokio::test]
+    async fn accepted_write_that_never_reads_back_times_out_instead_of_succeeding() {
+        let (client, directory) = fixture_client();
+        std::fs::write(directory.path().join("writes_ignored"), "1").unwrap();
+        let error = client.set_output_volume("sink.two", 42).await.unwrap_err();
+        assert!(matches!(error, AudioError::Timeout), "{error:?}");
+        assert_eq!(error.availability(), Availability::Failed);
+        let after = client.snapshot().await.unwrap();
+        assert_eq!(after.outputs[1].volume_millipercent, [85_000, 85_000]);
+    }
+
+    #[tokio::test]
+    async fn lost_server_fails_reads_and_writes_then_recovers_without_stale_state() {
+        let (client, directory) = fixture_client();
+        let before = client.snapshot().await.unwrap();
+        let down = directory.path().join("server_down");
+        std::fs::write(&down, "1").unwrap();
+
+        let read = client.snapshot().await.unwrap_err();
+        assert_eq!(read.availability(), Availability::Disconnected);
+        let write = client.set_output_volume("sink.two", 42).await.unwrap_err();
+        assert_eq!(write.availability(), Availability::Disconnected);
+        let mute = client.toggle_default_output_mute().await.unwrap_err();
+        assert_eq!(mute.availability(), Availability::Disconnected);
+
+        std::fs::remove_file(&down).unwrap();
+        let after = client.snapshot().await.unwrap();
+        assert_eq!(after.availability, Availability::Available);
+        assert_eq!(after.outputs, before.outputs);
+        let volume = client.set_output_volume("sink.two", 42).await.unwrap();
+        assert_eq!(volume.outputs[1].volume_millipercent, [42_000, 42_000]);
+    }
+
+    #[tokio::test]
+    async fn watch_reports_server_loss_and_resumes_when_the_server_returns() {
+        let (client, directory) = fixture_client();
+        let down = directory.path().join("server_down");
+        std::fs::write(&down, "1").unwrap();
+        let mut events = client.watch();
+        assert!(matches!(
+            next_event(&mut events).await,
+            Err(AudioError::Disconnected)
+        ));
+
+        std::fs::remove_file(&down).unwrap();
+        let recovered = timeout(Duration::from_secs(10), async {
+            loop {
+                match next_event(&mut events).await {
+                    Ok(snapshot) => return snapshot,
+                    Err(AudioError::Disconnected) => {}
+                    Err(error) => panic!("unexpected audio watcher failure: {error}"),
+                }
+            }
+        })
+        .await
+        .expect("watcher must resume once the server answers again");
+        assert_eq!(recovered.availability, Availability::Available);
+        assert_eq!(recovered.default_output.as_deref(), Some("sink.one"));
+        drop(events);
+    }
+
+    #[tokio::test]
+    async fn events_after_a_reconnect_are_delivered_from_the_resumed_subscription() {
+        let (client, directory) = fixture_client();
+        let pipe = directory.path().join("events");
+        let made = std::process::Command::new("mkfifo")
+            .arg(&pipe)
+            .status()
+            .unwrap();
+        assert!(made.success());
+        std::fs::write(directory.path().join("hold_subscription"), "1").unwrap();
+
+        let mut events = client.watch();
+        let initial = next_event(&mut events).await.unwrap();
+        assert_eq!(initial.outputs[0].volume_millipercent, [85_000, 85_000]);
+        assert!(matches!(
+            next_event(&mut events).await,
+            Err(AudioError::Disconnected)
+        ));
+        let resumed = next_event(&mut events).await.unwrap();
+        assert_eq!(resumed.outputs[0].volume_millipercent, [85_000, 85_000]);
+
+        // Opening the pipe for writing waits until the resumed subscription
+        // reads it, so the server-side change happens only after the reconnect.
+        let writer = pipe.clone();
+        timeout(
+            Duration::from_secs(5),
+            tokio::task::spawn_blocking(move || std::fs::write(writer, "55\n")),
+        )
+        .await
+        .expect("resumed subscription must read the event pipe")
+        .unwrap()
+        .unwrap();
+
+        let event = next_event(&mut events).await.unwrap();
+        assert_eq!(event.outputs[0].volume_millipercent, [55_000, 55_000]);
+        assert!(event.revision > resumed.revision);
+        drop(events);
     }
 
     #[tokio::test]

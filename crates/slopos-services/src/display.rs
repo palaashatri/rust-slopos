@@ -538,8 +538,13 @@ pub struct DisplayClient {
 
 impl DisplayClient {
     pub fn connect() -> Result<Self, DisplayError> {
+        Self::connect_to(None)
+    }
+
+    /// Connects to `display`, or to `$DISPLAY` when it is `None`.
+    fn connect_to(display: Option<&str>) -> Result<Self, DisplayError> {
         let (conn, screen) =
-            x11rb::connect(None).map_err(|error| DisplayError::NoDisplay(error.to_string()))?;
+            x11rb::connect(display).map_err(|error| DisplayError::NoDisplay(error.to_string()))?;
         let root = conn.setup().roots[screen].root;
         let version = conn
             .randr_query_version(1, 3)
@@ -838,6 +843,57 @@ mod tests {
     }
 
     #[test]
+    fn display_errors_map_to_truthful_availability() {
+        assert_eq!(
+            DisplayError::NoDisplay("no socket".into()).availability(),
+            Availability::MissingService
+        );
+        assert_eq!(
+            DisplayError::Unsupported("RandR 1.2".into()).availability(),
+            Availability::UnsupportedHardware
+        );
+        assert_eq!(
+            DisplayError::Invalid("not connected".into()).availability(),
+            Availability::Failed
+        );
+        assert_eq!(
+            DisplayError::Failed("refused".into()).availability(),
+            Availability::Failed
+        );
+    }
+
+    #[test]
+    fn a_missing_x_display_is_reported_as_no_display() {
+        // The unix: prefix keeps x11rb from also trying TCP ports, so the
+        // test stays local. Display 65000 has no socket.
+        let Err(error) = DisplayClient::connect_to(Some("unix:65000")) else {
+            panic!("connected to a display that does not exist");
+        };
+        assert!(matches!(error, DisplayError::NoDisplay(_)), "{error:?}");
+        assert_eq!(error.availability(), Availability::MissingService);
+    }
+
+    #[test]
+    fn layouts_naming_an_unconnected_output_are_invalid_before_any_server_call() {
+        let snapshot = two_screens();
+        let mut configs = current_configs(&snapshot);
+        configs[1].name = "NO-SUCH-OUTPUT".into();
+        assert!(
+            matches!(
+                super::plan(&snapshot, &configs),
+                Err(DisplayError::Invalid(ref message)) if message.contains("not connected")
+            ),
+            "unknown output must be an invalid layout"
+        );
+        let mut all_off = current_configs(&snapshot);
+        all_off.iter_mut().for_each(|config| config.enabled = false);
+        assert!(matches!(
+            super::plan(&snapshot, &all_off),
+            Err(DisplayError::Invalid(_))
+        ));
+    }
+
+    #[test]
     fn mode_lines_give_refresh_rates() {
         // 1920x1080@60 CEA timing: 148.5 MHz, 2200 x 1125.
         assert_eq!(refresh_millihz(148_500_000, 2200, 1125, 0), 60000);
@@ -939,6 +995,18 @@ mod tests {
         assert_eq!(loaded[0].name, "OK");
         assert_eq!(loaded[0].extent(), (10, 10));
         assert!(load(&dir.path().join("missing")).is_empty());
+    }
+
+    #[test]
+    #[ignore = "needs an X server with RandR (run under Xvfb)"]
+    fn apply_refuses_an_unknown_output_and_leaves_the_screen_unchanged() {
+        let client = DisplayClient::connect().unwrap();
+        let before = client.snapshot().unwrap();
+        let mut configs = current_configs(&before);
+        configs[0].name = "NO-SUCH-OUTPUT".into();
+        let error = client.apply(&configs).unwrap_err();
+        assert!(matches!(error, DisplayError::Invalid(_)), "{error:?}");
+        assert_eq!(client.snapshot().unwrap(), before);
     }
 
     #[test]
