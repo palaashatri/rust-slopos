@@ -15,6 +15,10 @@ pub enum Kind {
     Other,
 }
 
+/// Device and inode of an item, used to tell whether the item at a path is
+/// still the one that was listed.
+pub type Identity = (u64, u64);
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
     pub name: OsString,
@@ -22,6 +26,7 @@ pub struct Entry {
     pub kind: Kind,
     pub bytes: u64,
     pub modified: Option<std::time::SystemTime>,
+    pub identity: Identity,
 }
 
 impl Entry {
@@ -44,10 +49,34 @@ impl Entry {
     }
 }
 
+/// The identity of `path` itself. Symlinks are not followed.
+pub fn identity_of(path: &Path) -> io::Result<Identity> {
+    use std::os::unix::fs::MetadataExt;
+    let metadata = fs::symlink_metadata(path)?;
+    Ok((metadata.dev(), metadata.ino()))
+}
+
+/// The folder the app starts in, with symlinks and `..` resolved, so that
+/// Up walks real parents. An unresolvable path is kept as given; the first
+/// read then reports the error.
+pub fn normalize_startup(path: PathBuf) -> PathBuf {
+    fs::canonicalize(&path).unwrap_or(path)
+}
+
 /// Read a *single* directory without recursively traversing children or
-/// following symlinks. Exactly-once directory entry validation prevents a
+/// following symlinks. Every folder on the path must be a real directory,
+/// not only the last one. Exactly-once directory entry validation prevents a
 /// partial listing from pretending to be a complete directory.
 pub fn read_directory(path: &Path) -> io::Result<Vec<Entry>> {
+    use std::os::unix::fs::MetadataExt;
+    for ancestor in path.ancestors().filter(|part| !part.as_os_str().is_empty()) {
+        if fs::symlink_metadata(ancestor)?.file_type().is_symlink() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "a folder on the path is a symlink (directory symlinks are deliberately not followed)",
+            ));
+        }
+    }
     let metadata = fs::symlink_metadata(path)?;
     if !metadata.file_type().is_dir() {
         return Err(io::Error::new(
@@ -80,6 +109,7 @@ pub fn read_directory(path: &Path) -> io::Result<Vec<Entry>> {
             kind,
             bytes: meta.len(),
             modified: meta.modified().ok(),
+            identity: (meta.dev(), meta.ino()),
         });
     }
     entries.sort_by(|a, b| {
@@ -244,6 +274,50 @@ mod tests {
     fn no_partial_data_is_returned_on_unreadable_target() {
         let root = fixture();
         assert!(read_directory(&root.join("missing")).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn intermediate_symlink_is_not_traversed() {
+        use std::os::unix::fs::symlink;
+        let root = fixture();
+        fs::create_dir_all(root.join("real").join("sub")).unwrap();
+        symlink(root.join("real"), root.join("link")).unwrap();
+        assert!(read_directory(&root.join("real").join("sub")).is_ok());
+        assert!(read_directory(&root.join("link").join("sub")).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn startup_folder_is_normalized_so_up_reaches_the_real_parent() {
+        use std::os::unix::fs::symlink;
+        let root = fixture();
+        fs::create_dir_all(root.join("real").join("sub")).unwrap();
+        symlink(root.join("real"), root.join("link")).unwrap();
+        let start = normalize_startup(root.join("link").join("sub").join(".."));
+        assert_eq!(start, fs::canonicalize(root.join("real")).unwrap());
+        let state = DirectoryState::new(start);
+        assert_eq!(state.parent(), Some(fs::canonicalize(&root).unwrap()));
+        // A missing folder is kept as given, so the read reports the error.
+        let missing = root.join("missing");
+        assert_eq!(normalize_startup(missing.clone()), missing);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn identity_changes_when_the_item_is_replaced() {
+        let root = fixture();
+        fs::write(root.join("a"), b"old").unwrap();
+        fs::write(root.join("c"), b"new").unwrap();
+        let listed = read_directory(&root).unwrap();
+        let before = listed.iter().find(|e| e.display_name() == "a").unwrap();
+        assert_eq!(identity_of(&before.path).unwrap(), before.identity);
+        // Replacing `a` with `c` keeps the name but not the item.
+        fs::rename(root.join("c"), root.join("a")).unwrap();
+        assert_ne!(identity_of(&before.path).unwrap(), before.identity);
         fs::remove_dir_all(root).unwrap();
     }
 }
