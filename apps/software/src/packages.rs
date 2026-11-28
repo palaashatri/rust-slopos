@@ -237,7 +237,9 @@ fn flathub_add_argv() -> Vec<String> {
 fn flatpak_install_argv(family: Family) -> Vec<String> {
     let (present, install) = match family {
         Family::Apt => (
-            "dpkg -s flatpak >/dev/null 2>&1",
+            // `dpkg -s` also succeeds for a removed package that keeps its config
+            // files, so only the installed status counts as present.
+            "dpkg-query -W -f='${Status}' flatpak 2>/dev/null | grep -qx 'install ok installed'",
             "env DEBIAN_FRONTEND=noninteractive apt-get install -y flatpak",
         ),
         Family::Dnf => ("rpm -q flatpak >/dev/null 2>&1", "dnf install -y flatpak"),
@@ -650,6 +652,17 @@ mod flatpak_setup_tests {
                 "{script}"
             );
         }
+    }
+
+    #[test]
+    fn a_removed_flatpak_with_config_files_is_not_treated_as_installed() {
+        let script = script(&flatpak_install_argv(Family::Apt)).to_owned();
+        assert!(
+            !script.contains("dpkg -s"),
+            "dpkg -s succeeds for config-files state: {script}"
+        );
+        assert!(script.contains("install ok installed"), "{script}");
+        assert!(script.ends_with("apt-get install -y flatpak"), "{script}");
     }
 
     #[test]
