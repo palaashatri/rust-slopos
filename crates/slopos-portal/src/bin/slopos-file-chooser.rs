@@ -213,7 +213,7 @@ fn open_with(args: &[String]) -> ExitCode {
         }
     };
     let path = PathBuf::from(&file);
-    let associations = mime::applications_for(&mime::guess(&path));
+    let associations = mime::native_applications_for(&mime::guess(&path));
     let items: Vec<OpenWithItem> = associations
         .iter()
         .map(|association| OpenWithItem {

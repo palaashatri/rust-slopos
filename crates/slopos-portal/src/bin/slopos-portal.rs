@@ -3,15 +3,16 @@
 //! on the session bus, for xdg-desktop-portal to call.
 //!
 //! `--test-first-file` answers every request with the first matching file
-//! instead of showing a dialog. It exists for the bus integration test and
-//! is not used by a desktop session.
+//! instead of showing a dialog, and `--test-cancel` answers every request as
+//! cancelled. They exist for the bus integration test and are not used by a
+//! desktop session.
 
 use std::io::Write;
 use std::process::ExitCode;
 use std::sync::Arc;
 
 use slopos_core::process::{first_available, FILE_CHOOSERS};
-use slopos_portal::backend::{Backend, FirstFileBackend, ProcessBackend};
+use slopos_portal::backend::{Backend, CancelBackend, FirstFileBackend, ProcessBackend};
 use slopos_portal::service;
 
 fn main() -> ExitCode {
@@ -20,15 +21,17 @@ fn main() -> ExitCode {
     }
     let test_mode = std::env::args()
         .skip(1)
-        .any(|arg| arg == "--test-first-file");
-    let backend: Arc<dyn Backend> = if test_mode {
-        Arc::new(FirstFileBackend)
-    } else {
-        if first_available(FILE_CHOOSERS).is_none() {
-            eprintln!("slopos-portal: slopos-file-chooser is not installed beside this program or on PATH");
-            return ExitCode::FAILURE;
+        .find(|arg| arg == "--test-first-file" || arg == "--test-cancel");
+    let backend: Arc<dyn Backend> = match test_mode.as_deref() {
+        Some("--test-first-file") => Arc::new(FirstFileBackend),
+        Some(_) => Arc::new(CancelBackend),
+        None => {
+            if first_available(FILE_CHOOSERS).is_none() {
+                eprintln!("slopos-portal: slopos-file-chooser is not installed beside this program or on PATH");
+                return ExitCode::FAILURE;
+            }
+            Arc::new(ProcessBackend::default())
         }
-        Arc::new(ProcessBackend::default())
     };
     // Held for the life of the process: dropping the connection unregisters the backend.
     let _connection = match service::serve(backend) {

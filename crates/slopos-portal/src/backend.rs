@@ -103,6 +103,16 @@ impl Backend for FirstFileBackend {
     }
 }
 
+/// Test mode: the user cancels every request, as if they had closed the dialog.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct CancelBackend;
+
+impl Backend for CancelBackend {
+    fn choose(&self, _spec: &ChooserSpec, _started: &dyn Fn(u32)) -> ChooserReply {
+        ChooserReply::Cancelled
+    }
+}
+
 fn first_choice(spec: &ChooserSpec, folder: &Path) -> Result<ChooserReply, String> {
     match spec.kind {
         Kind::OpenFolder => Ok(ChooserReply::Chosen {
@@ -240,5 +250,40 @@ mod tests {
             0,
             "the chooser's pid is reported before the wait"
         );
+    }
+
+    #[test]
+    fn a_dialog_that_reports_a_cancel_gives_a_cancelled_reply() {
+        let script: &'static str = "cat >/dev/null; printf '%s' '{\"status\":\"cancelled\"}'";
+        let args: &'static [&'static str] = Box::leak(vec!["-c", script].into_boxed_slice());
+        let candidates: Candidates = Box::leak(vec![("/bin/sh", args)].into_boxed_slice());
+        let reply = ProcessBackend::with_candidates(candidates)
+            .choose(&ChooserSpec::new(Kind::Open, "Open"), &|_| {});
+        assert_eq!(reply, ChooserReply::Cancelled);
+    }
+
+    #[test]
+    fn a_dialog_without_execute_permission_is_not_started_and_fails_the_request() {
+        use std::os::unix::fs::PermissionsExt;
+        const NO_ARGS: &[&str] = &[];
+        let dir = tempfile::tempdir().unwrap();
+        let program = dir.path().join("slopos-file-chooser");
+        std::fs::write(
+            &program,
+            b"#!/bin/sh\nprintf '{\"status\":\"cancelled\"}'\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o644)).unwrap();
+        let path: &'static str = Box::leak(program.to_string_lossy().into_owned().into_boxed_str());
+        let candidates: Candidates = Box::leak(Box::new([(path, NO_ARGS)]));
+        let reply = ProcessBackend::with_candidates(candidates)
+            .choose(&ChooserSpec::new(Kind::Open, "Open"), &|_| {});
+        match reply {
+            ChooserReply::Failed { message } => assert!(
+                message.contains("could not start the file chooser"),
+                "{message}"
+            ),
+            other => panic!("expected a failed reply, got {other:?}"),
+        }
     }
 }

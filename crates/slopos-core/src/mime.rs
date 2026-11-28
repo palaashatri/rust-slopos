@@ -308,6 +308,24 @@ fn candidates(mime: &str, lists: &[String], installed: &[DesktopApp]) -> Vec<Str
     ids
 }
 
+/// Desktop-file ids of the native SLOPOS applications. Open With offers only
+/// these. Third-party applications (GTK, Electron, the upstream browser that
+/// `slopos-browser` wraps) and the legacy GTK settings program are not native.
+pub const NATIVE_APP_IDS: &[&str] = &[
+    "slopos-calculator",
+    "slopos-control-panels",
+    "slopos-files",
+    "slopos-image-viewer",
+    "slopos-media",
+    "slopos-software",
+    "slopos-volume-mixer",
+];
+
+/// True when `app` is one of [`NATIVE_APP_IDS`].
+pub fn is_native_app(app: &DesktopApp) -> bool {
+    NATIVE_APP_IDS.contains(&app.id.as_str())
+}
+
 /// One application that can open a type, for an Open With chooser.
 #[derive(Debug, Clone)]
 pub struct Association {
@@ -325,6 +343,17 @@ pub fn applications_for(mime: &str) -> Vec<Association> {
         .filter_map(|path| fs::read_to_string(path).ok())
         .collect();
     associations_from(mime, &lists, &scan_desktop_apps())
+}
+
+/// The native applications that can open `mime`, for Open With. Non-native
+/// applications are dropped after the default is chosen, so `is_default`
+/// stays on the real default: when that default is not native, no entry is
+/// marked.
+pub fn native_applications_for(mime: &str) -> Vec<Association> {
+    applications_for(mime)
+        .into_iter()
+        .filter(|association| is_native_app(&association.app))
+        .collect()
 }
 
 fn associations_from(mime: &str, lists: &[String], installed: &[DesktopApp]) -> Vec<Association> {
@@ -427,6 +456,39 @@ mod tests {
             .collect();
         assert_eq!(ids, [("editor", true), ("viewer", false)]);
         assert!(associations_from("application/x-none", &[], &installed).is_empty());
+    }
+
+    #[test]
+    fn open_with_offers_only_native_apps_and_marks_only_the_real_default() {
+        let installed = vec![
+            app("slopos-browser", &["image/png"]),
+            app("mousepad", &["image/png"]),
+            app("slopos-image-viewer", &["image/png"]),
+        ];
+        // The real default is a third-party app: no native entry is marked.
+        let lists = vec!["[Default Applications]\nimage/png=mousepad.desktop\n".to_owned()];
+        let native: Vec<(String, bool)> = associations_from("image/png", &lists, &installed)
+            .into_iter()
+            .filter(|association| is_native_app(&association.app))
+            .map(|association| (association.app.id.clone(), association.is_default))
+            .collect();
+        assert_eq!(native, [("slopos-image-viewer".to_owned(), false)]);
+
+        // With no default list, the first native candidate is the default.
+        let native: Vec<(String, bool)> = associations_from("image/png", &[], &installed)
+            .into_iter()
+            .filter(|association| is_native_app(&association.app))
+            .map(|association| (association.app.id.clone(), association.is_default))
+            .collect();
+        assert_eq!(native, [("slopos-image-viewer".to_owned(), true)]);
+    }
+
+    #[test]
+    fn the_browser_wrapper_and_legacy_settings_are_not_native() {
+        assert!(!is_native_app(&app("slopos-browser", &[])));
+        assert!(!is_native_app(&app("slopos-settings", &[])));
+        assert!(!is_native_app(&app("mousepad", &[])));
+        assert!(is_native_app(&app("slopos-files", &[])));
     }
 
     #[test]

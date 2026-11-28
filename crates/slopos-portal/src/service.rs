@@ -29,7 +29,7 @@
 //! dialog is open stops the program, and the call then replies with response 1.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use zbus::zvariant::{OwnedObjectPath, Value};
@@ -116,14 +116,45 @@ impl RequestObject {
     async fn created(ctxt: &SignalContext<'_>) -> zbus::Result<()>;
 }
 
+/// The most file chooser requests that run at once. Each one holds a thread
+/// and a dialog process, so a caller cannot start more than this; the next
+/// call is refused with `LimitsExceeded` until one finishes.
+pub const MAX_ACTIVE_REQUESTS: usize = 4;
+
+/// One running request's place in the count of active requests. It is
+/// released when the request is dropped, whatever way the call ends.
+#[derive(Debug)]
+pub struct RequestSlot(Arc<AtomicUsize>);
+
+impl RequestSlot {
+    /// Take a slot, or `None` when [`MAX_ACTIVE_REQUESTS`] are already running.
+    pub fn reserve(active: &Arc<AtomicUsize>) -> Option<Self> {
+        if active.fetch_add(1, Ordering::SeqCst) >= MAX_ACTIVE_REQUESTS {
+            active.fetch_sub(1, Ordering::SeqCst);
+            return None;
+        }
+        Some(Self(active.clone()))
+    }
+}
+
+impl Drop for RequestSlot {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
 /// `org.freedesktop.impl.portal.FileChooser` for one backend.
 pub struct FileChooserPortal {
     backend: Arc<dyn Backend>,
+    active: Arc<AtomicUsize>,
 }
 
 impl FileChooserPortal {
     pub fn new(backend: Arc<dyn Backend>) -> Self {
-        Self { backend }
+        Self {
+            backend,
+            active: Arc::new(AtomicUsize::new(0)),
+        }
     }
 
     /// Export the Request at `handle`, run the chooser on its own thread and
@@ -137,6 +168,9 @@ impl FileChooserPortal {
         title: &str,
         options: &OptionMap<'_>,
     ) -> fdo::Result<Answer> {
+        let _slot = RequestSlot::reserve(&self.active).ok_or_else(|| {
+            fdo::Error::LimitsExceeded("too many file chooser requests are running".into())
+        })?;
         let spec = parse_options(kind, title, options).map_err(fdo::Error::InvalidArgs)?;
         let state = Arc::new(RequestState::default());
         let object_server = connection.object_server();
@@ -326,5 +360,21 @@ mod tests {
         let output = child.wait_with_output().expect("wait");
         assert!(!output.status.success(), "a late attach is stopped at once");
         assert!(state.is_closed());
+    }
+
+    #[test]
+    fn requests_are_bounded_and_a_finished_request_frees_its_slot() {
+        let active = Arc::new(AtomicUsize::new(0));
+        let slots: Vec<RequestSlot> = (0..MAX_ACTIVE_REQUESTS)
+            .map(|_| RequestSlot::reserve(&active).expect("a slot below the bound"))
+            .collect();
+        assert!(
+            RequestSlot::reserve(&active).is_none(),
+            "a request past the bound is refused"
+        );
+        assert_eq!(active.load(Ordering::SeqCst), MAX_ACTIVE_REQUESTS);
+        drop(slots);
+        assert_eq!(active.load(Ordering::SeqCst), 0, "every slot is released");
+        assert!(RequestSlot::reserve(&active).is_some());
     }
 }

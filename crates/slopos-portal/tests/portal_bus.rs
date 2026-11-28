@@ -40,11 +40,11 @@ impl Drop for Service {
     }
 }
 
-/// Start the backend and wait for its "ready" line (written after the bus
-/// name is owned).
-fn start_service() -> Service {
+/// Start the backend in test `mode` and wait for its "ready" line (written
+/// after the bus name is owned).
+fn start_service(mode: &str) -> Service {
     let mut child = Command::new(env!("CARGO_BIN_EXE_slopos-portal"))
-        .arg("--test-first-file")
+        .arg(mode)
         .stdout(Stdio::piped())
         .spawn()
         .expect("start slopos-portal");
@@ -67,27 +67,9 @@ fn nul_terminated(path: &std::path::Path) -> Vec<u8> {
 /// The method reply: `(response, results)`.
 type Answer = (u32, HashMap<String, OwnedValue>);
 
-/// Call a backend method with the handle the frontend would have chosen.
-fn call(
-    conn: &Connection,
-    method: &str,
-    handle: &str,
-    title: &str,
-    options: HashMap<&str, Value<'_>>,
-) -> zbus::Result<Answer> {
-    let handle = ObjectPath::try_from(handle)?;
-    let reply = conn.call_method(
-        Some(BUS),
-        OBJECT,
-        Some(FILE_CHOOSER),
-        method,
-        &(handle, "", "", title, options),
-    )?;
-    reply.body().deserialize::<Answer>()
-}
-
 /// Run `f` on a thread and wait for its result, bounded by [`WAIT`] so a
-/// broken service fails the test instead of hanging it.
+/// broken service fails the test instead of hanging it. Every D-Bus call in
+/// this test goes through here.
 fn within_wait<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
     let (sender, receiver) = mpsc::channel();
     std::thread::spawn(move || {
@@ -98,10 +80,36 @@ fn within_wait<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
         .expect("the backend answered within the timeout")
 }
 
+/// Call a backend method with the handle the frontend would have chosen. The
+/// call runs under [`within_wait`].
+fn call(
+    conn: &Connection,
+    method: &'static str,
+    handle: &'static str,
+    title: &'static str,
+    options: HashMap<&'static str, Value<'static>>,
+) -> zbus::Result<Answer> {
+    let conn = conn.clone();
+    within_wait(move || -> zbus::Result<Answer> {
+        let handle = ObjectPath::try_from(handle)?;
+        let reply = conn.call_method(
+            Some(BUS),
+            OBJECT,
+            Some(FILE_CHOOSER),
+            method,
+            &(handle, "", "", title, options),
+        )?;
+        reply.body().deserialize::<Answer>()
+    })
+}
+
 /// Subscribe to the Request object at `handle` before the call that exports
-/// it, so the `Created` signal is not missed.
+/// it, so the `Created` signal is not missed. The match rule is added on the
+/// bus, so it runs under [`within_wait`] too.
 fn subscribe(conn: &Connection, handle: &str) -> Proxy<'static> {
-    Proxy::new(conn, BUS, handle.to_owned(), REQUEST).expect("Request proxy")
+    let conn = conn.clone();
+    let handle = handle.to_owned();
+    within_wait(move || Proxy::new(&conn, BUS, handle, REQUEST).expect("Request proxy"))
 }
 
 fn uris_of(results: &HashMap<String, OwnedValue>) -> Vec<String> {
@@ -119,17 +127,20 @@ fn file_chooser_backend_answers_through_the_request_object_on_the_bus() {
     std::fs::write(folder.path().join("a.png"), b"x").unwrap();
     let empty = tempfile::tempdir().expect("empty folder");
 
-    let _service = start_service();
+    let service = start_service("--test-first-file");
     let conn = Connection::session().expect("session bus");
 
     // The backend owns its own name and leaves the frontend's name alone.
-    let names: Vec<String> = DBusProxy::new(&conn)
-        .expect("bus proxy")
-        .list_names()
-        .expect("list names")
-        .into_iter()
-        .map(|name| name.to_string())
-        .collect();
+    let bus = conn.clone();
+    let names: Vec<String> = within_wait(move || {
+        DBusProxy::new(&bus)
+            .expect("bus proxy")
+            .list_names()
+            .expect("list names")
+            .into_iter()
+            .map(|name| name.to_string())
+            .collect()
+    });
     assert!(
         names.iter().any(|name| name == BUS),
         "the backend name is owned"
@@ -143,7 +154,8 @@ fn file_chooser_backend_answers_through_the_request_object_on_the_bus() {
     // then by name), so a.png is chosen. The reply is the answer.
     let handle = "/org/freedesktop/portal/desktop/request/xdgtest/open_token";
     let request = subscribe(&conn, handle);
-    let created = request.receive_signal("Created").expect("subscribe");
+    let subscribed = request.clone();
+    let created = within_wait(move || subscribed.receive_signal("Created").expect("subscribe"));
     let mut options: HashMap<&str, Value<'_>> = HashMap::new();
     options.insert("current_folder", Value::from(nul_terminated(folder.path())));
     let (code, results) = call(&conn, "OpenFile", handle, "Open", options).expect("OpenFile");
@@ -159,8 +171,9 @@ fn file_chooser_backend_answers_through_the_request_object_on_the_bus() {
         uris_of(&results),
         vec![file_uri(&folder.path().join("a.png")).unwrap()]
     );
+    let close = request.clone();
     assert!(
-        request.call_method("Close", &()).is_err(),
+        within_wait(move || close.call_method("Close", &()).is_err()),
         "the Request is unexported once the call has answered"
     );
 
@@ -198,4 +211,16 @@ fn file_chooser_backend_answers_through_the_request_object_on_the_bus() {
     let mut options: HashMap<&str, Value<'_>> = HashMap::new();
     options.insert("multiple", Value::from("yes"));
     assert!(call(&conn, "OpenFile", handle, "Open", options).is_err());
+
+    // Cancel: the user closed the dialog without a choice. The reply is
+    // response 1 with no results. A backend in cancel mode answers it; the
+    // first backend is stopped before the second takes the bus name.
+    drop(service);
+    let _cancelling = start_service("--test-cancel");
+    let handle = "/org/freedesktop/portal/desktop/request/xdgtest/cancel_token";
+    let mut options: HashMap<&str, Value<'_>> = HashMap::new();
+    options.insert("current_folder", Value::from(nul_terminated(folder.path())));
+    let (code, results) = call(&conn, "OpenFile", handle, "Open", options).expect("OpenFile");
+    assert_eq!(code, 1, "a cancelled request answers with response 1");
+    assert!(results.is_empty(), "a cancelled request has no results");
 }
