@@ -9,6 +9,9 @@ use slopos_services::audio::{AudioDevice, AudioSnapshot};
 use slopos_services::bluetooth::{BluetoothDevice, BluetoothSnapshot};
 use slopos_services::brightness::BrightnessSnapshot;
 use slopos_services::network::{NetworkDeviceState, NetworkDeviceType, NetworkSnapshot};
+use slopos_services::power::{
+    Battery, BatteryStatus, BatteryWarning, PowerSnapshot, PowerSource, SuspendCapability,
+};
 use slopos_services::timedate::TimedateSnapshot;
 
 /// Why a provider has nothing to show.
@@ -428,6 +431,65 @@ pub fn timedate_lines(snapshot: &TimedateSnapshot) -> Vec<String> {
     ]
 }
 
+fn battery_status(status: BatteryStatus) -> &'static str {
+    match status {
+        BatteryStatus::Charging => "charging",
+        BatteryStatus::Discharging => "discharging",
+        BatteryStatus::Empty => "empty",
+        BatteryStatus::Full => "full",
+        BatteryStatus::PendingCharge => "waiting to charge",
+        BatteryStatus::PendingDischarge => "waiting to discharge",
+        BatteryStatus::Unknown => "status unknown",
+    }
+}
+
+/// Where the zone timedated reports is in the list it offers, so the list
+/// can show it selected. `None` when the zone is not in the list.
+pub fn timezone_index(zones: &[String], current: &str) -> Option<usize> {
+    zones.iter().position(|zone| zone == current)
+}
+
+/// The battery, the power source and whether suspend can be used, as UPower
+/// and logind report them. Without UPower the battery is not guessed at.
+pub fn power_lines(snapshot: &PowerSnapshot) -> Vec<String> {
+    let battery = match &snapshot.battery {
+        Some(Battery {
+            percentage,
+            status,
+            warning,
+            ..
+        }) => {
+            let warning = match warning {
+                BatteryWarning::Low => ", low",
+                BatteryWarning::Critical => ", critically low",
+                BatteryWarning::None | BatteryWarning::Unknown => "",
+            };
+            format!(
+                "Battery: {percentage:.0}%, {}{warning}",
+                battery_status(*status)
+            )
+        }
+        None if snapshot.availability == Availability::MissingService => {
+            "Battery: unavailable (UPower is not running).".to_owned()
+        }
+        None => "No battery was found.".to_owned(),
+    };
+    let source = match snapshot.source {
+        PowerSource::Battery => "Running on battery power.",
+        PowerSource::External => "Connected to external power.",
+        PowerSource::Unknown => "Power source: unknown.",
+    };
+    let suspend = match snapshot.suspend {
+        SuspendCapability::Available => "Suspend is available.",
+        SuspendCapability::RequiresAuthorization => {
+            "Suspend needs authorization that SLOPOS cannot ask for yet."
+        }
+        SuspendCapability::Unavailable => "Suspend is not available on this computer.",
+        SuspendCapability::Unknown => "Suspend: unknown.",
+    };
+    vec![battery, source.to_owned(), suspend.to_owned()]
+}
+
 /// The appearances `slopos-appearance` accepts.
 pub const APPEARANCES: &[(&str, &str)] = &[
     ("platinum", "Platinum"),
@@ -733,5 +795,67 @@ mod tests {
         assert_eq!(current_appearance(dir.path()).as_deref(), Some("graphite"));
         std::fs::write(dir.path().join("slopos-i/appearance"), "../../etc").unwrap();
         assert_eq!(current_appearance(dir.path()), None);
+    }
+
+    fn power(battery: Option<Battery>, availability: Availability) -> PowerSnapshot {
+        PowerSnapshot {
+            revision: 1,
+            availability,
+            battery,
+            source: PowerSource::External,
+            suspend: SuspendCapability::Available,
+            lid_present: false,
+            lid_closed: None,
+        }
+    }
+
+    #[test]
+    fn power_lines_report_the_battery_source_and_suspend_as_reported() {
+        let low = Battery {
+            percentage: 7.4,
+            status: BatteryStatus::Discharging,
+            warning: BatteryWarning::Low,
+            energy_rate_watts: Some(9.0),
+        };
+        let mut snapshot = power(Some(low), Availability::Available);
+        snapshot.source = PowerSource::Battery;
+        snapshot.suspend = SuspendCapability::RequiresAuthorization;
+        let lines = power_lines(&snapshot);
+        assert_eq!(lines[0], "Battery: 7%, discharging, low");
+        assert_eq!(lines[1], "Running on battery power.");
+        assert!(lines[2].starts_with("Suspend needs authorization"));
+
+        let full = Battery {
+            percentage: 100.0,
+            status: BatteryStatus::Full,
+            warning: BatteryWarning::None,
+            energy_rate_watts: None,
+        };
+        let lines = power_lines(&power(Some(full), Availability::Available));
+        assert_eq!(lines[0], "Battery: 100%, full");
+        assert_eq!(lines[1], "Connected to external power.");
+        assert_eq!(lines[2], "Suspend is available.");
+    }
+
+    #[test]
+    fn timezone_index_finds_only_zones_the_provider_offers() {
+        let zones = vec!["Europe/London".to_owned(), "Europe/Paris".to_owned()];
+        assert_eq!(timezone_index(&zones, "Europe/Paris"), Some(1));
+        assert_eq!(timezone_index(&zones, "Europe/paris"), None);
+        assert_eq!(timezone_index(&zones, ""), None);
+    }
+
+    #[test]
+    fn power_lines_never_invent_a_battery() {
+        // No battery on a desktop; UPower absent (the battery is unknown).
+        let lines = power_lines(&power(None, Availability::UnsupportedHardware));
+        assert_eq!(lines[0], "No battery was found.");
+        let mut missing = power(None, Availability::MissingService);
+        missing.source = PowerSource::Unknown;
+        missing.suspend = SuspendCapability::Unknown;
+        let lines = power_lines(&missing);
+        assert_eq!(lines[0], "Battery: unavailable (UPower is not running).");
+        assert_eq!(lines[1], "Power source: unknown.");
+        assert_eq!(lines[2], "Suspend: unknown.");
     }
 }

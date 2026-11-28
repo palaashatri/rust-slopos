@@ -12,6 +12,7 @@ use slopos_services::brightness::{BrightnessClient, BrightnessSnapshot};
 use slopos_services::display::{DisplayClient, DisplaySnapshot, OutputConfig};
 use slopos_services::input::{self, InputClient, InputSettings, InputSnapshot};
 use slopos_services::network::{NetworkManagerClient, NetworkSnapshot};
+use slopos_services::power::{PowerClient, PowerSnapshot};
 use slopos_services::timedate::{TimedateClient, TimedateSnapshot};
 use tokio::sync::mpsc as async_mpsc;
 
@@ -24,6 +25,11 @@ pub enum Update {
     Brightness(State<BrightnessSnapshot>),
     Bluetooth(State<BluetoothSnapshot>),
     Time(State<TimedateSnapshot>),
+    /// The zones timedated offers, read once at start.
+    TimeZones(State<Vec<String>>),
+    /// The time zone was set (the new reading comes as `Time`).
+    TimezoneSet(String),
+    Power(State<PowerSnapshot>),
     Displays(State<DisplaySnapshot>),
     Input(State<InputSnapshot>),
     /// A display change finished: `None` when the server took it.
@@ -70,6 +76,12 @@ pub enum Command {
     /// Forget (adapter, device).
     ForgetBluetooth(String, String),
     SetNtp(bool),
+    /// Set the time zone; the provider checks it is one it offers.
+    SetTimezone(String),
+    /// Read the power state again (the panel was opened).
+    RefreshPower,
+    /// Suspend, then read the power state back.
+    Suspend,
     ApplyDisplays(Vec<OutputConfig>),
     /// Apply keyboard and mouse settings, then save them here.
     ApplyInput(InputSettings, Option<std::path::PathBuf>),
@@ -141,6 +153,7 @@ async fn run(
     let audio = AudioClient::connect().await;
     let bluetooth = BluetoothClient::connect().await;
     let timedate = TimedateClient::connect().await;
+    let power = PowerClient::connect().await;
     let brightness = BrightnessClient::new();
     // Pairing waits for the device (up to a minute), so it runs beside the
     // loop, which stays free to cancel it.
@@ -207,6 +220,20 @@ async fn run(
             timedate_events = Some(client.watch());
         }
         Err(error) => send(Update::Time(Err(unavailable!(error)))),
+    }
+    match &timedate {
+        Ok(client) => send(Update::TimeZones(
+            client.list_timezones().await.map_err(|e| unavailable!(e)),
+        )),
+        Err(error) => send(Update::TimeZones(Err(unavailable!(error)))),
+    }
+    // Power is read when the panel opens, not watched: the power client's
+    // watcher polls, and this loop must not.
+    match &power {
+        Ok(client) => send(Update::Power(
+            client.snapshot().await.map_err(|e| unavailable!(e)),
+        )),
+        Err(error) => send(Update::Power(Err(unavailable!(error)))),
     }
     send(Update::Brightness(
         brightness.snapshot().map_err(|e| unavailable!(e)),
@@ -359,6 +386,31 @@ async fn run(
                                 send(Update::Input(client.snapshot().map_err(|e| unavailable!(e))));
                                 Err(error.to_string())
                             }
+                        },
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::SetTimezone(zone) => match &timedate {
+                        Ok(client) => match client.set_timezone(&zone).await {
+                            Ok(snapshot) => {
+                                send(Update::Time(Ok(snapshot)));
+                                Ok(Some(Update::TimezoneSet(zone)))
+                            }
+                            Err(e) => Err(e.to_string()),
+                        },
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Command::RefreshPower => match &power {
+                        Ok(client) => Ok(Some(Update::Power(
+                            client.snapshot().await.map_err(|e| unavailable!(e)),
+                        ))),
+                        Err(e) => Ok(Some(Update::Power(Err(unavailable!(e))))),
+                    },
+                    Command::Suspend => match &power {
+                        Ok(client) => match client.request_suspend().await {
+                            Ok(()) => Ok(Some(Update::Power(
+                                client.snapshot().await.map_err(|e| unavailable!(e)),
+                            ))),
+                            Err(e) => Err(e.to_string()),
                         },
                         Err(e) => Err(e.to_string()),
                     },
