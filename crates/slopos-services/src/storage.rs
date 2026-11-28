@@ -2540,7 +2540,7 @@ mod tests {
     fn the_blocking_snapshot_returns_a_result_on_the_calling_thread() {
         // Without a system bus this fails at once with a typed error. With one
         // it returns a snapshot. Either way it must return, never hang.
-        match snapshot_blocking() {
+        match super::snapshot_blocking() {
             Ok(snapshot) => assert_eq!(snapshot.availability, Availability::Available),
             Err(error) => assert_ne!(error.availability(), Availability::Loading),
         }
