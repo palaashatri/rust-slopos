@@ -30,7 +30,7 @@ apps launched from the top bar, desktop or Dock: detached (setsid), reaped, not 
 
 | Crate | Kind | Toolkit | What it does |
 |---|---|---|---|
-| `slopos-core` | library | — | Shared primitives: XDG paths, `.desktop` discovery and parsing, process launch/resolve/reap, capability and IPC types. |
+| `slopos-core` | library | — | Shared primitives: XDG paths, `.desktop` discovery and parsing, process launch/resolve/reap, capability and IPC types, and the portable launcher search model (`launcher_search`: typed providers for applications, settings panels, session actions and bounded file scans; ranking; keyboard selection; accessible labels). The search model is not yet wired into the top bar launcher. |
 | `slopos-ui` | library | **own** | The SLOPOS toolkit (below). No GTK. |
 | `slopos-services` | library | — | System providers with typed snapshots, "unavailable" when a service is missing: NetworkManager (incl. Wi-Fi join/forget), audio (PipeWire/Pulse devices and per-application streams), brightness, UPower, timedate, BlueZ (incl. pairing and forgetting devices), MPRIS, UDisks, display outputs (XRandR) and keyboard/mouse settings (XKB, XInput 2 libinput properties). |
 | `slopos-session` | binary | — | Session supervisor (above). |
