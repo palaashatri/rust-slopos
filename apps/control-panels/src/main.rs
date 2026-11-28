@@ -20,6 +20,7 @@ use slopos_services::bluetooth::BluetoothSnapshot;
 use slopos_services::brightness::BrightnessSnapshot;
 use slopos_services::display::{self, DisplaySnapshot, OutputConfig, Placement};
 use slopos_services::network::{NetworkDeviceType, NetworkSnapshot};
+use slopos_services::printers::PrintersSnapshot;
 use slopos_services::timedate::TimedateSnapshot;
 use slopos_ui::accessibility::window_tree;
 use slopos_ui::controls::button::{Button, ButtonOutcome};
@@ -110,6 +111,9 @@ const REPEAT_RATE_ID: u64 = 92;
 const POINTER_SPEED_ID: u64 = 93;
 const NATURAL_SCROLL_ID: u64 = 94;
 const LEFT_HANDED_ID: u64 = 95;
+const TAP_TO_CLICK_ID: u64 = 96;
+const DOCK_AUTOHIDE_ID: u64 = 97;
+const PRINTERS_LIST_ID: u64 = 56;
 const APPEARANCE_LIST_ID: u64 = 70;
 const APPLY_ID: u64 = 71;
 const WALLPAPER_LIST_ID: u64 = 80;
@@ -130,10 +134,12 @@ enum Panel {
     Desktop,
     Appearance,
     Input,
+    Printers,
+    Dock,
 }
 
 /// Theme icon candidates per panel (Adwaita ships mostly symbolic ones).
-const PANEL_ICONS: [&[&str]; 8] = [
+const PANEL_ICONS: [&[&str]; 10] = [
     &[
         "network-workgroup",
         "network-wireless-symbolic",
@@ -162,9 +168,11 @@ const PANEL_ICONS: [&[&str]; 8] = [
         "input-keyboard-symbolic",
         "input-mouse-symbolic",
     ],
+    &["printer", "printer-symbolic", "printer-network"],
+    &["preferences-desktop", "preferences-desktop-symbolic"],
 ];
 
-const PANELS: [(Panel, &str); 8] = [
+const PANELS: [(Panel, &str); 10] = [
     (Panel::Network, "Network"),
     (Panel::Sound, "Sound"),
     (Panel::Display, "Display"),
@@ -173,6 +181,8 @@ const PANELS: [(Panel, &str); 8] = [
     (Panel::Desktop, "Desktop"),
     (Panel::Appearance, "Appearance"),
     (Panel::Input, "Keyboard & Mouse"),
+    (Panel::Printers, "Printers"),
+    (Panel::Dock, "Dock"),
 ];
 
 type WakeSlot = Arc<Mutex<Option<Proxy>>>;
@@ -189,6 +199,8 @@ fn panel_for_argument(argument: &str) -> Option<usize> {
         "appearance" | "theme" => Panel::Appearance,
         "desktop" | "wallpaper" | "background" => Panel::Desktop,
         "keyboard" | "mouse" | "input" | "touchpad" => Panel::Input,
+        "printers" | "printer" => Panel::Printers,
+        "dock" => Panel::Dock,
         other => {
             return PANELS
                 .iter()
@@ -242,6 +254,7 @@ pub struct ControlPanels {
     pointer_speed: Slider,
     natural_scroll: Checkbox,
     left_handed: Checkbox,
+    tap_to_click: Checkbox,
     /// Settings sent and not yet answered; the controls show these.
     input_sent: Option<slopos_services::input::InputSettings>,
     /// The output the Displays controls edit.
@@ -265,6 +278,12 @@ pub struct ControlPanels {
     /// The device being paired, until BlueZ answers.
     pairing: Option<String>,
     ntp: Checkbox,
+    /// CUPS' queues, read when the Printers panel is shown.
+    printers: State<PrintersSnapshot>,
+    printers_list: ListView,
+    /// The Dock's auto-hide preference from `dock.conf`.
+    dock: State<bool>,
+    dock_autohide: Checkbox,
     appearance_list: ListView,
     apply: Button,
     wallpaper: Option<Wallpaper>,
@@ -421,6 +440,7 @@ impl ControlPanels {
             pointer_speed: Slider::new(POINTER_SPEED_ID, "Pointer speed", 0.0, 100.0, 5.0),
             natural_scroll: Checkbox::new(NATURAL_SCROLL_ID, "Natural scrolling", false),
             left_handed: Checkbox::new(LEFT_HANDED_ID, "Left-handed buttons", false),
+            tap_to_click: Checkbox::new(TAP_TO_CLICK_ID, "Tap to click", false),
             input_sent: None,
             output: PopUpButton::new(OUTPUT_ID, "Display"),
             resolution: PopUpButton::new(RESOLUTION_ID, "Resolution"),
@@ -443,6 +463,10 @@ impl ControlPanels {
             bt_forget: Button::new(BT_FORGET_ID, "Forget", ButtonPlateVariant::Regular),
             pairing: None,
             ntp: Checkbox::new(NTP_ID, "Set time automatically", false),
+            printers: model::loading(),
+            printers_list: ListView::new(PRINTERS_LIST_ID, "Printers", 20),
+            dock: model::loading(),
+            dock_autohide: Checkbox::new(DOCK_AUTOHIDE_ID, "Hide the Dock automatically", false),
             appearance_list,
             apply: Button::new(APPLY_ID, "Apply", ButtonPlateVariant::Default),
             wallpaper,
@@ -574,6 +598,7 @@ impl ControlPanels {
         self.pointer_speed.bounds = slider_at(top + 132);
         self.natural_scroll = self.natural_scroll.clone().at(x + 110, top + 172);
         self.left_handed = self.left_handed.clone().at(x + 110, top + 196);
+        self.tap_to_click = self.tap_to_click.clone().at(x + 110, top + 220);
         self.output_device.bounds = popup_at(top);
         self.output_volume.bounds = slider_at(top + 30);
         self.output_mute = self.output_mute.clone().at(x + 350, top + 30);
@@ -636,6 +661,13 @@ impl ControlPanels {
             };
         }
         self.ntp = self.ntp.clone().at(x, top);
+        self.dock_autohide = self.dock_autohide.clone().at(x, top);
+        self.printers_list.set_bounds(Rect {
+            x: x + 1,
+            y: top,
+            width: c.width.saturating_sub(2),
+            height: c.height.saturating_sub(120),
+        });
         self.appearance_list.set_bounds(Rect {
             x: x + 1,
             y: c.y + 60,
@@ -719,6 +751,8 @@ impl ControlPanels {
             Panel::DateTime => vec![NTP_ID],
             Panel::Desktop => vec![WALLPAPER_LIST_ID, SET_PICTURE_ID, CHOOSE_PICTURE_ID],
             Panel::Appearance => vec![APPEARANCE_LIST_ID, APPLY_ID],
+            Panel::Printers => vec![PRINTERS_LIST_ID],
+            Panel::Dock => vec![DOCK_AUTOHIDE_ID],
             Panel::Input => vec![
                 LAYOUT_ID,
                 REPEAT_DELAY_ID,
@@ -726,6 +760,7 @@ impl ControlPanels {
                 POINTER_SPEED_ID,
                 NATURAL_SCROLL_ID,
                 LEFT_HANDED_ID,
+                TAP_TO_CLICK_ID,
             ],
         });
         // A pop-up with nothing to choose is skipped, as disabled controls
@@ -777,6 +812,9 @@ impl ControlPanels {
         self.pointer_speed.focused = f == Some(POINTER_SPEED_ID);
         self.natural_scroll.focused = f == Some(NATURAL_SCROLL_ID);
         self.left_handed.focused = f == Some(LEFT_HANDED_ID);
+        self.tap_to_click.focused = f == Some(TAP_TO_CLICK_ID);
+        self.printers_list.focused = f == Some(PRINTERS_LIST_ID);
+        self.dock_autohide.focused = f == Some(DOCK_AUTOHIDE_ID);
         self.output_device.focused = f == Some(OUTPUT_DEVICE_ID);
         self.input_device.focused = f == Some(INPUT_DEVICE_ID);
         self.app.focused = f == Some(APP_ID);
@@ -918,6 +956,12 @@ impl ControlPanels {
             }
             Err(_) => self.ntp.enabled = false,
         }
+        let printers = self.printers.as_ref().map_or(0, |s| s.printers.len());
+        if self.printers_list.len() != printers {
+            self.printers_list.reset(printers);
+        }
+        self.dock_autohide.enabled = self.dock.is_ok();
+        self.dock_autohide.checked = self.dock.clone().unwrap_or(false);
         self.apply.enabled = self.appearance_list.cursor().is_some();
         self.set_picture.enabled = self.wallpaper_list.cursor().is_some();
         let current = self.panel();
@@ -939,6 +983,8 @@ impl ControlPanels {
                 self.input = state;
                 self.input_sent = None;
             }
+            Update::Printers(state) => self.printers = state,
+            Update::Dock(state) => self.dock = state,
             Update::DisplaysApplied(error) => match (error, self.keep.as_mut()) {
                 (None, Some(pending)) if !pending.applied => {
                     pending.applied = true;
@@ -1191,6 +1237,7 @@ impl ControlPanels {
         let tunable = settings.as_ref().is_some_and(|(_, n)| *n > 0);
         self.pointer_speed.enabled = tunable;
         self.natural_scroll.enabled = tunable;
+        self.tap_to_click.enabled = self.input.as_ref().is_ok_and(|s| s.tap_capable > 0);
         if let Some((settings, _)) = settings {
             if !self.repeat_delay.dragging() {
                 self.repeat_delay
@@ -1206,6 +1253,7 @@ impl ControlPanels {
             }
             self.natural_scroll.checked = settings.natural_scrolling;
             self.left_handed.checked = settings.left_handed;
+            self.tap_to_click.checked = settings.tap_to_click;
         }
     }
 
@@ -1232,6 +1280,9 @@ impl ControlPanels {
             settings.natural_scrolling = self.natural_scroll.checked;
         }
         settings.left_handed = self.left_handed.checked;
+        if snapshot.tap_capable > 0 {
+            settings.tap_to_click = self.tap_to_click.checked;
+        }
         if settings == snapshot.settings && self.input_sent.is_none() {
             return;
         }
@@ -1615,6 +1666,7 @@ impl ControlPanels {
         if self.panel() != before {
             self.status.clear();
             self.sync_focus();
+            self.panel_changed();
             return;
         }
         let clicked = |id: u64| matches!(event, Event::Accessibility(AccessibilityRequest::Click(target)) if *target == id);
@@ -1876,6 +1928,26 @@ impl ControlPanels {
                     self.open_chooser();
                 }
             }
+            Panel::Printers => {
+                let rows = self
+                    .printers
+                    .as_ref()
+                    .map(model::printer_rows)
+                    .unwrap_or_default();
+                let label = |i: usize| rows.get(i).cloned().unwrap_or_default();
+                if let ListOutcome::FocusRequested =
+                    self.printers_list
+                        .handle(event, control.modifiers(), &label)
+                {
+                    self.focus.focus(PRINTERS_LIST_ID);
+                    self.sync_focus();
+                }
+            }
+            Panel::Dock => {
+                if let ToggleOutcome::Toggled(on) = self.dock_autohide.handle(event) {
+                    self.send(Command::SetDockAutohide(on));
+                }
+            }
             Panel::Input => {
                 if let ValueOutcome::Value { last: true, .. } = self.repeat_delay.handle(event) {
                     self.input_changed(None);
@@ -1890,6 +1962,9 @@ impl ControlPanels {
                     self.input_changed(None);
                 }
                 if let ToggleOutcome::Toggled(_) = self.left_handed.handle(event) {
+                    self.input_changed(None);
+                }
+                if let ToggleOutcome::Toggled(_) = self.tap_to_click.handle(event) {
                     self.input_changed(None);
                 }
                 let window = self.window;
@@ -1926,6 +2001,14 @@ impl ControlPanels {
             self.sidebar.select_only(index);
             self.status.clear();
             self.sync_focus();
+            self.panel_changed();
+        }
+    }
+
+    /// Showing the Printers panel asks CUPS for the queues again.
+    fn panel_changed(&mut self) {
+        if self.services.is_some() && self.panel() == Panel::Printers {
+            self.send(Command::RefreshPrinters);
         }
     }
 
@@ -2052,10 +2135,11 @@ impl ControlPanels {
                         .take(2)
                         .map(|output| match output.current_mode() {
                             Some(mode) => format!(
-                                "{}: {}, {}",
+                                "{}: {}, {}, {}",
                                 model::output_label(output),
                                 model::size_label(mode.width, mode.height),
-                                model::refresh_label(mode.refresh_millihz)
+                                model::refresh_label(mode.refresh_millihz),
+                                model::scale_label(output)
                             ),
                             None => format!("{}: off", model::output_label(output)),
                         })
@@ -2103,6 +2187,23 @@ impl ControlPanels {
                 match &self.input {
                     Ok(snapshot) => model::input_lines(snapshot, &self.layouts),
                     Err(error) => unavailable(error, "the X server's input settings"),
+                },
+            ),
+            Panel::Printers => (
+                "Printers".into(),
+                match &self.printers {
+                    Ok(snapshot) => model::printer_lines(snapshot),
+                    Err(error) => unavailable(error, "CUPS"),
+                },
+            ),
+            Panel::Dock => (
+                "Dock".into(),
+                match &self.dock {
+                    Ok(_) => vec![
+                        "Auto-hide is saved in dock.conf and applies the next time the Dock starts."
+                            .into(),
+                    ],
+                    Err(error) => unavailable(error, "the Dock settings"),
                 },
             ),
             Panel::Appearance => (
@@ -2373,6 +2474,34 @@ impl ControlPanels {
                 self.bt_connect.paint(surface, font)?;
                 self.bt_forget.paint(surface, font)?;
             }
+            Panel::Printers => {
+                let rows = self
+                    .printers
+                    .as_ref()
+                    .map(model::printer_rows)
+                    .unwrap_or_default();
+                let list = self.printers_list.bounds();
+                self.printers_list
+                    .paint(surface, |surface, i, rect, selected| {
+                        let ink = if selected {
+                            colors.selection_ink
+                        } else {
+                            colors.ink
+                        };
+                        let row = rows.get(i).map_or("", String::as_str);
+                        surface.draw_text(row, rect.x + 8, rect.y + 2, font, ink)
+                    })?;
+                if rows.is_empty() {
+                    surface.draw_text(
+                        "No printers to show",
+                        list.x + 8,
+                        list.y + 6,
+                        font,
+                        colors.ink_secondary,
+                    )?;
+                }
+            }
+            Panel::Dock => self.dock_autohide.paint(surface)?,
             Panel::DateTime => self.ntp.paint(surface)?,
             Panel::Desktop => {
                 let pictures = bundled_pictures();
@@ -2460,6 +2589,7 @@ impl ControlPanels {
                     self.natural_scroll.paint(surface)?;
                 }
                 self.left_handed.paint(surface)?;
+                self.tap_to_click.paint(surface)?;
             }
             Panel::Appearance => {
                 self.appearance_list.paint(surface, |surface, i, rect, _| {
@@ -2640,6 +2770,16 @@ impl App for ControlPanels {
                 nodes.extend(self.bt_list.accessibility_nodes(&label))
             }
             Panel::DateTime => nodes.push((NTP_ID, self.ntp.accessibility_node())),
+            Panel::Printers => {
+                let rows = self
+                    .printers
+                    .as_ref()
+                    .map(model::printer_rows)
+                    .unwrap_or_default();
+                let label = |i: usize| rows.get(i).cloned().unwrap_or_default();
+                nodes.extend(self.printers_list.accessibility_nodes(&label));
+            }
+            Panel::Dock => nodes.push((DOCK_AUTOHIDE_ID, self.dock_autohide.accessibility_node())),
             Panel::Input => {
                 nodes.extend(self.layout.accessibility_nodes());
                 nodes.push((REPEAT_DELAY_ID, self.repeat_delay.accessibility_node()));
@@ -2647,6 +2787,7 @@ impl App for ControlPanels {
                 nodes.push((POINTER_SPEED_ID, self.pointer_speed.accessibility_node()));
                 nodes.push((NATURAL_SCROLL_ID, self.natural_scroll.accessibility_node()));
                 nodes.push((LEFT_HANDED_ID, self.left_handed.accessibility_node()));
+                nodes.push((TAP_TO_CLICK_ID, self.tap_to_click.accessibility_node()));
             }
             Panel::Appearance => {
                 let names = |i: usize| {
@@ -3387,11 +3528,13 @@ mod tests {
             pointer_speed: 0.0,
             natural_scrolling: false,
             left_handed: false,
+            tap_to_click: false,
         };
         app.apply_update(Update::Input(Ok(InputSnapshot {
             availability: Availability::Available,
             settings: settings.clone(),
             tunable_pointers: 0,
+            tap_capable: 0,
         })));
         let mut control = Control::default();
         app.event(
@@ -3457,6 +3600,7 @@ mod tests {
             availability: Availability::Available,
             settings,
             tunable_pointers: 1,
+            tap_capable: 0,
         })));
         app.sync_from_state();
         assert!(app.pointer_speed.enabled && app.natural_scroll.enabled);
@@ -3533,5 +3677,164 @@ mod tests {
         // File > Close Window quits.
         app.event(&Event::MenuChosen { menu: 0, item: 0 }, &mut control);
         assert!(control.quit_requested());
+    }
+
+    #[test]
+    fn printers_come_from_cups_and_say_when_it_is_missing_or_refused() {
+        use slopos_services::printers::{Printer, PrinterState, PrintersSnapshot};
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        // Opening the panel asks CUPS for the queues again.
+        let index = PANELS
+            .iter()
+            .position(|(panel, _)| *panel == Panel::Printers)
+            .unwrap();
+        app.show_panel(index);
+        assert_eq!(app.panel(), Panel::Printers);
+        assert_eq!(receiver.try_recv().unwrap(), Command::RefreshPrinters);
+        // CUPS is absent: the panel says so and lists nothing.
+        app.apply_update(Update::Printers(Err(model::Unavailable::new(
+            Availability::MissingService,
+            "",
+        ))));
+        app.sync_from_state();
+        assert_eq!(
+            app.lines().1,
+            vec!["Unavailable: CUPS is not running on this computer.".to_owned()]
+        );
+        assert_eq!(app.printers_list.len(), 0);
+        // CUPS refuses this user.
+        app.apply_update(Update::Printers(Err(model::Unavailable::new(
+            Availability::PermissionDenied,
+            "the socket refuses this user",
+        ))));
+        app.sync_from_state();
+        assert!(app.lines().1[0].contains("not allowed"));
+        // Queues from CUPS: the default is named and every queue is listed.
+        app.apply_update(Update::Printers(Ok(PrintersSnapshot {
+            availability: Availability::Available,
+            printers: vec![
+                Printer {
+                    name: "Office".into(),
+                    state: PrinterState::Idle,
+                    accepting_jobs: true,
+                },
+                Printer {
+                    name: "Lab".into(),
+                    state: PrinterState::Stopped,
+                    accepting_jobs: false,
+                },
+            ],
+            default: Some("Office".into()),
+        })));
+        app.sync_from_state();
+        assert_eq!(app.lines().1[0], "Default printer: Office.");
+        assert_eq!(app.printers_list.len(), 2);
+        assert!(app.accessibility().is_some());
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
+    }
+
+    #[test]
+    fn the_dock_setting_is_read_saved_and_reported_when_it_cannot_be() {
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        app.apply_update(Update::Dock(Ok(false)));
+        app.sync_from_state();
+        let index = PANELS
+            .iter()
+            .position(|(panel, _)| *panel == Panel::Dock)
+            .unwrap();
+        app.show_panel(index);
+        assert!(app.dock_autohide.enabled && !app.dock_autohide.checked);
+        assert!(app.lines().1[0].contains("dock.conf"));
+        // Tab from the sidebar reaches the checkbox; Space turns it on and
+        // the change goes to the provider, which saves it.
+        let mut control = Control::default();
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.dock_autohide.focused);
+        app.event(&key(Key::Space), &mut control);
+        assert_eq!(receiver.try_recv().unwrap(), Command::SetDockAutohide(true));
+        // The file cannot be read: the panel says why and disables the toggle.
+        app.apply_update(Update::Dock(Err(model::Unavailable::new(
+            Availability::PermissionDenied,
+            "",
+        ))));
+        app.sync_from_state();
+        assert!(!app.dock_autohide.enabled);
+        assert!(app.lines().1[0].contains("not allowed"));
+        assert!(app.accessibility().is_some());
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
+    }
+
+    #[test]
+    fn tap_to_click_is_offered_only_with_a_touchpad_and_saved_with_the_settings() {
+        use slopos_services::input::{InputSettings, InputSnapshot};
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        let dir = tempfile::tempdir().unwrap();
+        app.config = Some(dir.path().to_owned());
+        let settings = InputSettings {
+            layout: "us".into(),
+            variant: String::new(),
+            repeat_delay_ms: 500,
+            repeat_rate_hz: 30,
+            pointer_speed: 0.0,
+            natural_scrolling: false,
+            left_handed: false,
+            tap_to_click: false,
+        };
+        app.apply_update(Update::Input(Ok(InputSnapshot {
+            availability: Availability::Available,
+            settings: settings.clone(),
+            tunable_pointers: 0,
+            tap_capable: 0,
+        })));
+        app.sync_from_state();
+        assert!(!app.tap_to_click.enabled);
+        // A touchpad appears: tap-to-click is on offer and shows the setting.
+        app.apply_update(Update::Input(Ok(InputSnapshot {
+            availability: Availability::Available,
+            settings: InputSettings {
+                tap_to_click: true,
+                ..settings
+            },
+            tunable_pointers: 1,
+            tap_capable: 1,
+        })));
+        app.sync_from_state();
+        assert!(app.tap_to_click.enabled && app.tap_to_click.checked);
+        // Turning it off goes to the provider, saved beside the other settings.
+        let index = PANELS
+            .iter()
+            .position(|(panel, _)| *panel == Panel::Input)
+            .unwrap();
+        app.show_panel(index);
+        app.focus.focus(TAP_TO_CLICK_ID);
+        app.sync_focus();
+        let mut control = Control::default();
+        app.event(&key(Key::Space), &mut control);
+        let Command::ApplyInput(sent, path) = receiver.try_recv().unwrap() else {
+            panic!("expected an input change");
+        };
+        assert!(!sent.tap_to_click);
+        assert_eq!(path, Some(dir.path().join(INPUT_FILE)));
+        let tree = app.accessibility().unwrap();
+        assert!(tree
+            .nodes
+            .iter()
+            .any(|(_, n)| n.label() == Some("Tap to click")));
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
     }
 }

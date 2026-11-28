@@ -9,6 +9,7 @@ use slopos_services::audio::{AudioDevice, AudioSnapshot};
 use slopos_services::bluetooth::{BluetoothDevice, BluetoothSnapshot};
 use slopos_services::brightness::BrightnessSnapshot;
 use slopos_services::network::{NetworkDeviceState, NetworkDeviceType, NetworkSnapshot};
+use slopos_services::printers::{Printer, PrinterState, PrintersSnapshot};
 use slopos_services::timedate::TimedateSnapshot;
 
 /// Why a provider has nothing to show.
@@ -362,6 +363,60 @@ pub fn input_lines(
     lines
 }
 
+/// A printer's row: "Office (default) — Idle", noting a queue that takes no
+/// jobs.
+pub fn printer_label(printer: &Printer, is_default: bool) -> String {
+    let state = match printer.state {
+        PrinterState::Idle => "Idle",
+        PrinterState::Printing => "Printing",
+        PrinterState::Stopped => "Stopped",
+        PrinterState::Unknown => "State unknown",
+    };
+    let default = if is_default { " (default)" } else { "" };
+    let jobs = if printer.accepting_jobs {
+        ""
+    } else {
+        ", not accepting jobs"
+    };
+    format!("{}{default} — {state}{jobs}", printer.name)
+}
+
+/// The rows of the printers list, in CUPS' order.
+pub fn printer_rows(snapshot: &PrintersSnapshot) -> Vec<String> {
+    snapshot
+        .printers
+        .iter()
+        .map(|printer| {
+            printer_label(
+                printer,
+                snapshot.default.as_deref() == Some(printer.name.as_str()),
+            )
+        })
+        .collect()
+}
+
+/// The default queue and how many queues CUPS has.
+pub fn printer_lines(snapshot: &PrintersSnapshot) -> Vec<String> {
+    let default = match &snapshot.default {
+        Some(name) => format!("Default printer: {name}."),
+        None => "No default printer is set.".to_owned(),
+    };
+    let count = match snapshot.printers.len() {
+        0 => "No printers are set up in CUPS.".to_owned(),
+        1 => "1 printer is set up in CUPS.".to_owned(),
+        n => format!("{n} printers are set up in CUPS."),
+    };
+    vec![default, count]
+}
+
+/// A monitor's density and the scale it suggests, from its reported size.
+pub fn scale_label(output: &slopos_services::display::DisplayOutput) -> String {
+    match (output.physical_dpi(), output.suggested_scale()) {
+        (Some(dpi), Some(scale)) => format!("{dpi} dpi, suggested scale {scale}×"),
+        _ => "scale unknown (no physical size reported)".to_owned(),
+    }
+}
+
 /// Devices for the list: connected first, then paired, then by name.
 pub fn bluetooth_devices(snapshot: &BluetoothSnapshot) -> Vec<BluetoothDevice> {
     let mut devices = snapshot.devices.clone();
@@ -485,6 +540,90 @@ mod tests {
         assert_eq!(
             denied.message("BlueZ"),
             "Unavailable: SLOPOS is not allowed to change this."
+        );
+    }
+
+    #[test]
+    fn printers_come_from_cups_with_the_default_marked() {
+        let snapshot = PrintersSnapshot {
+            availability: Availability::Available,
+            printers: vec![
+                Printer {
+                    name: "Office".into(),
+                    state: PrinterState::Idle,
+                    accepting_jobs: true,
+                },
+                Printer {
+                    name: "Lab".into(),
+                    state: PrinterState::Stopped,
+                    accepting_jobs: false,
+                },
+            ],
+            default: Some("Office".into()),
+        };
+        assert_eq!(
+            printer_lines(&snapshot),
+            vec!["Default printer: Office.", "2 printers are set up in CUPS."]
+        );
+        assert_eq!(
+            printer_rows(&snapshot),
+            vec![
+                "Office (default) — Idle",
+                "Lab — Stopped, not accepting jobs"
+            ]
+        );
+        // No queues and no default: said plainly, nothing invented.
+        let empty = PrintersSnapshot {
+            availability: Availability::Available,
+            printers: Vec::new(),
+            default: None,
+        };
+        assert_eq!(
+            printer_lines(&empty),
+            vec![
+                "No default printer is set.",
+                "No printers are set up in CUPS."
+            ]
+        );
+        assert!(printer_rows(&empty).is_empty());
+        // A missing CUPS says so in the panel's own words.
+        assert_eq!(
+            Unavailable::new(Availability::MissingService, "").message("CUPS"),
+            "Unavailable: CUPS is not running on this computer."
+        );
+    }
+
+    #[test]
+    fn each_monitor_shows_the_scale_its_real_size_suggests() {
+        use slopos_services::display::{DisplayMode, DisplayOutput, Rotation};
+        let mut output = DisplayOutput {
+            id: 1,
+            name: "DP-1".into(),
+            enabled: true,
+            primary: true,
+            modes: vec![DisplayMode {
+                id: 10,
+                width: 3840,
+                height: 2160,
+                refresh_millihz: 60000,
+            }],
+            preferred: Some(10),
+            mode: Some(10),
+            rotation: Rotation::Normal,
+            rotations: vec![Rotation::Normal],
+            x: 0,
+            y: 0,
+            crtc: 100,
+            crtcs: vec![100],
+            width_mm: 597,
+            height_mm: 336,
+        };
+        assert_eq!(scale_label(&output), "163 dpi, suggested scale 2×");
+        // A monitor that reports no size gets no invented scale.
+        output.width_mm = 0;
+        assert_eq!(
+            scale_label(&output),
+            "scale unknown (no physical size reported)"
         );
     }
 

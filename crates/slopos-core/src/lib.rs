@@ -1,5 +1,6 @@
 pub mod capability;
 pub mod desktop_entry;
+pub mod dock_prefs;
 pub mod error;
 pub mod identity;
 pub mod ipc;

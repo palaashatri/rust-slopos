@@ -47,6 +47,22 @@ pub fn autohide() -> bool {
         .is_some_and(|contents| parse_autohide(&contents))
 }
 
+/// Whether auto-hide is on in the file at `path`. A missing file means the
+/// defaults; any other read error is returned, so a panel can say why.
+pub fn read_autohide_at(path: &Path) -> io::Result<bool> {
+    match fs::read_to_string(path) {
+        Ok(contents) => Ok(parse_autohide(&contents)),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error),
+    }
+}
+
+/// The saved auto-hide preference, read the way [`read_autohide_at`] reads it.
+pub fn load_autohide() -> io::Result<bool> {
+    let path = path().ok_or_else(|| io::Error::other("no home or config directory"))?;
+    read_autohide_at(&path)
+}
+
 pub fn save_autohide(on: bool) -> io::Result<()> {
     let path = path().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no config dir"))?;
     save_autohide_at(&path, on)
@@ -126,6 +142,24 @@ mod tests {
             })
             .count();
         assert_eq!(leftover, 0, "no temporary file is left behind");
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_saved_preference_reads_back_and_read_errors_are_reported() {
+        let dir = std::env::temp_dir().join(format!("slopos-dock-read-{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("a test directory");
+        let path = dir.join("dock.conf");
+        // No file yet: the defaults, not an error.
+        assert!(!read_autohide_at(&path).expect("a missing file is the default"));
+        save_autohide_at(&path, true).expect("save");
+        assert!(read_autohide_at(&path).expect("read back"));
+        save_autohide_at(&path, false).expect("save");
+        assert!(!read_autohide_at(&path).expect("read back"));
+        // A preference that cannot be read is an error, never silently off.
+        let blocked = dir.join("blocked.conf");
+        fs::create_dir_all(&blocked).expect("a directory where the file should be");
+        assert!(read_autohide_at(&blocked).is_err());
         fs::remove_dir_all(&dir).ok();
     }
 

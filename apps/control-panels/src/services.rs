@@ -6,12 +6,15 @@
 use std::sync::mpsc;
 use std::thread;
 
+use slopos_core::capability::Availability;
+use slopos_core::dock_prefs;
 use slopos_services::audio::{AudioClient, AudioSnapshot};
 use slopos_services::bluetooth::{BluetoothClient, BluetoothSnapshot};
 use slopos_services::brightness::{BrightnessClient, BrightnessSnapshot};
 use slopos_services::display::{DisplayClient, DisplaySnapshot, OutputConfig};
 use slopos_services::input::{self, InputClient, InputSettings, InputSnapshot};
 use slopos_services::network::{NetworkManagerClient, NetworkSnapshot};
+use slopos_services::printers::{self, PrintersSnapshot};
 use slopos_services::timedate::{TimedateClient, TimedateSnapshot};
 use tokio::sync::mpsc as async_mpsc;
 
@@ -26,6 +29,9 @@ pub enum Update {
     Time(State<TimedateSnapshot>),
     Displays(State<DisplaySnapshot>),
     Input(State<InputSnapshot>),
+    Printers(State<PrintersSnapshot>),
+    /// The Dock's auto-hide preference, as saved in `dock.conf`.
+    Dock(State<bool>),
     /// A display change finished: `None` when the server took it.
     DisplaysApplied(Option<String>),
     /// Names of the saved Wi-Fi profiles (joined without a password).
@@ -73,6 +79,10 @@ pub enum Command {
     ApplyDisplays(Vec<OutputConfig>),
     /// Apply keyboard and mouse settings, then save them here.
     ApplyInput(InputSettings, Option<std::path::PathBuf>),
+    /// Ask CUPS for the queues again.
+    RefreshPrinters,
+    /// Save the Dock's auto-hide preference.
+    SetDockAutohide(bool),
 }
 
 pub struct Services {
@@ -212,6 +222,8 @@ async fn run(
         brightness.snapshot().map_err(|e| unavailable!(e)),
     ));
     let mut brightness_events = Some(brightness.watch());
+    send(Update::Dock(dock_state(dock_prefs::load_autohide())));
+    spawn_printers(paired_sender.clone());
 
     loop {
         tokio::select! {
@@ -366,6 +378,21 @@ async fn run(
                         Ok(client) => client.set_ntp(on).await.map(|s| Some(Update::Time(Ok(s)))).map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
                     },
+                    Command::RefreshPrinters => {
+                        spawn_printers(paired_sender.clone());
+                        Ok(None)
+                    }
+                    Command::SetDockAutohide(on) => {
+                        match dock_prefs::save_autohide(on) {
+                            Ok(()) => send(Update::Dock(Ok(on))),
+                            Err(error) => {
+                                // Show what is really saved, not the toggle.
+                                send(Update::Failed(format!("the Dock setting wasn't saved: {error}")));
+                                send(Update::Dock(dock_state(dock_prefs::load_autohide())));
+                            }
+                        }
+                        Ok(None)
+                    }
                 };
                 match outcome {
                     Ok(Some(update)) => send(update),
@@ -375,6 +402,28 @@ async fn run(
             }
         }
     }
+}
+
+/// CUPS' queues, asked for on a blocking thread so the loop keeps running.
+/// The answer arrives on the same channel as the other provider answers.
+fn spawn_printers(sender: async_mpsc::UnboundedSender<Update>) {
+    tokio::spawn(async move {
+        let state = match tokio::task::spawn_blocking(printers::snapshot).await {
+            Ok(result) => result.map_err(|error| unavailable!(error)),
+            Err(error) => Err(Unavailable::new(Availability::Failed, error.to_string())),
+        };
+        let _ = sender.send(Update::Printers(state));
+    });
+}
+
+/// The Dock preference, or why it cannot be read or saved.
+fn dock_state(result: std::io::Result<bool>) -> State<bool> {
+    result.map_err(|error| match error.kind() {
+        std::io::ErrorKind::PermissionDenied => {
+            Unavailable::new(Availability::PermissionDenied, "")
+        }
+        _ => Unavailable::new(Availability::Failed, error.to_string()),
+    })
 }
 
 /// Saved Wi-Fi profile names; empty when they cannot be read.

@@ -12,7 +12,6 @@
 mod autohide;
 mod model;
 mod pins;
-mod prefs;
 mod windows;
 
 use std::collections::HashMap;
@@ -21,6 +20,7 @@ use std::sync::mpsc::{self, Receiver};
 use autohide::{AutoHide, Effect, HIDE_DELAY, REVEAL_STRIP};
 use model::{Action, Item};
 use slopos_core::desktop_entry::{scan_desktop_apps, DesktopApp};
+use slopos_core::dock_prefs as prefs;
 use slopos_ui::controls::menu::{Menu, MenuItem, MenuOutcome};
 use slopos_ui::event::{AccessibilityRequest, Event, PointerButton};
 use slopos_ui::foundation::color::Color;
