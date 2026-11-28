@@ -575,6 +575,19 @@ impl ImageViewerApp {
             Event::KeyPressed {
                 key: Key::Escape, ..
             } if self.pending.is_some() => return self.cancel_open(),
+            Event::KeyPressed {
+                key: key @ (Key::Up | Key::Down),
+                ..
+            } if self.image.is_some() && self.viewport.can_pan() => {
+                // Up shows what lies above, so the picture moves down.
+                let dy = if matches!(key, Key::Up) {
+                    PAN_STEP
+                } else {
+                    -PAN_STEP
+                };
+                self.viewport.pan_by(0, dy);
+                return;
+            }
             Event::KeyPressed { key, modifiers } => {
                 // Space and Enter belong to a focused toolbar button.
                 let button_focused = self.toolbar.iter().any(|(b, _)| b.focused);
@@ -601,19 +614,6 @@ impl ImageViewerApp {
             Event::Accessibility(AccessibilityRequest::Focus(id)) => {
                 self.focus.focus(*id);
                 self.sync_focus();
-                return;
-            }
-            Event::KeyPressed {
-                key: key @ (Key::Up | Key::Down),
-                ..
-            } if self.image.is_some() && self.viewport.can_pan() => {
-                // Up shows what lies above, so the picture moves down.
-                let dy = if matches!(key, Key::Up) {
-                    PAN_STEP
-                } else {
-                    -PAN_STEP
-                };
-                self.viewport.pan_by(0, dy);
                 return;
             }
             Event::Scroll { dy, .. } if self.image.is_some() => {
