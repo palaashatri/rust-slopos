@@ -245,6 +245,19 @@ impl Session {
         Duration::from_secs_f64(target)
     }
 
+    /// A seek finished at `target`. A seek back from the end resumes paused,
+    /// so the Play button offers Play rather than Replay.
+    pub fn seeked(&mut self, target: Duration) {
+        self.position = target;
+        let before_end = match self.info.duration {
+            Some(duration) => target < duration,
+            None => true,
+        };
+        if self.state == PlaybackState::Ended && before_end {
+            self.state = PlaybackState::Paused;
+        }
+    }
+
     /// Clamp a percentage to 0 to 100; NaN becomes silence.
     pub fn clamp_volume(percent: f64) -> f64 {
         if percent.is_nan() {
@@ -432,6 +445,48 @@ mod tests {
         );
         session.toggle_subtitles();
         assert_eq!(session.subtitle, None);
+    }
+
+    #[test]
+    fn seeking_back_from_the_end_resumes_paused() {
+        let mut session = opened(&[]);
+        session.apply(&PlayerEvent::State(PlaybackState::Ended));
+        assert_eq!(session.transport(), Some(Transport::Replay));
+        // Seeking into the file leaves the end: Play, not Replay.
+        session.seeked(Duration::from_secs(30));
+        assert_eq!(session.position, Duration::from_secs(30));
+        assert_eq!(session.state, PlaybackState::Paused);
+        assert_eq!(session.transport(), Some(Transport::Play));
+        // A seek to the very end keeps the finished state.
+        session.apply(&PlayerEvent::State(PlaybackState::Ended));
+        session.seeked(Duration::from_secs(60));
+        assert_eq!(session.state, PlaybackState::Ended);
+        // Playing stays playing across a seek.
+        session.apply(&PlayerEvent::State(PlaybackState::Playing));
+        session.seeked(Duration::from_secs(5));
+        assert_eq!(session.state, PlaybackState::Playing);
+    }
+
+    #[test]
+    fn a_session_keeps_its_choices_across_transport_and_seeks() {
+        let mut session = opened(&["English (1)", "French (2)"]);
+        session.apply(&PlayerEvent::State(PlaybackState::Playing));
+        session.seeked(Duration::from_secs(12));
+        assert_eq!(session.transport(), Some(Transport::Pause));
+        session.apply(&PlayerEvent::State(PlaybackState::Paused));
+        session.set_volume(35.0);
+        assert!(session.choose_subtitle_option(2));
+        session.seeked(Duration::from_secs(40));
+        assert_eq!(session.position, Duration::from_secs(40));
+        assert_eq!(session.volume, 35.0);
+        assert_eq!(session.subtitle, Some(1));
+        // A new file starts at the top, keeps the volume and turns on its
+        // first track again.
+        session.begin();
+        assert_eq!(session.position, Duration::ZERO);
+        assert_eq!(session.volume, 35.0);
+        session.apply(&PlayerEvent::Opened(info(true, true, &["Dutch (1)"])));
+        assert_eq!(session.subtitle, Some(0));
     }
 
     #[test]
