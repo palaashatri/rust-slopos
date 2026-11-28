@@ -6,10 +6,16 @@
 # Return) and check that the choice is saved. Exits nonzero on any mismatch.
 # Needs Xvfb, openbox, xdotool, xwininfo, xprop, wmctrl and ImageMagick's import,
 # convert and display. Build the workspace first.
+# SLOPOS_BIN_DIR names the directory with the built binaries (default: target/debug),
+# as in scripts/smoke-session.sh.
 set -u
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT="$ROOT/.work/qa-runtime/dock-autohide"
-BIN="$ROOT/target/debug"
+BIN_DIR="$(cd "${SLOPOS_BIN_DIR:-$ROOT/target/debug}" 2>/dev/null && pwd)" || {
+  echo "FAIL: no binary directory at ${SLOPOS_BIN_DIR:-$ROOT/target/debug}" >&2
+  exit 2
+}
+test -x "$BIN_DIR/slopos-dock" || { echo "FAIL: build $BIN_DIR/slopos-dock first" >&2; exit 2; }
 DISPLAY_NUMBER=:61
 DOCK= OPENBOX= XVFB= COVER=
 # However the script ends, including a signal, reap what it started so the
@@ -35,19 +41,30 @@ x_ready() { xdotool getdisplaygeometry >/dev/null 2>&1; }
 # Openbox publishes its check window on the root once it has started.
 wm_ready() { xprop -root _NET_SUPPORTING_WM_CHECK 2>/dev/null | grep -q 'window id'; }
 dock_window() { WID=$(timeout 5 xdotool search --class '^slopos-dock$' | head -1); [ -n "$WID" ]; }
+# dock_placed: the Dock window is mapped by the window manager and sits at its hidden place on
+# the bottom edge (y 796 on the 800-pixel screen). The window exists before Openbox maps it, and
+# a window that maps under a pointer already resting on its strip gets no motion event, so the
+# checks wait for this, not for the window to exist.
+DOCK_HIDDEN_Y=796
+dock_placed() {
+  dock_window || return 1
+  xwininfo -id "$WID" 2>/dev/null | grep -q 'Map State: IsViewable' || return 1
+  [ "$(xwininfo -id "$WID" 2>/dev/null | awk '/Absolute upper-left Y/{print $4}')" = "$DOCK_HIDDEN_Y" ]
+}
 Xvfb "$DISPLAY_NUMBER" -screen 0 1280x800x24 -noreset >"$OUT/xvfb.log" 2>&1 &
 XVFB=$!
 wait_until 10 x_ready || { echo "FAIL: the X display did not start"; exit 1; }
 openbox >"$OUT/openbox.log" 2>&1 &
 OPENBOX=$!
 wait_until 10 wm_ready || { echo "FAIL: Openbox did not start"; exit 1; }
-"$BIN/slopos-dock" --autohide on || { kill $XVFB $OPENBOX; exit 1; }
+"$BIN_DIR/slopos-dock" --autohide on || { kill $XVFB $OPENBOX; exit 1; }
 echo "config: $(tr '\n' ' ' < "$XDG_CONFIG_HOME/slopos-i/dock.conf")"
-RUST_LOG=debug "$BIN/slopos-dock" >"$OUT/dock.log" 2>&1 &
+RUST_LOG=debug "$BIN_DIR/slopos-dock" >"$OUT/dock.log" 2>&1 &
 DOCK=$!
-wait_until 10 dock_window || WID=
-if [ -z "$WID" ]; then
-  echo "FAIL: the Dock window was not found"
+# The pointer starts away from the strip, so the Dock never maps under a resting pointer.
+xdotool mousemove 640 400
+if ! wait_until 10 dock_placed; then
+  echo "FAIL: the Dock was not mapped and placed on the bottom edge within 10 s"
   kill $DOCK $OPENBOX $XVFB 2>/dev/null
   exit 1
 fi

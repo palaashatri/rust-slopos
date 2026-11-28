@@ -498,4 +498,148 @@ mod tests {
             Some(0xff000000)
         );
     }
+
+    fn key_event(key: Key) -> Event {
+        Event::KeyPressed {
+            key,
+            modifiers: Default::default(),
+        }
+    }
+
+    /// The text the screen reader reads from the display node.
+    fn display_value(app: &CalculatorApp) -> String {
+        let tree = app.accessibility().unwrap();
+        let (_, display) = tree
+            .nodes
+            .iter()
+            .find(|(id, _)| *id == accesskit::NodeId(DISPLAY_NODE))
+            .expect("result node");
+        display.value().unwrap().to_owned()
+    }
+
+    fn at_click(app: &mut CalculatorApp, accessible_name: &str) {
+        let id = app
+            .keys
+            .iter()
+            .find(|key| key.accessible_name == accessible_name)
+            .unwrap()
+            .button
+            .id;
+        app.event(
+            &Event::Accessibility(AccessibilityRequest::Click(id)),
+            &mut Control::default(),
+        );
+    }
+
+    #[test]
+    fn division_by_zero_from_the_keyboard_shows_error_and_escape_recovers() {
+        let mut app = CalculatorApp::new();
+        let mut control = Control::default();
+        for c in ['8', '/', '0', '='] {
+            app.event(&key_event(Key::Character(c)), &mut control);
+        }
+        assert_eq!(app.calculator().display(), "Error");
+        assert_eq!(display_value(&app), "Result Error");
+        // While the error stands, operators and Change Sign do nothing.
+        app.event(&key_event(Key::Character('+')), &mut control);
+        app.event(&key_event(Key::Function(9)), &mut control);
+        assert_eq!(app.calculator().display(), "Error");
+        app.event(&key_event(Key::Escape), &mut control);
+        assert_eq!(display_value(&app), "Result 0");
+    }
+
+    #[test]
+    fn division_by_zero_from_screen_reader_clicks_shows_error() {
+        let mut app = CalculatorApp::new();
+        for name in ["8", "Divide", "0", "Equals"] {
+            at_click(&mut app, name);
+        }
+        assert_eq!(display_value(&app), "Result Error");
+        assert!(app.calculator().is_error());
+        // Typing a digit starts a new calculation, as on a pocket calculator.
+        at_click(&mut app, "5");
+        assert_eq!(display_value(&app), "Result 5");
+    }
+
+    #[test]
+    fn overflow_from_the_keyboard_shows_error() {
+        let mut app = CalculatorApp::new();
+        let mut control = Control::default();
+        let nines = ['9'; 12];
+        for c in nines {
+            app.event(&key_event(Key::Character(c)), &mut control);
+        }
+        app.event(&key_event(Key::Character('*')), &mut control);
+        for c in nines {
+            app.event(&key_event(Key::Character(c)), &mut control);
+        }
+        app.event(&key_event(Key::Enter), &mut control);
+        assert!(!app.calculator().is_error());
+        for _ in 0..30 {
+            app.event(&key_event(Key::Enter), &mut control);
+        }
+        assert!(app.calculator().is_error());
+        assert_eq!(display_value(&app), "Result Error");
+    }
+
+    /// FNV-1a over the device pixels: a fingerprint for the golden test.
+    fn fingerprint(surface: &RasterSurface) -> String {
+        let hash = surface
+            .data()
+            .iter()
+            .fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
+                (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
+            });
+        format!("{hash:016x}")
+    }
+
+    /// Paint the calculator after typing `typed` on the keyboard.
+    fn render(scale: u32, typed: &str) -> RasterSurface {
+        let mut app = CalculatorApp::new();
+        let mut control = Control::default();
+        for c in typed.chars() {
+            app.event(&key_event(Key::Character(c)), &mut control);
+        }
+        let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(scale).unwrap()).unwrap();
+        app.paint(&surface);
+        surface
+    }
+
+    /// Regression goldens taken from the output of CI run 46133013852 (head
+    /// 4031897c), not checked against a reference rendering. They detect any
+    /// change to the pixels. Text uses the first installed face in the text
+    /// engine's list (Liberation Sans, installed by CI's fonts-liberation), so
+    /// a different font set changes them.
+    fn golden(name: &str, scale: u32) -> &'static str {
+        match (name, scale) {
+            ("initial", 1) => "49dc80533b530692",
+            ("initial", 2) => "626b1d6a8cd2920f",
+            ("sum", 1) => "7f6a7f0a3d7235d3",
+            ("sum", 2) => "2bab075f68838206",
+            ("error", 1) => "061c2e51489635a9",
+            ("error", 2) => "7497beff89ece810",
+            _ => unreachable!("no golden named {name} at {scale}x"),
+        }
+    }
+
+    #[test]
+    fn golden_pixels_at_1x_and_2x() {
+        let cases = [("initial", ""), ("sum", "12+34="), ("error", "8/0=")];
+        let mut mismatches = Vec::new();
+        for (name, typed) in cases {
+            for scale in [1, 2] {
+                let surface = render(scale, typed);
+                assert_eq!(surface.device_width(), WIDTH * scale);
+                let actual = fingerprint(&surface);
+                if actual != golden(name, scale) {
+                    mismatches.push(format!("{name} {scale}x: {actual}"));
+                }
+            }
+        }
+        assert!(
+            mismatches.is_empty(),
+            "pixels differ from the goldens:\n{}",
+            mismatches.join("\n")
+        );
+    }
 }
