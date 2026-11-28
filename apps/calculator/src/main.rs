@@ -605,17 +605,19 @@ mod tests {
         surface
     }
 
-    /// Reference fingerprints, taken from a CI run of this test. Text is
-    /// rasterized with the first installed face in the text engine's list
-    /// (Liberation Sans, installed by CI's fonts-liberation).
+    /// Regression goldens taken from the output of CI run 46133013852 (head
+    /// 4031897c), not checked against a reference rendering. They detect any
+    /// change to the pixels. Text uses the first installed face in the text
+    /// engine's list (Liberation Sans, installed by CI's fonts-liberation), so
+    /// a different font set changes them.
     fn golden(name: &str, scale: u32) -> &'static str {
         match (name, scale) {
-            ("initial", 1) => "TBD",
-            ("initial", 2) => "TBD",
-            ("sum", 1) => "TBD",
-            ("sum", 2) => "TBD",
-            ("error", 1) => "TBD",
-            ("error", 2) => "TBD",
+            ("initial", 1) => "49dc80533b530692",
+            ("initial", 2) => "626b1d6a8cd2920f",
+            ("sum", 1) => "7f6a7f0a3d7235d3",
+            ("sum", 2) => "2bab075f68838206",
+            ("error", 1) => "061c2e51489635a9",
+            ("error", 2) => "7497beff89ece810",
             _ => unreachable!("no golden named {name} at {scale}x"),
         }
     }
