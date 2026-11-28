@@ -2075,14 +2075,25 @@ impl ControlPanels {
         }
     }
 
-    /// Panels that read their provider when they open, not by watching it:
-    /// the power state is read again so the page is not stale.
-    fn on_panel_opened(&self) {
-        if self.panel() == Panel::Power {
-            if let Some(services) = &self.services {
-                services.send(Command::RefreshPower);
+    /// Panels that read their state when they open, not by watching it: the
+    /// power state is read again from its provider, and the appearance from
+    /// the file the Appearance tool writes, so the page shows what is saved.
+    fn on_panel_opened(&mut self) {
+        match self.panel() {
+            Panel::Power => {
+                if let Some(services) = &self.services {
+                    services.send(Command::RefreshPower);
+                }
             }
+            Panel::Appearance => self.read_appearance(&config_home()),
+            _ => {}
         }
+    }
+
+    /// The saved appearance as the file holds it now (`None` when nothing
+    /// valid is saved, which the page reports as the default).
+    fn read_appearance(&mut self, config_home: &std::path::Path) {
+        self.appearance = model::current_appearance(config_home);
     }
 
     fn open_suspend_confirm(&mut self) {
@@ -2178,10 +2189,9 @@ impl ControlPanels {
             return;
         };
         match slopos_core::process::launch("slopos-appearance", &[id]) {
-            Ok(_) => {
-                self.appearance = Some((*id).to_owned());
-                self.notice(format!("Switching to the {name} appearance…"));
-            }
+            // The page keeps the saved name it read on open until it is read
+            // again: the Appearance tool writes the file, not this page.
+            Ok(_) => self.notice(format!("Switching to the {name} appearance…")),
             Err(error) => self.fail(format!("Can't change the appearance: {error}")),
         }
     }
@@ -4105,5 +4115,184 @@ mod tests {
         // File > Close Window quits.
         app.event(&Event::MenuChosen { menu: 0, item: 0 }, &mut control);
         assert!(control.quit_requested());
+    }
+
+    fn panel_index(panel: Panel) -> usize {
+        PANELS.iter().position(|(p, _)| *p == panel).unwrap()
+    }
+
+    /// Whether the open panel's accessibility tree carries `text`.
+    fn tree_shows(app: &ControlPanels, text: &str) -> bool {
+        app.accessibility()
+            .unwrap()
+            .nodes
+            .iter()
+            .any(|(_, n)| n.value().is_some_and(|v| v.contains(text)))
+    }
+
+    #[test]
+    fn network_denied_and_refused_actions_keep_the_provider_state() {
+        use slopos_services::network::{NetworkAccessPoint, NetworkDevice, NetworkDeviceState};
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        app.show_panel(panel_index(Panel::Network));
+        let denied = model::Unavailable::new(Availability::PermissionDenied, "");
+        app.apply_update(Update::Network(Err(denied)));
+        app.sync_from_state();
+        assert!(!app.networking.enabled && !app.wifi.enabled && !app.scan.enabled);
+        assert_eq!(
+            app.lines().1,
+            vec!["Unavailable: SLOPOS is not allowed to change this.".to_owned()]
+        );
+        assert!(tree_shows(&app, "SLOPOS is not allowed to change this."));
+
+        // A connected Wi-Fi network: Disconnect is sent, and a refused
+        // disconnect leaves the connection as the provider reports it.
+        let connected = NetworkSnapshot {
+            revision: 2,
+            networking_enabled: true,
+            wireless_enabled: true,
+            wireless_hardware_enabled: true,
+            devices: vec![NetworkDevice {
+                object_path: "/d/1".into(),
+                interface: "wlan0".into(),
+                ip_interface: "wlan0".into(),
+                kind: NetworkDeviceType::Wifi,
+                state: NetworkDeviceState::Activated,
+                active_access_point: Some("/a/1".into()),
+                access_points: vec![NetworkAccessPoint {
+                    object_path: "/a/1".into(),
+                    ssid: b"Home".to_vec(),
+                    strength: 70,
+                    frequency_mhz: 2412,
+                    wpa_flags: 0,
+                    rsn_flags: 8,
+                }],
+                active_connection: Some("/ac/1".into()),
+            }],
+            active_connections: Vec::new(),
+        };
+        app.apply_update(Update::Network(Ok(connected)));
+        app.apply_update(Update::SavedWifi(vec!["Home".into()]));
+        app.sync_from_state();
+        assert!(app.disconnect.enabled && app.forget.enabled && !app.join.enabled);
+        // Sidebar, Networking, Wi-Fi, Scan, the list, then Join and Disconnect.
+        let mut control = Control::default();
+        for _ in 0..7 {
+            app.event(&key(Key::Tab), &mut control);
+        }
+        assert!(app.disconnect.focused);
+        app.event(&key(Key::Space), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::Disconnect("/ac/1".into())
+        );
+        app.apply_update(Update::Failed("NetworkManager refused the change".into()));
+        app.sync_from_state();
+        assert!(app.status_error && app.status.contains("NetworkManager refused the change"));
+        assert!(app.disconnect.enabled && app.forget.enabled);
+        assert!(receiver.try_recv().is_err());
+    }
+
+    #[test]
+    fn sound_denied_and_refused_mute_keep_the_provider_state() {
+        use slopos_services::audio::{AudioDevice, AudioDirection, AudioSnapshot};
+        let (commands, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (_sender, updates) = std::sync::mpsc::channel();
+        let mut app = ControlPanels::new(Some(Services::for_tests(commands, updates)));
+        app.show_panel(panel_index(Panel::Sound));
+        let denied = model::Unavailable::new(Availability::PermissionDenied, "");
+        app.apply_update(Update::Audio(Err(denied)));
+        app.sync_from_state();
+        assert!(!app.output_volume.enabled && !app.output_mute.enabled);
+        assert!(app.lines().1[0].contains("SLOPOS is not allowed to change this"));
+        assert!(tree_shows(&app, "SLOPOS is not allowed to change this"));
+
+        app.apply_update(Update::Audio(Ok(AudioSnapshot {
+            revision: 2,
+            availability: Availability::Available,
+            default_output: Some("sink".into()),
+            default_input: None,
+            outputs: vec![AudioDevice {
+                index: 0,
+                name: "sink".into(),
+                description: Some("Speakers".into()),
+                direction: AudioDirection::Output,
+                muted: false,
+                volume_millipercent: vec![50_000],
+                is_default: true,
+            }],
+            inputs: Vec::new(),
+            streams: Vec::new(),
+        })));
+        app.sync_from_state();
+        assert!(app.output_mute.enabled && !app.output_mute.checked);
+        // Sidebar, then Output volume and Output mute.
+        let mut control = Control::default();
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Tab), &mut control);
+        assert!(app.output_mute.focused);
+        app.event(&key(Key::Space), &mut control);
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            Command::SetOutputMuted("sink".into(), true)
+        );
+        // The provider has not confirmed the mute, so the switch still shows
+        // its reading.
+        assert!(!app.output_mute.checked);
+        app.apply_update(Update::Failed("Operation not permitted".into()));
+        app.sync_from_state();
+        assert!(app.status_error && app.status.contains("Operation not permitted"));
+        assert!(!app.output_mute.checked && app.output_mute.enabled);
+    }
+
+    #[test]
+    fn denied_providers_say_so_in_each_panel_and_its_tree() {
+        let denied = || model::Unavailable::new(Availability::PermissionDenied, "");
+        let mut app = ControlPanels::new(None);
+        app.apply_update(Update::Bluetooth(Err(denied())));
+        app.apply_update(Update::Displays(Err(denied())));
+        app.apply_update(Update::Power(Err(denied())));
+        app.sync_from_state();
+        for panel in [Panel::Bluetooth, Panel::Display, Panel::Power] {
+            app.show_panel(panel_index(panel));
+            assert!(
+                app.lines()
+                    .1
+                    .iter()
+                    .any(|line| line.contains("SLOPOS is not allowed to change this")),
+                "{panel:?}: {:?}",
+                app.lines()
+            );
+            assert!(
+                tree_shows(&app, "SLOPOS is not allowed to change this"),
+                "{panel:?}"
+            );
+        }
+        assert!(!app.bluetooth_power.enabled);
+    }
+
+    #[test]
+    fn appearance_is_read_again_when_its_page_opens() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = ControlPanels::new(None);
+        app.show_panel(panel_index(Panel::Appearance));
+        app.read_appearance(dir.path());
+        assert_eq!(app.lines().1, vec!["Current: Platinum (default)".to_owned()]);
+        std::fs::create_dir_all(dir.path().join("slopos-i")).unwrap();
+        std::fs::write(dir.path().join("slopos-i/appearance"), "graphite\n").unwrap();
+        app.read_appearance(dir.path());
+        assert_eq!(app.lines().1, vec!["Current: Graphite".to_owned()]);
+        assert!(tree_shows(&app, "Current: Graphite"));
+        // Another tool saved a different name: the page follows the file,
+        // not the last value this page asked for.
+        std::fs::write(dir.path().join("slopos-i/appearance"), "oled\n").unwrap();
+        app.read_appearance(dir.path());
+        assert!(tree_shows(&app, "Current: OLED Graphite"));
+        // An unknown name is not a saved appearance.
+        std::fs::write(dir.path().join("slopos-i/appearance"), "../../etc\n").unwrap();
+        app.read_appearance(dir.path());
+        assert_eq!(app.lines().1, vec!["Current: Platinum (default)".to_owned()]);
     }
 }
