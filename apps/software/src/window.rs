@@ -1221,14 +1221,12 @@ impl SoftwareApp {
                         }
                     }
                 }
+                // Every step has finished. A cancel that came now is too late to
+                // undo them, so the setting is saved.
                 if result.is_ok() {
-                    result = if worker_stop.is_cancelled() {
-                        Err(run::CANCELLED.to_owned())
-                    } else {
-                        candidate
-                            .save(&config_path)
-                            .map_err(|error| format!("the setting could not be saved: {error}"))
-                    };
+                    result = candidate
+                        .save(&config_path)
+                        .map_err(|error| format!("the setting could not be saved: {error}"));
                 }
                 let rollback = if result.is_err() && !rollback_changes.is_empty() {
                     let undo_stop = Cancel::default();
@@ -1709,6 +1707,8 @@ impl SoftwareApp {
                 let pressed =
                     button.handle(event) == ButtonOutcome::Activated || (enabled && clicked(id));
                 if pressed {
+                    // The switch takes focus, so the next key acts on it.
+                    self.focus.focus(id);
                     return self.toggle_source(source);
                 }
             }
@@ -3384,6 +3384,41 @@ mod tests {
             app.setup_report_text
         );
         assert!(!app.config.flatpak);
+    }
+
+    #[test]
+    fn a_cancel_after_every_step_finished_keeps_them_and_saves_the_setting() {
+        let dir = tempfile::tempdir().unwrap();
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let recorded = ran.clone();
+        // The Flathub add is the last step. Cancelling as it finishes is too late
+        // to undo it, so both steps stay and the setting is saved.
+        let install: PackageRunner = Arc::new(
+            move |argv: &[String], cancel: &Cancel, on_line: &mut dyn FnMut(&str)| {
+                recorded.lock().unwrap().push(argv.to_vec());
+                on_line("step ran");
+                if has_word(argv, "remote-add") {
+                    let _ = cancel.cancel();
+                }
+                Ok(())
+            },
+        );
+        let commands = zstd_commands(install);
+        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec", "apt-get"], commands);
+        let mut control = Control::default();
+        open_sources(&mut app, &mut control);
+        answer_yes_to_flatpak(&mut app, &mut control);
+        wait_for_work(&mut app);
+        let ran = ran.lock().unwrap().clone();
+        assert_eq!(ran.len(), 2, "both steps ran and none was undone: {ran:?}");
+        assert!(!app.status_error, "{}", app.status);
+        assert!(app.config.flatpak);
+        assert!(
+            app.setup_report_text
+                .contains("Finished: Flatpak installed, Flathub added."),
+            "{}",
+            app.setup_report_text
+        );
     }
 
     #[test]
