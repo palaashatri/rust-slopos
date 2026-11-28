@@ -7,6 +7,7 @@
 //! playing, a 250 ms timer keeps the time display moving for audio-only
 //! files, and stops when playback stops.
 
+mod codecs;
 mod engine;
 mod session;
 
@@ -387,7 +388,7 @@ impl MediaApp {
     fn seek_to(&mut self, target: Duration) {
         let Some(player) = &self.player else { return };
         match player.seek(target) {
-            Ok(()) => self.session.position = target,
+            Ok(()) => self.session.seeked(target),
             Err(error) => self.fail(Failure::new(FailureKind::Playback, error.to_string())),
         }
     }
@@ -844,6 +845,9 @@ mod tests {
 
     #[test]
     fn plays_a_video_with_keyboard_controls() {
+        if !engine::tests::backend_or_not_run("plays_a_video_with_keyboard_controls") {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         let clip = engine::tests::video(dir.path());
         let mut app = MediaApp::new(Some(&clip), Arc::new(Mutex::new(None)));
@@ -878,6 +882,9 @@ mod tests {
 
     #[test]
     fn unplayable_files_say_why() {
+        if !engine::tests::backend_or_not_run("unplayable_files_say_why") {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         let text = dir.path().join("notes.mp4");
         std::fs::write(&text, b"this is text, not a video").unwrap();
@@ -922,6 +929,11 @@ mod tests {
 
     #[test]
     fn subtitles_are_chosen_with_the_keyboard_and_the_pointer() {
+        if !engine::tests::backend_or_not_run(
+            "subtitles_are_chosen_with_the_keyboard_and_the_pointer",
+        ) {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         let clip = engine::tests::subtitled_mkv(dir.path());
         let mut app = MediaApp::new(Some(&clip), Arc::new(Mutex::new(None)));
@@ -987,6 +999,11 @@ mod tests {
 
     #[test]
     fn a_file_without_text_streams_has_a_disabled_subtitle_control() {
+        if !engine::tests::backend_or_not_run(
+            "a_file_without_text_streams_has_a_disabled_subtitle_control",
+        ) {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         let clip = engine::tests::video(dir.path());
         let mut app = MediaApp::new(Some(&clip), Arc::new(Mutex::new(None)));
