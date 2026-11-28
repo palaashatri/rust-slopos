@@ -208,6 +208,12 @@ impl FontsApp {
             .is_some_and(|face| face.owner == Owner::User);
     }
 
+    /// The status line as the window shows it.
+    #[cfg(test)]
+    fn status(&self) -> &str {
+        &self.status
+    }
+
     fn set_status(&mut self, text: impl Into<String>, is_error: bool) {
         self.status = text.into();
         self.status_is_error = is_error;
