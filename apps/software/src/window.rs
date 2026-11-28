@@ -1557,14 +1557,18 @@ impl SoftwareApp {
             } => {
                 let report = setup_report(&completed, &rollback);
                 self.setup_report_text = report.clone();
+                // The status line points at the report only when the undo failed
+                // and the report opens. A clean cancel or failure has no report to see.
                 if error == run::CANCELLED && !rollback.failed() {
-                    self.notice("Flatpak setup was cancelled. See the report.");
+                    self.notice("Flatpak setup was cancelled.");
                 } else if error == run::CANCELLED {
                     self.fail(
                         "Flatpak setup was cancelled, and undoing it failed. See the report.",
                     );
-                } else {
+                } else if rollback.failed() {
                     self.fail(format!("Flatpak was not set up: {error}. See the report."));
+                } else {
+                    self.fail(format!("Flatpak was not set up: {error}."));
                 }
                 // A clean cancel or failure needs only the status line. A report
                 // shows when the undo failed and something remains.
