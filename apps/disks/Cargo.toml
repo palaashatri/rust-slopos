@@ -1,0 +1,13 @@
+[package]
+name = "slopos-disks"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Disks: drives and volumes from the UDisks2 storage provider, read-only in this version"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+slopos-core = { path = "../../crates/slopos-core" }
+slopos-services = { path = "../../crates/slopos-services" }
+accesskit = { workspace = true }
+zbus = { workspace = true }

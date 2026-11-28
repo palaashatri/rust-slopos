@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Disks
+Comment=See drives and volumes, their filesystems and mounts (read-only for now)
+Exec=slopos-disks
+TryExec=slopos-disks
+Icon=drive-harddisk
+Terminal=false
+StartupNotify=true
+Categories=System;Utility;
