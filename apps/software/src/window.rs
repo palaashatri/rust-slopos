@@ -1582,22 +1582,40 @@ impl SoftwareApp {
             } => {
                 let report = setup_report(&completed, &in_place, &rollback);
                 self.setup_report_text = report.clone();
-                // The status line points at the report only when the undo failed
-                // and the report opens. A clean cancel or failure has no report to see.
-                if error == run::CANCELLED && !rollback.failed() {
-                    self.notice("Flatpak setup was cancelled.");
-                } else if error == run::CANCELLED {
-                    self.fail(
-                        "Flatpak setup was cancelled, and undoing it failed. See the report.",
-                    );
-                } else if rollback.failed() {
-                    self.fail(format!("Flatpak was not set up: {error}. See the report."));
+                let cancelled = error == run::CANCELLED;
+                // Every message that names the report has the report behind it. The
+                // report opens whenever the attempt changed or undid something.
+                let message = match (cancelled, &rollback) {
+                    (true, packages::Rollback::NotNeeded) => {
+                        "Flatpak setup was cancelled.".to_owned()
+                    }
+                    (true, packages::Rollback::Undone(_)) => {
+                        "Flatpak setup was cancelled. Its changes were undone. See the report."
+                            .to_owned()
+                    }
+                    (true, packages::Rollback::Failed { .. }) => {
+                        "Flatpak setup was cancelled, and undoing it failed. See the report."
+                            .to_owned()
+                    }
+                    (false, packages::Rollback::NotNeeded) => {
+                        format!("Flatpak was not set up: {error}.")
+                    }
+                    (false, packages::Rollback::Undone(_)) => format!(
+                        "Flatpak was not set up: {error}. Its changes were undone. See the report."
+                    ),
+                    (false, packages::Rollback::Failed { .. }) => {
+                        format!("Flatpak was not set up: {error}. See the report.")
+                    }
+                };
+                if cancelled && !rollback.failed() {
+                    self.notice(message);
                 } else {
-                    self.fail(format!("Flatpak was not set up: {error}."));
+                    self.fail(message);
                 }
-                // A clean cancel or failure needs only the status line. A report
-                // shows when the undo failed and something remains.
-                if rollback.failed() {
+                // A window that is closing after a clean undo has nothing left to read,
+                // so it closes without a report. Otherwise the report opens.
+                let closing = self.quit_when_idle && !rollback.failed();
+                if !matches!(rollback, packages::Rollback::NotNeeded) && !closing {
                     self.show_setup_report(report);
                 }
             }
@@ -1630,6 +1648,10 @@ impl SoftwareApp {
         if self.running.is_some() {
             self.quit_when_idle = true;
             self.cancel_running();
+        } else if matches!(self.dialog, Some((_, Prompt::Report))) {
+            // A report is still open. The window closes once it is dismissed, so
+            // the report is read before the process exits.
+            self.quit_when_idle = true;
         } else {
             control.quit();
         }
@@ -3293,6 +3315,10 @@ mod tests {
             app.status
         );
         assert!(
+            matches!(app.dialog, Some((_, Prompt::Report))),
+            "the undo is shown in the report"
+        );
+        assert!(
             app.setup_report_text
                 .contains("Finished: Flatpak installed."),
             "{}",
@@ -3333,6 +3359,63 @@ mod tests {
         app.running = None;
         app.event(&Event::Wake, &mut control);
         assert!(control.quit_requested(), "the window quits once it is idle");
+    }
+
+    #[test]
+    fn a_clean_undo_while_the_window_closes_quits_without_a_report() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = apt_app(dir.path(), &["apt-cache"], unused_commands());
+        let (sender, done) = mpsc::channel();
+        app.running = Some(Running {
+            id: "flatpak".into(),
+            verb: "Setting up",
+            title: "Setting up Flatpak".into(),
+            progress: Arc::new(Progress::default()),
+            stop: Arc::new(Cancel::default()),
+            lines: None,
+            done,
+        });
+        let mut control = Control::default();
+        app.event(&Event::CloseRequested, &mut control);
+        assert!(!control.quit_requested(), "the setup is stopped first");
+        sender
+            .send(Finished::FlatpakSetup {
+                completed: vec![crate::packages::Change::FlathubAdded],
+                in_place: Vec::new(),
+                result: Err(crate::run::CANCELLED.to_owned()),
+                rollback: crate::packages::Rollback::Undone(vec!["Flathub removed"]),
+            })
+            .unwrap();
+        app.event(&Event::Wake, &mut control);
+        assert!(
+            control.quit_requested(),
+            "the window closes after a clean undo"
+        );
+        assert!(
+            app.dialog.is_none(),
+            "nothing is left to read on the way out"
+        );
+    }
+
+    #[test]
+    fn a_second_close_keeps_an_open_report_until_it_is_dismissed() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = apt_app(dir.path(), &["apt-cache"], unused_commands());
+        let mut control = Control::default();
+        app.show_setup_report(
+            "Rollback failed: refused. Still changed: Flatpak installed.".to_owned(),
+        );
+        app.event(&Event::CloseRequested, &mut control);
+        assert!(
+            !control.quit_requested(),
+            "the report is read before the window closes"
+        );
+        assert!(app.quit_when_idle);
+        app.event(&key_event(Key::Enter), &mut control);
+        assert!(
+            control.quit_requested(),
+            "the window closes once the report is dismissed"
+        );
     }
 
     #[test]
