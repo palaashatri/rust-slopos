@@ -114,6 +114,19 @@ impl DisplayOutput {
         let id = self.mode?;
         self.modes.iter().find(|mode| mode.id == id)
     }
+
+    /// Pixels per inch across, from the mode in use and the panel's physical
+    /// width. `None` when the server reports no usable size.
+    pub fn physical_dpi(&self) -> Option<u32> {
+        let mode = self.current_mode()?;
+        pixels_per_inch(mode.width, self.width_mm)
+    }
+
+    /// The integer UI scale this monitor suggests from its density. `None`
+    /// without a usable physical size.
+    pub fn suggested_scale(&self) -> Option<u32> {
+        self.physical_dpi().map(suggested_scale_for_dpi)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -217,6 +230,20 @@ pub fn find_mode(
 }
 
 /// Distinct sizes `output` supports, largest first.
+/// Pixels per inch for `pixels` across a panel `width_mm` wide. A size under
+/// 10 mm is treated as unknown rather than as a very dense screen.
+pub fn pixels_per_inch(pixels: u16, width_mm: u32) -> Option<u32> {
+    if pixels == 0 || width_mm < 10 {
+        return None;
+    }
+    Some((f64::from(pixels) * 25.4 / f64::from(width_mm)).round() as u32)
+}
+
+/// The UI scale for a density: 96 dpi is 1, kept between 1 and 4.
+pub fn suggested_scale_for_dpi(dpi: u32) -> u32 {
+    ((f64::from(dpi) / 96.0).round() as u32).clamp(1, 4)
+}
+
 pub fn sizes(output: &DisplayOutput) -> Vec<(u16, u16)> {
     let mut sizes: Vec<(u16, u16)> = output
         .modes
@@ -835,6 +862,36 @@ mod tests {
             min_size: (320, 200),
             max_size: (8192, 8192),
         }
+    }
+
+    #[test]
+    fn each_monitor_suggests_a_scale_from_its_real_size() {
+        // A 27-inch 4K panel is about 163 dpi; a 24-inch 1080p panel about 93.
+        assert_eq!(pixels_per_inch(3840, 597), Some(163));
+        assert_eq!(suggested_scale_for_dpi(163), 2);
+        assert_eq!(pixels_per_inch(1920, 527), Some(93));
+        assert_eq!(suggested_scale_for_dpi(93), 1);
+        assert_eq!(suggested_scale_for_dpi(288), 3);
+        assert_eq!(suggested_scale_for_dpi(10), 1);
+        assert_eq!(suggested_scale_for_dpi(900), 4);
+        // Unknown sizes give no scale rather than a guess.
+        assert_eq!(pixels_per_inch(1920, 0), None);
+        assert_eq!(pixels_per_inch(1920, 9), None);
+        assert_eq!(pixels_per_inch(0, 520), None);
+        let known = output(2, "HDMI-1", 200, 1920);
+        assert_eq!(known.physical_dpi(), Some(94));
+        assert_eq!(known.suggested_scale(), Some(1));
+        let unknown = DisplayOutput {
+            width_mm: 0,
+            ..known.clone()
+        };
+        assert_eq!(unknown.physical_dpi(), None);
+        assert_eq!(unknown.suggested_scale(), None);
+        let off = DisplayOutput {
+            mode: None,
+            ..known
+        };
+        assert_eq!(off.suggested_scale(), None);
     }
 
     #[test]

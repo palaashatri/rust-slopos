@@ -1,6 +1,6 @@
 //! Keyboard and pointer settings on X11: keyboard layout (XKB), key repeat
-//! (XKB controls), pointer speed and natural scrolling (libinput device
-//! properties through XInput 2) and left-handed buttons (core pointer
+//! (XKB controls), pointer speed, natural scrolling and tap-to-click (libinput
+//! device properties through XInput 2) and left-handed buttons (core pointer
 //! mapping). Reading uses X requests and the XKB rules file; the only
 //! program run is `setxkbmap`, to compile a new keymap, and its output is
 //! never parsed.
@@ -20,6 +20,7 @@ use x11rb::rust_connection::RustConnection;
 /// libinput's properties, as the X driver names them.
 const ACCEL_SPEED: &str = "libinput Accel Speed";
 const NATURAL_SCROLLING: &str = "libinput Natural Scrolling Enabled";
+const TAPPING: &str = "libinput Tapping Enabled";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputSettings {
@@ -34,6 +35,8 @@ pub struct InputSettings {
     pub natural_scrolling: bool,
     /// Primary and secondary buttons swapped.
     pub left_handed: bool,
+    /// A tap on a touchpad clicks (libinput tapping).
+    pub tap_to_click: bool,
 }
 
 impl Default for InputSettings {
@@ -46,6 +49,7 @@ impl Default for InputSettings {
             pointer_speed: 0.0,
             natural_scrolling: false,
             left_handed: false,
+            tap_to_click: false,
         }
     }
 }
@@ -56,6 +60,8 @@ pub struct InputSnapshot {
     pub settings: InputSettings,
     /// Pointer devices that take libinput speed / scrolling settings.
     pub tunable_pointers: usize,
+    /// Pointer devices that take the tap-to-click setting (touchpads).
+    pub tap_capable: usize,
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -158,7 +164,7 @@ pub fn speed_from_bits(bits: u32) -> f32 {
 /// Save settings for the next session.
 pub fn save(path: &Path, settings: &InputSettings) -> std::io::Result<()> {
     let text = format!(
-        "# SLOPOS keyboard and mouse\nlayout={}\nvariant={}\nrepeat_delay_ms={}\nrepeat_rate_hz={}\npointer_speed={}\nnatural_scrolling={}\nleft_handed={}\n",
+        "# SLOPOS keyboard and mouse\nlayout={}\nvariant={}\nrepeat_delay_ms={}\nrepeat_rate_hz={}\npointer_speed={}\nnatural_scrolling={}\nleft_handed={}\ntap_to_click={}\n",
         settings.layout,
         settings.variant,
         settings.repeat_delay_ms,
@@ -166,6 +172,7 @@ pub fn save(path: &Path, settings: &InputSettings) -> std::io::Result<()> {
         settings.pointer_speed,
         u8::from(settings.natural_scrolling),
         u8::from(settings.left_handed),
+        u8::from(settings.tap_to_click),
     );
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
@@ -191,6 +198,8 @@ pub fn load(path: &Path) -> Option<InputSettings> {
         pointer_speed: field("pointer_speed")?.parse().ok()?,
         natural_scrolling: field("natural_scrolling")? == "1",
         left_handed: field("left_handed")? == "1",
+        // Files saved before tap-to-click existed keep it off.
+        tap_to_click: field("tap_to_click") == Some("1"),
     };
     validate(&settings).ok().map(|()| settings)
 }
@@ -319,10 +328,16 @@ impl InputClient {
         if let Some(&device) = self.pointers_with(natural).first() {
             settings.natural_scrolling = self.property(device, natural) == Some(1);
         }
+        let tapping = self.atom(TAPPING)?;
+        let tappers = self.pointers_with(tapping);
+        if let Some(&device) = tappers.first() {
+            settings.tap_to_click = self.property(device, tapping) == Some(1);
+        }
         Ok(InputSnapshot {
             availability: Availability::Available,
             settings,
             tunable_pointers: tunable.len(),
+            tap_capable: tappers.len(),
         })
     }
 
@@ -432,6 +447,19 @@ impl InputClient {
                 )
                 .map_err(|e| failed(&e))?;
         }
+        let tapping = self.atom(TAPPING)?;
+        for device in self.pointers_with(tapping) {
+            self.conn
+                .xinput_xi_change_property(
+                    device,
+                    PropMode::REPLACE,
+                    tapping,
+                    AtomEnum::INTEGER.into(),
+                    1,
+                    &XIChangePropertyAux::Data8(vec![u8::from(settings.tap_to_click)]),
+                )
+                .map_err(|e| failed(&e))?;
+        }
         self.conn.flush().map_err(|e| failed(&e))?;
         self.snapshot()
     }
@@ -506,6 +534,7 @@ mod tests {
             pointer_speed: -0.25,
             natural_scrolling: true,
             left_handed: true,
+            tap_to_click: true,
         };
         assert!(validate(&settings).is_ok());
         let dir = tempfile::tempdir().unwrap();
@@ -534,6 +563,20 @@ mod tests {
         }
         std::fs::write(&path, "layout=us\nrepeat_delay_ms=5\n").unwrap();
         assert_eq!(load(&path), None);
+        // A file from before tap-to-click loads, with tapping off.
+        std::fs::write(
+            &path,
+            "layout=us\nvariant=\nrepeat_delay_ms=500\nrepeat_rate_hz=30\npointer_speed=0\nnatural_scrolling=0\nleft_handed=0\n",
+        )
+        .unwrap();
+        let older = load(&path).expect("a file without tap_to_click loads");
+        assert!(!older.tap_to_click);
+        std::fs::write(
+            &path,
+            "layout=us\ntap_to_click=1\nrepeat_delay_ms=500\nrepeat_rate_hz=30\npointer_speed=0\nnatural_scrolling=0\nleft_handed=0\n",
+        )
+        .unwrap();
+        assert!(load(&path).expect("loads").tap_to_click);
         settings.variant.clear();
         assert!(load(&dir.path().join("missing")).is_none());
     }

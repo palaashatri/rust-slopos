@@ -6,5 +6,6 @@ pub mod input;
 pub mod media;
 pub mod network;
 pub mod power;
+pub mod printers;
 pub mod storage;
 pub mod timedate;
