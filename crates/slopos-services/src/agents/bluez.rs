@@ -497,8 +497,12 @@ impl BluezAgent {
     /// Show a display-only request. Its dialog stays open until `Cancel`, a
     /// newer request replaces it, or its owner goes away. The call returns
     /// once the dialog is published; it does not wait for the dialog to close.
-    async fn display(&self, owner: &str, request: PairingRequest) -> Result<(), BluezError> {
-        let id = next_prompt_id();
+    async fn display(
+        &self,
+        id: u64,
+        owner: &str,
+        request: PairingRequest,
+    ) -> Result<(), BluezError> {
         let replaced = match self.lock().begin(id, Interaction::Display, owner) {
             Ok(replaced) => replaced,
             // A newer display update has already started, so this one is
@@ -605,8 +609,13 @@ impl BluezAgent {
         device: OwnedObjectPath,
         pincode: String,
     ) -> Result<(), BluezError> {
+        // The id is taken before the first await, so it follows the order in
+        // which BlueZ's calls reach this handler, not the order in which their
+        // futures are later polled.
+        let id = next_prompt_id();
         let owner = sender_of(&header);
         self.display(
+            id,
             &owner,
             PairingRequest::DisplayPinCode {
                 device: device.to_string(),
@@ -643,8 +652,11 @@ impl BluezAgent {
         passkey: u32,
         entered: u16,
     ) -> Result<(), BluezError> {
+        // Taken before the first await, as in display_pin_code.
+        let id = next_prompt_id();
         let owner = sender_of(&header);
         self.display(
+            id,
             &owner,
             PairingRequest::DisplayPasskey {
                 device: device.to_string(),
