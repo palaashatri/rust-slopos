@@ -566,7 +566,7 @@ mod tests {
         let mut app = CalculatorApp::new();
         let mut control = Control::default();
         let nines = ['9'; 12];
-        for c in nines.clone() {
+        for c in nines {
             app.event(&key_event(Key::Character(c)), &mut control);
         }
         app.event(&key_event(Key::Character('*')), &mut control);
