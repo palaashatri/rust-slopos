@@ -11,6 +11,7 @@
 
 use std::ffi::{CStr, CString};
 use std::sync::mpsc::{self, RecvTimeoutError};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -132,18 +133,48 @@ fn authenticate_once(user: &str, password: &str) -> Verdict {
     }
 }
 
+/// One password check: a user and a password in, a verdict out. [`PamCheck`]
+/// runs it on a helper thread under a deadline; tests pass a fake that
+/// answers, blocks or panics.
+pub type Authenticator = dyn Fn(&str, &str) -> Verdict + Send + Sync;
+
 /// The real check: PAM, with a timeout.
 ///
-/// The PAM call runs on its own thread so that a stack that blocks cannot
-/// hold the lock in "Checking". On timeout the thread is left to finish on
-/// its own (libpam cannot be interrupted) and only its late answer is
-/// discarded; each such thread holds only its own zeroed copies.
-#[derive(Debug, Default)]
-pub struct PamCheck;
+/// The check runs on its own thread so that a stack that blocks cannot hold
+/// the lock in "Checking". On timeout the thread is left to finish on its own
+/// (libpam cannot be interrupted) and only its late answer is discarded; each
+/// such thread holds only its own zeroed copies.
+pub struct PamCheck {
+    authenticate: Arc<Authenticator>,
+    timeout: Duration,
+}
+
+impl std::fmt::Debug for PamCheck {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PamCheck")
+            .field("timeout", &self.timeout)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Default for PamCheck {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl PamCheck {
+    /// The production check: PAM, service [`PAM_SERVICE`], timeout [`PAM_TIMEOUT`].
     pub fn new() -> Self {
-        Self
+        Self::with_authenticator(Arc::new(authenticate_once), PAM_TIMEOUT)
+    }
+
+    /// A check that asks `authenticate` instead of PAM and gives up after `timeout`.
+    pub fn with_authenticator(authenticate: Arc<Authenticator>, timeout: Duration) -> Self {
+        Self {
+            authenticate,
+            timeout,
+        }
     }
 }
 
@@ -151,23 +182,28 @@ impl PasswordCheck for PamCheck {
     fn check(&mut self, user: &str, password: &str) -> Verdict {
         let user = user.to_owned();
         let password = Zeroizing::new(password.to_owned());
+        let authenticate = Arc::clone(&self.authenticate);
         let (answer, received) = mpsc::channel();
         let spawned = thread::Builder::new()
             .name("slopos-pam".to_owned())
             .spawn(move || {
-                let verdict = authenticate_once(&user, &password);
+                let verdict = authenticate(user.as_str(), password.as_str());
                 let _ = answer.send(verdict);
             });
         if let Err(error) = spawned {
             log::error!("cannot start the PAM check: {error}");
             return Verdict::Unavailable;
         }
-        match received.recv_timeout(PAM_TIMEOUT) {
+        match received.recv_timeout(self.timeout) {
             Ok(verdict) => verdict,
             Err(RecvTimeoutError::Timeout) => {
-                log::error!("PAM did not answer within {PAM_TIMEOUT:?}; the screen stays locked");
+                log::error!(
+                    "PAM did not answer within {:?}; the screen stays locked",
+                    self.timeout
+                );
                 Verdict::Unavailable
             }
+            // The helper ended without answering (it panicked): no verdict.
             Err(RecvTimeoutError::Disconnected) => Verdict::Unavailable,
         }
     }
@@ -176,6 +212,7 @@ impl PasswordCheck for PamCheck {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::lock::state::{Input, LockMachine, Phase};
 
     /// Accepts exactly one password for one user.
     pub struct FixedCheck {
@@ -303,5 +340,76 @@ pub(crate) mod tests {
         let verdict = PamCheck::new().check("slopos-no-such-user", "not the password");
         assert_ne!(verdict, Verdict::Accepted);
         assert!(started.elapsed() < PAM_TIMEOUT);
+    }
+
+    /// A fake authenticator that blocks, like a stuck PAM stack, until the
+    /// returned sender is used or dropped. It then answers `verdict`.
+    fn blocking_fake(verdict: Verdict) -> (Arc<Authenticator>, mpsc::Sender<()>) {
+        let (release, gate) = mpsc::channel::<()>();
+        let gate = std::sync::Mutex::new(gate);
+        let fake: Arc<Authenticator> = Arc::new(move |_user: &str, _password: &str| {
+            let _ = gate.lock().unwrap().recv();
+            verdict
+        });
+        (fake, release)
+    }
+
+    #[test]
+    fn the_fake_authenticator_gets_the_user_and_the_password_and_its_verdict_is_returned() {
+        let fake: Arc<Authenticator> = Arc::new(|user: &str, password: &str| {
+            if user == "alice" && password == "open sesame" {
+                Verdict::Accepted
+            } else {
+                Verdict::Rejected
+            }
+        });
+        let mut check = PamCheck::with_authenticator(fake, PAM_TIMEOUT);
+        assert_eq!(check.check("alice", "open sesame"), Verdict::Accepted);
+        assert_eq!(check.check("alice", "nope"), Verdict::Rejected);
+        assert_eq!(check.check("bob", "open sesame"), Verdict::Rejected);
+    }
+
+    #[test]
+    fn a_check_that_never_answers_is_unavailable_at_the_deadline_and_the_lock_stays_locked() {
+        let (fake, release) = blocking_fake(Verdict::Accepted);
+        let mut check = PamCheck::with_authenticator(fake, Duration::from_millis(50));
+        let mut machine = LockMachine::new();
+        machine.handle(Input::Lock, Duration::ZERO);
+        machine.handle(Input::Submit, Duration::ZERO);
+
+        let started = std::time::Instant::now();
+        let verdict = check.check("alice", "anything");
+        let waited = started.elapsed();
+        // The helper is still blocked: let it finish so the test ends cleanly.
+        let _ = release.send(());
+
+        assert_eq!(verdict, Verdict::Unavailable);
+        assert!(waited < PAM_TIMEOUT, "the deadline is the one passed in");
+        machine.handle(Input::Checked(verdict), Duration::ZERO);
+        assert_eq!(machine.phase(), Phase::Locked);
+        assert_eq!(machine.failures(), 0, "a timeout is not a wrong password");
+    }
+
+    #[test]
+    fn a_helper_that_panics_is_unavailable_not_accepted() {
+        let fake: Arc<Authenticator> = Arc::new(|_: &str, _: &str| -> Verdict {
+            panic!("the stack broke");
+        });
+        let mut check = PamCheck::with_authenticator(fake, PAM_TIMEOUT);
+        assert_eq!(check.check("alice", "pw"), Verdict::Unavailable);
+    }
+
+    #[test]
+    fn a_late_answer_after_the_deadline_is_not_used() {
+        let (fake, release) = blocking_fake(Verdict::Accepted);
+        let mut check = PamCheck::with_authenticator(fake, Duration::from_millis(50));
+        assert_eq!(check.check("alice", "pw"), Verdict::Unavailable);
+        // The stuck check now answers "Accepted". The lock already moved on:
+        // the next check is a fresh one and does not see the old answer.
+        let _ = release.send(());
+        let (fake, second_release) = blocking_fake(Verdict::Rejected);
+        check.authenticate = fake;
+        let _ = second_release.send(());
+        assert_eq!(check.check("alice", "pw"), Verdict::Rejected);
     }
 }

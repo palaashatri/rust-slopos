@@ -613,4 +613,42 @@ mod tests {
         // The corner is the backdrop colour on the whole screen edge.
         assert_eq!(surface.pixel(799, 599), Some(corner));
     }
+
+    #[test]
+    fn the_accessibility_tree_announces_a_wrong_password_and_keeps_focus_on_the_field() {
+        let mut h = harness();
+        let mut control = Control::default();
+        attempt(&mut h, &mut control, "wrong", Verdict::Rejected);
+        let tree = h.app.accessibility().expect("a tree");
+        let (_, notice) = tree
+            .nodes
+            .iter()
+            .find(|(id, _)| id.0 == NOTICE_NODE)
+            .expect("the notice node");
+        assert!(notice.value().unwrap().contains("Incorrect password"));
+        assert_eq!(tree.focus.0, FIELD_NODE, "focus stays where typing goes");
+    }
+
+    #[test]
+    fn the_accessibility_tree_has_no_notice_node_until_there_is_something_to_say() {
+        let h = harness();
+        let tree = h.app.accessibility().expect("a tree");
+        assert!(tree.nodes.iter().all(|(id, _)| id.0 != NOTICE_NODE));
+    }
+
+    #[test]
+    fn a_keyboard_only_session_unlocks_after_one_wrong_and_one_right_password() {
+        let mut h = harness();
+        let mut control = Control::default();
+        // The field starts focused, so no pointer is needed to reach it.
+        assert!(h.app.field.focused);
+        // Escape does nothing to the lock.
+        h.app.event(&key(Key::Escape), &mut control);
+        assert!(!control.quit_requested());
+        attempt(&mut h, &mut control, "wrong", Verdict::Rejected);
+        assert!(!control.quit_requested());
+        assert_eq!(h.app.notice, Notice::Incorrect);
+        attempt(&mut h, &mut control, "right", Verdict::Accepted);
+        assert!(control.quit_requested());
+    }
 }
