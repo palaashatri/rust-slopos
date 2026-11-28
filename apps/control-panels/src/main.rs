@@ -4279,7 +4279,10 @@ mod tests {
         let mut app = ControlPanels::new(None);
         app.show_panel(panel_index(Panel::Appearance));
         app.read_appearance(dir.path());
-        assert_eq!(app.lines().1, vec!["Current: Platinum (default)".to_owned()]);
+        assert_eq!(
+            app.lines().1,
+            vec!["Current: Platinum (default)".to_owned()]
+        );
         std::fs::create_dir_all(dir.path().join("slopos-i")).unwrap();
         std::fs::write(dir.path().join("slopos-i/appearance"), "graphite\n").unwrap();
         app.read_appearance(dir.path());
@@ -4293,6 +4296,9 @@ mod tests {
         // An unknown name is not a saved appearance.
         std::fs::write(dir.path().join("slopos-i/appearance"), "../../etc\n").unwrap();
         app.read_appearance(dir.path());
-        assert_eq!(app.lines().1, vec!["Current: Platinum (default)".to_owned()]);
+        assert_eq!(
+            app.lines().1,
+            vec!["Current: Platinum (default)".to_owned()]
+        );
     }
 }
