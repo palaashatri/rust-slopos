@@ -421,7 +421,7 @@ For *all future first-party apps*, require an **edge profile** (memory budget, n
 The §21.8 compatibility matrix must include current application types, not only GTK 3:
 
 - **Toolkits:** GTK 4/libadwaita, Qt 6, Electron/Chromium, Java Swing and Flatpak apps, each run under the SLOPOS X11 session.
-- **Portals:** the session sets `XDG_CURRENT_DESKTOP=SLOPOS` and ships a `slopos-portals.conf` that selects working backends (for example `xdg-desktop-portal-gtk` for FileChooser). Portals with no working X11 backend, such as some Screenshot or ScreenCast paths, are reported as unavailable, not as working.
+- **Portals:** the session sets `XDG_CURRENT_DESKTOP=SLOPOS` and ships a `slopos-portals.conf` that selects working backends. FileChooser goes to SLOPOS's own backend, `org.freedesktop.impl.portal.desktop.slopos`; this supersedes the earlier suggestion of `xdg-desktop-portal-gtk` for FileChooser (ledger, 2026-11-27, PORTAL-BACKEND-DECISION). Portals with no working X11 backend, such as some Screenshot or ScreenCast paths, are reported as unavailable, not as working.
 - **Global menu:** measure global-menu export per toolkit. Many GTK 4, libadwaita and Electron apps do not export menus over DBusMenu. Those apps keep their in-window menus, and the menu bar shows only the commands an app really exports (§14.1).
 - **Input and display:** check fractional-scaling behavior per toolkit at SLOPOS's integer scales, and check XInput2 touchpad gestures where the X server provides them. Unsupported behavior is recorded per toolkit.
 

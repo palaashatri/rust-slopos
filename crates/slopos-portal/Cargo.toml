@@ -1,0 +1,32 @@
+[package]
+name = "slopos-portal"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS file chooser portal backend (org.freedesktop.impl.portal.FileChooser) and the chooser dialog program"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "slopos-portal"
+path = "src/bin/slopos-portal.rs"
+
+[[bin]]
+name = "slopos-file-chooser"
+path = "src/bin/slopos-file-chooser.rs"
+
+[dependencies]
+slopos-core = { path = "../slopos-core" }
+slopos-ui = { path = "../slopos-ui" }
+zbus = { workspace = true }
+futures = { workspace = true }
+accesskit = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+libc = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

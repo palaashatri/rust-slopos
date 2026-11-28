@@ -308,24 +308,92 @@ fn candidates(mime: &str, lists: &[String], installed: &[DesktopApp]) -> Vec<Str
     ids
 }
 
+/// Desktop-file ids of the native SLOPOS applications. Open With offers only
+/// these. Third-party applications (GTK, Electron, the upstream browser that
+/// `slopos-browser` wraps) and the legacy GTK settings program are not native.
+pub const NATIVE_APP_IDS: &[&str] = &[
+    "slopos-calculator",
+    "slopos-control-panels",
+    "slopos-files",
+    "slopos-image-viewer",
+    "slopos-media",
+    "slopos-software",
+    "slopos-volume-mixer",
+];
+
+/// True when `app` is one of [`NATIVE_APP_IDS`].
+pub fn is_native_app(app: &DesktopApp) -> bool {
+    NATIVE_APP_IDS.contains(&app.id.as_str())
+}
+
+/// One application that can open a type, for an Open With chooser.
+#[derive(Debug, Clone)]
+pub struct Association {
+    pub app: DesktopApp,
+    /// The application the default-application lists select for the type.
+    pub is_default: bool,
+}
+
+/// Applications that can open `mime`, default first, then the others in
+/// the order [`candidates`] gives them. Only installed applications are
+/// returned.
+pub fn applications_for(mime: &str) -> Vec<Association> {
+    let lists: Vec<String> = mimeapps_files()
+        .iter()
+        .filter_map(|path| fs::read_to_string(path).ok())
+        .collect();
+    associations_from(mime, &lists, &scan_desktop_apps())
+}
+
+/// The native applications that can open `mime`, for Open With. Non-native
+/// applications are dropped after the default is chosen, so `is_default`
+/// stays on the real default: when that default is not native, no entry is
+/// marked.
+pub fn native_applications_for(mime: &str) -> Vec<Association> {
+    applications_for(mime)
+        .into_iter()
+        .filter(|association| is_native_app(&association.app))
+        .collect()
+}
+
+fn associations_from(mime: &str, lists: &[String], installed: &[DesktopApp]) -> Vec<Association> {
+    let mut seen = std::collections::HashSet::new();
+    candidates(mime, lists, installed)
+        .into_iter()
+        .filter(|id| seen.insert(id.clone()))
+        .filter_map(|id| installed.iter().find(|app| app.id == id).cloned())
+        .enumerate()
+        .map(|(index, app)| Association {
+            app,
+            is_default: index == 0,
+        })
+        .collect()
+}
+
 /// Open `path` in the application set for its type (or `xdg-open` when
 /// none is), detached. Returns the application's name, or `None` when
 /// nothing could open it.
 pub fn open(path: &Path) -> Option<String> {
     use crate::process::{resolve_program, spawn_detached};
     match default_app(&guess(path)) {
-        Some(app) => app.command_for(&[path]).and_then(|argv| {
-            let program = resolve_program(&argv[0])?;
-            spawn_detached(&program, &argv[1..])
-                .ok()
-                .map(|_| app.name.clone())
-        }),
+        Some(app) => launch_with(&app, path),
         None => resolve_program("xdg-open").and_then(|opener| {
             spawn_detached(&opener, [path.as_os_str()])
                 .ok()
                 .map(|_| "the default application".to_owned())
         }),
     }
+}
+
+/// Start `app` on `path`, detached. Returns the application's name when it
+/// started; `None` when its `Exec` line cannot be run.
+pub fn launch_with(app: &DesktopApp, path: &Path) -> Option<String> {
+    use crate::process::{resolve_program, spawn_detached};
+    let argv = app.command_for(&[path])?;
+    let program = resolve_program(argv.first()?)?;
+    spawn_detached(&program, &argv[1..])
+        .ok()
+        .map(|_| app.name.clone())
 }
 
 /// The installed application that should open `mime`, if any. Text
@@ -371,6 +439,63 @@ mod tests {
             mime_types: mime.iter().map(|m| (*m).into()).collect(),
             exec: "true %F".into(),
         }
+    }
+
+    #[test]
+    fn associations_put_the_default_first_and_skip_missing_apps() {
+        let installed = vec![
+            app("viewer", &["image/png"]),
+            app("editor", &["image/png", "text/plain"]),
+        ];
+        let lists =
+            vec!["[Default Applications]\nimage/png=editor.desktop;ghost.desktop;\n".to_owned()];
+        let found = associations_from("image/png", &lists, &installed);
+        let ids: Vec<(&str, bool)> = found
+            .iter()
+            .map(|a| (a.app.id.as_str(), a.is_default))
+            .collect();
+        assert_eq!(ids, [("editor", true), ("viewer", false)]);
+        assert!(associations_from("application/x-none", &[], &installed).is_empty());
+    }
+
+    #[test]
+    fn open_with_offers_only_native_apps_and_marks_only_the_real_default() {
+        let installed = vec![
+            app("slopos-browser", &["image/png"]),
+            app("mousepad", &["image/png"]),
+            app("slopos-image-viewer", &["image/png"]),
+        ];
+        // The real default is a third-party app: no native entry is marked.
+        let lists = vec!["[Default Applications]\nimage/png=mousepad.desktop\n".to_owned()];
+        let native: Vec<(String, bool)> = associations_from("image/png", &lists, &installed)
+            .into_iter()
+            .filter(|association| is_native_app(&association.app))
+            .map(|association| (association.app.id.clone(), association.is_default))
+            .collect();
+        assert_eq!(native, [("slopos-image-viewer".to_owned(), false)]);
+
+        // With no default list, the default is the first SLOPOS candidate in
+        // install order: here the browser wrapper, which is not native. So no
+        // native entry is marked, and the viewer is offered unmarked.
+        let all: Vec<(String, bool)> = associations_from("image/png", &[], &installed)
+            .into_iter()
+            .map(|association| (association.app.id.clone(), association.is_default))
+            .collect();
+        assert_eq!(all[0], ("slopos-browser".to_owned(), true));
+        let native: Vec<(String, bool)> = associations_from("image/png", &[], &installed)
+            .into_iter()
+            .filter(|association| is_native_app(&association.app))
+            .map(|association| (association.app.id.clone(), association.is_default))
+            .collect();
+        assert_eq!(native, [("slopos-image-viewer".to_owned(), false)]);
+    }
+
+    #[test]
+    fn the_browser_wrapper_and_legacy_settings_are_not_native() {
+        assert!(!is_native_app(&app("slopos-browser", &[])));
+        assert!(!is_native_app(&app("slopos-settings", &[])));
+        assert!(!is_native_app(&app("mousepad", &[])));
+        assert!(is_native_app(&app("slopos-files", &[])));
     }
 
     #[test]
