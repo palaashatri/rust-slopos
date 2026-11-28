@@ -3583,6 +3583,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-fonts"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "slopos-core",
+ "slopos-ui",
+ "tempfile",
+]
+
+[[package]]
 name = "slopos-help"
 version = "0.1.0"
 dependencies = [

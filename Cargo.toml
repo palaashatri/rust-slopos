@@ -26,6 +26,7 @@ members = [
     "apps/system-information",
     "apps/archive-utility",
     "apps/help",
+    "apps/fonts",
 ]
 
 [workspace.dependencies]

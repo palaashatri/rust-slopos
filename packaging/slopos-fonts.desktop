@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Fonts
+Comment=Browse installed fonts, preview them, and install or remove your own
+Exec=slopos-fonts
+TryExec=slopos-fonts
+Icon=preferences-desktop-font
+Terminal=false
+StartupNotify=true
+Categories=Utility;Graphics;

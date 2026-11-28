@@ -1,0 +1,14 @@
+[package]
+name = "slopos-fonts"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Fonts: browse installed fonts from fontconfig, preview them, install and remove your own"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+slopos-core = { path = "../../crates/slopos-core" }
+accesskit = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
