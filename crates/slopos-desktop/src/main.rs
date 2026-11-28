@@ -1192,8 +1192,10 @@ mod tests {
             .map(|i| i.label.as_str())
             .collect();
         assert_eq!(labels, ["Open", "Move to Trash"]);
-        // Home offers only Open.
+        // Home offers only Open. Escape clears the Ctrl+A selection first,
+        // so Home is not part of a multi-selection of files.
         desktop.menu.close();
+        desktop.event(&key(Key::Escape), &mut control);
         let (x, y) = centre_of(&desktop, index_of(&desktop, "Home"));
         desktop.event(
             &Event::PointerPressed {
