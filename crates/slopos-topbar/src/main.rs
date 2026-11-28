@@ -311,6 +311,8 @@ pub struct TopBar {
     notifications: Option<notifications::Notifications>,
     /// Toasts, oldest first; the first `notifications::VISIBLE` are shown.
     toasts: Vec<notifications::Toast>,
+    /// The sound item's x as last logged, so each change is logged once.
+    logged_sound_x: Option<i32>,
 }
 
 impl TopBar {
@@ -353,6 +355,7 @@ impl TopBar {
             appmenu_specs: false,
             notifications: None,
             toasts: Vec::new(),
+            logged_sound_x: None,
         };
         bar.rebuild_specs();
         bar
@@ -1461,6 +1464,19 @@ impl TopBar {
             Some(Open::Status(kind)) => Some(kind),
             _ => None,
         };
+        // The QA script reads the sound item's x from this line rather than
+        // assuming a position, which moves with the network and battery text.
+        let sound_x = self
+            .status_rects()
+            .into_iter()
+            .find(|(kind, _, _)| *kind == StatusMenu::Sound)
+            .map(|(_, rect, _)| rect.x);
+        if sound_x != self.logged_sound_x {
+            if let Some(x) = sound_x {
+                log::info!("sound item at x={x}");
+            }
+            self.logged_sound_x = sound_x;
+        }
         for (kind, rect, text) in self.status_rects() {
             let active = open_status == Some(kind);
             if active {

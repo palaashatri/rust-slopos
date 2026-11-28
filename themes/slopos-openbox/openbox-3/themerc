@@ -63,14 +63,6 @@ menu.items.active.bg: flat solid
 menu.items.active.bg.color: #8A92A0
 menu.items.active.text.color: #FFFFFF
 
-# Soft shadow settings for Platinum depth
-window.active.shadow.color: #000000
-window.active.shadow.opacity: 0.15
-window.active.shadow.offset.x: 2
-window.active.shadow.offset.y: 2
-window.inactive.shadow.color: #000000
-window.inactive.shadow.opacity: 0.08
-window.inactive.shadow.offset.x: 1
 menu.separator.width: 1
 menu.separator.padding.width: 8
 menu.separator.padding.height: 4

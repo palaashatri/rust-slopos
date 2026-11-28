@@ -50,10 +50,14 @@ override_dh_auto_install:
 	install -Dm644 assets/config/gtk-3.0/gtk-classic.css debian/slopos-i/usr/share/themes/slopos-gtk-classic/gtk-3.0/gtk.css
 	install -Dm644 assets/config/gtk-3.0/gtk-graphite.css debian/slopos-i/usr/share/themes/slopos-gtk-graphite/gtk-3.0/gtk.css
 	install -Dm644 assets/config/gtk-3.0/gtk-oled.css debian/slopos-i/usr/share/themes/slopos-gtk-oled/gtk-3.0/gtk.css
+	install -Dm644 themes/platinum/gtk-2.0/gtkrc debian/slopos-i/usr/share/themes/slopos-gtk/gtk-2.0/gtkrc
+	install -Dm644 themes/high-contrast/gtk-2.0/gtkrc debian/slopos-i/usr/share/themes/slopos-gtk-classic/gtk-2.0/gtkrc
+	install -Dm644 themes/graphite/gtk-2.0/gtkrc debian/slopos-i/usr/share/themes/slopos-gtk-graphite/gtk-2.0/gtkrc
 	install -Dm644 themes/oled-graphite/gtk-2.0/gtkrc debian/slopos-i/usr/share/themes/slopos-gtk-oled/gtk-2.0/gtkrc
 	install -Dm644 assets/config/gtk-3.0/settings.ini debian/slopos-i/usr/share/slopos-i/gtk-3.0/settings.ini
 	install -Dm644 assets/config/mimeapps.list debian/slopos-i/usr/share/slopos-i/mimeapps.list
 	install -Dm644 assets/slopos-logo.png debian/slopos-i/usr/share/slopos-i/slopos-logo.png
+	install -Dm644 assets/icons/notification.png debian/slopos-i/usr/share/slopos-i/icons/notification.png
 	mkdir -p debian/slopos-i/usr/share/slopos-i/wallpapers
 	cp -a assets/wallpapers/. debian/slopos-i/usr/share/slopos-i/wallpapers/
 	mkdir -p debian/slopos-i/usr/share/slopos-i/recovery

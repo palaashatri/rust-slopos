@@ -48,15 +48,6 @@ menu.items.active.bg: flat solid
 menu.items.active.bg.color: #8A92A0
 menu.items.active.text.color: #FFFFFF
 
-# Soft shadow settings for OLED depth
-window.active.shadow.color: #000000
-window.active.shadow.opacity: 0.25
-window.active.shadow.offset.x: 2
-window.active.shadow.offset.y: 2
-window.inactive.shadow.color: #000000
-window.inactive.shadow.opacity: 0.12
-window.inactive.shadow.offset.x: 1
-window.inactive.shadow.offset.y: 1
 menu.overlap.x: 0
 menu.overlap.y: 0
 menu.separator.width: 1

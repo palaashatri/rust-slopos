@@ -57,7 +57,10 @@ pgrep -x openbox >/dev/null
 pgrep -x slopos-shell >/dev/null
 test "$(pgrep -xc slopos-shell)" -eq 1
 xdotool search --onlyvisible --name "^SLOPOS Top Bar$" >/dev/null
-! xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1
+if xdotool search --onlyvisible --name "^SLOPOS Application Strip$" >/dev/null 2>&1; then
+  echo "the retired SLOPOS Application Strip is visible" >&2
+  exit 1
+fi
 
 "$BIN_DIR/slopos-catalogue" >"$QA_DIR/catalogue.log" 2>&1 & CATALOGUE_PID=$!
 "$BIN_DIR/slopos-settings" >"$QA_DIR/settings.log" 2>&1 & SETTINGS_PID=$!
