@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # smoke-session.sh — start a real SLOPOS-I session on a private Xvfb display,
-# check that the shell comes up, capture screenshots, log out, and check that
-# every session process exits.
+# check that the shell comes up, capture screenshots, drive the native
+# Calculator and Text Editor (open a fixture, type, save, quit), log out, and
+# check that every session process exits. Output goes to the folder given as
+# $1 (CI uses $RUNNER_TEMP/smoke, uploaded as the session-smoke artifact).
 #
 # Usage: scripts/smoke-session.sh [OUTPUT_DIR]
 #   SLOPOS_BIN_DIR   directory with the built binaries (default: target/debug)
@@ -137,6 +139,84 @@ if kill -0 "$CALC_PID" 2>/dev/null; then
   fail "the calculator kept running after its window was destroyed"
 fi
 echo "smoke: calculator opened and closed (typed input is not asserted)"
+
+# Native Text Editor (EDITOR-01). Open a fixture, check that its text is painted
+# in a 1x screenshot, type a character, save, check the file on disk, and quit
+# with Ctrl+W. Every step fails the smoke; nothing here is best-effort.
+EDITOR_FILE="$WORK/editor-fixture.txt"
+printf 'hello editor\n' >"$EDITOR_FILE"
+"$BIN_DIR/slopos-text-editor" "$EDITOR_FILE" >"$OUT/text-editor.log" 2>&1 &
+EDITOR_PID=$!
+editor_fail() {
+  { echo "----- text editor log -----"; tail -n 40 "$OUT/text-editor.log"; } >&2 || true
+  fail "text editor: $*"
+}
+title_is() { [ "$(xdotool getwindowname "$EDITOR_WINDOW" 2>/dev/null)" = "$1" ]; }
+# Run a check every 0.2 s, at most $1 times; succeed as soon as it passes.
+wait_for() {
+  local tries="$1" i
+  shift
+  for i in $(seq 1 "$tries"); do
+    "$@" && return 0
+    sleep 0.2
+  done
+  return 1
+}
+capture_editor() {
+  command -v import >/dev/null && command -v convert >/dev/null ||
+    fail "text editor: ImageMagick import and convert are required for the screenshots"
+  import -window "$EDITOR_WINDOW" "$OUT/$1.png" || editor_fail "could not capture the window as $1.png"
+  [ -s "$OUT/$1.png" ] || editor_fail "$1.png is empty"
+}
+# Fraction of dark pixels in the crop w x h at x,y of a PNG; 0 means nothing is painted there.
+ink_fraction() {
+  convert "$1" -crop "${4}x${5}+${2}+${3}" +repage -colorspace Gray -threshold 50% -format '%[fx:1-mean]' info:
+}
+
+EDITOR_WINDOW=""
+for _ in $(seq 1 50); do
+  EDITOR_WINDOW="$(xdotool search --name 'Text Editor$' 2>/dev/null | head -1 || true)"
+  [ -n "$EDITOR_WINDOW" ] && break
+  kill -0 "$EDITOR_PID" 2>/dev/null || editor_fail "the editor exited during startup"
+  sleep 0.2
+done
+[ -n "$EDITOR_WINDOW" ] || editor_fail "the editor window never appeared within 10 s"
+timeout 10 xdotool windowactivate --sync "$EDITOR_WINDOW" 2>/dev/null ||
+  xdotool windowfocus "$EDITOR_WINDOW" 2>/dev/null || editor_fail "could not focus the editor window"
+sleep 0.5
+
+# The menu bar is 20 px tall and the first line sits just below it. The crop
+# starts right of the caret column (x 4), so only glyphs can make ink there.
+capture_editor text-editor-1x
+INK="$(ink_fraction "$OUT/text-editor-1x.png" 8 26 192 22)" || editor_fail "could not measure the screenshot"
+awk -v v="$INK" 'BEGIN { exit !(v > 0.001) }' ||
+  editor_fail "the fixture text is not painted in the text area (ink fraction $INK)"
+echo "smoke: text editor painted the fixture text (ink fraction $INK)"
+
+xdotool type --delay 50 'Z' || editor_fail "xdotool could not type into the editor"
+wait_for 25 title_is '*editor-fixture.txt - Text Editor' ||
+  editor_fail "typing did not mark the document as changed (title: $(xdotool getwindowname "$EDITOR_WINDOW" 2>/dev/null))"
+capture_editor text-editor-typed
+
+xdotool key ctrl+s || editor_fail "xdotool could not send Ctrl+S"
+wait_for 25 grep -qx 'Zhello editor' "$EDITOR_FILE" ||
+  editor_fail "Ctrl+S did not write the typed text to the fixture file"
+wait_for 25 title_is 'editor-fixture.txt - Text Editor' ||
+  editor_fail "saving did not clear the modified marker"
+
+xdotool key ctrl+w || editor_fail "xdotool could not send Ctrl+W"
+for _ in $(seq 1 25); do kill -0 "$EDITOR_PID" 2>/dev/null || break; sleep 0.2; done
+if kill -0 "$EDITOR_PID" 2>/dev/null; then
+  kill "$EDITOR_PID" 2>/dev/null || true
+  editor_fail "Ctrl+W did not quit the editor within 5 s"
+fi
+EDITOR_STATUS=0
+wait "$EDITOR_PID" || EDITOR_STATUS=$?
+[ "$EDITOR_STATUS" -eq 0 ] || editor_fail "the editor exited with status $EDITOR_STATUS"
+if grep -Eq "panicked at|RUST_BACKTRACE" "$OUT/text-editor.log"; then
+  editor_fail "the editor panicked"
+fi
+echo "smoke: text editor showed its file, typed, saved and quit on Ctrl+W"
 
 "$BIN_DIR/slopos-session" --logout || fail "slopos-session --logout failed"
 for _ in $(seq 1 50); do
