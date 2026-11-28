@@ -1332,7 +1332,6 @@ mod tests {
     #[test]
     fn the_caret_is_absent_when_unfocused_and_the_selection_paints_at_1x_and_2x() {
         let colors = palette();
-        let text = "abc";
         for factor in [1u32, 2] {
             let scale = Scale::new(factor).unwrap();
             let surface = RasterSurface::new(200, 120, scale).unwrap();
@@ -1343,9 +1342,10 @@ mod tests {
                 width: 200,
                 height: 120,
             });
-            area.paint(&surface, text).unwrap();
+            area.paint(&surface, "").unwrap();
             let f = factor;
             let left = 4;
+            // Empty text has no glyph ink, so only a caret could darken this cell.
             let middle = 4 + area.line_height() as u32 / 2;
             assert_eq!(
                 surface.pixel(left * f, middle * f),
@@ -1353,8 +1353,10 @@ mod tests {
                 "{f}x no caret when unfocused"
             );
 
-            // Select all three letters, then sample a point inside the box
-            // above the glyphs and one just past the selection's right edge.
+            // Select all of "abc\n". The selection runs past the last letter into
+            // the newline's cell, which holds no glyph ink. Sample inside that cell
+            // and just past it.
+            let text = "abc\n";
             let surface = RasterSurface::new(200, 120, scale).unwrap();
             surface.clear(colors.content).unwrap();
             let mut area = focused(text, 0).with_bounds(Rect {
@@ -1365,18 +1367,17 @@ mod tests {
             });
             area.select_all(text);
             area.paint(&surface, text).unwrap();
-            let width = measure(text, &area.font).width;
-            let inside = (left + 1) * f;
-            let top = 4 + 1;
+            let row = 4 + area.line_height() as u32 / 2;
+            // `measure` already rounds widths up to whole pixels.
+            let letters = measure("abc", &area.font).width as u32;
+            let space = measure(" ", &area.font).width as u32;
             assert_eq!(
-                surface.pixel(inside, top * f),
+                surface.pixel((left + letters + 1) * f, row * f),
                 Some(argb(colors.selection)),
-                "{f}x selection highlight"
+                "{f}x selection covers the newline cell"
             );
-            // `measure` already rounds the width up to whole pixels.
-            let past = left + width as u32 + 2;
             assert_eq!(
-                surface.pixel(past * f, top * f),
+                surface.pixel((left + letters + space + 2) * f, row * f),
                 Some(argb(colors.content)),
                 "{f}x past the selection"
             );
