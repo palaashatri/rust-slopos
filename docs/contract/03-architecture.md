@@ -171,6 +171,8 @@ Required provider modules:
 - UPower/logind;
 - timedate;
 - display/RandR;
+- brightness (`08-system-integration.md` §22.3);
+- media (MPRIS, `08-system-integration.md` §22.6);
 - CUPS/IPP printers;
 - removable media/udisks/GIO;
 - storage;
