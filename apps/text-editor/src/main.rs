@@ -552,7 +552,7 @@ impl TextEditorApp {
 
     fn accessibility_tree(&self) -> accesskit::TreeUpdate {
         let mut nodes = self.menu.accessibility_nodes();
-        nodes.push((TEXT_ID, self.area.accessibility_node(self.document.text())));
+        nodes.extend(self.area.accessibility_nodes(self.document.text()));
         let status = format!("{}. {}", self.status, self.status_right());
         nodes.push((STATUS_ID, text_label(status)));
         let focus = if let Some((dialog, _)) = &self.dialog {

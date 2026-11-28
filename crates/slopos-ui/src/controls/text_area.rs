@@ -1089,7 +1089,9 @@ mod tests {
     #[test]
     fn accessibility_node_exposes_the_whole_text_as_the_value() {
         let area = TextArea::new(9, "Document");
-        let node = area.accessibility_node("one\ntwo");
+        let nodes = area.accessibility_nodes("one\ntwo");
+        let (id, node) = &nodes[0];
+        assert_eq!(*id, 9);
         assert_eq!(node.role(), accesskit::Role::MultilineTextInput);
         assert_eq!(node.value(), Some("one\ntwo"));
         assert_eq!(node.label(), Some("Document"));
