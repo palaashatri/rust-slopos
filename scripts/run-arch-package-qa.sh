@@ -104,7 +104,7 @@ cleanup() { rm -rf "$root"; }
 trap cleanup EXIT
 
 bsdtar -xf artifacts/arch-package/slopos-i.pkg.tar.zst -C "$root"
-for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-software slopos-volume-mixer start-slopos-i start-slopos-browser slopos-appearance slopos-recovery; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-software slopos-files slopos-volume-mixer start-slopos-i start-slopos-browser slopos-appearance slopos-recovery; do
   test -x "$root/usr/bin/$binary"
 done
 grep -Fqx platinum "$root/usr/share/slopos-i/recovery/appearance"
