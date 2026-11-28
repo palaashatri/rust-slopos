@@ -291,6 +291,15 @@ open Wi-Fi/Bluetooth/Volume/Brightness/Battery applet
 → deep-link to matching Control Panel
 ~~~
 
+Run this journey for every applet that `05-shell.md` §14.3 requires. Release marking:
+
+- Wi-Fi / Network, Bluetooth, Volume / microphone, Brightness, Battery / Power, Displays, Media playback, Removable media and Clock / Date: required.
+- VPN: required where NetworkManager exposes VPN profiles; otherwise out of this release.
+- Keyboard layout/input: required where the input provider reports a layout; otherwise out of this release.
+- Notifications / Do Not Disturb: out of this release unless it is implemented and passes this journey.
+
+Each required applet also asserts its unavailable state when its provider is missing.
+
 ## OSD and fullscreen focus
 
 ~~~text
@@ -439,9 +448,12 @@ Release-critical applications pass:
 - Calculator;
 - Software;
 - System Monitor;
-- Screenshot/Recorder for exposed functionality;
+- Screenshot;
+- Recorder, only under the recording decision below;
 - System Information/About;
 - the minimum Image Viewer functionality required by Screenshot's native viewer handoff.
+
+**Recording decision (required for every release candidate):** the release evidence states exactly one of: (a) Recorder is exposed, and its real VM journeys in §16.8 pass (capture, save, clipboard, open-in-Image-Viewer, and cancellation); or (b) recording is explicitly out of this release, and no Record control is shown. A candidate that neither exposes nor excludes recording fails this gate.
 
 ## Shell
 
@@ -470,7 +482,7 @@ all pass.
 - Power;
 - Date/Time;
 - Input;
-- Printers where shipped;
+- Printers where shipped: the CUPS/IPP printer provider (discovery, queue status, default printer, jobs, authorized add/remove) and, where CUPS/IPP requires credentials, an authenticated-printing test that checks the §18.12 prompt, cancel and failure paths, and that no credential is logged;
 - Removable Media
 
 all report real state and pass real/fixture actions.

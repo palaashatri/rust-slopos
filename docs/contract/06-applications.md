@@ -316,7 +316,7 @@ Required behavior:
 - global keyboard shortcuts owned by the shortcut service;
 - non-destructive cancellation.
 
-Recording is enabled only when functional.
+Recording is enabled only when functional, and the release must record one of two decisions: recording is exposed and passes the recording journeys below, or recording is explicitly out of the release and no Record control is shown (see the recording decision in `09-qa-and-release.md`, Core applications).
 
 Target recording modes:
 
