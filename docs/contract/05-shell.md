@@ -218,6 +218,8 @@ It routes:
 
 Do not scatter global shortcut registration across unrelated applications.
 
+Openbox owns the A-Tab, W-Left and W-Right bindings (set in `assets/config/openbox/rc.xml`) and keeps them until the shell-level shortcut service grabs them, at which point the service owns them.
+
 ## 14.9 Shell isolation and restartability
 
 Dock, applets, OSD, notifications and launcher may initially share one executable, but must have clear module/state boundaries.

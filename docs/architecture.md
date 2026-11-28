@@ -75,7 +75,7 @@ apps launched from the top bar, desktop or Dock: detached (setsid), reaped, not 
 
 An app implements `App::event`, `App::paint` and, optionally, `App::accessibility`, then calls `platform::run`. The Calculator (`apps/calculator/src/main.rs`) is the reference example.
 
-Not built yet: drag and drop, IME pre-edit (XIM/IBus), trees/icon grids, `slopos-appkit`, Vello rendering and direct GPU presentation (the opt-in wgpu executor is described above), an advanced composited scene graph, and theme datasets beyond the provisional Platinum colours. See [the UI toolkit program](ui-toolkit-program.md) for in-repository toolkit milestones and optional external distribution; [native application plan](application-platform.md) and [swarm execution](swarm-execution.md) document future product slices, not implemented features.
+Not built yet: drag and drop, IME pre-edit (XIM/IBus), trees/icon grids, `slopos-appkit`, Vello rendering and direct GPU presentation (DRI3 or the Present extension; the GPU readback path is built and described above with the opt-in wgpu executor, but a GPU frame is not yet presented directly), an advanced composited scene graph, and theme datasets beyond the provisional Platinum colours. See [the UI toolkit program](ui-toolkit-program.md) for in-repository toolkit milestones and optional external distribution; [native application plan](application-platform.md) and [swarm execution](swarm-execution.md) document future product slices, not implemented features.
 
 ## The Dock (`crates/slopos-dock`)
 
