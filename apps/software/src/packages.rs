@@ -203,7 +203,7 @@ fn undo_argv(change: Change) -> Vec<String> {
 /// The script that removes the Flathub remote. It succeeds when the remote is
 /// absent, so a failed add that wrote nothing does not stop the rollback. It
 /// names only the Flathub remote.
-pub const FLATHUB_UNDO_SCRIPT: &str = "flatpak remote-list --system --columns=name | grep -qx flathub || exit 0; exec flatpak remote-delete --system flathub";
+pub const FLATHUB_UNDO_SCRIPT: &str = r#"names=$(flatpak remote-list --system --columns=name) || exit 1; printf '%s\n' "$names" | grep -qx flathub || exit 0; exec flatpak remote-delete --system flathub"#;
 
 fn flathub_undo_argv() -> Vec<String> {
     ["pkexec", "sh", "-c", FLATHUB_UNDO_SCRIPT, "flathub-undo"]
@@ -214,22 +214,17 @@ fn flathub_undo_argv() -> Vec<String> {
 /// The command that removes the Flatpak `family`'s manager installed, through
 /// `pkexec` like the install.
 pub fn remove_flatpak_argv(family: Family) -> Vec<String> {
-    let argv: Vec<&str> = match family {
-        Family::Apt => vec![
-            "pkexec",
-            "env",
-            "DEBIAN_FRONTEND=noninteractive",
-            "apt-get",
-            "remove",
-            "-y",
-            "flatpak",
-        ],
-        // --noautoremove keeps dependencies that were already installed, so an
-        // undo removes only the Flatpak package and not packages that were there.
-        Family::Dnf => vec!["pkexec", "dnf", "remove", "-y", "--noautoremove", "flatpak"],
-        Family::Pacman => vec!["pkexec", "pacman", "-R", "--noconfirm", "flatpak"],
+    // An install that failed before it wrote anything has nothing to remove, so the
+    // removal succeeds when the package is absent. --noautoremove keeps dependencies
+    // that were already installed.
+    let script = match family {
+        Family::Apt => "dpkg -s flatpak >/dev/null 2>&1 || exit 0; exec env DEBIAN_FRONTEND=noninteractive apt-get remove -y flatpak",
+        Family::Dnf => "rpm -q flatpak >/dev/null 2>&1 || exit 0; exec dnf remove -y --noautoremove flatpak",
+        Family::Pacman => "pacman -Q flatpak >/dev/null 2>&1 || exit 0; exec pacman -R --noconfirm flatpak",
     };
-    argv.into_iter().map(str::to_owned).collect()
+    ["pkexec", "sh", "-c", script, "flatpak-undo"]
+        .map(str::to_owned)
+        .to_vec()
 }
 
 /// How the undo of a failed or cancelled attempt ended.
@@ -681,10 +676,6 @@ mod flatpak_setup_tests {
 mod rollback_tests {
     use super::*;
 
-    fn words(parts: &[&str]) -> Vec<String> {
-        parts.iter().map(|part| (*part).to_owned()).collect()
-    }
-
     fn remote_undo() -> Vec<String> {
         flathub_undo_argv()
     }
@@ -701,7 +692,7 @@ mod rollback_tests {
                 },
                 UndoStep {
                     change: Change::FlatpakInstalled(Family::Dnf),
-                    argv: words(&["pkexec", "dnf", "remove", "-y", "--noautoremove", "flatpak"]),
+                    argv: remove_flatpak_argv(Family::Dnf),
                 },
             ]
         );
@@ -709,21 +700,18 @@ mod rollback_tests {
 
     #[test]
     fn flatpak_is_removed_with_the_manager_that_installed_it() {
-        assert_eq!(
-            remove_flatpak_argv(Family::Apt),
-            words(&[
-                "pkexec",
-                "env",
-                "DEBIAN_FRONTEND=noninteractive",
-                "apt-get",
-                "remove",
-                "-y",
-                "flatpak",
-            ])
+        let apt = remove_flatpak_argv(Family::Apt);
+        assert!(apt.last().map(String::as_str) == Some("flatpak-undo"));
+        assert!(apt[3].contains("apt-get remove -y flatpak"), "{}", apt[3]);
+        assert!(
+            apt[3].starts_with("dpkg -s flatpak"),
+            "absent means nothing to do"
         );
-        assert_eq!(
-            remove_flatpak_argv(Family::Pacman),
-            words(&["pkexec", "pacman", "-R", "--noconfirm", "flatpak"])
+        let pacman = remove_flatpak_argv(Family::Pacman);
+        assert!(
+            pacman[3].contains("pacman -R --noconfirm flatpak"),
+            "{}",
+            pacman[3]
         );
     }
 
@@ -755,7 +743,7 @@ mod rollback_tests {
         );
         assert_eq!(ran.len(), 2);
         assert!(ran[0][3].contains("remote-delete"));
-        assert_eq!(ran[1].last().map(String::as_str), Some("flatpak"));
+        assert_eq!(ran[1].last().map(String::as_str), Some("flatpak-undo"));
         assert!(!outcome.failed());
     }
 

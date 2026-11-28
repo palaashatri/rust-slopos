@@ -345,8 +345,9 @@ impl Tabs {
         }
         for (index, (label, rect)) in self.labels.iter().zip(&self.tab_rects).enumerate() {
             let Some(rect) = rect else { continue };
-            // A tab capped to nothing by a narrow strip has no area to draw in.
-            if rect.width == 0 || rect.height == 0 {
+            // The Default plate needs at least MIN_TAB_PLATE_WIDTH to draw its corners.
+            // A tab capped narrower than that is left unpainted rather than failing.
+            if rect.width < MIN_TAB_PLATE_WIDTH || rect.height == 0 {
                 continue;
             }
             let selected = index == self.selected;
@@ -405,6 +406,9 @@ impl Tabs {
 }
 
 /// The width of tabs `first..end` placed side by side with their gaps.
+/// The narrowest tab whose plate the button renderer can draw.
+const MIN_TAB_PLATE_WIDTH: u32 = 13;
+
 fn run_width(widths: &[u32], first: usize, end: usize) -> u32 {
     let tabs = &widths[first..end];
     tabs.iter().sum::<u32>() + GAP as u32 * tabs.len().saturating_sub(1) as u32
@@ -742,7 +746,7 @@ mod tests {
 
     #[test]
     fn a_strip_too_narrow_for_its_arrows_paints_without_error() {
-        for available in [0, 1, 12, 40] {
+        for available in [0, 1, 12, 40, 57, 68, 70] {
             let surface = RasterSurface::new(80, 40, Scale::new(1).unwrap()).unwrap();
             let tabs = narrow(available, 3);
             tabs.paint(&surface, &Font::system(12.0)).unwrap();

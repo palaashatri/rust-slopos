@@ -1203,25 +1203,18 @@ impl SoftwareApp {
                         result = Err(run::CANCELLED.to_owned());
                         break;
                     }
-                    // `remote-add` can write the remote and then fail, for example
-                    // while it imports the signing key. So the Flathub change is
-                    // queued for the rollback before its command runs, and its
-                    // undo accepts a remote that was never written.
-                    let is_remote = step.change == packages::Change::FlathubAdded;
-                    if is_remote {
-                        rollback_changes.push(step.change);
-                    }
+                    // A step can change the system and then fail: `remote-add` writes
+                    // the remote before it imports the key, and a package install can
+                    // unpack before it configures. So each step is queued for the
+                    // rollback before its command runs. Each undo succeeds when its
+                    // change is absent.
+                    rollback_changes.push(step.change);
                     let outcome = runner(step.argv.as_slice(), &worker_stop, &mut |line: &str| {
                         let _ = line_sender.send(line.to_owned());
                         wake(&slot);
                     });
                     match outcome {
-                        Ok(()) => {
-                            completed.push(step.change);
-                            if !is_remote {
-                                rollback_changes.push(step.change);
-                            }
-                        }
+                        Ok(()) => completed.push(step.change),
                         Err(error) => {
                             result = Err(error);
                             break;
@@ -1563,6 +1556,7 @@ impl SoftwareApp {
                 rollback,
             } => {
                 let report = setup_report(&completed, &rollback);
+                self.setup_report_text = report.clone();
                 if error == run::CANCELLED && !rollback.failed() {
                     self.notice("Flatpak setup was cancelled. See the report.");
                 } else if error == run::CANCELLED {
@@ -1572,7 +1566,11 @@ impl SoftwareApp {
                 } else {
                     self.fail(format!("Flatpak was not set up: {error}. See the report."));
                 }
-                self.show_setup_report(report);
+                // A clean cancel or failure needs only the status line. A report
+                // shows when the undo failed and something remains.
+                if rollback.failed() {
+                    self.show_setup_report(report);
+                }
             }
             Finished::Removed {
                 name,
@@ -1625,6 +1623,9 @@ impl SoftwareApp {
             match dialog.handle(event) {
                 DialogOutcome::Chosen { index, .. } => {
                     let (_, prompt) = self.dialog.take().expect("dialog is open");
+                    if matches!(prompt, Prompt::Report) && self.quit_when_idle {
+                        return control.quit();
+                    }
                     if index == 1 {
                         match prompt {
                             Prompt::Remove(id) => self.start_remove(id),
@@ -2183,6 +2184,8 @@ impl App for SoftwareApp {
             Event::CloseRequested => return self.request_quit(control),
             Event::Resized { width, height } => {
                 self.window = (*width, *height);
+                // A new size can hide the focused switch again, so it is revealed afresh.
+                self.revealed_focus = None;
                 self.layout();
             }
             Event::Scroll { dy, .. } if self.active == Source::Sources => {
@@ -2195,7 +2198,9 @@ impl App for SoftwareApp {
             }
             Event::Wake => {
                 let changed = self.poll();
-                if self.quit_when_idle && self.running.is_none() {
+                // A failed rollback opens its report first; the window quits when that
+                // report is dismissed, so the report is not cut off.
+                if self.quit_when_idle && self.running.is_none() && self.dialog.is_none() {
                     return control.quit();
                 }
                 if !changed {
@@ -3026,8 +3031,8 @@ mod tests {
         assert!(!app.config.flatpak);
         assert_eq!(
             ran.lock().unwrap().len(),
-            1,
-            "nothing runs after a failed step"
+            2,
+            "nothing runs after a failed step, but the undo runs"
         );
     }
 
@@ -3183,6 +3188,12 @@ mod tests {
         argv.iter().any(|arg| arg == word)
     }
 
+    /// A removal of Flatpak: its undo runs as one shell script that names the package.
+    fn removes_flatpak(argv: &[String]) -> bool {
+        argv.iter()
+            .any(|arg| arg.contains("remove") && arg.contains("flatpak"))
+    }
+
     /// The Flathub undo runs as one shell script, so it is recognised by the
     /// remote it removes rather than by a separate argument.
     fn undoes_flathub(argv: &[String]) -> bool {
@@ -3236,10 +3247,7 @@ mod tests {
         let ran = ran.lock().unwrap().clone();
         assert_eq!(ran.len(), 2, "the Flathub step never starts: {ran:?}");
         assert!(ran.iter().all(|argv| !has_word(argv, "remote-add")));
-        assert!(
-            has_word(&ran[1], "remove"),
-            "the install is undone: {ran:?}"
-        );
+        assert!(removes_flatpak(&ran[1]), "the install is undone: {ran:?}");
         assert!(
             !app.status_error,
             "a cancel is not a failure: {}",
@@ -3314,7 +3322,7 @@ mod tests {
             "install, refused add, the Flathub undo, then the removal: {ran:?}"
         );
         assert!(undoes_flathub(&ran[2]), "the Flathub undo runs first");
-        assert!(has_word(&ran[3], "remove") && has_word(&ran[3], "flatpak"));
+        assert!(removes_flatpak(&ran[3]), "then Flatpak: {:?}", ran[3]);
         assert!(app.status_error);
         assert!(
             app.status
@@ -3356,7 +3364,7 @@ mod tests {
         let ran = ran.lock().unwrap().clone();
         assert_eq!(ran.len(), 4, "install, add, then both undone: {ran:?}");
         assert!(undoes_flathub(&ran[2]), "the remote goes first");
-        assert!(has_word(&ran[3], "remove"), "then Flatpak: {:?}", ran[3]);
+        assert!(removes_flatpak(&ran[3]), "then Flatpak: {:?}", ran[3]);
         assert!(app.status_error);
         assert!(app.status.contains("could not be saved"), "{}", app.status);
         assert!(
@@ -3394,7 +3402,7 @@ mod tests {
         assert!(has_word(&ran[0], "remote-add"));
         assert!(undoes_flathub(&ran[1]));
         assert!(
-            ran.iter().all(|argv| !has_word(argv, "remove")),
+            ran.iter().all(|argv| !removes_flatpak(argv)),
             "Flatpak was there before, so it stays"
         );
         assert!(
