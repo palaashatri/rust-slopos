@@ -1409,8 +1409,12 @@ mod tests {
 
     #[test]
     fn the_focus_ring_is_drawn_just_outside_the_focused_plate_at_1x_and_2x() {
-        let (mut plain, _plain_dir) = app_with(FakeBackend::new(200, 100));
-        let (mut focused, _focused_dir) = app_with(FakeBackend::new(200, 100));
+        // Both apps share one Pictures folder. The "Saves to" line prints that
+        // path, so two folders would differ in text well outside the ring.
+        let dir = tempfile::tempdir().unwrap();
+        let folder = Some(dir.path().to_path_buf());
+        let mut plain = ScreenshotApp::new(Box::new(FakeBackend::new(200, 100)), folder.clone());
+        let mut focused = ScreenshotApp::new(Box::new(FakeBackend::new(200, 100)), folder);
         key(&mut focused, &mut Control::default(), Key::Tab, false);
         assert_eq!(focused.focused, Some(0));
         let screen = bounds_of(&plain, "Screen");

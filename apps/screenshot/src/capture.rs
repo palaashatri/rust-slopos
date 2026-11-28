@@ -312,7 +312,9 @@ mod tests {
 
     #[test]
     fn a_display_that_does_not_exist_is_a_display_error() {
-        let mut backend = X11Backend::on_display(":65000");
+        // A display number with no socket. x11rb overflows its port arithmetic
+        // for large numbers in debug builds, so keep this one small.
+        let mut backend = X11Backend::on_display(":9999");
         assert!(matches!(
             backend.grab_screen(),
             Err(CaptureError::Display(_))
