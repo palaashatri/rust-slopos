@@ -113,8 +113,13 @@ pub fn launch_plan(
         let terminal = terminal.ok_or_else(|| {
             "no supported terminal emulator is installed (xfce4-terminal or xterm)".to_string()
         })?;
+        // xfce4-terminal takes its command after -x; xterm takes it after -e.
+        let command_flag = match terminal.file_name().and_then(|name| name.to_str()) {
+            Some("xfce4-terminal") => "-x",
+            _ => "-e",
+        };
         let mut wrapped = Vec::with_capacity(app.argv.len() + 1);
-        wrapped.push("-e".to_string());
+        wrapped.push(command_flag.to_string());
         wrapped.extend(app.argv.iter().cloned());
         Ok((terminal.to_path_buf(), wrapped))
     } else {
@@ -245,6 +250,11 @@ mod tests {
         assert_eq!(binary, PathBuf::from("/usr/bin/xterm"));
         assert_eq!(args, vec!["-e", "/usr/bin/vim", "file name.txt"]);
 
+        let (binary, args) =
+            launch_plan(&interactive, Some(Path::new("/usr/bin/xfce4-terminal"))).unwrap();
+        assert_eq!(binary, PathBuf::from("/usr/bin/xfce4-terminal"));
+        assert_eq!(args, vec!["-x", "/usr/bin/vim", "file name.txt"]);
+
         interactive.terminal = false;
         let (binary, args) = launch_plan(&interactive, None).unwrap();
         assert_eq!(binary, PathBuf::from("/usr/bin/vim"));
@@ -252,11 +262,13 @@ mod tests {
     }
 
     #[test]
-    fn outputs_are_never_implicitly_executed() {
+    fn open_proposal_yields_confirmation_decision_not_a_launch() {
         let apps = vec![app("calc")];
         let proposed = ProposedAction::OpenApp {
             app_id: "calc".into(),
         };
+        // authorize only returns a decision; the caller must confirm before
+        // launch_plan and spawn_detached run.
         let decision = authorize(proposed, &apps).unwrap();
         assert!(matches!(decision, Decision::ConfirmOpen(_)));
     }
