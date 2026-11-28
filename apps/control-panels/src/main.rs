@@ -3311,7 +3311,10 @@ mod tests {
         let mut control = Control::default();
         app.event(&Event::MenuChosen { menu: 1, item: 2 }, &mut control);
         assert_eq!(app.panel(), Panel::Display);
-        assert_eq!(app.lines().1[0], "eDP-1 (built-in): 1920 × 1080, 60 Hz");
+        assert_eq!(
+            app.lines().1[0],
+            "eDP-1 (built-in): 1920 × 1080, 60 Hz, scale unknown (no physical size reported)"
+        );
         assert_eq!(app.output.value(), "eDP-1 (built-in)");
         assert_eq!(app.resolution.items(), &["1920 × 1080", "1280 × 720"]);
         assert_eq!(app.refresh.items(), &["60 Hz", "50 Hz"]);
