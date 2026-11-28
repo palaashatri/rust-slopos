@@ -1,23 +1,32 @@
 //! SLOPOS Media: a native video and audio player on the SLOPOS toolkit.
 //!
-//! Playback runs in GStreamer (`engine.rs`); the window only shows the
-//! newest frame and the controls. It sleeps until the engine wakes it with
-//! a frame or event; while something is playing, a 250 ms timer keeps the
-//! time display moving for audio-only files, and stops when playback stops.
+//! Playback runs in GStreamer (`engine.rs`) and its state rules are plain
+//! logic in `session.rs`; the window only makes engine calls, shows the newest
+//! frame and the controls, and explains failures in the video area. It sleeps
+//! until the engine wakes it with a frame or event; while something is
+//! playing, a 250 ms timer keeps the time display moving for audio-only
+//! files, and stops when playback stops.
 
+mod codecs;
 mod engine;
+mod session;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use engine::{EngineError, MediaInfo, PlaybackState, Player, PlayerEvent};
+use engine::{EngineError, PlaybackState, Player, PlayerEvent};
+use session::{
+    check_readable, file_name, Failure, FailureKind, Session, Transport, SEEK_STEP, VOLUME_STEP,
+};
 use slopos_ui::accessibility::window_tree;
 use slopos_ui::controls::button::{Button, ButtonOutcome};
+use slopos_ui::controls::dialog::wrap;
 use slopos_ui::controls::file_chooser::{ChooserOutcome, FileChooser};
 use slopos_ui::controls::focus::FocusChain;
 use slopos_ui::controls::menu::{MenuBar, MenuBarOutcome, MenuItem};
-use slopos_ui::controls::range::{Checkbox, Slider, ToggleOutcome, ValueOutcome};
+use slopos_ui::controls::popup::{PopUpButton, PopUpOutcome};
+use slopos_ui::controls::range::{Slider, ValueOutcome};
 use slopos_ui::event::{AccessibilityRequest, Event, Key};
 use slopos_ui::foundation::{color::Color, geometry::Rect};
 use slopos_ui::image::Image;
@@ -30,6 +39,7 @@ use slopos_ui::theme::palette;
 const WIDTH: u32 = 720;
 const HEIGHT: u32 = 480;
 const CONTROLS_HEIGHT: u32 = 64;
+const SUBTITLE_WIDTH: u32 = 150;
 const TICK: u64 = 1;
 const OPEN_ID: u64 = 10;
 const PLAY_ID: u64 = 11;
@@ -39,6 +49,7 @@ const VOLUME_ID: u64 = 14;
 const SUBTITLES_ID: u64 = 15;
 const STATUS_ID: u64 = 2;
 const VIDEO_ID: u64 = 3;
+const ALERT_ID: u64 = 4;
 const CHOOSER_ID: u64 = 300;
 const MENU_ID: u64 = 100;
 
@@ -96,62 +107,47 @@ const EXTENSIONS: &[&str] = &[
 
 type WakeSlot = Arc<Mutex<Option<Proxy>>>;
 
-fn format_time(time: Duration) -> String {
-    let seconds = time.as_secs();
-    if seconds >= 3600 {
-        format!(
-            "{}:{:02}:{:02}",
-            seconds / 3600,
-            seconds / 60 % 60,
-            seconds % 60
-        )
-    } else {
-        format!("{}:{:02}", seconds / 60, seconds % 60)
-    }
-}
+const NO_FILE_STATUS: &str = "Choose Open… to play a video or audio file.";
 
 pub struct MediaApp {
     window: (u32, u32),
     slot: WakeSlot,
     player: Option<Player>,
     path: Option<PathBuf>,
-    info: MediaInfo,
-    state: PlaybackState,
+    session: Session,
     frame: Option<Image>,
-    position: Duration,
     open: Button,
     play: Button,
     mute: Button,
     seek: Slider,
     volume: Slider,
-    subtitles: Checkbox,
+    subtitles: PopUpButton,
     focus: FocusChain,
     chooser: Option<FileChooser>,
     menu: MenuBar,
     ticking: bool,
-    status: String,
     font: Font,
 }
 
 impl MediaApp {
     pub fn new(path: Option<&Path>, slot: WakeSlot) -> Self {
         let mut volume = Slider::new(VOLUME_ID, "Volume", 0.0, 100.0, 5.0);
-        volume.set_value(80.0);
+        volume.set_value(session::DEFAULT_VOLUME);
+        let mut subtitles = PopUpButton::new(SUBTITLES_ID, "Subtitles");
+        subtitles.enabled = false;
         let mut app = Self {
             window: (WIDTH, HEIGHT),
             slot,
             player: None,
             path: None,
-            info: MediaInfo::default(),
-            state: PlaybackState::Stopped,
+            session: Session::default(),
             frame: None,
-            position: Duration::ZERO,
             open: Button::new(OPEN_ID, "Open…", ButtonPlateVariant::Regular),
             play: Button::new(PLAY_ID, "Play", ButtonPlateVariant::Default),
             mute: Button::new(MUTE_ID, "Mute", ButtonPlateVariant::Regular),
             seek: Slider::new(SEEK_ID, "Position", 0.0, 1.0, 1.0),
             volume,
-            subtitles: Checkbox::new(SUBTITLES_ID, "Subtitles", true),
+            subtitles,
             focus: FocusChain::new(vec![
                 OPEN_ID,
                 PLAY_ID,
@@ -163,11 +159,13 @@ impl MediaApp {
             chooser: None,
             menu: menu_bar(),
             ticking: false,
-            status: "Choose Open… to play a video or audio file.".into(),
             font: Font::system(12.0),
         };
         if let Err(error) = engine::init() {
-            app.status = format!("Media playback is unavailable: {error}");
+            app.session.fail(Failure::new(
+                FailureKind::Unavailable,
+                format!("{error}. Install GStreamer and its base plugins."),
+            ));
         }
         app.layout();
         app.refresh_controls();
@@ -175,6 +173,18 @@ impl MediaApp {
             app.load(path);
         }
         app
+    }
+
+    /// The bottom status line, as spoken and shown.
+    fn status(&self) -> String {
+        match &self.path {
+            Some(path) => self.session.status_line(&file_name(path)),
+            None => self
+                .session
+                .failure
+                .as_ref()
+                .map_or_else(|| NO_FILE_STATUS.to_owned(), |f| f.title().to_owned()),
+        }
     }
 
     fn video_area(&self) -> Rect {
@@ -215,6 +225,12 @@ impl MediaApp {
             width: 72,
             height: 20,
         };
+        self.subtitles.bounds = Rect {
+            x: 164,
+            y: row,
+            width: SUBTITLE_WIDTH,
+            height: 20,
+        };
         self.mute.bounds = Rect {
             x: width as i32 - 230,
             y: row,
@@ -227,42 +243,40 @@ impl MediaApp {
             width: 100,
             height: 18,
         };
-        self.subtitles = self.subtitles.clone().at(164, row + 1);
         if let Some(chooser) = &mut self.chooser {
             chooser.layout(self.window);
         }
     }
 
+    /// Bring every control and menu item in line with the session.
     fn refresh_controls(&mut self) {
-        let loaded = self.player.is_some();
+        let loaded = self.session.loaded;
+        let has_audio = self.session.info.has_audio;
+        let muted = self.player.as_ref().is_some_and(Player::muted);
+
         self.play.enabled = loaded;
-        self.play.label = if self.state == PlaybackState::Playing {
-            "Pause"
-        } else {
-            "Play"
-        }
-        .into();
-        self.seek.enabled = loaded && self.info.duration.is_some();
-        self.mute.enabled = loaded && self.info.has_audio;
-        self.volume.enabled = loaded && self.info.has_audio;
-        self.subtitles.enabled = loaded && self.info.subtitles.is_some();
-        self.mute.label = if self.player.as_ref().is_some_and(Player::muted) {
-            "Unmute"
-        } else {
-            "Mute"
-        }
-        .into();
-        if let Some(duration) = self.info.duration {
+        self.play.label = self.session.play_label().into();
+        self.seek.enabled = loaded && self.session.info.duration.is_some();
+        self.mute.enabled = loaded && has_audio;
+        self.volume.enabled = loaded && has_audio;
+        self.mute.label = if muted { "Unmute" } else { "Mute" }.into();
+        if let Some(duration) = self.session.info.duration {
             self.seek.max = duration.as_secs_f64().max(0.001);
             self.seek.step = 1.0;
         }
         if !self.seek.dragging() {
-            self.seek.set_value(self.position.as_secs_f64());
+            self.seek.set_value(self.session.position.as_secs_f64());
         }
-        let playing = self.state == PlaybackState::Playing;
-        let muted = self.player.as_ref().is_some_and(Player::muted);
+        if !self.volume.dragging() {
+            self.volume.set_value(self.session.volume);
+        }
+
+        let (items, selected) = self.session.subtitle_options();
+        self.subtitles.set_items(items, selected);
+        self.subtitles.enabled = loaded && self.session.has_subtitles();
+
         let playback = &mut self.menu.menus[1].items;
-        playback[PLAY_ITEM].label = if playing { "Pause" } else { "Play" }.into();
+        playback[PLAY_ITEM].label = self.session.play_label().into();
         playback[PLAY_ITEM].enabled = loaded;
         for item in [BACK_ITEM, FORWARD_ITEM] {
             playback[item].enabled = self.seek.enabled;
@@ -272,7 +286,7 @@ impl MediaApp {
         }
         playback[MUTE_ITEM].checked = muted;
         playback[SUBTITLES_ITEM].enabled = self.subtitles.enabled;
-        playback[SUBTITLES_ITEM].checked = self.subtitles.enabled && self.subtitles.checked;
+        playback[SUBTITLES_ITEM].checked = self.session.subtitle.is_some();
     }
 
     fn menu_command(&mut self, menu: usize, item: usize, control: &mut Control) {
@@ -280,16 +294,14 @@ impl MediaApp {
             (0, 0) => self.open_chooser(),
             (0, 2) => control.quit(),
             (1, PLAY_ITEM) => self.toggle_play(control),
-            (1, BACK_ITEM) => self.seek_by(-5.0),
-            (1, FORWARD_ITEM) => self.seek_by(5.0),
-            (1, LOUDER_ITEM) => self.set_volume(self.volume.value() + 5.0),
-            (1, QUIETER_ITEM) => self.set_volume(self.volume.value() - 5.0),
+            (1, BACK_ITEM) => self.seek_by(-SEEK_STEP),
+            (1, FORWARD_ITEM) => self.seek_by(SEEK_STEP),
+            (1, LOUDER_ITEM) => self.set_volume(self.session.volume + VOLUME_STEP),
+            (1, QUIETER_ITEM) => self.set_volume(self.session.volume - VOLUME_STEP),
             (1, MUTE_ITEM) => self.toggle_mute(),
             (1, SUBTITLES_ITEM) => {
-                self.subtitles.checked = !self.subtitles.checked;
-                if let Some(player) = &self.player {
-                    player.set_subtitles_visible(self.subtitles.checked);
-                }
+                self.session.toggle_subtitles();
+                self.apply_subtitles();
             }
             _ => {}
         }
@@ -305,12 +317,22 @@ impl MediaApp {
         self.subtitles.focused = focused == Some(SUBTITLES_ID);
     }
 
+    /// Stop showing the current file and explain why.
+    fn fail(&mut self, failure: Failure) {
+        self.player = None;
+        self.frame = None;
+        self.session.fail(failure);
+        self.refresh_controls();
+    }
+
     fn load(&mut self, path: &Path) {
         self.player = None;
         self.frame = None;
-        self.info = MediaInfo::default();
-        self.state = PlaybackState::Stopped;
-        self.position = Duration::ZERO;
+        self.path = Some(path.to_path_buf());
+        self.session.begin();
+        if let Err(failure) = check_readable(path) {
+            return self.fail(failure);
+        }
         let slot = self.slot.clone();
         let wake: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
             if let Ok(guard) = slot.lock() {
@@ -321,30 +343,34 @@ impl MediaApp {
         });
         match Player::open(path, wake) {
             Ok(player) => {
-                player.set_volume(self.volume.value() / 100.0);
+                player.set_volume(self.session.volume / 100.0);
                 self.player = Some(player);
-                self.path = Some(path.to_path_buf());
-                self.status = format!("Opening “{}”…", file_name(path));
+                self.refresh_controls();
             }
-            Err(EngineError::Unavailable(error)) => {
-                self.status = format!("Media playback is unavailable: {error}")
-            }
-            Err(error) => self.status = format!("Can't open “{}”: {error}", file_name(path)),
+            Err(EngineError::Unavailable(error)) => self.fail(Failure::new(
+                FailureKind::Unavailable,
+                format!("{error}. Install GStreamer and its base plugins."),
+            )),
+            Err(error) => self.fail(Failure::new(
+                FailureKind::Unreadable,
+                format!("“{}” can't be played: {error}", file_name(path)),
+            )),
         }
-        self.refresh_controls();
     }
 
     fn toggle_play(&mut self, control: &mut Control) {
         let Some(player) = &self.player else { return };
-        let result = match self.state {
-            PlaybackState::Playing => player.pause(),
-            PlaybackState::Ended => player.seek(Duration::ZERO).and_then(|()| player.play()),
-            _ => player.play(),
+        let result = match self.session.transport() {
+            Some(Transport::Pause) => player.pause(),
+            Some(Transport::Replay) => player.seek(Duration::ZERO).and_then(|()| player.play()),
+            Some(Transport::Play) => player.play(),
+            None => return,
         };
         if let Err(error) = result {
-            self.status = error.to_string();
+            return self.fail(Failure::new(FailureKind::Playback, error.to_string()));
         }
         self.start_ticking(control);
+        self.refresh_controls();
     }
 
     fn start_ticking(&mut self, control: &mut Control) {
@@ -355,43 +381,32 @@ impl MediaApp {
     }
 
     fn seek_by(&mut self, seconds: f64) {
+        let target = self.session.seek_target(seconds);
+        self.seek_to(target);
+    }
+
+    fn seek_to(&mut self, target: Duration) {
         let Some(player) = &self.player else { return };
-        let target = (self.position.as_secs_f64() + seconds).max(0.0);
-        let target = self
-            .info
-            .duration
-            .map_or(target, |d| target.min(d.as_secs_f64()));
-        if player.seek(Duration::from_secs_f64(target)).is_ok() {
-            self.position = Duration::from_secs_f64(target);
+        match player.seek(target) {
+            Ok(()) => self.session.seeked(target),
+            Err(error) => self.fail(Failure::new(FailureKind::Playback, error.to_string())),
         }
     }
 
     fn set_volume(&mut self, percent: f64) {
-        self.volume.set_value(percent);
+        self.session.set_volume(percent);
         if let Some(player) = &self.player {
-            player.set_volume(self.volume.value() / 100.0);
+            player.set_volume(self.session.volume / 100.0);
         }
+        self.refresh_controls();
     }
 
-    fn update_status(&mut self) {
-        let Some(path) = &self.path else { return };
-        let duration = self.info.duration.map_or_else(|| "—".into(), format_time);
-        let kind = match (self.info.has_video, self.info.has_audio) {
-            (true, true) => format!(
-                "{} × {} video with sound",
-                self.info.width, self.info.height
-            ),
-            (true, false) => format!("{} × {} video, no sound", self.info.width, self.info.height),
-            (false, true) => "audio".into(),
-            (false, false) => "no playable streams".into(),
-        };
-        let state = match self.state {
-            PlaybackState::Playing => "Playing",
-            PlaybackState::Paused => "Paused",
-            PlaybackState::Ended => "Finished",
-            PlaybackState::Stopped => "Stopped",
-        };
-        self.status = format!("{state} — {} — {kind} — {}", file_name(path), duration);
+    /// Push the session's subtitle choice to the engine.
+    fn apply_subtitles(&mut self) {
+        if let Some(player) = &self.player {
+            player.set_subtitle_track(self.session.subtitle);
+        }
+        self.refresh_controls();
     }
 
     /// Apply engine events and the newest frame. Returns whether to repaint.
@@ -400,44 +415,37 @@ impl MediaApp {
             return false;
         };
         let mut changed = false;
-        let mut failed = None;
+        let mut opened = false;
         for event in player.poll_events() {
             changed = true;
-            match event {
-                PlayerEvent::Opened(info) => {
-                    self.info = info;
-                    if !self.info.has_video && !self.info.has_audio {
-                        failed = Some("This file has no playable audio or video.".to_owned());
-                    }
-                }
-                PlayerEvent::State(state) => self.state = state,
-                PlayerEvent::Error(text) => failed = Some(format!("Playback failed: {text}")),
-                PlayerEvent::MissingCodec(text) => failed = Some(text),
-                PlayerEvent::Frame => {}
-            }
+            opened |= matches!(event, PlayerEvent::Opened(_));
+            self.session.apply(&event);
         }
         if let Some(frame) = player.take_frame() {
-            self.position = frame.position;
+            self.session.position = frame.position;
             if let Ok(image) = Image::from_rgba(frame.width, frame.height, frame.rgba.to_vec()) {
                 self.frame = Some(image);
             }
             changed = true;
         }
         if let Some(position) = player.position() {
-            self.position = position;
+            self.session.position = position;
         }
         // Some containers only know their duration after a while.
-        if self.info.duration.is_none() {
-            self.info.duration = player.duration();
+        if self.session.info.duration.is_none() {
+            self.session.info.duration = player.duration();
         }
-        if let Some(text) = failed {
+        if self.session.failure.is_some() {
+            // The session recorded why; stop the engine and show the reason.
             self.player = None;
-            self.state = PlaybackState::Stopped;
-            self.status = text;
-        } else if changed {
-            self.update_status();
+            self.frame = None;
+            self.refresh_controls();
+            return true;
         }
-        if self.state == PlaybackState::Playing {
+        if opened {
+            self.apply_subtitles();
+        }
+        if self.session.state == PlaybackState::Playing {
             self.start_ticking(control);
         }
         self.refresh_controls();
@@ -463,13 +471,21 @@ impl MediaApp {
             MenuBarOutcome::Changed => return,
             MenuBarOutcome::Ignored => {}
         }
+        // An open subtitle pop-up takes every event.
+        if self.subtitles.is_open() {
+            if let PopUpOutcome::Selected(option) = self.subtitles.handle(event, self.window) {
+                self.session.choose_subtitle_option(option);
+                self.apply_subtitles();
+            }
+            return;
+        }
         if self.focus.handle(event).is_some() {
             self.sync_focus();
             return;
         }
-        // Keyboard shortcuts, unless a slider owns the arrow keys.
+        // Keyboard shortcuts, unless a control owns the key.
         if let Event::KeyPressed { key, modifiers } = event {
-            let slider_focused = self.seek.focused || self.volume.focused;
+            let arrows_owned = self.seek.focused || self.volume.focused || self.subtitles.focused;
             let button_focused = self.open.focused || self.play.focused || self.mute.focused;
             match key {
                 Key::Character('o' | 'O') if modifiers.control => return self.open_chooser(),
@@ -480,10 +496,14 @@ impl MediaApp {
                     return self.toggle_play(control)
                 }
                 Key::Character('k' | 'K') => return self.toggle_play(control),
-                Key::Left if !slider_focused => return self.seek_by(-5.0),
-                Key::Right if !slider_focused => return self.seek_by(5.0),
-                Key::Up if !slider_focused => return self.set_volume(self.volume.value() + 5.0),
-                Key::Down if !slider_focused => return self.set_volume(self.volume.value() - 5.0),
+                Key::Left if !arrows_owned => return self.seek_by(-SEEK_STEP),
+                Key::Right if !arrows_owned => return self.seek_by(SEEK_STEP),
+                Key::Up if !arrows_owned => {
+                    return self.set_volume(self.session.volume + VOLUME_STEP)
+                }
+                Key::Down if !arrows_owned => {
+                    return self.set_volume(self.session.volume - VOLUME_STEP)
+                }
                 Key::Character('m' | 'M') => return self.toggle_mute(),
                 _ => {}
             }
@@ -505,11 +525,7 @@ impl MediaApp {
         }
         match self.seek.handle(event) {
             ValueOutcome::Value { value, last: true } => {
-                if let Some(player) = &self.player {
-                    if player.seek(Duration::from_secs_f64(value)).is_ok() {
-                        self.position = Duration::from_secs_f64(value);
-                    }
-                }
+                self.seek_to(Duration::from_secs_f64(value));
             }
             ValueOutcome::FocusRequested => {
                 self.focus.focus(SEEK_ID);
@@ -525,10 +541,16 @@ impl MediaApp {
             }
             _ => {}
         }
-        if let ToggleOutcome::Toggled(visible) = self.subtitles.handle(event) {
-            if let Some(player) = &self.player {
-                player.set_subtitles_visible(visible);
+        match self.subtitles.handle(event, self.window) {
+            PopUpOutcome::Selected(option) => {
+                self.session.choose_subtitle_option(option);
+                self.apply_subtitles();
             }
+            PopUpOutcome::Changed => {
+                self.focus.focus(SUBTITLES_ID);
+                self.sync_focus();
+            }
+            PopUpOutcome::Ignored => {}
         }
     }
 
@@ -553,6 +575,46 @@ impl MediaApp {
         self.chooser = Some(chooser);
     }
 
+    /// The reason playback stopped, centred in the video area.
+    fn paint_failure(
+        &self,
+        surface: &RasterSurface,
+        area: Rect,
+        failure: &Failure,
+    ) -> Result<(), RenderError> {
+        let title_font = Font::system(16.0);
+        let body_font = Font::system(13.0);
+        let width = area.width.saturating_sub(48).clamp(1, 520);
+        let lines = wrap(&failure.message, &body_font, width);
+        let line_height = measure("Ag", &body_font).height as i32;
+        let title_height = measure("Ag", &title_font).height as i32;
+        let total = title_height + 10 + line_height * lines.len() as i32;
+        let centred = |text: &str, font: &Font| {
+            let text_width = measure(text, font).width as i32;
+            area.x + (area.width as i32 - text_width) / 2
+        };
+        let top = area.y + (area.height as i32 - total) / 2;
+        let heading = Color::WHITE;
+        let body = Color {
+            red: 0xc8,
+            green: 0xc8,
+            blue: 0xc8,
+            alpha: 0xff,
+        };
+        surface.draw_text(
+            failure.title(),
+            centred(failure.title(), &title_font),
+            top,
+            &title_font,
+            heading,
+        )?;
+        for (row, line) in lines.iter().enumerate() {
+            let y = top + title_height + 10 + row as i32 * line_height;
+            surface.draw_text(line, centred(line, &body_font), y, &body_font, body)?;
+        }
+        Ok(())
+    }
+
     fn paint_all(&mut self, surface: &RasterSurface) -> Result<(), RenderError> {
         let colors = palette();
         let (width, height) = self.window;
@@ -568,8 +630,10 @@ impl MediaApp {
             let x = area.x + (area.width as i32 - w as i32) / 2;
             let y = area.y + (area.height as i32 - h as i32) / 2;
             surface.with_clip(area, || surface.draw_image_scaled(frame, x, y, w, h))?;
+        } else if let Some(failure) = &self.session.failure {
+            self.paint_failure(surface, area, failure)?;
         } else {
-            let text = if self.player.is_some() && !self.info.has_video && self.info.has_audio {
+            let text = if self.player.is_some() && !self.session.info.has_video {
                 "♪"
             } else {
                 ""
@@ -584,8 +648,10 @@ impl MediaApp {
                 Color::WHITE,
             )?;
         }
-        // Status text over the bottom of the video area.
-        let status_y = area.y + area.height as i32 - 22;
+        // Status text across the top of the video area, clear of the bottom
+        // edge where subtitles are drawn.
+        let status = self.status();
+        let status_y = area.y + 2;
         surface.with_clip(
             Rect {
                 x: 8,
@@ -594,8 +660,8 @@ impl MediaApp {
                 height: 20,
             },
             || {
-                surface.draw_text(&self.status, 9, status_y + 3, &self.font, SCREEN)?;
-                surface.draw_text(&self.status, 8, status_y + 2, &self.font, Color::WHITE)
+                surface.draw_text(&status, 9, status_y + 3, &self.font, SCREEN)?;
+                surface.draw_text(&status, 8, status_y + 2, &self.font, Color::WHITE)
             },
         )?;
         let top = height as i32 - CONTROLS_HEIGHT as i32;
@@ -608,8 +674,12 @@ impl MediaApp {
             },
             colors.bevel_shadow,
         )?;
-        let elapsed = format_time(self.position);
-        let total = self.info.duration.map_or_else(|| "—".into(), format_time);
+        let elapsed = session::format_time(self.session.position);
+        let total = self
+            .session
+            .info
+            .duration
+            .map_or_else(|| "—".into(), session::format_time);
         surface.draw_text(&elapsed, 8, top + 9, &self.font, colors.ink)?;
         surface.draw_text(&total, width as i32 - 52, top + 9, &self.font, colors.ink)?;
         self.seek.paint(surface)?;
@@ -617,20 +687,15 @@ impl MediaApp {
         self.play.paint(surface, &self.font)?;
         self.mute.paint(surface, &self.font)?;
         self.volume.paint(surface)?;
-        self.subtitles.paint(surface)?;
+        self.subtitles.paint(surface, &self.font)?;
         self.menu.paint(surface)?;
         self.menu.paint_menus(surface)?;
+        self.subtitles.paint_menu(surface)?;
         if let Some(chooser) = &mut self.chooser {
             chooser.paint(surface)?;
         }
         Ok(())
     }
-}
-
-fn file_name(path: &Path) -> String {
-    path.file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.display().to_string())
 }
 
 impl App for MediaApp {
@@ -655,7 +720,7 @@ impl App for MediaApp {
                 self.ticking = false;
                 self.receive(control);
                 // Keep ticking only while playing; an idle player sleeps.
-                if self.state == PlaybackState::Playing {
+                if self.session.state == PlaybackState::Playing {
                     self.start_ticking(control);
                 }
             }
@@ -690,19 +755,13 @@ impl App for MediaApp {
             (PLAY_ID, self.play.accessibility_node()),
             (SEEK_ID, {
                 let mut node = self.seek.accessibility_node();
-                node.set_value(format!(
-                    "{} of {}",
-                    format_time(self.position),
-                    self.info
-                        .duration
-                        .map_or_else(|| "unknown".into(), format_time)
-                ));
+                node.set_value(self.session.seek_value_text());
                 node
             }),
             (MUTE_ID, self.mute.accessibility_node()),
             (VOLUME_ID, self.volume.accessibility_node()),
-            (SUBTITLES_ID, self.subtitles.accessibility_node()),
         ]);
+        nodes.extend(self.subtitles.accessibility_nodes());
         let mut video = accesskit::Node::new(accesskit::Role::Video);
         video.set_label(
             self.path
@@ -711,13 +770,22 @@ impl App for MediaApp {
                 .unwrap_or_else(|| "No media".into()),
         );
         nodes.push((VIDEO_ID, video));
-        let status = slopos_ui::accessibility::text_label(self.status.as_str());
+        let mut status = slopos_ui::accessibility::text_label(self.status());
+        status.set_live(accesskit::Live::Polite);
         nodes.push((STATUS_ID, status));
+        if let Some(failure) = &self.session.failure {
+            // A failure is announced at once and spoken in full.
+            let mut alert = accesskit::Node::new(accesskit::Role::Alert);
+            alert.set_label(format!("{}. {}", failure.title(), failure.message));
+            alert.set_live(accesskit::Live::Assertive);
+            nodes.push((ALERT_ID, alert));
+        }
         let focus = match &self.chooser {
             Some(chooser) => {
                 nodes.extend(chooser.accessibility_nodes());
                 Some(chooser.focus_node())
             }
+            None if self.subtitles.is_open() => Some(self.subtitles.focus_node()),
             None => self.menu.focus_node().or(self.focus.focused()),
         };
         Some(window_tree("Media", nodes, focus))
@@ -765,19 +833,31 @@ mod tests {
             }
             std::thread::sleep(Duration::from_millis(10));
         }
-        panic!("condition not reached; status: {}", app.status);
+        panic!("condition not reached; status: {}", app.status());
+    }
+
+    fn paint_at_both_scales(app: &mut MediaApp) {
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
     }
 
     #[test]
     fn plays_a_video_with_keyboard_controls() {
+        if !engine::tests::backend_or_not_run("plays_a_video_with_keyboard_controls") {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         let clip = engine::tests::video(dir.path());
         let mut app = MediaApp::new(Some(&clip), Arc::new(Mutex::new(None)));
-        pump(&mut app, |app| app.info.has_video && app.frame.is_some());
+        pump(&mut app, |app| {
+            app.session.info.has_video && app.frame.is_some()
+        });
         assert!(
-            app.status.starts_with("Paused") && app.status.contains("160 × 120"),
+            app.status().starts_with("Paused") && app.status().contains("160 × 120"),
             "{}",
-            app.status
+            app.status()
         );
         assert!(
             app.play.enabled && app.seek.enabled && app.volume.enabled && !app.subtitles.enabled
@@ -788,14 +868,11 @@ mod tests {
         app.event(&key(Key::Character('m')), &mut control);
         assert!(app.player.as_ref().unwrap().muted());
         app.event(&key(Key::Space), &mut control);
-        pump(&mut app, |app| app.state == PlaybackState::Playing);
+        pump(&mut app, |app| app.session.state == PlaybackState::Playing);
         assert_eq!(app.play.label, "Pause");
-        pump(&mut app, |app| app.state == PlaybackState::Ended);
-        assert!(app.status.starts_with("Finished"));
-        for factor in [1, 2] {
-            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
-            app.paint(&surface);
-        }
+        pump(&mut app, |app| app.session.state == PlaybackState::Ended);
+        assert!(app.status().starts_with("Finished"));
+        paint_at_both_scales(&mut app);
         let tree = app.accessibility().unwrap();
         assert!(tree
             .nodes
@@ -805,24 +882,141 @@ mod tests {
 
     #[test]
     fn unplayable_files_say_why() {
+        if !engine::tests::backend_or_not_run("unplayable_files_say_why") {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         let text = dir.path().join("notes.mp4");
         std::fs::write(&text, b"this is text, not a video").unwrap();
         let mut app = MediaApp::new(Some(&text), Arc::new(Mutex::new(None)));
         pump(&mut app, |app| app.player.is_none());
+        let failure = app.session.failure.clone().expect("a failure");
+        assert_eq!(failure.kind, FailureKind::Unreadable);
         assert!(
-            app.status.contains("not a video or audio format"),
+            failure.message.contains("not a video or audio format"),
             "{}",
-            app.status
+            failure.message
         );
         assert!(!app.play.enabled);
+        // The reason is announced and drawn, not only in the status line.
+        paint_at_both_scales(&mut app);
+        let tree = app.accessibility().unwrap();
+        assert!(tree
+            .nodes
+            .iter()
+            .any(|(id, node)| *id == accesskit::NodeId(ALERT_ID)
+                && node.role() == accesskit::Role::Alert
+                && node.live() == Some(accesskit::Live::Assertive)));
     }
 
     #[test]
-    fn times_are_formatted() {
-        assert_eq!(format_time(Duration::from_secs(5)), "0:05");
-        assert_eq!(format_time(Duration::from_secs(125)), "2:05");
-        assert_eq!(format_time(Duration::from_secs(3725)), "1:02:05");
+    fn missing_files_are_reported_before_decoding() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = MediaApp::new(
+            Some(&dir.path().join("gone.webm")),
+            Arc::new(Mutex::new(None)),
+        );
+        assert!(app.player.is_none());
+        let failure = app.session.failure.clone().expect("a failure");
+        assert!(
+            failure.message.contains("does not exist"),
+            "{}",
+            failure.message
+        );
+        assert_eq!(app.status(), "This file can't be played");
+        assert!(app.open.enabled, "Open stays available after a failure");
+    }
+
+    #[test]
+    fn subtitles_are_chosen_with_the_keyboard_and_the_pointer() {
+        if !engine::tests::backend_or_not_run(
+            "subtitles_are_chosen_with_the_keyboard_and_the_pointer",
+        ) {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let clip = engine::tests::subtitled_mkv(dir.path());
+        let mut app = MediaApp::new(Some(&clip), Arc::new(Mutex::new(None)));
+        pump(&mut app, |app| {
+            app.session.info.has_video && app.frame.is_some()
+        });
+        assert!(app.subtitles.enabled);
+        assert_eq!(app.subtitles.items(), ["Off", "Subtitle (1)"]);
+        assert_eq!(app.subtitles.selected(), Some(1), "on by default");
+        assert!(app.player.as_ref().unwrap().subtitles_flag());
+
+        // Keyboard: focus the pop-up, open it, move to Off and choose it.
+        let mut control = Control::default();
+        app.focus.focus(SUBTITLES_ID);
+        app.sync_focus();
+        app.event(&key(Key::Enter), &mut control);
+        assert!(app.subtitles.is_open());
+        app.event(&key(Key::Up), &mut control);
+        app.event(&key(Key::Enter), &mut control);
+        assert!(!app.subtitles.is_open());
+        assert_eq!(app.session.subtitle, None);
+        assert!(!app.player.as_ref().unwrap().subtitles_flag());
+        assert_eq!(app.subtitles.value(), "Off");
+
+        // Pointer-style accessibility click opens the pop-up; Escape closes it.
+        app.event(
+            &Event::Accessibility(AccessibilityRequest::Click(SUBTITLES_ID)),
+            &mut control,
+        );
+        assert!(app.subtitles.is_open());
+        app.event(&key(Key::Escape), &mut control);
+        assert!(!app.subtitles.is_open());
+
+        // The Playback menu's Show Subtitles turns the first track back on.
+        app.event(
+            &Event::MenuChosen {
+                menu: 1,
+                item: SUBTITLES_ITEM,
+            },
+            &mut control,
+        );
+        assert_eq!(app.session.subtitle, Some(0));
+        assert!(app.player.as_ref().unwrap().subtitles_flag());
+
+        // While the pop-up has focus, arrows open it and leave the volume alone.
+        app.focus.focus(SUBTITLES_ID);
+        app.sync_focus();
+        let before = app.session.volume;
+        app.event(&key(Key::Down), &mut control);
+        assert!(app.subtitles.is_open());
+        assert_eq!(app.session.volume, before);
+        app.event(&key(Key::Escape), &mut control);
+
+        paint_at_both_scales(&mut app);
+        let tree = app.accessibility().unwrap();
+        assert!(tree
+            .nodes
+            .iter()
+            .any(|(id, node)| *id == accesskit::NodeId(SUBTITLES_ID)
+                && node.role() == accesskit::Role::ComboBox
+                && node.label() == Some("Subtitles")));
+    }
+
+    #[test]
+    fn a_file_without_text_streams_has_a_disabled_subtitle_control() {
+        if !engine::tests::backend_or_not_run(
+            "a_file_without_text_streams_has_a_disabled_subtitle_control",
+        ) {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let clip = engine::tests::video(dir.path());
+        let mut app = MediaApp::new(Some(&clip), Arc::new(Mutex::new(None)));
+        pump(&mut app, |app| {
+            app.session.info.has_video && app.frame.is_some()
+        });
+        assert!(!app.subtitles.enabled);
+        assert_eq!(app.subtitles.value(), session::NO_SUBTITLES);
+        let mut control = Control::default();
+        app.focus.focus(SUBTITLES_ID);
+        app.sync_focus();
+        app.event(&key(Key::Enter), &mut control);
+        assert!(!app.subtitles.is_open(), "a disabled control does not open");
     }
 
     #[test]

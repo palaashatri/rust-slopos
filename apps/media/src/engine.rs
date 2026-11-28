@@ -28,6 +28,8 @@ use std::time::Duration;
 use gstreamer as gst;
 use gstreamer::prelude::*;
 use gstreamer_app as gst_app;
+
+use crate::codecs;
 use gstreamer_video as gst_video;
 
 /// Largest decoded frame handed to the UI (1920 × 1080).
@@ -68,6 +70,8 @@ pub enum PlayerEvent {
     State(PlaybackState),
     /// A new frame is waiting in [`Player::take_frame`].
     Frame,
+    /// The file is not a container or codec SLOPOS can identify.
+    Unreadable(String),
     /// Playback failed; the text says why in user terms.
     Error(String),
     /// A codec is missing; the text names it and how to get it.
@@ -81,7 +85,11 @@ pub struct MediaInfo {
     pub has_audio: bool,
     pub width: u32,
     pub height: u32,
+    /// A sibling subtitle file that was loaded with the media, if any.
     pub subtitles: Option<PathBuf>,
+    /// The text (subtitle) streams, in the order [`Player::set_subtitle_track`]
+    /// selects them: a human-readable label per stream.
+    pub subtitle_tracks: Vec<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -116,20 +124,24 @@ pub fn find_subtitles(media: &Path) -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
-/// Which package usually provides a missing GStreamer element or decoder.
-pub fn codec_hint(description: &str) -> &'static str {
-    let lower = description.to_lowercase();
-    if [
-        "h.264", "h264", "h.265", "hevc", "aac", "mpeg-4", "mp3", "ac-3", "wma", "wmv",
-    ]
-    .iter()
-    .any(|codec| lower.contains(codec))
-    {
-        "gstreamer1.0-libav (FFmpeg decoders; check codec licensing in your country)"
-    } else if lower.contains("av1") || lower.contains("dav1d") {
-        "gstreamer1.0-plugins-bad"
-    } else {
-        "gstreamer1.0-plugins-good or gstreamer1.0-plugins-bad"
+/// The event for a decoder problem described by `described` (GStreamer's
+/// error text and debug text together), shown as `text`. A codec the probe
+/// finds installed is not missing, so the failure is reported as a playback
+/// error; otherwise the codec and the package that provides it are named.
+fn decoder_event(described: &str, text: &str) -> PlayerEvent {
+    match codecs::lookup(described) {
+        Some(codec) if codecs::missing_decoder(described).is_some() => {
+            PlayerEvent::MissingCodec(format!(
+                "SLOPOS can't decode this file: {text} The {} decoder is not installed. Install {}.",
+                codec.label, codec.package
+            ))
+        }
+        // The codec's decoder is installed, so this is some other failure.
+        Some(_) => PlayerEvent::Error(text.to_owned()),
+        None => PlayerEvent::MissingCodec(format!(
+            "SLOPOS can't decode this file: {text} Install {}.",
+            codecs::DEFAULT_PACKAGE
+        )),
     }
 }
 
@@ -360,21 +372,22 @@ impl Player {
                     .any(|kind| error.error().matches(*kind))
                         || error.debug().is_some_and(|d| d.contains("typefind")) =>
                 {
-                    Some(PlayerEvent::Error(
-                        "this file is not a video or audio format SLOPOS can read".into(),
+                    Some(PlayerEvent::Unreadable(
+                        "This file is not a video or audio format SLOPOS can read.".into(),
                     ))
                 }
                 gst::MessageView::Error(error) => {
                     let text = error.error().to_string();
                     let debug = error.debug().map(|d| d.to_string()).unwrap_or_default();
-                    if debug.contains("missing")
+                    // "codec not found" is GStreamer's report of a stream
+                    // whose decoder is not installed; the debug text names
+                    // the caps, which is what the install hint is based on.
+                    if error.error().matches(gst::StreamError::CodecNotFound)
+                        || debug.contains("missing")
                         || text.contains("No decoder")
                         || text.contains("codec")
                     {
-                        Some(PlayerEvent::MissingCodec(format!(
-                            "{text} Install {}.",
-                            codec_hint(&format!("{text} {debug}"))
-                        )))
+                        Some(decoder_event(&format!("{text} {debug}"), &text))
                     } else {
                         Some(PlayerEvent::Error(text))
                     }
@@ -387,7 +400,7 @@ impl Player {
                             .unwrap_or_else(|| "a decoder".into());
                         Some(PlayerEvent::MissingCodec(format!(
                             "SLOPOS can't play this file: {detail} is not installed. Install {}.",
-                            codec_hint(&detail)
+                            codecs::install_hint(&detail)
                         )))
                     } else {
                         None
@@ -446,6 +459,7 @@ impl Player {
     fn info(playbin: &gst::Element, subtitles: Option<PathBuf>) -> MediaInfo {
         let videos: i32 = playbin.property("n-video");
         let audios: i32 = playbin.property("n-audio");
+        let texts: i32 = playbin.property("n-text");
         let duration = playbin
             .query_duration::<gst::ClockTime>()
             .map(|d| Duration::from_nanos(d.nseconds()));
@@ -458,6 +472,21 @@ impl Player {
                 }
             }
         }
+        // Embedded text streams are selectable by index; a sidecar file is
+        // loaded by playbin itself and is offered as one entry.
+        let subtitle_tracks = if texts > 0 {
+            (0..texts)
+                .map(|index| text_track_label(playbin, index))
+                .collect()
+        } else {
+            subtitles
+                .iter()
+                .map(|path| {
+                    path.file_name()
+                        .map_or_else(|| "Subtitles".into(), |name| name.to_string_lossy().into())
+                })
+                .collect()
+        };
         MediaInfo {
             duration,
             has_video: videos > 0,
@@ -465,6 +494,7 @@ impl Player {
             width,
             height,
             subtitles,
+            subtitle_tracks,
         }
     }
 
@@ -540,6 +570,36 @@ impl Player {
         self.playbin.property("mute")
     }
 
+    /// Show subtitle `track` (an index into [`MediaInfo::subtitle_tracks`])
+    /// or hide subtitles with `None`. A sidecar file has no embedded stream
+    /// to select, so only the visibility flag changes for it.
+    pub fn set_subtitle_track(&self, track: Option<usize>) {
+        match track {
+            Some(index) => {
+                let texts: i32 = self.playbin.property("n-text");
+                if let Ok(index) = i32::try_from(index) {
+                    if index < texts {
+                        self.playbin.set_property("current-text", index);
+                    }
+                }
+                self.set_subtitles_visible(true);
+            }
+            None => self.set_subtitles_visible(false),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn subtitles_flag(&self) -> bool {
+        let flags = self.playbin.property_value("flags");
+        gst::glib::FlagsClass::with_type(flags.type_())
+            .is_some_and(|class| class.is_set_by_nick(&flags, "text"))
+    }
+
+    #[cfg(test)]
+    pub fn current_text(&self) -> i32 {
+        self.playbin.property("current-text")
+    }
+
     /// Show or hide subtitles (when the file has any).
     pub fn set_subtitles_visible(&self, visible: bool) {
         let flags = self.playbin.property_value("flags");
@@ -557,6 +617,29 @@ impl Player {
         if let Some(value) = builder.build() {
             self.playbin.set_property_from_value("flags", &value);
         }
+    }
+}
+
+/// A label for text stream `index`: its title, else its language, else a
+/// number. Reads the stream's tags from playbin; nothing is parsed by hand.
+fn text_track_label(playbin: &gst::Element, index: i32) -> String {
+    let tags: Option<gst::TagList> = playbin.emit_by_name("get-text-tags", &[&index]);
+    let named = tags.and_then(|tags| {
+        tags.get::<gst::tags::Title>()
+            .map(|title| title.get().to_string())
+            .or_else(|| {
+                tags.get::<gst::tags::LanguageName>()
+                    .map(|language| language.get().to_string())
+            })
+            .or_else(|| {
+                tags.get::<gst::tags::LanguageCode>()
+                    .map(|code| code.get().to_string())
+            })
+    });
+    match named.filter(|name| !name.trim().is_empty()) {
+        // The number keeps two tracks with the same name apart.
+        Some(name) => format!("{name} ({})", index + 1),
+        None => format!("Track {}", index + 1),
     }
 }
 
@@ -606,6 +689,22 @@ pub(crate) mod tests {
         )
     }
 
+    /// A 3-second Matroska clip (black pattern) with one embedded text track
+    /// whose only cue shows from 0.0 s to 1.5 s.
+    pub fn subtitled_mkv(dir: &Path) -> PathBuf {
+        let srt = dir.join("embedded.srt");
+        std::fs::write(&srt, "1\n00:00:00,000 --> 00:00:01,500\nHi\n").unwrap();
+        fixture(
+            dir,
+            "subtitled.mkv",
+            &format!(
+                "videotestsrc pattern=black num-buffers=90 !video/x-raw,width=160,height=120,framerate=30/1 ! vp8enc deadline=1 ! matroskamux name=mux ! filesink location=OUT \
+                 filesrc location={} ! subparse ! mux.",
+                srt.display()
+            ),
+        )
+    }
+
     fn wait_for(
         player: &Player,
         timeout: Duration,
@@ -630,8 +729,60 @@ pub(crate) mod tests {
         Arc::new(|| {})
     }
 
+    /// Environment variable that turns an absent backend into a failure.
+    pub const REQUIRE_ENV: &str = "SLOPOS_REQUIRE_MEDIA_BACKEND";
+
+    /// Whether GStreamer, its playbin and the fixture tool are installed.
+    /// When they are not, the test prints `NOT_RUN` and returns `false`, so
+    /// the caller returns without asserting anything. With
+    /// `SLOPOS_REQUIRE_MEDIA_BACKEND=1` the test panics instead, so a release
+    /// gate can never pass on a machine that skipped the playback tests.
+    pub fn backend_or_not_run(test: &str) -> bool {
+        let reason = match init() {
+            Err(error) => Some(error.to_string()),
+            Ok(())
+                if std::process::Command::new("gst-launch-1.0")
+                    .arg("--version")
+                    .output()
+                    .is_err() =>
+            {
+                Some("gst-launch-1.0 is not installed (the fixtures need it)".to_owned())
+            }
+            Ok(()) => None,
+        };
+        let Some(reason) = reason else {
+            return true;
+        };
+        if std::env::var_os(REQUIRE_ENV).is_some_and(|value| value == "1") {
+            panic!("{test}: media backend required but absent: {reason}");
+        }
+        eprintln!("NOT_RUN {test}: media backend absent: {reason}");
+        false
+    }
+
+    /// Wait until the frame for `target` (within a frame of it) arrives.
+    /// Frames from before a seek are skipped.
+    fn frame_at(player: &Player, target: Duration, timeout: Duration) -> Frame {
+        let start = Instant::now();
+        loop {
+            if let Some(frame) = player.take_frame() {
+                if frame.position.abs_diff(target) <= Duration::from_millis(40) {
+                    return frame;
+                }
+            }
+            assert!(
+                start.elapsed() < timeout,
+                "no frame at {target:?} within {timeout:?}"
+            );
+            thread::sleep(Duration::from_millis(5));
+        }
+    }
+
     #[test]
     fn opens_plays_seeks_and_ends() {
+        if !backend_or_not_run("opens_plays_seeks_and_ends") {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         let clip = video(dir.path());
         std::fs::write(
@@ -654,6 +805,8 @@ pub(crate) mod tests {
         assert_eq!((info.width, info.height), (160, 120));
         assert!(info.duration.unwrap() >= Duration::from_millis(1900));
         assert_eq!(info.subtitles, Some(dir.path().join("clip.srt")));
+        // A sidecar file is offered as one track, named after the file.
+        assert_eq!(info.subtitle_tracks, vec!["clip.srt".to_string()]);
         // Paused preroll still delivers the first frame.
         let start = Instant::now();
         let frame = loop {
@@ -667,6 +820,12 @@ pub(crate) mod tests {
             (frame.width, frame.height, frame.rgba.len()),
             (160, 120, 160 * 120 * 4)
         );
+        // Sidecar-only subtitles have no embedded stream to select; turning
+        // them on and off must still work.
+        player.set_subtitle_track(Some(0));
+        assert!(player.subtitles_flag());
+        player.set_subtitle_track(None);
+        assert!(!player.subtitles_flag());
         player.set_volume(0.25);
         assert!((player.volume() - 0.25).abs() < 1e-9);
         player.set_volume(f64::NAN);
@@ -680,8 +839,190 @@ pub(crate) mod tests {
         });
     }
 
+    /// A Matroska file whose video track is H.264 but whose decoder is not
+    /// installed (the bytes are noise; nothing is ever decoded).
+    pub fn undecodable_mkv(dir: &Path) -> PathBuf {
+        let noise = dir.join("noise.bin");
+        std::fs::write(&noise, vec![0x55u8; 4096]).unwrap();
+        fixture(
+            dir,
+            "no-decoder.mkv",
+            &format!(
+                "filesrc location={} ! video/x-h264,stream-format=avc,alignment=au,width=160,height=120,framerate=30/1 ! matroskamux ! filesink location=OUT",
+                noise.display()
+            ),
+        )
+    }
+
+    #[test]
+    fn a_missing_decoder_names_the_codec_and_the_package() {
+        if !backend_or_not_run("a_missing_decoder_names_the_codec_and_the_package") {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let file = undecodable_mkv(dir.path());
+        let player = Player::open(&file, no_wake()).unwrap();
+        let events = wait_for(&player, Duration::from_secs(10), |e| {
+            matches!(
+                e,
+                PlayerEvent::MissingCodec(_) | PlayerEvent::Error(_) | PlayerEvent::Unreadable(_)
+            )
+        });
+        // GStreamer reports a missing decoder as a stream error and as a
+        // missing-plugin message; either may arrive first. Both name the
+        // package.
+        let PlayerEvent::MissingCodec(text) = events.last().unwrap() else {
+            panic!("expected a missing-codec report, got {events:?}");
+        };
+        assert!(text.starts_with("SLOPOS can't"), "{text}");
+        assert!(text.contains("gstreamer1.0-libav"), "{text}");
+    }
+
+    fn next_frame(player: &Player, timeout: Duration) -> Frame {
+        let start = Instant::now();
+        loop {
+            if let Some(frame) = player.take_frame() {
+                return frame;
+            }
+            assert!(start.elapsed() < timeout, "no frame within {timeout:?}");
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    #[test]
+    fn embedded_subtitle_tracks_are_listed_and_selectable() {
+        if !backend_or_not_run("embedded_subtitle_tracks_are_listed_and_selectable") {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let mkv = subtitled_mkv(dir.path());
+        let player = Player::open(&mkv, no_wake()).unwrap();
+        let events = wait_for(&player, Duration::from_secs(10), |e| {
+            matches!(e, PlayerEvent::Opened(_))
+        });
+        let info = events
+            .iter()
+            .find_map(|e| match e {
+                PlayerEvent::Opened(info) => Some(info.clone()),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(info.subtitle_tracks, vec!["Subtitle (1)".to_string()]);
+        assert_eq!(info.subtitles, None);
+        // Subtitles on (track 1) and off must decode differently at 0 s,
+        // where the embedded cue is shown. The pattern is black so that the
+        // only pixels that change are the subtitle's.
+        player.set_subtitle_track(Some(0));
+        assert_eq!(player.current_text(), 0);
+        assert!(player.subtitles_flag());
+        let shown = next_frame(&player, Duration::from_secs(5));
+        player.set_subtitle_track(None);
+        assert!(!player.subtitles_flag());
+        player.seek(Duration::ZERO).unwrap();
+        let hidden = next_frame(&player, Duration::from_secs(5));
+        assert_eq!(shown.rgba.len(), hidden.rgba.len());
+        assert_ne!(shown.rgba, hidden.rgba, "the subtitle changed no pixels");
+        // An index past the last stream is ignored instead of selecting junk.
+        player.set_subtitle_track(Some(7));
+        assert_eq!(player.current_text(), 0);
+    }
+
+    #[test]
+    fn a_subtitle_cue_is_drawn_only_while_its_cue_is_on_screen() {
+        if !backend_or_not_run("a_subtitle_cue_is_drawn_only_while_its_cue_is_on_screen") {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let mkv = subtitled_mkv(dir.path());
+        let player = Player::open(&mkv, no_wake()).unwrap();
+        wait_for(&player, Duration::from_secs(10), |e| {
+            matches!(e, PlayerEvent::Opened(_))
+        });
+        // Select the subtitle state, seek, and return the frame at that time.
+        // Stale frames are drained before the seek, so the frame returned is
+        // rendered with the new state.
+        let shot = |track: Option<usize>, at: Duration| {
+            player.set_subtitle_track(track);
+            let _ = player.take_frame();
+            player.seek(at).unwrap();
+            frame_at(&player, at, Duration::from_secs(5))
+        };
+        // The only cue runs from 0.0 s to 1.5 s.
+        let early = Duration::from_millis(500);
+        let late = Duration::from_millis(2500);
+        let off_early = shot(None, early);
+        let on_early = shot(Some(0), early);
+        let on_late = shot(Some(0), late);
+        let off_late = shot(None, late);
+        // Each frame is the one for its time, so the comparison is like for like.
+        for (frame, at) in [
+            (&off_early, early),
+            (&on_early, early),
+            (&on_late, late),
+            (&off_late, late),
+        ] {
+            assert!(frame.position.abs_diff(at) <= Duration::from_millis(40));
+        }
+        assert_ne!(
+            on_early.rgba, off_early.rgba,
+            "the cue changed no pixels at 0.5 s"
+        );
+        assert_eq!(
+            on_late.rgba, off_late.rgba,
+            "a subtitle is still drawn at 2.5 s, after its cue ended at 1.5 s"
+        );
+    }
+
+    #[test]
+    fn frames_arrive_in_presentation_order_and_not_faster_than_the_clock() {
+        if !backend_or_not_run("frames_arrive_in_presentation_order_and_not_faster_than_the_clock")
+        {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let clip = video(dir.path()); // two seconds of video and audio
+        let player = Player::open(&clip, no_wake()).unwrap();
+        wait_for(&player, Duration::from_secs(10), |e| {
+            matches!(e, PlayerEvent::Opened(_))
+        });
+        player.play().unwrap();
+        let start = Instant::now();
+        let mut positions = Vec::new();
+        let mut ended = false;
+        while start.elapsed() < Duration::from_secs(15) && !ended {
+            for event in player.poll_events() {
+                ended |= event == PlayerEvent::State(PlaybackState::Ended);
+            }
+            if let Some(frame) = player.take_frame() {
+                positions.push(frame.position);
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        let elapsed = start.elapsed();
+        assert!(ended, "playback did not end; frames {positions:?}");
+        assert!(positions.len() >= 2, "too few frames: {positions:?}");
+        assert!(
+            positions.windows(2).all(|pair| pair[0] <= pair[1]),
+            "frames out of order: {positions:?}"
+        );
+        let last = *positions.last().unwrap();
+        assert!(
+            last >= Duration::from_millis(1500),
+            "last frame at {last:?}"
+        );
+        // The sink waits for the pipeline clock, so a two-second clip takes
+        // about two seconds to play, not less.
+        assert!(
+            elapsed >= Duration::from_millis(1500),
+            "a two-second clip finished in {elapsed:?}"
+        );
+    }
+
     #[test]
     fn broken_files_report_errors_instead_of_hanging() {
+        if !backend_or_not_run("broken_files_report_errors_instead_of_hanging") {
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         let broken = dir.path().join("broken.webm");
         std::fs::write(&broken, b"\x1a\x45\xdf\xa3 this is not really webm").unwrap();
@@ -689,14 +1030,19 @@ pub(crate) mod tests {
             Err(_) => {}
             Ok(player) => {
                 wait_for(&player, Duration::from_secs(10), |e| {
-                    matches!(e, PlayerEvent::Error(_) | PlayerEvent::MissingCodec(_))
+                    matches!(
+                        e,
+                        PlayerEvent::Error(_)
+                            | PlayerEvent::MissingCodec(_)
+                            | PlayerEvent::Unreadable(_)
+                    )
                 });
             }
         }
         // A file that does not exist fails to open or reports an error.
         if let Ok(player) = Player::open(&dir.path().join("missing.ogg"), no_wake()) {
             wait_for(&player, Duration::from_secs(10), |e| {
-                matches!(e, PlayerEvent::Error(_))
+                matches!(e, PlayerEvent::Error(_) | PlayerEvent::Unreadable(_))
             });
         }
     }
@@ -708,8 +1054,8 @@ pub(crate) mod tests {
         assert!(u64::from(w) * u64::from(h) <= MAX_VIDEO_PIXELS && w % 2 == 0 && h % 2 == 0);
         assert!((f64::from(w) / f64::from(h) - 16.0 / 9.0).abs() < 0.01);
         assert_eq!(bounded_size(0, 100), (0, 100));
-        assert!(codec_hint("H.264 (Main Profile) decoder").contains("libav"));
-        assert!(codec_hint("AV1 decoder").contains("bad"));
+        assert!(codecs::install_hint("H.264 (Main Profile) decoder").contains("libav"));
+        assert!(codecs::install_hint("AV1 decoder").contains("bad"));
         let dir = tempfile::tempdir().unwrap();
         let movie = dir.path().join("movie.mkv");
         assert_eq!(find_subtitles(&movie), None);
