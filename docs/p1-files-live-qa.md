@@ -64,7 +64,8 @@ claims. Each operation needs an exit status and screenshots before/after.
 | Keyboard | Tab and Shift-Tab, arrow keys, Home/End, PageUp/Down, Enter | Focus and selection visible, action works |
 | Pointer | Select several rows, scroll using wheel, Open | Selected row stable; scroll has no runaway polling |
 | Resize/scale | 640×480, 1280×720, 1×/2× scaling | No clipped text/buttons, overlay, illegible row labels |
-| Massive list | >8192 files | Honest limit error, not partial/silent/truncated success |
+| Massive list | 8193 to 100,000 files | Every row loads in paged order (status shows Loading until the last page), Select All stays responsive |
+| Over the limit | >100,000 files | Explicit "more than 100000 items" error, not partial/silent/truncated success |
 | Rename race | Delete or rename directory while scan starts | Error or current view preserved, no panic |
 | Permission denied | Directory user cannot read | Status shows an actual error, no invented entries |
 | Symlinks | Link to directory outside fixture | Does not traverse link as if it were a normal directory |
