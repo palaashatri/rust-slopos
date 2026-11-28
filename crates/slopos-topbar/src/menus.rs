@@ -247,6 +247,7 @@ mod tests {
         assert_eq!(find("Restart…"), (false, Some(Command::Restart)));
         assert_eq!(find("Log Out…"), (true, Some(Command::LogOut)));
         assert!(!find("Control Panels…").0);
+        assert_eq!(find("Volume Mixer…"), (false, Some(Command::VolumeMixer)));
         let all = Capabilities {
             control_panels: true,
             volume_mixer: true,
@@ -258,6 +259,9 @@ mod tests {
             .items
             .iter()
             .any(|(item, c)| item.enabled && *c == Some(Command::Restart)));
+        assert!(system.items.iter().any(|(item, c)| {
+            item.label == "Volume Mixer…" && item.enabled && *c == Some(Command::VolumeMixer)
+        }));
     }
 
     #[test]
