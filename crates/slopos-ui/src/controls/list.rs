@@ -50,6 +50,9 @@ pub struct ListView {
     pub enabled: bool,
     /// Allow Shift/Ctrl multiple selection.
     pub multiple: bool,
+    /// Icon-grid layout: cells this wide, as many across as the width allows.
+    /// `None` is the one-column list.
+    cell_width: Option<u32>,
     scroll: ScrollState,
     len: usize,
     selected: BTreeSet<usize>,
@@ -66,6 +69,7 @@ impl ListView {
             focused: false,
             enabled: true,
             multiple: false,
+            cell_width: None,
             scroll: ScrollState::default(),
             len: 0,
             selected: BTreeSet::new(),
@@ -80,6 +84,24 @@ impl ListView {
 
     pub fn set_bounds(&mut self, bounds: Rect) {
         self.scroll.set_area(bounds);
+        // The column count depends on the width, so the height does too.
+        self.set_len(self.len);
+    }
+
+    /// Show the rows as an icon grid of `cell_width`-wide cells (each
+    /// `row_height` tall, filled left to right) or, with `None`, as the
+    /// one-column list. The same selection and keyboard rules apply in both.
+    pub fn set_cell_width(&mut self, cell_width: Option<u32>) {
+        self.cell_width = cell_width.map(|width| width.max(1));
+        self.set_len(self.len);
+    }
+
+    /// Cells across: always 1 for the list.
+    pub fn columns(&self) -> usize {
+        match self.cell_width {
+            None => 1,
+            Some(width) => ((self.scroll.content_area().width / width) as usize).max(1),
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -96,8 +118,9 @@ impl ListView {
         self.selected.retain(|&index| index < len);
         self.cursor = self.cursor.filter(|&index| index < len);
         self.anchor = self.anchor.filter(|&index| index < len);
+        let lines = len.div_ceil(self.columns());
         self.scroll
-            .set_content(len as u64 * u64::from(self.row_height));
+            .set_content(lines as u64 * u64::from(self.row_height));
     }
 
     /// Clear everything for new content of `len` rows, scrolled to the top.
@@ -173,25 +196,35 @@ impl ListView {
 
     fn reveal(&mut self, index: usize) {
         let height = u64::from(self.row_height);
-        self.scroll.reveal(index as u64 * height, height);
+        let line = (index / self.columns()) as u64;
+        self.scroll.reveal(line * height, height);
     }
 
     /// Rows that are at least partly visible.
     pub fn visible_rows(&self) -> std::ops::Range<usize> {
         let height = u64::from(self.row_height);
-        let first = (self.scroll.offset() / height) as usize;
-        let last = (self.scroll.offset() + self.scroll.viewport()).div_ceil(height) as usize;
+        let columns = self.columns();
+        let first = (self.scroll.offset() / height) as usize * columns;
+        let last =
+            (self.scroll.offset() + self.scroll.viewport()).div_ceil(height) as usize * columns;
         first.min(self.len)..last.min(self.len)
     }
 
     /// Where row `index` is drawn (may extend past the view when partial).
     pub fn row_rect(&self, index: usize) -> Rect {
         let area = self.scroll.content_area();
-        let top = index as i64 * i64::from(self.row_height) - self.scroll.offset() as i64;
+        let columns = self.columns();
+        let line = index / columns;
+        let column = index % columns;
+        let top = line as i64 * i64::from(self.row_height) - self.scroll.offset() as i64;
+        let (x, width) = match self.cell_width {
+            None => (area.x, area.width),
+            Some(cell) => (area.x + (column as u32 * cell) as i32, cell),
+        };
         Rect {
-            x: area.x,
+            x,
             y: area.y + top.clamp(i64::from(i32::MIN / 2), i64::from(i32::MAX / 2)) as i32,
-            width: area.width,
+            width,
             height: self.row_height,
         }
     }
@@ -202,7 +235,15 @@ impl ListView {
             return None;
         }
         let offset = (y - area.y) as u64 + self.scroll.offset();
-        let index = (offset / u64::from(self.row_height)) as usize;
+        let line = (offset / u64::from(self.row_height)) as usize;
+        let column = match self.cell_width {
+            None => 0,
+            Some(cell) => ((x - area.x) as u32 / cell) as usize,
+        };
+        if column >= self.columns() {
+            return None;
+        }
+        let index = line * self.columns() + column;
         (index < self.len).then_some(index)
     }
 
@@ -282,13 +323,21 @@ impl ListView {
             Event::KeyPressed { key, modifiers } if self.focused && self.len > 0 => {
                 let page = (self.scroll.viewport() / u64::from(self.row_height)).max(1) as usize;
                 let cursor = self.cursor;
+                // Up and Down step a whole line of cells; in the grid Left and
+                // Right step one cell. The list has one cell per line.
+                let columns = self.columns();
+                let grid = self.cell_width.is_some();
                 let target = match key {
-                    Key::Down => Some(cursor.map_or(0, |index| index + 1)),
-                    Key::Up => Some(cursor.map_or(0, |index| index.saturating_sub(1))),
+                    Key::Down => Some(cursor.map_or(0, |index| index + columns)),
+                    Key::Up => Some(cursor.map_or(0, |index| index.saturating_sub(columns))),
+                    Key::Left if grid => Some(cursor.map_or(0, |index| index.saturating_sub(1))),
+                    Key::Right if grid => Some(cursor.map_or(0, |index| index + 1)),
                     Key::Home => Some(0),
                     Key::End => Some(self.len - 1),
-                    Key::PageDown => Some(cursor.map_or(0, |index| index + page)),
-                    Key::PageUp => Some(cursor.map_or(0, |index| index.saturating_sub(page))),
+                    Key::PageDown => Some(cursor.map_or(0, |index| index + page * columns)),
+                    Key::PageUp => {
+                        Some(cursor.map_or(0, |index| index.saturating_sub(page * columns)))
+                    }
                     _ => None,
                 };
                 if let Some(target) = target {
@@ -534,6 +583,106 @@ mod tests {
         })
         .unwrap();
         assert!(painted.contains(&500) && painted.len() <= 6);
+    }
+
+    /// A 350×100 grid of 100-wide, 20-tall cells: three across (50 px to spare).
+    fn grid(len: usize) -> ListView {
+        let mut list = ListView::new(4, "Icons", 20);
+        list.set_cell_width(Some(100));
+        list.set_bounds(Rect {
+            x: 10,
+            y: 10,
+            width: 350,
+            height: 100,
+        });
+        list.set_len(len);
+        list.focused = true;
+        list
+    }
+
+    #[test]
+    fn grid_fills_cells_left_to_right_and_the_list_keeps_one_column() {
+        let grid_view = grid(10);
+        assert_eq!(grid_view.columns(), 3);
+        // Index 4 is the second cell of the second line.
+        assert_eq!(grid_view.row_rect(4).x, 10 + 100);
+        assert_eq!(grid_view.row_rect(4).y, 10 + 20);
+        assert_eq!(grid_view.row_rect(4).width, 100);
+        assert_eq!(grid_view.row_at(10 + 100 + 5, 10 + 20 + 5), Some(4));
+        // Past the last column of a line is no cell at all.
+        assert_eq!(grid_view.row_at(10 + 330, 10 + 5), None);
+        // The last, partial line exists but nothing sits past the end.
+        assert_eq!(grid_view.row_at(10 + 5, 10 + 60 + 5), Some(9));
+        assert_eq!(grid_view.row_at(10 + 105, 10 + 60 + 5), None);
+        let plain = list(10);
+        assert_eq!(plain.columns(), 1);
+        assert_eq!(plain.row_rect(4).y, 10 + 4 * 20);
+        // A scrollbar takes its strip, so rows span the content width, not the bounds.
+        assert_eq!(plain.row_rect(4).width, plain.scroll().content_area().width);
+    }
+
+    #[test]
+    fn grid_keyboard_moves_by_line_and_cell_and_list_ignores_left_right() {
+        let mut grid = grid(10);
+        let labels = |_: usize| String::new();
+        let key_of = |key| key_event(key);
+        grid.handle(&key_of(Key::Down), Modifiers::default(), &labels);
+        assert_eq!(grid.cursor(), Some(0));
+        grid.handle(&key_of(Key::Down), Modifiers::default(), &labels);
+        assert_eq!(grid.cursor(), Some(3), "Down moves one line of three");
+        grid.handle(&key_of(Key::Right), Modifiers::default(), &labels);
+        assert_eq!(grid.cursor(), Some(4), "Right moves one cell");
+        grid.handle(&key_of(Key::Up), Modifiers::default(), &labels);
+        assert_eq!(grid.cursor(), Some(1));
+        grid.handle(&key_of(Key::Left), Modifiers::default(), &labels);
+        grid.handle(&key_of(Key::Left), Modifiers::default(), &labels);
+        assert_eq!(grid.cursor(), Some(0), "Left stops at the first cell");
+        grid.handle(&key_of(Key::End), Modifiers::default(), &labels);
+        assert_eq!(grid.cursor(), Some(9));
+        assert_eq!(grid.selection(), vec![9], "selection follows the cursor");
+
+        let mut plain = list(10);
+        plain.handle(&key_of(Key::Down), Modifiers::default(), &labels);
+        plain.handle(&key_of(Key::Right), Modifiers::default(), &labels);
+        assert_eq!(plain.cursor(), Some(0), "Right does nothing in the list");
+    }
+
+    #[test]
+    fn pointer_selection_in_the_grid_selects_the_cell_under_the_pointer() {
+        let mut grid = grid(10);
+        let labels = |_: usize| String::new();
+        let press = Event::PointerPressed {
+            x: 10 + 205,
+            y: 10 + 25,
+            button: PointerButton::Primary,
+        };
+        grid.handle(&press, Modifiers::default(), &labels);
+        assert_eq!(grid.selection(), vec![5]);
+    }
+
+    #[test]
+    fn the_grid_scrolls_by_lines_and_visible_rows_are_whole_lines() {
+        // 30 cells over 3 across is 10 lines of 20 px; a 100 px view shows 5.
+        let mut grid = grid(30);
+        assert_eq!(grid.visible_rows(), 0..15);
+        grid.handle(&key_event(Key::End), Modifiers::default(), &|_| {
+            String::new()
+        });
+        let visible = grid.visible_rows();
+        assert!(visible.contains(&29), "the revealed last cell is on screen");
+        assert_eq!(
+            visible.start % 3,
+            0,
+            "a visible range starts at a line boundary"
+        );
+        assert_eq!(visible.end, 30);
+    }
+
+    fn key_event(key: Key) -> Event {
+        Event::KeyPressed {
+            key,
+            modifiers: Modifiers::default(),
+        }
     }
 
     #[test]

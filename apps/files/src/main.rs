@@ -6,12 +6,16 @@
 //! transactional ones in `ops.rs` and `trash.rs`.
 
 mod archive;
+mod dnd;
 mod model;
 mod ops;
+mod properties;
+mod thumbs;
 mod trash;
+mod volumes;
 mod worker;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::{mpsc, Arc, Mutex};
@@ -28,7 +32,7 @@ use slopos_ui::controls::list::{ListOutcome, ListView};
 use slopos_ui::controls::menu::{Menu, MenuBar, MenuBarOutcome, MenuItem, MenuOutcome};
 use slopos_ui::controls::range::ProgressBar;
 use slopos_ui::controls::text_field::{TextField, TextFieldOutcome};
-use slopos_ui::event::{AccessibilityRequest, Event, Key, Modifiers};
+use slopos_ui::event::{AccessibilityRequest, Event, Key, Modifiers, PointerButton};
 use slopos_ui::foundation::geometry::Rect;
 use slopos_ui::icons::IconLookup;
 use slopos_ui::image::Image;
@@ -37,6 +41,7 @@ use slopos_ui::primitives::button_plate::ButtonPlateVariant;
 use slopos_ui::render::{RasterSurface, RenderError};
 use slopos_ui::text::{measure, Font};
 use slopos_ui::theme::palette;
+use thumbs::Lookup;
 use trash::TrashItem;
 use worker::{Finished, Operation, Scanner, WakeSlot, Watcher};
 
@@ -47,6 +52,13 @@ const TOOLBAR_HEIGHT: i32 = 34;
 const HEADER_HEIGHT: i32 = 18;
 const STATUS_HEIGHT: u32 = 24;
 const ROW_HEIGHT: u32 = 20;
+/// Icon view: a cell is this many pixels; the image box is `THUMB_BOX` square.
+const ICON_CELL_WIDTH: u32 = 112;
+const ICON_CELL_HEIGHT: u32 = 72;
+const THUMB_BOX: u32 = 48;
+const ICON_SIZE: u32 = 32;
+/// A press must move this far before it becomes a drag.
+const DRAG_THRESHOLD: i32 = 6;
 
 const STATUS_ID: u64 = 2;
 const BACK_ID: u64 = 10;
@@ -87,6 +99,8 @@ enum Command {
     Compress,
     CompressTarGz,
     Extract,
+    Properties,
+    ToggleIcons,
 }
 
 /// (label, shortcut text, command); no command is a separator.
@@ -107,6 +121,7 @@ const FILE_MENU: MenuSpec = &[
         Some("Shift+Delete"),
         Some(Command::DeletePermanently),
     ),
+    ("Properties…", Some("Alt+Enter"), Some(Command::Properties)),
     ("", None, None),
     ("Close Window", Some("Ctrl+W"), Some(Command::Close)),
 ];
@@ -118,6 +133,8 @@ const EDIT_MENU: MenuSpec = &[
     ("Select All", Some("Ctrl+A"), Some(Command::SelectAll)),
 ];
 const VIEW_MENU: MenuSpec = &[
+    ("Icon View", Some("Ctrl+I"), Some(Command::ToggleIcons)),
+    ("", None, None),
     (
         "Show Hidden Files",
         Some("Ctrl+H"),
@@ -160,6 +177,8 @@ struct Row {
     size: String,
     modified: String,
     kind_text: String,
+    /// Modification time, the thumbnail cache's freshness key.
+    modified_at: Option<std::time::SystemTime>,
     /// Theme icon names, most specific first.
     icons: Vec<String>,
     trash: Option<TrashItem>,
@@ -170,18 +189,22 @@ struct Row {
 struct Place {
     name: String,
     icon: &'static str,
-    /// `None` is the Trash.
+    /// `None` is the Trash (or an unavailable entry, see `unavailable`).
     path: Option<PathBuf>,
+    /// A status row that says removable volumes can't be listed.
+    unavailable: bool,
 }
 
-/// Home, the standard folders that exist, the whole computer and the Trash.
-fn places(home: Option<&Path>) -> Vec<Place> {
+/// Home, the standard folders that exist, the whole computer, the removable
+/// volumes (or a row saying they are unavailable) and the Trash.
+fn places(home: Option<&Path>, removable: Option<&[volumes::Volume]>) -> Vec<Place> {
     let mut places = Vec::new();
     if let Some(home) = home {
         places.push(Place {
             name: "Home".into(),
             icon: "user-home",
             path: Some(home.to_path_buf()),
+            unavailable: false,
         });
         for (folder, icon) in [
             ("Desktop", "user-desktop"),
@@ -197,6 +220,7 @@ fn places(home: Option<&Path>) -> Vec<Place> {
                     name: folder.into(),
                     icon,
                     path: Some(path),
+                    unavailable: false,
                 });
             }
         }
@@ -205,21 +229,51 @@ fn places(home: Option<&Path>) -> Vec<Place> {
         name: "Computer".into(),
         icon: "computer",
         path: Some(PathBuf::from("/")),
+        unavailable: false,
     });
+    match removable {
+        Some(volumes) if !volumes.is_empty() => {
+            for volume in volumes {
+                places.push(Place {
+                    name: volume.label.clone(),
+                    icon: "drive-removable-media",
+                    path: Some(volume.mount.clone()),
+                    unavailable: false,
+                });
+            }
+        }
+        _ => places.push(Place {
+            name: "Removable: unavailable".into(),
+            icon: "drive-removable-media",
+            path: None,
+            unavailable: true,
+        }),
+    }
     places.push(Place {
         name: "Trash".into(),
         icon: "user-trash",
         path: None,
+        unavailable: false,
     });
     places
 }
 
-/// Icon names for a folder entry: the standard folders get their own.
+/// The icon for a standard folder in Home, if `path` is one. Compares paths
+/// only: no filesystem access, since this runs for every row of a listing.
 fn folder_icons(path: &Path, home: Option<&Path>) -> Vec<String> {
-    let special = places(home)
+    let special = home.and_then(|home| {
+        [
+            ("Desktop", "user-desktop"),
+            ("Documents", "folder-documents"),
+            ("Downloads", "folder-download"),
+            ("Music", "folder-music"),
+            ("Pictures", "folder-pictures"),
+            ("Videos", "folder-videos"),
+        ]
         .into_iter()
-        .find(|place| place.path.as_deref() == Some(path) && place.icon != "computer")
-        .map(|place| place.icon.to_owned());
+        .find(|(folder, _)| home.join(folder) == path)
+        .map(|(_, icon)| icon.to_owned())
+    });
     special.into_iter().chain(["folder".to_owned()]).collect()
 }
 
@@ -238,6 +292,16 @@ fn file_icons(mime: &str) -> Vec<String> {
     icons
 }
 
+/// A folder read in progress. `started` is set once its first page has
+/// changed the current folder and the navigation history.
+#[derive(Debug, Clone)]
+struct PendingScan {
+    seq: u64,
+    path: PathBuf,
+    mode: Navigation,
+    started: bool,
+}
+
 /// What an open dialog is asking about.
 #[derive(Debug, Clone)]
 enum Pending {
@@ -247,6 +311,13 @@ enum Pending {
     ConfirmErase(Vec<TrashItem>),
     ConfirmEmpty,
     Message,
+}
+
+/// A pointer press on a row that may become a drag.
+#[derive(Debug, Clone, Copy)]
+struct Drag {
+    start: (i32, i32),
+    active: bool,
 }
 
 struct Running {
@@ -275,13 +346,22 @@ pub struct FilesApp {
     places: Vec<Place>,
     sidebar: ListView,
     icon_lookup: IconLookup,
-    icon_cache: HashMap<(String, u32), Option<Image>>,
+    icon_cache: HashMap<(String, u32, u32), Option<Image>>,
+    icon_view: bool,
+    drag: Option<Drag>,
+    volumes: Option<Vec<volumes::Volume>>,
+    thumbs: thumbs::Cache,
+    thumb_worker: Option<thumbs::ThumbWorker>,
+    /// Thumbnails requested and not yet back, with the file's modification time.
+    thumb_inflight: HashMap<PathBuf, Option<std::time::SystemTime>>,
     focus: FocusChain,
     dialog: Option<(Dialog, Pending)>,
     slot: WakeSlot,
     scanner: Scanner,
     watcher: Option<Arc<Watcher>>,
-    pending_scan: Option<(u64, PathBuf, Navigation)>,
+    pending_scan: Option<PendingScan>,
+    /// Entries the visible rows were last rebuilt from.
+    rows_built_from: usize,
     serial: u64,
     running: Option<Running>,
     clipboard: Option<(Vec<PathBuf>, bool)>,
@@ -331,6 +411,32 @@ fn format_time(time: Option<std::time::SystemTime>) -> String {
     )
 }
 
+/// The lines of the Properties dialog for `props`.
+fn properties_text(props: &properties::Properties) -> String {
+    let kind = match &props.kind {
+        properties::Kind::Folder => "Folder".to_owned(),
+        properties::Kind::File => mime::describe(&mime::guess_for_name(&props.name)),
+        properties::Kind::Link {
+            target: Some(target),
+        } => format!("Link to {}", target.display()),
+        properties::Kind::Link { target: None } => "Link (target unreadable)".to_owned(),
+        properties::Kind::Other => "Special file".to_owned(),
+    };
+    let size = match (props.size, &props.kind) {
+        (Some(bytes), _) => format_size(bytes),
+        (None, properties::Kind::Folder) => "Not counted".to_owned(),
+        (None, _) => "—".to_owned(),
+    };
+    format!(
+        "Name: {}\nLocation: {}\nType: {kind}\nSize: {size}\nModified: {}\nPermissions: {} ({:o})",
+        props.name,
+        props.location.display(),
+        format_time(props.modified),
+        properties::permission_text(props.mode),
+        props.mode,
+    )
+}
+
 fn row_for(entry: &Entry) -> Row {
     let name = entry.display_name();
     let home = std::env::var_os("HOME").map(PathBuf::from);
@@ -361,6 +467,7 @@ fn row_for(entry: &Entry) -> Row {
         size,
         modified: format_time(entry.modified),
         kind_text,
+        modified_at: entry.modified,
         icons,
         trash: None,
     }
@@ -383,7 +490,11 @@ impl FilesApp {
         let button = |id, label| Button::new(id, label, ButtonPlateVariant::Regular);
         let mut list = ListView::new(LIST_ID, "Folder contents", ROW_HEIGHT);
         list.multiple = true;
-        let places = places(std::env::var_os("HOME").map(PathBuf::from).as_deref());
+        let volumes = volumes::current();
+        let places = places(
+            std::env::var_os("HOME").map(PathBuf::from).as_deref(),
+            volumes.as_deref(),
+        );
         let mut sidebar = ListView::new(PLACES_ID, "Places", 22);
         sidebar.set_len(places.len());
         let mut icon_lookup = IconLookup::from_environment();
@@ -418,6 +529,12 @@ impl FilesApp {
             sidebar,
             icon_lookup,
             icon_cache: HashMap::new(),
+            icon_view: false,
+            drag: None,
+            volumes,
+            thumbs: thumbs::Cache::new(thumbs::CACHE_ENTRIES, thumbs::CACHE_BYTES),
+            thumb_worker: thumbs::ThumbWorker::spawn(slot.clone()).ok(),
+            thumb_inflight: HashMap::new(),
             focus: FocusChain::new(vec![
                 LIST_ID,
                 PLACES_ID,
@@ -432,6 +549,7 @@ impl FilesApp {
             scanner,
             watcher,
             pending_scan: None,
+            rows_built_from: 0,
             serial: 0,
             running: None,
             clipboard: None,
@@ -568,6 +686,7 @@ impl FilesApp {
             Command::Copy => selected && !self.in_trash,
             Command::DeletePermanently => selected && !busy,
             Command::Restore => selected && self.in_trash && !busy,
+            Command::Properties => selected,
             Command::Back => self.in_trash || self.state.back_target().is_some(),
             Command::Forward => !self.in_trash && self.state.forward_target().is_some(),
             Command::Up => !self.in_trash && self.state.parent().is_some(),
@@ -632,10 +751,13 @@ impl FilesApp {
 
     /// Rebuild rows from the model, keeping the selection by path.
     fn rebuild_rows(&mut self) {
-        let mut keep: Vec<PathBuf> = std::mem::take(&mut self.select_after);
-        if keep.is_empty() {
-            keep = self.selected_paths();
+        let mut paths: Vec<PathBuf> = std::mem::take(&mut self.select_after);
+        if paths.is_empty() {
+            paths = self.selected_paths();
         }
+        // A set, so each row is checked in constant time. A Vec here made
+        // Select All on a large folder quadratic (rows × selected paths).
+        let keep: HashSet<PathBuf> = paths.into_iter().collect();
         self.rows = if self.in_trash {
             trash::list()
                 .into_iter()
@@ -652,6 +774,7 @@ impl FilesApp {
                     },
                     size: String::new(),
                     modified: item.deleted.replace('T', " "),
+                    modified_at: None,
                     kind_text: format!(
                         "from {}",
                         item.original
@@ -675,6 +798,7 @@ impl FilesApp {
                 .map(row_for)
                 .collect()
         };
+        self.rows_built_from = self.state.entries.len();
         self.list.set_len(self.rows.len());
         let indices: Vec<usize> = self
             .rows
@@ -692,6 +816,10 @@ impl FilesApp {
     }
 
     fn item_count_status(&mut self) {
+        if self.state.more && !self.in_trash {
+            self.status = format!("Loading… {} items so far", self.state.entries.len());
+            return;
+        }
         let count = self.rows.len();
         let selected = self.list.selection().len();
         let place = if self.in_trash { "in the Trash" } else { "" };
@@ -710,47 +838,79 @@ impl FilesApp {
         match self.scanner.request(seq, path.clone()) {
             Ok(()) => {
                 self.serial = seq;
-                self.pending_scan = Some((seq, path, mode));
+                self.pending_scan = Some(PendingScan {
+                    seq,
+                    path,
+                    mode,
+                    started: false,
+                });
                 self.set_status("Reading folder…");
             }
             Err(message) => self.set_status(message),
         }
     }
 
-    fn apply_scan(&mut self, (seq, path, listing): worker::ScanResult) {
-        let Some((pending_seq, pending_path, mode)) = self.pending_scan.clone() else {
+    /// Apply one page of a folder read. The first page changes folder and
+    /// history; later pages merge in until the listing is complete.
+    fn apply_scan(&mut self, (seq, path, page): worker::ScanResult) {
+        let Some(pending) = self.pending_scan.clone() else {
             return;
         };
-        if seq != pending_seq || path != pending_path {
-            return; // A stale scan must not rewrite navigation.
+        if seq != pending.seq || path != pending.path {
+            return; // A stale page must not rewrite navigation.
         }
+        let page = match page {
+            Ok(page) => page,
+            Err(error) => return self.scan_failed(&pending, &error),
+        };
+        if !pending.started {
+            let changed_folder = path != self.state.current || self.in_trash;
+            if !self.state.begin(path.clone(), pending.mode) {
+                self.pending_scan = None;
+                self.set_status("Navigation changed while reading; try again.");
+                self.refresh_controls();
+                return;
+            }
+            if changed_folder {
+                self.in_trash = false;
+                self.list.reset(0);
+                if let Some(watcher) = &self.watcher {
+                    watcher.watch(&path);
+                }
+            }
+            self.location.set_text(&path.to_string_lossy());
+            self.pending_scan = Some(PendingScan {
+                started: true,
+                ..pending
+            });
+        }
+        self.state.extend(page.entries, page.more);
+        if !page.more {
+            self.pending_scan = None;
+        }
+        let loaded = self.state.entries.len();
+        if model::should_refresh_rows(loaded, self.rows_built_from, self.state.more) {
+            self.rebuild_rows();
+            if self.list.selection().is_empty() && !self.rows.is_empty() {
+                self.list.select_only(0);
+            }
+        }
+        self.item_count_status();
+        self.refresh_controls();
+    }
+
+    /// A read failed. Before the first page nothing changed; after it, the
+    /// partial listing is dropped rather than shown as a complete folder.
+    fn scan_failed(&mut self, pending: &PendingScan, error: &std::io::Error) {
         self.pending_scan = None;
-        match listing {
-            Ok(entries) => {
-                let changed_folder = path != self.state.current || self.in_trash;
-                if !self.state.apply(path.clone(), mode, entries) {
-                    self.set_status("Navigation changed while reading; try again.");
-                    return;
-                }
-                if changed_folder {
-                    self.in_trash = false;
-                    self.list.reset(0);
-                    if let Some(watcher) = &self.watcher {
-                        watcher.watch(&path);
-                    }
-                }
-                self.location.set_text(&path.to_string_lossy());
-                self.rebuild_rows();
-                if changed_folder && self.list.selection().is_empty() && !self.rows.is_empty() {
-                    self.list.select_only(0);
-                }
-                self.item_count_status();
-            }
-            Err(error) => {
-                self.set_status(format!("Cannot read folder: {error}"));
-                self.location
-                    .set_text(&self.state.current.to_string_lossy());
-            }
+        if pending.started {
+            self.state.abandon();
+            self.rebuild_rows();
+            self.set_status(format!("Cannot finish reading folder: {error}"));
+        } else {
+            self.set_status(format!("Cannot read folder: {error}"));
+            self.location
+                .set_text(&self.state.current.to_string_lossy());
         }
         self.refresh_controls();
     }
@@ -761,7 +921,7 @@ impl FilesApp {
             Some(Some(path)) if self.in_trash || path != self.state.current => {
                 self.request(path, Navigation::New)
             }
-            Some(None) if !self.in_trash => self.go_trash(),
+            Some(None) if !self.in_trash && !self.places[index].unavailable => self.go_trash(),
             _ => {}
         }
     }
@@ -1013,7 +1173,12 @@ impl FilesApp {
                 self.rebuild_rows();
                 self.item_count_status();
             }
-            Command::Refresh => self.refresh_listing(),
+            Command::Refresh => {
+                self.reload_volumes();
+                self.refresh_listing();
+            }
+            Command::Properties => self.show_properties(),
+            Command::ToggleIcons => self.set_icon_view(!self.icon_view),
             Command::Back => {
                 if self.in_trash {
                     self.request(self.state.current.clone(), Navigation::Refresh);
@@ -1158,6 +1323,247 @@ impl FilesApp {
         self.context.open_at(x, y, self.window);
     }
 
+    // ----- icon view and thumbnails ---------------------------------------
+
+    fn set_icon_view(&mut self, on: bool) {
+        self.icon_view = on;
+        self.list.row_height = if on { ICON_CELL_HEIGHT } else { ROW_HEIGHT };
+        self.list.set_cell_width(on.then_some(ICON_CELL_WIDTH));
+        self.refresh_controls();
+    }
+
+    /// The image for each visible cell: a fresh thumbnail, else the theme
+    /// icon. Requests thumbnails that are missing (decoded off the UI thread).
+    fn cell_art(&mut self, scale: u32) -> HashMap<usize, Image> {
+        let mut art = HashMap::new();
+        for index in self.list.visible_rows() {
+            let Some(row) = self.rows.get(index) else {
+                continue;
+            };
+            let (path, modified, kind, names) = (
+                row.path.clone(),
+                row.modified_at,
+                row.kind,
+                row.icons.clone(),
+            );
+            if kind == Kind::File && thumbs::format_of(&path).is_some() {
+                match self.thumbs.lookup(&path, modified) {
+                    Lookup::Image(image) => {
+                        art.insert(index, image.clone());
+                        continue;
+                    }
+                    Lookup::Missing => self.request_thumb(path, modified),
+                    Lookup::Failed => {}
+                }
+            }
+            if let Some(icon) = self.icon_sized(&names, ICON_SIZE, scale) {
+                art.insert(index, icon);
+            }
+        }
+        art
+    }
+
+    fn request_thumb(&mut self, path: PathBuf, modified: Option<std::time::SystemTime>) {
+        if self.thumb_inflight.contains_key(&path) {
+            return;
+        }
+        let Some(worker) = &self.thumb_worker else {
+            return;
+        };
+        // A full queue is not an error: the next repaint asks again.
+        if worker.request(path.clone()) {
+            self.thumb_inflight.insert(path, modified);
+        }
+    }
+
+    fn paint_icon_cells(
+        &self,
+        surface: &RasterSurface,
+        cells: &HashMap<usize, Image>,
+    ) -> Result<(), RenderError> {
+        let colors = palette();
+        let rows = &self.rows;
+        let font = &self.font;
+        self.list.paint(surface, |surface, index, rect, selected| {
+            let row = &rows[index];
+            let ink = if selected {
+                colors.selection_ink
+            } else {
+                colors.ink
+            };
+            let side = THUMB_BOX as i32;
+            let box_x = rect.x + (rect.width as i32 - side) / 2;
+            let box_y = rect.y + 4;
+            match cells.get(&index) {
+                Some(image) => {
+                    let (w, h) = thumbs::fit(image.width(), image.height(), THUMB_BOX);
+                    surface.draw_image_scaled(
+                        image,
+                        box_x + (side - w as i32) / 2,
+                        box_y + (side - h as i32) / 2,
+                        w,
+                        h,
+                    )?;
+                }
+                None => {
+                    let glyph = Rect {
+                        x: box_x + 8,
+                        y: box_y + 8,
+                        width: 32,
+                        height: 32,
+                    };
+                    let fill = if row.kind == Kind::Directory {
+                        colors.thumb
+                    } else {
+                        colors.content
+                    };
+                    surface.fill_rect(glyph, fill)?;
+                    surface.stroke_rect(glyph, colors.ink)?;
+                }
+            }
+            let room = rect.width as i32 - 6;
+            let label_w = measure(&row.name, font).width as i32;
+            let label_x = rect.x + 3 + (room - label_w).max(0) / 2;
+            let label_area = Rect {
+                x: rect.x + 3,
+                y: rect.y + side + 8,
+                width: room.max(1) as u32,
+                height: 18,
+            };
+            surface.with_clip(label_area, || {
+                surface.draw_text(&row.name, label_x, label_area.y + 1, font, ink)
+            })
+        })
+    }
+
+    // ----- drag and drop ----------------------------------------------------
+
+    /// Drag from the list. Returns true when the event belongs to a drag.
+    fn drag_event(&mut self, event: &Event, shift: bool) -> bool {
+        match event {
+            Event::PointerPressed {
+                x,
+                y,
+                button: PointerButton::Primary,
+            } => {
+                self.drag = None;
+                let on_row = self.list.scroll().content_area().contains(*x, *y)
+                    && self.list.row_at(*x, *y).is_some();
+                if on_row && !self.in_trash {
+                    self.drag = Some(Drag {
+                        start: (*x, *y),
+                        active: false,
+                    });
+                }
+                false
+            }
+            Event::PointerMoved { x, y } => {
+                let Some(drag) = self.drag else {
+                    return false;
+                };
+                let moved = (x - drag.start.0).abs().max((y - drag.start.1).abs());
+                if !drag.active && moved >= DRAG_THRESHOLD {
+                    self.drag = Some(Drag {
+                        active: true,
+                        ..drag
+                    });
+                }
+                if self.drag.is_some_and(|drag| drag.active) {
+                    let text = match self.drop_target(*x, *y) {
+                        Some((name, _)) => {
+                            format!("Drop onto “{name}” to copy (hold Shift to move)")
+                        }
+                        None => "Drag onto a folder or a place to copy the selection".into(),
+                    };
+                    self.set_status(text);
+                    return true;
+                }
+                false
+            }
+            Event::PointerReleased {
+                x,
+                y,
+                button: PointerButton::Primary,
+            } => {
+                let Some(drag) = self.drag.take() else {
+                    return false;
+                };
+                if !drag.active {
+                    return false;
+                }
+                self.finish_drag(*x, *y, shift);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// The folder under `(x, y)`: a folder row or a sidebar place with a path.
+    fn drop_target(&self, x: i32, y: i32) -> Option<(String, PathBuf)> {
+        if let Some(index) = self.list.row_at(x, y) {
+            let row = self.rows.get(index)?;
+            return (row.kind == Kind::Directory).then(|| (row.name.clone(), row.path.clone()));
+        }
+        let index = self.sidebar.row_at(x, y)?;
+        let place = self.places.get(index)?;
+        place.path.clone().map(|path| (place.name.clone(), path))
+    }
+
+    fn finish_drag(&mut self, x: i32, y: i32, shift: bool) {
+        let sources = self.selected_paths();
+        let Some((_, dest)) = self.drop_target(x, y) else {
+            return self.set_status("Nothing dropped: drop onto a folder or a place.");
+        };
+        let is_dir = dest.is_dir();
+        let action = if shift {
+            dnd::Action::Move
+        } else {
+            dnd::Action::Copy
+        };
+        match dnd::plan(&sources, &dest, is_dir, action) {
+            Ok(drop) => {
+                // The same transactional copy or move as Copy and Paste: its
+                // overwrite question and permission errors are the usual ones.
+                let operation = match drop.action {
+                    dnd::Action::Copy => Operation::Copy {
+                        sources: drop.sources,
+                        dest: drop.dest,
+                        conflict: Conflict::Ask,
+                    },
+                    dnd::Action::Move => Operation::Move {
+                        sources: drop.sources,
+                        dest: drop.dest,
+                        conflict: Conflict::Ask,
+                    },
+                };
+                self.start(operation);
+            }
+            Err(message) => self.set_status(message),
+        }
+    }
+
+    // ----- properties and volumes -----------------------------------------
+
+    fn show_properties(&mut self) {
+        let Some(path) = self.selected_rows().first().map(|row| row.path.clone()) else {
+            return self.set_status("Select an item to see its properties.");
+        };
+        match properties::read(&path) {
+            Ok(props) => {
+                let title = format!("{} — Properties", props.name);
+                self.message(&title, &properties_text(&props));
+            }
+            Err(error) => self.message("Can't show properties", &error),
+        }
+    }
+
+    fn reload_volumes(&mut self) {
+        self.volumes = volumes::current();
+        let home = std::env::var_os("HOME").map(PathBuf::from);
+        self.places = places(home.as_deref(), self.volumes.as_deref());
+        self.sidebar.set_len(self.places.len());
+    }
+
     fn shortcut(&self, key: &Key, modifiers: Modifiers) -> Option<Command> {
         let (control, shift, alt) = (modifiers.control, modifiers.shift, modifiers.alt);
         Some(match key {
@@ -1170,6 +1576,7 @@ impl FilesApp {
                 'v' => Command::Paste,
                 'a' => Command::SelectAll,
                 'h' => Command::ToggleHidden,
+                'i' => Command::ToggleIcons,
                 'l' => return None,
                 _ => return None,
             },
@@ -1183,6 +1590,7 @@ impl FilesApp {
                     Command::Trash
                 }
             }
+            Key::Enter if alt => Command::Properties,
             Key::Left if alt => Command::Back,
             Key::Right if alt => Command::Forward,
             Key::Up if alt => Command::Up,
@@ -1194,6 +1602,14 @@ impl FilesApp {
 
     fn poll_workers(&mut self) -> bool {
         let mut changed = false;
+        if let Some(worker) = &self.thumb_worker {
+            while let Ok((path, result)) = worker.results.try_recv() {
+                let modified = self.thumb_inflight.remove(&path).flatten();
+                // A failed thumbnail is remembered too, so it is not retried.
+                self.thumbs.insert(path, modified, result.ok());
+                changed = true;
+            }
+        }
         while let Ok(result) = self.scanner.results.try_recv() {
             self.apply_scan(result);
             changed = true;
@@ -1227,8 +1643,13 @@ impl FilesApp {
 
     /// Wait for the first folder read (snapshot mode and tests).
     fn initial_snapshot(&mut self) {
-        if let Ok(result) = self.scanner.results.recv_timeout(Duration::from_secs(3)) {
-            self.apply_scan(result);
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        while self.pending_scan.is_some() {
+            let left = deadline.saturating_duration_since(std::time::Instant::now());
+            match self.scanner.results.recv_timeout(left) {
+                Ok(result) => self.apply_scan(result),
+                Err(_) => break,
+            }
         }
     }
 
@@ -1340,6 +1761,9 @@ impl FilesApp {
                 return self.run(command, control);
             }
         }
+        if self.drag_event(event, control.modifiers().shift) {
+            return;
+        }
         let names: Vec<String> = self.places.iter().map(|place| place.name.clone()).collect();
         let place_name = |index: usize| names.get(index).cloned().unwrap_or_default();
         match self.sidebar.handle(event, control.modifiers(), &place_name) {
@@ -1421,6 +1845,7 @@ impl FilesApp {
     // ----- painting ------------------------------------------------------
 
     fn paint_all(&mut self, surface: &RasterSurface) -> Result<(), RenderError> {
+        let icon_mode = self.icon_view;
         let colors = palette();
         let (width, height) = self.window;
         surface.clear(colors.surface)?;
@@ -1499,7 +1924,12 @@ impl FilesApp {
         } else {
             ["Name", "Size", "Modified", "Kind"]
         };
-        for (index, ((x, _), title)) in columns.iter().zip(titles).enumerate() {
+        for (index, ((x, _), title)) in columns
+            .iter()
+            .zip(titles)
+            .enumerate()
+            .filter(|_| !icon_mode)
+        {
             let left = list_x + x + if index == 0 { 26 } else { 4 };
             surface.draw_text(title, left, header.y + 2, &self.font, colors.ink_secondary)?;
             if index > 0 {
@@ -1514,6 +1944,14 @@ impl FilesApp {
                 )?;
             }
         }
+        let cells: HashMap<usize, Image> = if icon_mode {
+            self.cell_art(scale)
+        } else {
+            HashMap::new()
+        };
+        if icon_mode {
+            self.paint_icon_cells(surface, &cells)?;
+        }
         let visible: Vec<usize> = self.list.visible_rows().collect();
         let row_icons: HashMap<usize, Option<Image>> = visible
             .into_iter()
@@ -1522,71 +1960,73 @@ impl FilesApp {
                 (index, self.icon(&names, scale))
             })
             .collect();
-        let rows = &self.rows;
-        let font = &self.font;
-        self.list.paint(surface, |surface, index, rect, selected| {
-            let row = &rows[index];
-            let y = rect.y + (rect.height as i32 - line) / 2;
-            let ink = if selected {
-                colors.selection_ink
-            } else {
-                colors.ink
-            };
-            let glyph = Rect {
-                x: rect.x + 6,
-                y: rect.y + 5,
-                width: 12,
-                height: 10,
-            };
-            match (row_icons.get(&index), row.kind) {
-                (Some(Some(icon)), _) => {
-                    surface.draw_image_scaled(icon, rect.x + 4, rect.y + 2, 16, 16)?;
-                }
-                (_, Kind::Directory) => {
-                    surface.fill_rect(
-                        Rect {
-                            width: 5,
-                            height: 2,
+        if !icon_mode {
+            let rows = &self.rows;
+            let font = &self.font;
+            self.list.paint(surface, |surface, index, rect, selected| {
+                let row = &rows[index];
+                let y = rect.y + (rect.height as i32 - line) / 2;
+                let ink = if selected {
+                    colors.selection_ink
+                } else {
+                    colors.ink
+                };
+                let glyph = Rect {
+                    x: rect.x + 6,
+                    y: rect.y + 5,
+                    width: 12,
+                    height: 10,
+                };
+                match (row_icons.get(&index), row.kind) {
+                    (Some(Some(icon)), _) => {
+                        surface.draw_image_scaled(icon, rect.x + 4, rect.y + 2, 16, 16)?;
+                    }
+                    (_, Kind::Directory) => {
+                        surface.fill_rect(
+                            Rect {
+                                width: 5,
+                                height: 2,
+                                y: glyph.y - 2,
+                                ..glyph
+                            },
+                            colors.thumb,
+                        )?;
+                        surface.fill_rect(glyph, colors.thumb)?;
+                        surface.stroke_rect(glyph, colors.ink)?;
+                    }
+                    (_, _) => {
+                        let page = Rect {
+                            x: glyph.x + 1,
                             y: glyph.y - 2,
-                            ..glyph
-                        },
-                        colors.thumb,
-                    )?;
-                    surface.fill_rect(glyph, colors.thumb)?;
-                    surface.stroke_rect(glyph, colors.ink)?;
-                }
-                (_, _) => {
-                    let page = Rect {
-                        x: glyph.x + 1,
-                        y: glyph.y - 2,
-                        width: 9,
-                        height: 13,
-                    };
-                    surface.fill_rect(page, colors.content)?;
-                    surface.stroke_rect(page, colors.ink)?;
-                    if row.kind == Kind::Symlink {
-                        surface.draw_text("↗", page.x + 1, page.y, font, colors.ink)?;
+                            width: 9,
+                            height: 13,
+                        };
+                        surface.fill_rect(page, colors.content)?;
+                        surface.stroke_rect(page, colors.ink)?;
+                        if row.kind == Kind::Symlink {
+                            surface.draw_text("↗", page.x + 1, page.y, font, colors.ink)?;
+                        }
                     }
                 }
-            }
-            let cells = [&row.name, &row.size, &row.modified, &row.kind_text];
-            for (column, ((x, w), text)) in columns.iter().zip(cells).enumerate() {
-                let left = rect.x + x + if column == 0 { 26 } else { 4 };
-                let cell = Rect {
-                    x: left,
-                    y: rect.y,
-                    width: w.saturating_sub(if column == 0 { 30 } else { 8 }),
-                    height: rect.height,
-                };
-                let ink = if column == 0 || selected {
-                    ink
-                } else {
-                    colors.ink_secondary
-                };
-                surface.with_clip(cell, || surface.draw_text(text, left, y, font, ink))?;
-            }
-            Ok(())
-        })?;
+                let cells = [&row.name, &row.size, &row.modified, &row.kind_text];
+                for (column, ((x, w), text)) in columns.iter().zip(cells).enumerate() {
+                    let left = rect.x + x + if column == 0 { 26 } else { 4 };
+                    let cell = Rect {
+                        x: left,
+                        y: rect.y,
+                        width: w.saturating_sub(if column == 0 { 30 } else { 8 }),
+                        height: rect.height,
+                    };
+                    let ink = if column == 0 || selected {
+                        ink
+                    } else {
+                        colors.ink_secondary
+                    };
+                    surface.with_clip(cell, || surface.draw_text(text, left, y, font, ink))?;
+                }
+                Ok(())
+            })?;
+        }
         if self.rows.is_empty() && self.pending_scan.is_none() {
             let bounds = self.list.bounds();
             let text = if self.in_trash {
@@ -1640,13 +2080,18 @@ impl FilesApp {
 
     /// The first icon in `names` the theme has, cached per size.
     fn icon(&mut self, names: &[String], scale: u32) -> Option<Image> {
-        let key = (names.join("|"), scale);
+        self.icon_sized(names, 16, scale)
+    }
+
+    /// The first icon in `names` the theme has at `size` logical pixels.
+    fn icon_sized(&mut self, names: &[String], size: u32, scale: u32) -> Option<Image> {
+        let key = (names.join("|"), size, scale);
         if let Some(image) = self.icon_cache.get(&key) {
             return image.clone();
         }
         let image = names
             .iter()
-            .find_map(|name| self.icon_lookup.load(name, 16, scale));
+            .find_map(|name| self.icon_lookup.load(name, size, scale));
         // Bounded: one entry per distinct icon list and scale.
         if self.icon_cache.len() > 256 {
             self.icon_cache.clear();
@@ -1886,6 +2331,280 @@ mod tests {
     }
 
     #[test]
+    fn folder_over_one_page_loads_every_row_in_sorted_order() {
+        let dir = fixture();
+        // Two more pages than the first page holds, plus a folder.
+        for index in 0..(model::PAGE_SIZE * 2 + 37) {
+            std::fs::write(dir.path().join(format!("item{index:05}")), b"").unwrap();
+        }
+        std::fs::create_dir(dir.path().join("zz")).unwrap();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        settle(&mut app);
+        assert!(!app.state.more, "the listing is complete");
+        let whole = model::read_directory(dir.path()).unwrap();
+        assert_eq!(app.state.entries.len(), whole.len());
+        // 2 full pages and 37 more files, one folder, and the fixture's three
+        // visible entries plus its dotfile.
+        assert_eq!(app.state.entries.len(), model::PAGE_SIZE * 2 + 37 + 1 + 4);
+        let names: Vec<String> = whole.iter().map(Entry::display_name).collect();
+        let shown: Vec<String> = app.state.entries.iter().map(Entry::display_name).collect();
+        assert_eq!(
+            shown, names,
+            "paged merge equals the complete sorted listing"
+        );
+        assert_eq!(app.rows[0].name, "Folder", "folders sort first");
+        assert_eq!(app.rows[0].kind, Kind::Directory);
+        let visible = app
+            .state
+            .entries
+            .iter()
+            .filter(|entry| !entry.is_hidden())
+            .count();
+        assert_eq!(app.rows.len(), visible, "rows hide dotfiles, as before");
+        assert!(!app.status.starts_with("Loading"));
+    }
+
+    #[test]
+    fn icon_view_shows_the_same_rows_as_cells_and_moves_by_cell() {
+        let dir = fixture();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        let list_rows = app.rows.len();
+        app.set_icon_view(true);
+        assert!(app.list.columns() > 1, "icon view lays cells out across");
+        assert_eq!(app.rows.len(), list_rows, "the same model as the list");
+        select(&mut app, "a.txt");
+        let mut control = Control::default();
+        app.event(&key(Key::Right), &mut control);
+        let next = app.rows.iter().position(|row| row.name == "b.png").unwrap();
+        assert_eq!(
+            app.list.cursor(),
+            Some(next),
+            "Right moves one cell to b.png"
+        );
+        for factor in [1, 2] {
+            let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
+            app.paint(&surface);
+        }
+        app.set_icon_view(false);
+        assert_eq!(app.list.columns(), 1, "the list has one column again");
+        assert_eq!(app.list.row_height, ROW_HEIGHT);
+    }
+
+    #[test]
+    fn dragging_a_file_onto_a_folder_copies_it_and_a_self_drop_is_refused() {
+        let dir = fixture();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        let file = app.rows.iter().position(|row| row.name == "a.txt").unwrap();
+        let folder = app
+            .rows
+            .iter()
+            .position(|row| row.name == "Folder")
+            .unwrap();
+        let (from, to) = (app.list.row_rect(file), app.list.row_rect(folder));
+        let mut control = Control::default();
+        let press = Event::PointerPressed {
+            x: from.x + 40,
+            y: from.y + 10,
+            button: PointerButton::Primary,
+        };
+        app.event(&press, &mut control);
+        // Below the threshold it is still a click, not a drag.
+        app.event(
+            &Event::PointerMoved {
+                x: from.x + 40,
+                y: from.y + 12,
+            },
+            &mut control,
+        );
+        assert!(app.drag.is_some_and(|drag| !drag.active));
+        let (tx, ty) = (to.x + 40, to.y + 10);
+        app.event(&Event::PointerMoved { x: tx, y: ty }, &mut control);
+        app.event(
+            &Event::PointerReleased {
+                x: tx,
+                y: ty,
+                button: PointerButton::Primary,
+            },
+            &mut control,
+        );
+        settle(&mut app);
+        assert!(dir.path().join("Folder").join("a.txt").exists());
+        assert!(dir.path().join("a.txt").exists(), "a plain drop copies");
+        // Dropping a folder onto itself is refused with the reason, and nothing moves.
+        let folder_row = app
+            .rows
+            .iter()
+            .position(|row| row.name == "Folder")
+            .unwrap();
+        let rect = app.list.row_rect(folder_row);
+        let press = Event::PointerPressed {
+            x: rect.x + 10,
+            y: rect.y + 10,
+            button: PointerButton::Primary,
+        };
+        app.event(&press, &mut control);
+        // Move far enough to be a drag, then release on the same folder row.
+        app.event(
+            &Event::PointerMoved {
+                x: rect.x + 60,
+                y: rect.y + 10,
+            },
+            &mut control,
+        );
+        app.event(
+            &Event::PointerReleased {
+                x: rect.x + 60,
+                y: rect.y + 10,
+                button: PointerButton::Primary,
+            },
+            &mut control,
+        );
+        assert_eq!(app.status, "A folder can't be dropped into itself.");
+        assert!(dir.path().join("Folder").is_dir());
+    }
+
+    #[test]
+    fn properties_describe_one_entry_and_a_vanished_one_says_why() {
+        let dir = fixture();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        let text = properties_text(&properties::read(&dir.path().join("a.txt")).unwrap());
+        assert!(text.contains("Name: a.txt"), "{text}");
+        assert!(text.contains("Size: 1 byte"), "{text}");
+        assert!(text.contains("Permissions: rw"), "{text}");
+        let folder = properties_text(&properties::read(&dir.path().join("Folder")).unwrap());
+        assert!(folder.contains("Size: Not counted"), "{folder}");
+        select(&mut app, "a.txt");
+        app.show_properties();
+        assert!(app.dialog.is_some(), "the command opens a dialog");
+        // Gone since the listing was read: an explicit error, not a guess.
+        std::fs::remove_file(dir.path().join("a.txt")).unwrap();
+        app.dialog = None;
+        app.show_properties();
+        assert!(app.dialog.is_some());
+        let error = properties::read(&dir.path().join("a.txt")).unwrap_err();
+        assert!(error.contains("it no longer exists"), "{error}");
+    }
+
+    #[test]
+    fn removable_volumes_are_listed_or_shown_as_unavailable() {
+        let none = places(None, None);
+        let row = none.iter().find(|place| place.unavailable).unwrap();
+        assert_eq!(row.name, "Removable: unavailable");
+        assert!(row.path.is_none());
+        let empty = places(None, Some(&[]));
+        assert!(empty.iter().any(|place| place.unavailable));
+        let volume = volumes::Volume {
+            mount: PathBuf::from("/media/alice/USB"),
+            label: "USB".into(),
+            fs_type: "vfat".into(),
+        };
+        let mounted = places(None, Some(std::slice::from_ref(&volume)));
+        assert!(mounted.iter().any(|place| place.name == "USB"
+            && place.path.as_deref() == Some(Path::new("/media/alice/USB"))));
+        assert!(!mounted.iter().any(|place| place.unavailable));
+    }
+
+    #[test]
+    fn select_all_in_a_large_folder_keeps_every_row_selected() {
+        let dir = fixture();
+        for index in 0..3000 {
+            std::fs::write(dir.path().join(format!("bulk{index:05}")), b"").unwrap();
+        }
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        settle(&mut app);
+        app.list.select_all();
+        // Rebuilding the rows keeps the selection; each row is checked in
+        // constant time, so this stays fast for a large folder.
+        app.rebuild_rows();
+        assert!(app.rows.len() > 3000);
+        assert_eq!(app.list.selection().len(), app.rows.len());
+    }
+
+    #[test]
+    fn shift_drop_moves_the_selection_instead_of_copying_it() {
+        let dir = fixture();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        select(&mut app, "a.txt");
+        let folder = app
+            .rows
+            .iter()
+            .position(|row| row.name == "Folder")
+            .unwrap();
+        let rect = app.list.row_rect(folder);
+        app.finish_drag(rect.x + 40, rect.y + 10, true);
+        settle(&mut app);
+        assert!(dir.path().join("Folder").join("a.txt").exists());
+        assert!(
+            !dir.path().join("a.txt").exists(),
+            "Shift moves, so the source is gone"
+        );
+    }
+
+    #[test]
+    fn dropping_onto_a_sidebar_place_copies_into_that_folder() {
+        let dir = fixture();
+        let target = dir.path().join("Scratch");
+        std::fs::create_dir(&target).unwrap();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        // Point an existing place at a folder inside the fixture, so the
+        // test never writes outside its own temporary directory.
+        let place = app
+            .places
+            .iter()
+            .position(|place| place.name == "Computer")
+            .unwrap();
+        app.places[place].path = Some(target.clone());
+        let rect = app.sidebar.row_rect(place);
+        select(&mut app, "a.txt");
+        app.finish_drag(rect.x + 10, rect.y + 5, false);
+        settle(&mut app);
+        assert!(target.join("a.txt").exists(), "a plain drop copies");
+        assert!(dir.path().join("a.txt").exists(), "the source stays");
+    }
+
+    #[test]
+    fn icon_view_requests_a_thumbnail_and_shows_it_once_made() {
+        let dir = fixture();
+        std::fs::write(
+            dir.path().join("logo.svg"),
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="red"/></svg>"#,
+        )
+        .unwrap();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        app.set_icon_view(true);
+        let index = app
+            .rows
+            .iter()
+            .position(|row| row.name == "logo.svg")
+            .unwrap();
+        let (path, modified) = (app.rows[index].path.clone(), app.rows[index].modified_at);
+        let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(1).unwrap()).unwrap();
+        // Painting asks for the missing thumbnail; decoding happens off the UI thread.
+        app.paint(&surface);
+        assert!(
+            app.thumb_inflight.contains_key(&path),
+            "a thumbnail was requested"
+        );
+        let started = std::time::Instant::now();
+        while !matches!(app.thumbs.lookup(&path, modified), Lookup::Image(_)) {
+            app.poll_workers();
+            assert!(
+                started.elapsed() < Duration::from_secs(10),
+                "no thumbnail arrived"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        app.paint(&surface);
+        assert!(app.thumb_inflight.is_empty(), "nothing is requested twice");
+    }
+
+    #[test]
     fn missing_folder_reports_an_error_and_tab_moves_focus() {
         let mut app = FilesApp::new(PathBuf::from("/this/does/not/exist/slopos-files")).unwrap();
         app.initial_snapshot();
@@ -1904,15 +2623,22 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         std::fs::create_dir(home.path().join("Documents")).unwrap();
         std::fs::create_dir(home.path().join("Pictures")).unwrap();
-        let names: Vec<String> = places(Some(home.path()))
+        let names: Vec<String> = places(Some(home.path()), None)
             .into_iter()
             .map(|place| place.name)
             .collect();
         assert_eq!(
             names,
-            ["Home", "Documents", "Pictures", "Computer", "Trash"]
+            [
+                "Home",
+                "Documents",
+                "Pictures",
+                "Computer",
+                "Removable: unavailable",
+                "Trash"
+            ]
         );
-        assert_eq!(places(None).len(), 2);
+        assert_eq!(places(None, None).len(), 3);
         assert_eq!(
             folder_icons(&home.path().join("Pictures"), Some(home.path())),
             ["folder-pictures", "folder"]

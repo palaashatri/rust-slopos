@@ -6,14 +6,14 @@ use std::ffi::CString;
 use std::io;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 
 use slopos_ui::platform::Proxy;
 
 use crate::archive;
-use crate::model::{self, Entry};
+use crate::model;
 use crate::ops::{self, Conflict, Job, OpError};
 use crate::trash::{self, TrashItem};
 
@@ -28,11 +28,18 @@ pub fn wake(slot: &WakeSlot) {
     }
 }
 
-pub type ScanResult = (u64, PathBuf, io::Result<Vec<Entry>>);
+/// One page of a folder listing (or the error that ended it), tagged with the
+/// request sequence number and the folder.
+pub type ScanResult = (u64, PathBuf, io::Result<model::Page>);
 
-/// One thread reading folders; at most two requests queue.
+/// One thread reading folders page by page; at most two requests queue.
+///
+/// A listing stops after its current page as soon as a newer request has
+/// been queued, so navigation never waits for a large folder to finish.
 pub struct Scanner {
     requests: mpsc::SyncSender<(u64, PathBuf)>,
+    /// Sequence number of the newest accepted request.
+    latest: Arc<AtomicU64>,
     pub results: mpsc::Receiver<ScanResult>,
 }
 
@@ -40,25 +47,73 @@ impl Scanner {
     pub fn new(slot: WakeSlot) -> io::Result<Self> {
         let (requests, rx) = mpsc::sync_channel::<(u64, PathBuf)>(2);
         let (tx, results) = mpsc::channel::<ScanResult>();
+        let latest = Arc::new(AtomicU64::new(0));
+        let worker_latest = latest.clone();
         thread::Builder::new()
             .name("files-read-dir".into())
             .spawn(move || {
                 while let Ok((seq, path)) = rx.recv() {
-                    let result = model::read_directory(&path);
-                    if tx.send((seq, path, result)).is_err() {
+                    if !stream_folder(seq, &path, &worker_latest, &tx, &slot) {
                         break;
                     }
-                    wake(&slot);
                 }
             })?;
-        Ok(Self { requests, results })
+        Ok(Self {
+            requests,
+            latest,
+            results,
+        })
     }
 
     pub fn request(&self, seq: u64, path: PathBuf) -> Result<(), &'static str> {
+        // Publish the sequence before queueing, so the worker never sees its
+        // own request as superseded; undo it if the queue refuses the request.
+        let previous = self.latest.swap(seq, Ordering::SeqCst);
         match self.requests.try_send((seq, path)) {
             Ok(()) => Ok(()),
-            Err(mpsc::TrySendError::Full(_)) => Err("Folder worker busy. Try again."),
-            Err(mpsc::TrySendError::Disconnected(_)) => Err("Folder worker unavailable."),
+            Err(mpsc::TrySendError::Full(_)) => {
+                self.latest.store(previous, Ordering::SeqCst);
+                Err("Folder worker busy. Try again.")
+            }
+            Err(mpsc::TrySendError::Disconnected(_)) => {
+                self.latest.store(previous, Ordering::SeqCst);
+                Err("Folder worker unavailable.")
+            }
+        }
+    }
+}
+
+/// Send the pages of `path` tagged `seq`. Returns false when the UI is gone.
+fn stream_folder(
+    seq: u64,
+    path: &Path,
+    latest: &AtomicU64,
+    tx: &mpsc::Sender<ScanResult>,
+    slot: &WakeSlot,
+) -> bool {
+    let superseded = || latest.load(Ordering::SeqCst) != seq;
+    let mut lister = match model::Lister::open(path) {
+        Ok(lister) => lister,
+        Err(error) => {
+            wake(slot);
+            return tx.send((seq, path.to_path_buf(), Err(error))).is_ok();
+        }
+    };
+    loop {
+        if superseded() {
+            return true;
+        }
+        let page = lister.next_page();
+        let finished = !matches!(&page, Ok(page) if page.more);
+        if superseded() {
+            return true;
+        }
+        if tx.send((seq, path.to_path_buf(), page)).is_err() {
+            return false;
+        }
+        wake(slot);
+        if finished {
+            return true;
         }
     }
 }
@@ -276,6 +331,43 @@ impl Watcher {
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    #[test]
+    fn a_superseded_listing_sends_nothing_and_a_current_one_sends_every_page() {
+        let tmp = tempfile::tempdir().unwrap();
+        for index in 0..(model::PAGE_SIZE + 10) {
+            std::fs::write(tmp.path().join(format!("f{index}")), b"").unwrap();
+        }
+        let slot: WakeSlot = Arc::new(Mutex::new(None));
+        let (tx, rx) = mpsc::channel::<ScanResult>();
+        // Request 1 has been superseded by request 2: nothing is read or sent.
+        assert!(stream_folder(1, tmp.path(), &AtomicU64::new(2), &tx, &slot));
+        assert!(rx.try_recv().is_err());
+        // The current request streams two pages, the first marked as more.
+        assert!(stream_folder(3, tmp.path(), &AtomicU64::new(3), &tx, &slot));
+        let (seq, _, first) = rx.try_recv().unwrap();
+        assert_eq!(seq, 3);
+        let first = first.unwrap();
+        assert_eq!(first.entries.len(), model::PAGE_SIZE);
+        assert!(first.more);
+        let (_, _, second) = rx.try_recv().unwrap();
+        let second = second.unwrap();
+        assert_eq!(second.entries.len(), 10);
+        assert!(!second.more);
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn a_missing_folder_is_reported_as_one_error() {
+        let tmp = tempfile::tempdir().unwrap();
+        let slot: WakeSlot = Arc::new(Mutex::new(None));
+        let (tx, rx) = mpsc::channel::<ScanResult>();
+        let missing = tmp.path().join("missing");
+        assert!(stream_folder(1, &missing, &AtomicU64::new(1), &tx, &slot));
+        let (_, _, result) = rx.try_recv().unwrap();
+        assert!(result.is_err());
+        assert!(rx.try_recv().is_err());
+    }
 
     #[test]
     fn operations_report_results_and_cancellation() {
