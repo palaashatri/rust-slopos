@@ -9,7 +9,7 @@ mod document;
 
 use std::path::{Path, PathBuf};
 
-use document::{find, Document};
+use document::{find, Document, DocumentError};
 use slopos_ui::accessibility::{text_label, window_tree};
 use slopos_ui::controls::dialog::{Dialog, DialogOutcome};
 use slopos_ui::controls::file_chooser::{ChooserOutcome, FileChooser};
@@ -88,12 +88,15 @@ enum Next {
 }
 
 /// What an open dialog is asking, which decides how its answer is used.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Ask {
     /// Buttons: Cancel, Discard, Save.
     Unsaved(Next),
     /// Buttons: Cancel, Save. The field holds the file name.
     SaveAs(Option<Next>),
+    /// Buttons: Cancel, Replace. Holds the existing file and what to run after
+    /// a successful save.
+    Overwrite(PathBuf, Option<Next>),
     /// Buttons: Cancel, Find Next. The field holds the search text.
     Find,
     /// Button: OK.
@@ -227,7 +230,7 @@ impl TextEditorApp {
             Err(error) => {
                 self.message(
                     "Could not open the file",
-                    &format!("{}: {error}.", path.display()),
+                    &format!("{}: {}.", path.display(), error.reason()),
                 );
             }
         }
@@ -272,10 +275,10 @@ impl TextEditorApp {
     /// Save the document, or ask for a name first. Runs `next` after a
     /// successful save.
     fn save(&mut self, next: Option<Next>, control: &mut Control) {
-        if self.document.path().is_none() {
+        let Some(path) = self.document.path().map(Path::to_path_buf) else {
             self.save_as_dialog(next);
             return;
-        }
+        };
         match self.document.save() {
             Ok(()) => {
                 self.status = format!("Saved {}", self.document.title());
@@ -283,8 +286,17 @@ impl TextEditorApp {
                     self.perform(next, control);
                 }
             }
-            Err(error) => self.message("Could not save", &error.to_string()),
+            Err(error) => self.save_failed(&path, &error),
         }
+    }
+
+    /// Tell the user a save did not happen; the document keeps its file and
+    /// its unsaved text.
+    fn save_failed(&mut self, path: &Path, error: &DocumentError) {
+        self.message(
+            "Could not save",
+            &format!("{}: {}.", path.display(), error.reason()),
+        );
     }
 
     fn save_as_dialog(&mut self, next: Option<Next>) {
@@ -310,23 +322,44 @@ impl TextEditorApp {
             self.message("Not saved", "Enter a file name without slashes.");
             return;
         }
-        let path = self.save_dir().join(name);
+        let dir = self.save_dir();
+        let path = dir.join(name);
         let same_file = self.document.path() == Some(path.as_path());
-        if path.exists() && !same_file {
+        if path.is_dir() {
             self.message(
                 "Not saved",
-                &format!("{} already exists. Choose another name.", path.display()),
+                &format!("{} is a folder. Choose another name.", path.display()),
             );
             return;
         }
-        match self.document.save_as(path) {
+        if path.exists() && !same_file {
+            // Replacing a file destroys its contents, so the user must say so.
+            let dialog = Dialog::new(
+                DIALOG_ID,
+                "Replace file?",
+                &format!(
+                    "“{name}” already exists in {}. Replacing it overwrites that file.",
+                    dir.display()
+                ),
+                &["Cancel", "Replace"],
+            );
+            self.open_dialog(dialog, Ask::Overwrite(path, next));
+            return;
+        }
+        self.finish_save_as(path, next, control);
+    }
+
+    /// Write the document to `path` and make it the document's file. Runs
+    /// `next` after a successful save.
+    fn finish_save_as(&mut self, path: PathBuf, next: Option<Next>, control: &mut Control) {
+        match self.document.save_as(path.clone()) {
             Ok(()) => {
                 self.status = format!("Saved {}", self.document.title());
                 if let Some(next) = next {
                     self.perform(next, control);
                 }
             }
-            Err(error) => self.message("Could not save", &error.to_string()),
+            Err(error) => self.save_failed(&path, &error),
         }
     }
 
@@ -370,6 +403,12 @@ impl TextEditorApp {
                 if index == 1 {
                     let name = text.unwrap_or_default();
                     self.save_as_name(name.trim(), next, control);
+                }
+            }
+            Ask::Overwrite(path, next) => {
+                // Cancel keeps the existing file; Replace writes over it.
+                if index == 1 {
+                    self.finish_save_as(path, next, control);
                 }
             }
             Ask::Find => {
@@ -890,6 +929,46 @@ mod tests {
         app.paint(&surface);
         let bytes = surface.encode_png().unwrap();
         assert!(bytes.len() > 100);
+    }
+
+    #[test]
+    fn saving_as_over_an_existing_file_asks_before_replacing() {
+        let dir = tempfile::tempdir().unwrap();
+        let existing = temp_file(&dir, "other.txt", "keep me");
+        let mut app = TextEditorApp::new(None);
+        let mut control = Control::default();
+        // A new name resolves in the document's folder.
+        app.document.save_as(dir.path().join("draft.txt")).unwrap();
+        type_text(&mut app, &mut control, "new text");
+
+        app.save_as_name("other.txt", None, &mut control);
+        assert_eq!(std::fs::read_to_string(&existing).unwrap(), "keep me");
+        let (_, ask) = app.dialog.take().expect("the replace question is open");
+        assert_eq!(ask, Ask::Overwrite(existing.clone(), None));
+
+        app.answer(ask, 0, None, &mut control);
+        assert_eq!(
+            std::fs::read_to_string(&existing).unwrap(),
+            "keep me",
+            "Cancel keeps the existing file"
+        );
+        assert!(app.document.is_modified(), "the unsaved text is kept");
+
+        app.save_as_name("other.txt", None, &mut control);
+        let (_, ask) = app.dialog.take().expect("the question is asked again");
+        app.answer(ask, 1, None, &mut control);
+        assert_eq!(std::fs::read_to_string(&existing).unwrap(), "new text");
+        assert_eq!(app.document.path(), Some(existing.as_path()));
+        assert!(!app.document.is_modified());
+    }
+
+    #[test]
+    fn a_failed_save_says_which_file_and_why() {
+        let mut app = TextEditorApp::new(None);
+        let denied = std::io::Error::from(std::io::ErrorKind::PermissionDenied);
+        app.save_failed(Path::new("/srv/note.txt"), &DocumentError::Io(denied));
+        assert_eq!(app.status, "Could not save");
+        assert!(app.dialog.is_some(), "the message box is open");
     }
 
     #[test]

@@ -7,7 +7,7 @@ use std::fs;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
-use slopos_ui::controls::text_area::TextEdit;
+use slopos_ui::controls::text_area::{unit_count, TextEdit};
 
 /// The largest file the editor opens or saves: 1 MiB. Every edit is checked
 /// against it, so the text can never grow past what the editor can handle.
@@ -45,6 +45,20 @@ impl std::error::Error for DocumentError {}
 impl From<io::Error> for DocumentError {
     fn from(error: io::Error) -> Self {
         Self::Io(error)
+    }
+}
+
+impl DocumentError {
+    /// Why the file could not be read or written, in words for a message box.
+    pub fn reason(&self) -> String {
+        match self {
+            Self::Io(error) => match error.kind() {
+                io::ErrorKind::PermissionDenied => "you do not have permission to use it".into(),
+                io::ErrorKind::NotFound => "it does not exist".into(),
+                _ => error.to_string(),
+            },
+            other => other.to_string(),
+        }
     }
 }
 
@@ -247,12 +261,14 @@ impl Document {
         Ok(())
     }
 
-    /// The 1-based line and column of byte `caret`. The column counts chars.
+    /// The 1-based line and column of byte `caret`. The column counts the
+    /// characters the caret steps over (grapheme clusters), so an accented
+    /// letter written with a combining mark is one column.
     pub fn line_col(&self, caret: usize) -> (usize, usize) {
         let before = &self.text[..caret.min(self.text.len())];
         let line = before.matches('\n').count() + 1;
         let start = before.rfind('\n').map_or(0, |newline| newline + 1);
-        (line, before[start..].chars().count() + 1)
+        (line, unit_count(&before[start..]) + 1)
     }
 }
 
@@ -577,5 +593,75 @@ mod tests {
         let mut document = Document::new();
         document.save_as(dir.path().join("notes.md")).unwrap();
         assert_eq!(document.title(), "notes.md");
+    }
+
+    #[test]
+    fn the_column_counts_the_characters_the_caret_steps_over() {
+        let mut document = Document::new();
+        typed(&mut document, 0, "e\u{301}x");
+        assert_eq!(
+            document.line_col(3),
+            (1, 2),
+            "the accented letter is one column"
+        );
+        assert_eq!(document.line_col(4), (1, 3));
+    }
+
+    #[test]
+    fn missing_files_and_folders_are_reported_in_words() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("gone.txt");
+        let error = Document::open(&missing).expect_err("a missing file does not open");
+        assert_eq!(error.reason(), "it does not exist");
+
+        let error = Document::open(dir.path()).expect_err("a folder is not text");
+        assert!(matches!(error, DocumentError::Io(_)));
+    }
+
+    /// Needs a user that is not root. Root ignores permission bits, so the
+    /// denial cannot happen; the test then fails instead of passing vacuously.
+    #[cfg(unix)]
+    #[test]
+    fn permission_denied_is_reported_for_a_read_only_folder_and_an_unreadable_file() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("locked");
+        fs::create_dir(&folder).unwrap();
+        let path = folder.join("note.txt");
+        fs::write(&path, "original").unwrap();
+        let mut document = Document::open(&path).unwrap();
+        typed(&mut document, 8, "!");
+
+        fs::set_permissions(&folder, fs::Permissions::from_mode(0o555)).unwrap();
+        let privileged = fs::File::create(folder.join("probe")).is_ok();
+        fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(
+            !privileged,
+            "run the tests as a non-root user: root ignores permission bits"
+        );
+
+        // The atomic save writes a temporary file into the folder first.
+        fs::set_permissions(&folder, fs::Permissions::from_mode(0o555)).unwrap();
+        let result = document.save();
+        fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
+        let error = result.expect_err("saving into a read-only folder fails");
+        assert!(matches!(
+            &error,
+            DocumentError::Io(e) if e.kind() == io::ErrorKind::PermissionDenied
+        ));
+        assert_eq!(error.reason(), "you do not have permission to use it");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "original");
+        assert!(document.is_modified(), "the unsaved text is kept");
+
+        let secret = dir.path().join("secret.txt");
+        fs::write(&secret, "hidden").unwrap();
+        fs::set_permissions(&secret, fs::Permissions::from_mode(0o000)).unwrap();
+        let error = Document::open(&secret).expect_err("an unreadable file does not open");
+        fs::set_permissions(&secret, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(matches!(
+            &error,
+            DocumentError::Io(e) if e.kind() == io::ErrorKind::PermissionDenied
+        ));
     }
 }
