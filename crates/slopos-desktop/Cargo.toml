@@ -8,6 +8,7 @@ description = "SLOPOS desktop: the desktop picture and icons for Home, volumes, 
 [dependencies]
 slopos-ui = { path = "../slopos-ui" }
 slopos-core = { path = "../slopos-core" }
+slopos-fileops = { path = "../slopos-fileops" }
 accesskit = { workspace = true }
 x11rb = { workspace = true }
 log = { workspace = true }

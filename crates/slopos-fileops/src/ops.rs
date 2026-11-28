@@ -53,7 +53,7 @@ pub enum OpError {
 
 pub type OpResult<T> = Result<T, OpError>;
 
-pub(crate) fn io_error(path: &Path) -> impl FnOnce(io::Error) -> OpError + '_ {
+pub fn io_error(path: &Path) -> impl FnOnce(io::Error) -> OpError + '_ {
     move |source| OpError::Io {
         path: path.to_path_buf(),
         source,
@@ -92,7 +92,7 @@ impl Job {
         self.cancelled.load(Ordering::Relaxed)
     }
 
-    pub(crate) fn check(&self) -> OpResult<()> {
+    pub fn check(&self) -> OpResult<()> {
         if self.is_cancelled() {
             Err(OpError::Cancelled)
         } else {
@@ -107,11 +107,11 @@ impl Job {
             .then(|| (self.done_bytes.load(Ordering::Relaxed) as f64 / total as f64).min(1.0))
     }
 
-    pub(crate) fn set_total(&self, bytes: u64) {
+    pub fn set_total(&self, bytes: u64) {
         self.total_bytes.store(bytes, Ordering::Relaxed);
     }
 
-    pub(crate) fn add_done(&self, bytes: u64) {
+    pub fn add_done(&self, bytes: u64) {
         self.done_bytes.fetch_add(bytes, Ordering::Relaxed);
         let Some(notify) = self.notify.get() else {
             return;
@@ -236,7 +236,7 @@ pub fn new_folder(dir: &Path) -> OpResult<PathBuf> {
     Err(OpError::Exists(dir.join("untitled folder")))
 }
 
-pub(crate) fn partial_path(dir: &Path, name: &str) -> PathBuf {
+pub fn partial_path(dir: &Path, name: &str) -> PathBuf {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let n = NEXT.fetch_add(1, Ordering::Relaxed);
     dir.join(format!(".slopos-partial-{}-{n}-{name}", std::process::id()))
@@ -358,7 +358,7 @@ fn refuse_into_itself(source: &Path, dest_dir: &Path) -> OpResult<()> {
 }
 
 /// Move the committed `partial` to `target`, replacing it if asked.
-pub(crate) fn commit(partial: &Path, target: &Path, replace: bool) -> OpResult<()> {
+pub fn commit(partial: &Path, target: &Path, replace: bool) -> OpResult<()> {
     if !replace {
         return match rename_no_replace(partial, target) {
             Ok(()) => Ok(()),

@@ -7,8 +7,6 @@
 
 mod archive;
 mod model;
-mod ops;
-mod trash;
 mod worker;
 
 use std::collections::HashMap;
@@ -20,6 +18,7 @@ use std::time::Duration;
 use model::{DirectoryState, Entry, Kind, Navigation};
 use ops::{Conflict, Job, OpError};
 use slopos_core::mime;
+use slopos_fileops::{dialogs, ops, trash};
 use slopos_ui::accessibility::window_tree;
 use slopos_ui::controls::button::{Button, ButtonOutcome};
 use slopos_ui::controls::dialog::{Dialog, DialogOutcome};
@@ -28,7 +27,7 @@ use slopos_ui::controls::list::{ListOutcome, ListView};
 use slopos_ui::controls::menu::{Menu, MenuBar, MenuBarOutcome, MenuItem, MenuOutcome};
 use slopos_ui::controls::range::ProgressBar;
 use slopos_ui::controls::text_field::{TextField, TextFieldOutcome};
-use slopos_ui::event::{AccessibilityRequest, Event, Key, Modifiers};
+use slopos_ui::event::{AccessibilityRequest, Event, Key, Modifiers, PointerButton};
 use slopos_ui::foundation::geometry::Rect;
 use slopos_ui::icons::IconLookup;
 use slopos_ui::image::Image;
@@ -47,6 +46,8 @@ const TOOLBAR_HEIGHT: i32 = 34;
 const HEADER_HEIGHT: i32 = 18;
 const STATUS_HEIGHT: u32 = 24;
 const ROW_HEIGHT: u32 = 20;
+/// A press must move this far (logical pixels) to become a drag.
+const DRAG_SLOP: i32 = 4;
 
 const STATUS_ID: u64 = 2;
 const BACK_ID: u64 = 10;
@@ -249,6 +250,15 @@ enum Pending {
     Message,
 }
 
+/// A press in the file list that may become a drag onto a folder.
+#[derive(Debug)]
+struct ListDrag {
+    from: (i32, i32),
+    moving: bool,
+    /// The rows dragged, taken when the drag starts.
+    sources: Vec<PathBuf>,
+}
+
 struct Running {
     job: Arc<Job>,
     results: mpsc::Receiver<Finished>,
@@ -284,10 +294,39 @@ pub struct FilesApp {
     pending_scan: Option<(u64, PathBuf, Navigation)>,
     serial: u64,
     running: Option<Running>,
+    drag: Option<ListDrag>,
     clipboard: Option<(Vec<PathBuf>, bool)>,
     select_after: Vec<PathBuf>,
     status: String,
     font: Font,
+}
+
+/// What dropping `sources` on folder `dest` does: a move, or a copy when
+/// `copy`. A move that would leave every item where it is plans nothing.
+/// Name clashes are left to the operation, which asks before replacing.
+fn plan_drop(sources: &[PathBuf], dest: &Path, copy: bool) -> Option<Operation> {
+    let sources: Vec<PathBuf> = sources
+        .iter()
+        .filter(|source| copy || source.parent() != Some(dest))
+        .cloned()
+        .collect();
+    if sources.is_empty() {
+        return None;
+    }
+    let dest = dest.to_path_buf();
+    Some(if copy {
+        Operation::Copy {
+            sources,
+            dest,
+            conflict: Conflict::Ask,
+        }
+    } else {
+        Operation::Move {
+            sources,
+            dest,
+            conflict: Conflict::Ask,
+        }
+    })
 }
 
 fn format_size(bytes: u64) -> String {
@@ -434,6 +473,7 @@ impl FilesApp {
             pending_scan: None,
             serial: 0,
             running: None,
+            drag: None,
             clipboard: None,
             select_after: Vec::new(),
             status: String::new(),
@@ -822,6 +862,81 @@ impl FilesApp {
         }
     }
 
+    // ----- drag and drop -------------------------------------------------
+
+    /// Follow a press in the file list that may become a drag. Events are
+    /// not consumed, so the list still selects and scrolls; only the release
+    /// over a folder starts the operation.
+    fn track_drag(&mut self, event: &Event, modifiers: Modifiers) {
+        match event {
+            Event::PointerPressed {
+                x,
+                y,
+                button: PointerButton::Primary,
+            } => {
+                self.drag =
+                    (!self.in_trash && self.list.row_at(*x, *y).is_some()).then(|| ListDrag {
+                        from: (*x, *y),
+                        moving: false,
+                        sources: Vec::new(),
+                    });
+            }
+            Event::PointerMoved { x, y } => {
+                let Some(drag) = self.drag.as_ref() else {
+                    return;
+                };
+                let far = !drag.moving
+                    && ((x - drag.from.0).abs() > DRAG_SLOP || (y - drag.from.1).abs() > DRAG_SLOP);
+                if far {
+                    let sources = self.selected_paths();
+                    if let Some(drag) = self.drag.as_mut() {
+                        drag.moving = true;
+                        drag.sources = sources;
+                    }
+                }
+            }
+            Event::PointerReleased {
+                x,
+                y,
+                button: PointerButton::Primary,
+            } => {
+                let Some(drag) = self.drag.take() else {
+                    return;
+                };
+                if !drag.moving {
+                    return;
+                }
+                if let Some(dest) = self.drop_folder(*x, *y) {
+                    if let Some(operation) = plan_drop(&drag.sources, &dest, modifiers.control) {
+                        self.start(operation);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// The folder a drop at `x, y` lands in: a folder row, or the open
+    /// folder anywhere else in the list. The Trash view takes no drops.
+    fn drop_folder(&self, x: i32, y: i32) -> Option<PathBuf> {
+        if self.in_trash {
+            return None;
+        }
+        if let Some(row) = self
+            .list
+            .row_at(x, y)
+            .and_then(|index| self.rows.get(index))
+        {
+            if matches!(row.kind, Kind::Directory) {
+                return Some(row.path.clone());
+            }
+        }
+        self.list
+            .bounds()
+            .contains(x, y)
+            .then(|| self.state.current.clone())
+    }
+
     // ----- operations ----------------------------------------------------
 
     fn start(&mut self, operation: Operation) {
@@ -863,19 +978,7 @@ impl FilesApp {
                     Operation::Copy { .. } | Operation::Move { .. }
                 ) =>
             {
-                let name = path
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .into_owned();
-                let mut dialog = Dialog::new(
-                    DIALOG_ID,
-                    "An item with this name already exists",
-                    &format!("“{name}” already exists in “{}”. Replace it, keep both, or skip the items that conflict?", path.parent().map(|p| p.display().to_string()).unwrap_or_default()),
-                    &["Cancel", "Skip", "Keep Both", "Replace"],
-                );
-                dialog.set_default(2);
-                dialog.layout(self.window);
+                let dialog = dialogs::conflict(DIALOG_ID, &path, self.window);
                 self.dialog = Some((dialog, Pending::Conflict(done.operation)));
             }
             Err(OpError::Cancelled) => {
@@ -899,8 +1002,7 @@ impl FilesApp {
     }
 
     fn message(&mut self, title: &str, text: &str) {
-        let mut dialog = Dialog::new(DIALOG_ID, title, text, &["OK"]);
-        dialog.layout(self.window);
+        let dialog = dialogs::message(DIALOG_ID, title, text, self.window);
         self.dialog = Some((dialog, Pending::Message));
     }
 
@@ -1061,31 +1163,13 @@ impl FilesApp {
     }
 
     fn ask_rename(&mut self, path: PathBuf) {
-        let name = path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .into_owned();
-        let mut dialog = Dialog::new(
-            DIALOG_ID,
-            "Rename",
-            &format!("Enter a new name for “{name}”."),
-            &["Cancel", "Rename"],
-        )
-        .with_field("Name", &name);
-        // Select the name without its extension, as people usually keep it.
-        if let Some(field) = &mut dialog.field {
-            if let Some(dot) = name.rfind('.').filter(|&dot| dot > 0) {
-                field.select(0, dot);
-            }
-        }
-        dialog.layout(self.window);
+        let dialog = dialogs::rename(DIALOG_ID, &path, self.window);
         self.dialog = Some((dialog, Pending::Rename(path)));
     }
 
     fn dialog_choice(&mut self, pending: Pending, index: usize, text: Option<String>) {
         match pending {
-            Pending::Rename(path) if index == 1 => {
+            Pending::Rename(path) if index == dialogs::RENAME_CONFIRM => {
                 let name = text.unwrap_or_default();
                 match ops::rename(&path, name.trim()) {
                     Ok(new_path) => {
@@ -1095,18 +1179,10 @@ impl FilesApp {
                     Err(error) => self.message("Can't rename", &error.to_string()),
                 }
             }
-            Pending::Conflict(operation) => {
-                let policy = match index {
-                    1 => Some(Conflict::Skip),
-                    2 => Some(Conflict::KeepBoth),
-                    3 => Some(Conflict::Replace),
-                    _ => None,
-                };
-                match policy {
-                    Some(policy) => self.start(operation.with_conflict(policy)),
-                    None => self.set_status(format!("{} cancelled", operation.verb())),
-                }
-            }
+            Pending::Conflict(operation) => match dialogs::conflict_policy(index) {
+                Some(policy) => self.start(operation.with_conflict(policy)),
+                None => self.set_status(format!("{} cancelled", operation.verb())),
+            },
             Pending::ConfirmDelete(paths) if index == 1 => self.start(Operation::Delete(paths)),
             Pending::ConfirmErase(items) if index == 1 => self.start(Operation::Erase(items)),
             Pending::ConfirmEmpty if index == 1 => self.start(Operation::EmptyTrash),
@@ -1340,6 +1416,7 @@ impl FilesApp {
                 return self.run(command, control);
             }
         }
+        self.track_drag(event, control.modifiers());
         let names: Vec<String> = self.places.iter().map(|place| place.name.clone()).collect();
         let place_name = |index: usize| names.get(index).cloned().unwrap_or_default();
         match self.sidebar.handle(event, control.modifiers(), &place_name) {
@@ -2121,6 +2198,149 @@ mod tests {
         app.event(&key(Key::Space), &mut control);
         settle(&mut app);
         assert!(!dir.path().join("a.txt").exists());
+    }
+
+    /// Centre of the row named `name`, in window coordinates.
+    fn row_centre(app: &FilesApp, name: &str) -> (i32, i32) {
+        let index = app.rows.iter().position(|row| row.name == name).unwrap();
+        let rect = app.list.row_rect(index);
+        (
+            rect.x + rect.width as i32 / 2,
+            rect.y + rect.height as i32 / 2,
+        )
+    }
+
+    /// Press on the row `from`, drag past the slop and release on `onto`.
+    fn drag_onto(app: &mut FilesApp, control: &mut Control, from: &str, onto: &str) {
+        let (x, y) = row_centre(app, from);
+        let (drop_x, drop_y) = row_centre(app, onto);
+        app.event(
+            &Event::PointerPressed {
+                x,
+                y,
+                button: PointerButton::Primary,
+            },
+            control,
+        );
+        app.event(&Event::PointerMoved { x: x + 20, y }, control);
+        app.event(
+            &Event::PointerReleased {
+                x: drop_x,
+                y: drop_y,
+                button: PointerButton::Primary,
+            },
+            control,
+        );
+    }
+
+    #[test]
+    fn drop_plans_move_copy_or_nothing() {
+        let here = Path::new("/d");
+        let there = Path::new("/d/Folder");
+        let a = PathBuf::from("/d/a.txt");
+        assert_eq!(
+            plan_drop(std::slice::from_ref(&a), there, false),
+            Some(Operation::Move {
+                sources: vec![a.clone()],
+                dest: there.to_path_buf(),
+                conflict: Conflict::Ask,
+            })
+        );
+        // Moving within the folder it is in changes nothing.
+        assert_eq!(plan_drop(std::slice::from_ref(&a), here, false), None);
+        // Copying within it makes a copy beside the original.
+        assert_eq!(
+            plan_drop(std::slice::from_ref(&a), here, true),
+            Some(Operation::Copy {
+                sources: vec![a.clone()],
+                dest: here.to_path_buf(),
+                conflict: Conflict::Ask,
+            })
+        );
+        assert_eq!(plan_drop(&[], there, false), None);
+    }
+
+    #[test]
+    fn dragging_rows_onto_a_folder_moves_them_and_asks_before_overwriting() {
+        let dir = fixture();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        let mut control = Control::default();
+        // a.txt dropped on Folder moves there.
+        drag_onto(&mut app, &mut control, "a.txt", "Folder");
+        settle(&mut app);
+        assert!(dir.path().join("Folder/a.txt").exists());
+        assert!(!dir.path().join("a.txt").exists());
+        assert!(app.dialog.is_none());
+        // b.png clashes with Folder/b.png: the overwrite is asked, not done.
+        std::fs::write(dir.path().join("Folder/b.png"), b"old").unwrap();
+        drag_onto(&mut app, &mut control, "b.png", "Folder");
+        settle(&mut app);
+        assert!(matches!(app.dialog, Some((_, Pending::Conflict(_)))));
+        assert_eq!(
+            std::fs::read(dir.path().join("Folder/b.png")).unwrap(),
+            b"old"
+        );
+        assert!(dir.path().join("b.png").exists());
+        // Escape cancels the move and changes nothing.
+        app.event(&key(Key::Escape), &mut control);
+        settle(&mut app);
+        assert!(app.dialog.is_none());
+        assert!(dir.path().join("b.png").exists());
+        assert_eq!(
+            std::fs::read(dir.path().join("Folder/b.png")).unwrap(),
+            b"old"
+        );
+        // Dropping again and choosing the default, Keep Both, keeps both.
+        drag_onto(&mut app, &mut control, "b.png", "Folder");
+        settle(&mut app);
+        app.event(&key(Key::Enter), &mut control);
+        settle(&mut app);
+        assert!(!dir.path().join("b.png").exists());
+        assert_eq!(
+            std::fs::read(dir.path().join("Folder/b 2.png")).unwrap(),
+            b"b"
+        );
+        assert_eq!(
+            std::fs::read(dir.path().join("Folder/b.png")).unwrap(),
+            b"old"
+        );
+        // A folder dropped onto itself is refused with an explicit error.
+        drag_onto(&mut app, &mut control, "Folder", "Folder");
+        settle(&mut app);
+        assert!(matches!(app.dialog, Some((_, Pending::Message))));
+        assert!(dir.path().join("Folder/a.txt").exists());
+    }
+
+    #[test]
+    fn a_press_without_a_drag_does_not_move_anything() {
+        let dir = fixture();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        let mut control = Control::default();
+        let (x, y) = row_centre(&app, "a.txt");
+        let (fx, fy) = row_centre(&app, "Folder");
+        // Released on the folder without moving past the slop: a click.
+        app.event(
+            &Event::PointerPressed {
+                x,
+                y,
+                button: PointerButton::Primary,
+            },
+            &mut control,
+        );
+        app.event(
+            &Event::PointerReleased {
+                x: fx,
+                y: fy,
+                button: PointerButton::Primary,
+            },
+            &mut control,
+        );
+        settle(&mut app);
+        assert!(dir.path().join("a.txt").exists());
+        assert!(!dir.path().join("Folder/a.txt").exists());
+        assert!(app.dialog.is_none());
     }
 
     #[test]

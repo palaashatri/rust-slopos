@@ -3532,6 +3532,7 @@ dependencies = [
  "libc",
  "log",
  "slopos-core",
+ "slopos-fileops",
  "slopos-ui",
  "tempfile",
  "x11rb",
@@ -3550,6 +3551,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-fileops"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "slopos-ui",
+ "tempfile",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "slopos-files"
 version = "0.1.0"
 dependencies = [
@@ -3561,6 +3572,7 @@ dependencies = [
  "lzma-rs",
  "ruzstd",
  "slopos-core",
+ "slopos-fileops",
  "slopos-ui",
  "tar",
  "tempfile",

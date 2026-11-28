@@ -19,7 +19,7 @@ use std::io::{self, BufReader, Read, Seek, SeekFrom, Write};
 use std::os::unix::fs::{symlink, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Component, Path, PathBuf};
 
-use crate::ops::{self, io_error, Job, OpError, OpResult};
+use slopos_fileops::ops::{self, io_error, Job, OpError, OpResult};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {

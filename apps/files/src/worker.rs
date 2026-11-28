@@ -14,8 +14,8 @@ use slopos_ui::platform::Proxy;
 
 use crate::archive;
 use crate::model::{self, Entry};
-use crate::ops::{self, Conflict, Job, OpError};
-use crate::trash::{self, TrashItem};
+use slopos_fileops::ops::{self, Conflict, Job, OpError};
+use slopos_fileops::trash::{self, TrashItem};
 
 /// Where the platform proxy is stored once the window exists.
 pub type WakeSlot = Arc<Mutex<Option<Proxy>>>;

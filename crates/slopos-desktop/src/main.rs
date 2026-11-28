@@ -19,7 +19,9 @@ use std::sync::{Arc, Mutex};
 
 use model::{Direction, Grid, Item, Kind};
 use slopos_core::process::launch;
+use slopos_fileops::{dialogs, ops, trash};
 use slopos_ui::accessibility::window_tree;
+use slopos_ui::controls::dialog::{Dialog, DialogOutcome};
 use slopos_ui::controls::menu::{Menu, MenuItem, MenuOutcome};
 use slopos_ui::event::{AccessibilityRequest, Event, Key, PointerButton};
 use slopos_ui::foundation::color::Color;
@@ -33,6 +35,9 @@ use watch::Change;
 
 const LIST_ID: u64 = 2;
 const MENU_ID: u64 = 3;
+/// The desktop's dialogs. Their own node ids are this, +1 and +10 and up,
+/// clear of the list, the menu and the items.
+const DIALOG_ID: u64 = 4;
 /// Item nodes are `ITEM_BASE + index`.
 const ITEM_BASE: u64 = 1000;
 const ICON: u32 = 48;
@@ -50,9 +55,19 @@ const DRAG_SLOP: i32 = 4;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Action {
     Open,
+    Rename,
+    Trash,
     OpenDesktopFolder,
     NewFolder,
     ChangePicture,
+}
+
+/// What an open dialog is asking about.
+#[derive(Debug, Clone)]
+enum Pending {
+    Rename(PathBuf),
+    /// An error with one OK button; nothing to do when it closes.
+    Message,
 }
 
 struct Drag {
@@ -78,6 +93,7 @@ pub struct Desktop {
     menu: Menu,
     menu_actions: Vec<Action>,
     drag: Option<Drag>,
+    dialog: Option<(Dialog, Pending)>,
     icons: HashMap<(String, u32), Option<Image>>,
     lookup: Option<slopos_ui::icons::IconLookup>,
     changes: Option<Receiver<Change>>,
@@ -109,6 +125,7 @@ impl Desktop {
             menu: Menu::new(MENU_ID, Vec::new()),
             menu_actions: Vec::new(),
             drag: None,
+            dialog: None,
             icons: HashMap::new(),
             lookup: None,
             changes,
@@ -250,9 +267,25 @@ impl Desktop {
         self.save_positions();
     }
 
+    /// The menu for a click on item `index`, which is selected already.
+    fn item_menu(&self, index: usize) -> (Vec<&'static str>, Vec<Action>) {
+        let mut labels = vec!["Open"];
+        let mut actions = vec![Action::Open];
+        let managed = self.managed_selection();
+        if managed == [index] {
+            labels.push("Rename…");
+            actions.push(Action::Rename);
+        }
+        if !managed.is_empty() {
+            labels.push("Move to Trash");
+            actions.push(Action::Trash);
+        }
+        (labels, actions)
+    }
+
     fn open_menu(&mut self, x: i32, y: i32, on: Option<usize>) {
         let (labels, actions): (Vec<&str>, Vec<Action>) = match on {
-            Some(_) => (vec!["Open"], vec![Action::Open]),
+            Some(index) => self.item_menu(index),
             None => (
                 vec![
                     "New Folder",
@@ -271,9 +304,93 @@ impl Desktop {
         self.menu.open_at(x, y, self.size);
     }
 
+    /// The selected items the Files operations may rename or trash: the
+    /// ones in ~/Desktop. Home, volumes and the Trash itself never are.
+    fn managed_selection(&self) -> Vec<usize> {
+        let mut selected: Vec<usize> = self
+            .selected
+            .iter()
+            .copied()
+            .filter(|&index| {
+                self.items
+                    .get(index)
+                    .is_some_and(|item| matches!(item.kind, Kind::File | Kind::Folder))
+            })
+            .collect();
+        selected.sort_unstable();
+        selected
+    }
+
+    /// Rename the one selected item, in the same dialog Files uses.
+    fn ask_rename(&mut self) {
+        let path = match self.managed_selection().as_slice() {
+            [index] => self.items[*index].path.clone(),
+            _ => return,
+        };
+        let dialog = dialogs::rename(DIALOG_ID, &path, self.size);
+        self.dialog = Some((dialog, Pending::Rename(path)));
+    }
+
+    /// The rename is done: keep the item's remembered place under its new
+    /// name and select it.
+    fn finish_rename(&mut self, old: &Path, new: &Path) {
+        if let (Some(old_name), Some(new_name)) = (old.file_name(), new.file_name()) {
+            let old_key = format!("file:{}", old_name.to_string_lossy());
+            if let Some(cell) = self.positions.remove(&old_key) {
+                let new_key = format!("file:{}", new_name.to_string_lossy());
+                self.positions.insert(new_key, cell);
+                self.save_positions();
+            }
+        }
+        self.reload();
+        if let Some(index) = self.items.iter().position(|item| item.path == new) {
+            self.select_only(index);
+        }
+    }
+
+    /// Move the selected items in ~/Desktop to the Trash with the shared
+    /// operation. The first failure stops the rest and is reported.
+    fn trash_selection(&mut self) {
+        let paths: Vec<PathBuf> = self
+            .managed_selection()
+            .into_iter()
+            .map(|index| self.items[index].path.clone())
+            .collect();
+        if paths.is_empty() {
+            return;
+        }
+        let result = paths
+            .iter()
+            .try_for_each(|path| trash::trash(path).map(|_| ()));
+        self.reload();
+        if let Err(error) = result {
+            self.message("Can't move to Trash", &error.to_string());
+        }
+    }
+
+    fn message(&mut self, title: &str, text: &str) {
+        let dialog = dialogs::message(DIALOG_ID, title, text, self.size);
+        self.dialog = Some((dialog, Pending::Message));
+    }
+
+    fn dialog_choice(&mut self, pending: Pending, index: usize, text: Option<String>) {
+        match pending {
+            Pending::Rename(path) if index == dialogs::RENAME_CONFIRM => {
+                let name = text.unwrap_or_default();
+                match ops::rename(&path, name.trim()) {
+                    Ok(new_path) => self.finish_rename(&path, &new_path),
+                    Err(error) => self.message("Can't rename", &error.to_string()),
+                }
+            }
+            Pending::Rename(_) | Pending::Message => {}
+        }
+    }
+
     fn act(&mut self, action: Action) {
         match action {
             Action::Open => self.open_selection(),
+            Action::Rename => self.ask_rename(),
+            Action::Trash => self.trash_selection(),
             Action::NewFolder => self.new_folder(),
             Action::ChangePicture => {
                 if let Err(error) = launch("slopos-control-panels", &["--desktop"]) {
@@ -330,7 +447,20 @@ impl Desktop {
         image
     }
 
-    fn handle(&mut self, event: &Event) {
+    fn handle(&mut self, event: &Event, control: &mut Control) {
+        if let Some((dialog, _)) = &mut self.dialog {
+            match dialog.handle(event) {
+                DialogOutcome::Chosen { index, text } => {
+                    if let Some((_, pending)) = self.dialog.take() {
+                        self.dialog_choice(pending, index, text);
+                    }
+                }
+                DialogOutcome::Copy(text) => control.set_clipboard(&text),
+                DialogOutcome::PasteRequested => control.request_paste(),
+                DialogOutcome::Ignored | DialogOutcome::Changed => {}
+            }
+            return;
+        }
         if self.menu.is_open() {
             if let MenuOutcome::Chosen(index) = self.menu.handle(event) {
                 if let Some(&action) = self.menu_actions.get(index) {
@@ -378,7 +508,15 @@ impl Desktop {
             } => {
                 if let Some(drag) = self.drag.take() {
                     if drag.moving {
-                        self.drop_at(drag.index, *x, *y);
+                        // Dropping an item on the Trash moves it there.
+                        let on_trash = self
+                            .item_at(*x, *y)
+                            .is_some_and(|target| self.items[target].kind == Kind::Trash);
+                        if on_trash && self.managed_selection().contains(&drag.index) {
+                            self.trash_selection();
+                        } else {
+                            self.drop_at(drag.index, *x, *y);
+                        }
                     }
                 }
             }
@@ -405,6 +543,8 @@ impl Desktop {
             Event::KeyPressed { key, modifiers } => match key {
                 Key::Enter => self.open_selection(),
                 Key::Escape => self.selected.clear(),
+                Key::Function(2) => self.ask_rename(),
+                Key::Delete => self.trash_selection(),
                 Key::Up | Key::Down | Key::Left | Key::Right => {
                     let direction = match key {
                         Key::Up => Direction::Up,
@@ -557,7 +697,11 @@ impl Desktop {
                 )?;
             }
         }
-        self.menu.paint(surface)
+        self.menu.paint(surface)?;
+        match &mut self.dialog {
+            Some((dialog, _)) => dialog.paint(surface),
+            None => Ok(()),
+        }
     }
 }
 
@@ -580,7 +724,7 @@ impl App for Desktop {
                     self.apply(change, control);
                 }
             }
-            _ => self.handle(event),
+            _ => self.handle(event, control),
         }
         control.request_redraw();
     }
@@ -618,7 +762,12 @@ impl App for Desktop {
             nodes.push((ITEM_BASE + index as u64, node));
         }
         nodes.extend(self.menu.accessibility_nodes());
-        let focus = if self.menu.is_open() {
+        if let Some((dialog, _)) = &self.dialog {
+            nodes.extend(dialog.accessibility_nodes());
+        }
+        let focus = if let Some((dialog, _)) = &self.dialog {
+            Some(dialog.focus_node())
+        } else if self.menu.is_open() {
             Some(self.menu.focus_node())
         } else {
             self.focused.map(|i| ITEM_BASE + i as u64).or(Some(LIST_ID))
@@ -745,6 +894,9 @@ mod tests {
     #[test]
     fn icons_are_selected_moved_and_remembered() {
         let dir = tempfile::tempdir().unwrap();
+        let _guard = slopos_fileops::trash::TEST_ENV
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         let mut desktop = desktop(dir.path());
         let labels: Vec<&str> = desktop.items.iter().map(|i| i.label.as_str()).collect();
         assert!(
@@ -823,6 +975,9 @@ mod tests {
     #[test]
     fn new_folders_never_replace_and_the_menu_offers_them() {
         let dir = tempfile::tempdir().unwrap();
+        let _guard = slopos_fileops::trash::TEST_ENV
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         let mut desktop = desktop(dir.path());
         std::fs::create_dir(dir.path().join("Desktop/untitled folder")).unwrap();
         let mut control = Control::default();
@@ -855,5 +1010,205 @@ mod tests {
         );
         assert_eq!(desktop.size, (1280, 800));
         assert!(desktop.background.is_some());
+    }
+
+    fn ctrl(c: char) -> Event {
+        Event::KeyPressed {
+            key: Key::Character(c),
+            modifiers: Modifiers {
+                control: true,
+                ..Modifiers::default()
+            },
+        }
+    }
+
+    fn select_label(desktop: &mut Desktop, label: &str) {
+        let index = desktop.items.iter().position(|i| i.label == label).unwrap();
+        desktop.select_only(index);
+    }
+
+    /// Centre of the cell of item `index`, in logical pixels.
+    fn centre_of(desktop: &Desktop, index: usize) -> (i32, i32) {
+        let (x, y, w, h) = desktop.grid().rect(desktop.cells[index]);
+        (x + w as i32 / 2, y + h as i32 / 2)
+    }
+
+    fn index_of(desktop: &Desktop, label: &str) -> usize {
+        desktop.items.iter().position(|i| i.label == label).unwrap()
+    }
+
+    #[test]
+    fn rename_uses_the_files_dialog_keeps_the_place_and_refuses_clashes() {
+        let dir = tempfile::tempdir().unwrap();
+        let _guard = slopos_fileops::trash::TEST_ENV
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        std::fs::create_dir_all(dir.path().join("Desktop")).unwrap();
+        std::fs::write(dir.path().join("Desktop/taken.txt"), "t").unwrap();
+        let mut desktop = desktop(dir.path());
+        let mut control = Control::default();
+        desktop.positions.insert("file:notes.txt".into(), (3, 1));
+        select_label(&mut desktop, "notes.txt");
+        desktop.event(&key(Key::Function(2)), &mut control);
+        assert!(matches!(desktop.dialog, Some((_, Pending::Rename(_)))));
+        // Select all, type a new name (the extension is typed too), Enter.
+        desktop.event(&ctrl('a'), &mut control);
+        for c in "memo.txt".chars() {
+            desktop.event(&key(Key::Character(c)), &mut control);
+        }
+        desktop.event(&key(Key::Enter), &mut control);
+        assert!(desktop.dialog.is_none());
+        assert!(dir.path().join("Desktop/memo.txt").exists());
+        assert!(!dir.path().join("Desktop/notes.txt").exists());
+        // The item is selected under its new name and keeps its place.
+        assert_eq!(desktop.items[desktop.focused.unwrap()].label, "memo.txt");
+        assert_eq!(desktop.positions.get("file:memo.txt"), Some(&(3, 1)));
+        assert!(!desktop.positions.contains_key("file:notes.txt"));
+        let saved =
+            std::fs::read_to_string(dir.path().join("config/slopos-i/desktop-positions")).unwrap();
+        assert!(saved.contains("file:memo.txt"));
+        // A clash is refused with an explicit error; nothing is replaced.
+        select_label(&mut desktop, "memo.txt");
+        desktop.event(&key(Key::Function(2)), &mut control);
+        desktop.event(&ctrl('a'), &mut control);
+        for c in "taken.txt".chars() {
+            desktop.event(&key(Key::Character(c)), &mut control);
+        }
+        desktop.event(&key(Key::Enter), &mut control);
+        assert!(matches!(desktop.dialog, Some((_, Pending::Message))));
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("Desktop/taken.txt")).unwrap(),
+            "t"
+        );
+        assert!(dir.path().join("Desktop/memo.txt").exists());
+        desktop.event(&key(Key::Enter), &mut control); // OK
+        assert!(desktop.dialog.is_none());
+    }
+
+    #[test]
+    fn move_to_trash_uses_the_shared_operation_for_keys_and_drops() {
+        let dir = tempfile::tempdir().unwrap();
+        let _guard = slopos_fileops::trash::TEST_ENV
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        std::fs::create_dir_all(dir.path().join("Desktop")).unwrap();
+        std::fs::write(dir.path().join("Desktop/bin.txt"), "b").unwrap();
+        let mut desktop = desktop(dir.path());
+        let mut control = Control::default();
+        // Delete moves the selected folder to the XDG Trash.
+        select_label(&mut desktop, "Projects");
+        desktop.event(&key(Key::Delete), &mut control);
+        assert!(!dir.path().join("Desktop/Projects").exists());
+        assert!(dir.path().join("data/Trash/files/Projects").is_dir());
+        assert!(desktop.items.iter().all(|i| i.label != "Projects"));
+        // Dragging an icon onto the Trash icon trashes it too.
+        desktop.reload();
+        let bin = index_of(&desktop, "bin.txt");
+        let (x, y) = centre_of(&desktop, bin);
+        let trash_at = centre_of(&desktop, index_of(&desktop, "Trash"));
+        desktop.event(
+            &Event::PointerPressed {
+                x,
+                y,
+                button: PointerButton::Primary,
+            },
+            &mut control,
+        );
+        desktop.event(&Event::PointerMoved { x: x + 30, y }, &mut control);
+        desktop.event(
+            &Event::PointerReleased {
+                x: trash_at.0,
+                y: trash_at.1,
+                button: PointerButton::Primary,
+            },
+            &mut control,
+        );
+        assert!(!dir.path().join("Desktop/bin.txt").exists());
+        assert!(dir.path().join("data/Trash/files/bin.txt").is_file());
+        assert!(desktop.items.iter().all(|i| i.label != "bin.txt"));
+        assert!(desktop.dialog.is_none());
+    }
+
+    #[test]
+    fn home_volumes_and_the_trash_are_never_renamed_or_trashed() {
+        let dir = tempfile::tempdir().unwrap();
+        let _guard = slopos_fileops::trash::TEST_ENV
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        let mut desktop = desktop(dir.path());
+        let mut control = Control::default();
+        select_label(&mut desktop, "Home");
+        desktop.event(&key(Key::Function(2)), &mut control);
+        desktop.event(&key(Key::Delete), &mut control);
+        assert!(desktop.dialog.is_none());
+        assert!(dir.path().join("Desktop/notes.txt").exists());
+        assert!(dir.path().exists());
+        select_label(&mut desktop, "Trash");
+        desktop.event(&key(Key::Delete), &mut control);
+        assert!(desktop.dialog.is_none());
+        assert!(!desktop.menu.is_open());
+    }
+
+    #[test]
+    fn the_item_menu_offers_rename_and_trash_only_where_they_apply() {
+        let dir = tempfile::tempdir().unwrap();
+        let _guard = slopos_fileops::trash::TEST_ENV
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        let mut desktop = desktop(dir.path());
+        let mut control = Control::default();
+        let (x, y) = centre_of(&desktop, index_of(&desktop, "notes.txt"));
+        desktop.event(
+            &Event::PointerPressed {
+                x,
+                y,
+                button: PointerButton::Secondary,
+            },
+            &mut control,
+        );
+        let labels: Vec<&str> = desktop
+            .menu
+            .items
+            .iter()
+            .map(|i| i.label.as_str())
+            .collect();
+        assert_eq!(labels, ["Open", "Rename…", "Move to Trash"]);
+        // Two selected items can be trashed but not renamed.
+        desktop.menu.close();
+        desktop.event(&ctrl('a'), &mut control);
+        let (x, y) = centre_of(&desktop, index_of(&desktop, "notes.txt"));
+        desktop.event(
+            &Event::PointerPressed {
+                x,
+                y,
+                button: PointerButton::Secondary,
+            },
+            &mut control,
+        );
+        let labels: Vec<&str> = desktop
+            .menu
+            .items
+            .iter()
+            .map(|i| i.label.as_str())
+            .collect();
+        assert_eq!(labels, ["Open", "Move to Trash"]);
+        // Home offers only Open.
+        desktop.menu.close();
+        let (x, y) = centre_of(&desktop, index_of(&desktop, "Home"));
+        desktop.event(
+            &Event::PointerPressed {
+                x,
+                y,
+                button: PointerButton::Secondary,
+            },
+            &mut control,
+        );
+        let labels: Vec<&str> = desktop
+            .menu
+            .items
+            .iter()
+            .map(|i| i.label.as_str())
+            .collect();
+        assert_eq!(labels, ["Open"]);
     }
 }

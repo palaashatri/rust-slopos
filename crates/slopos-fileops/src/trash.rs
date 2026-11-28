@@ -15,9 +15,10 @@ use std::path::{Path, PathBuf};
 
 use crate::ops::{delete_permanently, rename_no_replace, OpError, OpResult};
 
-/// Tests that change `XDG_DATA_HOME` (process-wide) hold this lock.
-#[cfg(test)]
-pub(crate) static TEST_ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());
+/// Tests that change `XDG_DATA_HOME` (process-wide) hold this lock. Other
+/// crates' tests that touch the Trash take it too, so it is public.
+#[doc(hidden)]
+pub static TEST_ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrashItem {

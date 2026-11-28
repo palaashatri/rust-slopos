@@ -8,6 +8,7 @@ description = "SLOPOS Files: native file manager on the SLOPOS UI toolkit"
 [dependencies]
 slopos-ui = { path = "../../crates/slopos-ui" }
 slopos-core = { path = "../../crates/slopos-core" }
+slopos-fileops = { path = "../../crates/slopos-fileops" }
 accesskit = { workspace = true }
 env_logger = { workspace = true }
 libc = { workspace = true }

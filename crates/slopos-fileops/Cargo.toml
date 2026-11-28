@@ -1,0 +1,14 @@
+[package]
+name = "slopos-fileops"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS file operations shared by Files and the desktop: transactional copy, move, rename, Trash and the dialogs that ask about them"
+
+[dependencies]
+slopos-ui = { path = "../slopos-ui" }
+libc = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
