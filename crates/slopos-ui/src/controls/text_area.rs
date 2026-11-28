@@ -612,6 +612,12 @@ pub fn clean(input: &str) -> String {
     out
 }
 
+/// The number of characters the caret steps over in `text`: grapheme
+/// clusters, the same units that Left, Right and Backspace move by.
+pub fn unit_count(text: &str) -> usize {
+    text.graphemes(true).count()
+}
+
 /// The number of lines: one more than the number of newlines.
 pub fn line_count(text: &str) -> usize {
     text.matches('\n').count() + 1
@@ -1367,7 +1373,8 @@ mod tests {
                 Some(argb(colors.selection)),
                 "{f}x selection highlight"
             );
-            let past = left as u32 + width + 2;
+            // `measure` already rounds the width up to whole pixels.
+            let past = left as u32 + width as u32 + 2;
             assert_eq!(
                 surface.pixel(past * f, top * f),
                 Some(argb(colors.content)),
