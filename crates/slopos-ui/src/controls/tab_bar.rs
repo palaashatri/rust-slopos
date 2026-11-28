@@ -345,9 +345,7 @@ impl Tabs {
         }
         for (index, (label, rect)) in self.labels.iter().zip(&self.tab_rects).enumerate() {
             let Some(rect) = rect else { continue };
-            // The Default plate needs at least MIN_TAB_PLATE_WIDTH to draw its corners.
-            // A tab capped narrower than that is left unpainted rather than failing.
-            if rect.width < MIN_TAB_PLATE_WIDTH || rect.height == 0 {
+            if rect.width == 0 || rect.height == 0 {
                 continue;
             }
             let selected = index == self.selected;
@@ -356,10 +354,17 @@ impl Tabs {
             } else {
                 ButtonPlateVariant::Regular
             };
+            // A tab capped narrower than the plate renderer's smallest plate is
+            // still drawn: its plate is built at that smallest size and clipped to
+            // the tab, so nothing paints past the capped bounds.
+            let plate = Rect {
+                width: rect.width.max(MIN_TAB_PLATE_WIDTH),
+                ..*rect
+            };
             // The plate and label are clipped to the tab's rectangle, so a label
             // wider than a capped tab cannot paint past its edge.
             surface.with_clip(*rect, || {
-                paint_button_plate_in(surface, *rect, variant, ButtonPlateState::Rest)?;
+                paint_button_plate_in(surface, plate, variant, ButtonPlateState::Rest)?;
                 let extent = measure(label, font);
                 let x = rect.x + (rect.width as i32 - extent.width as i32) / 2;
                 let y = rect.y + (rect.height as i32 - extent.height as i32) / 2;
@@ -405,10 +410,11 @@ impl Tabs {
     }
 }
 
-/// The width of tabs `first..end` placed side by side with their gaps.
-/// The narrowest tab whose plate the button renderer can draw.
+/// The narrowest plate the Default variant is drawn at: its corner insets need
+/// 12 pixels, so a narrower tab is drawn with a plate of this width, clipped.
 const MIN_TAB_PLATE_WIDTH: u32 = 13;
 
+/// The width of tabs `first..end` placed side by side with their gaps.
 fn run_width(widths: &[u32], first: usize, end: usize) -> u32 {
     let tabs = &widths[first..end];
     tabs.iter().sum::<u32>() + GAP as u32 * tabs.len().saturating_sub(1) as u32
@@ -577,13 +583,39 @@ mod tests {
             .all(|(_, node)| node.role() == accesskit::Role::Tab));
     }
 
+    /// Whether any device pixel inside `rect` (in logical units, `factor`
+    /// device pixels to a unit) differs from the same pixel of `blank`.
+    fn painted_inside(
+        surface: &RasterSurface,
+        blank: &RasterSurface,
+        rect: Rect,
+        factor: i32,
+    ) -> bool {
+        let x0 = rect.x * factor;
+        let y0 = rect.y * factor;
+        let x1 = x0 + rect.width as i32 * factor;
+        let y1 = y0 + rect.height as i32 * factor;
+        (y0..y1).any(|y| {
+            (x0..x1).any(|x| surface.pixel(x as u32, y as u32) != blank.pixel(x as u32, y as u32))
+        })
+    }
+
     #[test]
     fn the_strip_paints_at_one_and_two_times_scale() {
         for factor in [1, 2] {
-            let surface = RasterSurface::new(300, 40, Scale::new(factor).unwrap()).unwrap();
+            let scale = Scale::new(factor).unwrap();
+            let blank = RasterSurface::new(300, 80, scale).unwrap();
+            let surface = RasterSurface::new(300, 80, scale).unwrap();
             let mut tabs = strip();
             tabs.focused = true;
             tabs.paint(&surface, &Font::system(12.0)).unwrap();
+            let selected = tabs
+                .tab_bounds(tabs.selected())
+                .expect("the selected tab is shown");
+            assert!(
+                painted_inside(&surface, &blank, selected, factor as i32),
+                "the selected plate is drawn at {factor}x"
+            );
         }
     }
 
@@ -762,9 +794,45 @@ mod tests {
     #[test]
     fn overflowing_tabs_paint_at_one_and_two_times_scale() {
         for factor in [1, 2] {
-            let surface = RasterSurface::new(200, 40, Scale::new(factor).unwrap()).unwrap();
+            let scale = Scale::new(factor).unwrap();
+            let blank = RasterSurface::new(200, 80, scale).unwrap();
+            let surface = RasterSurface::new(200, 80, scale).unwrap();
             let tabs = narrow(200, 4);
             tabs.paint(&surface, &Font::system(12.0)).unwrap();
+            let (back, forward) = tabs.arrows.expect("the tabs overflow");
+            let selected = tabs.tab_bounds(4).expect("the selected tab is shown");
+            for (what, rect) in [
+                ("the back arrow", back),
+                ("the forward arrow", forward),
+                ("the selected tab", selected),
+            ] {
+                assert!(
+                    painted_inside(&surface, &blank, rect, factor as i32),
+                    "{what} is drawn at {factor}x"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_narrow_selected_tab_is_still_drawn_inside_its_bounds() {
+        // Between the arrows the selected tab is capped to a few pixels. It is
+        // still drawn, and only inside its capped bounds.
+        for available in [57, 68, 70] {
+            let scale = Scale::new(1).unwrap();
+            let blank = RasterSurface::new(120, 80, scale).unwrap();
+            let surface = RasterSurface::new(120, 80, scale).unwrap();
+            let tabs = narrow(available, 3);
+            tabs.paint(&surface, &Font::system(12.0)).unwrap();
+            let selected = tabs.tab_bounds(3).expect("the selected tab is shown");
+            assert!(
+                selected.width <= available,
+                "the tab stays inside {available}: {selected:?}"
+            );
+            assert!(
+                painted_inside(&surface, &blank, selected, 1),
+                "the selected tab is drawn at width {available}"
+            );
         }
     }
 
