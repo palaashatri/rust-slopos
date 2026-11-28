@@ -389,15 +389,22 @@ fn normalized_timeout(requested_ms: i32) -> u64 {
 }
 
 fn load_slopos_mark() -> Option<Image> {
+    // The notification mark is preferred everywhere; the brand logo is the fallback.
+    let share_dir = env::var("SLOPOS_SHARE_DIR").ok().map(PathBuf::from);
     let mut candidates = Vec::new();
-    if let Ok(share_dir) = env::var("SLOPOS_SHARE_DIR") {
-        candidates.push(PathBuf::from(share_dir).join("slopos-i/slopos-logo.png"));
+    if let Some(share) = &share_dir {
+        candidates.push(share.join("slopos-i/icons/notification.png"));
     }
     candidates.extend([
         PathBuf::from("assets/icons/notification.png"),
-        PathBuf::from("assets/slopos-logo.png"),
         PathBuf::from("/usr/local/share/slopos-i/icons/notification.png"),
         PathBuf::from("/usr/share/slopos-i/icons/notification.png"),
+    ]);
+    if let Some(share) = &share_dir {
+        candidates.push(share.join("slopos-i/slopos-logo.png"));
+    }
+    candidates.extend([
+        PathBuf::from("assets/slopos-logo.png"),
         PathBuf::from("/usr/local/share/slopos-i/slopos-logo.png"),
         PathBuf::from("/usr/share/slopos-i/slopos-logo.png"),
     ]);
