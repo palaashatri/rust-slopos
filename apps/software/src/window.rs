@@ -552,6 +552,19 @@ impl SoftwareApp {
         }
     }
 
+    /// What the empty SLOPOS catalogue list says. With no signed catalogue
+    /// this build offers nothing, and the text says so rather than implying
+    /// the list is just empty.
+    fn catalogue_empty_message(&self) -> &'static str {
+        match self.state {
+            CatalogueState::Verified { .. } => "No apps are offered for this computer.",
+            CatalogueState::Missing | CatalogueState::NoPublisherKey => {
+                "No trusted catalogue is shipped with this build. No apps can be installed from here."
+            }
+            CatalogueState::Rejected(_) => "The catalogue was rejected, so no apps are offered.",
+        }
+    }
+
     /// What the empty list says on a search-only tab.
     fn empty_message(&self) -> String {
         if let Some(reason) = self.unavailable_reason() {
@@ -1620,12 +1633,7 @@ impl SoftwareApp {
             let message = if self.active.is_backend() {
                 self.empty_message()
             } else {
-                match self.state {
-                    CatalogueState::Verified { .. } => {
-                        "No apps are offered for this computer.".to_owned()
-                    }
-                    _ => "No apps to show.".to_owned(),
-                }
+                self.catalogue_empty_message().to_owned()
             };
             surface.draw_text(&message, d.x, d.y + 4, &font, colors.ink_secondary)?;
         }
@@ -2369,10 +2377,16 @@ mod tests {
         assert_eq!(app.active, Source::Slopos);
         let (standing, _) = app.standing();
         assert!(
-            standing.starts_with("unavailable: no publisher key configured"),
+            standing.starts_with("No trusted catalogue is shipped: no publisher key"),
             "{standing}"
         );
         assert!(!app.primary.enabled);
+        // The empty list says the same thing, and offers no app.
+        assert!(app.rows.is_empty());
+        assert_eq!(
+            app.catalogue_empty_message(),
+            "No trusted catalogue is shipped with this build. No apps can be installed from here."
+        );
 
         // With a trust store but no catalogue, the narrower state is shown.
         let (catalogue, trust) = signed(9);
@@ -2393,7 +2407,7 @@ mod tests {
         );
         let (standing, _) = app.standing();
         assert!(
-            standing.starts_with("unavailable: no signed catalogue"),
+            standing.starts_with("No trusted catalogue is shipped with this build"),
             "{standing}"
         );
     }
