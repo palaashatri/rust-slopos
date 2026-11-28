@@ -65,7 +65,7 @@
       "id": "debian-package",
       "label": "Debian package payload",
       "script": "scripts/run-debian-package-qa.sh",
-      "sha256": "07aed83770bb724de8b673934b05cf3fd74a84195f34724c273c2871de04849e"
+      "sha256": "0473ac7195fe5f812669dda11d6e48d9aa73dea33222369955f8380c6c90c5b9"
     },
     {
       "id": "package-repositories",
