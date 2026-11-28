@@ -1044,7 +1044,10 @@ mod tests {
         assert!(!field.wants_text_input());
         field.enabled = true;
         field.secret = true;
-        assert!(!field.wants_text_input(), "passwords stay out of composition");
+        assert!(
+            !field.wants_text_input(),
+            "passwords stay out of composition"
+        );
     }
 
     #[test]
@@ -1077,7 +1080,11 @@ mod tests {
         assert_eq!(control.text_input_request(), Some(false));
         let mut again = Control::default();
         field.sync_input_method(&mut again);
-        assert_eq!(again.text_input_request(), None, "said once, not every event");
+        assert_eq!(
+            again.text_input_request(),
+            None,
+            "said once, not every event"
+        );
     }
 
     #[test]

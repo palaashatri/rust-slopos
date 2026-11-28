@@ -292,7 +292,10 @@ fn clicking_out_of_a_composition_resets_the_daemon() {
         y: 10,
         button: PointerButton::Primary,
     };
-    assert_eq!(step(&mut text, &mut input, &click), TextFieldOutcome::Changed);
+    assert_eq!(
+        step(&mut text, &mut input, &click),
+        TextFieldOutcome::Changed
+    );
     assert_eq!(text.preedit(), None);
     let log = calls.lock().unwrap().clone();
     assert_eq!(count(&log, "Reset"), 1, "{log:?}");
@@ -319,7 +322,11 @@ fn losing_focus_mid_composition_resets_before_focus_out() {
     let log = calls.lock().unwrap().clone();
     let reset = log.iter().rposition(|call| call == "Reset");
     let reset = reset.unwrap_or_else(|| panic!("no Reset in {log:?}"));
-    assert_eq!(log.get(reset + 1).map(String::as_str), Some("FocusOut"), "{log:?}");
+    assert_eq!(
+        log.get(reset + 1).map(String::as_str),
+        Some("FocusOut"),
+        "{log:?}"
+    );
 
     // Focus comes back to the field, and the daemon starts a fresh composition.
     text.focused = true;
