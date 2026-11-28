@@ -23,10 +23,13 @@ use std::io::{self, Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc::{self, Receiver, SyncSender};
+use std::sync::Mutex;
+use std::thread;
 
 use sha2::{Digest, Sha256};
 
-use crate::trust::{valid_id, CatalogueEntry};
+use crate::trust::{valid_id, CatalogueEntry, TrustStore};
 
 /// The message an installer returns when the user cancelled it. The window
 /// matches on it to say "cancelled" rather than "not installed".
@@ -111,11 +114,19 @@ pub struct Progress {
     done: AtomicU64,
     total: AtomicU64,
     notify: std::sync::OnceLock<Box<dyn Fn() + Send + Sync>>,
+    /// The channel of the download in progress, if any. `cancel` sends on it
+    /// so a wait for the network returns at once.
+    reader: Mutex<Option<SyncSender<Chunk>>>,
 }
 
 impl Progress {
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::Relaxed);
+        let sender = self.reader.lock().ok().and_then(|guard| guard.clone());
+        if let Some(sender) = sender {
+            // A full channel is fine: the stream checks the flag before each read.
+            let _ = sender.try_send(Chunk::Cancel);
+        }
     }
 
     pub fn is_cancelled(&self) -> bool {
@@ -143,6 +154,83 @@ impl Progress {
     }
 }
 
+/// What the download's reader thread hands the installer.
+enum Chunk {
+    Data(Vec<u8>),
+    End,
+    Failed(String),
+    /// Sent by [`Progress::cancel`] so a wait for the network returns at once.
+    Cancel,
+}
+
+/// A response body read on its own thread. The installer waits on a channel,
+/// so a cancel takes effect even while the server is silent. A reader stuck
+/// on a dead connection ends when the socket does; nothing waits for it.
+pub struct Chunks {
+    rx: Receiver<Chunk>,
+    current: Vec<u8>,
+    pos: usize,
+}
+
+impl Chunks {
+    /// Start reading `body`. The progress object is attached to this download.
+    pub fn spawn(mut body: impl Read + Send + 'static, progress: &Progress) -> io::Result<Self> {
+        let (tx, rx) = mpsc::sync_channel(8);
+        if let Ok(mut reader) = progress.reader.lock() {
+            *reader = Some(tx.clone());
+        }
+        thread::Builder::new()
+            .name("software-download".into())
+            .spawn(move || {
+                let mut buffer = vec![0u8; 64 * 1024];
+                loop {
+                    let message = match body.read(&mut buffer) {
+                        Ok(0) => Chunk::End,
+                        Ok(read) => Chunk::Data(buffer[..read].to_vec()),
+                        Err(error) => Chunk::Failed(error.to_string()),
+                    };
+                    let last = !matches!(message, Chunk::Data(_));
+                    if tx.send(message).is_err() || last {
+                        break;
+                    }
+                }
+            })?;
+        Ok(Self {
+            rx,
+            current: Vec::new(),
+            pos: 0,
+        })
+    }
+}
+
+impl Read for Chunks {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        while self.pos == self.current.len() {
+            match self.rx.recv() {
+                Ok(Chunk::Data(bytes)) => {
+                    self.current = bytes;
+                    self.pos = 0;
+                }
+                Ok(Chunk::End) => return Ok(0),
+                Ok(Chunk::Failed(message)) => return Err(io::Error::other(message)),
+                Ok(Chunk::Cancel) => {
+                    return Err(io::Error::new(io::ErrorKind::Interrupted, CANCELLED))
+                }
+                Err(_) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "the connection stopped",
+                    ))
+                }
+            }
+        }
+        let count = buf.len().min(self.current.len() - self.pos);
+        buf[..count].copy_from_slice(&self.current[self.pos..self.pos + count]);
+        self.pos += count;
+        Ok(count)
+    }
+}
+
 /// Copy `source` into `part`, enforcing `size`, hashing and checking for
 /// cancellation. Returns the hex SHA-256.
 fn stream(
@@ -160,9 +248,13 @@ fn stream(
         if progress.is_cancelled() {
             return Err(InstallError::Cancelled);
         }
-        let read = source
-            .read(&mut buffer)
-            .map_err(|error| InstallError::Download(error.to_string()))?;
+        let read = match source.read(&mut buffer) {
+            Ok(read) => read,
+            // A cancel wakes the wait as an error: that is a cancel, not a
+            // failed download.
+            Err(_) if progress.is_cancelled() => return Err(InstallError::Cancelled),
+            Err(error) => return Err(InstallError::Download(error.to_string())),
+        };
         if read == 0 {
             break;
         }
@@ -286,20 +378,32 @@ fn write_desktop_entry(
 ) -> Result<(), InstallError> {
     let path = layout.desktop_entry(&entry.id);
     let part = with_suffix(&path, ".part");
-    fs::write(&part, desktop_entry(entry, target)).map_err(io_error(&part))?;
-    fs::rename(&part, &path).map_err(io_error(&path))
+    if let Err(error) = fs::write(&part, desktop_entry(entry, target)) {
+        let _ = fs::remove_file(&part);
+        return Err(io_error(&part)(error));
+    }
+    // A failed rename must not leave the staged file behind: the caller rolls
+    // the app back, and nothing else cleans this up.
+    fs::rename(&part, &path).map_err(|error| {
+        let _ = fs::remove_file(&part);
+        io_error(&path)(error)
+    })
 }
 
 /// Download over HTTPS (redirects must stay HTTPS, at most 5) and install.
+/// The entry must verify against `trust`, so an entry the publisher did not
+/// sign is refused before any connection is made.
 pub fn install(
     entry: &CatalogueEntry,
+    trust: &TrustStore,
     layout: &Layout,
     progress: &Progress,
 ) -> Result<PathBuf, InstallError> {
-    // Refuse an unsafe entry (plain HTTP, a bad id or hash, no size) before
-    // any connection is made.
+    // Refuse an entry the trust store does not vouch for (unsigned, tampered,
+    // unknown or revoked key, another publisher) or one that is unsafe (plain
+    // HTTP, a bad id or hash, no size), before any connection is made.
     entry
-        .validate()
+        .verify(trust)
         .map_err(|error| InstallError::Unsafe(error.to_string()))?;
     let client = reqwest::blocking::Client::builder()
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
@@ -320,8 +424,9 @@ pub fn install(
     if response.url().scheme() != "https" {
         return Err(InstallError::Download("redirected away from HTTPS".into()));
     }
-    let mut response = response;
-    install_from(entry, &mut response, layout, progress)
+    let mut body = Chunks::spawn(response, progress)
+        .map_err(|error| InstallError::Download(error.to_string()))?;
+    install_from(entry, &mut body, layout, progress)
 }
 
 /// Remove an installed app and its desktop entry.
@@ -518,36 +623,239 @@ mod tests {
         assert!(!layout.desktop_entry("example").exists());
     }
 
-    #[test]
-    fn an_unsafe_entry_is_refused_before_any_connection() {
-        // A listener that is never asked to accept: if `install` reached the
-        // network, the accept below would find a connection.
+    /// A local listener that is never asked to accept. Any connection an
+    /// install opens is queued on it, so `accept` finds it.
+    fn listener() -> (std::net::TcpListener, u16) {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let port = listener.local_addr().unwrap().port();
-        let (_home, layout) = layout();
-        let progress = Progress::default();
+        (listener, port)
+    }
 
-        let mut plain = entry("example");
-        plain.url = format!("http://127.0.0.1:{port}/example.AppImage");
-        match install(&plain, &layout, &progress) {
-            Err(InstallError::Unsafe(reason)) => assert!(reason.contains("HTTPS"), "{reason}"),
-            other => panic!("plain HTTP was not refused: {other:?}"),
-        }
-
-        let mut option_like = entry("--rm");
-        option_like.url = format!("https://127.0.0.1:{port}/example.AppImage");
-        assert!(matches!(
-            install(&option_like, &layout, &progress),
-            Err(InstallError::Unsafe(_))
-        ));
-
+    fn assert_no_connection(listener: &std::net::TcpListener) {
         assert_eq!(
             listener.accept().unwrap_err().kind(),
             io::ErrorKind::WouldBlock,
             "an unsafe entry reached the network"
         );
+    }
+
+    #[test]
+    fn an_unsafe_entry_is_refused_before_any_connection() {
+        let (listener, port) = listener();
+        let (_home, layout) = layout();
+        let progress = Progress::default();
+        // A correctly signed entry, so only the safety checks can refuse it.
+        let (signed, trust) = crate::trust::tests::signed(3);
+
+        let mut plain = signed.entries[0].clone();
+        plain.url = format!("http://127.0.0.1:{port}/example.AppImage");
+        match install(&plain, &trust, &layout, &progress) {
+            Err(InstallError::Unsafe(reason)) => assert!(reason.contains("HTTPS"), "{reason}"),
+            other => panic!("plain HTTP was not refused: {other:?}"),
+        }
+
+        // An option-like id is refused by the same check even when the URL is HTTPS.
+        let mut option_like = signed.entries[0].clone();
+        option_like.id = "--rm".into();
+        option_like.url = format!("https://127.0.0.1:{port}/example.AppImage");
+        assert!(matches!(
+            install(&option_like, &trust, &layout, &progress),
+            Err(InstallError::Unsafe(_))
+        ));
+
+        assert_no_connection(&listener);
         assert!(!layout.apps.exists() || fs::read_dir(&layout.apps).unwrap().next().is_none());
+    }
+
+    #[test]
+    fn an_unsigned_or_tampered_entry_is_refused_before_any_connection() {
+        let (listener, port) = listener();
+        let (_home, layout) = layout();
+        let progress = Progress::default();
+        let (signed, trust) = crate::trust::tests::signed(3);
+
+        // Not signed at all, with an HTTPS URL that would otherwise pass.
+        let mut unsigned = entry("example");
+        unsigned.url = format!("https://127.0.0.1:{port}/example.AppImage");
+        assert!(matches!(
+            install(&unsigned, &trust, &layout, &progress),
+            Err(InstallError::Unsafe(_))
+        ));
+
+        // Signed, then its URL is changed: the signature no longer holds.
+        let mut tampered = signed.entries[0].clone();
+        tampered.url = format!("https://127.0.0.1:{port}/other.AppImage");
+        match install(&tampered, &trust, &layout, &progress) {
+            Err(InstallError::Unsafe(reason)) => {
+                assert!(reason.contains("signature"), "{reason}");
+            }
+            other => panic!("a tampered entry was not refused: {other:?}"),
+        }
+
+        // Signed with another key: the trust store holds a different key for
+        // this key id, so the signature does not verify.
+        let (_, other_trust) = crate::trust::tests::signed(9);
+        let mut foreign = signed.entries[0].clone();
+        foreign.url = format!("https://127.0.0.1:{port}/example.AppImage");
+        assert!(matches!(
+            install(&foreign, &other_trust, &layout, &progress),
+            Err(InstallError::Unsafe(_))
+        ));
+
+        assert_no_connection(&listener);
+        assert!(!layout.apps.exists() || fs::read_dir(&layout.apps).unwrap().next().is_none());
+    }
+
+    #[test]
+    fn a_failed_update_rolls_back_to_the_installed_version() {
+        let (_home, layout) = layout();
+        let old = payload(2000);
+        let old_entry = entry_for(&old);
+        install_from(
+            &old_entry,
+            &mut Cursor::new(&old),
+            &layout,
+            &Progress::default(),
+        )
+        .unwrap();
+        // The commit fails after the new app is in place: the desktop entry
+        // path is a non-empty directory, so its rename cannot succeed.
+        let desktop = layout.desktop_entry("example");
+        fs::remove_file(&desktop).unwrap();
+        fs::create_dir(&desktop).unwrap();
+        fs::write(desktop.join("keep"), b"x").unwrap();
+
+        let new = payload(3000);
+        let mut update = entry_for(&new);
+        update.version = "2.0".into();
+        assert!(matches!(
+            install_from(
+                &update,
+                &mut Cursor::new(&new),
+                &layout,
+                &Progress::default()
+            ),
+            Err(InstallError::Io { .. })
+        ));
+        assert_eq!(fs::read(layout.appimage("example")).unwrap(), old);
+        assert_eq!(names(&layout.apps), ["example.AppImage"]);
+        // Nothing staged is left in the menu directory.
+        assert_eq!(names(&layout.desktop), ["slopos-appimage-example.desktop"]);
+    }
+
+    #[test]
+    fn a_failed_first_install_leaves_nothing_behind() {
+        let (_home, layout) = layout();
+        fs::create_dir_all(&layout.apps).unwrap();
+        fs::create_dir_all(layout.desktop_entry("example")).unwrap();
+        let data = payload(1500);
+        assert!(matches!(
+            install_from(
+                &entry_for(&data),
+                &mut Cursor::new(&data),
+                &layout,
+                &Progress::default()
+            ),
+            Err(InstallError::Io { .. })
+        ));
+        assert!(!layout.appimage("example").exists());
+        assert!(names(&layout.apps).is_empty(), "{:?}", names(&layout.apps));
+        assert_eq!(names(&layout.desktop), ["slopos-appimage-example.desktop"]);
+    }
+
+    #[test]
+    fn a_download_that_breaks_midway_keeps_the_installed_version() {
+        struct Reset;
+        impl Read for Reset {
+            fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
+                Err(io::Error::new(io::ErrorKind::ConnectionReset, "reset"))
+            }
+        }
+        let (_home, layout) = layout();
+        let old = payload(2000);
+        install_from(
+            &entry_for(&old),
+            &mut Cursor::new(&old),
+            &layout,
+            &Progress::default(),
+        )
+        .unwrap();
+        let new = payload(3000);
+        let mut update = entry_for(&new);
+        update.version = "2.0".into();
+        let mut half = Cursor::new(new[..1500].to_vec()).chain(Reset);
+        assert!(matches!(
+            install_from(&update, &mut half, &layout, &Progress::default()),
+            Err(InstallError::Download(_))
+        ));
+        assert_eq!(fs::read(layout.appimage("example")).unwrap(), old);
+        assert_eq!(names(&layout.apps), ["example.AppImage"]);
+    }
+
+    #[test]
+    fn a_cancel_during_a_stalled_update_download_keeps_the_installed_version() {
+        use std::time::{Duration, Instant};
+
+        // The server sends the first part of the update, then goes silent.
+        struct Stalled(mpsc::Receiver<()>);
+        impl Read for Stalled {
+            fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
+                // Returns only when the test drops its sender.
+                let _ = self.0.recv();
+                Ok(0)
+            }
+        }
+        let (_home, layout) = layout();
+        let old = payload(2000);
+        install_from(
+            &entry_for(&old),
+            &mut Cursor::new(&old),
+            &layout,
+            &Progress::default(),
+        )
+        .unwrap();
+        let new = payload(3000);
+        let mut update = entry_for(&new);
+        update.version = "2.0".into();
+
+        let (keep_stalled, stalled) = mpsc::channel::<()>();
+        let progress = Progress::default();
+        let mut body = Chunks::spawn(
+            Cursor::new(new[..1500].to_vec()).chain(Stalled(stalled)),
+            &progress,
+        )
+        .unwrap();
+        let started = Instant::now();
+        thread::scope(|scope| {
+            scope.spawn(|| {
+                thread::sleep(Duration::from_millis(50));
+                progress.cancel();
+            });
+            assert!(matches!(
+                install_from(&update, &mut body, &layout, &progress),
+                Err(InstallError::Cancelled)
+            ));
+        });
+        // Cancel does not wait for the silent server.
+        assert!(started.elapsed() < Duration::from_secs(10));
+        assert_eq!(fs::read(layout.appimage("example")).unwrap(), old);
+        assert_eq!(names(&layout.apps), ["example.AppImage"]);
+        drop(keep_stalled);
+    }
+
+    /// The names in a directory, sorted; empty when it does not exist.
+    fn names(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(dir)
+            .map(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                    .collect()
+            })
+            .unwrap_or_default();
+        names.sort();
+        names
     }
 
     #[test]

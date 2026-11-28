@@ -43,7 +43,7 @@ use crate::packages;
 use crate::run::{self, Cancel};
 use crate::sources::{self, Availability, Environment, Source, Tab};
 use crate::store::{self, Action, CatalogueState, Row, Sources};
-use crate::trust::CatalogueEntry;
+use crate::trust::{CatalogueEntry, TrustStore};
 use slopos_core::software_config::SoftwareConfig;
 
 pub const WIDTH: u32 = 760;
@@ -145,9 +145,16 @@ pub struct Commands {
     pub install: PackageRunner,
 }
 
-pub fn network_installer() -> Installer {
-    Arc::new(|entry, layout, progress| {
-        install::install(entry, layout, progress)
+/// The installer for catalogue apps. Without a trust store that loaded, every
+/// install is refused: nothing can be verified.
+pub fn network_installer(trust: Option<TrustStore>) -> Installer {
+    Arc::new(move |entry, layout, progress| {
+        let Some(trust) = &trust else {
+            return Err(
+                "no trusted publisher key is configured, so nothing can be verified".into(),
+            );
+        };
+        install::install(entry, trust, layout, progress)
             .map(|_| ())
             .map_err(|error| error.to_string())
     })
@@ -1874,7 +1881,7 @@ mod tests {
             sources,
             Layout::for_home(&dir.join("home")),
             "x86_64",
-            network_installer(),
+            network_installer(None),
             Arc::new(Mutex::new(None)),
             environment,
             commands,
@@ -2354,7 +2361,7 @@ mod tests {
             sources,
             Layout::for_home(&dir.path().join("home")),
             "x86_64",
-            network_installer(),
+            network_installer(None),
             Arc::new(Mutex::new(None)),
             environment,
             commands,
@@ -2379,7 +2386,7 @@ mod tests {
             sources,
             Layout::for_home(&dir.path().join("home")),
             "x86_64",
-            network_installer(),
+            network_installer(None),
             Arc::new(Mutex::new(None)),
             environment,
             commands,
@@ -2403,7 +2410,7 @@ mod tests {
             sources,
             layout,
             "x86_64",
-            network_installer(),
+            network_installer(None),
             Arc::new(Mutex::new(None)),
             environment,
             commands,
