@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Help
+Comment=Read SLOPOS help and the project documentation, offline, with search
+Exec=slopos-help
+TryExec=slopos-help
+Icon=help-browser
+Terminal=false
+StartupNotify=true
+Categories=Utility;Documentation;

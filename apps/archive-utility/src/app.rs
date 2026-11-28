@@ -20,7 +20,7 @@ use slopos_ui::text::Font;
 use slopos_ui::theme::palette;
 
 use crate::archive::{self, ArchiveError, Kind, Listing, Progress, Refusal, Summary};
-use crate::{HEIGHT, WIDTH};
+use crate::WIDTH;
 
 /// Wakes the window's event loop from another thread.
 pub type Waker = Arc<dyn Fn() + Send + Sync>;
@@ -626,6 +626,7 @@ impl ArchiveApp {
 mod tests {
     use super::*;
     use crate::archive::{Entry, Format};
+    use crate::HEIGHT;
     use slopos_ui::foundation::geometry::Scale;
     use std::io::Write;
     use std::path::Path;

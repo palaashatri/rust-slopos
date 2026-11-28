@@ -1,0 +1,10 @@
+[package]
+name = "slopos-help"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Help: offline topics built from the repository's documentation"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+accesskit = { workspace = true }

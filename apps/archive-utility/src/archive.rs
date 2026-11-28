@@ -490,7 +490,8 @@ pub fn extract(
 /// holding "Photos/..."). Such a folder is not nested again: the items go
 /// straight into the destination.
 fn strip_archive_folder(listing: &Listing, archive: &Path) -> bool {
-    let Some((_, stem)) = format_of(&file_name(archive)) else {
+    let name = file_name(archive);
+    let Some((_, stem)) = format_of(&name) else {
         return false;
     };
     let folder = Component::Normal(std::ffi::OsStr::new(stem));

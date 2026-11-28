@@ -25,6 +25,7 @@ members = [
     "apps/system-monitor",
     "apps/system-information",
     "apps/archive-utility",
+    "apps/help",
 ]
 
 [workspace.dependencies]
