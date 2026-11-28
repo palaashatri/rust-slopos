@@ -249,7 +249,13 @@
         "EDITOR-01",
         "LOCK-01",
         "PORTAL-01",
-        "SCREENSHOT-01"
+        "SCREENSHOT-01",
+        "SHELL-02",
+        "SHELL-03",
+        "APP-06",
+        "FILES-03",
+        "PANELS-02",
+        "TK-03"
       ],
       "proof": [
         "unit",
@@ -332,6 +338,88 @@
         "runtime"
       ],
       "acceptance": "slopos-screenshot: region and window capture through the X11 provider, save via the Image Viewer format path, cancel and failure paths, keyboard and a11y tests; live capture marked NOT_RUN without an X server."
+    },
+    {
+      "id": "SHELL-02",
+      "title": "Launcher search beyond apps (GAP-SHELL-07)",
+      "area": "shell",
+      "deps": [
+        "SHELL-01"
+      ],
+      "proof": [
+        "unit",
+        "runtime"
+      ],
+      "acceptance": "Launcher search over apps, files, settings panels and actions through typed providers; keyboard-only result navigation; no polling; a11y tests."
+    },
+    {
+      "id": "SHELL-03",
+      "title": "Desktop rename, Move to Trash and drag and drop with Files (GAP-SHELL-08)",
+      "area": "shell",
+      "deps": [
+        "FILES-02",
+        "SHELL-01"
+      ],
+      "proof": [
+        "unit",
+        "runtime"
+      ],
+      "acceptance": "Desktop icons rename and Move to Trash through the same Files operations and dialogs; drag and drop into Files windows with explicit overwrite errors; tests for each operation."
+    },
+    {
+      "id": "APP-06",
+      "title": "Disks, Fonts, Help, System Information and Archive Utility (GAP-APP-06)",
+      "area": "apps",
+      "deps": [
+        "UI-02",
+        "P1-00"
+      ],
+      "proof": [
+        "unit",
+        "visual",
+        "runtime"
+      ],
+      "acceptance": "Five native SLOPOS toolkit apps reading real providers (disks, fonts, help text, system facts, archive list/extract with path-safety checks); failure states shown as text; packaged desktop entries; Classic 1x/2x tests."
+    },
+    {
+      "id": "FILES-03",
+      "title": "Network locations (SMB/SFTP) and folders over 8192 entries (GAP-FILES-03)",
+      "area": "files",
+      "deps": [
+        "FILES-02"
+      ],
+      "proof": [
+        "unit",
+        "runtime",
+        "security"
+      ],
+      "acceptance": "Network locations through a bounded provider with timeouts and credential prompts via the secret agent; paged listings beyond 8192 rows; unreachable and auth-failure states shown as text; no blocking UI thread."
+    },
+    {
+      "id": "PANELS-02",
+      "title": "Printers, per-monitor scale, tap-to-click and Dock settings (GAP-PANELS-02)",
+      "area": "panels",
+      "deps": [
+        "PANELS-01"
+      ],
+      "proof": [
+        "unit",
+        "runtime"
+      ],
+      "acceptance": "Printers panel through the CUPS provider (unavailable text when absent); per-monitor scale and tap-to-click from real display and input providers; Dock settings wired to the saved Dock configuration; tests for each."
+    },
+    {
+      "id": "TK-03",
+      "title": "Tree and table views, tabs, drag and drop, fractional scaling (GAP-TK-03)",
+      "area": "toolkit",
+      "deps": [
+        "UI-02"
+      ],
+      "proof": [
+        "unit",
+        "visual"
+      ],
+      "acceptance": "slopos-ui tree and table controls, tab control, drag and drop and fractional scale rendering, each with keyboard, pointer, accessibility nodes, Classic 1x/2x references and malformed-geometry tests."
     }
   ]
 }

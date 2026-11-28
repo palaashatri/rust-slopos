@@ -14,10 +14,12 @@ practical lightweight daily-use applications and shell features.
 
 **Also in P1 (owner decision, 2026-11-28):** the IBus input method client
 (PR #53), the native Text Editor (PR #54), the screen lock (PR #55), the file
-chooser portal and Open With (PR #57) and the Screenshot app (PR #58). They
-are gated by the tasks IBUS-01, EDITOR-01, LOCK-01, PORTAL-01 and
-SCREENSHOT-01 in [qa/p1-goal.json](../qa/p1-goal.json), and P1-RELEASE
-depends on them.
+chooser portal and Open With (PR #57) and the Screenshot app (PR #58), plus
+the former P2 register items GAP-SHELL-07, GAP-SHELL-08, GAP-APP-06,
+GAP-FILES-03, GAP-PANELS-02 and GAP-TK-03 (owner decision, 2026-11-28). They
+are gated by the tasks IBUS-01, EDITOR-01, LOCK-01, PORTAL-01, SCREENSHOT-01,
+SHELL-02, SHELL-03, APP-06, FILES-03, PANELS-02 and TK-03 in
+[qa/p1-goal.json](../qa/p1-goal.json), and P1-RELEASE depends on them.
 
 **Not in P1:** PARAMA, custom Wayland compositor, Loom, Donkey, JWhisper,
 JVosk, JForge or other independent repositories. Historic source work is
