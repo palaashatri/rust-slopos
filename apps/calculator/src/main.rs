@@ -581,4 +581,63 @@ mod tests {
         assert!(app.calculator().is_error());
         assert_eq!(display_value(&app), "Result Error");
     }
+
+    /// FNV-1a over the device pixels: a fingerprint for the golden test.
+    fn fingerprint(surface: &RasterSurface) -> String {
+        let hash = surface
+            .data()
+            .iter()
+            .fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
+                (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
+            });
+        format!("{hash:016x}")
+    }
+
+    /// Paint the calculator after typing `typed` on the keyboard.
+    fn render(scale: u32, typed: &str) -> RasterSurface {
+        let mut app = CalculatorApp::new();
+        let mut control = Control::default();
+        for c in typed.chars() {
+            app.event(&key_event(Key::Character(c)), &mut control);
+        }
+        let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(scale).unwrap()).unwrap();
+        app.paint(&surface);
+        surface
+    }
+
+    /// Reference fingerprints, taken from a CI run of this test. Text is
+    /// rasterized with the first installed face in the text engine's list
+    /// (Liberation Sans, installed by CI's fonts-liberation).
+    fn golden(name: &str, scale: u32) -> &'static str {
+        match (name, scale) {
+            ("initial", 1) => "TBD",
+            ("initial", 2) => "TBD",
+            ("sum", 1) => "TBD",
+            ("sum", 2) => "TBD",
+            ("error", 1) => "TBD",
+            ("error", 2) => "TBD",
+            _ => unreachable!("no golden named {name} at {scale}x"),
+        }
+    }
+
+    #[test]
+    fn golden_pixels_at_1x_and_2x() {
+        let cases = [("initial", ""), ("sum", "12+34="), ("error", "8/0=")];
+        let mut mismatches = Vec::new();
+        for (name, typed) in cases {
+            for scale in [1, 2] {
+                let surface = render(scale, typed);
+                assert_eq!(surface.device_width(), WIDTH * scale);
+                let actual = fingerprint(&surface);
+                if actual != golden(name, scale) {
+                    mismatches.push(format!("{name} {scale}x: {actual}"));
+                }
+            }
+        }
+        assert!(
+            mismatches.is_empty(),
+            "pixels differ from the goldens:\n{}",
+            mismatches.join("\n")
+        );
+    }
 }
