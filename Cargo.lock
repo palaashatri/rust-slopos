@@ -3700,6 +3700,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "slopos-system-monitor"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "libc",
+ "log",
+ "slopos-ui",
+ "tempfile",
+]
+
+[[package]]
 name = "slopos-terminal"
 version = "0.1.0"
 dependencies = [
