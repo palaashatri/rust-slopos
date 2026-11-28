@@ -14,11 +14,12 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use slopos_ui::controls::text_field::{TextField, TextFieldOutcome};
-use slopos_ui::event::Event;
+use slopos_ui::event::{Event, PointerButton};
 use slopos_ui::foundation::geometry::Rect;
 use slopos_ui::input_method::{InputMethodEvent, InputMethodStatus};
 use slopos_ui::platform::ibus::protocol::{encode_text, CONTEXT_INTERFACE, SERVICE};
 use slopos_ui::platform::ibus::{IbusClient, Incoming, InputMethod, Update, CONTEXT_CALL_TIMEOUT};
+use slopos_ui::platform::Control;
 use zbus::blocking::{connection, MessageIterator};
 use zbus::zvariant::OwnedObjectPath;
 
@@ -113,6 +114,11 @@ fn serve_fake_ibus(address: String, calls: Calls, ready: mpsc::Sender<()>, hang:
             }
             "FocusIn" | "FocusOut" | "Reset" => {
                 calls.lock().unwrap().push(member.clone());
+                // Losing focus and a reset end the daemon's composition, as
+                // IBus does: the next key starts a new one.
+                if member != "FocusIn" {
+                    composition.clear();
+                }
                 connection.reply(&message, &()).unwrap();
             }
             "SetCursorLocation" => {
@@ -207,6 +213,141 @@ fn field() -> TextField {
     });
     field.focused = true;
     field
+}
+
+/// Apply what a text field asked of the input method, in the order the X11
+/// host applies it: reset, then text input, then the caret location.
+fn apply_requests(input: &mut InputMethod, control: &Control) {
+    if control.input_reset_requested() {
+        input.reset();
+    }
+    if let Some(wanted) = control.text_input_request() {
+        input.set_text_input(wanted);
+    }
+    if let Some(rect) = control.input_cursor_request() {
+        input.set_cursor_location(rect.x, rect.y, rect.width as i32, rect.height as i32);
+    }
+}
+
+/// One event through a field wired to the input method: the field handles
+/// the event and its requests are applied to the daemon.
+fn step(text: &mut TextField, input: &mut InputMethod, event: &Event) -> TextFieldOutcome {
+    let mut control = Control::default();
+    let outcome = text.handle_with_input(event, &mut control);
+    apply_requests(input, &control);
+    outcome
+}
+
+/// A connected input method with the window focused and the fake daemon's
+/// call log.
+fn focused_input(bus: &PrivateBus) -> (InputMethod, Receiver<()>, Calls) {
+    let calls = start_fake(bus);
+    let (wake_tx, wakes) = mpsc::channel();
+    let mut input = InputMethod::connect(&bus.address, move || {
+        let _ = wake_tx.send(());
+    })
+    .expect("input method connects");
+    input.drain();
+    input.set_window_focus(true);
+    (input, wakes, calls)
+}
+
+fn count(log: &[String], call: &str) -> usize {
+    log.iter().filter(|entry| *entry == call).count()
+}
+
+#[test]
+fn a_focused_field_asks_the_daemon_for_text_and_the_caret() {
+    let bus = PrivateBus::start();
+    let (mut input, _wakes, calls) = focused_input(&bus);
+    let mut text = field();
+    let caret = text.caret_bounds();
+
+    step(&mut text, &mut input, &Event::Wake);
+    assert!(input.wants_keys());
+    let log = calls.lock().unwrap().clone();
+    assert!(log.contains(&"FocusIn".to_string()), "{log:?}");
+    let expected = format!(
+        "SetCursorLocation({}, {}, {}, {})",
+        caret.x, caret.y, caret.width, caret.height
+    );
+    assert!(log.contains(&expected), "{log:?}");
+}
+
+#[test]
+fn clicking_out_of_a_composition_resets_the_daemon() {
+    let bus = PrivateBus::start();
+    let (mut input, wakes, calls) = focused_input(&bus);
+    let mut text = field();
+    step(&mut text, &mut input, &Event::Wake);
+
+    assert!(input.process_key(0x61, 38, 0));
+    let outcomes = apply_updates(&mut input, &mut text, &wakes, 1);
+    assert_eq!(outcomes, vec![TextFieldOutcome::Changed]);
+    assert_eq!(text.preedit(), Some(("a", 1)));
+
+    // A click in the field moves the caret, which ends the composition here.
+    let click = Event::PointerPressed {
+        x: 50,
+        y: 10,
+        button: PointerButton::Primary,
+    };
+    assert_eq!(step(&mut text, &mut input, &click), TextFieldOutcome::Changed);
+    assert_eq!(text.preedit(), None);
+    let log = calls.lock().unwrap().clone();
+    assert_eq!(count(&log, "Reset"), 1, "{log:?}");
+
+    // The daemon's composition is gone too: the next key starts over at "b".
+    assert!(input.process_key(0x62, 56, 0));
+    let outcomes = apply_updates(&mut input, &mut text, &wakes, 1);
+    assert_eq!(outcomes, vec![TextFieldOutcome::Changed]);
+    assert_eq!(text.preedit(), Some(("b", 1)));
+}
+
+#[test]
+fn losing_focus_mid_composition_resets_before_focus_out() {
+    let bus = PrivateBus::start();
+    let (mut input, wakes, calls) = focused_input(&bus);
+    let mut text = field();
+    step(&mut text, &mut input, &Event::Wake);
+    assert!(input.process_key(0x61, 38, 0));
+    apply_updates(&mut input, &mut text, &wakes, 1);
+
+    text.focused = false;
+    step(&mut text, &mut input, &Event::Wake);
+    assert!(!input.wants_keys());
+    let log = calls.lock().unwrap().clone();
+    let reset = log.iter().rposition(|call| call == "Reset");
+    let reset = reset.unwrap_or_else(|| panic!("no Reset in {log:?}"));
+    assert_eq!(log.get(reset + 1).map(String::as_str), Some("FocusOut"), "{log:?}");
+
+    // Focus comes back to the field, and the daemon starts a fresh composition.
+    text.focused = true;
+    step(&mut text, &mut input, &Event::Wake);
+    assert!(input.process_key(0x62, 56, 0));
+    apply_updates(&mut input, &mut text, &wakes, 1);
+    assert_eq!(text.preedit(), Some(("b", 1)));
+}
+
+#[test]
+fn a_commit_ends_the_composition_without_a_reset() {
+    let bus = PrivateBus::start();
+    let (mut input, wakes, calls) = focused_input(&bus);
+    let mut text = field();
+    step(&mut text, &mut input, &Event::Wake);
+    assert!(input.process_key(0x61, 38, 0));
+    apply_updates(&mut input, &mut text, &wakes, 1);
+    assert!(input.process_key(0x20, 65, 0));
+    let outcomes = apply_updates(&mut input, &mut text, &wakes, 2);
+    assert_eq!(
+        outcomes,
+        vec![TextFieldOutcome::Edited, TextFieldOutcome::Ignored]
+    );
+    assert_eq!(text.text(), "阿");
+
+    step(&mut text, &mut input, &Event::Wake);
+    let log = calls.lock().unwrap().clone();
+    assert_eq!(count(&log, "Reset"), 0, "{log:?}");
 }
 
 #[test]
