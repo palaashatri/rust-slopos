@@ -7,6 +7,7 @@ pub mod menu;
 pub mod popup;
 pub mod range;
 pub mod scroll;
+pub mod tab_bar;
 pub mod tabs;
 pub mod text_field;
 

@@ -542,7 +542,7 @@ vlc        3.0.21      videolan✓      -      Media player
     #[test]
     fn a_cancelled_search_stops_and_says_so() {
         let cancel = Cancel::default();
-        cancel.cancel();
+        cancel.cancel().unwrap();
         assert_eq!(
             run_system(&shell_search("sleep 30"), &cancel),
             Err(run::CANCELLED.to_owned())
