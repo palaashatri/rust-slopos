@@ -15,7 +15,7 @@ mod trash;
 mod volumes;
 mod worker;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::{mpsc, Arc, Mutex};
@@ -751,10 +751,13 @@ impl FilesApp {
 
     /// Rebuild rows from the model, keeping the selection by path.
     fn rebuild_rows(&mut self) {
-        let mut keep: Vec<PathBuf> = std::mem::take(&mut self.select_after);
-        if keep.is_empty() {
-            keep = self.selected_paths();
+        let mut paths: Vec<PathBuf> = std::mem::take(&mut self.select_after);
+        if paths.is_empty() {
+            paths = self.selected_paths();
         }
+        // A set, so each row is checked in constant time. A Vec here made
+        // Select All on a large folder quadratic (rows × selected paths).
+        let keep: HashSet<PathBuf> = paths.into_iter().collect();
         self.rows = if self.in_trash {
             trash::list()
                 .into_iter()
@@ -2502,6 +2505,103 @@ mod tests {
         assert!(mounted.iter().any(|place| place.name == "USB"
             && place.path.as_deref() == Some(Path::new("/media/alice/USB"))));
         assert!(!mounted.iter().any(|place| place.unavailable));
+    }
+
+    #[test]
+    fn select_all_in_a_large_folder_keeps_every_row_selected() {
+        let dir = fixture();
+        for index in 0..3000 {
+            std::fs::write(dir.path().join(format!("bulk{index:05}")), b"").unwrap();
+        }
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        settle(&mut app);
+        app.list.select_all();
+        // Rebuilding the rows keeps the selection; each row is checked in
+        // constant time, so this stays fast for a large folder.
+        app.rebuild_rows();
+        assert!(app.rows.len() > 3000);
+        assert_eq!(app.list.selection().len(), app.rows.len());
+    }
+
+    #[test]
+    fn shift_drop_moves_the_selection_instead_of_copying_it() {
+        let dir = fixture();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        select(&mut app, "a.txt");
+        let folder = app
+            .rows
+            .iter()
+            .position(|row| row.name == "Folder")
+            .unwrap();
+        let rect = app.list.row_rect(folder);
+        app.finish_drag(rect.x + 40, rect.y + 10, true);
+        settle(&mut app);
+        assert!(dir.path().join("Folder").join("a.txt").exists());
+        assert!(
+            !dir.path().join("a.txt").exists(),
+            "Shift moves, so the source is gone"
+        );
+    }
+
+    #[test]
+    fn dropping_onto_a_sidebar_place_copies_into_that_folder() {
+        let dir = fixture();
+        let target = dir.path().join("Scratch");
+        std::fs::create_dir(&target).unwrap();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        // Point an existing place at a folder inside the fixture, so the
+        // test never writes outside its own temporary directory.
+        let place = app
+            .places
+            .iter()
+            .position(|place| place.name == "Computer")
+            .unwrap();
+        app.places[place].path = Some(target.clone());
+        let rect = app.sidebar.row_rect(place);
+        select(&mut app, "a.txt");
+        app.finish_drag(rect.x + 10, rect.y + 5, false);
+        settle(&mut app);
+        assert!(target.join("a.txt").exists(), "a plain drop copies");
+        assert!(dir.path().join("a.txt").exists(), "the source stays");
+    }
+
+    #[test]
+    fn icon_view_requests_a_thumbnail_and_shows_it_once_made() {
+        let dir = fixture();
+        std::fs::write(
+            dir.path().join("logo.svg"),
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="red"/></svg>"#,
+        )
+        .unwrap();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot();
+        app.set_icon_view(true);
+        let index = app
+            .rows
+            .iter()
+            .position(|row| row.name == "logo.svg")
+            .unwrap();
+        let (path, modified) = (app.rows[index].path.clone(), app.rows[index].modified_at);
+        let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(1).unwrap()).unwrap();
+        // Painting asks for the missing thumbnail; decoding happens off the UI thread.
+        app.paint(&surface);
+        assert!(
+            app.thumb_inflight.contains_key(&path),
+            "a thumbnail was requested"
+        );
+        let started = std::time::Instant::now();
+        while !matches!(app.thumbs.lookup(&path, modified), Lookup::Image(_)) {
+            app.poll_workers();
+            assert!(
+                started.elapsed() < Duration::from_secs(10),
+                "no thumbnail arrived"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        app.paint(&surface);
+        assert!(app.thumb_inflight.is_empty(), "nothing is requested twice");
     }
 
     #[test]
