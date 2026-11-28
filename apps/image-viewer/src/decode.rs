@@ -336,7 +336,11 @@ pub fn siblings(path: &Path) -> (Listing, usize) {
         return (only_this(), 0);
     };
     let listing = images_in(dir);
-    match listing.images.iter().position(|candidate| candidate == path) {
+    match listing
+        .images
+        .iter()
+        .position(|candidate| candidate == path)
+    {
         Some(index) => (listing, index),
         None => (
             Listing {

@@ -1064,7 +1064,10 @@ mod tests {
             );
         }
         let canvas = app.canvas();
-        assert_eq!(device_pixel(&surface, canvas.x + 1, canvas.y + 1), argb(CANVAS));
+        assert_eq!(
+            device_pixel(&surface, canvas.x + 1, canvas.y + 1),
+            argb(CANVAS)
+        );
     }
 
     #[test]
@@ -1076,10 +1079,16 @@ mod tests {
         let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(2).unwrap()).unwrap();
         app.paint(&surface);
         // Inside the picture's top-left corner, in device pixels.
-        assert_ne!(device_pixel(&surface, bounds.x * 2 + 1, bounds.y * 2 + 1), argb(CANVAS));
+        assert_ne!(
+            device_pixel(&surface, bounds.x * 2 + 1, bounds.y * 2 + 1),
+            argb(CANVAS)
+        );
         // Just past its right edge in device pixels, the canvas shows.
         let right = (bounds.x + bounds.width as i32) * 2 + 1;
-        assert_eq!(device_pixel(&surface, right, bounds.y * 2 + 1), argb(CANVAS));
+        assert_eq!(
+            device_pixel(&surface, right, bounds.y * 2 + 1),
+            argb(CANVAS)
+        );
     }
 
     #[test]
@@ -1101,7 +1110,10 @@ mod tests {
             canvas.x + canvas.width as i32 - 1,
             canvas.y + canvas.height as i32 - 1,
         );
-        assert_ne!(device_pixel(&surface, far_corner.0, far_corner.1), argb(CANVAS));
+        assert_ne!(
+            device_pixel(&surface, far_corner.0, far_corner.1),
+            argb(CANVAS)
+        );
     }
 
     #[test]
@@ -1123,7 +1135,10 @@ mod tests {
         assert_eq!(picture.label(), Some("a.png, 8 by 6 pixels"));
         let bounds = app.viewport.image_bounds().unwrap();
         let rect = picture.bounds().expect("picture has bounds");
-        assert_eq!((rect.x0, rect.y0), (f64::from(bounds.x), f64::from(bounds.y)));
+        assert_eq!(
+            (rect.x0, rect.y0),
+            (f64::from(bounds.x), f64::from(bounds.y))
+        );
         assert_eq!((rect.x1 - rect.x0, rect.y1 - rect.y0), (8.0, 6.0));
         let labels: Vec<&str> = tree.nodes.iter().filter_map(|(_, n)| n.label()).collect();
         let expected_labels = [
@@ -1135,7 +1150,10 @@ mod tests {
             "Zoom to fit",
         ];
         for expected in expected_labels {
-            assert!(labels.contains(&expected), "missing control label {expected}");
+            assert!(
+                labels.contains(&expected),
+                "missing control label {expected}"
+            );
         }
     }
 
