@@ -2240,7 +2240,10 @@ impl ControlPanels {
                             None => format!("{}: off", model::output_label(output)),
                         })
                         .collect(),
-                    _ => vec![match self.screen {
+                    // The provider's reason (denied, missing, loading) is shown;
+                    // the window size is only what is left when it answered.
+                    Err(error) => vec![error.message("the display service")],
+                    Ok(_) => vec![match self.screen {
                         Some((w, h)) => format!("Screen: {w} × {h} pixels"),
                         None => "Screen size: unavailable".into(),
                     }],
@@ -4176,12 +4179,20 @@ mod tests {
         app.apply_update(Update::Network(Ok(connected)));
         app.apply_update(Update::SavedWifi(vec!["Home".into()]));
         app.sync_from_state();
-        assert!(app.disconnect.enabled && app.forget.enabled && !app.join.enabled);
-        // Sidebar, Networking, Wi-Fi, Scan, the list, then Join and Disconnect.
+        // Nothing is selected in the list yet, so no action is offered.
+        assert!(!app.disconnect.enabled && !app.forget.enabled && !app.join.enabled);
+        // Sidebar, Networking, Wi-Fi, Scan, then the list; Down selects Home.
         let mut control = Control::default();
-        for _ in 0..7 {
+        for _ in 0..5 {
             app.event(&key(Key::Tab), &mut control);
         }
+        assert!(app.wifi_list.focused);
+        app.event(&key(Key::Down), &mut control);
+        assert_eq!(app.selected_wifi_name().as_deref(), Some("Home"));
+        assert!(app.disconnect.enabled && app.forget.enabled && !app.join.enabled);
+        // Two Tabs from the list reach Disconnect.
+        app.event(&key(Key::Tab), &mut control);
+        app.event(&key(Key::Tab), &mut control);
         assert!(app.disconnect.focused);
         app.event(&key(Key::Space), &mut control);
         assert_eq!(
