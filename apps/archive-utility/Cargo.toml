@@ -1,0 +1,19 @@
+[package]
+name = "slopos-archive-utility"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS Archive Utility: list and extract zip, tar and compressed tar archives with path-safety checks"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+accesskit = { workspace = true }
+# Pure Rust decoders and readers: MIT or MIT/Apache-2.0, the same set Files uses.
+flate2 = "1"
+tar = { version = "0.4", default-features = false }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+lzma-rs = "0.3"
+ruzstd = "0.7"
+
+[dev-dependencies]
+tempfile = { workspace = true }

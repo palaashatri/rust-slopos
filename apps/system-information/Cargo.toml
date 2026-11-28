@@ -1,0 +1,11 @@
+[package]
+name = "slopos-system-information"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "SLOPOS System Information: version, OS, kernel, CPU, memory, storage and display facts"
+
+[dependencies]
+slopos-ui = { path = "../../crates/slopos-ui" }
+accesskit = { workspace = true }
+libc = { workspace = true }

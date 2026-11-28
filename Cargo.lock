@@ -3474,6 +3474,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
+name = "slopos-archive-utility"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "flate2",
+ "lzma-rs",
+ "ruzstd",
+ "slopos-ui",
+ "tar",
+ "tempfile",
+ "zip",
+]
+
+[[package]]
 name = "slopos-calculator"
 version = "0.1.0"
 dependencies = [
@@ -3697,6 +3711,15 @@ dependencies = [
  "slopos-ui",
  "tempfile",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "slopos-system-information"
+version = "0.1.0"
+dependencies = [
+ "accesskit",
+ "libc",
+ "slopos-ui",
 ]
 
 [[package]]
