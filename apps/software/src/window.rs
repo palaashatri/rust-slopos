@@ -43,7 +43,7 @@ use crate::packages;
 use crate::run::{self, Cancel};
 use crate::sources::{self, Availability, Environment, Source, Tab};
 use crate::store::{self, Action, CatalogueState, Row, Sources};
-use crate::trust::CatalogueEntry;
+use crate::trust::{CatalogueEntry, TrustStore};
 use slopos_core::software_config::SoftwareConfig;
 
 pub const WIDTH: u32 = 760;
@@ -145,9 +145,16 @@ pub struct Commands {
     pub install: PackageRunner,
 }
 
-pub fn network_installer() -> Installer {
-    Arc::new(|entry, layout, progress| {
-        install::install(entry, layout, progress)
+/// The installer for catalogue apps. Without a trust store that loaded, every
+/// install is refused: nothing can be verified.
+pub fn network_installer(trust: Option<TrustStore>) -> Installer {
+    Arc::new(move |entry, layout, progress| {
+        let Some(trust) = &trust else {
+            return Err(
+                "no trusted publisher key is configured, so nothing can be verified".into(),
+            );
+        };
+        install::install(entry, trust, layout, progress)
             .map(|_| ())
             .map_err(|error| error.to_string())
     })
@@ -174,6 +181,30 @@ struct SearchJob {
     query: String,
     cancel: Arc<Cancel>,
     done: Receiver<Result<(Vec<Package>, usize), String>>,
+}
+
+/// Said under an installed app. The window keeps no previous version: an
+/// update deletes the old one once the new one is in place.
+const ROLLBACK_NOTE: &str = "Rollback is not available for this app. An update replaces the \
+installed version and the old one is deleted when the update succeeds. If an update fails, \
+the installed version is kept.";
+
+/// The text under an app's title: its description (or summary), its licence
+/// and, for an installed app, what an update can and cannot undo.
+fn app_details(row: &Row) -> String {
+    let mut text = if row.description.is_empty() {
+        row.summary.clone()
+    } else {
+        row.description.clone()
+    };
+    if !row.license.is_empty() {
+        text.push_str(&format!("\n\nLicense: {}", row.license));
+    }
+    if row.entry.is_some() && row.is_installed() {
+        text.push_str("\n\n");
+        text.push_str(ROLLBACK_NOTE);
+    }
+    text
 }
 
 /// A row for a package a search-only tab lists.
@@ -518,6 +549,19 @@ impl SoftwareApp {
                 (format!("{total} matches for {query} in {label}."), false)
             }
             Listing::Failed(error) => (format!("{label} search failed: {error}"), true),
+        }
+    }
+
+    /// What the empty SLOPOS catalogue list says. With no signed catalogue
+    /// this build offers nothing, and the text says so rather than implying
+    /// the list is just empty.
+    fn catalogue_empty_message(&self) -> &'static str {
+        match self.state {
+            CatalogueState::Verified { .. } => "No apps are offered for this computer.",
+            CatalogueState::Missing | CatalogueState::NoPublisherKey => {
+                "No trusted catalogue is shipped with this build. No apps can be installed from here."
+            }
+            CatalogueState::Rejected(_) => "The catalogue was rejected, so no apps are offered.",
         }
     }
 
@@ -1137,6 +1181,14 @@ impl SoftwareApp {
             } else {
                 format!("{name} is installed. Find it with Search or in the Applications menu.")
             }),
+            // A cancelled transaction stops before its rename, so the
+            // installed version (if any) is still there.
+            Finished::Installed {
+                name,
+                result: Err(error),
+            } if error == install::CANCELLED => {
+                self.notice(format!("{verb} {name} was cancelled. Nothing was changed."))
+            }
             Finished::Installed {
                 name,
                 result: Err(error),
@@ -1562,16 +1614,11 @@ impl SoftwareApp {
                 self.cancel.paint(surface, &font)?;
                 y += 10;
             }
-            let mut text = if self.shows_output(&row) {
+            let text = if self.shows_output(&row) {
                 self.output.join("\n")
-            } else if row.description.is_empty() {
-                row.summary.clone()
             } else {
-                row.description.clone()
+                app_details(&row)
             };
-            if !row.license.is_empty() {
-                text.push_str(&format!("\n\nLicense: {}", row.license));
-            }
             for paragraph in text.split('\n') {
                 for wrapped in wrap(paragraph, &font, d.width.saturating_sub(60)) {
                     if y + line > d.y + d.height as i32 {
@@ -1586,12 +1633,7 @@ impl SoftwareApp {
             let message = if self.active.is_backend() {
                 self.empty_message()
             } else {
-                match self.state {
-                    CatalogueState::Verified { .. } => {
-                        "No apps are offered for this computer.".to_owned()
-                    }
-                    _ => "No apps to show.".to_owned(),
-                }
+                self.catalogue_empty_message().to_owned()
             };
             surface.draw_text(&message, d.x, d.y + 4, &font, colors.ink_secondary)?;
         }
@@ -1847,7 +1889,7 @@ mod tests {
             sources,
             Layout::for_home(&dir.join("home")),
             "x86_64",
-            network_installer(),
+            network_installer(None),
             Arc::new(Mutex::new(None)),
             environment,
             commands,
@@ -1946,6 +1988,7 @@ mod tests {
         assert!(app.status.starts_with("Alpha is installed"));
         assert!(layout.is_installed("example"));
         assert!(app.remove.enabled && app.open.enabled && !app.primary.enabled);
+        assert!(app_details(app.selected().unwrap()).contains("Rollback is not available"));
 
         // A newer catalogue version turns the button into Update.
         catalogue.entries[0].version = "1.1".into();
@@ -2002,11 +2045,100 @@ mod tests {
         );
         wait_for(&mut bad, &mut control);
         assert!(bad.status_error && bad.status.starts_with("Alpha was not installed"));
+        // The status line gives the reason, not just the fact of failure.
+        assert!(
+            bad.status.contains("signed size is 50000"),
+            "{}",
+            bad.status
+        );
         assert!(!layout.is_installed("example"));
 
         let tree = app.accessibility().unwrap();
         assert!(tree.nodes.iter().any(|(_, n)| n.label() == Some("Install")));
         paint_everything(&mut app);
+    }
+
+    #[test]
+    fn cancelling_an_app_install_changes_nothing_and_says_so() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::for_home(&dir.path().join("home"));
+        let mut payload = b"\x7fELF".to_vec();
+        payload.resize(50_000, 9);
+        let (mut catalogue, trust) = signed(5);
+        for entry in &mut catalogue.entries {
+            entry.sha256 = hex::encode(Sha256::digest(&payload));
+            entry.size = payload.len() as u64;
+        }
+        sign_catalogue(&mut catalogue, &key(5));
+        let sources = write_sources(dir.path(), &catalogue, &trust);
+        let (environment, commands) = catalogue_only(dir.path());
+        // The download waits for Cancel, then stops the way a cancelled
+        // download does: the flag is checked before the first chunk.
+        let waiting = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = waiting.clone();
+        let installer: Installer = Arc::new(move |entry, layout, progress| {
+            flag.store(true, std::sync::atomic::Ordering::SeqCst);
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while !progress.is_cancelled() && Instant::now() < deadline {
+                thread::sleep(Duration::from_millis(1));
+            }
+            install::install_from(entry, &mut Cursor::new(payload.clone()), layout, progress)
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        });
+        let mut app = SoftwareApp::new(
+            sources,
+            layout.clone(),
+            "x86_64",
+            installer,
+            Arc::new(Mutex::new(None)),
+            environment,
+            commands,
+        );
+        let mut control = Control::default();
+        app.event(&key_event(Key::Enter), &mut control);
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !waiting.load(std::sync::atomic::Ordering::SeqCst) {
+            assert!(Instant::now() < deadline, "the install never started");
+            thread::sleep(Duration::from_millis(1));
+        }
+        // While it runs: progress is shown, Cancel is live, Install is not.
+        assert!(app.running.is_some() && app.cancel.enabled && !app.primary.enabled);
+        app.event(&key_event(Key::Escape), &mut control);
+        wait_for(&mut app, &mut control);
+        assert!(!app.status_error, "{}", app.status);
+        assert_eq!(
+            app.status,
+            "Installing Example was cancelled. Nothing was changed."
+        );
+        assert!(!layout.is_installed("example"));
+        let leftovers: Vec<_> = std::fs::read_dir(&layout.apps)
+            .map(|dir| dir.filter_map(Result::ok).collect())
+            .unwrap_or_default();
+        assert!(leftovers.is_empty(), "{leftovers:?}");
+    }
+
+    #[test]
+    fn an_installed_app_says_that_rollback_is_not_available() {
+        let mut row = Row {
+            id: "example".into(),
+            name: "Example".into(),
+            summary: "An example app".into(),
+            description: String::new(),
+            category: String::new(),
+            icon: String::new(),
+            publisher: "SLOPOS".into(),
+            license: "MIT".into(),
+            entry: Some(crate::trust::tests::entry("example")),
+            installed_version: Some("1.0".into()),
+            version: "1.0".into(),
+        };
+        let details = app_details(&row);
+        assert!(details.contains("Rollback is not available"), "{details}");
+        assert!(details.contains("License: MIT"), "{details}");
+        // Not installed: there is nothing to roll back, so nothing is said.
+        row.installed_version = None;
+        assert!(!app_details(&row).contains("Rollback"));
     }
 
     #[test]
@@ -2237,7 +2369,7 @@ mod tests {
             sources,
             Layout::for_home(&dir.path().join("home")),
             "x86_64",
-            network_installer(),
+            network_installer(None),
             Arc::new(Mutex::new(None)),
             environment,
             commands,
@@ -2245,10 +2377,16 @@ mod tests {
         assert_eq!(app.active, Source::Slopos);
         let (standing, _) = app.standing();
         assert!(
-            standing.starts_with("unavailable: no publisher key configured"),
+            standing.starts_with("No trusted catalogue is shipped: no publisher key"),
             "{standing}"
         );
         assert!(!app.primary.enabled);
+        // The empty list says the same thing, and offers no app.
+        assert!(app.rows.is_empty());
+        assert_eq!(
+            app.catalogue_empty_message(),
+            "No trusted catalogue is shipped with this build. No apps can be installed from here."
+        );
 
         // With a trust store but no catalogue, the narrower state is shown.
         let (catalogue, trust) = signed(9);
@@ -2262,14 +2400,14 @@ mod tests {
             sources,
             Layout::for_home(&dir.path().join("home")),
             "x86_64",
-            network_installer(),
+            network_installer(None),
             Arc::new(Mutex::new(None)),
             environment,
             commands,
         );
         let (standing, _) = app.standing();
         assert!(
-            standing.starts_with("unavailable: no signed catalogue"),
+            standing.starts_with("No trusted catalogue is shipped with this build"),
             "{standing}"
         );
     }
@@ -2286,7 +2424,7 @@ mod tests {
             sources,
             layout,
             "x86_64",
-            network_installer(),
+            network_installer(None),
             Arc::new(Mutex::new(None)),
             environment,
             commands,

@@ -59,12 +59,8 @@ impl CatalogueState {
         match self {
             // Nothing is offered until the owner's publisher key signs a
             // catalogue; say so rather than invent one.
-            Self::NoPublisherKey => {
-                "unavailable: no publisher key configured. Installed apps are listed below.".into()
-            }
-            Self::Missing => {
-                "unavailable: no signed catalogue. Installed apps are listed below.".into()
-            }
+            Self::NoPublisherKey => "No trusted catalogue is shipped: no publisher key is configured, so nothing can be verified. Installed apps are listed below.".into(),
+            Self::Missing => "No trusted catalogue is shipped with this build, so no apps are offered. Installed apps are listed below.".into(),
             Self::Rejected(why) => format!("The software catalogue was rejected: {why}"),
             Self::Verified { publisher, key_id } => {
                 format!("Catalogue from {publisher}, signature verified (key {key_id}).")
@@ -430,14 +426,16 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_missing_catalogue_says_it_is_unavailable() {
+    fn a_missing_catalogue_says_no_trusted_catalogue_is_shipped() {
+        // SOFTWARE-SHIPPED-CATALOGUE is MISSING: no publisher key exists yet,
+        // so this build ships no catalogue, and the UI must say so.
         assert_eq!(
             CatalogueState::Missing.describe(),
-            "unavailable: no signed catalogue. Installed apps are listed below."
+            "No trusted catalogue is shipped with this build, so no apps are offered. Installed apps are listed below."
         );
         assert_eq!(
             CatalogueState::NoPublisherKey.describe(),
-            "unavailable: no publisher key configured. Installed apps are listed below."
+            "No trusted catalogue is shipped: no publisher key is configured, so nothing can be verified. Installed apps are listed below."
         );
     }
 }

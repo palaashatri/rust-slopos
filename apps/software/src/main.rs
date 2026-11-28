@@ -85,11 +85,14 @@ fn run_window() -> Result<(), String> {
     use slopos_ui::platform::{self, WindowOptions};
     use std::sync::{Arc, Mutex};
     let slot: window::WakeSlot = Arc::new(Mutex::new(None));
+    let sources = store::Sources::from_environment();
+    // A missing or unreadable trust store leaves the installer refusing every app.
+    let trust = TrustStore::load(&sources.trust).ok();
     let app = window::SoftwareApp::new(
-        store::Sources::from_environment(),
+        sources,
         install::Layout::from_environment(),
         store::machine_architecture(),
-        window::network_installer(),
+        window::network_installer(trust),
         slot.clone(),
         sources::Environment::from_system(),
         window::Commands {
