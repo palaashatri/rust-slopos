@@ -6,6 +6,7 @@ use std::{
     time::Duration,
 };
 
+use futures::StreamExt;
 use slopos_core::capability::Availability;
 use thiserror::Error;
 use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
