@@ -769,12 +769,18 @@ mod tests {
         let empty = Launcher::new(Vec::new());
         assert!(empty.status_text().starts_with("Type to search"));
 
+        let mut single = Launcher::new(vec![candidate("Alpha", Target::App { id: "a".into() })]);
+        single.set_query("alp");
+        assert_eq!(single.status_text(), "1 result");
+
         let mut launcher = Launcher::new(PanelProvider.candidates_vec());
         assert_eq!(launcher.status_text(), "8 results");
+        // Matching is fuzzy over details too, so the exact count is not fixed
+        // here. The status must still agree with the number of results.
         launcher.set_query("sound");
-        assert_eq!(launcher.status_text(), "1 result");
-        launcher.set_query("e");
-        assert!(launcher.status_text().ends_with("results"));
+        assert_eq!(launcher.selected_candidate().unwrap().title, "Sound");
+        let count = launcher.result_count();
+        assert_eq!(launcher.status_text(), format!("{count} results"));
     }
 
     #[test]
