@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=System Information
+Comment=Show the SLOPOS version, operating system, kernel, CPU, memory, storage and display
+Exec=slopos-system-information
+TryExec=slopos-system-information
+Icon=dialog-information
+Terminal=false
+StartupNotify=true
+Categories=System;Utility;

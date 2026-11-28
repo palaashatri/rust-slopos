@@ -13,7 +13,7 @@ override_dh_auto_test:
 	cargo test --workspace --locked
 
 override_dh_auto_install:
-	for binary in slopos-session slopos-shell slopos-dock slopos-catalogue slopos-settings slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-volume-mixer slopos-software; do \
+	for binary in slopos-session slopos-shell slopos-dock slopos-catalogue slopos-settings slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-volume-mixer slopos-software slopos-system-monitor slopos-system-information slopos-archive-utility; do \
 		install -Dm755 $(CARGO_TARGET_DIR)/release/$$binary debian/slopos-i/usr/bin/$$binary; \
 	done
 	install -Dm755 scripts/start-slopos-i debian/slopos-i/usr/bin/start-slopos-i
@@ -31,6 +31,9 @@ override_dh_auto_install:
 	install -Dm644 packaging/slopos-control-panels.desktop debian/slopos-i/usr/share/applications/slopos-control-panels.desktop
 	install -Dm644 packaging/slopos-settings.desktop debian/slopos-i/usr/share/applications/slopos-settings.desktop
 	install -Dm644 packaging/slopos-software.desktop debian/slopos-i/usr/share/applications/slopos-software.desktop
+	install -Dm644 packaging/slopos-system-monitor.desktop debian/slopos-i/usr/share/applications/slopos-system-monitor.desktop
+	install -Dm644 packaging/slopos-system-information.desktop debian/slopos-i/usr/share/applications/slopos-system-information.desktop
+	install -Dm644 packaging/slopos-archive-utility.desktop debian/slopos-i/usr/share/applications/slopos-archive-utility.desktop
 	install -Dm644 packaging/slopos-i.desktop debian/slopos-i/usr/share/xsessions/slopos-i.desktop
 	install -Dm644 assets/config/openbox/rc.xml debian/slopos-i/usr/share/slopos-i/openbox/rc.xml
 	install -Dm644 assets/config/openbox/rc-classic.xml debian/slopos-i/usr/share/slopos-i/openbox/rc-classic.xml

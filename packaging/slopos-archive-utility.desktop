@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Archive Utility
+Comment=Open, list and extract zip, tar and compressed tar archives
+Exec=slopos-archive-utility %f
+TryExec=slopos-archive-utility
+Icon=package-x-generic
+Terminal=false
+StartupNotify=true
+Categories=Utility;Archiving;
+MimeType=application/zip;application/x-tar;application/x-compressed-tar;application/x-xz-compressed-tar;application/zstd;
