@@ -542,7 +542,8 @@ mod tests {
                 .find(|(node_id, _)| *node_id == id)
                 .map(|(_, node)| node)
         };
-        let root = by_id(4 << 32).expect("the table node");
+        // The table node uses the bare control id, as ListView's node does.
+        let root = by_id(4).expect("the table node");
         assert_eq!(root.role(), accesskit::Role::Table);
         assert_eq!(root.row_count(), Some(6));
         assert_eq!(root.column_count(), Some(2));

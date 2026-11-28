@@ -577,11 +577,12 @@ mod tests {
         );
         tree.set_focused(false);
         tree.select_key(1);
+        // Without focus, Left must not collapse the still-expanded row 1.
         assert_eq!(
-            tree.handle(&key(Key::Right), Modifiers::default()),
+            tree.handle(&key(Key::Left), Modifiers::default()),
             TreeOutcome::Ignored
         );
-        assert!(!tree.is_expanded(1));
+        assert!(tree.is_expanded(1));
     }
 
     #[test]
