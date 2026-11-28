@@ -123,6 +123,7 @@ pub struct Control {
     pub(crate) strut: Option<u32>,
     pub(crate) text_input: Option<bool>,
     pub(crate) input_cursor: Option<Rect>,
+    pub(crate) input_reset: bool,
 }
 
 /// A popup change asked for during one event, applied by the host in order.
@@ -164,6 +165,28 @@ impl Control {
     /// input method can place its candidate window next to it.
     pub fn set_input_cursor(&mut self, rect: Rect) {
         self.input_cursor = Some(rect);
+    }
+
+    /// End the input method's composition (IBus `Reset`): the text field
+    /// dropped its preedit locally, so the daemon must not keep one.
+    pub fn reset_input_method(&mut self) {
+        self.input_reset = true;
+    }
+
+    /// The text-input request made during this event, if any (for tests).
+    pub fn text_input_request(&self) -> Option<bool> {
+        self.text_input
+    }
+
+    /// The caret location requested during this event, if any (for tests).
+    pub fn input_cursor_request(&self) -> Option<Rect> {
+        self.input_cursor
+    }
+
+    /// Whether [`Self::reset_input_method`] was called during this event
+    /// (for tests).
+    pub fn input_reset_requested(&self) -> bool {
+        self.input_reset
     }
 
     /// Fire [`Event::Timer`]`(id)` once after `delay`.

@@ -359,6 +359,11 @@ pub fn run<A: App>(
         if control.quit {
             break;
         }
+        // A dropped composition is ended before focus changes, so the daemon
+        // does not keep a preedit for a field that no longer has it.
+        if std::mem::take(&mut control.input_reset) {
+            ime.reset();
+        }
         if let Some(wanted) = control.text_input.take() {
             ime.set_text_input(wanted);
         }

@@ -168,6 +168,11 @@ impl IbusClient {
         self.context_call("FocusOut", ()).map(|_| ())
     }
 
+    /// End any composition the daemon holds for this context (IBus `Reset`).
+    pub fn reset(&self) -> Result<(), String> {
+        self.context_call("Reset", ()).map(|_| ())
+    }
+
     /// Where the caret is, in root-window device pixels. Candidate windows
     /// are placed next to it.
     pub fn set_cursor_location(
@@ -388,6 +393,18 @@ impl InputMethod {
     pub fn set_text_input(&mut self, wanted: bool) {
         self.text_input = wanted;
         self.sync_focus();
+    }
+
+    /// End the composition the daemon holds, because the text field dropped
+    /// its own preedit (a click, focus loss, or a cancel). A failure ends the
+    /// input method like any other failed call.
+    pub fn reset(&mut self) {
+        let Some(client) = &self.client else {
+            return;
+        };
+        if let Err(reason) = client.reset() {
+            self.fail(reason);
+        }
     }
 
     /// Tell the input method where the caret is, in root-window device
