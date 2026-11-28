@@ -152,7 +152,7 @@ It owns:
 - monitor/RandR model;
 - work area;
 - placement;
-- input integration where appropriate;
+- keyboard and pointer settings through the `slopos-services` input provider (XKB layout and repeat, XInput 2 libinput pointer properties), reporting "unavailable" for any property the X server does not expose;
 - clipboard/selection integration where appropriate.
 
 Do not use `xdotool`, `xprop`, `wmctrl` or `xrandr` as high-frequency polling infrastructure.

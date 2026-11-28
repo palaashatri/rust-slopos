@@ -470,7 +470,7 @@ all pass.
 - Power;
 - Date/Time;
 - Input;
-- Printers where shipped;
+- Printers (§22.9): the CUPS/IPP provider passes its discovery, queue-status, default-printer and job tests against real or fixture CUPS, required in every release whose Control Panels include a Printers page;
 - Removable Media
 
 all report real state and pass real/fixture actions.
