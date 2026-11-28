@@ -28,7 +28,7 @@ use slopos_ui::controls::list::{ListOutcome, ListView};
 use slopos_ui::controls::menu::{Menu, MenuBar, MenuBarOutcome, MenuItem, MenuOutcome};
 use slopos_ui::controls::range::ProgressBar;
 use slopos_ui::controls::text_field::{TextField, TextFieldOutcome};
-use slopos_ui::event::{AccessibilityRequest, Event, Key, Modifiers};
+use slopos_ui::event::{AccessibilityRequest, Event, Key, Modifiers, PointerButton};
 use slopos_ui::foundation::geometry::Rect;
 use slopos_ui::icons::IconLookup;
 use slopos_ui::image::Image;
@@ -177,11 +177,13 @@ struct Place {
 /// Home, the standard folders that exist, the whole computer and the Trash.
 fn places(home: Option<&Path>) -> Vec<Place> {
     let mut places = Vec::new();
-    if let Some(home) = home {
+    // Places are compared with the (normalized) current folder, so the home
+    // place must be normalized the same way.
+    if let Some(home) = home.map(|path| model::normalize_startup(path.to_path_buf())) {
         places.push(Place {
             name: "Home".into(),
             icon: "user-home",
-            path: Some(home.to_path_buf()),
+            path: Some(home.clone()),
         });
         for (folder, icon) in [
             ("Desktop", "user-desktop"),
@@ -368,6 +370,7 @@ fn row_for(entry: &Entry) -> Row {
 
 impl FilesApp {
     fn new(path: PathBuf) -> std::io::Result<Self> {
+        let path = model::normalize_startup(path);
         let slot: WakeSlot = Arc::new(Mutex::new(None));
         let scanner = Scanner::new(slot.clone())?;
         let watcher = Watcher::new(slot.clone()).ok();
@@ -538,6 +541,15 @@ impl FilesApp {
         }
     }
 
+    fn toolbar_button(&self, id: u64) -> &Button {
+        match id {
+            BACK_ID => &self.back,
+            FORWARD_ID => &self.forward,
+            UP_ID => &self.up,
+            _ => &self.home,
+        }
+    }
+
     fn selected_rows(&self) -> Vec<&Row> {
         self.list
             .selection()
@@ -675,6 +687,9 @@ impl FilesApp {
                 .map(row_for)
                 .collect()
         };
+        // The rows may now be different items; ids handed out before this
+        // point must not select rows of the new listing.
+        self.list.invalidate_rows();
         self.list.set_len(self.rows.len());
         let indices: Vec<usize> = self
             .rows
@@ -788,13 +803,39 @@ impl FilesApp {
             return;
         }
         // One folder navigates; files open in their applications.
+        // Check the listed identity before navigating too: a folder replaced
+        // since it was read must not be entered.
         if let Some(folder) = rows.iter().find(|row| row.kind == Kind::Directory) {
+            if !self.listed_unchanged(&folder.path) {
+                self.set_status(
+                    "This item changed since the folder was read. Refresh and try again.",
+                );
+                return;
+            }
             self.request(folder.path.clone(), Navigation::New);
             return;
         }
         for row in rows.iter().take(16) {
+            // Only open the item that was listed: the name may since have been
+            // replaced by another item (new device and inode).
+            if !self.listed_unchanged(&row.path) {
+                self.set_status(
+                    "This item changed since the folder was read. Refresh and try again.",
+                );
+                return;
+            }
             self.open_path(&row.path, row.kind);
         }
+    }
+
+    /// Whether the item at `path` still has the device and inode it had when
+    /// its folder was read.
+    fn listed_unchanged(&self, path: &Path) -> bool {
+        self.state
+            .entries
+            .iter()
+            .find(|entry| entry.path == path)
+            .is_some_and(|entry| model::identity_of(path).ok() == Some(entry.identity))
     }
 
     fn open_path(&mut self, path: &Path, kind: Kind) {
@@ -1033,7 +1074,10 @@ impl FilesApp {
                 }
             }
             Command::Home => match std::env::var_os("HOME") {
-                Some(home) => self.request(PathBuf::from(home), Navigation::New),
+                Some(home) => {
+                    let home = model::normalize_startup(PathBuf::from(home));
+                    self.request(home, Navigation::New)
+                }
                 None => self.set_status("HOME is not set."),
             },
             Command::GoTrash => self.go_trash(),
@@ -1225,11 +1269,24 @@ impl FilesApp {
         changed
     }
 
-    /// Wait for the first folder read (snapshot mode and tests).
-    fn initial_snapshot(&mut self) {
-        if let Ok(result) = self.scanner.results.recv_timeout(Duration::from_secs(3)) {
-            self.apply_scan(result);
+    /// Wait for the first folder read (snapshot mode and tests). Fails when the
+    /// read does not arrive in time or the folder cannot be read.
+    fn initial_snapshot(&mut self) -> Result<(), String> {
+        let result = self
+            .scanner
+            .results
+            .recv_timeout(Duration::from_secs(3))
+            .map_err(|error| format!("the folder was not read: {error}"))?;
+        let failure = result.2.as_ref().err().map(|error| error.to_string());
+        // Applying the result also shows a read error in the window.
+        self.apply_scan(result);
+        if let Some(error) = failure {
+            return Err(format!("cannot read folder: {error}"));
         }
+        if self.pending_scan.is_some() {
+            return Err("the folder read did not complete".into());
+        }
+        Ok(())
     }
 
     fn handle(&mut self, event: &Event, control: &mut Control) {
@@ -1322,6 +1379,24 @@ impl FilesApp {
             }
             if let Some(command) = self.shortcut(key, *modifiers) {
                 return self.run(command, control);
+            }
+        }
+        // A primary press on an enabled toolbar button moves keyboard focus to it.
+        if let Event::PointerPressed {
+            x,
+            y,
+            button: PointerButton::Primary,
+        } = event
+        {
+            let pressed = [BACK_ID, FORWARD_ID, UP_ID, HOME_ID]
+                .into_iter()
+                .find(|&id| {
+                    let button = self.toolbar_button(id);
+                    button.enabled && button.bounds.contains(*x, *y)
+                });
+            if let Some(id) = pressed {
+                self.focus.focus(id);
+                self.sync_focus();
             }
         }
         for (id, command) in [
@@ -1795,7 +1870,10 @@ fn main() {
         app.go_trash();
     }
     if let Some(output) = snapshot {
-        app.initial_snapshot();
+        if let Err(error) = app.initial_snapshot() {
+            eprintln!("slopos-files: {error}");
+            std::process::exit(1);
+        }
         let scale = platform::scale_from_environment();
         let surface = RasterSurface::new(WIDTH, HEIGHT, scale).expect("surface");
         app.paint(&surface);
@@ -1871,7 +1949,7 @@ mod tests {
     fn listing_hides_dotfiles_until_toggled_and_snapshot_paints() {
         let dir = fixture();
         let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
-        app.initial_snapshot();
+        app.initial_snapshot().unwrap();
         let names: Vec<&str> = app.rows.iter().map(|row| row.name.as_str()).collect();
         assert_eq!(names, ["Folder", "a.txt", "b.png"]);
         assert_eq!(app.rows[2].kind_text, "PNG image");
@@ -1888,7 +1966,7 @@ mod tests {
     #[test]
     fn missing_folder_reports_an_error_and_tab_moves_focus() {
         let mut app = FilesApp::new(PathBuf::from("/this/does/not/exist/slopos-files")).unwrap();
-        app.initial_snapshot();
+        assert!(app.initial_snapshot().is_err());
         assert!(app.status.contains("Cannot read folder"));
         let mut control = Control::default();
         // From the file list, Tab reaches the Places sidebar, then the toolbar.
@@ -1897,6 +1975,58 @@ mod tests {
         assert!(app.sidebar.focused && !app.list.focused);
         app.event(&key(Key::Tab), &mut control);
         assert_eq!(app.focus.focused(), Some(BACK_ID));
+    }
+
+    #[test]
+    fn pressing_a_toolbar_button_moves_focus_to_it() {
+        let dir = fixture();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot().unwrap();
+        let bounds = app.home.bounds;
+        let mut control = Control::default();
+        app.event(
+            &Event::PointerPressed {
+                x: bounds.x + bounds.width as i32 / 2,
+                y: bounds.y + bounds.height as i32 / 2,
+                button: PointerButton::Primary,
+            },
+            &mut control,
+        );
+        assert_eq!(app.focus.focused(), Some(HOME_ID));
+        assert!(app.home.focused && !app.list.focused);
+    }
+
+    #[test]
+    fn accessibility_actions_from_a_replaced_listing_are_ignored() {
+        let dir = fixture();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot().unwrap();
+        let mut control = Control::default();
+        // Row 1 is "a.txt" now; showing dotfiles puts ".hidden" in that row.
+        let stale = app.list.row_node_id(1);
+        app.event(&ctrl('h'), &mut control);
+        assert_eq!(app.rows[1].name, ".hidden");
+        let selected = app.list.selection();
+        app.accessibility_request(&AccessibilityRequest::Click(stale), &mut control);
+        assert_eq!(app.list.selection(), selected);
+        // An id from the current listing still reaches its row.
+        let current = app.list.row_node_id(2);
+        app.accessibility_request(&AccessibilityRequest::Focus(current), &mut control);
+        assert_eq!(app.list.selection(), vec![2]);
+    }
+
+    #[test]
+    fn open_refuses_an_item_replaced_since_the_folder_was_read() {
+        let dir = fixture();
+        let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
+        app.initial_snapshot().unwrap();
+        // Replace a.txt with another file under the same name.
+        std::fs::write(dir.path().join("c.txt"), b"new").unwrap();
+        std::fs::rename(dir.path().join("c.txt"), dir.path().join("a.txt")).unwrap();
+        select(&mut app, "a.txt");
+        let mut control = Control::default();
+        app.run(Command::Open, &mut control);
+        assert!(app.status.contains("changed since the folder was read"));
     }
 
     #[test]
@@ -1933,7 +2063,7 @@ mod tests {
         // Choosing a place goes there, and the sidebar follows navigation.
         let dir = fixture();
         let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
-        app.initial_snapshot();
+        app.initial_snapshot().unwrap();
         assert_eq!(app.sidebar.selection(), Vec::<usize>::new());
         let computer = app
             .places
@@ -1956,7 +2086,7 @@ mod tests {
     fn navigation_open_up_back_forward() {
         let dir = fixture();
         let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
-        app.initial_snapshot();
+        app.initial_snapshot().unwrap();
         assert!(!app.back.enabled);
         select(&mut app, "Folder");
         let mut control = Control::default();
@@ -1978,7 +2108,7 @@ mod tests {
         let data = tempfile::tempdir().unwrap();
         std::env::set_var("XDG_DATA_HOME", data.path());
         let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
-        app.initial_snapshot();
+        app.initial_snapshot().unwrap();
         let mut control = Control::default();
         select(&mut app, "a.txt");
         app.event(&ctrl('c'), &mut control);
@@ -2032,7 +2162,7 @@ mod tests {
         let dir = fixture();
         std::fs::write(dir.path().join("Folder/inside.txt"), b"inside").unwrap();
         let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
-        app.initial_snapshot();
+        app.initial_snapshot().unwrap();
         let mut control = Control::default();
         // Nothing to extract in a text file.
         select(&mut app, "a.txt");
@@ -2089,7 +2219,7 @@ mod tests {
     fn permanent_delete_needs_confirmation_and_escape_cancels() {
         let dir = fixture();
         let mut app = FilesApp::new(dir.path().to_path_buf()).unwrap();
-        app.initial_snapshot();
+        app.initial_snapshot().unwrap();
         let mut control = Control::default();
         select(&mut app, "a.txt");
         app.event(

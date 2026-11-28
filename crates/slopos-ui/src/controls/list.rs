@@ -21,6 +21,14 @@ use crate::theme::palette;
 /// (the visible rows, capped), keeping tree updates bounded.
 const MAX_ACCESSIBLE_ROWS: usize = 256;
 
+/// Row node ids are `(list id << 32) | (generation << 16) | (index + 1)`, so
+/// the 16-bit index field limits which rows have a node.
+const ROW_ID_LIMIT: usize = 0xffff;
+
+fn has_row_node(index: usize) -> bool {
+    index < ROW_ID_LIMIT
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ListOutcome {
     Ignored,
@@ -55,6 +63,7 @@ pub struct ListView {
     selected: BTreeSet<usize>,
     cursor: Option<usize>,
     anchor: Option<usize>,
+    generation: u16,
 }
 
 impl ListView {
@@ -71,7 +80,15 @@ impl ListView {
             selected: BTreeSet::new(),
             cursor: None,
             anchor: None,
+            generation: 0,
         }
+    }
+
+    /// Call when the rows are replaced with different content. Row ids handed
+    /// out before this call no longer map to a row, so a stale assistive
+    /// technology action cannot select a row of the new listing.
+    pub fn invalidate_rows(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
     }
 
     pub fn bounds(&self) -> Rect {
@@ -391,15 +408,19 @@ impl ListView {
         )
     }
 
-    /// The accessibility id of row `index`'s node.
+    /// The accessibility id of row `index`'s node. Rows beyond the 16-bit id
+    /// space have no node; for them this returns the list's own id.
     pub fn row_node_id(&self, index: usize) -> u64 {
-        (self.id << 32) | (index as u64 + 1)
+        if !has_row_node(index) {
+            return self.id;
+        }
+        (self.id << 32) | (u64::from(self.generation) << 16) | (index as u64 + 1)
     }
 
     /// The node the screen reader should focus while the list has focus.
     pub fn focus_node(&self) -> u64 {
         self.cursor
-            .filter(|index| self.visible_rows().contains(index))
+            .filter(|&index| self.visible_rows().contains(&index) && has_row_node(index))
             .map_or(self.id, |index| self.row_node_id(index))
     }
 
@@ -415,7 +436,11 @@ impl ListView {
             list.set_multiselectable();
         }
         list.add_action(accesskit::Action::Focus);
-        let rows: Vec<usize> = self.visible_rows().take(MAX_ACCESSIBLE_ROWS).collect();
+        let rows: Vec<usize> = self
+            .visible_rows()
+            .take(MAX_ACCESSIBLE_ROWS)
+            .filter(|&index| has_row_node(index))
+            .collect();
         list.set_children(
             rows.iter()
                 .map(|&index| accesskit::NodeId(self.row_node_id(index)))
@@ -436,10 +461,11 @@ impl ListView {
 
     /// Map an accessibility node id back to a row of this list.
     pub fn row_for_node(&self, node: u64) -> Option<usize> {
-        if node >> 32 != self.id || node & 0xffff_ffff == 0 {
+        let generation = (node >> 16) & 0xffff;
+        if node >> 32 != self.id || generation != u64::from(self.generation) || node & 0xffff == 0 {
             return None;
         }
-        let index = (node & 0xffff_ffff) as usize - 1;
+        let index = (node & 0xffff) as usize - 1;
         (index < self.len).then_some(index)
     }
 }
@@ -635,6 +661,25 @@ mod tests {
         assert_eq!(list.row_for_node(list.row_node_id(2)), Some(2));
         assert_eq!(list.row_for_node(list.id), None);
         assert_eq!(list.row_for_node(list.row_node_id(5000)), None);
+    }
+
+    #[test]
+    fn row_ids_from_before_a_replacement_do_not_map_to_rows() {
+        let mut list = list(10);
+        let stale = list.row_node_id(2);
+        assert_eq!(list.row_for_node(stale), Some(2));
+        list.invalidate_rows();
+        assert_eq!(list.row_for_node(stale), None);
+        assert_eq!(list.row_for_node(list.row_node_id(2)), Some(2));
+        assert_ne!(list.row_node_id(2), stale);
+    }
+
+    #[test]
+    fn rows_beyond_the_16_bit_id_space_have_no_node() {
+        let list = list(70_000);
+        assert_eq!(list.row_node_id(70_000 - 1), list.id);
+        assert_eq!(list.row_for_node(list.row_node_id(70_000 - 1)), None);
+        assert_eq!(list.row_for_node(list.row_node_id(0xfffe)), Some(0xfffe));
     }
 
     #[test]
