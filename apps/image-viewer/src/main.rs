@@ -1022,6 +1022,144 @@ mod tests {
         assert_eq!(app.viewport.image_bounds().unwrap(), fitted);
     }
 
+    /// Opaque device pixel as 0xAARRGGBB, the value `RasterSurface::pixel` gives.
+    fn argb(color: Color) -> u32 {
+        0xFF00_0000
+            | (u32::from(color.red) << 16)
+            | (u32::from(color.green) << 8)
+            | u32::from(color.blue)
+    }
+
+    fn device_pixel(surface: &RasterSurface, x: i32, y: i32) -> u32 {
+        surface
+            .pixel(x as u32, y as u32)
+            .expect("the pixel is inside the surface")
+    }
+
+    /// The colour `folder()` gives a.png at (x, y).
+    fn a_png_source(x: u32, y: u32) -> u32 {
+        argb(Color {
+            red: (x * 40) as u8,
+            green: (y * 40) as u8,
+            blue: 200,
+            alpha: 255,
+        })
+    }
+
+    #[test]
+    fn fit_paints_the_picture_pixel_for_pixel_on_the_canvas() {
+        let dir = folder();
+        let mut app = ImageViewerApp::new(Some(&dir.path().join("a.png")));
+        settle(&mut app);
+        let bounds = app.viewport.image_bounds().unwrap();
+        // 8 by 6 is smaller than the canvas, so Fit shows it at 1:1.
+        assert_eq!((bounds.width, bounds.height), (8, 6));
+        let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(1).unwrap()).unwrap();
+        app.paint(&surface);
+        for (x, y) in [(0, 0), (3, 2), (7, 5)] {
+            assert_eq!(
+                device_pixel(&surface, bounds.x + x, bounds.y + y),
+                a_png_source(x as u32, y as u32),
+                "picture pixel ({x}, {y})"
+            );
+        }
+        let canvas = app.canvas();
+        assert_eq!(device_pixel(&surface, canvas.x + 1, canvas.y + 1), argb(CANVAS));
+    }
+
+    #[test]
+    fn a_two_x_surface_draws_the_picture_at_double_size() {
+        let dir = folder();
+        let mut app = ImageViewerApp::new(Some(&dir.path().join("a.png")));
+        settle(&mut app);
+        let bounds = app.viewport.image_bounds().unwrap();
+        let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(2).unwrap()).unwrap();
+        app.paint(&surface);
+        // Inside the picture's top-left corner, in device pixels.
+        assert_ne!(device_pixel(&surface, bounds.x * 2 + 1, bounds.y * 2 + 1), argb(CANVAS));
+        // Just past its right edge in device pixels, the canvas shows.
+        let right = (bounds.x + bounds.width as i32) * 2 + 1;
+        assert_eq!(device_pixel(&surface, right, bounds.y * 2 + 1), argb(CANVAS));
+    }
+
+    #[test]
+    fn a_zoomed_picture_covers_the_canvas_and_is_clipped_to_it() {
+        let dir = folder();
+        let mut app = ImageViewerApp::new(Some(&dir.path().join("b.png")));
+        settle(&mut app);
+        let mut control = Control::default();
+        for _ in 0..8 {
+            app.event(&key(Key::Character('+')), &mut control);
+        }
+        let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(1).unwrap()).unwrap();
+        app.paint(&surface);
+        let canvas = app.canvas();
+        // The picture is far larger than the canvas, so its colour reaches
+        // the canvas corner, and nothing paints outside the canvas.
+        assert_ne!(device_pixel(&surface, canvas.x, canvas.y), argb(CANVAS));
+        let far_corner = (
+            canvas.x + canvas.width as i32 - 1,
+            canvas.y + canvas.height as i32 - 1,
+        );
+        assert_ne!(device_pixel(&surface, far_corner.0, far_corner.1), argb(CANVAS));
+    }
+
+    #[test]
+    fn accessibility_tree_names_the_picture_and_its_bounds() {
+        use accesskit::{NodeId, Role};
+        let dir = folder();
+        let mut app = ImageViewerApp::new(Some(&dir.path().join("a.png")));
+        settle(&mut app);
+        let tree = app.accessibility().unwrap();
+        let node = |id: u64| {
+            tree.nodes
+                .iter()
+                .find(|(node_id, _)| *node_id == NodeId(id))
+                .map(|(_, node)| node)
+                .expect("node present")
+        };
+        let picture = node(IMAGE_ID);
+        assert_eq!(picture.role(), Role::Image);
+        assert_eq!(picture.label(), Some("a.png, 8 by 6 pixels"));
+        let bounds = app.viewport.image_bounds().unwrap();
+        let rect = picture.bounds().expect("picture has bounds");
+        assert_eq!((rect.x0, rect.y0), (f64::from(bounds.x), f64::from(bounds.y)));
+        assert_eq!((rect.x1 - rect.x0, rect.y1 - rect.y0), (8.0, 6.0));
+        let labels: Vec<&str> = tree.nodes.iter().filter_map(|(_, n)| n.label()).collect();
+        let expected_labels = [
+            "Previous image",
+            "Next image",
+            "Zoom in",
+            "Zoom out",
+            "Actual size",
+            "Zoom to fit",
+        ];
+        for expected in expected_labels {
+            assert!(labels.contains(&expected), "missing control label {expected}");
+        }
+    }
+
+    #[test]
+    fn empty_window_says_no_image_and_disables_image_controls() {
+        let app = ImageViewerApp::new(None);
+        let tree = app.accessibility().unwrap();
+        let picture = tree
+            .nodes
+            .iter()
+            .find(|(node_id, _)| *node_id == accesskit::NodeId(IMAGE_ID))
+            .map(|(_, node)| node)
+            .unwrap();
+        assert_eq!(picture.label(), Some("No image"));
+        assert!(picture.bounds().is_none());
+        let zoom_in = tree
+            .nodes
+            .iter()
+            .find(|(_, node)| node.label() == Some("Zoom in"))
+            .map(|(_, node)| node)
+            .unwrap();
+        assert!(zoom_in.is_disabled());
+    }
+
     #[test]
     fn errors_are_reported_and_open_dialog_filters_images() {
         let dir = folder();
