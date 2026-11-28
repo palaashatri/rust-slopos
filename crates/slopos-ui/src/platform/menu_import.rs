@@ -333,10 +333,12 @@ impl Importer {
                 }
             })
             .ok()?;
-        // One watcher for every exporter's Changed signals. The match rules
-        // are added here, before `start` returns: a rule added on the watcher
-        // thread could race a signal sent right after `start`, and the bus
-        // drops a signal that matches no rule.
+        // One watcher for every exporter's Changed signals. The iterator is
+        // created before the match rules are added: an unfiltered receiver
+        // starts inactive, so a signal that arrives before it exists is dropped.
+        // The match rules are added here too, before `start` returns, so a
+        // signal sent right after `start` matches a rule.
+        let messages = zbus::blocking::MessageIterator::from(&connection);
         let rules = ["org.gtk.Menus", "org.gtk.Actions"].map(|interface| {
             zbus::MatchRule::builder()
                 .msg_type(zbus::message::Type::Signal)
@@ -358,7 +360,7 @@ impl Importer {
         thread::Builder::new()
             .name("slopos-menu-watch".into())
             .spawn(move || {
-                for message in zbus::blocking::MessageIterator::from(&connection).flatten() {
+                for message in messages.flatten() {
                     let header = message.header();
                     if header.message_type() != zbus::message::Type::Signal
                         || header.member().map(|m| m.as_str()) != Some("Changed")
