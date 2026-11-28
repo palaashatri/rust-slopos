@@ -3413,12 +3413,8 @@ mod tests {
         assert_eq!(ran.len(), 2, "both steps ran and none was undone: {ran:?}");
         assert!(!app.status_error, "{}", app.status);
         assert!(app.config.flatpak);
-        assert!(
-            app.setup_report_text
-                .contains("Finished: Flatpak installed, Flathub added."),
-            "{}",
-            app.setup_report_text
-        );
+        // A success is announced as a notice; the setup report is written for failures.
+        assert!(app.status.contains("Flatpak is on"), "{}", app.status);
     }
 
     #[test]
