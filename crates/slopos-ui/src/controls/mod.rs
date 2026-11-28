@@ -1,5 +1,6 @@
 pub mod button;
 pub mod dialog;
+pub mod drag;
 pub mod file_chooser;
 pub mod focus;
 pub mod list;
@@ -7,8 +8,10 @@ pub mod menu;
 pub mod popup;
 pub mod range;
 pub mod scroll;
+pub mod table;
 pub mod tabs;
 pub mod text_field;
+pub mod tree;
 
 use crate::foundation::geometry::Rect;
 
