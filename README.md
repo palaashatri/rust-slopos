@@ -130,6 +130,8 @@ The [SLOPOS Design Bible](docs/contract/02-design.md#52-slopos-design-bible--des
 | [packaging/browser/README.md](packaging/browser/README.md) | Browser integration. |
 | [packaging/repo/README.md](packaging/repo/README.md) | Package-repository status and the plan for publishing. |
 
+Installed packages put `README.md`, `AGENTS.md` and `THIRD_PARTY_LICENSES.txt` under `/usr/share/doc/slopos-i/`, but not the `docs/` directory or `docs/CONTRACT.md`. Read the `docs/` links above from a source checkout.
+
 ## License
 
 MIT; see [LICENSE](LICENSE). Third-party software and assets keep their own licenses; see [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt).

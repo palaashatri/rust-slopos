@@ -40,7 +40,7 @@ shell execution.
    invalid action has no side effects.
 4. The launcher invokes an installed desktop entry without a shell, using
    the existing SLOPOS process helper. Entries declaring `Terminal=true` are
-   launched via `xfce4-terminal -e` or `xterm -e` (whichever is installed),
+   launched via `xfce4-terminal -x` or `xterm -e` (whichever is installed),
    and rejected if neither terminal is available. App IDs and names are
    escaped before printing to prevent terminal escape-sequence injection.
    A malicious installed desktop entry is still a local system trust issue;
