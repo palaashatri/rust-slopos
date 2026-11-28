@@ -289,7 +289,9 @@ pub fn roll_back(
 pub fn flatpak_prompt(family: Option<Family>, status: &Status) -> String {
     let install = !status.flatpak_installed;
     let remote = !status.flathub;
-    let ask = "The system will ask for your password. Choose No to change nothing.";
+    // Setup runs through pkexec, which needs a running authentication agent. Without
+    // one it fails and changes nothing, so the prompt says so.
+    let ask = "Setup asks for administrator approval through pkexec; without an authentication agent it fails and changes nothing. Choose No to change nothing.";
     match (install, remote, family) {
         (true, _, None) => {
             "Flatpak is not installed, and no apt, dnf or pacman was found to install it with. Nothing will change."
@@ -661,7 +663,7 @@ mod flatpak_setup_tests {
     fn the_prompt_describes_the_steps() {
         assert_eq!(
             flatpak_prompt(Some(Family::Apt), &status(false, false)),
-            "Install Flatpak with apt and add the Flathub remote? The system will ask for your password. Choose No to change nothing."
+            "Install Flatpak with apt and add the Flathub remote? Setup asks for administrator approval through pkexec; without an authentication agent it fails and changes nothing. Choose No to change nothing."
         );
         assert!(flatpak_prompt(Some(Family::Dnf), &status(true, false))
             .starts_with("Add the Flathub remote to Flatpak?"));

@@ -139,6 +139,8 @@ enum Prompt {
     /// Install Flatpak and add Flathub, then turn Flatpak support on. The
     /// steps are the plan the question described.
     EnableFlatpak(Vec<packages::SetupStep>),
+    /// A report the user reads; its only button closes it.
+    Report,
 }
 
 struct Running {
@@ -283,6 +285,9 @@ fn switch_label(source: Source, on: bool) -> String {
     }
 }
 
+/// Pixels the Sources panel scrolls for one wheel step.
+const PANEL_SCROLL_STEP: i32 = 24;
+
 fn switch_id(source: Source) -> u64 {
     match source {
         Source::Flatpak => FLATPAK_SWITCH_ID,
@@ -336,6 +341,12 @@ pub struct SoftwareApp {
     open: Button,
     progress: ProgressBar,
     running: Option<Running>,
+    /// The full report of the last Flatpak setup, shown in a dialog that can be
+    /// read and copied. The status line carries only a short summary.
+    setup_report_text: String,
+    /// The focused switch whose reveal has already run. A focus change reveals
+    /// it again; a manual scroll is kept on later layouts.
+    revealed_focus: Option<u64>,
     /// Set by a quit request made while an operation runs. The window quits
     /// when the operation has finished, so a Flatpak rollback is not cut off.
     quit_when_idle: bool,
@@ -428,6 +439,8 @@ impl SoftwareApp {
             progress: ProgressBar::new(PROGRESS_ID, "Download progress"),
             running: None,
             quit_when_idle: false,
+            setup_report_text: String::new(),
+            revealed_focus: None,
             output: Vec::new(),
             output_key: None,
             dialog: None,
@@ -788,6 +801,8 @@ impl SoftwareApp {
         let max_scroll = (content_end - bottom).max(0);
         let mut scroll = self.panel_scroll.clamp(0, max_scroll);
         let focused = self.focus.focused();
+        let moved = focused != self.revealed_focus;
+        self.revealed_focus = focused;
         let focused_switch = self
             .sections
             .iter()
@@ -796,7 +811,8 @@ impl SoftwareApp {
                 let at = block.button?;
                 (focused == Some(switch_id(section.source))).then_some(at)
             });
-        if let Some(at) = focused_switch {
+        // Reveal only when focus moved, so a manual scroll is kept on later layouts.
+        if let Some(at) = focused_switch.filter(|_| moved) {
             if at - scroll < top {
                 scroll = at - top;
             }
@@ -1548,14 +1564,15 @@ impl SoftwareApp {
             } => {
                 let report = setup_report(&completed, &rollback);
                 if error == run::CANCELLED && !rollback.failed() {
-                    self.notice(format!("Flatpak setup was cancelled. {report}"));
+                    self.notice("Flatpak setup was cancelled. See the report.");
                 } else if error == run::CANCELLED {
-                    self.fail(format!(
-                        "Flatpak setup was cancelled, and undoing it failed. {report}"
-                    ));
+                    self.fail(
+                        "Flatpak setup was cancelled, and undoing it failed. See the report.",
+                    );
                 } else {
-                    self.fail(format!("Flatpak was not set up: {error}. {report}"));
+                    self.fail(format!("Flatpak was not set up: {error}. See the report."));
                 }
+                self.show_setup_report(report);
             }
             Finished::Removed {
                 name,
@@ -1568,6 +1585,15 @@ impl SoftwareApp {
         }
         self.reload();
         true
+    }
+
+    /// Open the full report of a Flatpak setup in a dialog, and keep it for
+    /// the window's state.
+    fn show_setup_report(&mut self, report: String) {
+        let mut dialog = Dialog::new(DIALOG_ID, "Flatpak setup report", &report, &["Close"]);
+        dialog.layout(self.window);
+        self.dialog = Some((dialog, Prompt::Report));
+        self.setup_report_text = report;
     }
 
     /// Quit now, or once a running operation has finished. A running operation
@@ -1603,6 +1629,7 @@ impl SoftwareApp {
                         match prompt {
                             Prompt::Remove(id) => self.start_remove(id),
                             Prompt::EnableFlatpak(shown) => self.flatpak_confirmed(shown),
+                            Prompt::Report => {}
                         }
                     }
                 }
@@ -2157,6 +2184,10 @@ impl App for SoftwareApp {
             Event::Resized { width, height } => {
                 self.window = (*width, *height);
                 self.layout();
+            }
+            Event::Scroll { dy, .. } if self.active == Source::Sources => {
+                self.panel_scroll += dy * PANEL_SCROLL_STEP;
+                self.layout_panel();
             }
             Event::GlobalMenu(_) => {
                 self.menu.handle(event, self.window);
@@ -3220,14 +3251,16 @@ mod tests {
             app.status
         );
         assert!(
-            app.status.contains("Finished: Flatpak installed."),
+            app.setup_report_text
+                .contains("Finished: Flatpak installed."),
             "{}",
-            app.status
+            app.setup_report_text
         );
         assert!(
-            app.status.contains("Rolled back: Flatpak removed."),
+            app.setup_report_text
+                .contains("Rolled back: Flatpak removed."),
             "{}",
-            app.status
+            app.setup_report_text
         );
         assert!(!app.config.flatpak);
     }
@@ -3290,20 +3323,21 @@ mod tests {
             app.status
         );
         assert!(
-            app.status.contains("Finished: Flatpak installed."),
+            app.setup_report_text
+                .contains("Finished: Flatpak installed."),
             "{}",
-            app.status
+            app.setup_report_text
         );
         assert!(
-            app.status
+            app.setup_report_text
                 .contains("Rolled back: Flathub removed, Flatpak removed."),
             "{}",
-            app.status
+            app.setup_report_text
         );
         assert!(
-            app.status.ends_with("Flatpak is not turned on."),
+            app.setup_report_text.ends_with("Flatpak is not turned on."),
             "{}",
-            app.status
+            app.setup_report_text
         );
         assert!(!app.config.flatpak);
     }
@@ -3326,16 +3360,16 @@ mod tests {
         assert!(app.status_error);
         assert!(app.status.contains("could not be saved"), "{}", app.status);
         assert!(
-            app.status
+            app.setup_report_text
                 .contains("Finished: Flatpak installed, Flathub added."),
             "{}",
-            app.status
+            app.setup_report_text
         );
         assert!(
-            app.status
+            app.setup_report_text
                 .contains("Rolled back: Flathub removed, Flatpak removed."),
             "{}",
-            app.status
+            app.setup_report_text
         );
         assert!(!app.config.flatpak);
     }
@@ -3364,10 +3398,12 @@ mod tests {
             "Flatpak was there before, so it stays"
         );
         assert!(
-            app.status.contains("Finished: Flathub added.")
-                && app.status.contains("Rolled back: Flathub removed."),
+            app.setup_report_text.contains("Finished: Flathub added.")
+                && app
+                    .setup_report_text
+                    .contains("Rolled back: Flathub removed."),
             "{}",
-            app.status
+            app.setup_report_text
         );
         assert!(!app.config.flatpak);
     }
@@ -3393,7 +3429,7 @@ mod tests {
         );
         assert!(app.status_error);
         assert!(
-            app.status.contains(
+            app.setup_report_text.contains(
                 "Rollback failed: pkexec exited with status 1: E: refused. \
                  Still changed: Flathub added, Flatpak installed."
             ),
@@ -3424,7 +3460,7 @@ mod tests {
         assert!(app.status_error, "{}", app.status);
         assert!(
             app.status.contains("could not be saved")
-                && app.status.contains("Flatpak is not turned on."),
+                && app.setup_report_text.contains("Flatpak is not turned on."),
             "{}",
             app.status
         );
@@ -3479,5 +3515,39 @@ mod tests {
         );
         let surface = RasterSurface::new(WIDTH, 170, Scale::new(1).unwrap()).unwrap();
         app.paint(&surface);
+    }
+
+    #[test]
+    fn the_wheel_scrolls_the_sources_panel() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec"], unused_commands());
+        let mut control = Control::default();
+        open_sources(&mut app, &mut control);
+        app.window = (WIDTH, 170);
+        app.layout();
+        assert_eq!(app.panel_scroll, 0);
+        app.event(&Event::Scroll { dx: 0, dy: 2 }, &mut control);
+        assert!(app.panel_scroll > 0, "a wheel step moves the panel");
+    }
+
+    #[test]
+    fn a_manual_scroll_is_kept_on_a_later_layout_while_focus_stays() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec"], unused_commands());
+        let mut control = Control::default();
+        open_sources(&mut app, &mut control);
+        app.window = (WIDTH, 170);
+        app.layout();
+        app.focus.focus(SNAP_SWITCH_ID);
+        app.sync();
+        assert!(app.panel_scroll > 0, "focus revealed the switch");
+        // Scroll back up, away from the focused switch.
+        app.event(&Event::Scroll { dx: 0, dy: -3 }, &mut control);
+        let scrolled = app.panel_scroll;
+        app.layout();
+        assert_eq!(
+            app.panel_scroll, scrolled,
+            "a later layout keeps the manual scroll"
+        );
     }
 }

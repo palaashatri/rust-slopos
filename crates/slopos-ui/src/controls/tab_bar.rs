@@ -345,6 +345,10 @@ impl Tabs {
         }
         for (index, (label, rect)) in self.labels.iter().zip(&self.tab_rects).enumerate() {
             let Some(rect) = rect else { continue };
+            // A tab capped to nothing by a narrow strip has no area to draw in.
+            if rect.width == 0 || rect.height == 0 {
+                continue;
+            }
             let selected = index == self.selected;
             let variant = if selected {
                 ButtonPlateVariant::Default
@@ -700,6 +704,55 @@ mod tests {
         }
         let selected = tabs.tab_bounds(5).expect("the selected tab is shown");
         assert!(selected.width <= tabs.widths[5]);
+    }
+
+    #[test]
+    fn the_selected_tab_paints_its_plate_and_nothing_past_the_strip() {
+        for factor in [1, 2] {
+            let scale = Scale::new(factor).unwrap();
+            // The strip ends at x=214, so the surface is wider than that.
+            let blank = RasterSurface::new(400, 80, scale).unwrap();
+            let surface = RasterSurface::new(400, 80, scale).unwrap();
+            let tabs = narrow(200, 4);
+            tabs.paint(&surface, &Font::system(12.0)).unwrap();
+            let rect = tabs.tab_bounds(4).expect("the selected tab is shown");
+            let f = factor as i32;
+            // A device pixel inside the selected tab's plate, at its left edge.
+            let inside = (
+                ((rect.x + 2) * f) as u32,
+                ((rect.y + rect.height as i32 / 2) * f) as u32,
+            );
+            assert_ne!(
+                surface.pixel(inside.0, inside.1),
+                blank.pixel(inside.0, inside.1),
+                "the selected plate paints at {factor}x"
+            );
+            // Just past the strip's right edge, nothing is drawn.
+            let past = (
+                ((tabs.bounds.x + tabs.bounds.width as i32 + 2) * f) as u32,
+                (50 * f) as u32,
+            );
+            assert_eq!(
+                surface.pixel(past.0, past.1),
+                blank.pixel(past.0, past.1),
+                "nothing paints past the strip at {factor}x"
+            );
+        }
+    }
+
+    #[test]
+    fn a_strip_too_narrow_for_its_arrows_paints_without_error() {
+        for available in [0, 1, 12, 40] {
+            let surface = RasterSurface::new(80, 40, Scale::new(1).unwrap()).unwrap();
+            let tabs = narrow(available, 3);
+            tabs.paint(&surface, &Font::system(12.0)).unwrap();
+            if let Some(rect) = tabs.tab_bounds(3) {
+                assert!(
+                    rect.width <= available.max(1),
+                    "the tab stays inside {available}"
+                );
+            }
+        }
     }
 
     #[test]
