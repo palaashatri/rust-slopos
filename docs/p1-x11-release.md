@@ -81,8 +81,13 @@ DOCK-AUTOHIDE, VOLUME-MIXER, REVIEW-37 and PR37-REVIEW-THREADS.
    (`SOFTWARE-SHIPPED-CATALOGUE`, MISSING).
 4. **Installer and Secure Boot:** there is no installer and no Secure Boot
    support (`INSTALLER-SECURE-BOOT`, MISSING).
-5. **Shell surfaces:** Wi-Fi, Bluetooth, battery and clock popovers; volume
-   and brightness OSDs; a notification history.
+5. **Shell surfaces (SHELL-01):** the Wi-Fi, Bluetooth, battery and clock
+   popovers, the volume and brightness OSDs and the notification history are
+   built, with headless unit tests in `slopos-topbar` (CI is the check; see the
+   ledger). Not yet verified on a display:
+   the popovers, OSDs and bell under Xvfb or the VM, Wi-Fi and Bluetooth on real
+   hardware, the volume keys, and Dock/menu/launcher parity. The brightness
+   watch still polls every 2 s (no event source yet).
 6. **Dock:** keyboard focus; applying `--autohide` to a running Dock (the CLI
    says it takes effect at the next start); a 4-pixel strip on an odd physical
    height at scale 2 leaves the last device row uncovered (the toolkit's

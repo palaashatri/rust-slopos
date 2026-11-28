@@ -6,13 +6,10 @@ use std::{
     time::Duration,
 };
 
+use futures::StreamExt;
 use slopos_core::capability::Availability;
 use thiserror::Error;
-use tokio::{
-    sync::mpsc,
-    task::JoinHandle,
-    time::{interval, timeout},
-};
+use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
 use zbus::{Connection, Proxy};
 
 const UPOWER: &str = "org.freedesktop.UPower";
@@ -20,11 +17,11 @@ const UPOWER_PATH: &str = "/org/freedesktop/UPower";
 const UPOWER_INTERFACE: &str = "org.freedesktop.UPower";
 const DISPLAY_DEVICE: &str = "/org/freedesktop/UPower/devices/DisplayDevice";
 const DEVICE_INTERFACE: &str = "org.freedesktop.UPower.Device";
+const PROPERTIES_INTERFACE: &str = "org.freedesktop.DBus.Properties";
 const LOGIN1: &str = "org.freedesktop.login1";
 const LOGIN1_PATH: &str = "/org/freedesktop/login1";
 const LOGIN1_MANAGER: &str = "org.freedesktop.login1.Manager";
 const QUERY_TIMEOUT: Duration = Duration::from_secs(5);
-const WATCH_INTERVAL: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BatteryStatus {
@@ -231,54 +228,120 @@ impl PowerClient {
     pub fn watch(&self) -> PowerEventStream {
         let (sender, receiver) = mpsc::channel(8);
         let client = self.clone();
-        let task = tokio::spawn(async move {
-            // ponytail: two-second polling simplifies reconnection; use UPower signals if this latency becomes a problem.
-            let mut timer = interval(WATCH_INTERVAL);
-            let mut previous: Option<PowerSnapshot> = None;
-            let mut recovering = false;
-            loop {
-                timer.tick().await;
-                match client.snapshot().await {
-                    Ok(snapshot) => {
-                        let changed = recovering
-                            || previous.as_ref().is_none_or(|previous| {
-                                previous.availability != snapshot.availability
-                                    || previous.battery != snapshot.battery
-                                    || previous.source != snapshot.source
-                                    || previous.suspend != snapshot.suspend
-                                    || previous.lid_present != snapshot.lid_present
-                                    || previous.lid_closed != snapshot.lid_closed
-                            });
-                        if changed {
-                            let warnings = warning_events(&previous, &snapshot);
-                            previous = Some(snapshot.clone());
-                            recovering = false;
-                            if sender
-                                .send(Ok(PowerEvent::Changed(snapshot)))
-                                .await
-                                .is_err()
-                            {
-                                break;
-                            }
-                            for warning in warnings {
-                                if sender.send(Ok(warning)).await.is_err() {
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                    Err(error) => {
-                        recovering = true;
-                        if sender.send(Err(error)).await.is_err() {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
+        let task = tokio::spawn(async move { client.watch_task(sender).await });
         PowerEventStream {
             receiver,
             task: Some(task),
+        }
+    }
+
+    /// Event-driven: the snapshot is read once when the watch starts and again
+    /// only when UPower reports a property change (on the display device or the
+    /// UPower object), UPower's owner appears or disappears, or logind reports a
+    /// suspend or resume. No timer runs while nothing changes.
+    async fn watch_task(self, sender: mpsc::Sender<Result<PowerEvent, PowerError>>) {
+        let proxies = tokio::try_join!(
+            power_proxy(&self.connection, UPOWER, UPOWER_PATH, UPOWER_INTERFACE),
+            power_proxy(
+                &self.connection,
+                UPOWER,
+                DISPLAY_DEVICE,
+                PROPERTIES_INTERFACE
+            ),
+            power_proxy(&self.connection, UPOWER, UPOWER_PATH, PROPERTIES_INTERFACE),
+            power_proxy(&self.connection, LOGIN1, LOGIN1_PATH, LOGIN1_MANAGER),
+        );
+        let (upower, device, root, logind) = match proxies {
+            Ok(proxies) => proxies,
+            Err(error) => {
+                let _ = sender.send(Err(error)).await;
+                return;
+            }
+        };
+        let subscriptions = async {
+            Ok::<_, zbus::Error>((
+                device.receive_signal("PropertiesChanged").await?,
+                root.receive_signal("PropertiesChanged").await?,
+                logind.receive_signal("PrepareForSleep").await?,
+                upower.receive_owner_changed().await?,
+            ))
+        }
+        .await;
+        let (mut device_changes, mut root_changes, mut resumes, mut owner_changes) =
+            match subscriptions {
+                Ok(streams) => streams,
+                Err(error) => {
+                    let _ = sender.send(Err(map_bus_error(error))).await;
+                    return;
+                }
+            };
+        let mut previous: Option<PowerSnapshot> = None;
+        let mut recovering = false;
+        if !self.publish(&sender, &mut previous, &mut recovering).await {
+            return;
+        }
+        loop {
+            let refresh = tokio::select! {
+                _ = sender.closed() => break,
+                signal = device_changes.next() => signal.is_some(),
+                signal = root_changes.next() => signal.is_some(),
+                signal = resumes.next() => signal.is_some(),
+                owner = owner_changes.next() => owner.is_some(),
+            };
+            if !refresh {
+                // A stream ended: the bus connection is gone, so say so once.
+                let _ = sender.send(Err(PowerError::Disconnected)).await;
+                break;
+            }
+            if !self.publish(&sender, &mut previous, &mut recovering).await {
+                break;
+            }
+        }
+    }
+
+    /// Reads the snapshot and sends what changed since `previous`, followed by any
+    /// low or critical battery crossing. Returns false when the consumer has gone.
+    async fn publish(
+        &self,
+        sender: &mpsc::Sender<Result<PowerEvent, PowerError>>,
+        previous: &mut Option<PowerSnapshot>,
+        recovering: &mut bool,
+    ) -> bool {
+        match self.snapshot().await {
+            Ok(snapshot) => {
+                let changed = *recovering
+                    || previous.as_ref().is_none_or(|previous| {
+                        previous.availability != snapshot.availability
+                            || previous.battery != snapshot.battery
+                            || previous.source != snapshot.source
+                            || previous.suspend != snapshot.suspend
+                            || previous.lid_present != snapshot.lid_present
+                            || previous.lid_closed != snapshot.lid_closed
+                    });
+                if !changed {
+                    return true;
+                }
+                let warnings = warning_events(previous, &snapshot);
+                *previous = Some(snapshot.clone());
+                *recovering = false;
+                if sender
+                    .send(Ok(PowerEvent::Changed(snapshot)))
+                    .await
+                    .is_err()
+                {
+                    return false;
+                }
+                for warning in warnings {
+                    if sender.send(Ok(warning)).await.is_err() {
+                        return false;
+                    }
+                }
+                true
+            }
+            Err(error) => {
+                *recovering = true;
+                sender.send(Err(error)).await.is_ok()
+            }
         }
     }
 
@@ -397,6 +460,18 @@ impl PowerClient {
     }
 }
 
+/// A proxy that owns its connection, so the watch can hold several at once.
+async fn power_proxy(
+    connection: &Connection,
+    destination: &'static str,
+    path: &'static str,
+    interface: &'static str,
+) -> Result<Proxy<'static>, PowerError> {
+    Proxy::new(connection, destination, path, interface)
+        .await
+        .map_err(map_bus_error)
+}
+
 fn warning_events(previous: &Option<PowerSnapshot>, current: &PowerSnapshot) -> Vec<PowerEvent> {
     let Some(battery) = &current.battery else {
         return Vec::new();
@@ -457,6 +532,7 @@ fn is_unknown_property(error: &zbus::Error) -> bool {
 mod tests {
     use super::*;
     use std::{
+        collections::HashMap,
         io::BufRead,
         process::{Child, Command, Stdio},
         sync::{atomic::AtomicBool, Mutex},
@@ -478,6 +554,8 @@ mod tests {
         state: u32,
         warning: u32,
         energy_rate: f64,
+        /// Property reads so far, so a test can see when the watch reads the battery.
+        reads: u64,
     }
 
     struct UPowerFixture {
@@ -506,31 +584,40 @@ mod tests {
 
     struct DeviceFixture(Arc<Mutex<BatteryFixture>>);
 
+    impl DeviceFixture {
+        /// A property read, counted in the battery.
+        fn read(&self) -> BatteryFixture {
+            let mut battery = self.0.lock().unwrap();
+            battery.reads += 1;
+            *battery
+        }
+    }
+
     #[zbus::interface(name = "org.freedesktop.UPower.Device")]
     impl DeviceFixture {
         #[zbus(property)]
         fn is_present(&self) -> bool {
-            self.0.lock().unwrap().present
+            self.read().present
         }
 
         #[zbus(property)]
         fn percentage(&self) -> f64 {
-            self.0.lock().unwrap().percentage
+            self.read().percentage
         }
 
         #[zbus(property)]
         fn state(&self) -> u32 {
-            self.0.lock().unwrap().state
+            self.read().state
         }
 
         #[zbus(property)]
         fn warning_level(&self) -> u32 {
-            self.0.lock().unwrap().warning
+            self.read().warning
         }
 
         #[zbus(property)]
         fn energy_rate(&self) -> f64 {
-            self.0.lock().unwrap().energy_rate
+            self.read().energy_rate
         }
     }
 
@@ -582,6 +669,7 @@ mod tests {
             state: 2,
             warning,
             energy_rate: 12.5,
+            reads: 0,
         }));
         let upower_connection = zbus::connection::Builder::address(address.trim())
             .unwrap()
@@ -680,6 +768,36 @@ mod tests {
         assert!(warning_events(&Some(critical.clone()), &critical).is_empty());
     }
 
+    #[test]
+    fn low_battery_is_emitted_once_per_crossing_and_again_after_it_clears() {
+        let snapshot = |warning: Option<BatteryWarning>| PowerSnapshot {
+            revision: 1,
+            availability: Availability::Available,
+            battery: warning.map(|warning| Battery {
+                percentage: 15.0,
+                status: BatteryStatus::Discharging,
+                warning,
+                energy_rate_watts: None,
+            }),
+            source: PowerSource::Battery,
+            suspend: SuspendCapability::Available,
+            lid_present: false,
+            lid_closed: None,
+        };
+        let clear = snapshot(Some(BatteryWarning::None));
+        let low = snapshot(Some(BatteryWarning::Low));
+        let expected = vec![PowerEvent::LowBattery { percentage: 15.0 }];
+        // Crossing into the low level is reported once.
+        assert_eq!(warning_events(&Some(clear.clone()), &low), expected);
+        // Staying low is not reported again.
+        assert!(warning_events(&Some(low.clone()), &low).is_empty());
+        // Leaving the low level (a charger, a battery that went away) re-arms it.
+        assert!(warning_events(&Some(low.clone()), &clear).is_empty());
+        assert_eq!(warning_events(&Some(clear), &low), expected);
+        // A first answer that is already low is a crossing too.
+        assert_eq!(warning_events(&None, &low), expected);
+    }
+
     #[tokio::test]
     async fn fixture_reads_battery_lid_power_source_and_suspend() {
         let (_daemon, _upower, _logind, client, _, _) = fixture(true, 63.5, 1, "yes").await;
@@ -758,34 +876,72 @@ mod tests {
         ));
     }
 
+    async fn next_event(events: &mut PowerEventStream) -> PowerEvent {
+        tokio::time::timeout(Duration::from_secs(3), events.next())
+            .await
+            .expect("the watch sent nothing within 3 s")
+            .expect("the watch ended")
+            .expect("the watch reported an error")
+    }
+
+    /// Changes the fake battery and emits UPower's `PropertiesChanged` for it, as
+    /// UPower does when a property moves.
+    async fn change_battery(
+        upower: &Connection,
+        battery: &Arc<Mutex<BatteryFixture>>,
+        change: impl FnOnce(&mut BatteryFixture),
+        property: &str,
+    ) {
+        change(&mut battery.lock().unwrap());
+        let changed = HashMap::<&str, zbus::zvariant::Value>::new();
+        upower
+            .emit_signal(
+                None::<&str>,
+                DISPLAY_DEVICE,
+                PROPERTIES_INTERFACE,
+                "PropertiesChanged",
+                &(DEVICE_INTERFACE, changed, vec![property]),
+            )
+            .await
+            .unwrap();
+    }
+
     #[tokio::test]
     async fn watch_emits_low_battery_once_on_warning_transition() {
-        let (_daemon, _upower, _logind, client, battery, _) = fixture(true, 20.0, 1, "yes").await;
+        let (_daemon, upower, _logind, client, battery, _) = fixture(true, 20.0, 1, "yes").await;
         let mut events = client.watch();
         assert!(matches!(
-            tokio::time::timeout(Duration::from_secs(2), events.next())
-                .await
-                .unwrap()
-                .unwrap()
-                .unwrap(),
+            next_event(&mut events).await,
             PowerEvent::Changed(_)
         ));
-        battery.lock().unwrap().warning = 3;
+        change_battery(&upower, &battery, |b| b.warning = 3, "WarningLevel").await;
         assert!(matches!(
-            tokio::time::timeout(Duration::from_secs(3), events.next())
-                .await
-                .unwrap()
-                .unwrap()
-                .unwrap(),
+            next_event(&mut events).await,
             PowerEvent::Changed(_)
         ));
         assert_eq!(
-            tokio::time::timeout(Duration::from_secs(1), events.next())
-                .await
-                .unwrap()
-                .unwrap()
-                .unwrap(),
+            next_event(&mut events).await,
             PowerEvent::LowBattery { percentage: 20.0 }
+        );
+        events.close().await;
+    }
+
+    #[tokio::test]
+    async fn watch_reads_nothing_while_the_battery_is_steady() {
+        let (_daemon, _upower, _logind, client, battery, _) = fixture(true, 55.0, 0, "yes").await;
+        let mut events = client.watch();
+        assert!(matches!(
+            next_event(&mut events).await,
+            PowerEvent::Changed(_)
+        ));
+        let reads = battery.lock().unwrap().reads;
+        assert!(reads > 0, "the first snapshot reads the battery");
+        // Longer than the two-second interval the watch used to poll on.
+        tokio::time::sleep(Duration::from_millis(2500)).await;
+        assert_eq!(
+            battery.lock().unwrap().reads,
+            reads,
+            "the watch read the battery without a UPower signal"
         );
         events.close().await;
     }

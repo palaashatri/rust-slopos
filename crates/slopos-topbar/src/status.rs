@@ -9,6 +9,7 @@ use std::thread;
 
 use slopos_services::audio::{AudioClient, AudioDevice, AudioSnapshot};
 use slopos_services::bluetooth::{BluetoothClient, BluetoothSnapshot};
+use slopos_services::brightness::{BrightnessClient, BrightnessSnapshot};
 use slopos_services::network::{NetworkDeviceType, NetworkManagerClient, NetworkSnapshot};
 use slopos_services::power::{BatteryStatus, PowerClient, PowerEvent, PowerSnapshot};
 use slopos_services::timedate::{TimedateClient, TimedateSnapshot};
@@ -35,6 +36,12 @@ pub enum Update {
     Audio(State<AudioSnapshot>),
     Network(State<NetworkSnapshot>),
     Power(State<PowerSnapshot>),
+    /// The backlight, as the brightness service reports a change to it. The
+    /// service's watch is the source of the brightness OSD.
+    Brightness(State<BrightnessSnapshot>),
+    /// The power provider's low or critical battery event: one per crossing of
+    /// the threshold, decided by the provider.
+    BatteryWarning(PowerEvent),
     /// Answer to `Command::RefreshBluetooth`.
     Bluetooth(State<BluetoothSnapshot>),
     /// Answer to `Command::RefreshTimedate`.
@@ -153,6 +160,12 @@ async fn run(
         }
         Err(error) => send(Update::Power(Err(error.to_string()))),
     }
+    // The backlight is read now; its service's watch reports later changes.
+    let brightness = BrightnessClient::new();
+    send(Update::Brightness(
+        brightness.snapshot().map_err(|e| e.to_string()),
+    ));
+    let mut brightness_events = Some(brightness.watch());
 
     loop {
         tokio::select! {
@@ -162,9 +175,10 @@ async fn run(
                 send(Update::Audio(state));
             }
             Some(result) = next_or_pending!(network_events) => send(Update::Network(result.map_err(|e| e.to_string()))),
+            Some(result) = next_or_pending!(brightness_events) => send(Update::Brightness(result.map_err(|e| e.to_string()))),
             Some(result) = next_or_pending!(power_events) => match result {
                 Ok(PowerEvent::Changed(snapshot)) => send(Update::Power(Ok(snapshot))),
-                Ok(_) => {}
+                Ok(warning) => send(Update::BatteryWarning(warning)),
                 Err(error) => send(Update::Power(Err(error.to_string()))),
             },
             command = commands.recv() => {
@@ -344,6 +358,17 @@ pub fn on_wifi(state: &State<NetworkSnapshot>) -> bool {
     })
 }
 
+/// The battery item: the charge, "Battery unavailable" when the power provider
+/// cannot answer, or `None` when there is no battery to show or the first answer
+/// has not come yet.
+pub fn battery_item(state: Option<&State<PowerSnapshot>>) -> Option<String> {
+    let state = state?;
+    if state.is_err() {
+        return Some("Battery unavailable".into());
+    }
+    battery_text(state)
+}
+
 /// Battery text, or `None` when there is no battery to show.
 pub fn battery_text(state: &State<PowerSnapshot>) -> Option<String> {
     let battery = state.as_ref().ok()?.battery.as_ref()?;
@@ -425,6 +450,37 @@ mod tests {
         let lost = audio_failed_after(&snapshot);
         assert!(lost);
         assert!(needs_audio_reconnect(true, lost));
+    }
+
+    #[test]
+    fn the_battery_item_is_unavailable_without_a_power_provider_and_hidden_without_a_battery() {
+        use slopos_services::power::{Battery, PowerSource, SuspendCapability};
+        // Before the first answer there is no item to show.
+        assert_eq!(battery_item(None), None);
+        assert_eq!(
+            battery_item(Some(&Err("no UPower".into()))),
+            Some("Battery unavailable".into())
+        );
+        let snapshot = |battery| PowerSnapshot {
+            revision: 1,
+            availability: Availability::Available,
+            battery,
+            source: PowerSource::Unknown,
+            suspend: SuspendCapability::Unknown,
+            lid_present: false,
+            lid_closed: None,
+        };
+        assert_eq!(battery_item(Some(&Ok(snapshot(None)))), None);
+        let charge = Battery {
+            percentage: 73.6,
+            status: BatteryStatus::Discharging,
+            warning: slopos_services::power::BatteryWarning::None,
+            energy_rate_watts: None,
+        };
+        assert_eq!(
+            battery_item(Some(&Ok(snapshot(Some(charge))))),
+            Some("74%".into())
+        );
     }
 
     #[test]

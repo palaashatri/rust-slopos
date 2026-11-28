@@ -9,6 +9,7 @@
 
 mod dbusmenu;
 mod desktop_files;
+mod history;
 mod launcher;
 // Pure AppMenu model and registrar; phase 2 wires them to D-Bus and X11.
 #[allow(dead_code)]
@@ -96,6 +97,8 @@ enum StatusMenu {
     Bluetooth,
     Battery,
     Clock,
+    /// The notification history: a bell with the count of notices kept.
+    Notifications,
 }
 
 /// What a status-menu item does.
@@ -108,6 +111,8 @@ enum StatusCommand {
     OpenPanel(&'static str),
     /// The Volume Mixer as a popover under the sound status.
     OpenMixer,
+    /// Empties the notification history.
+    ClearNotifications,
 }
 
 /// A dialog's purpose.
@@ -303,7 +308,9 @@ pub struct TopBar {
     /// The lines of the status popover open now, to tell when they change.
     popover: Option<Vec<popovers::Line>>,
     osd: osd::Osd,
-    power: status::State<slopos_services::power::PowerSnapshot>,
+    /// None until the power provider's first answer.
+    power: Option<status::State<slopos_services::power::PowerSnapshot>>,
+    brightness: status::State<slopos_services::brightness::BrightnessSnapshot>,
     clock: String,
     date: String,
     launcher: Option<launcher::Launcher>,
@@ -327,6 +334,10 @@ pub struct TopBar {
     notifications: Option<notifications::Notifications>,
     /// Toasts, oldest first; the first `notifications::VISIBLE` are shown.
     toasts: Vec<notifications::Toast>,
+    /// The id the next notice the bar makes itself gets (see `LOCAL_ID_BASE`).
+    local_notice_id: u32,
+    /// Every notice received, newest first, for the history popover.
+    history: history::History,
 }
 
 impl TopBar {
@@ -356,7 +367,8 @@ impl TopBar {
             timedate: None,
             popover: None,
             osd: osd::Osd::new(),
-            power: Err("loading".into()),
+            power: None,
+            brightness: Err("loading".into()),
             clock,
             date,
             launcher: None,
@@ -373,6 +385,8 @@ impl TopBar {
             appmenu_specs: false,
             notifications: None,
             toasts: Vec::new(),
+            local_notice_id: notifications::LOCAL_ID_BASE,
+            history: history::History::new(),
         };
         bar.rebuild_specs();
         bar
@@ -431,6 +445,14 @@ impl TopBar {
         }
     }
 
+    /// A notice to show as a toast and to keep in the history. An open
+    /// notifications popover lists it at once.
+    fn record_and_show(&mut self, toast: notifications::Toast, control: &mut Control) {
+        self.history.record(toast.clone());
+        self.show_toast(toast, control);
+        self.refresh_popover(control);
+    }
+
     fn show_toast(&mut self, toast: notifications::Toast, control: &mut Control) {
         if let Some(existing) = self.toasts.iter_mut().find(|t| t.id == toast.id) {
             *existing = toast.clone();
@@ -446,12 +468,31 @@ impl TopBar {
         self.layout_toasts(control);
     }
 
+    /// A low or critical battery from the power provider, shown as a notice. The
+    /// provider reports each crossing of the threshold once, so the bar makes one
+    /// notice per report.
+    fn battery_warning(
+        &mut self,
+        event: &slopos_services::power::PowerEvent,
+        control: &mut Control,
+    ) {
+        let Some(toast) = notifications::battery_notice(event, self.local_notice_id) else {
+            return;
+        };
+        self.local_notice_id = self
+            .local_notice_id
+            .wrapping_add(1)
+            .max(notifications::LOCAL_ID_BASE);
+        self.record_and_show(toast, control);
+    }
+
     fn remove_toast(&mut self, id: u32, reason: notifications::Reason, control: &mut Control) {
         let before = self.toasts.len();
         self.toasts.retain(|toast| toast.id != id);
         if self.toasts.len() != before {
             control.close_popup(TOAST_POPUP + u64::from(id));
-            if let Some(server) = &self.notifications {
+            // The server never heard of a notice the bar made itself.
+            if let (Some(server), false) = (&self.notifications, notifications::is_local(id)) {
                 server.closed(id, reason);
             }
             self.layout_toasts(control);
@@ -579,7 +620,8 @@ impl TopBar {
             .collect()
     }
 
-    /// Status items from the right edge: clock, network, sound, battery.
+    /// Status items from the right edge: clock, network, Bluetooth, sound,
+    /// battery, then the notification bell at the left end.
     fn status_rects(&self) -> Vec<(StatusMenu, Rect, String)> {
         // Items are placed from the right edge. Bluetooth sits to the left of
         // Sound, so Sound keeps the position it has on main: the QA mixer check
@@ -593,9 +635,15 @@ impl TopBar {
                 popovers::bluetooth_text(self.bluetooth.as_ref()),
             ),
         ];
-        if let Some(battery) = status::battery_text(&self.power) {
+        if let Some(battery) = status::battery_item(self.power.as_ref()) {
             items.push((StatusMenu::Battery, battery));
         }
+        // The bell goes last, at the left end, so the items already there keep
+        // their positions: the smoke test clicks the sound item at a fixed x.
+        items.push((
+            StatusMenu::Notifications,
+            notification_count_text(&self.history),
+        ));
         let mut right = self.width as i32 - 6;
         items
             .into_iter()
@@ -671,7 +719,9 @@ impl TopBar {
                 self.timedate.as_ref(),
                 panels,
             )),
-            StatusMenu::Sound | StatusMenu::Battery => None,
+            StatusMenu::Battery => Some(popovers::battery_lines(self.power.as_ref(), panels)),
+            StatusMenu::Notifications => Some(popovers::notification_lines(&self.history)),
+            StatusMenu::Sound => None,
         }
     }
 
@@ -826,7 +876,7 @@ impl TopBar {
         let previous = std::mem::replace(&mut self.audio, state);
         if let Some(level) = osd::volume_change(&previous, &self.audio) {
             if self.mixer.is_none() {
-                self.show_volume_osd(level, control);
+                self.show_osd(osd::Indicator::Volume, level, control);
             }
         }
         // The popover follows the answer and resizes with the channels.
@@ -836,12 +886,25 @@ impl TopBar {
         self.show_mixer_popup(control);
     }
 
-    // ----- volume OSD ------------------------------------------------------
+    /// A brightness answer from the backlight service. A changed level shows the
+    /// brightness OSD; the first answer and a machine without a backlight do not.
+    fn brightness_answer(
+        &mut self,
+        state: status::State<slopos_services::brightness::BrightnessSnapshot>,
+        control: &mut Control,
+    ) {
+        let previous = std::mem::replace(&mut self.brightness, state);
+        if let Some(level) = osd::brightness_change(&previous, &self.brightness) {
+            self.show_osd(osd::Indicator::Brightness, level, control);
+        }
+    }
+
+    // ----- volume and brightness OSD ---------------------------------------
 
     /// Shows the OSD at the new level and arms its hide timer; the timer is
     /// the only thing that hides it again.
-    fn show_volume_osd(&mut self, level: osd::Level, control: &mut Control) {
-        let timer = self.osd.show(level);
+    fn show_osd(&mut self, what: osd::Indicator, level: osd::Level, control: &mut Control) {
+        let timer = self.osd.show(what, level);
         control.start_timer(osd::VISIBLE_FOR, timer);
         let (width, height) = OSD_SIZE;
         control.open_popup(
@@ -857,7 +920,7 @@ impl TopBar {
     }
 
     fn paint_osd(&self, surface: &RasterSurface) -> Result<(), RenderError> {
-        let Some(level) = self.osd.shown() else {
+        let Some((what, level)) = self.osd.shown() else {
             return Ok(());
         };
         let colors = palette();
@@ -871,7 +934,7 @@ impl TopBar {
         surface.stroke_rect(bounds, colors.border)?;
         let line = measure("Ag", &self.font).height as i32;
         let inner = bounds.width.saturating_sub(24);
-        let text = osd::text(level);
+        let text = osd::text(what, level);
         for (index, row) in slopos_ui::controls::dialog::wrap(&text, &self.font, inner)
             .iter()
             .take(2)
@@ -1003,21 +1066,23 @@ impl TopBar {
                 );
             }
             // Popovers: built above.
-            StatusMenu::Network | StatusMenu::Bluetooth | StatusMenu::Clock => {}
-            StatusMenu::Battery => {
-                if let Some(text) = status::battery_text(&self.power) {
-                    info(format!("Battery: {text}"), &mut items, &mut commands);
-                }
-                separator(&mut items, &mut commands);
-                action(
-                    MenuItem::new("Display Preferences…").enabled(panels),
-                    StatusCommand::OpenPanel("--display"),
-                    &mut items,
-                    &mut commands,
-                );
-            }
+            StatusMenu::Network
+            | StatusMenu::Bluetooth
+            | StatusMenu::Clock
+            | StatusMenu::Battery
+            | StatusMenu::Notifications => {}
         }
         (items, commands)
+    }
+
+    /// A chosen status-menu entry. The Volume Mixer opens its popover and Clear All
+    /// empties the history; the rest act on the providers.
+    fn run_status_menu_command(&mut self, command: StatusCommand, control: &mut Control) {
+        match command {
+            StatusCommand::OpenMixer => self.open_mixer(control),
+            StatusCommand::ClearNotifications => self.history.clear(),
+            command => self.run_status(command),
+        }
     }
 
     fn run_status(&mut self, command: StatusCommand) {
@@ -1326,6 +1391,8 @@ impl TopBar {
             changed = true;
             match update {
                 StatusUpdate::Audio(state) => self.audio_answer(state, control),
+                StatusUpdate::Brightness(state) => self.brightness_answer(state, control),
+                StatusUpdate::BatteryWarning(event) => self.battery_warning(&event, control),
                 StatusUpdate::Network(state) => {
                     self.network = state;
                     self.refresh_popover(control);
@@ -1342,7 +1409,8 @@ impl TopBar {
                     self.can.sleep = state.as_ref().is_ok_and(|p| {
                         p.suspend == slopos_services::power::SuspendCapability::Available
                     });
-                    self.power = state;
+                    self.power = Some(state);
+                    self.refresh_popover(control);
                 }
                 StatusUpdate::AudioFailed(error) => {
                     log::warn!("sound change failed: {error}");
@@ -1362,7 +1430,7 @@ impl TopBar {
         for message in messages {
             changed = true;
             match message {
-                notifications::Message::Show(toast) => self.show_toast(toast, control),
+                notifications::Message::Show(toast) => self.record_and_show(toast, control),
                 notifications::Message::Close(id) => {
                     self.remove_toast(id, notifications::Reason::Closed, control)
                 }
@@ -1486,11 +1554,7 @@ impl TopBar {
                     }
                     Open::Status(_) => {
                         if let Some(Some(command)) = self.status_commands.get(item).cloned() {
-                            if command == StatusCommand::OpenMixer {
-                                self.open_mixer(control);
-                            } else {
-                                self.run_status(command);
-                            }
+                            self.run_status_menu_command(command, control);
                         }
                     }
                 }
@@ -1628,6 +1692,7 @@ impl TopBar {
                     }
                     StatusMenu::Network if self.network.is_ok() => "network-wired-symbolic",
                     StatusMenu::Network => "network-offline-symbolic",
+                    StatusMenu::Notifications => "preferences-system-notifications-symbolic",
                     _ => "battery-good-symbolic",
                 };
                 if let Some(icon) = self.icon(name, 16) {
@@ -1669,9 +1734,23 @@ fn popover_items(lines: &[popovers::Line]) -> (Vec<MenuItem>, Vec<Option<StatusC
                 items.push(MenuItem::new(label).enabled(*enabled));
                 commands.push(Some(StatusCommand::OpenPanel(argument)));
             }
+            popovers::Line::Clear { enabled } => {
+                items.push(MenuItem::new("Clear All").enabled(*enabled));
+                commands.push(Some(StatusCommand::ClearNotifications));
+            }
         }
     }
     (items, commands)
+}
+
+/// The bell's text: how many notices the history keeps, or nothing when it keeps
+/// none.
+fn notification_count_text(history: &history::History) -> String {
+    if history.is_empty() {
+        String::new()
+    } else {
+        history.len().to_string()
+    }
 }
 
 fn launch(program: &str, args: &[&str]) {
@@ -1844,8 +1923,13 @@ impl App for TopBar {
                 StatusMenu::Bluetooth => "Bluetooth",
                 StatusMenu::Battery => "Battery",
                 StatusMenu::Clock => "Clock",
+                StatusMenu::Notifications => "Notifications",
             };
-            node.set_label(format!("{what}: {text}"));
+            node.set_label(if text.is_empty() {
+                what.to_owned()
+            } else {
+                format!("{what}: {text}")
+            });
             children.push(accesskit::NodeId(id));
             nodes.push((id, node));
         }
@@ -1858,9 +1942,9 @@ impl App for TopBar {
                 focus = Some(node);
             }
         }
-        if let Some(level) = self.osd.shown() {
+        if let Some((what, level)) = self.osd.shown() {
             let mut node = accesskit::Node::new(accesskit::Role::Status);
-            node.set_label(osd::text(level));
+            node.set_label(osd::text(what, level));
             nodes.push((OSD_NODE, node));
         }
         if self.open.is_some() {
@@ -2163,9 +2247,11 @@ mod tests {
         let bar = bar();
         let items: Vec<String> = bar.status_rects().into_iter().map(|(_, _, t)| t).collect();
         assert_eq!(items[1], "Network unavailable");
+        assert_eq!(items[1], "Network unavailable");
         assert_eq!(items[2], "—");
         assert_eq!(items[3], "…", "Bluetooth is read when its popover opens");
-        assert_eq!(items.len(), 4, "no battery item without a battery");
+        assert_eq!(items[4], "", "the bell shows no count without notices");
+        assert_eq!(items.len(), 5, "no battery item without a battery");
         let (lines, _) = bar.status_menu(StatusMenu::Sound);
         assert!(lines[0].label.starts_with("Sound unavailable"));
         assert!(!lines[0].enabled);
@@ -2201,7 +2287,10 @@ mod tests {
         assert!(bar.osd.shown().is_none());
         assert!(control.timer_requests().is_empty());
         bar.audio_answer(sound_at(45, false), &mut control);
-        assert_eq!(bar.osd.shown(), Some(&osd::Level::Percent(45)));
+        assert_eq!(
+            bar.osd.shown(),
+            Some((osd::Indicator::Volume, &osd::Level::Percent(45)))
+        );
         let (delay, timer) = *control
             .timer_requests()
             .last()
@@ -2232,7 +2321,10 @@ mod tests {
         bar.audio_answer(Err("connection closed".into()), &mut control);
         assert_eq!(
             bar.osd.shown(),
-            Some(&osd::Level::Unavailable("connection closed".into()))
+            Some((
+                osd::Indicator::Volume,
+                &osd::Level::Unavailable("connection closed".into())
+            ))
         );
         let mut quiet = self::bar();
         quiet.audio_answer(sound_at(40, false), &mut control);
@@ -2242,6 +2334,138 @@ mod tests {
             quiet.osd.shown().is_none(),
             "the mixer shows the level already"
         );
+    }
+
+    #[test]
+    fn a_backlight_change_shows_the_brightness_osd_and_a_machine_without_one_shows_nothing() {
+        use slopos_services::brightness::{BrightnessDevice, BrightnessSnapshot};
+        let backlight = |current| BrightnessSnapshot {
+            revision: 1,
+            availability: slopos_core::capability::Availability::Available,
+            devices: vec![BrightnessDevice {
+                name: "intel_backlight".into(),
+                current,
+                minimum: 0,
+                maximum: 1000,
+            }],
+        };
+        let mut bar = bar();
+        let mut control = Control::default();
+        // Without a backlight there is no level to show, at start or after.
+        bar.brightness_answer(
+            Ok(BrightnessSnapshot {
+                revision: 1,
+                availability: slopos_core::capability::Availability::UnsupportedHardware,
+                devices: Vec::new(),
+            }),
+            &mut control,
+        );
+        assert!(bar.osd.shown().is_none());
+        assert!(control.timer_requests().is_empty());
+        // The first answer with a backlight is not a change either.
+        bar.brightness_answer(Ok(backlight(400)), &mut control);
+        assert!(bar.osd.shown().is_none());
+        bar.brightness_answer(Ok(backlight(450)), &mut control);
+        assert_eq!(
+            bar.osd.shown(),
+            Some((osd::Indicator::Brightness, &osd::Level::Percent(45)))
+        );
+        let (delay, timer) = *control
+            .timer_requests()
+            .last()
+            .expect("the brightness OSD arms its hide timer");
+        assert_eq!(delay, osd::VISIBLE_FOR);
+        assert!(control.popup_requests().iter().any(|request| matches!(
+            request,
+            platform::PopupRequest::Open { id, .. } if *id == POPUP_OSD
+        )));
+        let tree = bar.accessibility().expect("the bar has a tree");
+        assert!(tree
+            .nodes
+            .iter()
+            .any(|(_, node)| node.label() == Some("Brightness 45%")));
+        bar.event(&Event::Timer(timer), &mut control);
+        assert!(bar.osd.shown().is_none());
+    }
+
+    #[test]
+    fn a_low_battery_warning_is_a_notice_that_times_out_and_a_critical_one_waits() {
+        use slopos_services::power::PowerEvent;
+        let mut bar = bar();
+        let mut control = Control::default();
+        bar.battery_warning(&PowerEvent::LowBattery { percentage: 12.0 }, &mut control);
+        let low = bar
+            .toasts
+            .last()
+            .cloned()
+            .expect("the low battery notice is shown");
+        assert_eq!(low.summary, "Battery low");
+        assert!(notifications::is_local(low.id), "the bar made this notice");
+        assert!(control.timer_requests().contains(&(
+            Duration::from_millis(u64::from(notifications::DEFAULT_TIMEOUT_MS)),
+            TOAST_TIMER + u64::from(low.id),
+        )));
+        bar.battery_warning(
+            &PowerEvent::CriticalBattery { percentage: 4.0 },
+            &mut control,
+        );
+        let critical = bar
+            .toasts
+            .last()
+            .cloned()
+            .expect("the critical battery notice is shown");
+        assert_eq!(critical.summary, "Battery critically low");
+        assert_ne!(critical.id, low.id, "each notice has its own id");
+        assert!(
+            !control
+                .timer_requests()
+                .iter()
+                .any(|(_, timer)| *timer == TOAST_TIMER + u64::from(critical.id)),
+            "a critical notice has no timer and stays until it is dismissed"
+        );
+        // Dismissing a notice the bar made removes it without a server call.
+        bar.remove_toast(critical.id, notifications::Reason::Dismissed, &mut control);
+        assert!(bar.toasts.iter().all(|toast| toast.id != critical.id));
+    }
+
+    #[test]
+    fn notices_stay_in_the_history_until_clear_all_and_the_bell_counts_them() {
+        let mut bar = bar();
+        let mut control = Control::default();
+        let bell = |bar: &TopBar| {
+            bar.status_rects()
+                .into_iter()
+                .find(|(kind, _, _)| *kind == StatusMenu::Notifications)
+                .expect("the bell is laid out")
+        };
+        assert_eq!(bell(&bar).2, "");
+        bar.record_and_show(
+            notifications::toast(1, "Mail", "Hello", "", &[], false, 5000),
+            &mut control,
+        );
+        bar.record_and_show(
+            notifications::toast(2, "Chat", "Ping", "", &[], false, 5000),
+            &mut control,
+        );
+        assert_eq!(bell(&bar).2, "2");
+        // A notice that times out leaves the toasts but stays in the history.
+        bar.remove_toast(1, notifications::Reason::Expired, &mut control);
+        assert_eq!(bar.history.len(), 2);
+        // The bell opens the history, newest first, with Clear All.
+        let rect = bell(&bar).1;
+        bar.event(&press(rect.x + 4, 12), &mut control);
+        assert_eq!(bar.open, Some(Open::Status(StatusMenu::Notifications)));
+        let lines = bar.popover.clone().expect("the history is a popover");
+        assert_eq!(lines[0], popovers::Line::Info("Chat: Ping".into()));
+        assert_eq!(lines[1], popovers::Line::Info("Mail: Hello".into()));
+        assert!(lines.contains(&popovers::Line::Clear { enabled: true }));
+        assert!(bar
+            .status_commands
+            .contains(&Some(StatusCommand::ClearNotifications)));
+        // Choosing Clear All empties the history and the count goes with it.
+        bar.run_status_menu_command(StatusCommand::ClearNotifications, &mut control);
+        assert!(bar.history.is_empty());
+        assert_eq!(bell(&bar).2, "");
     }
 
     #[test]
@@ -2287,6 +2511,86 @@ mod tests {
         );
         assert!(bar.open.is_none());
         assert!(bar.popover.is_none());
+    }
+
+    #[test]
+    fn the_battery_item_opens_a_popover_that_says_when_the_power_provider_is_missing() {
+        let mut bar = bar();
+        let mut control = Control::default();
+        bar.power = Some(Err("UPower is not running".into()));
+        let (rect, text) = bar
+            .status_rects()
+            .into_iter()
+            .find(|(kind, _, _)| *kind == StatusMenu::Battery)
+            .map(|(_, rect, text)| (rect, text))
+            .expect("the battery item is laid out while the provider is missing");
+        assert_eq!(text, "Battery unavailable");
+        bar.event(&press(rect.x + 4, 12), &mut control);
+        assert_eq!(bar.open, Some(Open::Status(StatusMenu::Battery)));
+        assert!(bar
+            .popover
+            .as_ref()
+            .is_some_and(|lines| lines.contains(&popovers::Line::Info(
+                "Battery unavailable: UPower is not running".into()
+            ))));
+        bar.event(
+            &Event::Popup {
+                id: POPUP_MENU,
+                event: Box::new(key(Key::Escape)),
+            },
+            &mut control,
+        );
+        assert!(bar.open.is_none());
+    }
+
+    #[test]
+    fn the_battery_item_follows_the_provider_charge_and_the_popover_follows_its_answer() {
+        use slopos_core::capability::Availability;
+        use slopos_services::power::{
+            Battery, BatteryStatus, BatteryWarning, PowerSnapshot, PowerSource, SuspendCapability,
+        };
+        let mut bar = bar();
+        let mut control = Control::default();
+        let snapshot = |percentage| PowerSnapshot {
+            revision: 1,
+            availability: Availability::Available,
+            battery: Some(Battery {
+                percentage,
+                status: BatteryStatus::Discharging,
+                warning: BatteryWarning::None,
+                energy_rate_watts: None,
+            }),
+            source: PowerSource::Battery,
+            suspend: SuspendCapability::Available,
+            lid_present: false,
+            lid_closed: None,
+        };
+        bar.power = Some(Ok(snapshot(42.0)));
+        let text = |bar: &TopBar| {
+            bar.status_rects()
+                .into_iter()
+                .find(|(kind, _, _)| *kind == StatusMenu::Battery)
+                .map(|(_, _, text)| text)
+        };
+        assert_eq!(text(&bar).as_deref(), Some("42%"));
+        let rect = bar
+            .status_rects()
+            .into_iter()
+            .find(|(kind, _, _)| *kind == StatusMenu::Battery)
+            .map(|(_, rect, _)| rect)
+            .expect("the battery item is laid out");
+        bar.event(&press(rect.x + 4, 12), &mut control);
+        assert!(bar
+            .popover
+            .as_ref()
+            .is_some_and(|lines| lines.contains(&popovers::Line::Info("Charge 42%".into()))));
+        // A new answer rebuilds the open popover.
+        bar.power = Some(Ok(snapshot(41.0)));
+        bar.refresh_popover(&mut control);
+        assert!(bar
+            .popover
+            .as_ref()
+            .is_some_and(|lines| lines.contains(&popovers::Line::Info("Charge 41%".into()))));
     }
 
     #[test]

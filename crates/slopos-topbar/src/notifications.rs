@@ -11,6 +11,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
+use slopos_services::power::PowerEvent;
 use zbus::blocking::Connection;
 use zbus::zvariant::OwnedValue;
 use zbus::SignalContext;
@@ -21,6 +22,48 @@ const PATH: &str = "/org/freedesktop/Notifications";
 pub const VISIBLE: usize = 3;
 /// Default display time when the sender leaves it to the server.
 pub const DEFAULT_TIMEOUT_MS: u32 = 6_000;
+/// The application name of the bar's own notices.
+pub const POWER_APP: &str = "Power";
+/// Ids of notices the bar makes itself start here. The server counts up from 1,
+/// so the two ranges do not meet, and a notice with a local id is never reported
+/// to the server as closed.
+pub const LOCAL_ID_BASE: u32 = 0x8000_0000;
+
+/// Whether an id belongs to a notice the bar made itself.
+pub fn is_local(id: u32) -> bool {
+    id >= LOCAL_ID_BASE
+}
+
+/// The notice for a power warning, with the id `id`, or `None` for an event that
+/// is not a warning. A low battery times out like any notice; a critical one stays
+/// until it is dismissed.
+pub fn battery_notice(event: &PowerEvent, id: u32) -> Option<Toast> {
+    match event {
+        PowerEvent::LowBattery { percentage } => Some(Toast {
+            id,
+            app: POWER_APP.into(),
+            summary: "Battery low".into(),
+            body: format!(
+                "{:.0}% left. Connect the charger.",
+                percentage.clamp(0.0, 100.0)
+            ),
+            actions: Vec::new(),
+            timeout_ms: Some(DEFAULT_TIMEOUT_MS),
+        }),
+        PowerEvent::CriticalBattery { percentage } => Some(Toast {
+            id,
+            app: POWER_APP.into(),
+            summary: "Battery critically low".into(),
+            body: format!(
+                "{:.0}% left. Save your work and connect the charger.",
+                percentage.clamp(0.0, 100.0)
+            ),
+            actions: Vec::new(),
+            timeout_ms: None,
+        }),
+        PowerEvent::Changed(_) => None,
+    }
+}
 
 /// Why a notification closed (spec values).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -267,5 +310,42 @@ mod tests {
             super::toast(7, "", "", "", &[], false, 1500).timeout_ms,
             Some(1500)
         );
+    }
+
+    #[test]
+    fn a_low_battery_notice_times_out_and_a_critical_one_waits_for_the_user() {
+        let low = battery_notice(&PowerEvent::LowBattery { percentage: 15.4 }, LOCAL_ID_BASE)
+            .expect("a low battery is a notice");
+        assert_eq!(low.app, "Power");
+        assert_eq!(low.summary, "Battery low");
+        assert_eq!(low.body, "15% left. Connect the charger.");
+        assert_eq!(low.timeout_ms, Some(DEFAULT_TIMEOUT_MS));
+        let critical = battery_notice(
+            &PowerEvent::CriticalBattery { percentage: 4.0 },
+            LOCAL_ID_BASE + 1,
+        )
+        .expect("a critical battery is a notice");
+        assert_eq!(critical.summary, "Battery critically low");
+        assert_eq!(critical.timeout_ms, None, "critical notices are sticky");
+    }
+
+    #[test]
+    fn a_state_change_is_not_a_notice_and_local_ids_are_kept_apart_from_the_server() {
+        assert!(battery_notice(
+            &PowerEvent::Changed(slopos_services::power::PowerSnapshot {
+                revision: 1,
+                availability: slopos_core::capability::Availability::Available,
+                battery: None,
+                source: slopos_services::power::PowerSource::External,
+                suspend: slopos_services::power::SuspendCapability::Unknown,
+                lid_present: false,
+                lid_closed: None,
+            }),
+            LOCAL_ID_BASE,
+        )
+        .is_none());
+        assert!(is_local(LOCAL_ID_BASE));
+        assert!(!is_local(LOCAL_ID_BASE - 1));
+        assert!(!is_local(1), "the server's ids count up from 1");
     }
 }
