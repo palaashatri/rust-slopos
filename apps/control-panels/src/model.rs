@@ -35,7 +35,8 @@ impl Unavailable {
             Availability::UnsupportedHardware => {
                 "this computer has no supported hardware".to_owned()
             }
-            Availability::PermissionDenied => "SLOPOS is not allowed to change this".to_owned(),
+            // Covers reads (a panel showing a file or socket) and changes.
+            Availability::PermissionDenied => "SLOPOS is not allowed to access this".to_owned(),
             Availability::Disconnected => format!("the connection to {service} was lost"),
             Availability::Failed | Availability::Available => {
                 format!("{service} reported an error")
@@ -539,7 +540,7 @@ mod tests {
         let denied = Unavailable::new(Availability::PermissionDenied, "");
         assert_eq!(
             denied.message("BlueZ"),
-            "Unavailable: SLOPOS is not allowed to change this."
+            "Unavailable: SLOPOS is not allowed to access this."
         );
     }
 
@@ -591,6 +592,23 @@ mod tests {
             Unavailable::new(Availability::MissingService, "").message("CUPS"),
             "Unavailable: CUPS is not running on this computer."
         );
+    }
+
+    #[test]
+    fn a_refused_read_is_not_described_as_a_refused_change() {
+        // Printers and the Dock preference are read; the wording must say so.
+        let refused = Unavailable::new(Availability::PermissionDenied, "");
+        assert_eq!(
+            refused.message("CUPS"),
+            "Unavailable: SLOPOS is not allowed to access this."
+        );
+        assert!(!refused.message("the Dock settings").contains("change"));
+        let blocked = Unavailable::new(
+            Availability::PermissionDenied,
+            "the socket refuses this user",
+        );
+        assert!(blocked.message("CUPS").contains("not allowed to access"));
+        assert!(!blocked.message("CUPS").contains("change"));
     }
 
     #[test]
