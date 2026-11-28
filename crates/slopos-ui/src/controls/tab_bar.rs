@@ -410,9 +410,11 @@ impl Tabs {
     }
 }
 
-/// The narrowest plate the Default variant is drawn at: its corner insets need
-/// 12 pixels, so a narrower tab is drawn with a plate of this width, clipped.
-const MIN_TAB_PLATE_WIDTH: u32 = 13;
+/// The narrowest plate the Default variant can be drawn at. Its insets of 4 and 5
+/// pixels, with corner depths of 3 and 2, leave no room below 14 pixels and the
+/// renderer returns a geometry error. A narrower tab is drawn with a plate of
+/// this width, clipped to the tab.
+const MIN_TAB_PLATE_WIDTH: u32 = 14;
 
 /// The width of tabs `first..end` placed side by side with their gaps.
 fn run_width(widths: &[u32], first: usize, end: usize) -> u32 {
@@ -778,7 +780,7 @@ mod tests {
 
     #[test]
     fn a_strip_too_narrow_for_its_arrows_paints_without_error() {
-        for available in [0, 1, 12, 40, 57, 68, 70] {
+        for available in 0..=90u32 {
             let surface = RasterSurface::new(80, 40, Scale::new(1).unwrap()).unwrap();
             let tabs = narrow(available, 3);
             tabs.paint(&surface, &Font::system(12.0)).unwrap();
