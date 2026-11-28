@@ -21,6 +21,10 @@
 @define-color slopos_light #ffffff;
 @define-color slopos_warning #8a1c11;
 
+/* Light text (selection, active menu items) sits on @slopos_highlight_dark:
+ * #ffffff on it is 4.85:1, while #ffffff on @slopos_highlight is 3.13:1 and
+ * fails WCAG AA for normal text. */
+
 * {
   font-family: "Liberation Sans", "DejaVu Sans", sans-serif;
   font-size: 11px;
@@ -39,7 +43,7 @@ dialog {
 window.csd,
 window.solid-csd,
 window.csd decoration {
-  border-radius: 9px;
+  border-radius: 0;
   border: 1px solid @slopos_border;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
@@ -134,7 +138,7 @@ menubar > menuitem:hover,
 menubar > menuitem:active {
   color: @slopos_light;
   background-image: none;
-  background-color: @slopos_highlight;
+  background-color: @slopos_highlight_dark;
 }
 
 /* The active-window text was useful in the modern shell but duplicates the
@@ -183,7 +187,7 @@ popover,
   padding: 2px;
   background-color: @slopos_surface;
   border: 1px solid #C0C0C0;
-  border-radius: 10px;
+  border-radius: 0;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
@@ -199,7 +203,7 @@ popover modelbutton:hover,
 menu menuitem:active,
 popover modelbutton:active {
   color: @slopos_light;
-  background-color: @slopos_highlight;
+  background-color: @slopos_highlight_dark;
 }
 
 menu separator {
@@ -390,7 +394,7 @@ row {
 }
 
 row:selected {
-  background-color: @slopos_highlight;
+  background-color: @slopos_highlight_dark;
   color: @slopos_light;
 }
 
@@ -483,7 +487,7 @@ calendar.button {
 }
 
 calendar:selected {
-  background-color: @slopos_highlight;
+  background-color: @slopos_highlight_dark;
   color: #ffffff;
   border-radius: 0;
 }
@@ -655,6 +659,6 @@ tooltip label {
 selection,
 entry selection,
 textview selection {
-  background-color: @slopos_highlight;
+  background-color: @slopos_highlight_dark;
   color: @slopos_light;
 }

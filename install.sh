@@ -204,6 +204,7 @@ mkdir -p "$PREFIX/share/slopos-i/browser"
 cp -a packaging/browser/chromium "$PREFIX/share/slopos-i/browser/chromium"
 cp -a packaging/browser/firefox "$PREFIX/share/slopos-i/browser/firefox"
 install -Dm644 assets/slopos-logo.png "$PREFIX/share/slopos-i/slopos-logo.png"
+install -Dm644 assets/icons/notification.png "$PREFIX/share/slopos-i/icons/notification.png"
 
 if [[ $WITH_GREETER -eq 1 ]]; then
   if [[ "$DISTRO" == "arch" ]]; then

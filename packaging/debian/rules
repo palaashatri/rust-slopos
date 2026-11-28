@@ -54,6 +54,7 @@ override_dh_auto_install:
 	install -Dm644 assets/config/gtk-3.0/settings.ini debian/slopos-i/usr/share/slopos-i/gtk-3.0/settings.ini
 	install -Dm644 assets/config/mimeapps.list debian/slopos-i/usr/share/slopos-i/mimeapps.list
 	install -Dm644 assets/slopos-logo.png debian/slopos-i/usr/share/slopos-i/slopos-logo.png
+	install -Dm644 assets/icons/notification.png debian/slopos-i/usr/share/slopos-i/icons/notification.png
 	mkdir -p debian/slopos-i/usr/share/slopos-i/wallpapers
 	cp -a assets/wallpapers/. debian/slopos-i/usr/share/slopos-i/wallpapers/
 	mkdir -p debian/slopos-i/usr/share/slopos-i/recovery
