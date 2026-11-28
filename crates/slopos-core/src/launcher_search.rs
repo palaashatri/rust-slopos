@@ -766,8 +766,11 @@ mod tests {
 
     #[test]
     fn status_text_counts_results() {
+        let empty = Launcher::new(Vec::new());
+        assert!(empty.status_text().starts_with("Type to search"));
+
         let mut launcher = Launcher::new(PanelProvider.candidates_vec());
-        assert!(launcher.status_text().starts_with("Type to search"));
+        assert_eq!(launcher.status_text(), "8 results");
         launcher.set_query("sound");
         assert_eq!(launcher.status_text(), "1 result");
         launcher.set_query("e");
