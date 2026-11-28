@@ -1,9 +1,10 @@
 #!/bin/bash
 # topbar-mixer.sh — runtime check of the top bar's Volume Mixer popover.
 # Runs the top bar on Xvfb + Openbox inside a session bus, with the pactl fixture
-# on the path. Pass the x position of the sound item (read it from the first
-# screenshot, topbar-0-bar.png): a click there must open the popover, and a press
-# outside it must close it. Needs dbus-run-session, xdotool and ImageMagick.
+# on the path. A click on the sound item must open the popover, and a press
+# outside it must close it. The sound item's x is read from the bar's own log
+# ("sound item at x=N", written when the bar paints); an optional argument
+# overrides it. Needs dbus-run-session, xdotool and ImageMagick.
 set -u
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT="$ROOT/.work/qa-runtime/topbar-mixer"
@@ -51,7 +52,10 @@ FAILED=0
 if [ -e "$OUT/fake-pactl/state/calls" ]; then echo "FAIL the sound server was reached before the mixer opened"; FAILED=1; fi
 cp "$OUT/fake-pactl/pactl" "$OUT/late-bin/pactl"
 if [ -z "$SOUND_X" ]; then
-  echo "usage: topbar-mixer.sh SOUND_X   (the sound item's x, from topbar-0-bar.png)" >&2
+  SOUND_X="$(grep -o 'sound item at x=[0-9-]*' "$OUT/topbar.log" 2>/dev/null | tail -n 1 | cut -d= -f2 || true)"
+fi
+if [ -z "$SOUND_X" ]; then
+  echo "usage: topbar-mixer.sh [SOUND_X]   (the bar logged no 'sound item at x=' line in $OUT/topbar.log)" >&2
   kill $BAR $OPENBOX $XVFB 2>/dev/null
   exit 2
 fi
