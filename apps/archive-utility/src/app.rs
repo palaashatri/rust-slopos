@@ -799,15 +799,18 @@ mod tests {
         assert_eq!(app.focus, Focus::List);
         press(&mut app, Key::Tab, false);
         assert_eq!(app.focus, Focus::Extract);
+        // Shift+Tab walks back: List, Open, Path.
         press(&mut app, Key::Tab, true);
         assert_eq!(app.focus, Focus::List);
         press(&mut app, Key::Tab, true);
+        assert_eq!(app.focus, Focus::Open);
         press(&mut app, Key::Tab, true);
-        press(&mut app, Key::Tab, true);
-        press(&mut app, Key::Tab, true);
-        assert_eq!(app.focus, Focus::Path, "Shift+Tab wraps around");
+        assert_eq!(app.focus, Focus::Path);
         assert!(app.path.focused);
         assert!(!app.list.focused);
+        // From the first control, Shift+Tab wraps to the last one.
+        press(&mut app, Key::Tab, true);
+        assert_eq!(app.focus, Focus::Cancel, "Shift+Tab wraps around");
     }
 
     #[test]
