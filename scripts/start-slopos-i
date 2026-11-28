@@ -200,6 +200,20 @@ screen_dimensions() {
   fi
 }
 
+# The connected output's size and origin in root coordinates, as "W H X Y".
+# Desktop objects are placed on a monitor, not on the combined virtual root.
+monitor_geometry() {
+  local geometry=""
+  if command -v xrandr >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
+    geometry="$(xrandr --current 2>/dev/null | sed -n -E 's/^[^ ]+ connected (primary )?([0-9]+)x([0-9]+)\+(-?[0-9]+)\+(-?[0-9]+).*/\2 \3 \4 \5/p' | head -n 1 || true)"
+  fi
+  if [[ "$geometry" =~ ^[0-9]+[[:space:]][0-9]+[[:space:]]-?[0-9]+[[:space:]]-?[0-9]+$ ]]; then
+    printf '%s\n' "$geometry"
+  else
+    printf '%s 0 0\n' "$(screen_dimensions)"
+  fi
+}
+
 write_managed_shortcut() {
   local path="$1"
   local name="$2"
@@ -287,23 +301,14 @@ prepare_classic_desktop() {
     "user-trash" \
     "pcmanfm trash:///"
 
-  # Preserve user-rearranged icon positions after the first SLOPOS run. A
-  # separate profile means seeding this file does not alter another desktop.
-  #
-  # On a single-monitor desktop we seed the canonical right-side arrangement.
-  # On multi-monitor roots we intentionally leave icon coordinates to PCManFM:
-  # hard-coding the combined X11 root width can place objects on a detached
-  # output. PCManFM then keeps the objects on a live monitor across RandR
-  # topology changes instead of persisting invalid virtual-root coordinates.
-  if [ ! -s "$pcmanfm_layout" ]; then
-    local width height right_x trash_y connected_outputs=1
-    read -r width height < <(screen_dimensions)
-    if command -v xrandr >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
-      connected_outputs="$(xrandr --current 2>/dev/null | grep -c ' connected' || true)"
-      [[ "$connected_outputs" =~ ^[0-9]+$ ]] || connected_outputs=1
-    fi
-
-    cat > "$pcmanfm_layout" <<EOF
+  # The [*] section holds the appearance (wallpaper, colours, font, folder). It
+  # is rewritten on every start so an appearance change takes effect. The other
+  # sections hold the user's icon positions and are kept as they are.
+  local seed_objects=0
+  [ -s "$pcmanfm_layout" ] || seed_objects=1
+  local star_tmp="$pcmanfm_layout.tmp"
+  {
+    cat <<EOF
 [*]
 wallpaper_mode=$wallpaper_mode
 wallpaper_common=1
@@ -319,25 +324,46 @@ show_documents=0
 show_trash=0
 show_mounts=0
 EOF
+    if [ -s "$pcmanfm_layout" ]; then
+      awk '/^\[/ { keep = ($0 != "[*]") } keep' "$pcmanfm_layout"
+    fi
+  } > "$star_tmp"
+  mv "$star_tmp" "$pcmanfm_layout"
+
+  # Seed the object positions only for a new profile, so user-rearranged icons
+  # survive later starts. On a single-monitor desktop the canonical right-side
+  # arrangement is placed on that monitor, not on the whole virtual root.
+  #
+  # On multi-monitor roots we intentionally leave icon coordinates to PCManFM:
+  # hard-coding the combined X11 root width can place objects on a detached
+  # output. PCManFM then keeps the objects on a live monitor across RandR
+  # topology changes instead of persisting invalid virtual-root coordinates.
+  if [ "$seed_objects" = 1 ]; then
+    local width height mon_x mon_y right_x trash_y connected_outputs=1
+    read -r width height mon_x mon_y < <(monitor_geometry)
+    if command -v xrandr >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
+      connected_outputs="$(xrandr --current 2>/dev/null | grep -c ' connected' || true)"
+      [[ "$connected_outputs" =~ ^[0-9]+$ ]] || connected_outputs=1
+    fi
 
     if [ "$connected_outputs" -le 1 ]; then
-      right_x=$((width - 92))
-      trash_y=$((height - 104))
-      (( right_x < 28 )) && right_x=28
-      (( trash_y < 300 )) && trash_y=300
+      right_x=$((mon_x + width - 92))
+      trash_y=$((mon_y + height - 104))
+      (( right_x < mon_x + 28 )) && right_x=$((mon_x + 28))
+      (( trash_y < mon_y + 300 )) && trash_y=$((mon_y + 300))
       cat >> "$pcmanfm_layout" <<EOF
 
 [slopos-home.desktop]
 x=$right_x
-y=48
+y=$((mon_y + 48))
 
 [slopos-network.desktop]
 x=$right_x
-y=132
+y=$((mon_y + 132))
 
 [slopos-documents.desktop]
 x=$right_x
-y=216
+y=$((mon_y + 216))
 
 [slopos-trash.desktop]
 x=$right_x
@@ -414,7 +440,10 @@ cleanup() {
 
   return "$status"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 prepare_classic_desktop
 
