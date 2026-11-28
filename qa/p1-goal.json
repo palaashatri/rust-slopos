@@ -244,7 +244,12 @@
         "MEDIA-02",
         "PANELS-01",
         "STORE-02",
-        "SHELL-01"
+        "SHELL-01",
+        "IBUS-01",
+        "EDITOR-01",
+        "LOCK-01",
+        "PORTAL-01",
+        "SCREENSHOT-01"
       ],
       "proof": [
         "unit",
@@ -254,6 +259,79 @@
         "package"
       ],
       "acceptance": "Installed Debian/Arch image tested with real click/key/AT-SPI, all apps, error/restart/logout, performance limits, visual references and release evidence on exact SHA."
+    },
+    {
+      "id": "IBUS-01",
+      "title": "IBus input method client wired to native text controls",
+      "area": "toolkit",
+      "deps": [
+        "UI-01"
+      ],
+      "proof": [
+        "unit",
+        "runtime"
+      ],
+      "acceptance": "slopos-ui IBus client (PR #53) wired into the shared text input control with preedit, commit, focus and cancel; headless tests with a fake IBus endpoint; live IBus daemon run marked NOT_RUN until a VM exists."
+    },
+    {
+      "id": "EDITOR-01",
+      "title": "Native Text Editor (PR #54)",
+      "area": "editor",
+      "deps": [
+        "UI-02",
+        "IBUS-01"
+      ],
+      "proof": [
+        "unit",
+        "visual",
+        "runtime"
+      ],
+      "acceptance": "Native slopos-ui text editor: open/save with explicit overwrite and permission errors, undo/redo, find, Unicode selection, accessibility parity, Classic 1x/2x pixel tests, packaged desktop entry."
+    },
+    {
+      "id": "LOCK-01",
+      "title": "Screen lock with PAM check (PR #55)",
+      "area": "security",
+      "deps": [
+        "UI-02",
+        "SHELL-01"
+      ],
+      "proof": [
+        "unit",
+        "runtime",
+        "security"
+      ],
+      "acceptance": "Native slopos-lock: lock on request and idle, PAM authentication through a bounded helper, no password logging, failure lockout, unlock on success, keyboard-only and a11y tests; PAM run on a real account marked NOT_RUN until a VM exists."
+    },
+    {
+      "id": "PORTAL-01",
+      "title": "File chooser portal and Open With (PR #57)",
+      "area": "platform",
+      "deps": [
+        "UI-02",
+        "FILES-02"
+      ],
+      "proof": [
+        "unit",
+        "runtime",
+        "security"
+      ],
+      "acceptance": "slopos-portal backend serving the native file chooser to other apps over a bounded D-Bus interface; Open With uses native apps only; cancel and permission-denied paths tested headlessly; live D-Bus client check marked NOT_RUN until a VM exists."
+    },
+    {
+      "id": "SCREENSHOT-01",
+      "title": "Native screenshot app with region and window capture (PR #58)",
+      "area": "screenshot",
+      "deps": [
+        "UI-02",
+        "IMAGE-01"
+      ],
+      "proof": [
+        "unit",
+        "visual",
+        "runtime"
+      ],
+      "acceptance": "slopos-screenshot: region and window capture through the X11 provider, save via the Image Viewer format path, cancel and failure paths, keyboard and a11y tests; live capture marked NOT_RUN without an X server."
     }
   ]
 }

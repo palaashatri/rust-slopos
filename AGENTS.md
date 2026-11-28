@@ -156,7 +156,9 @@ all these applications, renderer paths or non-Linux hosts already exist.
 
 **Ship SLOPOS X11/Openbox first** with a stable native Rust `slopos-ui`
 application set: Calculator, Files, Image Viewer, Media, Control Panels,
-Software and basic shell status/OSDs. The exact phase/gate list is in
+Software, basic shell status/OSDs, and (owner decision, 2026-11-28) the
+IBus input method, Text Editor, screen lock, file chooser portal and
+Screenshot app (PRs #53–#58). The exact phase/gate list is in
 [docs/p1-x11-release.md](docs/p1-x11-release.md). No Loom, Donkey, PARAMA,
 custom compositor, or unapproved GPU backend work may displace these.
 
