@@ -332,6 +332,8 @@ mod tests {
     fn live_capture_reads_the_screen_and_the_active_window() {
         use x11rb::protocol::xproto::{CreateWindowAux, PropMode, WindowClass};
         use x11rb::protocol::Event;
+        // change_property8/32 are on the wrapper trait, not the xproto one.
+        use x11rb::wrapper::ConnectionExt as _;
         use x11rb::{COPY_DEPTH_FROM_PARENT, COPY_FROM_PARENT};
 
         let (conn, screen_number) = x11rb::connect(None).expect("an X server (xvfb-run -a)");
