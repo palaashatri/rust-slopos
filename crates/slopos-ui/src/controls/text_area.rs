@@ -1366,7 +1366,7 @@ mod tests {
             area.select_all(text);
             area.paint(&surface, text).unwrap();
             let width = measure(text, &area.font).width;
-            let inside = (left as u32 + 1) * f;
+            let inside = (left + 1) * f;
             let top = 4 + 1;
             assert_eq!(
                 surface.pixel(inside, top * f),
@@ -1374,7 +1374,7 @@ mod tests {
                 "{f}x selection highlight"
             );
             // `measure` already rounds the width up to whole pixels.
-            let past = left as u32 + width as u32 + 2;
+            let past = left + width as u32 + 2;
             assert_eq!(
                 surface.pixel(past * f, top * f),
                 Some(argb(colors.content)),
