@@ -1,6 +1,6 @@
 use std::{
     io,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Stdio,
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -13,7 +13,7 @@ use slopos_core::capability::Availability;
 use thiserror::Error;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
-    process::{Child, Command},
+    process::{Child, ChildStdout, Command},
     sync::{mpsc, Mutex},
     task::JoinHandle,
     time::timeout,
@@ -301,13 +301,14 @@ impl AudioClient {
         }
         let _guard = self.mutation_lock.lock().await;
         self.ensure_stream(stream).await?;
+        let events = ChangeEvents::open(&self.executable)?;
         self.run(&[
             "set-sink-input-volume",
             &stream.to_string(),
             &format!("{percent}%"),
         ])
         .await?;
-        self.wait_for_stream(stream, |item| {
+        self.wait_for_stream(events, stream, |item| {
             item.volume_millipercent
                 .iter()
                 .all(|volume| volume.abs_diff(percent * 1000) <= 1000)
@@ -322,13 +323,14 @@ impl AudioClient {
     ) -> Result<AudioSnapshot, AudioError> {
         let _guard = self.mutation_lock.lock().await;
         self.ensure_stream(stream).await?;
+        let events = ChangeEvents::open(&self.executable)?;
         self.run(&[
             "set-sink-input-mute",
             &stream.to_string(),
             if muted { "1" } else { "0" },
         ])
         .await?;
-        self.wait_for_stream(stream, |item| item.muted == muted)
+        self.wait_for_stream(events, stream, |item| item.muted == muted)
             .await
     }
 
@@ -347,9 +349,10 @@ impl AudioClient {
             .find(|output| output.name == device)
             .map(|output| output.index)
             .ok_or_else(|| AudioError::DeviceUnavailable(device.to_owned()))?;
+        let events = ChangeEvents::open(&self.executable)?;
         self.run(&["move-sink-input", &stream.to_string(), device])
             .await?;
-        self.wait_for_stream(stream, |item| item.output == target)
+        self.wait_for_stream(events, stream, |item| item.output == target)
             .await
     }
 
@@ -362,8 +365,11 @@ impl AudioClient {
         }
     }
 
+    /// Read back a stream after a write. Between reads it blocks on the
+    /// server's change events, so a slow server is waited for, not polled.
     async fn wait_for_stream(
         &self,
+        mut events: ChangeEvents,
         stream: u32,
         matches: impl Fn(&AudioStream) -> bool,
     ) -> Result<AudioSnapshot, AudioError> {
@@ -373,7 +379,7 @@ impl AudioClient {
                 match snapshot.streams.iter().find(|item| item.index == stream) {
                     None => return Err(AudioError::DeviceUnavailable(format!("stream {stream}"))),
                     Some(item) if matches(item) => return Ok(snapshot),
-                    Some(_) => tokio::time::sleep(Duration::from_millis(100)).await,
+                    Some(_) => events.next_change().await?,
                 }
             }
         })
@@ -406,8 +412,9 @@ impl AudioClient {
             AudioDirection::Output => "set-sink-volume",
             AudioDirection::Input => "set-source-volume",
         };
+        let events = ChangeEvents::open(&self.executable)?;
         self.run(&[verb, device, &format!("{percent}%")]).await?;
-        self.wait_for(direction, device, |snapshot| {
+        self.wait_for(events, direction, device, |snapshot| {
             let devices = match direction {
                 AudioDirection::Output => &snapshot.outputs,
                 AudioDirection::Input => &snapshot.inputs,
@@ -445,9 +452,10 @@ impl AudioClient {
             AudioDirection::Output => "set-sink-mute",
             AudioDirection::Input => "set-source-mute",
         };
+        let events = ChangeEvents::open(&self.executable)?;
         self.run(&[verb, device, if muted { "1" } else { "0" }])
             .await?;
-        self.wait_for(direction, device, |snapshot| {
+        self.wait_for(events, direction, device, |snapshot| {
             let devices = match direction {
                 AudioDirection::Output => &snapshot.outputs,
                 AudioDirection::Input => &snapshot.inputs,
@@ -470,8 +478,9 @@ impl AudioClient {
             AudioDirection::Output => "set-default-sink",
             AudioDirection::Input => "set-default-source",
         };
+        let events = ChangeEvents::open(&self.executable)?;
         self.run(&[verb, device]).await?;
-        self.wait_for(direction, device, |snapshot| match direction {
+        self.wait_for(events, direction, device, |snapshot| match direction {
             AudioDirection::Output => snapshot.default_output.as_deref() == Some(device),
             AudioDirection::Input => snapshot.default_input.as_deref() == Some(device),
         })
@@ -495,8 +504,12 @@ impl AudioClient {
         }
     }
 
+    /// Read a device back after a write. Between reads it blocks on the
+    /// server's change events (opened before the write), with the mutation
+    /// deadline; a subscription that ends is reported as Disconnected.
     async fn wait_for(
         &self,
+        mut events: ChangeEvents,
         direction: AudioDirection,
         device: &str,
         mut matches: impl FnMut(&AudioSnapshot) -> bool,
@@ -514,7 +527,7 @@ impl AudioClient {
                 if matches(&snapshot) {
                     return Ok(snapshot);
                 }
-                tokio::time::sleep(Duration::from_millis(100)).await;
+                events.next_change().await?;
             }
         })
         .await
@@ -613,6 +626,45 @@ impl AudioClient {
 impl Default for AudioClient {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// The server's change events for one write, from `pactl subscribe`.
+///
+/// Opened before the write is sent, so the write's own change is queued
+/// rather than missed. The client name tells the test fixture apart from the
+/// long-lived watcher; `pactl` treats it as an ordinary client name.
+struct ChangeEvents {
+    _child: Child,
+    lines: tokio::io::Lines<BufReader<ChildStdout>>,
+}
+
+impl ChangeEvents {
+    fn open(executable: &Path) -> Result<Self, AudioError> {
+        let mut child = Command::new(executable)
+            .arg("--client-name=slopos-audio-wait")
+            .arg("subscribe")
+            .env("LC_ALL", "C")
+            .kill_on_drop(true)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(map_io_error)?;
+        let stdout = child.stdout.take().ok_or(AudioError::Disconnected)?;
+        Ok(Self {
+            _child: child,
+            lines: BufReader::new(stdout).lines(),
+        })
+    }
+
+    /// Block until the server reports a change. A subscription that ends,
+    /// or whose output cannot be read, is a lost server.
+    async fn next_change(&mut self) -> Result<(), AudioError> {
+        match self.lines.next_line().await {
+            Ok(Some(_)) => Ok(()),
+            Ok(None) | Err(_) => Err(AudioError::Disconnected),
+        }
     }
 }
 
@@ -933,6 +985,7 @@ mod tests {
         std::fs::write(directory.path().join("stream_volume"), "100").unwrap();
         std::fs::write(directory.path().join("stream_mute"), "no").unwrap();
         std::fs::write(directory.path().join("stream_sink"), "1").unwrap();
+        std::fs::write(directory.path().join("event_log"), "").unwrap();
         let executable = directory.path().join("pactl");
         write_script(
             &executable,
@@ -940,6 +993,8 @@ mod tests {
 set -eu
 root=${0%/*}
 if [ -f "$root/server_down" ]; then printf 'Connection refused\n' >&2; exit 1; fi
+waiter=0
+if [ "${1:-}" = --client-name=slopos-audio-wait ]; then shift; waiter=1; fi
 case "$1" in
   set-*|move-*)
     [ ! -f "$root/writes_fail" ] || { printf 'Failure: Access denied\n' >&2; exit 1; }
@@ -994,6 +1049,8 @@ esac
   move-sink-input) [ "$2" = 42 ] || exit 1; [ "$3" = sink.two ] && printf 2 > "$root/stream_sink" ;;
   set-default-source) printf '%s\n' "$2" > "$root/default_input" ;;
   subscribe)
+    # The mutation waiter sees the events of its own write, from the log.
+    [ "$waiter" = 0 ] || exec tail -n 0 -F "$root/event_log"
     attempts=$(cat "$root/subscription_attempts")
     printf '%s\n' "$((attempts + 1))" > "$root/subscription_attempts"
     [ "$attempts" != 0 ] || exit 0
@@ -1009,6 +1066,8 @@ esac
     ;;
   *) printf 'unexpected command: %s\n' "$*" >&2; exit 2 ;;
 esac
+# A write that reached this line succeeded: tell the server's subscribers.
+case "$1" in set-*|move-*) printf "Event 'change' on sink #1\n" >> "$root/event_log" ;; esac
 "##,
         );
         (
