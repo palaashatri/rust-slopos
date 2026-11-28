@@ -803,20 +803,22 @@ impl FilesApp {
             return;
         }
         // One folder navigates; files open in their applications.
+        // Check the listed identity before navigating too: a folder replaced
+        // since it was read must not be entered.
         if let Some(folder) = rows.iter().find(|row| row.kind == Kind::Directory) {
+            if !self.listed_unchanged(&folder.path) {
+                self.set_status(
+                    "This item changed since the folder was read. Refresh and try again.",
+                );
+                return;
+            }
             self.request(folder.path.clone(), Navigation::New);
             return;
         }
         for row in rows.iter().take(16) {
             // Only open the item that was listed: the name may since have been
             // replaced by another item (new device and inode).
-            let listed = self
-                .state
-                .entries
-                .iter()
-                .find(|entry| entry.path == row.path)
-                .map(|entry| entry.identity);
-            if listed.is_none() || model::identity_of(&row.path).ok() != listed {
+            if !self.listed_unchanged(&row.path) {
                 self.set_status(
                     "This item changed since the folder was read. Refresh and try again.",
                 );
@@ -824,6 +826,16 @@ impl FilesApp {
             }
             self.open_path(&row.path, row.kind);
         }
+    }
+
+    /// Whether the item at `path` still has the device and inode it had when
+    /// its folder was read.
+    fn listed_unchanged(&self, path: &Path) -> bool {
+        self.state
+            .entries
+            .iter()
+            .find(|entry| entry.path == path)
+            .is_some_and(|entry| model::identity_of(path).ok() == Some(entry.identity))
     }
 
     fn open_path(&mut self, path: &Path, kind: Kind) {
@@ -1062,7 +1074,10 @@ impl FilesApp {
                 }
             }
             Command::Home => match std::env::var_os("HOME") {
-                Some(home) => self.request(PathBuf::from(home), Navigation::New),
+                Some(home) => {
+                    let home = model::normalize_startup(PathBuf::from(home));
+                    self.request(home, Navigation::New)
+                }
                 None => self.set_status("HOME is not set."),
             },
             Command::GoTrash => self.go_trash(),

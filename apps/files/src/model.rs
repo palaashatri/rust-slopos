@@ -69,8 +69,14 @@ pub fn normalize_startup(path: PathBuf) -> PathBuf {
 /// partial listing from pretending to be a complete directory.
 pub fn read_directory(path: &Path) -> io::Result<Vec<Entry>> {
     use std::os::unix::fs::MetadataExt;
-    for ancestor in path.ancestors().filter(|part| !part.as_os_str().is_empty()) {
-        if fs::symlink_metadata(ancestor)?.file_type().is_symlink() {
+    // Check each prefix built from components. A trailing slash makes
+    // symlink_metadata follow a link, so the raw path's ancestors would skip it.
+    let mut prefix = PathBuf::new();
+    for component in path.components() {
+        prefix.push(component);
+        if matches!(component, std::path::Component::Normal(_))
+            && fs::symlink_metadata(&prefix)?.file_type().is_symlink()
+        {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "a folder on the path is a symlink (directory symlinks are deliberately not followed)",
@@ -286,6 +292,19 @@ mod tests {
         symlink(root.join("real"), root.join("link")).unwrap();
         assert!(read_directory(&root.join("real").join("sub")).is_ok());
         assert!(read_directory(&root.join("link").join("sub")).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_trailing_slash_does_not_hide_a_symlink_component() {
+        use std::os::unix::fs::symlink;
+        let root = fixture();
+        fs::create_dir_all(root.join("real").join("sub")).unwrap();
+        symlink(root.join("real"), root.join("link")).unwrap();
+        let suffixed = PathBuf::from(format!("{}/", root.join("link").join("sub").display()));
+        assert!(read_directory(&suffixed).is_err());
+        assert!(read_directory(&root.join("real").join("sub")).is_ok());
         fs::remove_dir_all(root).unwrap();
     }
 
