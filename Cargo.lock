@@ -3752,6 +3752,7 @@ dependencies = [
  "resvg",
  "thiserror 1.0.69",
  "tiny-skia",
+ "unicode-segmentation",
  "wgpu",
  "x11rb",
  "zbus 4.4.0",

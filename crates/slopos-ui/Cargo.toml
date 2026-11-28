@@ -13,6 +13,9 @@ resvg.workspace = true
 x11rb.workspace = true
 log.workspace = true
 libc.workspace = true
+# Grapheme clusters: the text area moves, deletes and selects whole characters
+# (base letter with its combining marks), already in the lock file via cosmic-text.
+unicode-segmentation = "1.13"
 accesskit.workspace = true
 accesskit_unix = { workspace = true, optional = true }
 zbus = { workspace = true, optional = true }

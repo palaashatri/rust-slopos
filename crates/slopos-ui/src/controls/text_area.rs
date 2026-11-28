@@ -19,6 +19,7 @@ use crate::foundation::geometry::Rect;
 use crate::render::{RasterSurface, RenderError};
 use crate::text::{caret_stops, hit_test, measure, Font};
 use crate::theme::palette;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Space between the border and the text, in logical pixels.
 const PADDING: i32 = 4;
@@ -535,12 +536,32 @@ impl TextArea {
         self.scroll.paint(surface)
     }
 
-    /// The area's accessibility node. Its value is the whole text.
-    pub fn accessibility_node(&self, text: &str) -> accesskit::Node {
+    /// The id of the `TextRun` child that carries the text's units. The top
+    /// bit is set so it cannot collide with any control id.
+    fn run_node_id(&self) -> u64 {
+        self.id | (1 << 63)
+    }
+
+    /// The area's accessibility nodes: the text input, whose value is the
+    /// whole text and whose text selection is the caret or selected range,
+    /// and one `TextRun` child that gives the selection its positions. The
+    /// caller adds both to its tree; the run is nested, so it is not a root.
+    pub fn accessibility_nodes(&self, text: &str) -> Vec<(u64, accesskit::Node)> {
+        let run_id = self.run_node_id();
+        let lengths = accessibility_unit_lengths(text);
+        let position = |byte: usize| accesskit::TextPosition {
+            node: accesskit::NodeId(run_id),
+            character_index: accessibility_unit_index(&lengths, byte),
+        };
+        let focus = position(self.caret);
+        let anchor = self.anchor.map_or(focus, position);
+
         let mut node = accesskit::Node::new(accesskit::Role::MultilineTextInput);
         node.set_label(self.label.as_str());
         node.set_value(text);
         node.set_bounds(super::bounds_of(self.bounds));
+        node.set_children(vec![accesskit::NodeId(run_id)]);
+        node.set_text_selection(accesskit::TextSelection { anchor, focus });
         if self.enabled {
             node.add_action(accesskit::Action::Focus);
             if !self.read_only {
@@ -549,7 +570,11 @@ impl TextArea {
         } else {
             node.set_disabled();
         }
-        node
+
+        let mut run = accesskit::Node::new(accesskit::Role::TextRun);
+        run.set_value(text);
+        run.set_character_lengths(lengths);
+        vec![(self.id, node), (run_id, run)]
     }
 
     pub fn focus_node(&self) -> u64 {
@@ -630,18 +655,53 @@ pub fn floor_index(text: &str, index: usize) -> usize {
     index
 }
 
+/// The start of the grapheme cluster before `from`. A base letter and its
+/// combining marks are one unit, so one Backspace removes them together.
 fn prev_char(text: &str, from: usize) -> usize {
+    let from = floor_index(text, from);
     text[..from]
-        .char_indices()
+        .graphemes(true)
         .next_back()
-        .map_or(0, |(index, _)| index)
+        .map_or(0, |cluster| from - cluster.len())
 }
 
+/// The end of the grapheme cluster after `from`.
 fn next_char(text: &str, from: usize) -> usize {
     text[from..]
-        .chars()
+        .graphemes(true)
         .next()
-        .map_or(from, |c| from + c.len_utf8())
+        .map_or(from, |cluster| from + cluster.len())
+}
+
+/// The lengths, in UTF-8 bytes, of the units that assistive technology sees:
+/// the grapheme clusters the caret moves over. AccessKit stores each length
+/// in a `u8`, so a cluster longer than 255 bytes is split into its scalar
+/// values for that view only.
+fn accessibility_unit_lengths(text: &str) -> Vec<u8> {
+    let mut lengths = Vec::new();
+    for cluster in text.graphemes(true) {
+        if cluster.len() <= usize::from(u8::MAX) {
+            lengths.push(cluster.len() as u8);
+        } else {
+            lengths.extend(cluster.chars().map(|c| c.len_utf8() as u8));
+        }
+    }
+    lengths
+}
+
+/// The number of units that start before byte `byte`: the unit index of a
+/// caret there. A caret inside a unit counts that unit as passed.
+fn accessibility_unit_index(lengths: &[u8], byte: usize) -> usize {
+    let mut start = 0;
+    let mut index = 0;
+    for &length in lengths {
+        if start >= byte {
+            break;
+        }
+        start += usize::from(length);
+        index += 1;
+    }
+    index
 }
 
 fn prev_word(text: &str, from: usize) -> usize {
@@ -1101,6 +1161,209 @@ mod tests {
         ] {
             let mut area = focused(text, 3).with_bounds(bounds);
             let _ = area.paint(&surface, text);
+        }
+    }
+
+    #[test]
+    fn a_base_letter_and_its_combining_marks_move_and_delete_as_one() {
+        // "e" + U+0301 COMBINING ACUTE ACCENT is one character, three bytes.
+        let text = "e\u{301}x";
+        let mut area = focused(text, 0);
+        area.handle(text, &key(Key::Right));
+        assert_eq!(area.caret(), 3, "one Right passes the whole cluster");
+        let removed = edit(area.handle(text, &key(Key::Backspace)));
+        assert_eq!(
+            (removed.start, removed.end, removed.inserted.as_str()),
+            (0, 3, "")
+        );
+        assert_eq!(area.caret(), 0);
+    }
+
+    #[test]
+    fn a_multi_scalar_emoji_is_one_character_for_selection_and_delete() {
+        // Thumbs up with a skin-tone modifier: two scalars, eight bytes, one cluster.
+        // The caret sits after the emoji, before the "!".
+        let text = "\u{1F44D}\u{1F3FD}!";
+        let mut area = focused(text, 8);
+        area.handle(text, &with_shift(Key::Left));
+        assert_eq!(
+            area.selection(),
+            Some((0, 8)),
+            "Shift+Left over the emoji takes the whole cluster"
+        );
+        assert_eq!(area.selected_text(text), Some("\u{1F44D}\u{1F3FD}"));
+        match area.handle(text, &ctrl('x')) {
+            TextAreaOutcome::Cut { text: cut, edit } => {
+                assert_eq!(cut, "\u{1F44D}\u{1F3FD}");
+                assert_eq!(edit.caret_after(), 0);
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn selection_over_accented_and_cjk_text_stays_on_char_boundaries() {
+        let text = "日本é";
+        let mut area = focused(text, 0);
+        for _ in 0..2 {
+            area.handle(text, &with_shift(Key::Right));
+        }
+        assert_eq!(area.selection(), Some((0, 6)));
+        assert_eq!(area.selected_text(text), Some("日本"));
+        let result = edit(area.handle(text, &key(Key::Character('ö'))));
+        assert_eq!((result.start, result.end), (0, 6));
+        assert_eq!(result.inserted, "ö");
+        assert_eq!(area.caret(), 2);
+    }
+
+    #[test]
+    fn forward_delete_removes_a_whole_cluster() {
+        let text = "a\u{301}b";
+        let mut area = focused(text, 0);
+        let removed = edit(area.handle(text, &key(Key::Delete)));
+        assert_eq!((removed.start, removed.end), (0, 3));
+    }
+
+    #[test]
+    fn accessibility_nodes_expose_the_caret_and_selection_as_unit_positions() {
+        // "a" (1 byte), "日" (3 bytes), "e" + U+0301 (3 bytes): three units.
+        let text = "a日e\u{301}";
+        let mut area = focused(text, 0);
+        area.select(text, 1, 4);
+        let nodes = area.accessibility_nodes(text);
+        let (_, input) = &nodes[0];
+        let (run_id, run) = &nodes[1];
+        assert_eq!(input.role(), accesskit::Role::MultilineTextInput);
+        assert_eq!(input.children(), &[accesskit::NodeId(*run_id)]);
+        assert_eq!(run.role(), accesskit::Role::TextRun);
+        assert_eq!(run.value(), Some(text));
+        assert_eq!(run.character_lengths(), &[1, 3, 3]);
+        let selection = input.text_selection().expect("a text selection");
+        assert_eq!(selection.anchor.node, accesskit::NodeId(*run_id));
+        assert_eq!(selection.anchor.character_index, 1);
+        assert_eq!(selection.focus.character_index, 2);
+
+        // With no selection, the caret is both ends, and at the end of the text it is the unit count.
+        area.place_caret(text, text.len());
+        let nodes = area.accessibility_nodes(text);
+        let selection = nodes[0].1.text_selection().unwrap();
+        assert_eq!(selection.anchor, selection.focus);
+        assert_eq!(selection.focus.character_index, 3);
+    }
+
+    #[test]
+    fn accessibility_units_sum_to_the_text_length_even_for_huge_clusters() {
+        // One base letter with 130 combining marks: a 261-byte cluster that
+        // a u8 length cannot hold, so it is split into scalar values for AT.
+        let text = format!("a{}", "\u{301}".repeat(130));
+        let lengths = accessibility_unit_lengths(&text);
+        assert_eq!(lengths.len(), 131);
+        assert_eq!(
+            lengths.iter().map(|&n| usize::from(n)).sum::<usize>(),
+            text.len()
+        );
+        assert!(lengths.iter().all(|&n| n == 1 || n == 2));
+        let mut area = focused(&text, text.len());
+        area.place_caret(&text, text.len());
+        let node = &area.accessibility_nodes(&text)[0].1;
+        assert_eq!(node.text_selection().unwrap().focus.character_index, 131);
+    }
+
+    /// The ARGB value of an opaque palette colour, as `RasterSurface::pixel` reports it.
+    fn argb(color: crate::foundation::color::Color) -> u32 {
+        0xff00_0000 | u32::from(color.red) << 16 | u32::from(color.green) << 8 | u32::from(color.blue)
+    }
+
+    #[test]
+    fn classic_frame_focus_ring_and_caret_are_painted_at_1x_and_2x() {
+        let colors = palette();
+        for factor in [1u32, 2] {
+            let scale = Scale::new(factor).unwrap();
+            // Logical 200 x 120 at this scale. The caret sits at the text's left edge.
+            let surface = RasterSurface::new(200, 120, scale).unwrap();
+            surface.clear(colors.content).unwrap();
+            let mut area = focused("", 0).with_bounds(Rect {
+                x: 0,
+                y: 0,
+                width: 200,
+                height: 120,
+            });
+            area.paint(&surface, "").unwrap();
+            let f = factor;
+            // The outer border is the shadow colour, the inner ring is focus black.
+            assert_eq!(surface.pixel(0, 0), Some(argb(colors.bevel_shadow)), "{f}x border");
+            assert_eq!(
+                surface.pixel(f, f),
+                Some(argb(colors.focus)),
+                "{f}x focus ring"
+            );
+            // The caret: a one-logical-pixel column at the text's left edge, centred on the line.
+            let left = 4;
+            let middle = 4 + area.line_height() as u32 / 2;
+            assert_eq!(
+                surface.pixel(left * f, middle * f),
+                Some(argb(colors.ink)),
+                "{f}x caret"
+            );
+            // Away from the caret the content is the content colour.
+            assert_eq!(
+                surface.pixel(100 * f, 60 * f),
+                Some(argb(colors.content)),
+                "{f}x content"
+            );
+        }
+    }
+
+    #[test]
+    fn the_caret_is_absent_when_unfocused_and_the_selection_paints_at_1x_and_2x() {
+        let colors = palette();
+        let text = "abc";
+        for factor in [1u32, 2] {
+            let scale = Scale::new(factor).unwrap();
+            let surface = RasterSurface::new(200, 120, scale).unwrap();
+            surface.clear(colors.content).unwrap();
+            let mut area = TextArea::new(1, "Document").with_bounds(Rect {
+                x: 0,
+                y: 0,
+                width: 200,
+                height: 120,
+            });
+            area.paint(&surface, text).unwrap();
+            let f = factor;
+            let left = 4;
+            let middle = 4 + area.line_height() as u32 / 2;
+            assert_eq!(
+                surface.pixel(left * f, middle * f),
+                Some(argb(colors.content)),
+                "{f}x no caret when unfocused"
+            );
+
+            // Select all three letters, then sample a point inside the box
+            // above the glyphs and one just past the selection's right edge.
+            let surface = RasterSurface::new(200, 120, scale).unwrap();
+            surface.clear(colors.content).unwrap();
+            let mut area = focused(text, 0).with_bounds(Rect {
+                x: 0,
+                y: 0,
+                width: 200,
+                height: 120,
+            });
+            area.select_all(text);
+            area.paint(&surface, text).unwrap();
+            let width = measure(text, &area.font).width;
+            let inside = (left as u32 + 1) * f;
+            let top = 4 + 1;
+            assert_eq!(
+                surface.pixel(inside, top * f),
+                Some(argb(colors.selection)),
+                "{f}x selection highlight"
+            );
+            let past = left as u32 + width + 2;
+            assert_eq!(
+                surface.pixel(past * f, top * f),
+                Some(argb(colors.content)),
+                "{f}x past the selection"
+            );
         }
     }
 
