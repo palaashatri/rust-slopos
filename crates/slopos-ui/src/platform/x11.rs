@@ -80,6 +80,8 @@ pub enum PlatformError {
     #[cfg(feature = "gpu")]
     #[error("GPU frame: {0}")]
     Gpu(String),
+    #[error("the screen cannot be locked: the X server refused the keyboard or pointer grab")]
+    Grab,
     #[error("{0}")]
     Io(#[from] std::io::Error),
 }
@@ -202,6 +204,7 @@ pub fn run<A: App>(
         screen.root_visual,
         &CreateWindowAux::new()
             .background_pixel(screen.white_pixel)
+            .override_redirect(u32::from(matches!(options.kind, WindowKind::Lock)))
             .event_mask(
                 EventMask::EXPOSURE
                     | EventMask::STRUCTURE_NOTIFY
@@ -241,6 +244,7 @@ pub fn run<A: App>(
         WindowKind::Normal => atoms._NET_WM_WINDOW_TYPE_NORMAL,
         WindowKind::Dock { .. } => atoms._NET_WM_WINDOW_TYPE_DOCK,
         WindowKind::Desktop => atoms._NET_WM_WINDOW_TYPE_DESKTOP,
+        WindowKind::Lock => atoms._NET_WM_WINDOW_TYPE_NORMAL,
     };
     conn.change_property32(
         PropMode::REPLACE,
@@ -300,6 +304,10 @@ pub fn run<A: App>(
                 .x(x * factor as i32)
                 .y(y * factor as i32),
         )?;
+    }
+    if options.kind == WindowKind::Lock {
+        // Requests are handled in order, so the grabs see the mapped window.
+        grab_for_lock(&conn, window)?;
     }
     conn.flush()?;
 
@@ -739,6 +747,51 @@ pub fn run<A: App>(
     conn.destroy_window(window)?;
     conn.flush()?;
     Ok(())
+}
+
+/// Take the pointer and keyboard for the screen lock. Another client may hold
+/// a grab for a moment (a menu closing), so a refused grab is retried a few
+/// times; if it stays refused, the window must not pretend to lock the screen.
+fn grab_for_lock(conn: &RustConnection, window: u32) -> Result<(), PlatformError> {
+    use x11rb::protocol::xproto::{GrabMode, GrabStatus};
+    const ATTEMPTS: u32 = 10;
+    for attempt in 0..ATTEMPTS {
+        let pointer = conn
+            .grab_pointer(
+                true,
+                window,
+                EventMask::BUTTON_PRESS | EventMask::BUTTON_RELEASE | EventMask::POINTER_MOTION,
+                GrabMode::ASYNC,
+                GrabMode::ASYNC,
+                x11rb::NONE,
+                x11rb::NONE,
+                x11rb::CURRENT_TIME,
+            )?
+            .reply()?;
+        let keyboard = conn
+            .grab_keyboard(
+                true,
+                window,
+                x11rb::CURRENT_TIME,
+                GrabMode::ASYNC,
+                GrabMode::ASYNC,
+            )?
+            .reply()?;
+        if pointer.status == GrabStatus::SUCCESS && keyboard.status == GrabStatus::SUCCESS {
+            return Ok(());
+        }
+        if keyboard.status == GrabStatus::SUCCESS {
+            conn.ungrab_keyboard(x11rb::CURRENT_TIME)?;
+        }
+        if pointer.status == GrabStatus::SUCCESS {
+            conn.ungrab_pointer(x11rb::CURRENT_TIME)?;
+        }
+        conn.flush()?;
+        if attempt + 1 < ATTEMPTS {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+    Err(PlatformError::Grab)
 }
 
 /// Grab each global shortcut on the root window under every lock state.

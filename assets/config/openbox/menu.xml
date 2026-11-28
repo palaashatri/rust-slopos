@@ -58,6 +58,9 @@
       <action name="DesktopPrevious"><wrap>yes</wrap></action>
     </item>
     <separator/>
+    <item label="Lock Screen">
+      <action name="Execute"><command>slopos-lock</command></action>
+    </item>
     <item label="Log Out">
       <action name="Execute"><command>slopos-session --logout</command></action>
     </item>

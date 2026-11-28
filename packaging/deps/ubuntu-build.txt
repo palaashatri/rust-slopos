@@ -7,5 +7,7 @@ libx11-dev
 libxrandr-dev
 libssl-dev
 libdbus-1-dev
+libpam0g-dev
 libgstreamer1.0-dev
 libgstreamer-plugins-base1.0-dev
+libclang-dev

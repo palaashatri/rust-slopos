@@ -71,7 +71,7 @@ TARGET_ROOT="${CARGO_TARGET_DIR:-$ROOT/target}"
 BIN_DIR="${BIN_DIR:-$TARGET_ROOT/$RUST_TARGET_DIR}"
 # The payload stage symlinks this directory, so it must be absolute.
 [[ -d "$BIN_DIR" ]] && BIN_DIR="$(cd "$BIN_DIR" && pwd)"
-BINARIES=(slopos-session slopos-topbar slopos-desktop slopos-dock slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-software slopos-system-monitor slopos-volume-mixer)
+BINARIES=(slopos-session slopos-topbar slopos-desktop slopos-dock slopos-calculator slopos-image-viewer slopos-files slopos-media slopos-control-panels slopos-software slopos-volume-mixer slopos-lock slopos-system-monitor)
 for binary in "${BINARIES[@]}"; do
   [[ -x "$BIN_DIR/$binary" ]] || { echo "build-live-iso: missing $BIN_DIR/$binary" >&2; exit 2; }
 done
@@ -159,7 +159,7 @@ STAGE="$WORK_DIR/cargo-stage"
 mkdir -p "$STAGE"
 ln -s "$BIN_DIR" "$STAGE/release"
 (cd "$ROOT" && CARGO_TARGET_DIR="$STAGE" XSESSION_DIR="$CHROOT/usr/share/xsessions" \
-  bash ./install.sh --prefix "$CHROOT/usr" --no-deps --no-build >/dev/null)
+  bash ./install.sh --prefix "$CHROOT/usr" --sysconfdir "$CHROOT/etc" --no-deps --no-build >/dev/null)
 for binary in "${BINARIES[@]}"; do
   [[ -x "$CHROOT/usr/bin/$binary" ]] || { echo "build-live-iso: $binary was not installed" >&2; exit 1; }
 done

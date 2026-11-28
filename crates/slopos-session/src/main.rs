@@ -74,6 +74,8 @@ fn main() -> ExitCode {
         .is_none()
         .then(|| Child::new("SLOPOS desktop", Policy::Optional, spawn_desktop));
     let mut shell = Child::new("SLOPOS shell", Policy::Important, spawn_shell);
+    // Locks the screen on idle, before suspend and on logind requests.
+    let mut lock_watch = Child::new("SLOPOS lock watcher", Policy::Optional, spawn_lock_watcher);
     let mut dock = env::var_os("SLOPOS_NO_DOCK")
         .is_none()
         .then(|| Child::new("SLOPOS Dock", Policy::Important, spawn_dock));
@@ -94,6 +96,9 @@ fn main() -> ExitCode {
             // Openbox root menu still offers Log Out.
             log::error!("{error}; continuing without the shell");
         }
+        if let Err(error) = lock_watch.supervise() {
+            log::warn!("{error}; the screen will not lock on its own");
+        }
         if let Some(Err(error)) = dock.as_mut().map(Child::supervise) {
             log::error!("{error}; continuing without the Dock");
         }
@@ -103,6 +108,7 @@ fn main() -> ExitCode {
     }
 
     log::info!("Stopping SLOPOS-I session");
+    lock_watch.stop();
     if let Some(dock) = dock.as_mut() {
         dock.stop();
     }
@@ -173,6 +179,22 @@ fn spawn_shell() -> Option<std::process::Child> {
 
 fn spawn_desktop() -> Option<std::process::Child> {
     spawn_component("slopos-desktop")
+}
+
+/// `slopos-lock --watch`, from the copy next to this binary.
+fn spawn_lock_watcher() -> Option<std::process::Child> {
+    let path = slopos_core::process::resolve_program("slopos-lock")
+        .unwrap_or_else(|| PathBuf::from("slopos-lock"));
+    match std::process::Command::new(&path).arg("--watch").spawn() {
+        Ok(child) => Some(child),
+        Err(error) => {
+            log::error!(
+                "Could not start the screen lock watcher {}: {error}",
+                path.display()
+            );
+            None
+        }
+    }
 }
 
 fn spawn_dock() -> Option<std::process::Child> {

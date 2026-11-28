@@ -79,7 +79,7 @@ mkdir -p config/includes.chroot/usr/bin \
          config/includes.chroot/usr/share/themes \
          config/includes.chroot/usr/share/icons
 
-for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-volume-mixer slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-software slopos-system-monitor; do
+for binary in slopos-session slopos-shell slopos-dock slopos-calculator slopos-catalogue slopos-settings slopos-volume-mixer slopos-lock slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-software slopos-system-monitor; do
   install -Dm755 "$ROOT/target/release/$binary" "config/includes.chroot/usr/bin/$binary"
 done
 install -Dm755 "$ROOT/scripts/start-slopos-i" "config/includes.chroot/usr/bin/start-slopos-i"
@@ -90,6 +90,7 @@ install -Dm644 "$ROOT/packaging/slopos-i.desktop" "config/includes.chroot/usr/sh
 install -Dm644 "$ROOT/packaging/slopos-browser.desktop" "config/includes.chroot/usr/share/applications/slopos-browser.desktop"
 # Firefox (firefox-esr from Debian's repository) is the default for text/html and http/https.
 install -Dm644 "$ROOT/assets/config/mimeapps.list" "config/includes.chroot/etc/xdg/mimeapps.list"
+install -Dm644 "$ROOT/packaging/pam/slopos-lock.debian" "config/includes.chroot/etc/pam.d/slopos-lock"
 # The shipped apps' menu entries, so each app is discoverable from the live session.
 for app in slopos-calculator slopos-control-panels slopos-files slopos-image-viewer slopos-media slopos-settings slopos-software slopos-volume-mixer slopos-system-monitor; do
   install -Dm644 "$ROOT/packaging/$app.desktop" "config/includes.chroot/usr/share/applications/$app.desktop"

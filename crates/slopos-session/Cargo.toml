@@ -3,11 +3,28 @@ name = "slopos-session"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "SLOPOS-I X11 Session Supervisor"
+description = "SLOPOS-I X11 Session Supervisor and screen lock"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "slopos-session"
+path = "src/main.rs"
+
+[[bin]]
+name = "slopos-lock"
+path = "src/bin/slopos-lock.rs"
 
 [dependencies]
 slopos-core = { path = "../slopos-core" }
-slopos-ui = { path = "../slopos-ui", default-features = false }
+# The atspi feature exposes the lock surface's accessibility tree over AT-SPI.
+slopos-ui = { path = "../slopos-ui", default-features = false, features = ["atspi"] }
 log = { workspace = true }
 env_logger = { workspace = true }
 libc = { workspace = true }
+x11rb = { workspace = true }
+zbus = { workspace = true }
+zeroize = { workspace = true }
+pam = { workspace = true }
+accesskit = { workspace = true }
