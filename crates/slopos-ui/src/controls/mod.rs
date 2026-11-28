@@ -8,6 +8,7 @@ pub mod open_with;
 pub mod popup;
 pub mod range;
 pub mod scroll;
+pub mod tabs;
 pub mod text_field;
 
 use crate::foundation::geometry::Rect;

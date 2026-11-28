@@ -23,6 +23,7 @@ members = [
     "apps/files",
     "apps/volume-mixer",
     "apps/terminal",
+    "apps/system-monitor",
 ]
 
 [workspace.dependencies]
