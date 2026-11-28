@@ -6,7 +6,7 @@
 //! the sorted listing in [`DirectoryState`], and `more` stays set until the
 //! last page has arrived.
 use std::cmp::Ordering;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -59,15 +59,24 @@ impl Entry {
 
 /// The listing order: folders first, then case-insensitive name, then the
 /// exact name so that the order is total.
+///
+/// Called once per comparison while pages are merged, so it must not
+/// allocate: names are compared character by character, lowercased on the fly.
 pub fn entry_order(a: &Entry, b: &Entry) -> Ordering {
     (a.kind != Kind::Directory)
         .cmp(&(b.kind != Kind::Directory))
-        .then_with(|| {
-            a.display_name()
-                .to_lowercase()
-                .cmp(&b.display_name().to_lowercase())
-        })
+        .then_with(|| cmp_names_ignoring_case(&a.name, &b.name))
         .then_with(|| a.name.cmp(&b.name))
+}
+
+/// Case-insensitive comparison of two names, lossy UTF-8 as the display shows
+/// them. Borrows the names when they are valid UTF-8, so it does not allocate.
+fn cmp_names_ignoring_case(a: &OsStr, b: &OsStr) -> Ordering {
+    let a = a.to_string_lossy();
+    let b = b.to_string_lossy();
+    a.chars()
+        .flat_map(char::to_lowercase)
+        .cmp(b.chars().flat_map(char::to_lowercase))
 }
 
 /// Merge a sorted `page` into the sorted listing `into`, in linear time.
@@ -425,6 +434,18 @@ mod tests {
         let tail = lister.next_page().unwrap();
         assert!(tail.entries.is_empty() && !tail.more);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn name_order_ignores_case_then_breaks_ties_exactly() {
+        let mut items = vec![entry("b"), entry("C"), entry("B"), entry("a")];
+        items.sort_by(entry_order);
+        assert_eq!(names(&items), ["a", "B", "b", "C"]);
+        // Accented and non-ASCII letters fold too, and the order is total.
+        let mut accented = vec![entry("É"), entry("e"), entry("é")];
+        accented.sort_by(entry_order);
+        assert_eq!(names(&accented), ["e", "É", "é"]);
+        assert_eq!(entry_order(&entry("x"), &entry("x")), Ordering::Equal);
     }
 
     #[test]
