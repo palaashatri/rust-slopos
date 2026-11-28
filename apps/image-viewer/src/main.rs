@@ -36,6 +36,9 @@ const IMAGE_ID: u64 = 3;
 const MENU_ID: u64 = 100;
 const CHOOSER_ID: u64 = 300;
 /// The canvas behind the image (a neutral dark grey, like a light box).
+/// Pixels moved per arrow-key press when the image is larger than the canvas.
+const PAN_STEP: i32 = 48;
+/// The canvas behind the image (a neutral dark grey, like a light box).
 const CANVAS: Color = Color {
     red: 0x30,
     green: 0x32,
@@ -167,6 +170,8 @@ pub struct ImageViewerApp {
     shown: Option<PathBuf>,
     path: Option<PathBuf>,
     folder: Vec<PathBuf>,
+    /// The folder listing stopped at a limit, so `folder` is only its start.
+    folder_truncated: bool,
     index: usize,
     cache: DecodeCache,
     decoder: Decoder,
@@ -208,6 +213,7 @@ impl ImageViewerApp {
             shown: None,
             path: None,
             folder: Vec::new(),
+            folder_truncated: false,
             index: 0,
             cache: DecodeCache::new(CACHE_BUDGET_BYTES),
             decoder: Decoder::new(slot.clone()),
@@ -315,17 +321,19 @@ impl ImageViewerApp {
         if path.is_dir() {
             return self.open_folder(&path);
         }
-        let (folder, index) = decode::siblings(&path);
-        self.folder = folder;
+        let (listing, index) = decode::siblings(&path);
+        self.folder = listing.images;
+        self.folder_truncated = listing.truncated;
         self.index = index;
         self.show(path);
     }
 
     fn open_folder(&mut self, dir: &Path) {
-        let folder = decode::images_in(dir);
-        let Some(first) = folder.first().cloned() else {
+        let listing = decode::images_in(dir);
+        let Some(first) = listing.images.first().cloned() else {
             self.abandon_pending();
             self.folder.clear();
+            self.folder_truncated = listing.truncated;
             self.index = 0;
             self.path = None;
             self.image = None;
@@ -334,7 +342,8 @@ impl ImageViewerApp {
             self.refresh_controls();
             return;
         };
-        self.folder = folder;
+        self.folder = listing.images;
+        self.folder_truncated = listing.truncated;
         self.index = 0;
         self.show(first);
     }
@@ -412,11 +421,14 @@ impl ImageViewerApp {
             return;
         };
         let name = self.path.as_deref().map(file_name).unwrap_or_default();
-        let position = if self.folder.len() > 1 {
+        let mut position = if self.folder.len() > 1 {
             format!(" — {} of {}", self.index + 1, self.folder.len())
         } else {
             String::new()
         };
+        if self.folder_truncated {
+            position.push_str(" — folder listing stopped early, only part of it is listed");
+        }
         self.status = format!(
             "{name} — {} × {} {}{} — {:.0}%{position}",
             image.width,
@@ -589,6 +601,19 @@ impl ImageViewerApp {
             Event::Accessibility(AccessibilityRequest::Focus(id)) => {
                 self.focus.focus(*id);
                 self.sync_focus();
+                return;
+            }
+            Event::KeyPressed {
+                key: key @ (Key::Up | Key::Down),
+                ..
+            } if self.image.is_some() && self.viewport.can_pan() => {
+                // Up shows what lies above, so the picture moves down.
+                let dy = if matches!(key, Key::Up) {
+                    PAN_STEP
+                } else {
+                    -PAN_STEP
+                };
+                self.viewport.pan_by(0, dy);
                 return;
             }
             Event::Scroll { dy, .. } if self.image.is_some() => {
@@ -970,6 +995,31 @@ mod tests {
             let surface = RasterSurface::new(WIDTH, HEIGHT, Scale::new(factor).unwrap()).unwrap();
             app.paint(&surface);
         }
+    }
+
+    #[test]
+    fn arrow_keys_pan_a_zoomed_image_by_a_fixed_step() {
+        let dir = folder();
+        let mut app = ImageViewerApp::new(Some(&dir.path().join("b.png")));
+        settle(&mut app);
+        let mut control = Control::default();
+        for _ in 0..8 {
+            app.event(&key(Key::Character('+')), &mut control);
+        }
+        let start = app.viewport.image_bounds().unwrap();
+        app.event(&key(Key::Up), &mut control);
+        let up = app.viewport.image_bounds().unwrap();
+        assert_eq!(up.y - start.y, PAN_STEP);
+        app.event(&key(Key::Down), &mut control);
+        app.event(&key(Key::Down), &mut control);
+        let down = app.viewport.image_bounds().unwrap();
+        assert_eq!(down.y - up.y, -2 * PAN_STEP);
+        // Arrow keys do not move a picture that fits, so they are not swallowed
+        // by panning and still reach the rest of the handler.
+        app.event(&key(Key::Character('0')), &mut control);
+        let fitted = app.viewport.image_bounds().unwrap();
+        app.event(&key(Key::Up), &mut control);
+        assert_eq!(app.viewport.image_bounds().unwrap(), fitted);
     }
 
     #[test]

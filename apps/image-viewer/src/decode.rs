@@ -38,8 +38,11 @@ pub const MAX_DECODE_ALLOC: u64 = 192 * 1024 * 1024;
 pub const MAX_SIDE: u32 = 32_768;
 /// SVGs are rasterised so their longer side is this many pixels.
 pub const SVG_RASTER_SIZE: u32 = 2048;
-/// Default decoded-image cache budget.
-pub const CACHE_BUDGET_BYTES: usize = 256 * 1024 * 1024;
+/// Decoded-image cache budget. Sized for the 512 MB Pi Zero 2 W goal: a
+/// decode of a 40 MP JPEG peaks near 280 MB, and the image on screen is held
+/// outside the cache, so the cache stays small.
+pub const CACHE_BUDGET_BYTES: usize = 64 * 1024 * 1024;
+const _: () = assert!(CACHE_BUDGET_BYTES < MAX_DECODE_ALLOC as usize);
 
 /// Extensions offered in the Open dialog and used for folder navigation.
 pub const EXTENSIONS: &[&str] = &[
@@ -268,38 +271,80 @@ pub fn is_image_name(path: &Path) -> bool {
         .is_some_and(|ext| EXTENSIONS.contains(&ext.as_str()))
 }
 
-/// The image files directly inside `dir`, sorted case-insensitively. An
-/// unreadable folder gives an empty list.
-pub fn images_in(dir: &Path) -> Vec<PathBuf> {
-    let mut images: Vec<PathBuf> = fs::read_dir(dir)
-        .map(|entries| {
-            entries
-                .filter_map(Result::ok)
-                .map(|entry| entry.path())
-                .filter(|candidate| is_image_name(candidate) && candidate.is_file())
-                .take(20_000)
-                .collect()
-        })
-        .unwrap_or_default();
-    images.sort_by_key(|candidate| {
+/// Directory entries read while listing a folder. A folder with more entries
+/// than this is listed only in part.
+pub const MAX_SCANNED_ENTRIES: usize = 50_000;
+/// Image files kept from one folder listing.
+pub const MAX_LISTED_IMAGES: usize = 10_000;
+
+/// The image files in one folder, and whether the listing stopped early.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Listing {
+    /// Sorted case-insensitively.
+    pub images: Vec<PathBuf>,
+    /// The folder held more entries or images than the limits allow, so
+    /// `images` is only its first part.
+    pub truncated: bool,
+}
+
+/// The image files directly inside `dir`, sorted case-insensitively. The name
+/// is checked before any file-system call, so a folder of other files costs
+/// one `readdir` pass. An unreadable folder gives an empty listing.
+pub fn images_in(dir: &Path) -> Listing {
+    list_bounded(dir, MAX_SCANNED_ENTRIES, MAX_LISTED_IMAGES)
+}
+
+fn list_bounded(dir: &Path, max_scanned: usize, max_images: usize) -> Listing {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return Listing::default();
+    };
+    let mut listing = Listing::default();
+    for (scanned, entry) in entries.enumerate() {
+        if scanned == max_scanned {
+            listing.truncated = true;
+            break;
+        }
+        let Ok(entry) = entry else { continue };
+        let path = entry.path();
+        if !is_image_name(&path) || !path.is_file() {
+            continue;
+        }
+        if listing.images.len() == max_images {
+            listing.truncated = true;
+            break;
+        }
+        listing.images.push(path);
+    }
+    listing.images.sort_by_cached_key(|candidate| {
         candidate
             .file_name()
             .map(|name| name.to_string_lossy().to_lowercase())
             .unwrap_or_default()
     });
-    images
+    listing
 }
 
-/// Images in the same folder as `path`, sorted case-insensitively, and the
-/// index of `path` among them. Unreadable folders give just `path`.
-pub fn siblings(path: &Path) -> (Vec<PathBuf>, usize) {
-    let Some(dir) = path.parent() else {
-        return (vec![path.to_path_buf()], 0);
+/// Images in the same folder as `path` and the index of `path` among them.
+/// Unreadable folders, or a `path` cut off by the listing limits, give just
+/// `path`.
+pub fn siblings(path: &Path) -> (Listing, usize) {
+    let only_this = || Listing {
+        images: vec![path.to_path_buf()],
+        truncated: false,
     };
-    let images = images_in(dir);
-    match images.iter().position(|candidate| candidate == path) {
-        Some(index) => (images, index),
-        None => (vec![path.to_path_buf()], 0),
+    let Some(dir) = path.parent() else {
+        return (only_this(), 0);
+    };
+    let listing = images_in(dir);
+    match listing.images.iter().position(|candidate| candidate == path) {
+        Some(index) => (listing, index),
+        None => (
+            Listing {
+                images: vec![path.to_path_buf()],
+                truncated: listing.truncated,
+            },
+            0,
+        ),
     }
 }
 
@@ -567,7 +612,8 @@ pub(crate) mod tests {
             fs::write(dir.path().join(name), b"x").unwrap();
         }
         fs::create_dir(dir.path().join("e.png")).unwrap();
-        let (list, index) = siblings(&dir.path().join("b.PNG"));
+        let (listing, index) = siblings(&dir.path().join("b.PNG"));
+        let list = listing.images;
         let names: Vec<String> = list
             .iter()
             .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
@@ -676,10 +722,31 @@ pub(crate) mod tests {
             fs::write(dir.path().join(name), b"x").unwrap();
         }
         let names: Vec<String> = images_in(dir.path())
+            .images
             .iter()
             .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
             .collect();
         assert_eq!(names, ["a.JPG", "B.png"]);
-        assert!(images_in(&dir.path().join("missing")).is_empty());
+        assert!(images_in(&dir.path().join("missing")).images.is_empty());
+    }
+
+    #[test]
+    fn folder_listing_is_bounded_and_says_so() {
+        let dir = tempfile::tempdir().unwrap();
+        for name in ["a.png", "b.png", "c.png", "notes.txt"] {
+            fs::write(dir.path().join(name), b"x").unwrap();
+        }
+        // Image limit: the first two images are kept and the rest flagged.
+        let by_images = list_bounded(dir.path(), 100, 2);
+        assert_eq!(by_images.images.len(), 2);
+        assert!(by_images.truncated);
+        // Entry limit: scanning stops after two entries, whatever they are.
+        let by_entries = list_bounded(dir.path(), 2, 100);
+        assert!(by_entries.truncated);
+        assert!(by_entries.images.len() <= 2);
+        // Within both limits nothing is flagged.
+        let whole = list_bounded(dir.path(), 100, 100);
+        assert_eq!(whole.images.len(), 3);
+        assert!(!whole.truncated);
     }
 }
