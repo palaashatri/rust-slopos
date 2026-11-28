@@ -15,6 +15,7 @@
 use crate::event::{Event, Key, Modifiers, PointerButton};
 use crate::foundation::geometry::Rect;
 use crate::input_method::InputMethodEvent;
+use crate::platform::Control;
 use crate::render::{RasterSurface, RenderError};
 use crate::text::{caret_stops, hit_test, measure, Font};
 
@@ -89,6 +90,14 @@ pub struct TextField {
     dragging: bool,
     undo: Vec<(String, usize)>,
     preedit: Option<Preedit>,
+    /// The input method may hold a composition for this field: set when it
+    /// sent a preedit, cleared when it committed or hid one. A composition
+    /// that ends here (click, focus loss, cancel) leaves this set, so the
+    /// next [`TextField::sync_input_method`] tells the daemon to reset.
+    ime_composing: bool,
+    /// This field last asked the desktop for text input, so it must say when
+    /// it stops needing it.
+    ime_requested: bool,
 }
 
 impl TextField {
@@ -115,6 +124,8 @@ impl TextField {
             dragging: false,
             undo: Vec::new(),
             preedit: None,
+            ime_composing: false,
+            ime_requested: false,
         }
     }
 
@@ -286,19 +297,71 @@ impl TextField {
             Event::KeyPressed { key, modifiers } if self.focused => self.key(key, *modifiers),
             Event::Paste(text) if self.focused => self.insert(text),
             Event::InputMethod(InputMethodEvent::Preedit { text, cursor }) if self.focused => {
-                self.set_preedit(text, *cursor)
+                let outcome = self.set_preedit(text, *cursor);
+                self.ime_composing = self.preedit.is_some();
+                outcome
             }
-            Event::InputMethod(InputMethodEvent::Commit(text)) if self.focused => self.commit(text),
+            Event::InputMethod(InputMethodEvent::Commit(text)) if self.focused => {
+                // The daemon ends its composition with the commit.
+                self.ime_composing = false;
+                self.commit(text)
+            }
             Event::InputMethod(InputMethodEvent::PreeditHidden) if self.focused => {
+                self.ime_composing = false;
                 self.cancel_preedit()
             }
             // The input method is gone, so an unfinished composition can no
             // longer be committed: drop it and let keys reach the field.
             Event::InputMethodStatus(crate::input_method::InputMethodStatus::Unavailable(_)) => {
+                self.ime_composing = false;
                 self.cancel_preedit()
             }
             _ => TextFieldOutcome::Ignored,
         }
+    }
+
+    /// Whether this field needs the desktop's input method: it is enabled,
+    /// focused and not a secret. Password fields stay out of composition, as
+    /// an input method would otherwise see the secret text.
+    pub fn wants_text_input(&self) -> bool {
+        self.enabled && self.focused && !self.secret
+    }
+
+    /// Tell the window's input method what this field needs, as requests on
+    /// `control` for the host to apply after the event. A focused field asks
+    /// for text input and reports its caret. A field that stops needing text
+    /// input says so once, and if a composition ended here without the input
+    /// method, the daemon is reset first.
+    ///
+    /// Call it for the field that has keyboard focus, after the event that
+    /// may have changed it. Apps with several fields call it on the focused
+    /// one last, so an unfocused field does not cancel the focused field's
+    /// request.
+    pub fn sync_input_method(&mut self, control: &mut Control) {
+        // A field that cannot take text input drops its composition, as
+        // [`Self::handle`] does for an unfocused field.
+        if !self.wants_text_input() {
+            self.preedit = None;
+        }
+        if self.ime_composing && self.preedit.is_none() {
+            self.ime_composing = false;
+            control.reset_input_method();
+        }
+        if self.wants_text_input() {
+            control.set_text_input(true);
+            control.set_input_cursor(self.caret_bounds());
+            self.ime_requested = true;
+        } else if self.ime_requested {
+            control.set_text_input(false);
+            self.ime_requested = false;
+        }
+    }
+
+    /// [`Self::handle`], then [`Self::sync_input_method`] on `control`.
+    pub fn handle_with_input(&mut self, event: &Event, control: &mut Control) -> TextFieldOutcome {
+        let outcome = self.handle(event);
+        self.sync_input_method(control);
+        outcome
     }
 
     fn key(&mut self, key: &Key, modifiers: Modifiers) -> TextFieldOutcome {
@@ -960,6 +1023,138 @@ mod tests {
 
     fn commit_event(text: &str) -> Event {
         Event::InputMethod(InputMethodEvent::Commit(text.into()))
+    }
+
+    fn click_in(field: &TextField) -> Event {
+        Event::PointerPressed {
+            x: field.bounds.x + 20,
+            y: field.bounds.y + 5,
+            button: PointerButton::Primary,
+        }
+    }
+
+    #[test]
+    fn only_an_enabled_focused_plain_field_wants_text_input() {
+        let mut field = focused();
+        assert!(field.wants_text_input());
+        field.focused = false;
+        assert!(!field.wants_text_input());
+        field.focused = true;
+        field.enabled = false;
+        assert!(!field.wants_text_input());
+        field.enabled = true;
+        field.secret = true;
+        assert!(!field.wants_text_input(), "passwords stay out of composition");
+    }
+
+    #[test]
+    fn a_focused_field_asks_for_text_input_and_reports_its_caret() {
+        let mut field = focused();
+        let mut control = Control::default();
+        field.sync_input_method(&mut control);
+        assert_eq!(control.text_input_request(), Some(true));
+        assert_eq!(control.input_cursor_request(), Some(field.caret_bounds()));
+        assert!(!control.input_reset_requested());
+    }
+
+    #[test]
+    fn a_field_that_never_wanted_input_sends_nothing() {
+        let mut field = TextField::new(9, "Unfocused");
+        let mut control = Control::default();
+        field.sync_input_method(&mut control);
+        assert_eq!(control.text_input_request(), None);
+        assert_eq!(control.input_cursor_request(), None);
+        assert!(!control.input_reset_requested());
+    }
+
+    #[test]
+    fn losing_focus_stops_text_input_once() {
+        let mut field = focused();
+        field.sync_input_method(&mut Control::default());
+        field.focused = false;
+        let mut control = Control::default();
+        field.sync_input_method(&mut control);
+        assert_eq!(control.text_input_request(), Some(false));
+        let mut again = Control::default();
+        field.sync_input_method(&mut again);
+        assert_eq!(again.text_input_request(), None, "said once, not every event");
+    }
+
+    #[test]
+    fn a_composition_dropped_by_a_click_resets_the_input_method() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        let mut control = Control::default();
+        field.handle_with_input(&click_in(&field), &mut control);
+        assert_eq!(field.preedit(), None);
+        assert!(control.input_reset_requested());
+        // The reset is asked for once, when the composition ends.
+        let mut later = Control::default();
+        field.sync_input_method(&mut later);
+        assert!(!later.input_reset_requested());
+    }
+
+    #[test]
+    fn losing_focus_during_a_composition_resets_before_stopping() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        field.sync_input_method(&mut Control::default());
+        field.focused = false;
+        let mut control = Control::default();
+        field.sync_input_method(&mut control);
+        assert!(control.input_reset_requested());
+        assert_eq!(control.text_input_request(), Some(false));
+        assert_eq!(field.preedit(), None);
+    }
+
+    #[test]
+    fn escape_cancels_the_composition_and_resets_the_input_method() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        let mut control = Control::default();
+        let escape = Event::KeyPressed {
+            key: Key::Escape,
+            modifiers: Modifiers::default(),
+        };
+        assert_eq!(
+            field.handle_with_input(&escape, &mut control),
+            TextFieldOutcome::Changed
+        );
+        assert_eq!(field.preedit(), None);
+        assert!(control.input_reset_requested());
+    }
+
+    #[test]
+    fn a_commit_or_hide_from_the_input_method_needs_no_reset() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        let mut control = Control::default();
+        field.handle_with_input(&commit_event("你"), &mut control);
+        assert_eq!(field.text(), "你");
+        assert!(!control.input_reset_requested());
+
+        field.handle(&preedit_event("h", 1));
+        let mut hidden = Control::default();
+        field.handle_with_input(
+            &Event::InputMethod(InputMethodEvent::PreeditHidden),
+            &mut hidden,
+        );
+        assert!(!hidden.input_reset_requested());
+    }
+
+    #[test]
+    fn the_input_method_going_away_needs_no_reset_it_cannot_receive() {
+        let mut field = focused();
+        field.handle(&preedit_event("ni", 2));
+        let mut control = Control::default();
+        field.handle_with_input(
+            &Event::InputMethodStatus(crate::input_method::InputMethodStatus::Unavailable(
+                "gone".into(),
+            )),
+            &mut control,
+        );
+        assert_eq!(field.preedit(), None);
+        assert!(!control.input_reset_requested());
     }
 
     #[test]
