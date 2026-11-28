@@ -336,6 +336,9 @@ pub struct SoftwareApp {
     open: Button,
     progress: ProgressBar,
     running: Option<Running>,
+    /// Set by a quit request made while an operation runs. The window quits
+    /// when the operation has finished, so a Flatpak rollback is not cut off.
+    quit_when_idle: bool,
     /// The last lines a package install printed, and which package they
     /// belong to, so the detail pane can show why an install failed.
     output: Vec<String>,
@@ -424,6 +427,7 @@ impl SoftwareApp {
             open: Button::new(OPEN_ID, "Open", ButtonPlateVariant::Regular),
             progress: ProgressBar::new(PROGRESS_ID, "Download progress"),
             running: None,
+            quit_when_idle: false,
             output: Vec::new(),
             output_key: None,
             dialog: None,
@@ -1172,6 +1176,10 @@ impl SoftwareApp {
             .spawn(move || {
                 let mut completed = Vec::new();
                 let mut result = Ok(());
+                // Steps that finished, for the report; and the changes the rollback
+                // must undo, which include a Flathub add that may have written
+                // before it failed.
+                let mut rollback_changes: Vec<packages::Change> = Vec::new();
                 for step in &steps {
                     // A cancel that arrived during an earlier step stops the
                     // rest before they start.
@@ -1179,12 +1187,25 @@ impl SoftwareApp {
                         result = Err(run::CANCELLED.to_owned());
                         break;
                     }
+                    // `remote-add` can write the remote and then fail, for example
+                    // while it imports the signing key. So the Flathub change is
+                    // queued for the rollback before its command runs, and its
+                    // undo accepts a remote that was never written.
+                    let is_remote = step.change == packages::Change::FlathubAdded;
+                    if is_remote {
+                        rollback_changes.push(step.change);
+                    }
                     let outcome = runner(step.argv.as_slice(), &worker_stop, &mut |line: &str| {
                         let _ = line_sender.send(line.to_owned());
                         wake(&slot);
                     });
                     match outcome {
-                        Ok(()) => completed.push(step.change),
+                        Ok(()) => {
+                            completed.push(step.change);
+                            if !is_remote {
+                                rollback_changes.push(step.change);
+                            }
+                        }
                         Err(error) => {
                             result = Err(error);
                             break;
@@ -1200,11 +1221,11 @@ impl SoftwareApp {
                             .map_err(|error| format!("the setting could not be saved: {error}"))
                     };
                 }
-                let rollback = if result.is_err() && !completed.is_empty() {
+                let rollback = if result.is_err() && !rollback_changes.is_empty() {
                     let undo_stop = Cancel::default();
                     let _ = line_sender.send("Undoing the changes this attempt made.".to_owned());
                     wake(&slot);
-                    packages::roll_back(&completed, &mut |argv: &[String]| {
+                    packages::roll_back(&rollback_changes, &mut |argv: &[String]| {
                         runner(argv, &undo_stop, &mut |line: &str| {
                             let _ = line_sender.send(line.to_owned());
                             wake(&slot);
@@ -1549,6 +1570,18 @@ impl SoftwareApp {
         true
     }
 
+    /// Quit now, or once a running operation has finished. A running operation
+    /// is cancelled first; a Flatpak setup then undoes its completed steps, and
+    /// the process must not exit before that undo has reported.
+    fn request_quit(&mut self, control: &mut Control) {
+        if self.running.is_some() {
+            self.quit_when_idle = true;
+            self.cancel_running();
+        } else {
+            control.quit();
+        }
+    }
+
     fn cancel_running(&mut self) {
         let outcome = self.running.as_ref().map(|running| {
             running.progress.cancel();
@@ -1582,7 +1615,7 @@ impl SoftwareApp {
             MenuBarOutcome::Chosen { menu, item } => {
                 match (menu, item) {
                     (0, FILE_OPEN) => self.open_selected(),
-                    (0, FILE_CLOSE) => control.quit(),
+                    (0, FILE_CLOSE) => self.request_quit(control),
                     (1, APP_INSTALL) => self.start_install(),
                     (1, APP_REMOVE) => self.confirm_remove(),
                     (1, APP_CANCEL) => self.cancel_running(),
@@ -1597,7 +1630,7 @@ impl SoftwareApp {
         if let Event::KeyPressed { key, modifiers } = event {
             match key {
                 Key::Character('w' | 'W' | 'q' | 'Q') if modifiers.control => {
-                    return control.quit()
+                    return self.request_quit(control)
                 }
                 Key::Character('i' | 'I') if modifiers.control => return self.start_install(),
                 Key::Character('o' | 'O') if modifiers.control => return self.open_selected(),
@@ -1733,11 +1766,16 @@ impl SoftwareApp {
         let x = 14;
         let width = self.window.0.saturating_sub(28);
         if let Some(running) = &self.running {
-            let latest = self
-                .output
-                .last()
-                .cloned()
-                .unwrap_or_else(|| "starting…".into());
+            // The output buffer holds the last package install's lines. Only a
+            // transaction that streams lines of its own shows them.
+            let latest = if running.lines.is_some() {
+                self.output
+                    .last()
+                    .cloned()
+                    .unwrap_or_else(|| "starting…".into())
+            } else {
+                "working…".into()
+            };
             let text = format!("{} — {latest}", running.title);
             let text = wrap(&text, font, width.saturating_sub(110))
                 .into_iter()
@@ -2115,10 +2153,7 @@ fn paint_placeholder(
 impl App for SoftwareApp {
     fn event(&mut self, event: &Event, control: &mut Control) {
         match event {
-            Event::CloseRequested => {
-                self.cancel_running();
-                return control.quit();
-            }
+            Event::CloseRequested => return self.request_quit(control),
             Event::Resized { width, height } => {
                 self.window = (*width, *height);
                 self.layout();
@@ -2128,7 +2163,11 @@ impl App for SoftwareApp {
                 self.layout();
             }
             Event::Wake => {
-                if !self.poll() {
+                let changed = self.poll();
+                if self.quit_when_idle && self.running.is_none() {
+                    return control.quit();
+                }
+                if !changed {
                     return;
                 }
             }
@@ -3113,6 +3152,12 @@ mod tests {
         argv.iter().any(|arg| arg == word)
     }
 
+    /// The Flathub undo runs as one shell script, so it is recognised by the
+    /// remote it removes rather than by a separate argument.
+    fn undoes_flathub(argv: &[String]) -> bool {
+        argv.iter().any(|arg| arg.contains("remote-delete"))
+    }
+
     fn refuses_nothing(_: &[String]) -> Option<&'static str> {
         None
     }
@@ -3188,6 +3233,34 @@ mod tests {
     }
 
     #[test]
+    fn closing_waits_for_a_running_operation_to_finish() {
+        let dir = tempfile::tempdir().unwrap();
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let commands = zstd_commands(scripted_install(ran, refuses_nothing));
+        let mut app = apt_app(dir.path(), &["apt-cache", "pkexec", "apt-get"], commands);
+        let (_sender, done) = mpsc::channel();
+        app.running = Some(Running {
+            id: "test".into(),
+            verb: "Installing",
+            title: "Installing a test".into(),
+            progress: Arc::new(Progress::default()),
+            stop: Arc::new(Cancel::default()),
+            lines: None,
+            done,
+        });
+        let mut control = Control::default();
+        app.event(&Event::CloseRequested, &mut control);
+        assert!(
+            !control.quit_requested(),
+            "the window waits for the operation"
+        );
+        assert!(app.quit_when_idle);
+        app.running = None;
+        app.event(&Event::Wake, &mut control);
+        assert!(control.quit_requested(), "the window quits once it is idle");
+    }
+
+    #[test]
     fn a_refused_remote_add_removes_the_flatpak_it_installed_and_not_flathub() {
         let dir = tempfile::tempdir().unwrap();
         let ran = Arc::new(Mutex::new(Vec::new()));
@@ -3200,16 +3273,15 @@ mod tests {
         answer_yes_to_flatpak(&mut app, &mut control);
         wait_for_work(&mut app);
         let ran = ran.lock().unwrap().clone();
+        // A refused add may still have written the remote, so its undo runs
+        // before the Flatpak removal. The undo is harmless when nothing was written.
         assert_eq!(
             ran.len(),
-            3,
-            "install, refused add, then the removal: {ran:?}"
+            4,
+            "install, refused add, the Flathub undo, then the removal: {ran:?}"
         );
-        assert!(has_word(&ran[2], "remove") && has_word(&ran[2], "flatpak"));
-        assert!(
-            ran.iter().all(|argv| !has_word(argv, "remote-delete")),
-            "Flathub was never added, so it is not removed"
-        );
+        assert!(undoes_flathub(&ran[2]), "the Flathub undo runs first");
+        assert!(has_word(&ran[3], "remove") && has_word(&ran[3], "flatpak"));
         assert!(app.status_error);
         assert!(
             app.status
@@ -3223,7 +3295,8 @@ mod tests {
             app.status
         );
         assert!(
-            app.status.contains("Rolled back: Flatpak removed."),
+            app.status
+                .contains("Rolled back: Flathub removed, Flatpak removed."),
             "{}",
             app.status
         );
@@ -3248,7 +3321,7 @@ mod tests {
         wait_for_work(&mut app);
         let ran = ran.lock().unwrap().clone();
         assert_eq!(ran.len(), 4, "install, add, then both undone: {ran:?}");
-        assert!(has_word(&ran[2], "remote-delete"), "the remote goes first");
+        assert!(undoes_flathub(&ran[2]), "the remote goes first");
         assert!(has_word(&ran[3], "remove"), "then Flatpak: {:?}", ran[3]);
         assert!(app.status_error);
         assert!(app.status.contains("could not be saved"), "{}", app.status);
@@ -3285,7 +3358,7 @@ mod tests {
         let ran = ran.lock().unwrap().clone();
         assert_eq!(ran.len(), 2, "add Flathub, then undo it: {ran:?}");
         assert!(has_word(&ran[0], "remote-add"));
-        assert!(has_word(&ran[1], "remote-delete"));
+        assert!(undoes_flathub(&ran[1]));
         assert!(
             ran.iter().all(|argv| !has_word(argv, "remove")),
             "Flatpak was there before, so it stays"
@@ -3304,7 +3377,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let ran = Arc::new(Mutex::new(Vec::new()));
         let commands = zstd_commands(scripted_install(ran.clone(), |argv: &[String]| {
-            has_word(argv, "remote-delete").then_some("pkexec exited with status 1: E: refused")
+            undoes_flathub(argv).then_some("pkexec exited with status 1: E: refused")
         }));
         let mut app = apt_app(dir.path(), &["apt-cache", "pkexec", "apt-get"], commands);
         let mut control = Control::default();

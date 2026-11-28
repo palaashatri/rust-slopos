@@ -226,8 +226,15 @@ impl Tabs {
             (self.first, end, x + arrow_space as i32)
         };
         let mut cursor = start;
+        // With arrows, a tab stops at the left edge of the right arrow, so a
+        // wide tab cannot paint over it. Tabs narrower than the space keep their
+        // width.
+        let limit = self.arrows.map(|(_, right)| right.x - GAP);
         for (index, rect) in self.tab_rects.iter_mut().enumerate().take(end).skip(first) {
-            let width = self.widths[index];
+            let mut width = self.widths[index];
+            if let Some(limit) = limit {
+                width = width.min((limit - cursor).max(0) as u32);
+            }
             *rect = Some(Rect {
                 x: cursor,
                 y,
@@ -344,11 +351,15 @@ impl Tabs {
             } else {
                 ButtonPlateVariant::Regular
             };
-            paint_button_plate_in(surface, *rect, variant, ButtonPlateState::Rest)?;
-            let extent = measure(label, font);
-            let x = rect.x + (rect.width as i32 - extent.width as i32) / 2;
-            let y = rect.y + (rect.height as i32 - extent.height as i32) / 2;
-            surface.draw_text(label, x, y, font, colors.ink)?;
+            // The plate and label are clipped to the tab's rectangle, so a label
+            // wider than a capped tab cannot paint past its edge.
+            surface.with_clip(*rect, || {
+                paint_button_plate_in(surface, *rect, variant, ButtonPlateState::Rest)?;
+                let extent = measure(label, font);
+                let x = rect.x + (rect.width as i32 - extent.width as i32) / 2;
+                let y = rect.y + (rect.height as i32 - extent.height as i32) / 2;
+                surface.draw_text(label, x, y, font, colors.ink)
+            })?;
             if selected && self.focused {
                 let ring = Rect {
                     x: rect.x - 2,
@@ -668,6 +679,27 @@ mod tests {
         assert!(tabs.tab_bounds(0).is_some());
         // Every tab stays a node, even the ones outside the run.
         assert_eq!(tabs.accessibility_nodes().len(), 1 + SIX.len());
+    }
+
+    #[test]
+    fn a_wide_selected_tab_stops_before_the_right_arrow() {
+        // The selected tab is the widest label, in a strip too narrow for it.
+        let tabs = narrow(150, 5);
+        let (left, right) = tabs.arrows.expect("the strip overflows");
+        let arrow_edge = right.x;
+        for index in visible(&tabs) {
+            let rect = tabs.tab_bounds(index).expect("visible tabs have bounds");
+            assert!(
+                rect.x >= left.x + left.width as i32,
+                "tab {index} is under the left arrow"
+            );
+            assert!(
+                rect.x + rect.width as i32 <= arrow_edge,
+                "tab {index} reaches the right arrow"
+            );
+        }
+        let selected = tabs.tab_bounds(5).expect("the selected tab is shown");
+        assert!(selected.width <= tabs.widths[5]);
     }
 
     #[test]

@@ -405,8 +405,15 @@ impl Environment {
         let config_path = software_config::default_path()
             .unwrap_or_else(|_| PathBuf::from("slopos-i/software.conf"));
         let mut flatpak_repos = vec![PathBuf::from("/var/lib/flatpak/repo")];
-        if let Ok(paths) = slopos_core::xdg::XdgPaths::from_environment() {
-            flatpak_repos.push(paths.data.join("flatpak/repo"));
+        // Flatpak reads FLATPAK_USER_DIR before the XDG data directory, so the
+        // probe checks the same installation Flatpak uses.
+        match std::env::var_os("FLATPAK_USER_DIR").filter(|dir| !dir.is_empty()) {
+            Some(dir) => flatpak_repos.push(PathBuf::from(dir).join("repo")),
+            None => {
+                if let Ok(paths) = slopos_core::xdg::XdgPaths::from_environment() {
+                    flatpak_repos.push(paths.data.join("flatpak/repo"));
+                }
+            }
         }
         Self {
             machine,

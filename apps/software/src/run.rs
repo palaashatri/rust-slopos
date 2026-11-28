@@ -96,7 +96,11 @@ pub fn run(
         // child runs to its own end, and its real status is returned below.
         let mut slot = cancel.slot();
         if cancel.is_cancelled() {
-            let _ = cancel.kill(&mut child);
+            // A failed stop is reported at once on the output stream. The run
+            // keeps draining and waits for the child's real exit status.
+            if let Err(error) = cancel.kill(&mut child) {
+                on_line(Stream::Err, &error);
+            }
         }
         *slot = Some(child);
     }

@@ -196,10 +196,19 @@ pub fn rollback_steps(completed: &[Change]) -> Vec<UndoStep> {
 fn undo_argv(change: Change) -> Vec<String> {
     match change {
         Change::FlatpakInstalled(family) => remove_flatpak_argv(family),
-        Change::FlathubAdded => ["pkexec", "flatpak", "remote-delete", "--system", FLATHUB]
-            .map(str::to_owned)
-            .to_vec(),
+        Change::FlathubAdded => flathub_undo_argv(),
     }
+}
+
+/// The script that removes the Flathub remote. It succeeds when the remote is
+/// absent, so a failed add that wrote nothing does not stop the rollback. It
+/// names only the Flathub remote.
+pub const FLATHUB_UNDO_SCRIPT: &str = "flatpak remote-list --system --columns=name | grep -qx flathub || exit 0; exec flatpak remote-delete --system flathub";
+
+fn flathub_undo_argv() -> Vec<String> {
+    ["pkexec", "sh", "-c", FLATHUB_UNDO_SCRIPT, "flathub-undo"]
+        .map(str::to_owned)
+        .to_vec()
 }
 
 /// The command that removes the Flatpak `family`'s manager installed, through
@@ -215,7 +224,9 @@ pub fn remove_flatpak_argv(family: Family) -> Vec<String> {
             "-y",
             "flatpak",
         ],
-        Family::Dnf => vec!["pkexec", "dnf", "remove", "-y", "flatpak"],
+        // --noautoremove keeps dependencies that were already installed, so an
+        // undo removes only the Flatpak package and not packages that were there.
+        Family::Dnf => vec!["pkexec", "dnf", "remove", "-y", "--noautoremove", "flatpak"],
         Family::Pacman => vec!["pkexec", "pacman", "-R", "--noconfirm", "flatpak"],
     };
     argv.into_iter().map(str::to_owned).collect()
@@ -672,7 +683,9 @@ mod rollback_tests {
         parts.iter().map(|part| (*part).to_owned()).collect()
     }
 
-    const REMOTE_DELETE: [&str; 5] = ["pkexec", "flatpak", "remote-delete", "--system", "flathub"];
+    fn remote_undo() -> Vec<String> {
+        flathub_undo_argv()
+    }
 
     #[test]
     fn the_last_change_is_undone_first() {
@@ -682,11 +695,11 @@ mod rollback_tests {
             vec![
                 UndoStep {
                     change: Change::FlathubAdded,
-                    argv: words(&REMOTE_DELETE),
+                    argv: remote_undo(),
                 },
                 UndoStep {
                     change: Change::FlatpakInstalled(Family::Dnf),
-                    argv: words(&["pkexec", "dnf", "remove", "-y", "flatpak"]),
+                    argv: words(&["pkexec", "dnf", "remove", "-y", "--noautoremove", "flatpak"]),
                 },
             ]
         );
@@ -739,7 +752,7 @@ mod rollback_tests {
             Rollback::Undone(vec!["Flathub removed", "Flatpak removed"])
         );
         assert_eq!(ran.len(), 2);
-        assert_eq!(ran[0][2], "remote-delete");
+        assert!(ran[0][3].contains("remote-delete"));
         assert_eq!(ran[1].last().map(String::as_str), Some("flatpak"));
         assert!(!outcome.failed());
     }
