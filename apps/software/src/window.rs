@@ -126,6 +126,8 @@ enum Finished {
     /// the run ended, and what the undo of a failed or cancelled run did.
     FlatpakSetup {
         completed: Vec<packages::Change>,
+        /// Changes that were already in place, so their steps changed nothing.
+        in_place: Vec<packages::Change>,
         result: Result<(), String>,
         rollback: packages::Rollback,
     },
@@ -159,13 +161,25 @@ struct Running {
 
 /// What a Flatpak setup attempt left behind, for its report: the changes its
 /// steps made, what the undo did, and any change still in place.
-fn setup_report(completed: &[packages::Change], rollback: &packages::Rollback) -> String {
+fn setup_report(
+    completed: &[packages::Change],
+    in_place: &[packages::Change],
+    rollback: &packages::Rollback,
+) -> String {
     let mut parts = Vec::new();
-    if completed.is_empty() {
-        parts.push("No step finished.".to_owned());
-    } else {
+    if !completed.is_empty() {
         let done: Vec<&str> = completed.iter().map(|change| change.done()).collect();
         parts.push(format!("Finished: {}.", done.join(", ")));
+    }
+    if !in_place.is_empty() {
+        let found: Vec<&str> = in_place
+            .iter()
+            .map(|change| change.already_in_place())
+            .collect();
+        parts.push(format!("Already in place: {}.", found.join(", ")));
+    }
+    if completed.is_empty() && in_place.is_empty() {
+        parts.push("No step finished.".to_owned());
     }
     match rollback {
         packages::Rollback::NotNeeded => {}
@@ -1191,6 +1205,7 @@ impl SoftwareApp {
             .name("software-flatpak".into())
             .spawn(move || {
                 let mut completed = Vec::new();
+                let mut in_place: Vec<packages::Change> = Vec::new();
                 let mut result = Ok(());
                 // Steps that finished, for the report; and the changes the rollback
                 // must undo, which include a Flathub add that may have written
@@ -1209,11 +1224,21 @@ impl SoftwareApp {
                     // rollback before its command runs. Each undo succeeds when its
                     // change is absent.
                     rollback_changes.push(step.change);
+                    let mut found_in_place = false;
                     let outcome = runner(step.argv.as_slice(), &worker_stop, &mut |line: &str| {
+                        found_in_place |= line == packages::ALREADY_IN_PLACE;
                         let _ = line_sender.send(line.to_owned());
                         wake(&slot);
                     });
+                    // A step that found its change in place changed nothing. It is
+                    // not queued for the undo, so the undo never removes what the
+                    // machine already had.
+                    if found_in_place {
+                        rollback_changes.pop();
+                        in_place.push(step.change);
+                    }
                     match outcome {
+                        Ok(()) if found_in_place => {}
                         Ok(()) => completed.push(step.change),
                         Err(error) => {
                             result = Err(error);
@@ -1243,6 +1268,7 @@ impl SoftwareApp {
                 };
                 let _ = sender.send(Finished::FlatpakSetup {
                     completed,
+                    in_place,
                     result,
                     rollback,
                 });
@@ -1550,10 +1576,11 @@ impl SoftwareApp {
             Finished::FlatpakSetup { result: Ok(()), .. } => self.turn_flatpak_on(),
             Finished::FlatpakSetup {
                 completed,
+                in_place,
                 result: Err(error),
                 rollback,
             } => {
-                let report = setup_report(&completed, &rollback);
+                let report = setup_report(&completed, &in_place, &rollback);
                 self.setup_report_text = report.clone();
                 // The status line points at the report only when the undo failed
                 // and the report opens. A clean cancel or failure has no report to see.
@@ -3009,9 +3036,10 @@ mod tests {
         let steps = ran.lock().unwrap().clone();
         assert_eq!(steps.len(), 2, "install flatpak, then add flathub");
         assert_eq!(steps[0][0], "pkexec");
-        assert_eq!(steps[0].last().map(String::as_str), Some("flatpak"));
-        assert_eq!(steps[1][..3], ["pkexec", "flatpak", "remote-add"]);
-        assert!(steps[1].contains(&crate::packages::FLATHUB_URL.to_owned()));
+        assert!(steps[0][3].contains("apt-get install -y flatpak"));
+        assert_eq!(steps[1][..3], ["pkexec", "sh", "-c"]);
+        assert!(adds_flathub(&steps[1]));
+        assert!(steps[1][3].contains(crate::packages::FLATHUB_URL));
         assert!(app.config.flatpak);
         let saved = SoftwareConfig::load(&dir.path().join("software.conf")).unwrap();
         assert!(saved.flatpak);
@@ -3139,7 +3167,8 @@ mod tests {
         assert!(!app.status_error, "{}", app.status);
         let steps = ran.lock().unwrap().clone();
         assert_eq!(steps.len(), 1, "only the remaining step runs");
-        assert_eq!(steps[0][..3], ["pkexec", "flatpak", "remote-add"]);
+        assert_eq!(steps[0][..3], ["pkexec", "sh", "-c"]);
+        assert!(adds_flathub(&steps[0]));
         assert!(app.config.flatpak);
     }
 
@@ -3187,9 +3216,10 @@ mod tests {
         )
     }
 
-    /// Whether the command has `word` as one of its arguments.
-    fn has_word(argv: &[String], word: &str) -> bool {
-        argv.iter().any(|arg| arg == word)
+    /// The Flathub add runs as one shell script, so it is recognised by the
+    /// `remote-add` in that script.
+    fn adds_flathub(argv: &[String]) -> bool {
+        argv.iter().any(|arg| arg.contains("remote-add"))
     }
 
     /// A removal of Flatpak: its undo runs as one shell script that names the package.
@@ -3250,7 +3280,7 @@ mod tests {
         wait_for_work(&mut app);
         let ran = ran.lock().unwrap().clone();
         assert_eq!(ran.len(), 2, "the Flathub step never starts: {ran:?}");
-        assert!(ran.iter().all(|argv| !has_word(argv, "remote-add")));
+        assert!(ran.iter().all(|argv| !adds_flathub(argv)));
         assert!(removes_flatpak(&ran[1]), "the install is undone: {ran:?}");
         assert!(
             !app.status_error,
@@ -3310,7 +3340,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let ran = Arc::new(Mutex::new(Vec::new()));
         let commands = zstd_commands(scripted_install(ran.clone(), |argv: &[String]| {
-            has_word(argv, "remote-add").then_some("remote add refused")
+            adds_flathub(argv).then_some("remote add refused")
         }));
         let mut app = apt_app(dir.path(), &["apt-cache", "pkexec", "apt-get"], commands);
         let mut control = Control::default();
@@ -3397,7 +3427,7 @@ mod tests {
             move |argv: &[String], cancel: &Cancel, on_line: &mut dyn FnMut(&str)| {
                 recorded.lock().unwrap().push(argv.to_vec());
                 on_line("step ran");
-                if has_word(argv, "remote-add") {
+                if adds_flathub(argv) {
                     let _ = cancel.cancel();
                 }
                 Ok(())
@@ -3434,7 +3464,7 @@ mod tests {
         wait_for_work(&mut app);
         let ran = ran.lock().unwrap().clone();
         assert_eq!(ran.len(), 2, "add Flathub, then undo it: {ran:?}");
-        assert!(has_word(&ran[0], "remote-add"));
+        assert!(adds_flathub(&ran[0]));
         assert!(undoes_flathub(&ran[1]));
         assert!(
             ran.iter().all(|argv| !removes_flatpak(argv)),
@@ -3449,6 +3479,86 @@ mod tests {
             app.setup_report_text
         );
         assert!(!app.config.flatpak);
+    }
+
+    #[test]
+    fn a_step_that_finds_its_remote_in_place_is_never_undone() {
+        let dir = tempfile::tempdir().unwrap();
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let recorded = ran.clone();
+        // Flathub appears between the probe and the step, so the step says it
+        // was already there and changes nothing.
+        let install: PackageRunner = Arc::new(
+            move |argv: &[String], _: &Cancel, on_line: &mut dyn FnMut(&str)| {
+                recorded.lock().unwrap().push(argv.to_vec());
+                if adds_flathub(argv) {
+                    on_line(crate::packages::ALREADY_IN_PLACE);
+                }
+                Ok(())
+            },
+        );
+        let mut app = apt_app(
+            dir.path(),
+            &["apt-cache", "pkexec", "apt-get", "flatpak"],
+            zstd_commands(install),
+        );
+        let mut control = Control::default();
+        make_setting_unsavable(&mut app, dir.path());
+        open_sources(&mut app, &mut control);
+        answer_yes_to_flatpak(&mut app, &mut control);
+        wait_for_work(&mut app);
+        let ran = ran.lock().unwrap().clone();
+        assert_eq!(ran.len(), 1, "no undo runs: {ran:?}");
+        assert!(adds_flathub(&ran[0]));
+        assert!(
+            app.setup_report_text
+                .contains("Already in place: Flathub was already configured.")
+                && !app.setup_report_text.contains("Flathub removed"),
+            "{}",
+            app.setup_report_text
+        );
+        assert!(!app.config.flatpak);
+    }
+
+    #[test]
+    fn a_step_that_finds_flatpak_installed_does_not_remove_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let ran = Arc::new(Mutex::new(Vec::new()));
+        let recorded = ran.clone();
+        // Flatpak appears between the probe and the install, so the install
+        // changes nothing and the undo must not remove Flatpak.
+        let install: PackageRunner = Arc::new(
+            move |argv: &[String], _: &Cancel, on_line: &mut dyn FnMut(&str)| {
+                recorded.lock().unwrap().push(argv.to_vec());
+                if argv.iter().any(|arg| arg == "flatpak-install") {
+                    on_line(crate::packages::ALREADY_IN_PLACE);
+                }
+                Ok(())
+            },
+        );
+        let mut app = apt_app(
+            dir.path(),
+            &["apt-cache", "pkexec", "apt-get"],
+            zstd_commands(install),
+        );
+        let mut control = Control::default();
+        make_setting_unsavable(&mut app, dir.path());
+        open_sources(&mut app, &mut control);
+        answer_yes_to_flatpak(&mut app, &mut control);
+        wait_for_work(&mut app);
+        let ran = ran.lock().unwrap().clone();
+        assert_eq!(ran.len(), 3, "install, add Flathub, undo Flathub: {ran:?}");
+        assert!(ran.iter().all(|argv| !removes_flatpak(argv)));
+        assert!(undoes_flathub(&ran[2]));
+        assert!(
+            app.setup_report_text
+                .contains("Already in place: Flatpak was already installed.")
+                && app
+                    .setup_report_text
+                    .contains("Rolled back: Flathub removed."),
+            "{}",
+            app.setup_report_text
+        );
     }
 
     #[test]

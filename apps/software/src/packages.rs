@@ -88,6 +88,11 @@ pub fn install_argv(
     Ok(argv.into_iter().map(str::to_owned).collect())
 }
 
+/// The line a setup step prints when the change it would make is already in
+/// place. Such a step changes nothing, so the setup does not record it and its
+/// undo never removes what was there before the attempt.
+pub const ALREADY_IN_PLACE: &str = "Already in place: this step changed nothing.";
+
 /// A change one Flatpak setup step made to the machine. The setup records one
 /// for each step that succeeds, so a failed or cancelled attempt undoes exactly
 /// what it changed and nothing that was there before it.
@@ -113,6 +118,14 @@ impl Change {
         match self {
             Change::FlatpakInstalled(_) => "Flatpak removed",
             Change::FlathubAdded => "Flathub removed",
+        }
+    }
+
+    /// The report's words when the step found the change already in place.
+    pub fn already_in_place(self) -> &'static str {
+        match self {
+            Change::FlatpakInstalled(_) => "Flatpak was already installed",
+            Change::FlathubAdded => "Flathub was already configured",
         }
     }
 }
@@ -143,22 +156,13 @@ pub fn flatpak_setup_steps(
         }
         steps.push(SetupStep {
             change: Change::FlatpakInstalled(family),
-            argv: install_argv(Source::Native, Some(family), "", "flatpak")?,
+            argv: flatpak_install_argv(family),
         });
     }
     if !status.flathub {
         steps.push(SetupStep {
             change: Change::FlathubAdded,
-            argv: [
-                "pkexec",
-                "flatpak",
-                "remote-add",
-                "--if-not-exists",
-                FLATHUB,
-                FLATHUB_URL,
-            ]
-            .map(str::to_owned)
-            .to_vec(),
+            argv: flathub_add_argv(),
         });
     }
     if !steps.is_empty() {
@@ -207,6 +211,43 @@ pub const FLATHUB_UNDO_SCRIPT: &str = r#"names=$(flatpak remote-list --system --
 
 fn flathub_undo_argv() -> Vec<String> {
     ["pkexec", "sh", "-c", FLATHUB_UNDO_SCRIPT, "flathub-undo"]
+        .map(str::to_owned)
+        .to_vec()
+}
+
+/// The command that adds the Flathub remote, as root through `pkexec`. It
+/// checks the system remotes first. A remote that is already there is left
+/// alone, and the command prints [`ALREADY_IN_PLACE`]. A failed listing stops
+/// the command before anything is added.
+fn flathub_add_argv() -> Vec<String> {
+    let script = format!(
+        "names=$(flatpak remote-list --system --columns=name) || exit 1; \
+         if printf '%s\\n' \"$names\" | grep -qx {FLATHUB}; then echo '{ALREADY_IN_PLACE}'; exit 0; fi; \
+         exec flatpak remote-add --if-not-exists {FLATHUB} {FLATHUB_URL}"
+    );
+    ["pkexec", "sh", "-c", script.as_str(), "flathub-add"]
+        .map(str::to_owned)
+        .to_vec()
+}
+
+/// The command that installs Flatpak with `family`'s manager, as root through
+/// `pkexec`. It first checks whether Flatpak is already installed. If it is, the
+/// command prints [`ALREADY_IN_PLACE`] and changes nothing, so the setup never
+/// records an install it did not make.
+fn flatpak_install_argv(family: Family) -> Vec<String> {
+    let (present, install) = match family {
+        Family::Apt => (
+            "dpkg -s flatpak >/dev/null 2>&1",
+            "env DEBIAN_FRONTEND=noninteractive apt-get install -y flatpak",
+        ),
+        Family::Dnf => ("rpm -q flatpak >/dev/null 2>&1", "dnf install -y flatpak"),
+        Family::Pacman => (
+            "pacman -Q flatpak >/dev/null 2>&1",
+            "pacman -S --needed --noconfirm flatpak",
+        ),
+    };
+    let script = format!("{present} && {{ echo '{ALREADY_IN_PLACE}'; exit 0; }}; exec {install}");
+    ["pkexec", "sh", "-c", script.as_str(), "flatpak-install"]
         .map(str::to_owned)
         .to_vec()
 }
@@ -568,14 +609,10 @@ mod flatpak_setup_tests {
         steps.iter().map(|step| step.argv.clone()).collect()
     }
 
-    const REMOTE_ADD: [&str; 6] = [
-        "pkexec",
-        "flatpak",
-        "remote-add",
-        "--if-not-exists",
-        "flathub",
-        "https://dl.flathub.org/repo/flathub.flatpakrepo",
-    ];
+    /// The script a step runs, which is the last argument before its name.
+    fn script(argv: &[String]) -> &str {
+        &argv[3]
+    }
 
     #[test]
     fn a_missing_flatpak_is_installed_then_flathub_is_added() {
@@ -588,19 +625,46 @@ mod flatpak_setup_tests {
         assert_eq!(steps.len(), 2);
         assert_eq!(steps[0].change, Change::FlatpakInstalled(Family::Apt));
         assert_eq!(steps[1].change, Change::FlathubAdded);
-        assert_eq!(
-            steps[0].argv,
-            words(&[
-                "pkexec",
-                "env",
-                "DEBIAN_FRONTEND=noninteractive",
-                "apt-get",
-                "install",
-                "-y",
-                "flatpak",
-            ])
+        assert_eq!(&steps[0].argv[..3], &words(&["pkexec", "sh", "-c"])[..]);
+        assert!(script(&steps[0].argv).contains("apt-get install -y flatpak"));
+        assert_eq!(steps[1].argv, flathub_add_argv());
+    }
+
+    #[test]
+    fn the_install_step_changes_nothing_when_flatpak_is_already_there() {
+        for family in [Family::Apt, Family::Dnf, Family::Pacman] {
+            let script = script(&flatpak_install_argv(family)).to_owned();
+            let check = script.split(" && ").next().expect("the check comes first");
+            assert!(check.contains("flatpak"), "{script}");
+            assert!(
+                script.contains(&format!("echo '{ALREADY_IN_PLACE}'; exit 0;")),
+                "{script}"
+            );
+            assert!(
+                script.ends_with(match family {
+                    Family::Apt => "apt-get install -y flatpak",
+                    Family::Dnf => "dnf install -y flatpak",
+                    Family::Pacman => "pacman -S --needed --noconfirm flatpak",
+                }),
+                "{script}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_flathub_step_leaves_an_existing_remote_alone() {
+        let script = script(&flathub_add_argv()).to_owned();
+        let listing = script.find("remote-list --system").expect("a listing");
+        let add = script.find("remote-add").expect("an add");
+        assert!(listing < add, "the remote is looked up before it is added");
+        assert!(script.contains(&format!("echo '{ALREADY_IN_PLACE}'; exit 0;")));
+        assert!(
+            script.contains("|| exit 1"),
+            "a failed listing adds nothing"
         );
-        assert_eq!(steps[1].argv, words(&REMOTE_ADD));
+        assert!(script.ends_with(
+            "exec flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+        ));
     }
 
     #[test]
@@ -611,17 +675,15 @@ mod flatpak_setup_tests {
             &present(&["pkexec"]),
         )
         .unwrap();
-        assert_eq!(commands(&steps), vec![words(&REMOTE_ADD)]);
+        assert_eq!(commands(&steps), vec![flathub_add_argv()]);
         let steps = flatpak_setup_steps(
             Some(Family::Dnf),
             &status(false, true),
             &present(&["pkexec", "dnf"]),
         )
         .unwrap();
-        assert_eq!(
-            commands(&steps),
-            vec![words(&["pkexec", "dnf", "install", "-y", "flatpak"])]
-        );
+        assert_eq!(commands(&steps), vec![flatpak_install_argv(Family::Dnf)]);
+        assert!(script(&steps[0].argv).contains("dnf install -y flatpak"));
         let steps =
             flatpak_setup_steps(Some(Family::Dnf), &status(true, true), &present(&[])).unwrap();
         assert!(steps.is_empty(), "nothing to do, so no authority is needed");
@@ -659,7 +721,7 @@ mod flatpak_setup_tests {
             &present(&["pkexec"]),
         )
         .unwrap();
-        assert_eq!(commands(&steps), vec![words(&REMOTE_ADD)]);
+        assert_eq!(commands(&steps), vec![flathub_add_argv()]);
     }
 
     #[test]
